@@ -9,8 +9,9 @@
 #include <sstream>
 
 #include "../json2pb.h"
-#include "../packed_structs.hpp"
 #include "catch.hpp"
+
+#include "sglib/packed_structs.hpp"
 
 namespace vg {
 namespace unittest {
@@ -36,7 +37,7 @@ using namespace std;
             uint64_t next_val = 0;
             
             vector<uint64_t> std_vec;
-            PackedVector dyn_vec;
+            sglib::PackedVector dyn_vec;
             
             for (size_t j = 0; j < num_ops; j++) {
                 
@@ -90,7 +91,7 @@ using namespace std;
                         
                         dyn_vec.serialize(strm);
                         strm.seekg(0);
-                        PackedVector copy_vec(strm);
+                        sglib::PackedVector copy_vec(strm);
                         
                         REQUIRE(copy_vec.size() == dyn_vec.size());
                         for (size_t i = 0; i < copy_vec.size(); i++) {
@@ -130,7 +131,7 @@ using namespace std;
             uint64_t next_val = val_distr(prng);
             
             std::vector<uint64_t> std_vec;
-            PagedVector dyn_vec(page_distr(prng));
+            sglib::PagedVector dyn_vec(page_distr(prng));
             
             for (size_t j = 0; j < num_ops; j++) {
                 
@@ -184,7 +185,7 @@ using namespace std;
                         
                         dyn_vec.serialize(strm);
                         strm.seekg(0);
-                        PagedVector copy_vec(strm);
+                        sglib::PagedVector copy_vec(strm);
                         
                         REQUIRE(copy_vec.size() == dyn_vec.size());
                         for (size_t i = 0; i < copy_vec.size(); i++) {
@@ -222,7 +223,7 @@ using namespace std;
             uint64_t next_val = 0;
             
             std::deque<uint64_t> std_deq;
-            PackedDeque suc_deq;
+            sglib::PackedDeque suc_deq;
             
             for (size_t j = 0; j < num_ops; j++) {
                 
@@ -291,7 +292,7 @@ using namespace std;
                         
                         suc_deq.serialize(strm);
                         strm.seekg(0);
-                        PackedDeque copy_deq(strm);
+                        sglib::PackedDeque copy_deq(strm);
                         
                         REQUIRE(copy_deq.size() == suc_deq.size());
                         for (size_t i = 0; i < copy_deq.size(); i++) {

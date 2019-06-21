@@ -3,8 +3,9 @@
 #include "../handle.hpp"
 #include "../vg.hpp"
 #include "../xg.hpp"
-#include "../packed_graph.hpp"
-#include "../hash_graph.hpp"
+
+#include "sglib/packed_graph.hpp"
+#include "sglib/hash_graph.hpp"
 
 namespace vg {
     namespace unittest {
@@ -20,7 +21,7 @@ namespace vg {
         }
         TEST_CASE("convert_handle converter works on empty graph, xg to pg", "[handle][pg][xg]") {
             XG xg;
-            PackedGraph pg;
+            sglib::PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             REQUIRE(pg.get_node_count() == 0);
             
@@ -33,7 +34,7 @@ namespace vg {
         }
         TEST_CASE("convert_handle converter works on empty graph, xg to hg", "[handle][hg][xg]") {
             XG xg;
-            HashGraph hg;
+            sglib::HashGraph hg;
             convert_handle_graph(&xg, &hg);
             REQUIRE(hg.get_node_count() == 0);
             
@@ -75,7 +76,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             XG xg(proto_graph);
-            PackedGraph pg;
+            sglib::PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             
             REQUIRE(xg.get_node_count() == 1);
@@ -93,7 +94,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             XG xg(proto_graph);
-            HashGraph hg;
+            sglib::HashGraph hg;
             convert_handle_graph(&xg, &hg);
             
             REQUIRE(xg.get_node_count() == 1);
@@ -151,7 +152,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             XG xg(proto_graph);
-            PackedGraph pg;
+            sglib::PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             
             REQUIRE(xg.get_node_count() == 4);
@@ -193,7 +194,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             XG xg(proto_graph);
-            HashGraph hg;
+            sglib::HashGraph hg;
             convert_handle_graph(&xg, &hg);
             
             REQUIRE(xg.get_node_count() == 4);
@@ -271,7 +272,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             XG xg(proto_graph);
-            PackedGraph pg;
+            sglib::PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             
             REQUIRE(xg.node_sequence(1) == "GATT");
@@ -317,7 +318,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             XG xg(proto_graph);
-            HashGraph hg;
+            sglib::HashGraph hg;
             convert_handle_graph(&xg, &hg);
             
             REQUIRE(xg.node_sequence(1) == "GATT");
@@ -438,7 +439,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             XG xg(proto_graph);
-            PackedGraph pg;
+            sglib::PackedGraph pg;
             convert_path_handle_graph(&xg, &pg);
             
             
@@ -514,7 +515,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             XG xg(proto_graph);
-            HashGraph hg;
+            sglib::HashGraph hg;
             convert_path_handle_graph(&xg, &hg);
             
             
