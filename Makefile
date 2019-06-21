@@ -287,7 +287,7 @@ get-deps:
 # And we have submodule deps to build
 deps: $(DEPS)
 
-test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(VCFLIB_DIR)/bin/vcf2tsv $(FASTAHACK_DIR)/fastahack
+test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(VCFLIB_DIR)/bin/vcf2tsv $(FASTAHACK_DIR)/fastahack $(BIN_DIR)/rapper
 	. ./source_me.sh && cd test && prove -v t
 
 docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp
@@ -443,6 +443,10 @@ $(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/* $(RAPTOR_DIR)/build/*
 	which bison
 	+. ./source_me.sh && cd $(RAPTOR_DIR)/build && rm -Rf CMakeCache.txt CMakeFiles CTestTestfile.cmake Makefile cmake_install.cmake src tests utils && cmake .. && rm -f src/turtle_parser.c && rm -f src/turtle_lexer.c && make turtle_lexer_tgt && make -f src/CMakeFiles/raptor2.dir/build.make src/turtle_lexer.c && sed -i.bak '/yycleanup/d' src/turtle_lexer.c && $(MAKE) $(FILTER) && cp src/libraptor2.a $(CWD)/$(LIB_DIR)
 	+touch $(LIB_DIR)/libraptor2.a
+	
+# We need rapper from Raptor for the tests
+$(BIN_DIR)/rapper: $(LIB_DIR)/libraptor2.a
+	+cp $(RAPTOR_DIR)/build/utils/rapper $(BIN_DIR)/
 	
 # The Raptor header needs to be newer than the library.
 # Mac Travis managed to get an old header with a new binary.
