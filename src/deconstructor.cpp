@@ -1,7 +1,7 @@
 #include "deconstructor.hpp"
 #include "traversal_finder.hpp"
 
-#define debug
+//#define debug
 
 using namespace std;
 
