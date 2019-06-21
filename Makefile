@@ -57,11 +57,11 @@ ifeq ($(shell uname -s),Darwin)
         # One might expect this to already be there but see https://github.com/vgteam/vg/issues/2133
         CXXFLAGS += -isystem /usr/local/include
 
-         ifeq ($(shell if [ -d /usr/local/include/cairo ];then echo 1;else echo 0;fi), 1)	
-            # pkg-config is not always smart enough to find Cairo's include path for us.	
-            # We make sure to grab its directory manually if we see it.	
-            CXXFLAGS += -I /usr/local/include/cairo	
-            LD_LIB_FLAGS += -lcairo	
+        ifeq ($(shell if [ -d /usr/local/include/cairo ];then echo 1;else echo 0;fi), 1)	
+            # pkg-config is not always smart enough to find Cairo's include path for us.
+            # We make sure to grab its directory manually if we see it.
+            CXXFLAGS += -I /usr/local/include/cairo
+            LD_LIB_FLAGS += -lcairo
         endif
     endif
 
@@ -258,6 +258,7 @@ DEPS += $(INC_DIR)/progress_bar.hpp
 DEPS += $(INC_DIR)/backward.hpp
 DEPS += $(INC_DIR)/dozeu/dozeu.h
 DEPS += $(INC_DIR)/raptor2/raptor2.h
+
 # Only depend on these files for the final linking stage.	
 # These libraries provide no headers to affect the vg build.	
 LINK_DEPS =
@@ -426,10 +427,10 @@ $(LIB_DIR)/libvcfh.a: $(DEP_DIR)/libVCFH/*.cpp $(DEP_DIR)/libVCFH/*.hpp
 	+. ./source_me.sh && cd $(DEP_DIR)/libVCFH && $(MAKE) $(FILTER) && cp libvcfh.a $(CWD)/$(LIB_DIR)/ && cp vcfheader.hpp $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libgfakluge.a: $(INC_DIR)/gfakluge.hpp $(DEP_DIR)/gfakluge/src/*.hpp $(DEP_DIR)/gfakluge/src/*.cpp
-	+cd $(DEP_DIR)/gfakluge && $(MAKE) libgfakluge.a $(FILTER) && cp libgfakluge.a $(CWD)/$(LIB_DIR)/
+	+. ./source_me.sh && cd $(DEP_DIR)/gfakluge && $(MAKE) libgfakluge.a $(FILTER) && cp libgfakluge.a $(CWD)/$(LIB_DIR)/
 
 $(INC_DIR)/gfakluge.hpp: $(DEP_DIR)/gfakluge/src/gfakluge.hpp
-	+. ./source_me.sh && cd $(DEP_DIR)/gfakluge && $(MAKE) libgfakluge.a $(FILTER) && cp libgfakluge.a $(CWD)/$(LIB_DIR)/
+	+cp $(DEP_DIR)/gfakluge/src/*.hpp $(CWD)/$(INC_DIR)/ && cp $(DEP_DIR)/gfakluge/src/tinyFA/*.hpp $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libsonlib.a: $(CWD)/$(DEP_DIR)/sonLib/C/inc/*.h $(CWD)/$(DEP_DIR)/sonLib/C/impl/*.c
 	+. ./source_me.sh && cd $(DEP_DIR)/sonLib && kyotoTycoonLib="" $(MAKE) $(FILTER) && cp lib/sonLib.a $(CWD)/$(LIB_DIR)/libsonlib.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
@@ -441,19 +442,18 @@ $(LIB_DIR)/libpinchesandcacti.a: $(LIB_DIR)/libsonlib.a $(CWD)/$(DEP_DIR)/pinche
 # We also need to clear out its cmake stuff in case it found a wrong Bison and cached it.
 $(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/* $(RAPTOR_DIR)/build/*
 	which bison
-	+. ./source_me.sh && cd $(RAPTOR_DIR)/build && rm -Rf CMakeCache.txt CMakeFiles CTestTestfile.cmake Makefile cmake_install.cmake src tests utils && cmake .. && rm -f src/turtle_parser.c && rm -f src/turtle_lexer.c && make turtle_lexer_tgt && make -f src/CMakeFiles/raptor2.dir/build.make src/turtle_lexer.c && sed -i.bak '/yycleanup/d' src/turtle_lexer.c && $(MAKE) $(FILTER) && cp src/libraptor2.a $(CWD)/$(LIB_DIR)	
-	+touch $(LIB_DIR)/libraptor2.a	
+	+. ./source_me.sh && cd $(RAPTOR_DIR)/build && rm -Rf CMakeCache.txt CMakeFiles CTestTestfile.cmake Makefile cmake_install.cmake src tests utils && cmake .. && rm -f src/turtle_parser.c && rm -f src/turtle_lexer.c && make turtle_lexer_tgt && make -f src/CMakeFiles/raptor2.dir/build.make src/turtle_lexer.c && sed -i.bak '/yycleanup/d' src/turtle_lexer.c && $(MAKE) $(FILTER) && cp src/libraptor2.a $(CWD)/$(LIB_DIR)
+	+touch $(LIB_DIR)/libraptor2.a
 
- # We need rapper from Raptor for the tests	
-$(BIN_DIR)/rapper: $(LIB_DIR)/libraptor2.a	
-	+cp $(RAPTOR_DIR)/build/utils/rapper $(BIN_DIR)/	
+# We need rapper from Raptor for the tests
+$(BIN_DIR)/rapper: $(LIB_DIR)/libraptor2.a
+	+cp $(RAPTOR_DIR)/build/utils/rapper $(BIN_DIR)/
 
- # The Raptor header needs to be newer than the library.	
-# Mac Travis managed to get an old header with a new binary.	
-$(INC_DIR)/raptor2/raptor2.h: $(LIB_DIR)/libraptor2.a $(RAPTOR_DIR)/build/*	
-	+cd $(RAPTOR_DIR)/build && mkdir -p $(CWD)/$(INC_DIR)/raptor2 && cp src/*.h $(CWD)/$(INC_DIR)/raptor2	
-	+touch $(INC_DIR)/raptor2/raptor2.h	
-
+# The Raptor header needs to be newer than the library.
+# Mac Travis managed to get an old header with a new binary.
+$(INC_DIR)/raptor2/raptor2.h: $(LIB_DIR)/libraptor2.a $(RAPTOR_DIR)/build/*
+	+cd $(RAPTOR_DIR)/build && mkdir -p $(CWD)/$(INC_DIR)/raptor2 && cp src/*.h $(CWD)/$(INC_DIR)/raptor2
+	+touch $(INC_DIR)/raptor2/raptor2.h
 
 $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STRUCTURES_DIR)/src/*.cpp $(STRUCTURES_DIR)/Makefile 
 	+. ./source_me.sh && cd $(STRUCTURES_DIR) && $(MAKE) clean && $(MAKE) lib/libstructures.a $(FILTER) && cp lib/libstructures.a $(CWD)/$(LIB_DIR)/ && cp -r src/include/structures $(CWD)/$(INC_DIR)/
@@ -506,7 +506,7 @@ $(LIB_DIR)/libdwfl.a: $(LIB_DIR)/libelf.a
 $(LIB_DIR)/libelf.a: $(ELFUTILS_DIR)/libebl/*.c $(ELFUTILS_DIR)/libebl/*.h $(ELFUTILS_DIR)/libdw/*.c $(ELFUTILS_DIR)/libdw/*.h $(ELFUTILS_DIR)/libelf/*.c $(ELFUTILS_DIR)/libelf/*.h $(ELFUTILS_DIR)/src/*.c $(ELFUTILS_DIR)/src/*.h
 	+cd $(CWD)/$(INC_DIR)/ && rm -Rf elfutils gelf.h libelf.h dwarf.h libdwflP.h libdwfl.h libebl.h libelf.h
 	+cd $(ELFUTILS_DIR) && autoreconf -i -f && ./configure --enable-maintainer-mode --prefix=$(CWD) $(FILTER)
-	+cd $(ELFUTILS_DIR)/libelf && $(MAKE) clean && $(MAKE) libelf.a $(FILTER)	
+	+cd $(ELFUTILS_DIR)/libelf && $(MAKE) clean && $(MAKE) libelf.a $(FILTER)
 	+cd $(ELFUTILS_DIR)/libebl && $(MAKE) clean && $(MAKE) libebl.a $(FILTER)
 	+cd $(ELFUTILS_DIR)/libdwfl && $(MAKE) clean && $(MAKE) libdwfl.a $(FILTER)
 	+cd $(ELFUTILS_DIR)/libdwelf && $(MAKE) clean && $(MAKE) libdwelf.a $(FILTER)
