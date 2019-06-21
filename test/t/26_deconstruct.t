@@ -5,28 +5,44 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 0
+plan tests 9
 
-## Test VG .to_superbubbles()
-#is $(echo 0) 0 "vg deconstruct produces the expected number of superbubbles in a simple graph."
+vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > tiny.vg
+vg deconstruct tiny.vg -p x -t 1 > tiny_decon.vcf
+# we pop out that GC allele because it gets invented by the adjacent snps in the graph
+bcftools norm tiny_decon.vcf -f tiny/tiny.fa -m - | grep -v GC > tiny_decon_norm.vcf
+bcftools view tiny/tiny.vcf.gz | grep -v "#" | awk '{print $1 "\t" $2 "\t" $4 "\t" $5}' > tiny_orig.tsv
+bcftools view tiny_decon_norm.vcf | grep -v "#" | awk '{print $1 "\t" $2 "\t" $4 "\t" $5}' > tiny_dec.tsv
+diff tiny_orig.tsv tiny_dec.tsv
+is "$?" 0 "deconstruct retrieved original VCF (modulo adjacent snp allele)"
 
-## Make sure deconstruct successfully finds the right nodes in a superbubble of a simple graph.
-#is $(echo 0) 0 "vg deconstruct produces the expected superbubble format and the right bubbles on a small graph."
+rm -f tiny.vg tiny_decon.vcf tiny_decon_norm.vcf tiny_orig.tsv tiny_dec.tsv
 
-## Test a larger graph  - CURRENTLY HAS BAD MD5SUM
-## is $(vg deconstruct -x superbubbles/x.xg superbubbles/x.vg | md5sum | cut -f 1 -d " ") 902350cea10dd772ed321e271b2aa6a7 "vg deconstruct produces correct pseudo vcf on a largeish graph."
+vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 
-## Test if deconstruct works on a graph that must be DAGified.
-#is $(vg construct -r COMPLEXGRAPH -v ANOTHERONE -m 50 | vg deconstruct -s - | md5sum) SUPERBUBBLEFILEHASH "deconstruct finds the expected superbubbles in a DAGified graph and uses the IDs from the original graph space."
+vg deconstruct hla.vg -p "gi|157734152:29563108-29564082" > hla_decon.vcf
+is $(grep -v "#" hla_decon.vcf | wc -l) 17 "deconstructed hla vcf has correct number of sites"
+is $(grep -v "#" hla_decon.vcf | grep 822 | awk '{print $4 "-" $5}') "C-CGCGGGCGCCGTGGATGGAGCA" "deconstructed hla vcf has correct insertion"
+vg deconstruct hla.vg -p "gi|568815592:29791752-29792749" > hla_decon.vcf
+is $(grep -v "#" hla_decon.vcf | wc -l) 17 "deconstructed hla vcf with other path has correct number of sites"
+is $(grep -v "#" hla_decon.vcf | grep 824 | awk '{print $4 "-" $5}') "CGCGGGCGCCGTGGATGGAGCA-C" "deconstructed hla vcf has correct deletion"
 
-## Test deconstruction on a specific path
-# is $(vg construct -r multipath/mp.fa -v multipath/mp.vcf.gz | vg deconstruct -p - | md5sum AFJAKJFIJ "deconstruct can deconstruct a specific path."
+vg deconstruct hla.vg -p "gi|568815592:29791752-29792749" -e > hla_decon_path.vcf
+grep -v "#" hla_decon.vcf | awk '{print $1 "\t" $2 "\t" $4 "\t" $5}' | sort > hla_decon.tsv
+grep -v "#" hla_decon_path.vcf | awk '{print $1 "\t" $2 "\t" $4 "\t" $5}' | sort > hla_decon_path.tsv
+diff hla_decon.tsv hla_decon_path.tsv
+is "$?" 0 "path-based and exhaustive decontruction give equivalent sites when expected"
 
-## Test deconstruction on a set of paths specified in a file
-# is $(vg construct -r multipath/mp.fa -v multipath/mp.vcf.gz | vg deconstruct -P - | md5sum AFJAKJFIJ "deconstruct can deconstruct multiple paths specified in a file."
+is $(bcftools view hla_decon_path.vcf -s "gi|528476637:29761569-29762543" -H | awk '{print $10}' | uniq) 1 "path that differs from reference in every alt has correct genotype"
 
-## Test if the depth filtering for deconstruct works with a small GAM file
-# is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg deconstruct -d 10 -a tiny/alignment.gam - | md5sum) AFKJADK "deconstruct can depth filter using a GAM."
+is $(bcftools view hla_decon_path.vcf -s "gi|568815564:1054403-1055400" -H | awk '{print $10}' | uniq) 0 "path that is same as reference in every alt has correct genotype"
 
-## Test masking a graph with a VCF
-#
+is $(grep "#" hla_decon_path.vcf | grep "gi|568815592:29791752-29792749") "##contig=<ID=gi|568815592:29791752-29792749,length=998>" "reference contig correctly written"
+
+
+rm -f hla_decon.vcf hla_decon_path.vcf  hla_decon.tsv hla_decon_path.tsv
+
+
+
+
+
