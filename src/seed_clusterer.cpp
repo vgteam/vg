@@ -1,6 +1,6 @@
 #include "seed_clusterer.hpp"
 
-#define DEBUG 
+//#define DEBUG 
 
 namespace vg {
 
@@ -433,6 +433,7 @@ cerr << endl << "New cluster calculation:" << endl;
                     to_erase.push_back(combined_group);
                 }
                 combined_group = new_combined_group;
+
                 tree_state.cluster_dists[combined_group] = make_pair(
                       min_positive(old_dists.first, dists.first),
                       min_positive(old_dists.second, dists.second));
@@ -466,7 +467,7 @@ cerr << endl << "New cluster calculation:" << endl;
             size_t curr_snarl_i = kv.second.first;
 
             //Pull out the clusters of the current snarl
-            hash_set<size_t> snarl_clusters = kv.second.second.cluster_heads; 
+            hash_set<size_t>& snarl_clusters = kv.second.second.cluster_heads; 
             int64_t child_dist_left = kv.second.second.best_left;
             int64_t child_dist_right = kv.second.second.best_right; 
 
@@ -934,7 +935,6 @@ cerr << "  Combining this cluster from the right" << endl;
             size_t rev_rank = node_rank % 2 == 0
                            ? node_rank + 1 : node_rank - 1;
 
-            //The clusters furthest to the left and right for this child node
             if (child.node_type == NODE) {
                 //If this node is a node, we need to find the clusters
                 int64_t node_len = snarl_index.nodeLength(node_rank);
