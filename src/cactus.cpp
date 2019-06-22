@@ -304,6 +304,9 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
         }
     }
     weak_components_all.clear();
+    if (weak_components.empty())  {
+        throw runtime_error("Cactus does not currently support finding snarls in graph of single-node connected components");
+    }
        
     // We also want a map so we can efficiently find which component a node lives in.
     unordered_map<id_t, size_t> node_to_component;
