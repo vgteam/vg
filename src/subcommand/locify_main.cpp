@@ -130,7 +130,7 @@ int main_locify(int argc, char** argv){
         return 1;
     }
     ifstream xgstream(xg_idx_name);
-    unique_ptr<xg::XG> xgidx = vg::io::VPKG::load_one<xg::XG>(xgstream);
+    unique_ptr<XG> xgidx = vg::io::VPKG::load_one<XG>(xgstream);
 
     std::function<vector<string>(string, char)> strsplit = [&](string x, char delim){
 

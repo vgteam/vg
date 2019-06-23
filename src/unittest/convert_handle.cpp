@@ -12,14 +12,14 @@ namespace vg {
         using namespace std;
         
         TEST_CASE("convert_handle converter works on empty graph, xg to vg", "[handle][vg][xg]") {
-            xg::XG xg;
+            XG xg;
             VG vg;
             convert_handle_graph(&xg, &vg);
             REQUIRE(vg.node_count() == 0);
             REQUIRE(vg.edge_count() == 0);
         }
         TEST_CASE("convert_handle converter works on empty graph, xg to pg", "[handle][pg][xg]") {
-            xg::XG xg;
+            XG xg;
             PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             REQUIRE(pg.get_node_count() == 0);
@@ -32,7 +32,7 @@ namespace vg {
             REQUIRE(edge_count == 0);
         }
         TEST_CASE("convert_handle converter works on empty graph, xg to hg", "[handle][hg][xg]") {
-            xg::XG xg;
+            XG xg;
             HashGraph hg;
             convert_handle_graph(&xg, &hg);
             REQUIRE(hg.get_node_count() == 0);
@@ -56,7 +56,7 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            xg::XG xg(proto_graph);
+            XG xg(proto_graph);
             VG vg;
             convert_handle_graph(&xg, &vg);
             
@@ -74,7 +74,7 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            xg::XG xg(proto_graph);
+            XG xg(proto_graph);
             PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             
@@ -92,7 +92,7 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            xg::XG xg(proto_graph);
+            XG xg(proto_graph);
             HashGraph hg;
             convert_handle_graph(&xg, &hg);
             
@@ -120,7 +120,7 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            xg::XG xg(proto_graph);
+            XG xg(proto_graph);
             VG vg;
             convert_handle_graph(&xg, &vg);
             
@@ -150,7 +150,7 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            xg::XG xg(proto_graph);
+            XG xg(proto_graph);
             PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             
@@ -192,7 +192,7 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            xg::XG xg(proto_graph);
+            XG xg(proto_graph);
             HashGraph hg;
             convert_handle_graph(&xg, &hg);
             
@@ -236,7 +236,7 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            xg::XG xg(proto_graph);
+            XG xg(proto_graph);
             VG vg;
             convert_handle_graph(&xg, &vg);
             
@@ -270,7 +270,7 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            xg::XG xg(proto_graph);
+            XG xg(proto_graph);
             PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             
@@ -316,7 +316,7 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            xg::XG xg(proto_graph);
+            XG xg(proto_graph);
             HashGraph hg;
             convert_handle_graph(&xg, &hg);
             
@@ -376,7 +376,7 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            xg::XG xg(proto_graph);
+            XG xg(proto_graph);
             VG vg;
             convert_path_handle_graph(&xg, &vg);
             
@@ -437,7 +437,7 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            xg::XG xg(proto_graph);
+            XG xg(proto_graph);
             PackedGraph pg;
             convert_path_handle_graph(&xg, &pg);
             
@@ -513,7 +513,7 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            xg::XG xg(proto_graph);
+            XG xg(proto_graph);
             HashGraph hg;
             convert_path_handle_graph(&xg, &hg);
             

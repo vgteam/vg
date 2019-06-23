@@ -106,7 +106,7 @@ int main_convert(int argc, char** argv) {
         } else if (graph_type == "packed") {
             return new PackedGraph();
         } else if (graph_type == "xg") {
-            return new xg::XG();
+            return new XG();
         }
         return nullptr;
     };
@@ -124,7 +124,7 @@ int main_convert(int argc, char** argv) {
         dynamic_cast<SerializableHandleGraph*>(input_graph)->deserialize(input_path == "-" ? cin : input_stream);
     } else {
         //todo: XG::deserialize() doesn't work.  Need to go through vpkg
-        unique_ptr<xg::XG> xindex = vg::io::VPKG::load_one<xg::XG>(input_path);
+        unique_ptr<XG> xindex = vg::io::VPKG::load_one<XG>(input_path);
         delete input_graph;
         input_graph = xindex.release();
     }

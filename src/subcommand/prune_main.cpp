@@ -300,7 +300,7 @@ int main_prune(int argc, char** argv) {
 
     // Handle the input.
     VG* graph;
-    xg::XG xg_index;
+    XG xg_index;
     unique_ptr<gbwt::GBWT> gbwt_index;
     get_input_file(optind, argc, argv, [&](std::istream& in) {
         graph = new VG(in);

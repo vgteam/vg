@@ -139,7 +139,7 @@ public:
      * pileup_filename is provided, the pileup is loaded again and used to add
      * comments describing variants
      */
-    void call(SupportAugmentedGraph& augmented, string pileup_filename = "");
+    void call(SupportAugmentedGraph& augmented, SnarlManager& site_manager, string pileup_filename = "");
 
     /** 
      * Get the support and size for each traversal in a list. Discount support

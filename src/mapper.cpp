@@ -11,7 +11,7 @@ namespace vg {
 // init the static memo
 thread_local vector<size_t> BaseMapper::adaptive_reseed_length_memo;
 
-BaseMapper::BaseMapper(xg::XG* xidex,
+BaseMapper::BaseMapper(XG* xidex,
                        gcsa::GCSA* g,
                        gcsa::LCPArray* a,
                        haplo::ScoreProvider* haplo_score_provider) :
@@ -1739,7 +1739,7 @@ void BaseMapper::set_fragment_length_distr_params(size_t maximum_sample_size, si
                                                        robust_estimation_fraction);
 }
     
-Mapper::Mapper(xg::XG* xidex,
+Mapper::Mapper(XG* xidex,
                gcsa::GCSA* g,
                gcsa::LCPArray* a,
                haplo::ScoreProvider* haplo_score_provider) :
