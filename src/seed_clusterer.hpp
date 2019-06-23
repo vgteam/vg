@@ -14,17 +14,17 @@ class SnarlSeedClusterer {
 
         SnarlSeedClusterer(MinimumDistanceIndex& dist_index);
 
-        //Given a vector of seeds (pos_t) and a distance limit, 
+        ///Given a vector of seeds (pos_t) and a distance limit, 
         //cluster the seeds such that two seeds whose minimum distance
         //between them (including both of the positions) is less than
         // the distance limit are in the same cluster
-        //Returns a vector of clusters. The cluster is a vector of
+        //Returns a vector of clusters. Each cluster is a vector of
         //indices into seeds
         vector<vector<size_t>> cluster_seeds ( vector<pos_t> seeds,
                int64_t distance_limit);
     private:
-        MinimumDistanceIndex& dist_index;
 
+        MinimumDistanceIndex& dist_index;
 
         enum ChildNodeType {CHAIN, SNARL, NODE};
         
@@ -46,6 +46,8 @@ class SnarlSeedClusterer {
             //node_id is the node id if the node is just a node, index into
             //dist_index's snarl_indexes/chain_index if it is a snarl/chain
             size_t node_id; 
+
+            //Is this a node, snarl, or chain
             ChildNodeType node_type;
 
             NetgraphNode(size_t node_id, ChildNodeType node_type) :
@@ -67,6 +69,9 @@ class SnarlSeedClusterer {
             }
 
             size_t rank_in_parent(MinimumDistanceIndex& dist_index, id_t id) {
+                //Get the forward rank of this node in the parent's netgraph
+                //to look up distances
+
                 size_t rank = node_type == NODE ? 
                                     dist_index.getPrimaryRank(id) :
                                     dist_index.getSecondaryRank(id);
@@ -82,10 +87,12 @@ class SnarlSeedClusterer {
 
         struct NodeClusters {
             //Clusters in the context of a snarl tree node
-            //The node containing this struct may be an actual node, or a
-            // snarl/chain that is a node the parent snarl's netgraph
+            //The node containing this struct may be an actual node,
+            // snarl/chain that is a node the parent snarl's netgraph,
+            // or a snarl in a chain
 
-            //set of the indices of heads of clusters (determined by the union find)
+            //set of the indices of heads of clusters (group ids in the 
+            //union find)
             hash_set<size_t> cluster_heads;
 
             //The shortest distance from any seed in any cluster to the 
@@ -94,13 +101,8 @@ class SnarlSeedClusterer {
             int64_t best_left;
             int64_t best_right;
 
-            NodeClusters(hash_set<size_t> cluster_heads, int64_t best_left, 
-                         int64_t best_right) :
-                cluster_heads(cluster_heads), 
-                best_left(best_left), 
-                best_right(best_right) {
-            }
-            NodeClusters() {}
+            NodeClusters() :
+                best_left(-1), best_right(-1) {}
         };
 
 
@@ -134,8 +136,8 @@ class SnarlSeedClusterer {
             //////////Data structures to hold snarl tree relationships
             //The snarls and chains get updated as we move up the snarl tree
 
-            //Maps each node to a vector of the indices into seeds of the
-            //seeds that are contained in it
+            //Maps each node to a vector of the seeds that are contained in it
+            //seeds are represented by indexes into the seeds vector
             hash_map<id_t, vector<size_t>> node_to_seeds;
 
             //Map from snarl (index into dist_index.snarl_indexes) i
@@ -194,18 +196,16 @@ class SnarlSeedClusterer {
         NodeClusters cluster_one_node(TreeState& tree_state, 
                                           id_t node_id, int64_t node_length); 
 
-        //Cluster the seeds in a chain
-        //snarls_in_chain is an unordered vector of snarls where the snarl
-        //  is represented as its index into dist_index.snarl_indexes
-        //curr_snarl_children maps each snarl to a vector of its children and 
-        //clusters on the children
+        //Cluster the seeds in a chain given by chain_index_i, an index into
+        //dist_index.chain_indexes
         NodeClusters cluster_one_chain(TreeState& tree_state,
                                            size_t chain_index_i);
 
-        //Cluster the seeds in a snarl 
-        //child_nodes is a vector of the children of root and their clusters
+        //Cluster the seeds in a snarl given by snarl_index_i, an index into
+        //dist_index.snarl_indexes
+        //rev is true if this snarl is reversed in its parent
         NodeClusters cluster_one_snarl(TreeState& tree_state,
-                             size_t snarl_index_i, bool rev) ;
+                                       size_t snarl_index_i) ;
 
 };
 }
