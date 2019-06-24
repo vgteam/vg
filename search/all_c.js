@@ -3,7 +3,7 @@ var searchData=
   ['lane',['lane',['../structvg_1_1ReplaceSnarlHaplotypeCommand.html#a197d4920d6cbdfabac08f0de992a425a',1,'vg::ReplaceSnarlHaplotypeCommand']]],
   ['large_5falignment_5fband_5fpadding',['large_alignment_band_padding',['../classvg_1_1VariantAdder.html#aefe81cd7c81a7f3ba54c73e25c24ba3f',1,'vg::VariantAdder']]],
   ['larger_5fprime',['larger_prime',['../classvg_1_1ShuffledPairs.html#a20b31eca7b0fc0185246c560fd8e266d',1,'vg::ShuffledPairs']]],
-  ['last',['last',['../structvg_1_1FeatureSet_1_1Feature.html#a9fb23b0b9affcc51a2610bb287b2082b',1,'vg::FeatureSet::Feature::last()'],['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388a307890827d887acbf41ae36644759cee',1,'vg::ReadFilter::Counts::last()'],['../structvg_1_1NodeDivider.html#a03a29b35ee0e1a20619a54b007e628b0a228b0b89df1091e9f4c35ed04f649c28',1,'vg::NodeDivider::Last()']]],
+  ['last',['Last',['../structvg_1_1NodeDivider.html#a03a29b35ee0e1a20619a54b007e628b0a228b0b89df1091e9f4c35ed04f649c28',1,'vg::NodeDivider::Last()'],['../structvg_1_1FeatureSet_1_1Feature.html#a9fb23b0b9affcc51a2610bb287b2082b',1,'vg::FeatureSet::Feature::last()'],['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388a307890827d887acbf41ae36644759cee',1,'vg::ReadFilter::Counts::last()']]],
   ['last_5fcheckin',['last_checkin',['../structvg_1_1Watchdog_1_1thread__state__t.html#ad54ba05d09be7a40b4e9504b8d020ea6',1,'vg::Watchdog::thread_state_t']]],
   ['last_5fcorrect_5fstage',['last_correct_stage',['../classvg_1_1Funnel.html#a5b0f230630e6d79c5031c2041bdf1efd',1,'vg::Funnel']]],
   ['last_5fgroup_5fmin_5fid',['last_group_min_id',['../classvg_1_1StreamIndexBase.html#aef3a7bd46aeb49185a8cd6a9a261e883',1,'vg::StreamIndexBase']]],
