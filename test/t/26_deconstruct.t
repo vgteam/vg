@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 9
+plan tests 10
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > tiny.vg
 vg deconstruct tiny.vg -p x -t 1 > tiny_decon.vcf
@@ -44,6 +44,18 @@ is $(grep "#" hla_decon_path.vcf | grep "gi|568815592:29791752-29792749") "##con
 
 
 rm -f hla_decon.vcf hla_decon_path.vcf  hla_decon.tsv hla_decon_path.tsv hla.vg
+
+cp sv/x.inv.gfa inv.gfa
+printf "P\ty\t1+,2-,3+\t9M,20M,21M\n" >> inv.gfa
+vg view -Fv inv.gfa > inv.vg
+vg deconstruct inv.vg -p x -e > inv_decon.vcf
+grep -v "#" inv_decon.vcf | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' > inv_decon.tsv
+printf "x\t10\tCTTGGAAATTTTCTGGAGTT\tAACTCCAGAAAATTTCCAAG\t1\n" > inv_truth.tsv
+diff inv_decon.tsv inv_truth.tsv
+is "$?" 0 "deconstruct correctly handles a simple inversion"
+
+rm -f inv.gfa inv.vg inv_decon.vcf inv_decon.tsv inv_truth.tsv
+
 
 
 
