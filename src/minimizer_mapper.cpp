@@ -220,6 +220,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         funnel.produced_output();
 #endif
     }
+    double best_cluster_score = cluster_score.size() == 0 ? 0 : 
+                                 *std::max_element(cluster_score.begin(), cluster_score.end());
 
     //Get the cluster coverage
     vector<double> read_coverage_by_cluster;
@@ -253,7 +255,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
     }
 
-    double cluster_coverage_cutoff = *std::max_element(read_coverage_by_cluster.begin(), read_coverage_by_cluster.end()) - 0.3;
+    double cluster_coverage_cutoff = read_coverage_by_cluster[0] - 0.3;
 #ifdef debug
     cerr << "Found " << clusters.size() << " clusters" << endl;
 #endif
@@ -271,9 +273,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         return (read_coverage_by_cluster[a] > read_coverage_by_cluster[b]);
         //return (cluster_score[a] > cluster_score[b]);
     });
-
-    double best_cluster_score = cluster_indexes_in_order.size() == 0 ? 0 : 
-                                 cluster_score[cluster_indexes_in_order[0]];
     //TODO: Find a good cutoff
     double cluster_score_cutoff = best_cluster_score - 50;
     
@@ -291,10 +290,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     size_t num_extensions = 0;
 
     for (size_t i = 0; i < clusters.size() && num_extensions < max_extensions &&
-                          cluster_score[cluster_indexes_in_order[i]] > cluster_score_cutoff; i++) {
+                          read_coverage_by_cluster[cluster_indexes_in_order[i]] > cluster_coverage_cutoff; i++) {
         // For each cluster, in sorted order
         size_t& cluster_num = cluster_indexes_in_order[i];
-        if (read_coverage_by_cluster[cluster_num] < cluster_coverage_cutoff) {
+        if (cluster_score[cluster_indexes_in_order[i]] < cluster_score_cutoff) {
             continue;
         }
         num_extensions ++;
