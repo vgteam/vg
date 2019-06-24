@@ -110,10 +110,8 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
     map<string, vector<int> > sample_to_traversals;
     for (int i = 0; i < names.size(); ++i) {
         string sample_name;
-        if (path_to_sample) {
-            if (path_to_sample->count(names[i])) {
-                sample_name = path_to_sample->find(names[i])->second;
-            }
+        if (path_to_sample && path_to_sample->count(names[i])) {
+            sample_name = path_to_sample->find(names[i])->second;
         } else {
             sample_name = names[i];
         }
@@ -302,14 +300,13 @@ void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph, SnarlMa
     graph->for_each_path_handle([&](const path_handle_t& path_handle) {
             string path_name = graph->get_path_name(path_handle);
             if (!pindexes.count(path_name)) {
-                if (!path_to_sample) {
+                // rely on the given map.  if a path isn't in it, it'll be ignored
+                if (path_to_sample && path_to_sample->count(path_name)) {
+                    sample_names.insert(path_to_sample->find(path_name)->second);
+                }
+                else {
                     // no name mapping, just use every path as is
                     sample_names.insert(path_name);
-                } else {
-                    // rely on the given map.  if a path isn't in it, it'll be ignored
-                    if (path_to_sample->count(path_name)) {
-                        sample_names.insert(path_to_sample->find(path_name)->second);
-                    }
                 }
             }
         });
