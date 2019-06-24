@@ -215,10 +215,13 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     if (path_restricted) {
         get_genotypes(v, named_travs.second, trav_to_allele);
     }
-    
+
+    // we only bother printing out sites with at least 1 non-reference allele
+    if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return i == 0; })) {
 #pragma omp critical (cout)
-    {
+        {
         cout << v << endl;
+        }
     }
 
     return true;

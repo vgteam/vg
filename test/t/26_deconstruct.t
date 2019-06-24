@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 11
+plan tests 13
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > tiny.vg
 vg deconstruct tiny.vg -p x -t 1 > tiny_decon.vcf
@@ -62,11 +62,26 @@ printf "y\t10\tAACTCCAGAAAATTTCCAAG\tCTTGGAAATTTTCTGGAGTT\t1\n" > inv_truth.tsv
 diff inv_decon.tsv inv_truth.tsv
 is "$?" 0 "deconstruct correctly handles a simple inversion when the reference contains the reversing edge"
 
-
 rm -f inv.gfa inv.vg inv_decon.vcf inv_decon.tsv inv_truth.tsv
 
 
+vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg view -g - > cyclic_tiny.gfa
+printf "L\t12\t+\t9\t+\t0M\n" >> cyclic_tiny.gfa
+printf "P\ty\t1+,3+,5+,6+,8+,9+,11+,12+,9+,10+,12+,14+,15+\t8M,1M,1M,3M,1M,19M,1M,4M,19M,1M,4M,1M,11M\n" >> cyclic_tiny.gfa
+vg view -Fv cyclic_tiny.gfa > cyclic_tiny.vg
+vg deconstruct cyclic_tiny.vg -p y -e > cyclic_tiny_decon.vcf
+grep -v "#" cyclic_tiny_decon.vcf | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' > cyclic_tiny_decon.tsv
+printf "y\t13\tGGAAATTTTCTGGAGTTCTATTATATAAATTTTCTGGAGTTCTATAATATT\tGGAAATTTTCTGGAGTTCTATTATATT\t1\n" > cyclic_tiny_truth.tsv
+diff cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv
+is "$?" 0 "deconstruct correctly handles a cycle in the reference path"
 
+rm -rf cyclic_tiny_decon.vcf cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv
 
+vg deconstruct cyclic_tiny.vg -p x -e > cyclic_tiny_decon.vcf
+grep -v "#" cyclic_tiny_decon.vcf | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' > cyclic_tiny_decon.tsv
+printf "x\t13\tGGAAATTTTCTGGAGTTCTATTATATT\tGGAAATTTTCTGGAGTTCTATTATATAAATTTTCTGGAGTTCTATAATATT\t1\n" > cyclic_tiny_truth.tsv
+diff cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv
+is "$?" 0 "deconstruct correctly handles a cycle in the alt path"
 
+rm -rf cyclic_tiny_decon.vcf cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv cyclic_tiny.gfa cyclic_tiny.vg
 
