@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 10
+plan tests 11
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > tiny.vg
 vg deconstruct tiny.vg -p x -t 1 > tiny_decon.vcf
@@ -53,6 +53,15 @@ grep -v "#" inv_decon.vcf | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' > 
 printf "x\t10\tCTTGGAAATTTTCTGGAGTT\tAACTCCAGAAAATTTCCAAG\t1\n" > inv_truth.tsv
 diff inv_decon.tsv inv_truth.tsv
 is "$?" 0 "deconstruct correctly handles a simple inversion"
+
+rm -f inv_decon.vcf inv_decon.tsv inv_truth.tsv
+
+vg deconstruct inv.vg -p y -e > inv_decon.vcf
+grep -v "#" inv_decon.vcf | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' > inv_decon.tsv
+printf "y\t10\tAACTCCAGAAAATTTCCAAG\tCTTGGAAATTTTCTGGAGTT\t1\n" > inv_truth.tsv
+diff inv_decon.tsv inv_truth.tsv
+is "$?" 0 "deconstruct correctly handles a simple inversion when the reference contains the reversing edge"
+
 
 rm -f inv.gfa inv.vg inv_decon.vcf inv_decon.tsv inv_truth.tsv
 
