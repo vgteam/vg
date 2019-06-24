@@ -37,7 +37,8 @@ public:
 
     // deconstruct the entire graph to cout
     void deconstruct(vector<string> refpaths, vg::VG* graph, SnarlManager* snarl_manager,
-                     bool path_restricted_traversals); 
+                     bool path_restricted_traversals,
+                     const unordered_map<string, string>* path_to_sample = nullptr); 
     
 private:
 
@@ -79,7 +80,10 @@ private:
     unique_ptr<TraversalFinder> trav_finder;
 
     // keep track of the non-ref paths as they will be our samples
-    vector<string> sample_names;
+    set<string> sample_names;
+
+    // map the path name to the sample in the vcf
+    const unordered_map<string, string>* path_to_sample;
 
     // upper limit of degree-2+ nodes for exhaustive traversal
     int max_nodes_for_exhaustive = 100;    

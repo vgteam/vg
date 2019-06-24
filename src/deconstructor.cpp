@@ -98,18 +98,68 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
 
 void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& names,
                                   const vector<int>& trav_to_allele) {
-    map<string, int> name_to_allele;
-    for (int i = 0; i < names.size(); ++i) {
-        name_to_allele[names[i]] = trav_to_allele[i];
-    }
+    assert(names.size() == trav_to_allele.size());
+    // set up our variant fields
     v.format.push_back("GT");
+    if (path_to_sample) {
+        v.format.push_back("PI");
+    }
+
+    // get a list of traversals for every vcf sample
+    // (this will be 1:1 unless we're using the path_to_sample name map)
+    map<string, vector<int> > sample_to_traversals;
+    for (int i = 0; i < names.size(); ++i) {
+        string sample_name;
+        if (path_to_sample) {
+            if (path_to_sample->count(names[i])) {
+                sample_name = path_to_sample->find(names[i])->second;
+            }
+        } else {
+            sample_name = names[i];
+        }
+        if (sample_names.count(sample_name)) {
+            if (sample_to_traversals.count(sample_name)) {
+                sample_to_traversals[sample_name].push_back(i);
+            } else {
+                sample_to_traversals[sample_name] = {i};
+            }
+        }
+    }
+
+    // write out the genotype for each sample
+    // if we're mapping a vg path name to its prefix for the sample name, we stick some information about the full
+    // path name in the PI part of format
+    set<string> conflicts;
     for (auto& sample_name : sample_names) {
-        auto na = name_to_allele.find(sample_name);
-        if (na != name_to_allele.end()) {
-            v.samples[sample_name]["GT"] = {std::to_string(na->second)};
+        if (sample_to_traversals.count(sample_name)) {
+            const vector<int>& travs = sample_to_traversals[sample_name];
+            assert(!travs.empty());
+            int lowest_trav = 0;
+
+            for (int i = 1; i < travs.size(); ++i) {
+                if (names[travs[i]] < names[travs[lowest_trav]]) {
+                    lowest_trav = i;
+                }
+                if (trav_to_allele[i] != trav_to_allele[0]) {
+                    conflicts.insert(sample_name);
+                }
+            }
+            v.samples[sample_name]["GT"] = {std::to_string(trav_to_allele[travs[lowest_trav]])};
+            if (path_to_sample) {
+                for (auto trav : travs) {
+                    v.samples[sample_name]["PI"].push_back(names[trav] + "=" + std::to_string(trav_to_allele[trav]));
+                }
+            }
         } else {
             v.samples[sample_name]["GT"] = {"."};
+            if (path_to_sample) {
+                v.samples[sample_name]["PI"] = {"."};
+            }
         }
+    }
+    assert(conflicts.empty() || path_to_sample != nullptr);
+    for (auto& conflict_sample : conflicts) {
+        v.info["CONFLICT"].push_back(conflict_sample);
     }
 }
 
@@ -231,11 +281,14 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
  * Convenience wrapper function for deconstruction of multiple paths.
  */
 void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph, SnarlManager* snarl_manager,
-                                bool path_restricted_traversals) {
+                                bool path_restricted_traversals,
+                                const unordered_map<string, string>* path_to_sample) {
 
     this->graph = graph;
     this->snarl_manager = snarl_manager;
     this->path_restricted = path_restricted_traversals;
+    this->path_to_sample = path_to_sample;
+    assert(path_to_sample == nullptr || path_restricted);
     
     // Create path index for the contig if we don't have one.
     for (auto& refpath : ref_paths) {
@@ -249,7 +302,15 @@ void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph, SnarlMa
     graph->for_each_path_handle([&](const path_handle_t& path_handle) {
             string path_name = graph->get_path_name(path_handle);
             if (!pindexes.count(path_name)) {
-                sample_names.push_back(path_name);
+                if (!path_to_sample) {
+                    // no name mapping, just use every path as is
+                    sample_names.insert(path_name);
+                } else {
+                    // rely on the given map.  if a path isn't in it, it'll be ignored
+                    if (path_to_sample->count(path_name)) {
+                        sample_names.insert(path_to_sample->find(path_name)->second);
+                    }
+                }
             }
         });
     
@@ -258,6 +319,10 @@ void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph, SnarlMa
     stream << "##fileformat=VCFv4.2" << endl;
     if (path_restricted) {
         stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
+    }
+    if (path_to_sample) {
+        stream << "##FORMAT=<ID=PI,Number=.,Type=String,Description=\"Path information. Original vg path name for sample as well as its allele (can be many paths per sample)\">" << endl;
+        stream << "##INFO=<ID=CONFLICT,Number=.,Type=String,Description=\"Sample names for which there are multiple paths in the graph with conflicting alleles (details in PI field)\">" << endl;
     }
     for(auto& refpath : ref_paths) {
         size_t path_len = 0;

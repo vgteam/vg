@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 13
+plan tests 16
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > tiny.vg
 vg deconstruct tiny.vg -p x -t 1 > tiny_decon.vcf
@@ -34,13 +34,13 @@ diff hla_decon.tsv hla_decon_path.tsv
 is "$?" 0 "path-based and exhaustive decontruction give equivalent sites when expected"
 
 # want to extract a sample, but bcftools -s doesn't seem to work on travis.  so we torture it out with awk
-SAMPLE_COL=$(grep CHROM hla_decon_path.vcf | sed 's/\t/\n/g' | nl | grep "gi|528476637:29761569-29762543" | awk '{print $1}')
+SAMPLE_COL=$(grep CHROM hla_decon_path.vcf | sed 's/\t/\n/g' | nl | grep "528476637" | awk '{print $1}')
 is $(grep -v "#" hla_decon_path.vcf | awk -v x="$SAMPLE_COL" '{print $x}' | uniq) 1 "path that differs from reference in every alt has correct genotype"
 
-SAMPLE_COL=$(grep CHROM hla_decon_path.vcf | sed 's/\t/\n/g' | nl | grep "gi|568815564:1054403-1055400" | awk '{print $1}')
+SAMPLE_COL=$(grep CHROM hla_decon_path.vcf | sed 's/\t/\n/g' | nl | grep "568815564" | awk '{print $1}')
 is $(grep -v "#" hla_decon_path.vcf | awk -v x="$SAMPLE_COL" '{print $x}' | uniq) 0 "path that is same as reference in every alt has correct genotype"
 
-is $(grep "#" hla_decon_path.vcf | grep "gi|568815592:29791752-29792749") "##contig=<ID=gi|568815592:29791752-29792749,length=998>" "reference contig correctly written"
+is $(grep "#" hla_decon_path.vcf | grep "568815592") "##contig=<ID=gi|568815592:29791752-29792749,length=998>" "reference contig correctly written"
 
 
 rm -f hla_decon.vcf hla_decon_path.vcf  hla_decon.tsv hla_decon_path.tsv hla.vg
@@ -75,7 +75,7 @@ printf "y\t13\tGGAAATTTTCTGGAGTTCTATTATATAAATTTTCTGGAGTTCTATAATATT\tGGAAATTTTCTG
 diff cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv
 is "$?" 0 "deconstruct correctly handles a cycle in the reference path"
 
-rm -rf cyclic_tiny_decon.vcf cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv
+rm -f cyclic_tiny_decon.vcf cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv
 
 vg deconstruct cyclic_tiny.vg -p x -e > cyclic_tiny_decon.vcf
 grep -v "#" cyclic_tiny_decon.vcf | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' > cyclic_tiny_decon.tsv
@@ -83,5 +83,20 @@ printf "x\t13\tGGAAATTTTCTGGAGTTCTATTATATT\tGGAAATTTTCTGGAGTTCTATTATATAAATTTTCTG
 diff cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv
 is "$?" 0 "deconstruct correctly handles a cycle in the alt path"
 
-rm -rf cyclic_tiny_decon.vcf cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv cyclic_tiny.gfa cyclic_tiny.vg
+rm -f cyclic_tiny_decon.vcf cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv cyclic_tiny.gfa cyclic_tiny.vg
+
+
+vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg view -g - > tiny_names.gfa
+printf "P\tref.1\t1+,3+,5+,6+,8+,9+,11+,12+,14+,15+\t8M,1M,1M,3M,1M,19M,1M,4M,1M,11M\n" >> tiny_names.gfa
+printf "P\talt1.1\t1+,2+,4+,6+,8+,9+,11+,12+,14+,15+\t8M,1M,1M,3M,1M,19M,1M,4M,1M,11M\n" >> tiny_names.gfa
+printf "P\talt1.2\t1+,2+,4+,6+,7+,9+,11+,12+,14+,15+\t8M,1M,1M,3M,1M,19M,1M,4M,1M,11M\n" >> tiny_names.gfa
+printf "P\talt2.3\t1+,2+,4+,6+,8+,9+,11+,12+,14+,15+\t8M,1M,1M,3M,1M,19M,1M,4M,1M,11M\n" >> tiny_names.gfa
+printf "P\talt2.3\t1+,2+,4+,6+,8+,9+,11+,12+,14+,15+\t8M,1M,1M,3M,1M,19M,1M,4M,1M,11M\n" >> tiny_names.gfa
+vg view -Fv tiny_names.gfa > tiny_names.vg
+vg deconstruct tiny_names.vg -P ref -A alt1,alt2 -e > tiny_names_decon.vcf
+is $(grep -v "#" tiny_names_decon.vcf | wc -l) 2 "-P -A options return correct number of variants"
+is $(grep -v "#" tiny_names_decon.vcf | grep ref.1 | wc -l) 2 "-P -A options use correct reference name"
+is $(grep -v "#" tiny_names_decon.vcf | grep ref.1 | grep 14 | grep "CONFLICT=alt1" | wc -l) 1 "-P -A identifies conflict in alt1 in second variant"
+
+
 
