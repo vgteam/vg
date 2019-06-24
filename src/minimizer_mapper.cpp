@@ -287,13 +287,15 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
     double cluster_coverage_cutoff = *std::max_element(read_coverage_by_cluster.begin(), read_coverage_by_cluster.end()) - 0.3;
     
-    for (size_t i = 0; i < clusters.size() && i < max_extensions &&
+    size_t num_extensions = 0;
+    for (size_t i = 0; i < clusters.size() && num_extensions < max_extensions &&
                           cluster_score[cluster_indexes_in_order[i]] > cluster_score_cutoff; i++) {
         // For each cluster, in sorted order
         size_t& cluster_num = cluster_indexes_in_order[i];
         if (read_coverage_by_cluster[cluster_num] < cluster_coverage_cutoff) {
             continue;
         }
+        num_extensions ++;
         
 #ifdef TRACK_PROVENANCE
         funnel.processing_input(cluster_num);
