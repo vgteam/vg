@@ -221,38 +221,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
     }
 
-#ifdef debug
-    cerr << "Found " << clusters.size() << " clusters" << endl;
-#endif
-    
-    // Make a vector of cluster indexes to sort
-    vector<size_t> cluster_indexes_in_order;
-    cluster_indexes_in_order.reserve(clusters.size());
-    for (size_t i = 0; i < clusters.size(); i++) {
-        cluster_indexes_in_order.push_back(i);
-    }
-
-    // Put the most covering cluster's index first
-    std::sort(cluster_indexes_in_order.begin(), cluster_indexes_in_order.end(), [&](const size_t& a, const size_t& b) -> bool {
-        // Return true if a must come before b, and false otherwise
-        return (cluster_score[a] > cluster_score[b]);
-    });
-
-    double best_cluster_score = cluster_indexes_in_order.size() == 0 ? 0 : 
-                                 cluster_score[cluster_indexes_in_order[0]];
-    //TODO: Find a good cutoff
-    double cluster_score_cutoff = best_cluster_score - 50;
-    
-#ifdef TRACK_PROVENANCE
-    // Now we go from clusters to gapless extensions
-    funnel.stage("extend");
-#endif
-    
-    // These are the GaplessExtensions for all the clusters, in cluster_indexes_in_order order.
-    vector<vector<GaplessExtension>> cluster_extensions;
-    cluster_extensions.reserve(cluster_indexes_in_order.size());
-
-
     //Get the cluster coverage
     vector<double> read_coverage_by_cluster;
     for (size_t i = 0; i < clusters.size(); i++) {
@@ -286,14 +254,50 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     }
 
     double cluster_coverage_cutoff = *std::max_element(read_coverage_by_cluster.begin(), read_coverage_by_cluster.end()) - 0.3;
+#ifdef debug
+    cerr << "Found " << clusters.size() << " clusters" << endl;
+#endif
     
-    for (size_t i = 0; i < clusters.size() && i < max_extensions &&
+    // Make a vector of cluster indexes to sort
+    vector<size_t> cluster_indexes_in_order;
+    cluster_indexes_in_order.reserve(clusters.size());
+    for (size_t i = 0; i < clusters.size(); i++) {
+        cluster_indexes_in_order.push_back(i);
+    }
+
+    // Put the most covering cluster's index first
+    std::sort(cluster_indexes_in_order.begin(), cluster_indexes_in_order.end(), [&](const size_t& a, const size_t& b) -> bool {
+        // Return true if a must come before b, and false otherwise
+        return (read_coverage_by_cluster[a] > read_coverage_by_cluster[b]);
+        //return (cluster_score[a] > cluster_score[b]);
+    });
+
+    double best_cluster_score = cluster_indexes_in_order.size() == 0 ? 0 : 
+                                 cluster_score[cluster_indexes_in_order[0]];
+    //TODO: Find a good cutoff
+    double cluster_score_cutoff = best_cluster_score - 50;
+    
+#ifdef TRACK_PROVENANCE
+    // Now we go from clusters to gapless extensions
+    funnel.stage("extend");
+#endif
+    
+    // These are the GaplessExtensions for all the clusters, in cluster_indexes_in_order order.
+    vector<vector<GaplessExtension>> cluster_extensions;
+    cluster_extensions.reserve(cluster_indexes_in_order.size());
+
+    
+    //Count of clusters that get turned into extensions
+    size_t num_extensions = 0;
+
+    for (size_t i = 0; i < clusters.size() && num_extensions < max_extensions &&
                           cluster_score[cluster_indexes_in_order[i]] > cluster_score_cutoff; i++) {
         // For each cluster, in sorted order
         size_t& cluster_num = cluster_indexes_in_order[i];
         if (read_coverage_by_cluster[cluster_num] < cluster_coverage_cutoff) {
             continue;
         }
+        num_extensions ++;
         
 #ifdef TRACK_PROVENANCE
         funnel.processing_input(cluster_num);
