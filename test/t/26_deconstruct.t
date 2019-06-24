@@ -33,14 +33,17 @@ grep -v "#" hla_decon_path.vcf | awk '{print $1 "\t" $2 "\t" $4 "\t" $5}' | sort
 diff hla_decon.tsv hla_decon_path.tsv
 is "$?" 0 "path-based and exhaustive decontruction give equivalent sites when expected"
 
-is $(bcftools view hla_decon_path.vcf -s "gi|528476637:29761569-29762543" -H | awk '{print $10}' | uniq) 1 "path that differs from reference in every alt has correct genotype"
+# want to extract a sample, but bcftools -s doesn't seem to work on travis.  so we torture it out with awk
+SAMPLE_COL=$(grep CHROM hla_decon_path.vcf | sed 's/\t/\n/g' | nl | grep "gi|528476637:29761569-29762543" | awk '{print $1}')
+is $(grep -v "#" hla_decon_path.vcf | awk -v x="$SAMPLE_COL" '{print $x}' | uniq) 1 "path that differs from reference in every alt has correct genotype"
 
-is $(bcftools view hla_decon_path.vcf -s "gi|568815564:1054403-1055400" -H | awk '{print $10}' | uniq) 0 "path that is same as reference in every alt has correct genotype"
+SAMPLE_COL=$(grep CHROM hla_decon_path.vcf | sed 's/\t/\n/g' | nl | grep "gi|568815564:1054403-1055400" | awk '{print $1}')
+is $(grep -v "#" hla_decon_path.vcf | awk -v x="$SAMPLE_COL" '{print $x}' | uniq) 0 "path that is same as reference in every alt has correct genotype"
 
 is $(grep "#" hla_decon_path.vcf | grep "gi|568815592:29791752-29792749") "##contig=<ID=gi|568815592:29791752-29792749,length=998>" "reference contig correctly written"
 
 
-rm -f hla_decon.vcf hla_decon_path.vcf  hla_decon.tsv hla_decon_path.tsv
+rm -f hla_decon.vcf hla_decon_path.vcf  hla_decon.tsv hla_decon_path.tsv hla.vg
 
 
 
