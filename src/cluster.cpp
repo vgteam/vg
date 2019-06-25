@@ -292,7 +292,7 @@ void MEMChainModel::display_dot(ostream& out, vector<MEMChainModelVertex*> verte
             << " pos:[";
         for (auto& p : vertex.mem.positions) {
             for (auto& o : p.second) {
-                out << p.first << ":" << o.first << ":" << (o.second?"-":"+") << ",";
+                out << handlegraph::as_integer(p.first) << ":" << o.first << ":" << (o.second?"-":"+") << ",";
             }
         }
         out << "]\"";
