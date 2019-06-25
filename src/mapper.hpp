@@ -9,7 +9,7 @@
 #include "vg.hpp"
 #include "xg.hpp"
 #include "index.hpp"
-#include "hash_graph.hpp"
+#include "sglib/hash_graph.hpp"
 #include <gcsa/gcsa.h>
 #include <gcsa/lcp.h>
 #include <gbwt/gbwt.h>
@@ -447,14 +447,14 @@ private:
     
 protected:
     Alignment align_to_graph(const Alignment& aln,
-                             HashGraph& graph,
+                             sglib::HashGraph& graph,
                              bool traceback,
                              bool pinned_alignment = false,
                              bool pin_left = false,
                              bool banded_global = false,
                              bool keep_bonuses = true);
     Alignment align_to_graph(const Alignment& aln,
-                             HashGraph& graph,
+                             sglib::HashGraph& graph,
                              const vector<MaximalExactMatch>& mems,
                              bool traceback,
                              bool pinned_alignment = false,
@@ -539,8 +539,8 @@ public:
     // compute the uniqueness metric based on the MEMs in the cluster
     double compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
-    Alignment align_maybe_flip(const Alignment& base, HashGraph& graph, bool flip, bool traceback, bool banded_global = false, bool xdrop_alignment = false);
-    Alignment align_maybe_flip(const Alignment& base, HashGraph& graph, const vector<MaximalExactMatch>& mems, bool flip, bool traceback, bool banded_global = false, bool xdrop_alignment = false);
+    Alignment align_maybe_flip(const Alignment& base, sglib::HashGraph& graph, bool flip, bool traceback, bool banded_global = false, bool xdrop_alignment = false);
+    Alignment align_maybe_flip(const Alignment& base, sglib::HashGraph& graph, const vector<MaximalExactMatch>& mems, bool flip, bool traceback, bool banded_global = false, bool xdrop_alignment = false);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);

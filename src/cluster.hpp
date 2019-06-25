@@ -11,7 +11,7 @@
 #include "xg.hpp"
 #include "handle.hpp"
 #include "min_distance.hpp"
-#include "hash_graph.hpp"
+#include "sglib/hash_graph.hpp"
 
 #include <functional>
 #include <string>
@@ -133,13 +133,13 @@ public:
 class MEMChainModel {
 public:
     vector<MEMChainModelVertex> model;
-    map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > > positions;
+    unordered_map<path_handle_t, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > > positions;
     set<vector<MEMChainModelVertex>::iterator> redundant_vertexes;
     MEMChainModel(
         const vector<size_t>& aln_lengths,
         const vector<vector<MaximalExactMatch> >& matches,
         const function<int64_t(pos_t)>& approx_position,
-        const function<map<string, vector<pair<size_t, bool> > >(pos_t)>& path_position,
+        const function<unordered_map<path_handle_t, vector<pair<size_t, bool> > >(pos_t)>& path_position,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
         int band_width = 10,
         int position_depth = 1,
@@ -679,9 +679,9 @@ private:
 /// get the handles that a mem covers
 vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg, const vg::MaximalExactMatch& mem);
 /// use walking to get the hits
-HashGraph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion);
+sglib::HashGraph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion);
 /// return a subgraph form an xg for a cluster of MEMs from the given alignment
-HashGraph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion);
+sglib::HashGraph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion);
 
 }
 

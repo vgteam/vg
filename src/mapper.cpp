@@ -1794,7 +1794,7 @@ Mapper::~Mapper(void) {
 
 // todo add options for aligned global and pinned
 Alignment Mapper::align_to_graph(const Alignment& aln,
-                                 HashGraph& graph,
+                                 sglib::HashGraph& graph,
                                  bool traceback,
                                  bool pinned_alignment,
                                  bool pin_left,
@@ -1806,7 +1806,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
 }
 
 Alignment Mapper::align_to_graph(const Alignment& aln,
-                                 HashGraph& graph,
+                                 sglib::HashGraph& graph,
                                  const vector<MaximalExactMatch>& mems,
                                  bool traceback,
                                  bool pinned_alignment,
@@ -1821,7 +1821,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
 
     // convert from bidirected to directed
     unordered_map<id_t, pair<id_t, bool> > node_trans;
-    HashGraph align_graph;
+    sglib::HashGraph align_graph;
         
     // check if we can get away with using only one strand of the graph
     bool use_single_stranded = algorithms::is_single_stranded(&graph);
@@ -1860,7 +1860,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
     if (!algorithms::is_directed_acyclic(&align_graph)) {
 
         // make a dagified graph and translation
-        HashGraph dagified;
+        sglib::HashGraph dagified;
         unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
             
         // replace the original with the dagified ones
@@ -2077,7 +2077,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
         return make_pair(false, false);
     }
     if (mate_positions.empty()) return make_pair(false, false); // can't rescue because the selected mate is unaligned
-    HashGraph graph;
+    sglib::HashGraph graph;
     set<bool> orientations;
 #ifdef debug_rescue
     if (debug) cerr << "got " << mate_positions.size() << " mate positions" << endl;
@@ -2434,7 +2434,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                               [&](pos_t n) -> int64_t {
                                   return approx_position(n);
                               },
-                              [&](pos_t n) -> map<string, vector<pair<size_t, bool> > > {
+                              [&](pos_t n) -> unordered_map<path_handle_t, vector<pair<size_t, bool> > > {
                                   return xindex->offsets_in_paths(n);
                               },
                               transition_weight,
@@ -3299,13 +3299,13 @@ Mapper::align_mem_multi(const Alignment& aln,
     return alns;
 }
 
-Alignment Mapper::align_maybe_flip(const Alignment& base, HashGraph& graph, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global, bool xdrop_alignment) {
+Alignment Mapper::align_maybe_flip(const Alignment& base, sglib::HashGraph& graph, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global, bool xdrop_alignment) {
     // do not use X-drop alignment when seed position is not available
     vector<MaximalExactMatch> mems;
     return(align_maybe_flip(base, graph, mems, flip, traceback, acyclic_and_sorted, banded_global, xdrop_alignment));
 }
 
-Alignment Mapper::align_maybe_flip(const Alignment& base, HashGraph& graph, const vector<MaximalExactMatch>& mems, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global, bool xdrop_alignment) {
+Alignment Mapper::align_maybe_flip(const Alignment& base, sglib::HashGraph& graph, const vector<MaximalExactMatch>& mems, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global, bool xdrop_alignment) {
     Alignment aln = base;
     map<id_t, int64_t> node_length;
     // do not modify aln.sequence() in X-drop alignment so that seed position is calculated by mem.begin - aln.sequence().begin()

@@ -25,7 +25,7 @@ MEMChainModel::MEMChainModel(
     const vector<size_t>& aln_lengths,
     const vector<vector<MaximalExactMatch> >& matches,
     const function<int64_t(pos_t)>& approx_position,
-    const function<map<string, vector<pair<size_t, bool> > >(pos_t)>& path_position,
+    const function<unordered_map<path_handle_t, vector<pair<size_t, bool> > >(pos_t)>& path_position,
     const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
     int band_width,
     int position_depth,
@@ -47,7 +47,7 @@ MEMChainModel::MEMChainModel(
                 m.prev = nullptr;
                 m.score = 0;
                 m.mem.positions = path_position(pos);
-                m.mem.positions[""].push_back(make_pair(approx_position(pos), is_rev(pos)));
+                m.mem.positions[handlegraph::as_path_handle(0)].push_back(make_pair(approx_position(pos), is_rev(pos)));
                 m.mem.nodes.clear();
                 m.mem.nodes.push_back(node);
                 m.mem.fragment = frag_n;
@@ -78,7 +78,7 @@ MEMChainModel::MEMChainModel(
     }
     // now build up the model using the positional bandwidth
     set<pair<vector<MEMChainModelVertex>::iterator, vector<MEMChainModelVertex>::iterator> > seen;
-    for (map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > >::iterator c = positions.begin(); c != positions.end(); ++c) {
+    for (unordered_map<path_handle_t, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > >::iterator c = positions.begin(); c != positions.end(); ++c) {
         for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = c->second.begin(); p != c->second.end(); ++p) {
             for (auto& v1 : p->second) {
                 // For each vertex...
@@ -3437,7 +3437,7 @@ vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg
     return positions;
 }
 
-HashGraph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
+sglib::HashGraph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
     assert(mems.size());
     auto& start_mem = mems.front();
     auto start_pos = make_pos_t(start_mem.nodes.front());
@@ -3445,7 +3445,7 @@ HashGraph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const ve
     // Even if the MEM is right up against the start of the read, it may not be
     // part of the best alignment. Make sure to have some padding.
     // TODO: how much padding?
-    HashGraph graph;
+    sglib::HashGraph graph;
     int inside_padding = max(1, (int)aln.sequence().size()/16);
     int end_padding = max(8, (int)aln.sequence().size()/8);
     int get_before = end_padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
@@ -3486,7 +3486,7 @@ HashGraph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const ve
     return graph;
 }
 
-HashGraph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
+sglib::HashGraph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
     assert(mems.size());
     auto& start_mem = mems.front();
     auto start_pos = make_pos_t(start_mem.nodes.front());
