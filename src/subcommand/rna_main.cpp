@@ -26,10 +26,11 @@ void help_rna(char** argv) {
          << "    -s, --transcript-tag NAME  use this attribute tag in the gtf/gff file(s) as id [transcript_id]" << endl
          << "    -l, --haplotypes FILE      project transcripts onto haplotypes in GBWT index file" << endl
          << "    -e, --use-embedded-paths   project transcripts onto embedded graph paths" << endl
-         << "    -r, --filter-reference     filter transcripts on reference chromosomes/contigs" << endl
          << "    -c, --do-not-collapse      do not collapse identical transcripts across haplotypes" << endl
-         << "    -d, --remove-non-gene      remove intergenic and intronic regions (removes reference paths if -a)" << endl
-         << "    -a, --add-paths            add transcripts as embedded paths in the graph" << endl
+         << "    -d, --remove-non-gene      remove intergenic and intronic regions (removes reference paths if -a or -r)" << endl
+         << "    -r, --add-ref-paths        add reference transcripts as embedded paths in the graph" << endl
+         << "    -a, --add-non-ref-paths    add non-reference transcripts as embedded paths in the graph" << endl
+         << "    -u, --out-ref-paths        output reference transcripts in GBWT, fasta and info" << endl
          << "    -b, --write-gbwt FILE      write transcripts as threads to GBWT index file" << endl
          << "    -f, --write-fasta FILE     write transcripts as sequences to fasta file" << endl
          << "    -i, --write-info FILE      write transcript origin info to tsv file" << endl
@@ -50,10 +51,11 @@ int32_t main_rna(int32_t argc, char** argv) {
     string transcript_tag = "transcript_id";
     string haplotypes_filename;
     bool use_embedded_paths = false;
-    bool filter_reference_transcript_paths = false;
     bool collapse_transcript_paths = true;
     bool remove_non_transcribed = false;
-    bool add_transcript_paths = false;
+    bool add_reference_transcript_paths = false;
+    bool add_non_reference_transcript_paths = false;
+    bool output_reference_transcript_paths = false;
     string gbwt_out_filename = "";
     string fasta_out_filename = "";
     string info_out_filename = "";
@@ -70,10 +72,11 @@ int32_t main_rna(int32_t argc, char** argv) {
                 {"transcript-tag",  no_argument, 0, 's'},
                 {"haplotypes",  no_argument, 0, 'l'},
                 {"use-embeded-paths",  no_argument, 0, 'e'},
-                {"filter-reference",  no_argument, 0, 'r'},
                 {"do-not-collapse",  no_argument, 0, 'c'},
                 {"remove-non-gene",  no_argument, 0, 'd'},
-                {"add-paths",  no_argument, 0, 'a'},
+                {"add-ref-paths",  no_argument, 0, 'r'},
+                {"add-non-ref-paths",  no_argument, 0, 'a'},
+                {"out-ref-paths",  no_argument, 0, 'u'},           
                 {"write-gbwt",  no_argument, 0, 'b'},
                 {"write-fasta",  no_argument, 0, 'f'},
                 {"write-info",  no_argument, 0, 'i'},
@@ -84,7 +87,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             };
 
         int32_t option_index = 0;
-        c = getopt_long(argc, argv, "n:s:l:ercdab:f:i:t:ph?", long_options, &option_index);
+        c = getopt_long(argc, argv, "n:s:l:ercdraub:f:i:t:ph?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -109,10 +112,6 @@ int32_t main_rna(int32_t argc, char** argv) {
             use_embedded_paths = true;
             break;
 
-        case 'r':
-            filter_reference_transcript_paths = true;
-            break;
-            
         case 'c':
             collapse_transcript_paths = false;
             break;
@@ -121,8 +120,16 @@ int32_t main_rna(int32_t argc, char** argv) {
             remove_non_transcribed = true;
             break;
 
+        case 'r':
+            add_reference_transcript_paths = true;
+            break;
+
         case 'a':
-            add_transcript_paths = true;
+            add_non_reference_transcript_paths = true;
+            break;
+
+        case 'u':
+            output_reference_transcript_paths = true;
             break;
 
         case 'b':
@@ -200,8 +207,8 @@ int32_t main_rna(int32_t argc, char** argv) {
     transcriptome.num_threads = num_threads;
     transcriptome.transcript_tag = transcript_tag;
     transcriptome.use_embedded_paths = use_embedded_paths;
+    transcriptome.use_reference_paths = (add_reference_transcript_paths || output_reference_transcript_paths);
     transcriptome.collapse_transcript_paths = collapse_transcript_paths;
-    transcriptome.filter_reference_transcript_paths = filter_reference_transcript_paths;
 
 
     double time_project_start = gcsa::readTimer();
@@ -228,7 +235,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         double time_remove_start = gcsa::readTimer();
         if (show_progress) { cerr << "[vg rna] Removing non-transcribed regions ..." << endl; }
 
-        transcriptome.remove_non_transcribed(!add_transcript_paths);
+        transcriptome.remove_non_transcribed(!(add_reference_transcript_paths || add_non_reference_transcript_paths));
 
         if (show_progress) { cerr << "[vg rna] Regions removed in " << gcsa::readTimer() - time_remove_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
     }
@@ -242,12 +249,20 @@ int32_t main_rna(int32_t argc, char** argv) {
     if (show_progress) { cerr << "[vg rna] Graph sorted and compacted in " << gcsa::readTimer() - time_sort_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
 
 
-    if (add_transcript_paths) {
+    if (add_reference_transcript_paths || add_non_reference_transcript_paths) {
 
         double time_add_start = gcsa::readTimer();
-        if (show_progress) { cerr << "[vg rna] Adding transcript paths to graph ..." << endl; }
 
-        transcriptome.add_paths_to_graph(false);
+        if (add_reference_transcript_paths && add_non_reference_transcript_paths) {
+
+            if (show_progress) { cerr << "[vg rna] Adding all transcript paths to graph ..." << endl; }
+
+        } else {
+
+            if (show_progress) { cerr << "[vg rna] Adding " << ((add_reference_transcript_paths) ? "reference" : "non-reference") << " transcript paths to graph ..." << endl; }
+        }
+
+        transcriptome.add_paths_to_graph(add_reference_transcript_paths, add_non_reference_transcript_paths, false);
 
         if (show_progress) { cerr << "[vg rna] Paths added in " << gcsa::readTimer() - time_add_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
     }
@@ -264,7 +279,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         gbwt::Verbosity::set(gbwt::Verbosity::SILENT); 
         gbwt::GBWTBuilder gbwt_builder(gbwt::bit_length(gbwt::Node::encode(transcriptome.splice_graph().max_node_id(), true)));
 
-        transcriptome.construct_gbwt(&gbwt_builder);
+        transcriptome.construct_gbwt(&gbwt_builder, output_reference_transcript_paths);
 
         // Finish contruction and recode index.
         gbwt_builder.finish();
@@ -279,7 +294,7 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         ofstream fasta_ostream;
         fasta_ostream.open(fasta_out_filename);
-        transcriptome.write_sequences(&fasta_ostream);
+        transcriptome.write_sequences(&fasta_ostream, output_reference_transcript_paths);
         fasta_ostream.close();
     }    
 
@@ -290,7 +305,7 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         ofstream info_ostream;
         info_ostream.open(info_out_filename);
-        transcriptome.write_info(&info_ostream);
+        transcriptome.write_info(&info_ostream, output_reference_transcript_paths);
         info_ostream.close();
     }    
 

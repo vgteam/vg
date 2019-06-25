@@ -357,12 +357,14 @@ bool SupportRestrictedTraversalFinder::visit_next_node(const Node* node, const E
 PathRestrictedTraversalFinder::PathRestrictedTraversalFinder(VG& graph,
                                                              SnarlManager& snarl_manager,
                                                              map<string, const Alignment*>& reads_by_name,
-                                                             int min_recurrence, int max_path_search_steps) :
+                                                             int min_recurrence, int max_path_search_steps,
+                                                             bool allow_duplicates) :
     graph(graph),
     snarl_manager(snarl_manager),
     reads_by_name(reads_by_name),
-    min_recurrence(min_recurrence),
-    max_path_search_steps(max_path_search_steps) {
+    min_recurrence(min_recurrence),    
+    max_path_search_steps(max_path_search_steps),
+    allow_duplicates(allow_duplicates) {
     // nothing else to do
 }
 
@@ -409,7 +411,7 @@ static bool mapping_exits_side(const Mapping& mapping, const handle_t& side, con
 }
 
 // replaces get_paths_through_site from genotyper
-vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snarl& site) {
+pair<vector<SnarlTraversal>, vector<string>> PathRestrictedTraversalFinder::find_named_traversals(const Snarl& site) {
     // We're going to emit traversals supported by any paths in the graph.
     
     // Put all our subpaths in here to deduplicate them by sequence they spell
@@ -417,7 +419,7 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
     // boosted to min_recurrence if a non-read path in the graph supports a
     // certain traversal string, so we don't end up dropping unsupported ref
     // alleles.
-    map<string, pair<SnarlTraversal, int>> results;
+    map<string, tuple<SnarlTraversal, int, string>> results;
 
 #ifdef debug
 #pragma omp critical (cerr)
@@ -446,7 +448,6 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
 
             for(auto* mapping : name_and_mappings.second) {
                 // Start at each mapping in the appropriate orientation
-
 #ifdef debug
 #pragma omp critical (cerr)
                 cerr << "Trying mapping of read/path " << name_and_mappings.first << " to " << mapping->node_id() << (mapping->is_reverse() ? "-" : "+") << endl;
@@ -546,6 +547,11 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
                             Node* map_node = graph.get_node(path_visit.node_id());
                             allele_seq += path_visit.backward() ? reverse_complement(map_node->sequence()) : map_node->sequence();
                         }
+
+                        // hack for allow_duplicates toggle
+                        if (!reads_by_name.count(name) && allow_duplicates) {
+                            allele_seq = name;
+                        }
                         
                         // We have stumbled upon the end node in the orientation we wanted it in.
                         if(results.count(allele_seq)) {
@@ -557,16 +563,16 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
                             
                             if(reads_by_name.count(name)) {
                                 // We are a read. Just increment count
-                                results[allele_seq].second++;
+                                get<1>(results[allele_seq])++;
                             } else {
                                 // We are a named path (like "ref")
-                                if(results[allele_seq].second < min_recurrence) {
+                                if(get<1>(results[allele_seq]) < min_recurrence) {
                                     // Ensure that this allele doesn't get
                                     // eliminated, since ref or some other named
                                     // path supports it.
-                                    results[allele_seq].second = min_recurrence;
+                                    get<1>(results[allele_seq]) = min_recurrence;
                                 } else {
-                                    results[allele_seq].second++;
+                                    get<1>(results[allele_seq])++;
                                 }
                             }
                         } else {
@@ -574,7 +580,8 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
                             // and a count of min_recurrence (so it doesn't get
                             // filtered later) if we are a named non-read path
                             // (like "ref").
-                            results[allele_seq] = make_pair(path_traversed, reads_by_name.count(name) ? 1 : min_recurrence);
+                            int trav_occ = reads_by_name.count(name) ? 1 : min_recurrence;
+                            results[allele_seq] = std::tie(path_traversed, trav_occ, name);
 #ifdef debug
 #pragma omp critical (cerr)
                             cerr << "\tFinished; got novel sequence " << allele_seq << endl;
@@ -589,9 +596,17 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
                     if(traversal_direction) {
                         // We're going backwards
                         mapping = graph.paths.traverse_left(mapping);
+#ifdef debug
+#pragma omp critical (cerr)
+                        cerr << "traversing left to mapping " << *mapping << endl;
+#endif
                     } else {
                         // We're going forwards
                         mapping = graph.paths.traverse_right(mapping);
+#ifdef debug
+#pragma omp critical (cerr)
+                        cerr << "traversing right to mapping " << *mapping << endl;
+#endif
                     }
                     // Tick the counter so we don't go really far on long paths.
                     traversal_count++;
@@ -605,13 +620,14 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
     }
 
     // Now collect the unique results
-    vector<SnarlTraversal> to_return;
+    pair<vector<SnarlTraversal>, vector<string>> to_return;
 
     for(auto& result : results) {
         // Break out each result
         const string& seq = result.first;
-        auto& traversals = result.second.first;
-        auto& count = result.second.second;
+        auto& traversals = get<0>(result.second);
+        auto& count = get<1>(result.second);
+        auto& name = get<2>(result.second);
 
         if(count < min_recurrence) {
             // We don't have enough initial hits for this sequence to justify
@@ -622,10 +638,15 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
         }
 
         // Send out each list of traversals
-        to_return.emplace_back(std::move(traversals));
+        to_return.first.emplace_back(std::move(traversals));
+        to_return.second.push_back(name);
     }
 
     return to_return;
+}
+
+vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snarl& site) {
+    return find_named_traversals(site).first;
 }
 
 ReadRestrictedTraversalFinder::ReadRestrictedTraversalFinder(AugmentedGraph& augmented_graph,
