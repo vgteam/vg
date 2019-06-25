@@ -89,7 +89,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
-<a href="#pub-attribs">Public Attributes</a> &#124;
+<a href="#pri-methods">Private Member Functions</a> &#124;
 <a href="#pri-attribs">Private Attributes</a> &#124;
 <a href="classvg_1_1Deconstructor-members.html">List of all members</a>  </div>
   <div class="headertitle">
@@ -105,22 +105,46 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ac164fa41d5d207dec36a99b891d405be"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a875c8006f289ad46470c05c8808bdd73"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a875c8006f289ad46470c05c8808bdd73">~Deconstructor</a> ()</td></tr>
 <tr class="separator:a875c8006f289ad46470c05c8808bdd73"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aeb9bc204bf4d999f7dcd9df5e522e776"><td class="memItemLeft" align="right" valign="top">pair&lt; bool, vector&lt; string &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#aeb9bc204bf4d999f7dcd9df5e522e776">get_alleles</a> (vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; travs, string refpath, <a class="el" href="classvg_1_1VG.html">vg::VG</a> *graph)</td></tr>
-<tr class="separator:aeb9bc204bf4d999f7dcd9df5e522e776"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aadd12c9b976e6bab2f6bf6992f099e8f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#aadd12c9b976e6bab2f6bf6992f099e8f">deconstruct</a> (string refpath, <a class="el" href="classvg_1_1VG.html">vg::VG</a> *graph)</td></tr>
-<tr class="separator:aadd12c9b976e6bab2f6bf6992f099e8f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac81d6ab9f85d5a88ac7b8d07935838f7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#ac81d6ab9f85d5a88ac7b8d07935838f7">deconstruct</a> (vector&lt; string &gt; refpaths, <a class="el" href="classvg_1_1VG.html">vg::VG</a> *graph)</td></tr>
-<tr class="separator:ac81d6ab9f85d5a88ac7b8d07935838f7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a88527f2a8de8dc7e98d4804f365e6fa9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a88527f2a8de8dc7e98d4804f365e6fa9">deconstruct</a> (vector&lt; string &gt; refpaths, <a class="el" href="classvg_1_1VG.html">vg::VG</a> *<a class="el" href="classvg_1_1Deconstructor.html#a82b9a8610d35094f9b17bf2ef2082d48">graph</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *<a class="el" href="classvg_1_1Deconstructor.html#ad6e7cccec2d0d3b410c95069ebf3e303">snarl_manager</a>, bool path_restricted_traversals, const unordered_map&lt; string, string &gt; *<a class="el" href="classvg_1_1Deconstructor.html#a38b458b541ea01415d938e8c8ff7d615">path_to_sample</a>=nullptr)</td></tr>
+<tr class="separator:a88527f2a8de8dc7e98d4804f365e6fa9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
-Public Attributes</h2></td></tr>
-<tr class="memitem:aa20ebcbb8753e469b24f90b72566dfca"><td class="memItemLeft" align="right" valign="top">map&lt; string, <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#aa20ebcbb8753e469b24f90b72566dfca">pindexes</a></td></tr>
-<tr class="separator:aa20ebcbb8753e469b24f90b72566dfca"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
+Private Member Functions</h2></td></tr>
+<tr class="memitem:ab5e1a3e81b21bd428e7457f92c9eb4c4"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#ab5e1a3e81b21bd428e7457f92c9eb4c4">deconstruct_site</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *site)</td></tr>
+<tr class="separator:ab5e1a3e81b21bd428e7457f92c9eb4c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0ddb1297ab55c4d15716e0410d1eaf77"><td class="memItemLeft" align="right" valign="top">vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a0ddb1297ab55c4d15716e0410d1eaf77">get_alleles</a> (vcflib::Variant &amp;v, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;travs, int ref_path_idx, char prev_char)</td></tr>
+<tr class="separator:a0ddb1297ab55c4d15716e0410d1eaf77"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6f0e3ee502daf41a1e591b2033552efc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a6f0e3ee502daf41a1e591b2033552efc">get_genotypes</a> (vcflib::Variant &amp;v, const vector&lt; string &gt; &amp;names, const vector&lt; int &gt; &amp;trav_to_allele)</td></tr>
+<tr class="separator:a6f0e3ee502daf41a1e591b2033552efc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6a04c1d7c7ab976a12a8137ad7496fa3"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a6a04c1d7c7ab976a12a8137ad7496fa3">check_max_nodes</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl)</td></tr>
+<tr class="separator:a6a04c1d7c7ab976a12a8137ad7496fa3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac4f96d3b7aba4db79e2448d21734f47c"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#ac4f96d3b7aba4db79e2448d21734f47c">explicit_exhaustive_traversals</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl)</td></tr>
+<tr class="separator:ac4f96d3b7aba4db79e2448d21734f47c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
-<tr class="memitem:a77ee43b45464b8b41376a11f6d97e636"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a77ee43b45464b8b41376a11f6d97e636">headered</a> = false</td></tr>
-<tr class="separator:a77ee43b45464b8b41376a11f6d97e636"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2e5fb57f7e5ada44e566ce4ec1bc72c3"><td class="memItemLeft" align="right" valign="top">vcflib::VariantCallFile&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a2e5fb57f7e5ada44e566ce4ec1bc72c3">outvcf</a></td></tr>
+<tr class="separator:a2e5fb57f7e5ada44e566ce4ec1bc72c3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa20ebcbb8753e469b24f90b72566dfca"><td class="memItemLeft" align="right" valign="top">map&lt; string, <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#aa20ebcbb8753e469b24f90b72566dfca">pindexes</a></td></tr>
+<tr class="separator:aa20ebcbb8753e469b24f90b72566dfca"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aecaa984fc9780a4714afac84d4b5e2c6"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#aecaa984fc9780a4714afac84d4b5e2c6">path_restricted</a> = false</td></tr>
+<tr class="separator:aecaa984fc9780a4714afac84d4b5e2c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a82b9a8610d35094f9b17bf2ef2082d48"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1VG.html">VG</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a82b9a8610d35094f9b17bf2ef2082d48">graph</a></td></tr>
+<tr class="separator:a82b9a8610d35094f9b17bf2ef2082d48"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad6e7cccec2d0d3b410c95069ebf3e303"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#ad6e7cccec2d0d3b410c95069ebf3e303">snarl_manager</a></td></tr>
+<tr class="separator:ad6e7cccec2d0d3b410c95069ebf3e303"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a85927e49cf01f8e7e8aeaf63e71d8855"><td class="memItemLeft" align="right" valign="top">unique_ptr<br class="typebreak"/>
+&lt; <a class="el" href="classvg_1_1PathRestrictedTraversalFinder.html">PathRestrictedTraversalFinder</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a85927e49cf01f8e7e8aeaf63e71d8855">path_trav_finder</a></td></tr>
+<tr class="separator:a85927e49cf01f8e7e8aeaf63e71d8855"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab2c8f173c8de2b4ecb6f2af8fbfbbb08"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1TraversalFinder.html">TraversalFinder</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#ab2c8f173c8de2b4ecb6f2af8fbfbbb08">trav_finder</a></td></tr>
+<tr class="separator:ab2c8f173c8de2b4ecb6f2af8fbfbbb08"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a56f3119a427b1076d0d0d5ca7f478832"><td class="memItemLeft" align="right" valign="top">set&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a56f3119a427b1076d0d0d5ca7f478832">sample_names</a></td></tr>
+<tr class="separator:a56f3119a427b1076d0d0d5ca7f478832"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a38b458b541ea01415d938e8c8ff7d615"><td class="memItemLeft" align="right" valign="top">const unordered_map&lt; string, <br class="typebreak"/>
+string &gt; *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a38b458b541ea01415d938e8c8ff7d615">path_to_sample</a></td></tr>
+<tr class="separator:a38b458b541ea01415d938e8c8ff7d615"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a109f4d81196e52d38a8406eaa1d4e2b3"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a109f4d81196e52d38a8406eaa1d4e2b3">max_nodes_for_exhaustive</a> = 100</td></tr>
+<tr class="separator:a109f4d81196e52d38a8406eaa1d4e2b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a class="anchor" id="ac164fa41d5d207dec36a99b891d405be"></a>
@@ -154,33 +178,31 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a class="anchor" id="aadd12c9b976e6bab2f6bf6992f099e8f"></a>
+<a class="anchor" id="a6a04c1d7c7ab976a12a8137ad7496fa3"></a>
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::Deconstructor::deconstruct </td>
+          <td class="memname">bool vg::Deconstructor::check_max_nodes </td>
           <td>(</td>
-          <td class="paramtype">string&#160;</td>
-          <td class="paramname"><em>refpath</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td>
+          <td class="paramname"><em>snarl</em></td><td>)</td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">vg::VG</a> *&#160;</td>
-          <td class="paramname"><em>graph</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a class="anchor" id="ac81d6ab9f85d5a88ac7b8d07935838f7"></a>
+<a class="anchor" id="a88527f2a8de8dc7e98d4804f365e6fa9"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -194,7 +216,25 @@ Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype"><a class="el" href="classvg_1_1VG.html">vg::VG</a> *&#160;</td>
-          <td class="paramname"><em>graph</em>&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *&#160;</td>
+          <td class="paramname"><em>snarl_manager</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>path_restricted_traversals</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_map&lt; string, string &gt; *&#160;</td>
+          <td class="paramname"><em>path_to_sample</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -207,41 +247,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="aeb9bc204bf4d999f7dcd9df5e522e776"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">pair&lt; bool, vector&lt; string &gt; &gt; vg::Deconstructor::get_alleles </td>
-          <td>(</td>
-          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;&#160;</td>
-          <td class="paramname"><em>travs</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">string&#160;</td>
-          <td class="paramname"><em>refpath</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">vg::VG</a> *&#160;</td>
-          <td class="paramname"><em>graph</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Takes in a vector of snarltraversals returns their sequences as a vector&lt;string&gt; returns a boolean hasRef if a reference path is present, hasRef is set to true and the first string in the vector is the reference allele otherwise, hasRef is set to false and all strings are alt alleles. </p>
-
-</div>
-</div>
-<h2 class="groupheader">Member Data Documentation</h2>
-<a class="anchor" id="a77ee43b45464b8b41376a11f6d97e636"></a>
+<a class="anchor" id="ab5e1a3e81b21bd428e7457f92c9eb4c4"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -249,7 +255,243 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::Deconstructor::headered = false</td>
+          <td class="memname">bool vg::Deconstructor::deconstruct_site </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td>
+          <td class="paramname"><em>site</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="ac4f96d3b7aba4db79e2448d21734f47c"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; vg::Deconstructor::explicit_exhaustive_traversals </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td>
+          <td class="paramname"><em>snarl</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a0ddb1297ab55c4d15716e0410d1eaf77"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; int &gt; vg::Deconstructor::get_alleles </td>
+          <td>(</td>
+          <td class="paramtype">vcflib::Variant &amp;&#160;</td>
+          <td class="paramname"><em>v</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>travs</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>ref_path_idx</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">char&#160;</td>
+          <td class="paramname"><em>prev_char</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Takes in a vector of snarltraversals returns their sequences as a vector&lt;string&gt; returns a boolean hasRef if a reference path is present, hasRef is set to true and the first string in the vector is the reference allele otherwise, hasRef is set to false and all strings are alt alleles. </p>
+
+</div>
+</div>
+<a class="anchor" id="a6f0e3ee502daf41a1e591b2033552efc"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Deconstructor::get_genotypes </td>
+          <td>(</td>
+          <td class="paramtype">vcflib::Variant &amp;&#160;</td>
+          <td class="paramname"><em>v</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>names</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; int &gt; &amp;&#160;</td>
+          <td class="paramname"><em>trav_to_allele</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<h2 class="groupheader">Member Data Documentation</h2>
+<a class="anchor" id="a82b9a8610d35094f9b17bf2ef2082d48"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1VG.html">VG</a>* vg::Deconstructor::graph</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a109f4d81196e52d38a8406eaa1d4e2b3"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::Deconstructor::max_nodes_for_exhaustive = 100</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a2e5fb57f7e5ada44e566ce4ec1bc72c3"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vcflib::VariantCallFile vg::Deconstructor::outvcf</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="aecaa984fc9780a4714afac84d4b5e2c6"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Deconstructor::path_restricted = false</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a38b458b541ea01415d938e8c8ff7d615"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const unordered_map&lt;string, string&gt;* vg::Deconstructor::path_to_sample</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a85927e49cf01f8e7e8aeaf63e71d8855"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">unique_ptr&lt;<a class="el" href="classvg_1_1PathRestrictedTraversalFinder.html">PathRestrictedTraversalFinder</a>&gt; vg::Deconstructor::path_trav_finder</td>
         </tr>
       </table>
   </td>
@@ -264,11 +506,79 @@ Private Attributes</h2></td></tr>
 <a class="anchor" id="aa20ebcbb8753e469b24f90b72566dfca"></a>
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">map&lt;string, <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a>*&gt; vg::Deconstructor::pindexes</td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a56f3119a427b1076d0d0d5ca7f478832"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">set&lt;string&gt; vg::Deconstructor::sample_names</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="ad6e7cccec2d0d3b410c95069ebf3e303"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a>* vg::Deconstructor::snarl_manager</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="ab2c8f173c8de2b4ecb6f2af8fbfbbb08"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">unique_ptr&lt;<a class="el" href="classvg_1_1TraversalFinder.html">TraversalFinder</a>&gt; vg::Deconstructor::trav_finder</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 </div>

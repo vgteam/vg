@@ -50,6 +50,7 @@ var searchData=
   ['check',['check',['../structvg_1_1MinimizerIndex_1_1Header.html#a941497f8a2a46d59191275e21780a4fb',1,'vg::MinimizerIndex::Header']]],
   ['check_5falignment',['check_alignment',['../classvg_1_1Mapper.html#a0750e1ca5a4eff47c148b176081c5333',1,'vg::Mapper']]],
   ['check_5fin',['check_in',['../classvg_1_1Watchdog.html#a73fff63eede4aaf60f04ca41f2373cdc',1,'vg::Watchdog']]],
+  ['check_5fmax_5fnodes',['check_max_nodes',['../classvg_1_1Deconstructor.html#a6a04c1d7c7ab976a12a8137ad7496fa3',1,'vg::Deconstructor']]],
   ['check_5fmax_5ftrav_5fcutoff',['check_max_trav_cutoff',['../classvg_1_1VCFTraversalFinder.html#aab82f66226266e3adcfc7076f158ff23',1,'vg::VCFTraversalFinder']]],
   ['check_5fout',['check_out',['../classvg_1_1Watchdog.html#abef59fb95cd3cb40a103d6e73e4c8031',1,'vg::Watchdog']]],
   ['check_5fprotobuf_5ftag',['check_protobuf_tag',['../classvg_1_1io_1_1Registry.html#a0600b489129e1f4090172fccb7863f2b',1,'vg::io::Registry']]],

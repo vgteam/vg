@@ -67,6 +67,7 @@ var searchData=
   ['max_5fmultimaps',['max_multimaps',['../classvg_1_1Mapper.html#a462268836d2c5f5f4acde6ca9060e593',1,'vg::Mapper::max_multimaps()'],['../classvg_1_1MinimizerMapper.html#aede601962425752ec75ea1d890505357',1,'vg::MinimizerMapper::max_multimaps()']]],
   ['max_5fnode_5fid',['max_node_id',['../classvg_1_1MinimumDistanceIndex.html#ae3a3b2f92e9aff1608e1ddc6d7d25643',1,'vg::MinimumDistanceIndex']]],
   ['max_5fnode_5fsize',['max_node_size',['../classvg_1_1Constructor.html#a6ca9a0b7785c1c9c6e859cc75ea2a2f4',1,'vg::Constructor::max_node_size()'],['../classvg_1_1VariantAdder.html#a3e1dae34969d5779d09819de627a6bd5',1,'vg::VariantAdder::max_node_size()']]],
+  ['max_5fnodes_5ffor_5fexhaustive',['max_nodes_for_exhaustive',['../classvg_1_1Deconstructor.html#a109f4d81196e52d38a8406eaa1d4e2b3',1,'vg::Deconstructor']]],
   ['max_5foverhang',['max_overhang',['../classvg_1_1ReadFilter.html#ab73972404a3db8d8f902d3d47896857d',1,'vg::ReadFilter']]],
   ['max_5fp_5fvalue_5fmemo_5fsize',['max_p_value_memo_size',['../classvg_1_1MultipathMapper.html#ada39acac8f403bf92632024be4e448e1',1,'vg::MultipathMapper']]],
   ['max_5fpath_5fid',['max_path_id',['../classvg_1_1Paths.html#ac5e9e182ecf09166f516c6fbf9923a29',1,'vg::Paths']]],

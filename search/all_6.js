@@ -77,6 +77,7 @@ var searchData=
   ['find_5fmax_5fnode',['find_max_node',['../classvg_1_1FlowSort.html#ab05b9f1737b5cef5e719a33d150b7529',1,'vg::FlowSort']]],
   ['find_5fmems_5fdeep',['find_mems_deep',['../classvg_1_1BaseMapper.html#af64a7b36c1880606372d0849842708b0',1,'vg::BaseMapper']]],
   ['find_5fmems_5fsimple',['find_mems_simple',['../classvg_1_1BaseMapper.html#a4dd3272837211543ba461472833734a9',1,'vg::BaseMapper']]],
+  ['find_5fnamed_5ftraversals',['find_named_traversals',['../classvg_1_1PathRestrictedTraversalFinder.html#ab046472d6a0a26a52c91574e7a09373d',1,'vg::PathRestrictedTraversalFinder']]],
   ['find_5fnode_5fby_5fname_5for_5fadd_5fnew',['find_node_by_name_or_add_new',['../classvg_1_1VG.html#a04774a86b07508e9e5955abfba2171ff',1,'vg::VG']]],
   ['find_5fnon_5fref_5ftips',['find_non_ref_tips',['../classvg_1_1Homogenizer.html#a8b6ba61dfa468727d090ed7ba9b8b490',1,'vg::Homogenizer']]],
   ['find_5foffset',['find_offset',['../classvg_1_1MinimizerIndex.html#a70d8fdb260a0f2d3d8c262e2ffe10597',1,'vg::MinimizerIndex']]],

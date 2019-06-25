@@ -21,6 +21,7 @@ var searchData=
   ['allele',['allele',['../structvg_1_1Locus.html#adc1277c0f4db113e9124b115350f284c',1,'vg::Locus::allele()'],['../structvg_1_1Genotype.html#a1703c340c8866d2c62bfb0f602e9f423',1,'vg::Genotype::allele()']]],
   ['allele_5flog_5flikelihood',['allele_log_likelihood',['../structvg_1_1Locus.html#afde669bf5bab01c5cc7a56d97a3aedcc',1,'vg::Locus']]],
   ['alleles',['alleles',['../structhaplo_1_1linear__haplo__structure_1_1SNVvector.html#ad85e96e34ed648807222b3a4ee027732',1,'haplo::linear_haplo_structure::SNVvector::alleles()'],['../structvg_1_1VG_1_1Plan.html#ab142f645d542a8d08ecfb2253d81f8d7',1,'vg::VG::Plan::alleles()']]],
+  ['allow_5fduplicates',['allow_duplicates',['../classvg_1_1PathRestrictedTraversalFinder.html#a153de6a0b89875c0cbe4adb2301421f4',1,'vg::PathRestrictedTraversalFinder']]],
   ['allowed_5fvcf_5fnames',['allowed_vcf_names',['../classvg_1_1Constructor.html#a792c656b37e8b8836cd223751749d401',1,'vg::Constructor']]],
   ['allowed_5fvcf_5fregions',['allowed_vcf_regions',['../classvg_1_1Constructor.html#ac152e7a5407ef743f41e301700203129',1,'vg::Constructor']]],
   ['aln',['aln',['../classvg_1_1AlignmentChainModelVertex.html#ab49913fb60fec26e020912069d8c0103',1,'vg::AlignmentChainModelVertex']]],

@@ -55,6 +55,7 @@ var searchData=
   ['transition_5fdistrs_5f2',['transition_distrs_2',['../classvg_1_1NGSSimulator.html#ad3d0c480b5ecd2fa7c5209d86b41911d',1,'vg::NGSSimulator']]],
   ['translations',['translations',['../classvg_1_1Translator.html#aba17cd4fd008c2dbee1da376db1807be',1,'vg::Translator']]],
   ['translator',['translator',['../structvg_1_1AugmentedGraph.html#a3ac035d37452eb611b943cfa4754d6c6',1,'vg::AugmentedGraph::translator()'],['../classvg_1_1Genotyper.html#ad14928554aace83524e80d8c109e17b2',1,'vg::Genotyper::translator()'],['../classvg_1_1Homogenizer.html#add991c227017ff02250cbaac2b81ca72',1,'vg::Homogenizer::translator()']]],
+  ['trav_5ffinder',['trav_finder',['../classvg_1_1Deconstructor.html#ab2c8f173c8de2b4ecb6f2af8fbfbbb08',1,'vg::Deconstructor']]],
   ['traversal',['traversal',['../structvg_1_1GBWTTraversal.html#abc5a7ae88f80dea62d268c1d5b17227d',1,'vg::GBWTTraversal::traversal()'],['../classvg_1_1mapping__t.html#a9ef6e5278c0ac9ce077ea2c8e0902674',1,'vg::mapping_t::traversal()']]],
   ['traversal_5falg',['traversal_alg',['../classvg_1_1Genotyper.html#a5b040c1636f479b52dbdb641e82f74dd',1,'vg::Genotyper']]],
   ['traversal_5ffinder',['traversal_finder',['../classvg_1_1SmallSnarlSimplifier.html#aaf858ca21b486fe45acbf92a4cbea5ba',1,'vg::SmallSnarlSimplifier']]],

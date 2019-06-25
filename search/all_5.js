@@ -143,9 +143,10 @@ var searchData=
   ['expand_5fpath',['expand_path',['../classvg_1_1VG.html#aa9273361525befc57536dc96a762c29d',1,'vg::VG::expand_path(const list&lt; NodeTraversal &gt; &amp;path, vector&lt; NodeTraversal &gt; &amp;expanded)'],['../classvg_1_1VG.html#ae151983cac753c02ce3852274798f8d5',1,'vg::VG::expand_path(list&lt; NodeTraversal &gt; &amp;path, vector&lt; list&lt; NodeTraversal &gt;::iterator &gt; &amp;expanded)']]],
   ['expanded_5fsubgraph',['expanded_subgraph',['../classvg_1_1RegionExpander.html#ab814b5c541d4d651791fda99d380133b',1,'vg::RegionExpander']]],
   ['expanding_5foverlay_5fgraph_2ehpp',['expanding_overlay_graph.hpp',['../expanding__overlay__graph_8hpp.html',1,'']]],
-  ['expandingoverlaygraph',['ExpandingOverlayGraph',['../classvg_1_1ExpandingOverlayGraph.html',1,'vg']]],
   ['expandingoverlaygraph',['ExpandingOverlayGraph',['../classhandlegraph_1_1ExpandingOverlayGraph.html',1,'handlegraph']]],
+  ['expandingoverlaygraph',['ExpandingOverlayGraph',['../classvg_1_1ExpandingOverlayGraph.html',1,'vg']]],
   ['expected_5fcoverage',['expected_coverage',['../classvg_1_1SupportCaller.html#a72cd919ebff400d32250e4f0882929f4',1,'vg::SupportCaller']]],
+  ['explicit_5fexhaustive_5ftraversals',['explicit_exhaustive_traversals',['../classvg_1_1Deconstructor.html#ac4f96d3b7aba4db79e2448d21734f47c',1,'vg::Deconstructor']]],
   ['explode_5fmain_2ecpp',['explode_main.cpp',['../explode__main_8cpp.html',1,'']]],
   ['explore_5fgbwt',['explore_gbwt',['../classvg_1_1MinimizerMapper.html#a47b209592e4ed47ebb5aecd7ce90223c',1,'vg::MinimizerMapper']]],
   ['extend',['extend',['../classvg_1_1GaplessExtender.html#abc2a8eda3cbf8da43232545ad596a6d1',1,'vg::GaplessExtender::extend()'],['../structhaplo_1_1haplo__DP__rectangle.html#a4a980cf0bed86b9aceb27c065f48b200',1,'haplo::haplo_DP_rectangle::extend(hDP_graph_accessor &amp;ga)'],['../structhaplo_1_1haplo__DP__rectangle.html#a46ffe0af953ecd6abf889315d50153a4',1,'haplo::haplo_DP_rectangle::extend(hDP_gbwt_graph_accessor&lt; GBWTType &gt; &amp;ga)'],['../structhaplo_1_1haplo__DP__column.html#af2d28d03a6d456b0f17453e4ae0a8c16',1,'haplo::haplo_DP_column::extend()'],['../classvg_1_1Paths.html#a1b630067f63b3e4e1ef143902bbdcca1',1,'vg::Paths::extend(const Paths &amp;paths, bool warn_on_duplicates=false, bool rebuild_indexes=true)'],['../classvg_1_1Paths.html#a36f713f6d40d4c42a0426b7cb932da1d',1,'vg::Paths::extend(const Path &amp;p, bool warn_on_duplicates=false, bool rebuild_indexes=true)'],['../classvg_1_1Paths.html#a83e61d4adfdb931c93a06dbc119a6963',1,'vg::Paths::extend(const vector&lt; Path &gt; &amp;paths, bool warn_on_duplicates=false, bool rebuild_indexes=true)'],['../classvg_1_1Pileups.html#a61fb12878bae89e5d33eaef75f26d6a0',1,'vg::Pileups::extend()'],['../classvg_1_1VG.html#a2519c3b939f48bca226e6fdea4c91f9d',1,'vg::VG::extend(const VG &amp;g, bool warn_on_duplicates=false)'],['../classvg_1_1VG.html#a5e517214b33812b16f195a1f87841c0d',1,'vg::VG::extend(const Graph &amp;graph, bool warn_on_duplicates=false)'],['../classvg_1_1XdropAligner.html#a65b498703a9e8e6a6d700a0fef8fb655',1,'vg::XdropAligner::extend()']]],
@@ -176,6 +177,6 @@ var searchData=
   ['extract_5fthread',['extract_thread',['../classvg_1_1XG.html#a2f0fb19721c656ef0f9e12445074fee2',1,'vg::XG::extract_thread(const string &amp;name) const '],['../classvg_1_1XG.html#a9366bb8c5e44ad87453596c4abc2e2c2',1,'vg::XG::extract_thread(XG::ThreadMapping node, int64_t offset, int64_t max_length)']]],
   ['extract_5fthreads',['extract_threads',['../classvg_1_1XG.html#aeb0333a24fd5448f07165a32eacdfd86',1,'vg::XG']]],
   ['extract_5fthreads_5fmatching',['extract_threads_matching',['../classvg_1_1XG.html#a37516fbc8b01560fd89dbae5f4cc88e7',1,'vg::XG']]],
-  ['extranodegraph',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html#aafddbd22f8123df59e0bbdb634f5ba0a',1,'vg::ExtraNodeGraph']]],
-  ['extranodegraph',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html',1,'vg']]]
+  ['extranodegraph',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html',1,'vg']]],
+  ['extranodegraph',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html#aafddbd22f8123df59e0bbdb634f5ba0a',1,'vg::ExtraNodeGraph']]]
 ];

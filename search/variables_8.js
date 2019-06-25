@@ -33,7 +33,6 @@ var searchData=
   ['head_5ftail_5fnodes',['head_tail_nodes',['../classvg_1_1Paths.html#a3fd42adbd3d58aee08370f043dc1643d',1,'vg::Paths']]],
   ['header',['header',['../classvg_1_1MinimizerIndex.html#a2c3850d887e644838dae6ac13174d9b0',1,'vg::MinimizerIndex']]],
   ['header_5fmutex',['header_mutex',['../classvg_1_1HTSAlignmentEmitter.html#a415bd90d7e4b2da45e534ec1810616fe',1,'vg::HTSAlignmentEmitter']]],
-  ['headered',['headered',['../classvg_1_1Deconstructor.html#a77ee43b45464b8b41376a11f6d97e636',1,'vg::Deconstructor']]],
   ['het_5fprior_5flogprob',['het_prior_logprob',['../classvg_1_1Genotyper.html#a21799af8d6da86a3bbcfffb1060d27cf',1,'vg::Genotyper']]],
   ['heterozygous_5fprior_5fln',['heterozygous_prior_ln',['../classvg_1_1FixedGenotypePriorCalculator.html#ac5782c89f874dd212631d6451ef4b842',1,'vg::FixedGenotypePriorCalculator']]],
   ['hint_5fpaths',['hint_paths',['../classvg_1_1CactusSnarlFinder.html#a380a95f5119b76793da6ba19320a1750',1,'vg::CactusSnarlFinder']]],

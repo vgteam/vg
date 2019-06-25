@@ -29,6 +29,7 @@ var searchData=
   ['output_5fsvg',['output_svg',['../classvg_1_1Viz.html#a82a23ca5a5a6ababff6176743247be04',1,'vg::Viz']]],
   ['output_5ftabbed',['output_tabbed',['../classVectorizer.html#a7be5208d3a51438a989dd406fb808fd9',1,'Vectorizer']]],
   ['output_5fversion',['OUTPUT_VERSION',['../classvg_1_1StreamIndexBase.html#ad8e4be116b6b053e08a4221da069a092',1,'vg::StreamIndexBase::OUTPUT_VERSION()'],['../classvg_1_1XG.html#af2d9aba3cc55af7370e0ea7d1fba4dac',1,'vg::XG::OUTPUT_VERSION()']]],
+  ['outvcf',['outvcf',['../classvg_1_1Deconstructor.html#a2e5fb57f7e5ada44e566ce4ec1bc72c3',1,'vg::Deconstructor']]],
   ['overall_5fsupport',['overall_support',['../structvg_1_1Locus.html#a04ac3427a7318a28984c8114cd216675',1,'vg::Locus']]],
   ['overlap',['overlap',['../structvg_1_1Edge.html#aafdc39a954fd8de9dc3850ad9ecb9ade',1,'vg::Edge']]],
   ['overlapping_5frefs',['overlapping_refs',['../classvg_1_1SRPE.html#a9bc3e671b90795b69d9b9266d189f89a',1,'vg::SRPE']]]
