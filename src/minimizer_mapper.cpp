@@ -1246,9 +1246,18 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
 }
 
 void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
-    // Find all the handles/nodes that are relevant
+    // Find all the handles/nodes that are relevant.
+    // This holds handles on the strand visited by each relevant extension.
+    unordered_set<handle_t> start_points;
+    for (auto& extension : extended_seeds) {
+        for (auto& core_handle : extension.path) {
+            // Collect together all the handles that extensions touch
+            start_points.insert(core_handle);
+        }
+    }
     
-    // Extract the right amount of graph context
+    // Walk a stranded Dijkstra traversal the appropriate distance from all the starting points, in all directions.
+    size_t distance_limit = aln.sequence().size() * 2;
     
     // Find a covering set of haplotype paths
     
