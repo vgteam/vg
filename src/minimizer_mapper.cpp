@@ -764,6 +764,8 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
     
     assert(!source_extensions.empty());
     assert(!sink_extensions.empty());
+    
+    cerr << "Have " << source_extensions.size() << " sources and " << sink_extensions.size() << " sinks" << endl;
         
         
     // We're going to record source and sink path count distributions, for debugging
@@ -797,13 +799,15 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
         // For each extended seed that can come from something outside the cluster
         const size_t& source = kv.first;
         
-        if (!source_extensions.count(source)) {
+        if (!source_extensions.count(source) && !all_tails) {
             // Skip it if it is reachable from anywhere else, and we aren't doing all tails.
             continue;
         }
         
         // Grab the part of the read sequence that comes before it
-        string before_sequence = aln.sequence().substr(0, extended_seeds[source].core_interval.first); 
+        string before_sequence = aln.sequence().substr(0, extended_seeds[source].core_interval.first);
+        
+        cerr << "Do leading tail to extension " << source << " of " << before_sequence << endl;
         
 #ifdef debug
         cerr << "There is a path into source extended seed " << source
@@ -954,8 +958,8 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
             if (to == numeric_limits<size_t>::max()) {
                 // We can go to something outside the cluster
                 
-                if (sink_extensions.count(from)) {
-                    // We can't go to anything in the cluster; it is a real sink.
+                if (sink_extensions.count(from) || all_tails) {
+                    // We can't go to anything in the cluster (it is a real sink) or we are doing all tails.
                     
                     // Do a bunch of left pinned alignments for the tails.
                     
@@ -964,6 +968,8 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                     
                     if (!trailing_sequence.empty()) {
                         // There is actual trailing sequence to align on this escape path
+                        
+                        cerr << "Do trailing tail from extension " << from << " of " << trailing_sequence << endl;
                         
                         // Record that a sink has this many outgoing haplotypes to process.
                         tail_path_counts.push_back(to_and_paths.second.size());
