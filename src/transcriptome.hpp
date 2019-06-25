@@ -89,14 +89,14 @@ class Transcriptome {
         /// Attribute tag used to parse the transcript id/name in the gtf/gff file. 
         string transcript_tag = "transcript_id";
 
-        /// Use paths embedded in the graph for transcript path construction. 
+        /// Use all paths embedded in the graph for transcript path construction. 
         bool use_embedded_paths = false;
+
+        /// Use reference paths embedded in the graph for transcript path construction. 
+        bool use_reference_paths = false;
 
         /// Collapse identical transcript paths.
         bool collapse_transcript_paths = true;
-
-        /// Filter transcript paths originating from a reference chromosome/contig.
-        bool filter_reference_transcript_paths = false;
 
         /// Constructs transcript paths by projecting transcripts from a gtf/gff file onto 
         /// embedded paths in a variation graph and/or haplotypes in a GBWT index.   
@@ -114,26 +114,26 @@ class Transcriptome {
         /// Removes non-transcribed (not in transcript paths) nodes.
         /// Optionally create new reference paths that only include
         /// trancribed nodes and edges.
-        void remove_non_transcribed(const bool keep_reference);
+        void remove_non_transcribed(const bool new_reference_paths);
 
         /// Topological sort and compact graph.
         void compact_ordered();
 
         /// Embeds transcript paths in variation graph. 
         /// Optionally rebuild paths indexes.
-        void add_paths_to_graph(const bool rebuild_indexes);
+        void add_paths_to_graph(const bool add_reference_paths, const bool add_non_reference_paths, const bool rebuild_indexes);
 
         /// Add transcript paths as threads in GBWT index.
-        void construct_gbwt(gbwt::GBWTBuilder * gbwt_builder) const;
+        void construct_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool output_reference_transcripts) const;
         
         /// Writes transcript paths as alignments to a gam file.
-        void write_alignments(ostream * gam_ostream) const;
+        void write_alignments(ostream * gam_ostream, const bool output_reference_transcripts) const;
 
         /// Writes transcript path sequences to a fasta file.  
-        void write_sequences(ostream * fasta_ostream);
+        void write_sequences(ostream * fasta_ostream, const bool output_reference_transcripts);
 
         /// Writes origin info on transcripts to tsv file.
-        void write_info(ostream * tsv_ostream) const;
+        void write_info(ostream * tsv_ostream, const bool output_reference_transcripts) const;
 
         /// Writes spliced variation graph to vg file
         void write_graph(ostream * graph_ostream);
