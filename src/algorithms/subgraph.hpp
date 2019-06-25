@@ -27,7 +27,7 @@ void expand_subgraph_by_length(const HandleGraph& source, MutableHandleGraph& su
 void expand_subgraph_to_length(const HandleGraph& source, MutableHandleGraph& subgraph, const uint64_t& length, bool forward_only = false);
 
 /// expand the context around a single handle position
-void extract_context(const HandleGraph& source, MutableHandleGraph& subgraph, const handle_t& handle, const uint64_t& offset, const uint64_t& length);
+void extract_context(const HandleGraph& source, MutableHandleGraph& subgraph, const handle_t& handle, const uint64_t& offset, const uint64_t& length, bool go_fwd = true, bool go_rev = true);
 
 /// extract the node id range
 void extract_id_range(const HandleGraph& source, const nid_t& id1, const nid_t& id2, MutableHandleGraph& subgraph);

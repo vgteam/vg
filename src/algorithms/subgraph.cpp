@@ -175,13 +175,15 @@ void expand_subgraph_to_length(const HandleGraph& source, MutableHandleGraph& su
 }
 
 /// expand the context around a single handle position
-void extract_context(const HandleGraph& source, MutableHandleGraph& subgraph, const handle_t& handle, const uint64_t& offset, const uint64_t& length) {
+void extract_context(const HandleGraph& source, MutableHandleGraph& subgraph, const handle_t& handle, const uint64_t& offset, const uint64_t& length, bool fwd, bool rev) {
     uint64_t total_length_fwd = source.get_length(handle)-offset;
     uint64_t total_length_rev = offset;
+    uint64_t get_fwd = fwd && !rev ? length : length/2;
+    uint64_t get_rev = !fwd && rev ? length : length/2;
     if (!subgraph.has_node(source.get_id(handle))) {
         subgraph.create_handle(source.get_sequence(handle), source.get_id(handle));
     }
-    while (total_length_fwd < length/2 || total_length_rev < length/2) {
+    while (total_length_fwd < get_fwd || total_length_rev < get_rev) {
         std::vector<handle_t> curr_handles;
         subgraph.for_each_handle([&](const handle_t& h) {
                 curr_handles.push_back(h);

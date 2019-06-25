@@ -3437,7 +3437,7 @@ vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg
     return positions;
 }
 
-Graph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
+HashGraph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
     assert(mems.size());
     auto& start_mem = mems.front();
     auto start_pos = make_pos_t(start_mem.nodes.front());
@@ -3445,12 +3445,13 @@ Graph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector
     // Even if the MEM is right up against the start of the read, it may not be
     // part of the best alignment. Make sure to have some padding.
     // TODO: how much padding?
-    Graph graph;
+    HashGraph graph;
     int inside_padding = max(1, (int)aln.sequence().size()/16);
     int end_padding = max(8, (int)aln.sequence().size()/8);
     int get_before = end_padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     if (get_before) {
-        graph.MergeFrom(xg.graph_context_id(rev_start_pos, get_before));
+        //graph.MergeFrom(xg.graph_context_id(rev_start_pos, get_before));
+        
     }
     //cerr << "======================================================" << endl;
     for (int i = 0; i < mems.size(); ++i) {
@@ -3479,15 +3480,13 @@ Graph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector
         if (get_after > 0) graph.MergeFrom(xg.graph_context_id(make_pos_t(pos), get_after));
     }
     algorithms::expand_subgraph_by_steps(xg, graph, 0);
-    // todo: do we need this?
-    algorithms::add_subpaths_to_subgraph(xg, graph);
     
     xg.expand_context(graph, 0, false); // get connected edges
     sort_by_id_dedup_and_clean(graph);
     return graph;
 }
 
-Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
+HashGraph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
     assert(mems.size());
     auto& start_mem = mems.front();
     auto start_pos = make_pos_t(start_mem.nodes.front());
