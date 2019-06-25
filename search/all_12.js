@@ -123,7 +123,7 @@ var searchData=
   ['remove_5fnode',['remove_node',['../classvg_1_1Paths.html#ab74cefb48d501d96b8dc81e3865770d1',1,'vg::Paths']]],
   ['remove_5fnode_5fforwarding_5fedges',['remove_node_forwarding_edges',['../classvg_1_1VG.html#ab92694e7fd89275603c967739e60e0d2',1,'vg::VG']]],
   ['remove_5fnon_5fpath',['remove_non_path',['../classvg_1_1VG.html#ad517da731d2bf9c81cc28e0a1367af33',1,'vg::VG']]],
-  ['remove_5fnon_5ftranscribed',['remove_non_transcribed',['../classvg_1_1Transcriptome.html#a012f7eec60cb36b505d7e4692ef70b8a',1,'vg::Transcriptome']]],
+  ['remove_5fnon_5ftranscribed',['remove_non_transcribed',['../classvg_1_1Transcriptome.html#a1aaf4d46efa330894793a40efdbb66c7',1,'vg::Transcriptome']]],
   ['remove_5fnull_5fnodes',['remove_null_nodes',['../classvg_1_1VG.html#a9b107027697644d771eb529037201f71',1,'vg::VG']]],
   ['remove_5fnull_5fnodes_5fforwarding_5fedges',['remove_null_nodes_forwarding_edges',['../classvg_1_1VG.html#a0e887a7b2cfc666f2210889a2dec791b',1,'vg::VG']]],
   ['remove_5forphan_5fedges',['remove_orphan_edges',['../classvg_1_1VG.html#a40dd9bc0458a4948afd676374ae8d1f0',1,'vg::VG::remove_orphan_edges()'],['../namespacevg.html#a0b38f4f0d7e63b1f7f20d2dc985f88c4',1,'vg::remove_orphan_edges()']]],

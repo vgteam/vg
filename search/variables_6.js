@@ -11,7 +11,6 @@ var searchData=
   ['filenames',['filenames',['../structvg_1_1temp__file_1_1Handler.html#a712176aeac999c1930b246fa02dc0f25',1,'vg::temp_file::Handler::filenames()'],['../classvg_1_1VGset.html#a49cf0bee988a30fb024218dd4f4eed56',1,'vg::VGset::filenames()']]],
   ['filter_5fmatches',['filter_matches',['../classvg_1_1Filter.html#ab1a5ffa8d8e0205909a9ed33e1ff26f5',1,'vg::Filter']]],
   ['filter_5fon_5fall',['filter_on_all',['../classvg_1_1ReadFilter.html#acc075968b0c08ed7ad4f2cb0a837ef95',1,'vg::ReadFilter']]],
-  ['filter_5freference_5ftranscript_5fpaths',['filter_reference_transcript_paths',['../classvg_1_1Transcriptome.html#a78e782cd6f5d5c38730fbe54cfcbe3fc',1,'vg::Transcriptome']]],
   ['first',['first',['../structvg_1_1FeatureSet_1_1Feature.html#ade37c17b95cc0314dc381e93b04ff7b4',1,'vg::FeatureSet::Feature']]],
   ['fixed_5ffragment_5fmodel',['fixed_fragment_model',['../classvg_1_1FragmentLengthStatistics.html#a8c3c6bfb99c7cef159520adb58be271d',1,'vg::FragmentLengthStatistics']]],
   ['flags',['flags',['../structvg_1_1MinimizerIndex_1_1Header.html#a057627288bb5008172fe61159352be60',1,'vg::MinimizerIndex::Header']]],

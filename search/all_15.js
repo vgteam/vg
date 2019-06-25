@@ -62,6 +62,7 @@ var searchData=
   ['use_5fmapq',['use_mapq',['../classvg_1_1Genotyper.html#a5991ce66cc2a9ea45bd27d288dd7d9b8',1,'vg::Genotyper']]],
   ['use_5fmin_5fdist_5fclusterer',['use_min_dist_clusterer',['../classvg_1_1MultipathMapper.html#aed5898444e134f0fb95ae527d215e88f',1,'vg::MultipathMapper']]],
   ['use_5fpopulation_5fmapqs',['use_population_mapqs',['../classvg_1_1MultipathMapper.html#aaaecbb0881e444042662a72907442fc1',1,'vg::MultipathMapper']]],
+  ['use_5freference_5fpaths',['use_reference_paths',['../classvg_1_1Transcriptome.html#a37911193a8091c07833776946f9994ad',1,'vg::Transcriptome']]],
   ['use_5fsupport_5fcount',['use_support_count',['../classvg_1_1SupportCaller.html#a626d85743ce833b7745afe9c1ab66cb6',1,'vg::SupportCaller']]],
   ['use_5ftvs_5fclusterer',['use_tvs_clusterer',['../classvg_1_1MultipathMapper.html#afaa33d747ce1393304aa96bc5245a4f8',1,'vg::MultipathMapper']]],
   ['use_5fxdrop_5ffor_5ftails',['use_xdrop_for_tails',['../classvg_1_1MinimizerMapper.html#ab9901414b3a22bd6fd53c5dca315f8ff',1,'vg::MinimizerMapper']]],
