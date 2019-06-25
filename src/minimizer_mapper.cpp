@@ -272,7 +272,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     double cluster_coverage_cutoff = cluster_indexes_in_order.size() == 0 ? 0 : 
                                  read_coverage_by_cluster[cluster_indexes_in_order[0]]
                                     - cluster_coverage_threshold;
-    double cluster_score_cutoff = cluster_score.size == 0 ? 0 :
+    double cluster_score_cutoff = cluster_score.size() == 0 ? 0 :
                     *std::max_element(cluster_score.begin(), cluster_score.end()) - cluster_score_threshold;
     
 #ifdef TRACK_PROVENANCE
