@@ -147,12 +147,16 @@ class PathRestrictedTraversalFinder : public TraversalFinder {
     
     // How many nodes max should we walk when checking if a path runs through a superbubble/site
     int max_path_search_steps;
+
+    // Allow multiple traversals with the same sequence
+    bool allow_duplicates;
     
 public:
     PathRestrictedTraversalFinder(VG& graph, SnarlManager& snarl_manager,
                                   map<string, const Alignment*>& reads_by_name,
                                   int min_recurrence = 2,
-                                  int max_path_search_steps = 100);
+                                  int max_path_search_steps = 100,
+                                  bool allow_duplicates = false);
     
     virtual ~PathRestrictedTraversalFinder();
 
@@ -164,6 +168,11 @@ public:
      * while those supported by actual embedded named paths are not.
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+
+   /**
+    * Like above, but return the path name corresponding to each traversal
+    */
+    virtual pair<vector<SnarlTraversal>, vector<string>> find_named_traversals(const Snarl& site);
     
 };
 

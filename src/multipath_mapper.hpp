@@ -27,7 +27,6 @@
 #include "identity_overlay.hpp"
 #include "reverse_graph.hpp"
 #include "split_strand_graph.hpp"
-#include "hash_graph.hpp"
 
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/extract_containing_graph.hpp"
@@ -42,6 +41,8 @@
 #include "algorithms/dagify.hpp"
 #include "algorithms/reverse_complement.hpp"
 #include "algorithms/extend.hpp"
+
+#include "sglib/hash_graph.hpp"
 
 #include <structures/union_find.hpp>
 #include <gbwt/gbwt.h>
@@ -164,7 +165,7 @@ namespace vg {
         /// actual extracted graph, a list of assigned MEMs, and the number of
         /// bases of read coverage that that MEM cluster provides (which serves
         /// as a priority).
-        using clustergraph_t = tuple<HashGraph*, memcluster_t, size_t>;
+        using clustergraph_t = tuple<sglib::HashGraph*, memcluster_t, size_t>;
         
     protected:
         
@@ -294,7 +295,7 @@ namespace vg {
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
         /// Does NOT necessarily produce a MultipathAlignment in topological order.
-        void multipath_align(const Alignment& alignment, const HashGraph* graph,
+        void multipath_align(const Alignment& alignment, const sglib::HashGraph* graph,
                              memcluster_t& graph_mems,
                              MultipathAlignment& multipath_aln_out) const;
         

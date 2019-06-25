@@ -289,16 +289,28 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
     
     // Now we decide on telomere pairs.
     // We need one for each weakly connected component in the graph, so first we break into connected components.
-    vector<unordered_set<id_t>> weak_components = algorithms::weakly_connected_components(&graph);
+    vector<unordered_set<id_t>> weak_components_all = algorithms::weakly_connected_components(&graph);
+
+    // If we feed size 1 components through to Cactus it will apparently crash.
+    bool warned = false;
+    vector<unordered_set<id_t>> weak_components;
+    weak_components.reserve(weak_components_all.size());
+    for (auto& component : weak_components_all) {
+        if (component.size() > 1) {
+            weak_components.push_back(std::move(component));
+        } else if (!warned) {
+            cerr << "Warning: Cactus does not currently support finding snarls in a single-node connected component" << endl;
+            warned = true;
+        }
+    }
+    weak_components_all.clear();
+    if (weak_components.empty())  {
+        throw runtime_error("Cactus does not currently support finding snarls in graph of single-node connected components");
+    }
        
     // We also want a map so we can efficiently find which component a node lives in.
     unordered_map<id_t, size_t> node_to_component;
     for (size_t i = 0; i < weak_components.size(); i++) {
-        if (weak_components[i].size() == 1) {
-            // If we feed this through to Cactus it will crash.
-            throw runtime_error("Cactus does not currently support finding snarls in a single-node connected component");
-        }
-    
         for (auto& id : weak_components[i]) {
             node_to_component[id] = i;
         }

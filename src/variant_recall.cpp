@@ -69,7 +69,9 @@ void genotype_svs(VG* graph,
         graph->edit(direct_ins, &transls); // TODO could maybe use edit_fast??
                
         Deconstructor decon;
-        decon.deconstruct(refpath, graph);
+        CactusSnarlFinder finder(*graph);
+        SnarlManager snarl_manager = finder.find_snarls();
+        decon.deconstruct({refpath}, graph, &snarl_manager, false);
     }
     direct_ins.clear();
 

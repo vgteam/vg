@@ -3,13 +3,14 @@
 
 #include "snarls.hpp"
 #include "hash_map.hpp"
-#include "hash_graph.hpp"
 #include "split_strand_graph.hpp"
 #include "algorithms/dagify.hpp"
 #include "algorithms/split_strands.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/is_acyclic.hpp"
 #include "algorithms/is_single_stranded.hpp"
+
+#include "sglib/hash_graph.hpp"
 
 using namespace sdsl;
 namespace vg { 
