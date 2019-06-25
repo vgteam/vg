@@ -102,17 +102,13 @@ Inheritance diagram for handlegraph::MutableHandleGraph:</div>
  <div class="center">
   <img src="classhandlegraph_1_1MutableHandleGraph.png" usemap="#handlegraph::MutableHandleGraph_map" alt=""/>
   <map id="handlegraph::MutableHandleGraph_map" name="handlegraph::MutableHandleGraph_map">
-<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="742,0,1029,24"/>
-<area href="classhandlegraph_1_1DeletableHandleGraph.html" alt="handlegraph::DeletableHandleGraph" shape="rect" coords="297,112,584,136"/>
-<area href="classhandlegraph_1_1MutablePathMutableHandleGraph.html" alt="handlegraph::MutablePathMutableHandleGraph" shape="rect" coords="1188,112,1475,136"/>
+<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="148,0,435,24"/>
+<area href="classhandlegraph_1_1DeletableHandleGraph.html" alt="handlegraph::DeletableHandleGraph" shape="rect" coords="0,112,287,136"/>
+<area href="classhandlegraph_1_1MutablePathMutableHandleGraph.html" alt="handlegraph::MutablePathMutableHandleGraph" shape="rect" coords="297,112,584,136"/>
+<area href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html" alt="handlegraph::MutablePathDeletableHandleGraph" shape="rect" coords="0,168,287,192"/>
 <area href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html" alt="handlegraph::MutablePathDeletableHandleGraph" shape="rect" coords="297,168,584,192"/>
-<area href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html" alt="handlegraph::MutablePathDeletableHandleGraph" shape="rect" coords="1188,168,1475,192"/>
-<area href="classvg_1_1HashGraph.html" alt="vg::HashGraph" shape="rect" coords="0,224,287,248"/>
-<area href="classvg_1_1PackedGraph.html" alt="vg::PackedGraph" shape="rect" coords="297,224,584,248"/>
-<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="594,224,881,248"/>
-<area href="classvg_1_1HashGraph.html" alt="vg::HashGraph" shape="rect" coords="891,224,1178,248"/>
-<area href="classvg_1_1PackedGraph.html" alt="vg::PackedGraph" shape="rect" coords="1188,224,1475,248"/>
-<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="1485,224,1772,248"/>
+<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="0,224,287,248"/>
+<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="297,224,584,248"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -267,7 +263,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Alter the node that the given handle corresponds to so the orientation indicated by the handle becomes the node's local forward orientation. Rewrites all edges pointing to the node and the node's sequence to reflect this. Invalidates all handles to the node (including the one passed). Returns a new, valid handle to the node in its new forward orientation. Note that it is possible for the node's ID to change. Does not update any stored paths. May change the ordering of the underlying graph. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#ab5ee06ac168f037f2cff3b332079b49c">vg::VG</a>, <a class="el" href="classvg_1_1PackedGraph.html#aa743018733bc15ec3bb4af4516041be7">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#a2b741a08b4eebe011de20208b32232e0">vg::HashGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1VG.html#ab5ee06ac168f037f2cff3b332079b49c">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -304,7 +300,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Create an edge connecting the given handles in the given order and orientations. Ignores existing edges. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a8922810d5228ab5c4619eb2ddc16e78b">vg::VG</a>, <a class="el" href="classvg_1_1PackedGraph.html#adeec0612fcf13e4e1fc2ef3566577ae2">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#a4642ba1ee8a0acaec0f7e037f13a3726">vg::HashGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1VG.html#a8922810d5228ab5c4619eb2ddc16e78b">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -358,8 +354,6 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Create a new node with the given sequence and return the handle. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1PackedGraph.html#a81627a008970ff5a61bfb1e14ec234a6">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#a9e28f6e22cd74cd1f263e6411515c770">vg::HashGraph</a>.</p>
-
 </div>
 </div>
 <a class="anchor" id="ae844fce457858cd2dc54dde786f79e5c"></a>
@@ -396,8 +390,6 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Create a new node with the given id and sequence, then return the handle. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1PackedGraph.html#a2d918c637b49410cda5ce76a24b465f6">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#a99ab7acbadec17d2c68e4c4386c59a30">vg::HashGraph</a>.</p>
-
 </div>
 </div>
 <a class="anchor" id="aca166406fa2000778552ed77c41a5e4c"></a>
@@ -432,8 +424,6 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Split a handle's underlying node at the given offsets in the handle's orientation. Returns all of the handles to the parts. Other handles to the node being split may be invalidated. The split pieces stay in the same local forward orientation as the original node, but the returned handles come in the order and orientation appropriate for the handle passed in. Updates stored paths. </p>
-
-<p>Implemented in <a class="el" href="classvg_1_1PackedGraph.html#a5b7ad0e766a15d8f2992eb1bd557b987">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#ab0e72a6e106dac2d90ab17334b981999">vg::HashGraph</a>.</p>
 
 </div>
 </div>
@@ -496,7 +486,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Adjust the representation of the graph in memory to improve performance. Optionally, allow the node IDs to be reassigned to further improve performance. Note: Ideally, this method is called one time once there is expected to be few graph modifications in the future. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a0b4fa1970f08f3e4d0cf2f8c33a967a5">vg::VG</a>, <a class="el" href="classvg_1_1PackedGraph.html#a76d6c516c376128d58986dcf60133d89">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#a7780bb6a53c298df47289b163edc9545">vg::HashGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1VG.html#a0b4fa1970f08f3e4d0cf2f8c33a967a5">vg::VG</a>.</p>
 
 </div>
 </div>

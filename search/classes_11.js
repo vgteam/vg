@@ -31,7 +31,6 @@ var searchData=
   ['streammultiplexer',['StreamMultiplexer',['../classvg_1_1io_1_1StreamMultiplexer.html',1,'vg::io']]],
   ['streamsorter',['StreamSorter',['../classvg_1_1StreamSorter.html',1,'vg']]],
   ['string_5fhash_5fmap',['string_hash_map',['../classvg_1_1string__hash__map.html',1,'vg']]],
-  ['string_5fhash_5fmap_3c_20string_2c_20int64_5ft_20_3e',['string_hash_map&lt; string, int64_t &gt;',['../classvg_1_1string__hash__map.html',1,'vg']]],
   ['string_5fhash_5fset',['string_hash_set',['../classvg_1_1string__hash__set.html',1,'vg']]],
   ['subcommand',['Subcommand',['../classvg_1_1subcommand_1_1Subcommand.html',1,'vg::subcommand']]],
   ['subhandlegraph',['SubHandleGraph',['../classvg_1_1SubHandleGraph.html',1,'vg']]],

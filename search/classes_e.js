@@ -1,12 +1,7 @@
 var searchData=
 [
-  ['packeddeque',['PackedDeque',['../classvg_1_1PackedDeque.html',1,'vg']]],
-  ['packedgraph',['PackedGraph',['../classvg_1_1PackedGraph.html',1,'vg']]],
-  ['packedpath',['PackedPath',['../structvg_1_1PackedGraph_1_1PackedPath.html',1,'vg::PackedGraph']]],
-  ['packedvector',['PackedVector',['../classvg_1_1PackedVector.html',1,'vg']]],
   ['packer',['Packer',['../classvg_1_1Packer.html',1,'vg']]],
   ['packers',['Packers',['../classvg_1_1Packers.html',1,'vg']]],
-  ['pagedvector',['PagedVector',['../classvg_1_1PagedVector.html',1,'vg']]],
   ['pair_5fhash_5fmap',['pair_hash_map',['../classvg_1_1pair__hash__map.html',1,'vg']]],
   ['pair_5fhash_5fmap_3c_20pair_3c_20vg_3a_3anodeside_2c_20vg_3a_3anodeside_20_3e_2c_20vector_3c_20vg_3a_3aalignment_20_2a_20_3e_20_3e',['pair_hash_map&lt; pair&lt; vg::NodeSide, vg::NodeSide &gt;, vector&lt; vg::Alignment * &gt; &gt;',['../classvg_1_1pair__hash__map.html',1,'vg']]],
   ['pair_5fhash_5fmap_3c_20pair_3c_20vg_3a_3anodeside_2c_20vg_3a_3anodeside_20_3e_2c_20vg_3a_3aedge_20_2a_20_3e',['pair_hash_map&lt; pair&lt; vg::NodeSide, vg::NodeSide &gt;, vg::Edge * &gt;',['../classvg_1_1pair__hash__map.html',1,'vg']]],
@@ -15,8 +10,6 @@ var searchData=
   ['pair_5fhash_5fset_3c_20std_3a_3apair_3c_20gbwt_3a_3anode_5ftype_2c_20gbwt_3a_3anode_5ftype_20_3e_20_3e',['pair_hash_set&lt; std::pair&lt; gbwt::node_type, gbwt::node_type &gt; &gt;',['../classvg_1_1pair__hash__set.html',1,'vg']]],
   ['path',['Path',['../structvg_1_1Path.html',1,'vg']]],
   ['path_5fhandle_5ft',['path_handle_t',['../structhandlegraph_1_1path__handle__t.html',1,'handlegraph']]],
-  ['path_5fmapping_5ft',['path_mapping_t',['../structvg_1_1HashGraph_1_1path__mapping__t.html',1,'vg::HashGraph']]],
-  ['path_5ft',['path_t',['../classvg_1_1HashGraph_1_1path__t.html',1,'vg::HashGraph']]],
   ['pathbasedtraversalfinder',['PathBasedTraversalFinder',['../classvg_1_1PathBasedTraversalFinder.html',1,'vg']]],
   ['pathbranch',['PathBranch',['../structvg_1_1PathBranch.html',1,'vg']]],
   ['pathchunker',['PathChunker',['../classvg_1_1PathChunker.html',1,'vg']]],

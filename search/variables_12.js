@@ -50,7 +50,6 @@ var searchData=
   ['reversing_5fwalk_5flength',['reversing_walk_length',['../classvg_1_1MultipathMapper.html#af87eaae1274e33230fffe9dca05dbbec',1,'vg::MultipathMapper']]],
   ['rho',['rho',['../structhaplo_1_1haploMath_1_1RRMemo.html#a7536987972e5d717ba43a951adcece82',1,'haplo::haploMath::RRMemo']]],
   ['right',['right',['../structvg_1_1Support.html#ab2fd7cba17f56ce67501f47fda6ae153',1,'vg::Support']]],
-  ['right_5fedges',['right_edges',['../structvg_1_1HashGraph_1_1node__t.html#aeed9aa5616260e5205c4e171e47d76a2',1,'vg::HashGraph::node_t']]],
   ['right_5fends',['right_ends',['../structvg_1_1ConstructedChunk.html#ac20dbdc398181350e73bee0429fe2842',1,'vg::ConstructedChunk']]],
   ['right_5ftelomere_5fnode',['right_telomere_node',['../classvg_1_1PhasedGenome_1_1Haplotype.html#a3d771a24b8889ea668939eac31276ea3',1,'vg::PhasedGenome::Haplotype']]],
   ['ring_5fbuffer_5fsize',['RING_BUFFER_SIZE',['../classvg_1_1io_1_1StreamMultiplexer.html#a6e4432baab9571a1783b2a793b29905a',1,'vg::io::StreamMultiplexer']]],

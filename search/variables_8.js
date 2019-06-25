@@ -2,7 +2,7 @@ var searchData=
 [
   ['h_5fciv',['h_civ',['../classvg_1_1XG.html#a5f52e8487fc5fb07a7a6060023c83338',1,'vg::XG']]],
   ['h_5fiv',['h_iv',['../classvg_1_1XG.html#a43178857ba5c8e62ea378091f0a3ac33',1,'vg::XG']]],
-  ['handle',['handle',['../structvg_1_1HashGraph_1_1path__mapping__t.html#ab2136ffc2343352ac2c578bab15aca5b',1,'vg::HashGraph::path_mapping_t::handle()'],['../classvg_1_1io_1_1BlockedGzipInputStream.html#a2d575dc899c6ef50c6ffe7c374573fb9',1,'vg::io::BlockedGzipInputStream::handle()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a726e457d2e98e4ca6ffa742a4378949f',1,'vg::io::BlockedGzipOutputStream::handle()']]],
+  ['handle',['handle',['../classvg_1_1io_1_1BlockedGzipInputStream.html#a2d575dc899c6ef50c6ffe7c374573fb9',1,'vg::io::BlockedGzipInputStream::handle()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a726e457d2e98e4ca6ffa742a4378949f',1,'vg::io::BlockedGzipOutputStream::handle()']]],
   ['handle_5fbase_5foption',['handle_base_option',['../classvg_1_1ConfigurableParser.html#a0c39f36cf64d91a336afaac0604ff9f0',1,'vg::ConfigurableParser']]],
   ['handle_5fgraph',['handle_graph',['../classvg_1_1TargetValueSearch.html#a99dd4b74b5894a228a6d31174ca322de',1,'vg::TargetValueSearch::handle_graph()'],['../classvg_1_1MinDistanceClusterer.html#a6bc0aa3fb6df2824a2fe88f941312f09',1,'vg::MinDistanceClusterer::handle_graph()']]],
   ['handle_5fmemo',['handle_memo',['../classvg_1_1PathOrientedDistanceMeasurer.html#a73fae6600abc1114e0f28b1cd9e74ee4',1,'vg::PathOrientedDistanceMeasurer']]],
@@ -28,7 +28,7 @@ var searchData=
   ['has_5fsecondary_5fsnarl_5fbv',['has_secondary_snarl_bv',['../classvg_1_1MinimumDistanceIndex.html#a0b8ffd08eca807be53541640586b9ee0',1,'vg::MinimumDistanceIndex']]],
   ['hash',['hash',['../structvg_1_1MinimizerIndex_1_1minimizer__type.html#a11174472b1faa08970c2335336a24c8a',1,'vg::MinimizerIndex::minimizer_type']]],
   ['hash_5ftable',['hash_table',['../classvg_1_1MinimizerIndex.html#af90d350e4d4833ef1ba2485305435a38',1,'vg::MinimizerIndex']]],
-  ['head',['head',['../classvg_1_1HashGraph_1_1path__t.html#a3e43e8351b548cbc65cbb5ec421039d0',1,'vg::HashGraph::path_t::head()'],['../structvg_1_1mi_1_1CircularBuffer.html#a5d239c64bd4a08c24a2f49e84a13c861',1,'vg::mi::CircularBuffer::head()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#a1cf547a77c46886a6461b5a2620be1d6',1,'vg::PackedGraph::PackedPath::head()']]],
+  ['head',['head',['../structvg_1_1mi_1_1CircularBuffer.html#a5d239c64bd4a08c24a2f49e84a13c861',1,'vg::mi::CircularBuffer']]],
   ['head_5fmismatches',['head_mismatches',['../structvg_1_1FlankState.html#abd7d006642e4d1c3deb6ef4c30d07e57',1,'vg::FlankState']]],
   ['head_5ftail_5fnodes',['head_tail_nodes',['../classvg_1_1Paths.html#a3fd42adbd3d58aee08370f043dc1643d',1,'vg::Paths']]],
   ['header',['header',['../classvg_1_1MinimizerIndex.html#a2c3850d887e644838dae6ac13174d9b0',1,'vg::MinimizerIndex']]],

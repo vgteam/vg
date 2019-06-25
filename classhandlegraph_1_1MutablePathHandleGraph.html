@@ -102,13 +102,11 @@ Inheritance diagram for handlegraph::MutablePathHandleGraph:</div>
  <div class="center">
   <img src="classhandlegraph_1_1MutablePathHandleGraph.png" usemap="#handlegraph::MutablePathHandleGraph_map" alt=""/>
   <map id="handlegraph::MutablePathHandleGraph_map" name="handlegraph::MutablePathHandleGraph_map">
-<area href="classhandlegraph_1_1PathHandleGraph.html" alt="handlegraph::PathHandleGraph" shape="rect" coords="297,56,584,80"/>
-<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="297,0,584,24"/>
-<area href="classhandlegraph_1_1MutablePathMutableHandleGraph.html" alt="handlegraph::MutablePathMutableHandleGraph" shape="rect" coords="297,168,584,192"/>
-<area href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html" alt="handlegraph::MutablePathDeletableHandleGraph" shape="rect" coords="297,224,584,248"/>
-<area href="classvg_1_1HashGraph.html" alt="vg::HashGraph" shape="rect" coords="0,280,287,304"/>
-<area href="classvg_1_1PackedGraph.html" alt="vg::PackedGraph" shape="rect" coords="297,280,584,304"/>
-<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="594,280,881,304"/>
+<area href="classhandlegraph_1_1PathHandleGraph.html" alt="handlegraph::PathHandleGraph" shape="rect" coords="0,56,287,80"/>
+<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="0,0,287,24"/>
+<area href="classhandlegraph_1_1MutablePathMutableHandleGraph.html" alt="handlegraph::MutablePathMutableHandleGraph" shape="rect" coords="0,168,287,192"/>
+<area href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html" alt="handlegraph::MutablePathDeletableHandleGraph" shape="rect" coords="0,224,287,248"/>
+<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="0,280,287,304"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -291,7 +289,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Append a visit to a node to the given path. Returns a handle to the new final step on the path which is appended. If the path is cirular, the new step is placed between the steps considered "last" and "first" by the method path_begin. Handles to prior steps on the path, and to other paths, must remain valid. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#ad11c8a716733fce2aa9dab94b42286bd">vg::VG</a>, <a class="el" href="classvg_1_1HashGraph.html#aefd4a9d4e16aa5d8a3b5647f87f74917">vg::HashGraph</a>, and <a class="el" href="classvg_1_1PackedGraph.html#af3d01b62c6ef94590e19cac29253ae7d">vg::PackedGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1VG.html#ad11c8a716733fce2aa9dab94b42286bd">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -353,7 +351,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Destroy the given path. Invalidates handles to the path and its steps. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#adb25bd1fdb9e36c55157c5be864ca403">vg::VG</a>, <a class="el" href="classvg_1_1PackedGraph.html#a1840f8ccf0d3885913c8a0a616955f18">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#a5bf7cdad16ee57b77665981b3a94b7b8">vg::HashGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1VG.html#adb25bd1fdb9e36c55157c5be864ca403">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -390,7 +388,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Prepend a visit to a node to the given path. Returns a handle to the new first step on the path which is appended. If the path is cirular, the new step is placed between the steps considered "last" and "first" by the method path_begin. Handles to later steps on the path, and to other paths, must remain valid. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a43c2858dc8e80ba160359ccf5e1508d2">vg::VG</a>, <a class="el" href="classvg_1_1HashGraph.html#a3667e9c0aca56c0e219c06cdc7951245">vg::HashGraph</a>, and <a class="el" href="classvg_1_1PackedGraph.html#ae54ce3460954e9e7dcdee9f7c3a2a16b">vg::PackedGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1VG.html#a43c2858dc8e80ba160359ccf5e1508d2">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -433,8 +431,6 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Delete a segment of a path and rewrite it as some other sequence of steps. Returns a pair of <a class="el" href="structhandlegraph_1_1step__handle__t.html" title="A step handle is an opaque reference to a single step of an oriented node on a path in a graph...">step_handle_t</a>'s that indicate the range of the new segment in the path. The segment to delete should be designated by the first and last step handle. If the step that is returned by path_begin is deleted, path_begin will now return the first step from the new segment or, in the case that the new segment is empty, the step past segment_end. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1HashGraph.html#a21d72dca96f79342ea6fe17727b73ebc">vg::HashGraph</a>.</p>
-
 </div>
 </div>
 <a class="anchor" id="a9172694447503e35d50093d55e845eb8"></a>
@@ -470,7 +466,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Make a path circular or non-circular. If the path is becoming circular, the last step is joined to the first step. If the path is becoming linear, the step considered "last" is unjoined from the step considered "first" according to the method path_begin. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a73c97ce0157b90f95b888e4b6983f5c8">vg::VG</a>, <a class="el" href="classvg_1_1HashGraph.html#ac53fbecfac7e8aa0301d08e074ced9dc">vg::HashGraph</a>, and <a class="el" href="classvg_1_1PackedGraph.html#af48ebc3cb8ca87fa07a73620a30eb9d5">vg::PackedGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1VG.html#a73c97ce0157b90f95b888e4b6983f5c8">vg::VG</a>.</p>
 
 </div>
 </div>

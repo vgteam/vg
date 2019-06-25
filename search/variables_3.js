@@ -58,7 +58,6 @@ var searchData=
   ['core_5finterval',['core_interval',['../structvg_1_1GaplessExtension.html#a2616a4a161e0fab8f12f54962eb8d048',1,'vg::GaplessExtension']]],
   ['correct',['correct',['../structvg_1_1Funnel_1_1Item.html#aed70406f40053fdaec6147a350fe2f0f',1,'vg::Funnel::Item::correct()'],['../structvg_1_1Alignment.html#a07751b50cfb9c985fccc2c701bfc55fc',1,'vg::Alignment::correct()']]],
   ['correctly_5fmapped',['correctly_mapped',['../structvg_1_1Alignment.html#a9ec303e39d844ec1e6289ddfbcdd7911',1,'vg::Alignment']]],
-  ['count',['count',['../classvg_1_1HashGraph_1_1path__t.html#aceff47fb61a0df65396b55600facdb07',1,'vg::HashGraph::path_t']]],
   ['counts',['counts',['../structvg_1_1ReadFilter_1_1Counts.html#abd2a4734823326101f65c4e2c2f54fd9',1,'vg::ReadFilter::Counts']]],
   ['coverage_5fciv',['coverage_civ',['../classvg_1_1Packer.html#adc0b40cfa531d0edbc50c9ed7bfcf84e',1,'vg::Packer']]],
   ['coverage_5fdynamic',['coverage_dynamic',['../classvg_1_1Packer.html#ae382431ffbae1d4ebc173c5704604cbc',1,'vg::Packer']]],

@@ -103,15 +103,13 @@ Inheritance diagram for handlegraph::PathHandleGraph:</div>
  <div class="center">
   <img src="classhandlegraph_1_1PathHandleGraph.png" usemap="#handlegraph::PathHandleGraph_map" alt=""/>
   <map id="handlegraph::PathHandleGraph_map" name="handlegraph::PathHandleGraph_map">
-<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="594,0,881,24"/>
-<area href="classhandlegraph_1_1MutablePathHandleGraph.html" alt="handlegraph::MutablePathHandleGraph" shape="rect" coords="297,112,584,136"/>
-<area href="classhandlegraph_1_1PathPositionHandleGraph.html" alt="handlegraph::PathPositionHandleGraph" shape="rect" coords="594,112,881,136"/>
-<area href="classvg_1_1XG.html" alt="vg::XG" shape="rect" coords="891,112,1178,136"/>
-<area href="classhandlegraph_1_1MutablePathMutableHandleGraph.html" alt="handlegraph::MutablePathMutableHandleGraph" shape="rect" coords="297,168,584,192"/>
-<area href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html" alt="handlegraph::MutablePathDeletableHandleGraph" shape="rect" coords="297,224,584,248"/>
-<area href="classvg_1_1HashGraph.html" alt="vg::HashGraph" shape="rect" coords="0,280,287,304"/>
-<area href="classvg_1_1PackedGraph.html" alt="vg::PackedGraph" shape="rect" coords="297,280,584,304"/>
-<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="594,280,881,304"/>
+<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="297,0,584,24"/>
+<area href="classhandlegraph_1_1MutablePathHandleGraph.html" alt="handlegraph::MutablePathHandleGraph" shape="rect" coords="0,112,287,136"/>
+<area href="classhandlegraph_1_1PathPositionHandleGraph.html" alt="handlegraph::PathPositionHandleGraph" shape="rect" coords="297,112,584,136"/>
+<area href="classvg_1_1XG.html" alt="vg::XG" shape="rect" coords="594,112,881,136"/>
+<area href="classhandlegraph_1_1MutablePathMutableHandleGraph.html" alt="handlegraph::MutablePathMutableHandleGraph" shape="rect" coords="0,168,287,192"/>
+<area href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html" alt="handlegraph::MutablePathDeletableHandleGraph" shape="rect" coords="0,224,287,248"/>
+<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="0,280,287,304"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -288,8 +286,6 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Execute a function on each path in the graph. If it returns false, stop iteration. Returns true if we finished and false if we stopped early. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1PackedGraph.html#a718d6317146b977dbc3319a1b678e568">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#a9331b22252ba31cbca3511eddc3a5b0a">vg::HashGraph</a>.</p>
-
 </div>
 </div>
 <a class="anchor" id="a31c085eb8590fff9d4035a9bf87cf7a7"></a>
@@ -409,7 +405,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Get a node handle (node ID and orientation) from a handle to an step on a path. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#a69a307fdfe1a24cdc1f7afb4da61b5a8">vg::XG</a>, <a class="el" href="classvg_1_1PackedGraph.html#a6b75917e641622bcd9e219328b376cc4">vg::PackedGraph</a>, <a class="el" href="classvg_1_1HashGraph.html#a6546d3251665a5329b57aeb82036c864">vg::HashGraph</a>, and <a class="el" href="classvg_1_1VG.html#a80e9b71f9dd2cbfb1881b830ae4654b6">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#a69a307fdfe1a24cdc1f7afb4da61b5a8">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a80e9b71f9dd2cbfb1881b830ae4654b6">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -437,7 +433,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Look up whether a path is circular. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#a5cb0106f26be1be44c575a067605f73f">vg::XG</a>, <a class="el" href="classvg_1_1PackedGraph.html#adec02c3f969dea36259b1febf3f47fb5">vg::PackedGraph</a>, <a class="el" href="classvg_1_1HashGraph.html#a2aee41a74f3887a0c52b1efd1543729a">vg::HashGraph</a>, and <a class="el" href="classvg_1_1VG.html#a5b36247a6ca74800a80d83170948fee9">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#a5cb0106f26be1be44c575a067605f73f">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a5b36247a6ca74800a80d83170948fee9">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -464,7 +460,7 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Returns a handle to the next step on the path. If the given step is the final step of a non-circular path, this method has undefined behavior. In a circular path, the "last" step will loop around to the "first" step. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#af4ef9dc83d3a5f704fcbabd9afab21a2">vg::XG</a>, <a class="el" href="classvg_1_1HashGraph.html#a0c1471f308d2c626a0ffa5db1db85b86">vg::HashGraph</a>, <a class="el" href="classvg_1_1PackedGraph.html#add76118cc368710ef4cf3a8c42ed9e4f">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1VG.html#aa94c162ade42415f7defe7677e5bae53">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#af4ef9dc83d3a5f704fcbabd9afab21a2">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#aa94c162ade42415f7defe7677e5bae53">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -491,7 +487,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Returns the number of paths stored in the graph. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#a15c7827d4e97be1e46faee8b56226834">vg::XG</a>, <a class="el" href="classvg_1_1PackedGraph.html#af2ca74884d23adfee43225ca141a8dec">vg::PackedGraph</a>, <a class="el" href="classvg_1_1HashGraph.html#a8f9ba2a3aeb31ab5425273a3dbd723d8">vg::HashGraph</a>, and <a class="el" href="classvg_1_1VG.html#a20417af67e14d7800b20df8b0ac763f9">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#a15c7827d4e97be1e46faee8b56226834">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a20417af67e14d7800b20df8b0ac763f9">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -517,8 +513,6 @@ template&lt;typename Iteratee &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Look up the path handle for the given path name. The path with that name must exist. </p>
-
-<p>Implemented in <a class="el" href="classvg_1_1PackedGraph.html#aa0c7e1d168fad98be732b80cbf4c87ff">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#ae21e82973db50bd9bec89ff00a3b33a8">vg::HashGraph</a>.</p>
 
 </div>
 </div>
@@ -546,7 +540,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Returns a handle to the path that an step is on. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#ad64cb12c0d31ca54db18330bc8a81043">vg::XG</a>, <a class="el" href="classvg_1_1PackedGraph.html#a13e974a94f4c6b70e95ebf93eebb31f7">vg::PackedGraph</a>, <a class="el" href="classvg_1_1HashGraph.html#a68f54adc7e80e5ae0ece725733473b6c">vg::HashGraph</a>, and <a class="el" href="classvg_1_1VG.html#a5c8b0de9776e2f4ee0b1185ba59485c0">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#ad64cb12c0d31ca54db18330bc8a81043">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a5c8b0de9776e2f4ee0b1185ba59485c0">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -574,7 +568,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Look up the name of a path from a handle to it. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#a62ce5ffe7013a141d8b4b595f5ea787f">vg::XG</a>, <a class="el" href="classvg_1_1PackedGraph.html#a645cc630338a8b22385e689fbc958da2">vg::PackedGraph</a>, <a class="el" href="classvg_1_1HashGraph.html#addaa0475f3e7882f048f336e3df6be20">vg::HashGraph</a>, and <a class="el" href="classvg_1_1VG.html#ac71b9547040f0d8ae430d564aa897d97">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#a62ce5ffe7013a141d8b4b595f5ea787f">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#ac71b9547040f0d8ae430d564aa897d97">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -601,7 +595,7 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Returns a handle to the previous step on the path. If the given step is the first step of a non-circular path, this method has undefined behavior. In a circular path, it will loop around from the "first" step (i.e. the one returned by path_begin) to the "last" step. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#a3457b1f6c46df2898191168689d00f39">vg::XG</a>, <a class="el" href="classvg_1_1HashGraph.html#a9b10a86f5ce5319c0f78b1a4e7a22d7d">vg::HashGraph</a>, <a class="el" href="classvg_1_1PackedGraph.html#a7bc5afeb4ee7b6528a4d18cc8fdf3102">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1VG.html#a1723ce56da21a5f6953464d03e4849ac">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#a3457b1f6c46df2898191168689d00f39">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a1723ce56da21a5f6953464d03e4849ac">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -629,7 +623,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Returns the number of node steps in the path. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#ae9a97e6b913364de89ac8dbfac6a40e0">vg::XG</a>, <a class="el" href="classvg_1_1PackedGraph.html#adb019b26cd5055fd2925cf560361781c">vg::PackedGraph</a>, <a class="el" href="classvg_1_1HashGraph.html#a4b49ddca13439e0dcba9287445d05085">vg::HashGraph</a>, and <a class="el" href="classvg_1_1VG.html#a212238ea52a6c8f542bb3c6b866cb040">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#ae9a97e6b913364de89ac8dbfac6a40e0">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a212238ea52a6c8f542bb3c6b866cb040">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -657,7 +651,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Returns true if the step is not the last step in a non-circular path. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#a94f855eb6c8c7e13ddea4ba1ba4785c5">vg::XG</a>, <a class="el" href="classvg_1_1VG.html#a76c0e39a4a3f4df40c3a460b92a4a484">vg::VG</a>, <a class="el" href="classvg_1_1HashGraph.html#af4e5831c584f1ddf28c9db3e673cb2ba">vg::HashGraph</a>, and <a class="el" href="classvg_1_1PackedGraph.html#a3e24cbe229afe617314ae79007aec32f">vg::PackedGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#a94f855eb6c8c7e13ddea4ba1ba4785c5">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a76c0e39a4a3f4df40c3a460b92a4a484">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -685,8 +679,6 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Determine if a path name exists and is legal to get a path handle for. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1PackedGraph.html#a13cd5723ae6daeebf665e438028502f7">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#aa7253cd88de3db99a82c9c1a9e8d1d6c">vg::HashGraph</a>.</p>
-
 </div>
 </div>
 <a class="anchor" id="a93a1ee451e750cb82f1711fd6c3db8cc"></a>
@@ -713,7 +705,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Returns true if the step is not the first step in a non-circular path. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#acf385ca9bf8283ede876c75113fb28a0">vg::XG</a>, <a class="el" href="classvg_1_1VG.html#a07ff80d377e97f67e98b75d6e64f3dbc">vg::VG</a>, <a class="el" href="classvg_1_1HashGraph.html#a77ac5f2775568c3428e626391d86041b">vg::HashGraph</a>, and <a class="el" href="classvg_1_1PackedGraph.html#a0d704afde743aa7851263634ecff31aa">vg::PackedGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#acf385ca9bf8283ede876c75113fb28a0">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a07ff80d377e97f67e98b75d6e64f3dbc">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -766,7 +758,7 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Get a handle to the last step, which will be an arbitrary step in a circular path that we consider "last" based on our construction of the path. If the path is empty then the implementation must return the same value as <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#ad7412bf19084f2b38ffec42517a6a9e9">path_front_end()</a>. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#af5b377cbffa07a3b01013da8cf00d845">vg::XG</a>, <a class="el" href="classvg_1_1HashGraph.html#a36e0be3957cc23631f28e7bb7711565f">vg::HashGraph</a>, <a class="el" href="classvg_1_1PackedGraph.html#a43ff56b44c925444449f0f176336951e">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1VG.html#a868379db6918fd879eb5da7e6f9bc798">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#af5b377cbffa07a3b01013da8cf00d845">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a868379db6918fd879eb5da7e6f9bc798">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -793,7 +785,7 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Get a handle to the first step, which will be an arbitrary step in a circular path that we consider "first" based on our construction of the path. If the path is empty, then the implementation must return the same value as <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a5c3a5e04838d9e4a0a0ddf574c4de827">path_end()</a>. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#a8d267a8c770207177409e58a6c228604">vg::XG</a>, <a class="el" href="classvg_1_1HashGraph.html#acc0f9c8510e41383db9eea21262dddf8">vg::HashGraph</a>, <a class="el" href="classvg_1_1PackedGraph.html#aa156ded7ff506b1d7e4022d11ca22f0e">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1VG.html#a8ba115ffda674c76e8956a8057545b25">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#a8d267a8c770207177409e58a6c228604">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a8ba115ffda674c76e8956a8057545b25">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -820,7 +812,7 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Get a handle to a fictitious position past the end of a path. This position is returned by get_next_step for the final step in a path in a non-circular path. Note: get_next_step will <em>NEVER</em> return this value for a circular path. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#a1dc5f4504cc1736ffd75ad30bc3c7b81">vg::XG</a>, <a class="el" href="classvg_1_1HashGraph.html#a1e477cd29ce69022eca34edc6687052b">vg::HashGraph</a>, <a class="el" href="classvg_1_1PackedGraph.html#a254f9326e56a1d51e406d67272b9315b">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1VG.html#a6eaa8a920a65428b70b7b77142805208">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#a1dc5f4504cc1736ffd75ad30bc3c7b81">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a6eaa8a920a65428b70b7b77142805208">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -847,7 +839,7 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Get a handle to a fictitious position before the beginning of a path. This position is return by get_previous_step for the first step in a path in a non-circular path. Note: get_previous_step will <em>NEVER</em> return this value for a circular path. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#ad2053a58a4740713db368b21ff1f22c5">vg::XG</a>, <a class="el" href="classvg_1_1HashGraph.html#a967a962fd0d96f7b3cf26457b11b0ed5">vg::HashGraph</a>, <a class="el" href="classvg_1_1PackedGraph.html#a7cff55535552c1eae46465bdf18bd931">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1VG.html#acfe330c38f9bd036838e4e5d133b1657">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#ad2053a58a4740713db368b21ff1f22c5">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#acfe330c38f9bd036838e4e5d133b1657">vg::VG</a>.</p>
 
 </div>
 </div>

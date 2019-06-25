@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['occurrences',['occurrences',['../structvg_1_1HashGraph_1_1node__t.html#a3e3b1817918ec35b2ef21c590bea84d5',1,'vg::HashGraph::node_t']]],
   ['off_5fmask',['OFF_MASK',['../classvg_1_1MinimizerIndex.html#aba6a8d15678c7391be9824cbee18eefd',1,'vg::MinimizerIndex']]],
   ['offset',['offset',['../structvg_1_1GaplessMatch.html#ab292ae1f8fc20b77bf4240180bc130e5',1,'vg::GaplessMatch::offset()'],['../structvg_1_1GaplessExtension.html#a713e8ef2aad7aa94ae4ef91fbe83e159',1,'vg::GaplessExtension::offset()'],['../structvg_1_1MinimizerIndex_1_1minimizer__type.html#a4f538a05d34ea56a683cdc1cedaf6606',1,'vg::MinimizerIndex::minimizer_type::offset()'],['../structvg_1_1PathBranch.html#ad07bed1fbba0e7c94c218f285c2e51cd',1,'vg::PathBranch::offset()'],['../structvg_1_1Position.html#a1244220d4c8ae90633fd7a7e361d309a',1,'vg::Position::offset()']]],
   ['offsets',['offsets',['../classvg_1_1GBWTGraph.html#a74d8cfa8cdde319046b070b83b75d196',1,'vg::GBWTGraph::offsets()'],['../classvg_1_1XGPath.html#ab973112ddcd961095d1f60d3265faf48',1,'vg::XGPath::offsets()']]],

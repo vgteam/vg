@@ -6,7 +6,6 @@ var searchData=
   ['ngssimulator',['NGSSimulator',['../classvg_1_1NGSSimulator.html',1,'vg']]],
   ['noalignmentinbandexception',['NoAlignmentInBandException',['../classvg_1_1NoAlignmentInBandException.html',1,'vg']]],
   ['node',['Node',['../structvg_1_1Node.html',1,'vg']]],
-  ['node_5ft',['node_t',['../structvg_1_1HashGraph_1_1node__t.html',1,'vg::HashGraph']]],
   ['nodedivider',['NodeDivider',['../structvg_1_1NodeDivider.html',1,'vg']]],
   ['nodepileup',['NodePileup',['../structvg_1_1NodePileup.html',1,'vg']]],
   ['nodeside',['NodeSide',['../classvg_1_1NodeSide.html',1,'vg']]],

@@ -1,10 +1,6 @@
 var searchData=
 [
   ['pack_5fmain_2ecpp',['pack_main.cpp',['../pack__main_8cpp.html',1,'']]],
-  ['packed_5fgraph_2ecpp',['packed_graph.cpp',['../packed__graph_8cpp.html',1,'']]],
-  ['packed_5fgraph_2ehpp',['packed_graph.hpp',['../packed__graph_8hpp.html',1,'']]],
-  ['packed_5fstructs_2ecpp',['packed_structs.cpp',['../packed__structs_8cpp.html',1,'']]],
-  ['packed_5fstructs_2ehpp',['packed_structs.hpp',['../packed__structs_8hpp.html',1,'']]],
   ['packer_2ecpp',['packer.cpp',['../packer_8cpp.html',1,'']]],
   ['packer_2ehpp',['packer.hpp',['../packer_8hpp.html',1,'']]],
   ['path_2ecpp',['path.cpp',['../path_8cpp.html',1,'']]],
