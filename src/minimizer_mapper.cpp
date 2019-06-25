@@ -9,6 +9,8 @@
 #include "multipath_alignment.hpp"
 #include "funnel.hpp"
 
+#include "algorithms/dijkstra.hpp"
+
 #include <iostream>
 #include <algorithm>
 #include <cmath>
@@ -1246,6 +1248,11 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
 }
 
 void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
+    
+#ifdef debug
+    cerr << "Aligning to haplotypes" << endl;
+#endif
+    
     // Find all the handles/nodes that are relevant.
     // This holds handles on the strand visited by each relevant extension.
     unordered_set<handle_t> start_points;
@@ -1256,14 +1263,233 @@ void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vect
         }
     }
     
-    // Walk a stranded Dijkstra traversal the appropriate distance from all the starting points, in all directions.
+    // Walk a stranded Dijkstra traversal the appropriate distance from all the starting points, both upstream and downstream. 
     size_t distance_limit = aln.sequence().size() * 2;
     
-    // Find a covering set of haplotype paths
+#ifdef debug
+    cerr << "Search out " << distance_limit << " bp from " << start_points.size() << " handles" << endl;
+    for (auto& start : start_points) {
+        cerr << "\t" << gbwt_graph.get_id(start) << " " << gbwt_graph.get_is_reverse(start) << endl;
+    }
+#endif
     
-    // Align to each of them
+    // We track the handles we get from the search.
+    unordered_set<handle_t> context;
+    auto reached_callback = [&](const handle_t& reached, size_t distance) -> bool {
+        if (distance > distance_limit) {
+            // We hot the limit, so stop the search.
+            return false;
+        }
+        context.insert(reached);
+        return true;
+    };
     
-    // Produce the best alignment
+    // Do the right pass
+    algorithms::dijkstra(&gbwt_graph, start_points, reached_callback, false);
+    
+#ifdef debug
+    cerr << "Got right context of " << context.size() << endl;
+#endif
+    
+    // Pull out all the tips of the right-walking context graph.
+    // When looking for haplotypes, we have to walk left from them.
+    unordered_set<handle_t> right_tips;
+    for (auto& handle : context) {
+        // See if each handle has anything to its right that is in the context.
+        // If so, we stop early, and the handle is not a tip in the context graph.
+        bool is_tip = gbwt_graph.follow_edges(handle, false, [&](const handle_t& neighbor) {
+            if (context.count(neighbor)) {
+                return false;
+            }
+            return true;
+        });
+        
+        if (is_tip) {
+            right_tips.insert(handle);
+        }
+    }
+    context.clear();
+    
+#ifdef debug
+    cerr << "Got " << right_tips.size() << " right tips" << endl;
+    for (auto& tip : right_tips) {
+        cerr << "\t" << gbwt_graph.get_id(tip) << " " << gbwt_graph.get_is_reverse(tip) << endl;
+    }
+#endif
+    
+    // And the left pass
+    algorithms::dijkstra(&gbwt_graph, start_points, reached_callback, true);
+
+#ifdef debug
+    cerr << "Got left context of " << context.size() << endl;
+#endif
+    
+    // Pull out all the tips of the left-walking context graph.
+    // When looking for haplotypes, we have to walk right from them.
+    unordered_set<handle_t> left_tips;
+    for (auto& handle : context) {
+        // See if each handle has anything to its left that is in the context.
+        // If so, we stop early, and the handle is not a tip in the context graph.
+        bool is_tip = gbwt_graph.follow_edges(handle, true, [&](const handle_t& neighbor) {
+            if (context.count(neighbor)) {
+                return false;
+            }
+            return true;
+        });
+        
+        if (is_tip) {
+            left_tips.insert(handle);
+        }
+    }
+    context.clear();
+    
+#ifdef debug
+    cerr << "Got " << left_tips.size() << " left tips" << endl;
+    for (auto& tip : left_tips) {
+        cerr << "\t" << gbwt_graph.get_id(tip) << " " << gbwt_graph.get_is_reverse(tip) << endl;
+    }
+#endif
+    
+    // Now we have the left and right tips, so we can find the haplotypes.
+    vector<Path> haplotypes;
+    
+    for (auto& left_tip : left_tips) {
+        // For each left tip
+        
+        // Explore the GBWT forward until we hit a right tip or very generous length limit.
+        // We want to go until we hit the opposing tip or run out of paths.
+        Position tip_start = make_position(gbwt_graph.get_id(left_tip), gbwt_graph.get_is_reverse(left_tip), 0);
+        explore_gbwt(tip_start, numeric_limits<size_t>::max(), [&](const ImmutablePath& path_to, const handle_t& here) -> bool {
+            // When we actually touch something
+            
+#ifdef debug
+            cerr << "Visit " << gbwt_graph.get_id(here) << " " << gbwt_graph.get_is_reverse(here) << endl;
+#endif
+            
+            if (right_tips.count(here)) {
+                // This is a right tip.
+                
+#ifdef debug
+                cerr << "\tReached right tip" << endl;
+#endif
+                
+                // Complete the path
+                Mapping m;
+                m.mutable_position()->set_node_id(gbwt_graph.get_id(here));
+                m.mutable_position()->set_is_reverse(gbwt_graph.get_is_reverse(here));
+                Edit* e = m.add_edit();
+                e->set_from_length(gbwt_graph.get_length(here));
+                e->set_to_length(gbwt_graph.get_length(here));
+                
+                ImmutablePath path_through = path_to.push_front(m);
+                
+                // Convert to a Path and save
+                haplotypes.emplace_back(to_path(path_through));
+                
+                // Don't go past here
+                return false;
+                
+            } else {
+                // Keep going
+                return true;
+            }
+            
+        }, [&](const ImmutablePath&) {
+            // When we hit the length limit or a dead end, do nothing.
+            
+#ifdef debug
+            cerr << "Ran out of distance or hit a dead end" << endl;
+#endif
+            
+        });
+        
+        // If we actually reach a tip, that's a Path, so keep it
+    }
+    
+#ifdef debug
+    cerr << "Got " << haplotypes.size() << " haplotypes" << endl;
+#endif
+        
+    // Then if there are any remaining right tips, we don't actually care, because they aren't in haplotypes with any left tips.
+    // Nor do we care about left tips that couldn't get anywhere.
+    // Because they are tips, left tips can't be on the same haplotype through the context graph together.
+    
+    // Align to each haplotype path we found
+    
+    // Track how much DP is done when operating on haplotypes
+    vector<double> haplotype_dp_areas;
+    
+    // Now look for the best alignment to any path.
+    // We set thid to ~-inf because we even want results with 0 score.
+    int64_t best_score = numeric_limits<int64_t>::min();
+    // we will store the winner in out's path, so set the rest of out's parameters.
+
+    for (auto& path : haplotypes) {
+        // For each path, make sure it isn't empty.
+        assert(path.mapping_size() > 0);
+
+        // Make a subgraph.
+        // TODO: don't copy the path
+        PathSubgraph subgraph(&gbwt_graph, path);
+        
+        // Do global alignment to the path subgraph
+        Alignment path_alignment;
+        path_alignment.set_sequence(aln.sequence());
+
+#ifdef debug
+        cerr << "Align " << pb2json(path_alignment) << " local";
+
+#ifdef debug_dump_graph
+        cerr << " vs:" << endl;
+        cerr << "Defining path: " << pb2json(path) << endl;
+        subgraph.for_each_handle([&](const handle_t& here) {
+            cerr << subgraph.get_id(here) << " len " << subgraph.get_length(here)
+                << " (" << subgraph.get_sequence(here) << "): " << endl;
+            subgraph.follow_edges(here, true, [&](const handle_t& there) {
+                cerr << "\t" << subgraph.get_id(there) << " len " << subgraph.get_length(there)
+                    << " (" << subgraph.get_sequence(there) << ") ->" << endl;
+            });
+            subgraph.follow_edges(here, false, [&](const handle_t& there) {
+                cerr << "\t-> " << subgraph.get_id(there) << " len " << subgraph.get_length(there)
+                    << " (" << subgraph.get_sequence(there) << ")" << endl;
+            });
+        });
+#else
+        cerr << endl;
+#endif
+#endif
+
+        // Do a local alignment with traceback but no score matrix printing.
+        get_regular_aligner()->align(path_alignment, subgraph, true, false);
+        
+#ifdef debug
+        cerr << "\tScore: " << path_alignment.score() << endl;
+#endif
+
+        if (path_alignment.score() > best_score) {
+            // This is a new best alignment. Translate from subgraph into base graph and keep it
+            *out.mutable_path() = subgraph.translate_down(path_alignment.path());
+            
+            // Preserve the identity and score too.
+            out.set_identity(path_alignment.identity());
+            out.set_score(path_alignment.score());
+#ifdef debug
+            cerr << "\tNew best: " << pb2json(path_alignment) << endl;
+#endif
+            
+            best_score = path_alignment.score();
+        }
+        
+        // Record how much DP we did.
+        haplotype_dp_areas.push_back(path_alignment.sequence().size() * path_from_length(path));
+    }
+    
+    // Now the best alignment from any path is in out.
+    
+    // Annotate it with how many paths we had to align it against.
+    set_annotation(out, "haplotype_alignment_paths", (double)haplotypes.size());
+    // And how much area we did
+    set_annotation(out, "haplotype_dp_areas", haplotype_dp_areas);
 }
 
 unordered_map<size_t, unordered_map<size_t, vector<Path>>>
@@ -1295,6 +1521,7 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
         sources.insert(i);
 
 #ifdef debug
+        auto pos = extended_seeds[i].starting_position(gbwt_graph);
         cerr << "Extended seed " << i << " starts on node " << pos.node_id() << " " << pos.is_reverse()
             << " at offset " << pos.offset() << " corresponding to read "
             << extended_seeds[i].core_interval.first << " - " << extended_seeds[i].core_interval.second << endl;

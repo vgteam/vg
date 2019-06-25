@@ -3,8 +3,9 @@
  *
  * Implementation of Dijkstra's Algorithm over the bidirected graph.
  */
- 
-#include "find_shortest_paths.hpp"
+
+#include "dijkstra.hpp"
+
 #include <structures/updateable_priority_queue.hpp>
 
 namespace vg {
@@ -16,12 +17,15 @@ bool dijkstra(const HandleGraph* g, handle_t start,
               function<bool(const handle_t&, size_t)> reached_callback,
               bool traverse_leftward) {
               
+    unordered_set<handle_t> starts;
+    starts.insert(start);          
+    
     // Implement single-start search in terms of multi-start search
-    return dijkstra(g, unordered_set<handle_t>(start), reached_callback, traverse_leftward);
+    return dijkstra(g, starts, reached_callback, traverse_leftward);
               
 }
 
-bool dijkstra(const HandleGraph* g, unordered_set<handle_t> starts,
+bool dijkstra(const HandleGraph* g, const unordered_set<handle_t>& starts,
               function<bool(const handle_t&, size_t)> reached_callback,
               bool traverse_leftward) {
 

@@ -38,7 +38,7 @@ namespace algorithms {
                   
     /// Same as the single-start version, except allows starting from multiple
     /// handles, all at distance 0.
-    bool dijkstra(const HandleGraph* g, unordered_set<handle_t> starts,
+    bool dijkstra(const HandleGraph* g, const unordered_set<handle_t>& starts,
                   function<bool(const handle_t&, size_t)> reached_callback,
                   bool traverse_leftward = false);
                                                       
