@@ -96,6 +96,12 @@ int main_gaffe(int argc, char** argv) {
     size_t max_extensions = 48;
     // How many extended clusters should we align, max?
     size_t max_alignments = 8;
+    //Throw away cluster with scores that are this amount below the best
+    double cluster_score = 50;
+    //Throw away clusters with coverage this amount below the best 
+    double cluster_coverage = 0.3;
+    //Throw away extensions with scores that are this amount below the best
+    double extension_score = 50;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
@@ -126,6 +132,9 @@ int main_gaffe(int argc, char** argv) {
             {"hard-hit-cap", required_argument, 0, 'C'},
             {"max-extensions", required_argument, 0, 'e'},
             {"max-alignments", required_argument, 0, 'a'},
+            {"cluster-score", required_argument, 0, 's'},
+            {"cluster-coverage", required_argument, 0, 'u'},
+            {"extension-score", required_argument, 0, 'v'},
             {"score-fraction", required_argument, 0, 'F'},
             {"no-chaining", no_argument, 0, 'O'},
             {"xdrop", no_argument, 0, 'X'},
@@ -134,7 +143,7 @@ int main_gaffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:OXt:",
+        c = getopt_long (argc, argv, "hx:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:OXt:",
                          long_options, &option_index);
 
 
@@ -252,6 +261,37 @@ int main_gaffe(int argc, char** argv) {
                 }
                 break;
 
+            case 's':
+                {
+                    double score = parse<double>(optarg);
+                    if (score <= 0) {
+                        cerr << "error: [vg gaffe] Cluster score threshold (" << score << ") must be positive" << endl;
+                        exit(1);
+                    }
+                    cluster_score = score;
+                }
+                break;
+
+            case 'u':
+                {
+                    double score = parse<double>(optarg);
+                    if (score <= 0) {
+                        cerr << "error: [vg gaffe] Cluster coverage threshold (" << score << ") must be positive" << endl;
+                        exit(1);
+                    }
+                    cluster_coverage = score;
+                }
+                break;
+            case 'v':
+                {
+                    double score = parse<double>(optarg);
+                    if (score <= 0) {
+                        cerr << "error: [vg gaffe] Extension score threshold (" << score << ") must be positive" << endl;
+                        exit(1);
+                    }
+                    extension_score = score;
+                }
+                break;
             case 'O':
                 do_chaining = false;
                 break;
@@ -358,6 +398,21 @@ int main_gaffe(int argc, char** argv) {
         cerr << "--max-alignments " << max_alignments << endl;
     }
     minimizer_mapper.max_alignments = max_alignments;
+
+    if (progress) {
+        cerr << "--cluster_score " << cluster_score << endl;
+    }
+    minimizer_mapper.cluster_score_threshold = cluster_score;
+
+    if (progress) {
+        cerr << "--cluster_coverage " << cluster_coverage << endl;
+    }
+    minimizer_mapper.cluster_coverage_threshold = cluster_coverage;
+
+    if (progress) {
+        cerr << "--extension_score " << extension_score << endl;
+    }
+    minimizer_mapper.extension_score_threshold = extension_score;
 
     if (progress) {
         cerr << "--no-chaining " << (!do_chaining) << endl;
