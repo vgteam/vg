@@ -59,7 +59,6 @@ public:
     size_t max_multimaps = 1;
     size_t distance_limit = 1000;
     bool do_chaining = true;
-    bool all_tails = false;
     bool use_xdrop_for_tails = false;
     string sample_name;
     string read_group;

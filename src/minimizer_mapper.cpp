@@ -722,52 +722,6 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
     unordered_map<size_t, unordered_map<size_t, vector<Path>>> paths_between_seeds = find_connecting_paths(extended_seeds,
         aln.sequence().size());
         
-        
-    // Now we need to identify the real sources and sinks in the reachability graph.
-    // We only want to align tails for them, not for other extensions that have escaping tails.
-    unordered_set<size_t> source_extensions;
-    unordered_set<size_t> sink_extensions;
-    
-    for (size_t i = 0; i < extended_seeds.size(); i++) {
-        // start out assuming everything is a source and a sink
-        source_extensions.insert(i);
-        sink_extensions.insert(i);
-    }
-    
-    for (auto& from_and_dests : paths_between_seeds) {
-        // For each reachability edge from extension
-        if (from_and_dests.first == numeric_limits<size_t>::max()) {
-            // Skip edges from nowhere
-            continue;
-        }
-        
-        if ((from_and_dests.second.size() == 1 && !from_and_dests.second.count(numeric_limits<size_t>::max())) ||
-            (from_and_dests.second.size() > 1)) {
-            // Mark as not a sink if it goes anywhere other than out of the cluster 
-            sink_extensions.erase(from_and_dests.first);
-        }
-        
-        for (auto& to_and_paths : from_and_dests.second) {
-            // For everywhere we can get from here
-            if (to_and_paths.first == numeric_limits<size_t>::max()) {
-                // Discount going nowhere
-                continue;
-            }
-            
-            if (!to_and_paths.second.empty()) {
-                // If there are any actual paths, mark the edge to extension as
-                // reachable from somewhere else.
-                source_extensions.erase(to_and_paths.first);
-            }
-        }
-    }
-    
-    assert(!source_extensions.empty());
-    assert(!sink_extensions.empty());
-    
-    cerr << "Have " << source_extensions.size() << " sources and " << sink_extensions.size() << " sinks" << endl;
-        
-        
     // We're going to record source and sink path count distributions, for debugging
     vector<double> tail_path_counts;
     
@@ -799,15 +753,8 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
         // For each extended seed that can come from something outside the cluster
         const size_t& source = kv.first;
         
-        if (!source_extensions.count(source) && !all_tails) {
-            // Skip it if it is reachable from anywhere else, and we aren't doing all tails.
-            continue;
-        }
-        
         // Grab the part of the read sequence that comes before it
         string before_sequence = aln.sequence().substr(0, extended_seeds[source].core_interval.first);
-        
-        cerr << "Do leading tail to extension " << source << " of " << before_sequence << endl;
         
 #ifdef debug
         cerr << "There is a path into source extended seed " << source
@@ -958,140 +905,131 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
             if (to == numeric_limits<size_t>::max()) {
                 // We can go to something outside the cluster
                 
-                if (sink_extensions.count(from) || all_tails) {
-                    // We can't go to anything in the cluster (it is a real sink) or we are doing all tails.
+                // Do a bunch of left pinned alignments for the tails.
+                
+                // Find the sequence
+                string trailing_sequence = aln.sequence().substr(from_end);
+                
+                if (!trailing_sequence.empty()) {
+                    // There is actual trailing sequence to align on this escape path
                     
-                    // Do a bunch of left pinned alignments for the tails.
-                    
-                    // Find the sequence
-                    string trailing_sequence = aln.sequence().substr(from_end);
-                    
-                    if (!trailing_sequence.empty()) {
-                        // There is actual trailing sequence to align on this escape path
-                        
-                        cerr << "Do trailing tail from extension " << from << " of " << trailing_sequence << endl;
-                        
-                        // Record that a sink has this many outgoing haplotypes to process.
-                        tail_path_counts.push_back(to_and_paths.second.size());
-                        // Against a sequence this size
-                        tail_lengths.push_back(trailing_sequence.size());
+                    // Record that a sink has this many outgoing haplotypes to process.
+                    tail_path_counts.push_back(to_and_paths.second.size());
+                    // Against a sequence this size
+                    tail_lengths.push_back(trailing_sequence.size());
 
-                        // Find the best path in backing graph space
-                        Path best_path;
-                        // And its score
-                        int64_t best_score = numeric_limits<int64_t>::min();
+                    // Find the best path in backing graph space
+                    Path best_path;
+                    // And its score
+                    int64_t best_score = numeric_limits<int64_t>::min();
 
-                        // We can align it once per target path
-                        for (auto& path : to_and_paths.second) {
-                            // For each path we can take to leave the "from" sink
+                    // We can align it once per target path
+                    for (auto& path : to_and_paths.second) {
+                        // For each path we can take to leave the "from" sink
+                        
+                        if (path.mapping_size() == 0) {
+                            // Consider the case of a nonempty trailing
+                            // softclip that bumped up against the end
+                            // of the underlying graph.
+
+                            if (best_score < 0) {
+                                best_score = 0;
+                                best_path.clear_mapping();
+                                Mapping* m = best_path.add_mapping();
+                                Edit* e = m->add_edit();
+                                e->set_from_length(0);
+                                e->set_to_length(trailing_sequence.size());
+                                e->set_sequence(trailing_sequence);
+                                // We need to set a position at the end of where we are coming from.
+                                *m->mutable_position() = extended_seeds[from].tail_position(gbwt_graph);
+                            }
+                        } else {
+
+                            // Make a subgraph.
+                            // TODO: don't copy the path
+                            PathSubgraph subgraph(&gbwt_graph, path);
                             
-                            if (path.mapping_size() == 0) {
-                                // Consider the case of a nonempty trailing
-                                // softclip that bumped up against the end
-                                // of the underlying graph.
-
-                                if (best_score < 0) {
-                                    best_score = 0;
-                                    best_path.clear_mapping();
-                                    Mapping* m = best_path.add_mapping();
-                                    Edit* e = m->add_edit();
-                                    e->set_from_length(0);
-                                    e->set_to_length(trailing_sequence.size());
-                                    e->set_sequence(trailing_sequence);
-                                    // We need to set a position at the end of where we are coming from.
-                                    *m->mutable_position() = extended_seeds[from].tail_position(gbwt_graph);
-                                }
-                            } else {
-
-                                // Make a subgraph.
-                                // TODO: don't copy the path
-                                PathSubgraph subgraph(&gbwt_graph, path);
-                                
-                                // Do left-pinned alignment to the path subgraph
-                                Alignment after_alignment;
-                                after_alignment.set_sequence(trailing_sequence);
-                                // TODO: pre-make the topological order
+                            // Do left-pinned alignment to the path subgraph
+                            Alignment after_alignment;
+                            after_alignment.set_sequence(trailing_sequence);
+                            // TODO: pre-make the topological order
 
 #ifdef debug
-                                cerr << "Align " << pb2json(after_alignment) << " pinned left";
+                            cerr << "Align " << pb2json(after_alignment) << " pinned left";
 
 #ifdef debug_dump_graph
-                                cerr << " vs:" << endl;
-                                subgraph.for_each_handle([&](const handle_t& here) {
-                                    cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
-                                    subgraph.follow_edges(here, true, [&](const handle_t& there) {
-                                        cerr << "\t" << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ") ->" << endl;
-                                    });
-                                    subgraph.follow_edges(here, false, [&](const handle_t& there) {
-                                        cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
-                                    });
+                            cerr << " vs:" << endl;
+                            subgraph.for_each_handle([&](const handle_t& here) {
+                                cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
+                                subgraph.follow_edges(here, true, [&](const handle_t& there) {
+                                    cerr << "\t" << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ") ->" << endl;
                                 });
-                                cerr << "Path: " << pb2json(path) << endl;
+                                subgraph.follow_edges(here, false, [&](const handle_t& there) {
+                                    cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
+                                });
+                            });
+                            cerr << "Path: " << pb2json(path) << endl;
 #else
-                                cerr << endl;
+                            cerr << endl;
 #endif
 #endif
 
-                                // Align, accounting for full length bonus
-                                if (use_xdrop_for_tails) {
+                            // Align, accounting for full length bonus
+                            if (use_xdrop_for_tails) {
 #ifdef debug
-                                    Alignment clone = after_alignment;
-                                    get_regular_aligner()->align_pinned(clone, subgraph, subgraph.get_topological_order(), true);
+                                Alignment clone = after_alignment;
+                                get_regular_aligner()->align_pinned(clone, subgraph, subgraph.get_topological_order(), true);
 #endif
-                                    get_regular_aligner()->get_xdrop()->align_pinned(after_alignment, subgraph,
-                                        subgraph.get_topological_order(), true);
+                                get_regular_aligner()->get_xdrop()->align_pinned(after_alignment, subgraph,
+                                    subgraph.get_topological_order(), true);
 #ifdef debug
-                                    cerr << "Xdrop: " << pb2json(after_alignment) << endl;
-                                    cerr << "Normal: " << pb2json(clone) << endl;
+                                cerr << "Xdrop: " << pb2json(after_alignment) << endl;
+                                cerr << "Normal: " << pb2json(clone) << endl;
 #endif
-                                } else {
-                                    get_regular_aligner()->align_pinned(after_alignment, subgraph, subgraph.get_topological_order(), true);
-                                }
-                                
+                            } else {
+                                get_regular_aligner()->align_pinned(after_alignment, subgraph, subgraph.get_topological_order(), true);
+                            }
+                            
 #ifdef debug
-                                cerr << "\tScore: " << after_alignment.score() << endl;
+                            cerr << "\tScore: " << after_alignment.score() << endl;
 #endif
-                                
-                                // Record size of DP matrix filled
-                                tail_dp_areas.push_back(trailing_sequence.size() * path_from_length(path));
+                            
+                            // Record size of DP matrix filled
+                            tail_dp_areas.push_back(trailing_sequence.size() * path_from_length(path));
 
-                                if (after_alignment.score() > best_score) {
-                                    // This is a new best alignment.
-                                    
+                            if (after_alignment.score() > best_score) {
+                                // This is a new best alignment.
+                                
 #ifdef debug
-                                    cerr << "\t\tNew best, beating previous best of " << best_score << endl;
+                                cerr << "\t\tNew best, beating previous best of " << best_score << endl;
 #endif
-                                    
-                                    // Translate from subgraph into base graph and keep it.
-                                    best_path = subgraph.translate_down(after_alignment.path());
-                                    best_score = after_alignment.score();
-                                }
+                                
+                                // Translate from subgraph into base graph and keep it.
+                                best_path = subgraph.translate_down(after_alignment.path());
+                                best_score = after_alignment.score();
                             }
                         }
-                        
-                        // We need to come after from with this path
-
-                        // We really should have gotten something
-                        assert(best_path.mapping_size() != 0);
-
-                        // Put it in the MultipathAlignment
-                        Subpath* s = mp.add_subpath();
-                        *s->mutable_path() = std::move(best_path);
-                        s->set_score(best_score);
-                        
-                        // And make the edge to hook it up
-                        mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
-                        
-#ifdef debug
-                        cerr << "Add trailing tail " << from << " -> " << (mp.subpath_size() - 1) << endl;
-#endif
                     }
                     
-                    // If there's no sequence to align on the path going off to nowhere, don't do anything.
+                    // We need to come after from with this path
+
+                    // We really should have gotten something
+                    assert(best_path.mapping_size() != 0);
+
+                    // Put it in the MultipathAlignment
+                    Subpath* s = mp.add_subpath();
+                    *s->mutable_path() = std::move(best_path);
+                    s->set_score(best_score);
+                    
+                    // And make the edge to hook it up
+                    mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
+                    
+#ifdef debug
+                    cerr << "Add trailing tail " << from << " -> " << (mp.subpath_size() - 1) << endl;
+#endif
                 }
                 
-                // If we can reach anything else in the cluster, don't consider leaving the cluster with a tail.
-                
+                // If there's no sequence to align on the path going off to nowhere, don't do anything.
             } else {
                 // Do alignments between from and to
 

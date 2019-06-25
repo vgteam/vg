@@ -60,7 +60,6 @@ void help_gaffe(char** argv) {
     << "  -e, --max-extensions INT      extend up to INT clusters [48]" << endl
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
     << "  -O, --no-chaining             disable seed chaining and all gapped alignment" << endl
-    << "  -T, --all-tails               align tails for all seeds instead of just sources/sinks" << endl
     << "  -X, --xdrop                   use xdrop alignment for tails" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
@@ -84,8 +83,6 @@ int main_gaffe(int argc, char** argv) {
     bool progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_chaining = true;
-    // Should we align all tails or just the ones form sources and sinks?
-    bool all_tails = false;
     // Whould we use the xdrop aligner for aligning tails?
     bool use_xdrop_for_tails = false;
     // What GAMs should we realign?
@@ -131,14 +128,13 @@ int main_gaffe(int argc, char** argv) {
             {"max-alignments", required_argument, 0, 'a'},
             {"score-fraction", required_argument, 0, 'F'},
             {"no-chaining", no_argument, 0, 'O'},
-            {"all-tails", no_argument, 0, 'A'},
             {"xdrop", no_argument, 0, 'X'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:OAXt:",
+        c = getopt_long (argc, argv, "hx:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:OXt:",
                          long_options, &option_index);
 
 
@@ -260,10 +256,6 @@ int main_gaffe(int argc, char** argv) {
                 do_chaining = false;
                 break;
                 
-            case 'A':
-                all_tails = true;
-                break;
-                
             case 'X':
                 use_xdrop_for_tails = true;
                 break;
@@ -382,11 +374,6 @@ int main_gaffe(int argc, char** argv) {
     }
     minimizer_mapper.distance_limit = distance_limit;
     
-    if (progress) {
-        cerr << "--all-tails " << all_tails << endl;
-    }
-    minimizer_mapper.all_tails = all_tails;
-
     if (progress) {
         cerr << "--xdrop " << use_xdrop_for_tails << endl;
     }
