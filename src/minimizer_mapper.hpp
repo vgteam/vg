@@ -59,6 +59,7 @@ public:
     size_t max_multimaps = 1;
     size_t distance_limit = 1000;
     bool do_chaining = true;
+    size_t max_tails = 2;
     bool use_xdrop_for_tails = false;
     string sample_name;
     string read_group;
@@ -98,8 +99,18 @@ protected:
      * Operating on the given input alignment, chain together the given
      * extended perfect-match seeds and produce an alignment into the given
      * output Alignment object.
+     *
+     * Returns true if successful, or false if too much DP work would be
+     * involved and a fallback approach should be used.
      */
-    void chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const; 
+    bool chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const; 
+    
+    /**
+     * Operating on the given input alignment, extract the haplotypes around
+     * the given extended perfect-match seeds and produce the best
+     * haplotype-consistent alignment into the given output Alignment object.
+     */
+    void align_to_local_haplotypes(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const; 
     
     /**
      * Find for each pair of extended seeds all the haplotype-consistent graph

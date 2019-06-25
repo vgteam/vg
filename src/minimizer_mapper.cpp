@@ -395,12 +395,27 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
                 
                 // Do the chaining and compute an alignment into out.
-                chain_extended_seeds(aln, extensions, out);
+                bool chain_success = chain_extended_seeds(aln, extensions, out);
                 
 #ifdef TRACK_PROVENANCE
                 // We're done chaining. Next alignment may not go through this substage.
                 funnel.substage_stop();
 #endif
+
+                if (!chain_success) {
+                    // We thought chaining would be too hard. Fall back on context extraction
+                    
+#ifdef TRACK_PROVENANCE
+                    funnel.substage("context");
+#endif
+
+                    align_to_local_haplotypes(aln, extensions, out);
+                 
+#ifdef TRACK_PROVENANCE
+                    funnel.substage_stop();
+#endif
+                
+                }
             } else {
                 // We would do chaining but it is disabled.
                 // Leave out unaligned
@@ -709,7 +724,7 @@ bool MinimizerMapper::score_is_significant(int score_estimate, int best_score, i
     return false;
 }
 
-void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
+bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
 
 #ifdef debug
     cerr << "Trying again to chain " << extended_seeds.size() << " extended seeds" << endl;
@@ -722,6 +737,53 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
     unordered_map<size_t, unordered_map<size_t, vector<Path>>> paths_between_seeds = find_connecting_paths(extended_seeds,
         aln.sequence().size());
         
+        
+    // Now we need to identify the sources and sinks in the reachability graph (again)
+    // TODO: keep from find_connecting_paths
+    unordered_set<size_t> source_extensions;
+    unordered_set<size_t> sink_extensions;
+    
+    for (size_t i = 0; i < extended_seeds.size(); i++) {
+        // start out assuming everything is a source and a sink
+        source_extensions.insert(i);
+        sink_extensions.insert(i);
+    }
+    
+    for (auto& from_and_dests : paths_between_seeds) {
+        // For each reachability edge from extension
+        if (from_and_dests.first == numeric_limits<size_t>::max()) {
+            // Skip edges from nowhere
+            continue;
+        }
+        
+        if ((from_and_dests.second.size() == 1 && !from_and_dests.second.count(numeric_limits<size_t>::max())) ||
+            (from_and_dests.second.size() > 1)) {
+            // Mark as not a sink if it goes anywhere other than out of the cluster 
+            sink_extensions.erase(from_and_dests.first);
+        }
+        
+        for (auto& to_and_paths : from_and_dests.second) {
+            // For everywhere we can get from here
+            if (to_and_paths.first == numeric_limits<size_t>::max()) {
+                // Discount going nowhere
+                continue;
+            }
+            
+            if (!to_and_paths.second.empty()) {
+                // If there are any actual paths, mark the edge to extension as
+                // reachable from somewhere else.
+                source_extensions.erase(to_and_paths.first);
+            }
+        }
+    }
+    
+    assert(!source_extensions.empty());
+    assert(!sink_extensions.empty());
+   
+    if (source_extensions.size() + sink_extensions.size() > max_tails) {
+        return false;
+    }
+   
     // We're going to record source and sink path count distributions, for debugging
     vector<double> tail_path_counts;
     
@@ -1179,6 +1241,20 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
     set_annotation(out, "tail_path_counts", tail_path_counts);
     set_annotation(out, "tail_lengths", tail_lengths);
     set_annotation(out, "tail_dp_areas", tail_dp_areas);
+    
+    return true;
+}
+
+void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
+    // Find all the handles/nodes that are relevant
+    
+    // Extract the right amount of graph context
+    
+    // Find a covering set of haplotype paths
+    
+    // Align to each of them
+    
+    // Produce the best alignment
 }
 
 unordered_map<size_t, unordered_map<size_t, vector<Path>>>
