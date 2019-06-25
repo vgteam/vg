@@ -3,6 +3,8 @@
 #include <queue>
 #include "sdsl/bit_vectors.hpp"
 
+//#define debug_component_index
+
 namespace vg {
 
     PathComponentIndex::PathComponentIndex() {
@@ -23,6 +25,10 @@ namespace vg {
                 return;
             }
             
+#ifdef debug_component_index
+            cerr << "starting new component on node " << graph->get_id(handle) << endl;
+#endif
+            
             // a node that hasn't been traversed means a new component
             component_path_sets.emplace_back();
             unordered_set<path_handle_t>& component_path_set = component_path_sets.back();
@@ -41,8 +47,11 @@ namespace vg {
                 if (!enqueued[graph->get_id(here) - min_id]) {
                     
                     // add the paths of the new node
-                    graph->for_each_step_on_handle(handle, [&](const step_handle_t& step) {
+                    graph->for_each_step_on_handle(here, [&](const step_handle_t& step) {
                         component_path_set.insert(graph->get_path_handle_of_step(step));
+#ifdef debug_component_index
+                        cerr << "found path " << graph->get_path_name(graph->get_path_handle_of_step(step)) << endl;
+#endif
                     });
                     
                     // and add it to the queue

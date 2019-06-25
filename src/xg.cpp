@@ -156,11 +156,12 @@ void XG::load(istream& in) {
         case 7:
         case 8:
         case 9:
+        case 10:
             cerr << "warning:[XG] Loading an out-of-date XG format. In-memory conversion between versions can be time-consuming. "
                  << "For better performance over repeated loads, consider recreating this XG with 'vg index' "
                  << "or upgrading it with 'vg xg'." << endl;
             // Fall through
-        case 10:
+        case 11:
             {
                 sdsl::read_member(seq_length, in);
                 sdsl::read_member(node_count, in);
@@ -227,16 +228,13 @@ void XG::load(istream& in) {
                 np_bv_rank.load(in, &np_bv);
                 np_bv_select.load(in, &np_bv);
                 
-                if (file_version >= 6) {
-                    // load and unpack the succinct representation of the component path set indexes
+                if (file_version >= 6 && file_version <= 10) {
+                    // load and ignore the component path set indexes (which have
+                    // now been exported)
                     int_vector<> path_ranks_iv;
                     bit_vector path_ranks_bv;
                     path_ranks_iv.load(in);
                     path_ranks_bv.load(in);
-                    unpack_succinct_component_path_sets(path_ranks_iv, path_ranks_bv);
-                } else {
-                    // build the component path set indexes that were added in version 6
-                    index_component_path_sets();
                 }
                 
                 h_civ.load(in);
@@ -559,13 +557,6 @@ size_t XG::serialize_and_measure(ostream& out, sdsl::structure_tree_node* s, std
     paths_written += np_bv.serialize(out, paths_child, "node_path_mapping_starts");
     paths_written += np_bv_rank.serialize(out, paths_child, "node_path_mapping_starts_rank");
     paths_written += np_bv_select.serialize(out, paths_child, "node_path_mapping_starts_select");
-    
-    // create a succint representation of the component path set indexes for us to serialize
-    int_vector<> path_ranks_iv;
-    bit_vector path_ranks_bv;
-    create_succinct_component_path_sets(path_ranks_iv, path_ranks_bv);
-    paths_written += path_ranks_iv.serialize(out, paths_child, "component_path_set_path_ranks");
-    paths_written += path_ranks_bv.serialize(out, paths_child, "component_path_set_bit_vector");
     
     sdsl::structure_tree::add_size(paths_child, paths_written);
     written += paths_written;
@@ -923,13 +914,6 @@ void XG::build(vector<pair<id_t, string> >& node_label,
     assert(np_off <= path_node_count+node_count);
     util::assign(np_bv_rank, rank_support_v<1>(&np_bv));
     util::assign(np_bv_select, bit_vector::select_1_type(&np_bv));
-
-#ifdef VERBOSE_DEBUG
-    cerr << "indexing component path sets" << endl;
-#endif
-    
-    // memoize which paths co-occur on connected components
-    index_component_path_sets();
     
     if(store_threads) {
 
@@ -1092,13 +1076,6 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         }
         cerr << np_bv << endl;
         cerr << np_iv << endl;
-        
-        // output the succinct representations of the component path set indexes
-        int_vector<> path_ranks_iv;
-        bit_vector path_ranks_bv;
-        create_succinct_component_path_sets(path_ranks_iv, path_ranks_bv);
-        cerr << path_ranks_iv << endl;
-        cerr << path_ranks_bv << endl;
     }
 
     if (validate_graph) {
@@ -1199,166 +1176,6 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         cerr << "graph ok" << endl;
     }
     
-}
-    
-void XG::index_component_path_sets() {
-    
-    // for safety, empty the indexes
-    component_path_set_of_path.clear();
-    component_path_sets.clear();
-    
-    // to record which node ranks have been added to queue
-    sdsl::bit_vector enqueued(node_count, 0);
-    
-    for (size_t i = 0; i < node_count; i++) {
-#ifdef debug_component_index
-        cerr << "i = " << i << endl;
-#endif
-        if (enqueued[i]) {
-            continue;
-        }
-#ifdef debug_component_index
-        cerr << "not yet enqueued, beginning traversal" << endl;
-#endif
-        // a node that hasn't been traversed means a new component
-        component_path_sets.emplace_back();
-        unordered_set<size_t>& component_path_set = component_path_sets.back();
-        
-        // init a BFS queue
-        std::queue<handle_t> queue;
-        
-        // to call on each subsequent handle we navigate to
-        function<bool(const handle_t&)> record_paths_and_enqueue = [&](const handle_t& handle) {
-            size_t node_rank = id_to_rank(get_id(handle));
-#ifdef debug_component_index
-            cerr << "traverse to handle on node " << get_id(handle) << " at rank " << node_rank << endl;
-#endif
-
-            // don't queue up the same node twice
-            if (!enqueued[node_rank - 1]) {
-                // add the paths of the new node
-                for (size_t path_rank : paths_of_node(get_id(handle))) {
-#ifdef debug_component_index
-                    cerr << "node is on path " << path_rank << endl;
-#endif
-                    component_path_set.insert(path_rank);
-                }
-                // and add it to the queue
-                queue.push(handle);
-                enqueued[node_rank - 1] = 1;
-            }
-#ifdef debug_component_index
-            else {
-                cerr << "already enqueued" << endl;
-            }
-#endif
-            return true;
-        };
-        
-        // queue up the first node
-        // TODO: somewhat wasteful use of get_handle, but this only gets called once per component
-        record_paths_and_enqueue(get_handle(rank_to_id(i + 1), false));
-        
-        // do the BFS traversal
-        while (!queue.empty()) {
-            handle_t handle = queue.front();
-            queue.pop();
-            
-            // traverse in both directions
-            follow_edges(handle, false, record_paths_and_enqueue);
-            follow_edges(handle, true, record_paths_and_enqueue);
-        }
-    }
-    
-    // make it so we can index into this with the path rank directly
-    component_path_set_of_path.resize(max_path_rank() + 1, numeric_limits<size_t>::max());
-    
-    // index from the paths to their component set
-    for (size_t i = 0; i < component_path_sets.size(); i++) {
-        for (size_t path_rank : component_path_sets[i]) {
-            if (component_path_set_of_path[path_rank] != numeric_limits<size_t>::max()) {
-                cerr << "warning:[XG] Graph contains path " << path_name(path_rank) << " that spans multiple connected components. This path must follow edges that are not included in the graph. XG's component path set indexes may not be semantically meaningful for this graph." << endl;
-                continue;
-            }
-            component_path_set_of_path[path_rank] = i;
-        }
-    }
-}
-    
-void XG::create_succinct_component_path_sets(int_vector<>& path_ranks_iv_out, bit_vector& path_ranks_bv_out) const {
-    
-    size_t num_path_records = 0;
-    for (const auto& component_path_set : component_path_sets) {
-        num_path_records += component_path_set.size();
-    }
-    
-#ifdef debug_component_index
-    cerr << "creating serializable component path sets for " << paths.size() << " paths and " << component_path_sets.size() << " components" << endl;
-#endif
-    
-    path_ranks_iv_out = int_vector<>(num_path_records);
-    path_ranks_bv_out = bit_vector(num_path_records);
-    
-    size_t i = 0;
-    for (const unordered_set<size_t>& component_path_set : component_path_sets) {
-#ifdef debug_component_index
-        cerr << "handling component containing paths:" << endl;
-        for (size_t path : component_path_set) {
-            cerr << "\t" << path << endl;
-        }
-        cerr << "first corresponding index in succinct vector is " << i << endl;
-#endif
-        if (component_path_set.empty()) {
-            continue;
-        }
-        
-        // generate a deterministic ordering (probably not strictly necessary, but for good measure)
-        vector<size_t> component_paths(component_path_set.begin(), component_path_set.end());
-        sort(component_paths.begin(), component_paths.end());
-        
-        // mark the beginning of this path set
-        path_ranks_bv_out[i] = 1;
-        
-        // record the path ranks in this set
-        for (size_t j = 0; j < component_paths.size(); j++, i++) {
-            path_ranks_iv_out[i] = component_paths[j];
-        }
-    }
-}
-
-void XG::unpack_succinct_component_path_sets(const int_vector<>& path_ranks_iv, const bit_vector& path_ranks_bv) {
-    // validity check
-    assert(path_ranks_iv.size() == path_ranks_bv.size());
-    
-    // clear in memory indexes for safety
-    component_path_sets.clear();
-    component_path_set_of_path.clear();
-    
-    // compute the size of the in-memory indexes we'll need
-    size_t max_rank = 0;
-    size_t num_components = 0;
-    for (size_t i = 0; i < path_ranks_iv.size(); i++) {
-        max_rank = max<size_t>(path_ranks_iv[i], max_rank);
-        num_components += path_ranks_bv[i];
-    }
-    // adjust the size accordingly
-    component_path_sets.resize(num_components);
-    component_path_set_of_path.resize(max_rank + 1);
-    
-    // create the in-memory indexes
-    size_t path_set_idx = 0;
-    for (size_t i = 0; i < path_ranks_iv.size(); i++) {
-        // 1 indicates the start of a component path set
-        if (path_ranks_bv[i] && i != 0) {
-            path_set_idx++;
-        }
-        component_path_sets[path_set_idx].insert(path_ranks_iv[i]);
-        component_path_set_of_path[path_ranks_iv[i]] = path_set_idx;
-    }
-}
-    
-bool XG::paths_on_same_component(size_t path_rank_1, size_t path_rank_2) const {
-    return component_path_sets[component_path_set_of_path[path_rank_1]].count(path_rank_2);
 }
     
 const uint64_t* XG::sequence_data(void) const {
@@ -2882,9 +2699,6 @@ int64_t XG::closest_shared_path_unstranded_distance(int64_t id1, size_t offset1,
     unordered_map<size_t, tuple<int64_t, bool, int64_t>> path_dists_1, path_dists_2;
     unordered_set<size_t> shared_paths;
     
-    // have we verified that the two positions are on the same component using the path set component index?
-    bool verified_same_component = false;
-    
     // ensure that the paths of the start nodes are added, even if their ends are too far away
     // from the positions for the search to explore
     // TODO: this leaves the ambiguity that a node might occur multiple times on the same path, in which case
@@ -2896,17 +2710,6 @@ int64_t XG::closest_shared_path_unstranded_distance(int64_t id1, size_t offset1,
         path_dists_2[path_rank] = make_tuple(id2, rev2, (int64_t) offset2);
         if (path_dists_1.count(path_rank)) {
             shared_paths.insert(path_rank);
-            verified_same_component = true;
-        }
-        
-        // check if we can rule out a finite distance because these positions are on separate components
-        if (!verified_same_component && !path_dists_1.empty()) {
-            if (paths_on_same_component(path_rank, path_dists_1.begin()->first)) {
-                verified_same_component = true;
-            }
-            else {
-                return numeric_limits<int64_t>::max();
-            }
         }
     }
     
@@ -2997,17 +2800,6 @@ int64_t XG::closest_shared_path_unstranded_distance(int64_t id1, size_t offset1,
                     // have we found nodes that share a path yet?
                     if (other_path_dists->count(path)) {
                         shared_paths.insert(path);
-                        verified_same_component = true;
-                    }
-                    
-                    // check if we can rule out a finite distance because these positions are on separate components
-                    if (!verified_same_component && !other_path_dists->empty()) {
-                        if (paths_on_same_component(path, other_path_dists->begin()->first)) {
-                            verified_same_component = true;
-                        }
-                        else {
-                            return numeric_limits<int64_t>::max();
-                        }
                     }
                 }
             }
@@ -3097,9 +2889,6 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
     
     unordered_set<pair<size_t, bool>> shared_path_strands;
     
-    // have we verified that the two positions are on the same component using the path set component index?
-    bool verified_same_component = false;
-    
     // ensure that the paths of the start nodes are added, even if their ends are too far away
     // from the positions for the search to explore
     // TODO: this leaves the ambiguity that a node might occur multiple times on the same path, in which case
@@ -3128,17 +2917,6 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
                 cerr << "[XG] this occurrence is on a shared path" << endl;
 #endif
                 shared_path_strands.insert(path_occurrence);
-                verified_same_component = true;
-            }
-            
-            // check if we can rule out a finite distance because these positions are on separate components
-            if (!verified_same_component && !path_strand_dists_1.empty()) {
-                if (paths_on_same_component(path_occurrence.first, path_strand_dists_1.begin()->first.first)) {
-                    verified_same_component = true;
-                }
-                else {
-                    return numeric_limits<int64_t>::max();
-                }
             }
         }
     }
@@ -3238,17 +3016,6 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
                             // have we found nodes that share a path yet?
                             if (other_path_strand_dists->count(path_orientation)) {
                                 shared_path_strands.insert(path_orientation);
-                                verified_same_component = true;
-                            }
-                            
-                            // check if we can rule out a finite distance because these positions are on separate components
-                            if (!verified_same_component && !other_path_strand_dists->empty()) {
-                                if (paths_on_same_component(path_orientation.first, other_path_strand_dists->begin()->first.first)) {
-                                    verified_same_component = true;
-                                }
-                                else {
-                                    return numeric_limits<int64_t>::max();
-                                }
                             }
                         }
                     }
