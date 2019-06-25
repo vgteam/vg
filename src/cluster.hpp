@@ -11,6 +11,7 @@
 #include "xg.hpp"
 #include "handle.hpp"
 #include "min_distance.hpp"
+#include "path_component_index.hpp"
 
 #include <functional>
 #include <string>
@@ -368,7 +369,9 @@ public:
     
     /// Construct a distance service to measures distance along paths in this XG. Optionally
     /// measures all distances on the forward strand of the paths.
-    PathOrientedDistanceMeasurer(XG* xgindex, bool unstranded = false);
+    PathOrientedDistanceMeasurer(XG* xgindex,
+                                 const PathComponentIndex* path_component_index,
+                                 bool unstranded = false);
     
     /// Default desctructor
     ~PathOrientedDistanceMeasurer() = default;
@@ -393,6 +396,7 @@ public:
 private:
     
     XG* xgindex = nullptr;
+    const PathComponentIndex* path_component_index = nullptr;
     
     /// A memo for the results of XG::paths_of_node
     unordered_map<id_t, vector<size_t>> paths_of_node_memo;

@@ -23,6 +23,7 @@
 #include "min_distance.hpp"
 #include "utility.hpp"
 #include "annotation.hpp"
+#include "path_component_index.hpp"
 
 #include "identity_overlay.hpp"
 #include "reverse_graph.hpp"
@@ -388,9 +389,6 @@ namespace vg {
         /// multipath alignments
         bool share_terminal_positions(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
         
-        /// Generates a distance measurer to be used for a mapping problem
-        unique_ptr<OrientedDistanceMeasurer> create_distance_measurer();
-        
         /// Get a thread_local RRMemo with these parameters
         haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;;
         
@@ -401,6 +399,8 @@ namespace vg {
         
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;
+        
+        PathComponentIndex path_component_index;
         
         /// Memos used by population model
         static thread_local unordered_map<pair<double, size_t>, haploMath::RRMemo> rr_memos;

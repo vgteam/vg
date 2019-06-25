@@ -28,7 +28,8 @@ namespace vg {
                                      MinimumDistanceIndex* distance_index) :
         BaseMapper(xg_index, gcsa_index, lcp_array, haplo_score_provider),
         snarl_manager(snarl_manager),
-        distance_index(distance_index)
+        distance_index(distance_index),
+        path_component_index(xg_index)
     {
         // nothing to do
     }
@@ -69,7 +70,27 @@ namespace vg {
         // TODO: use the automatic expected MEM length algorithm to restrict the MEMs used for clustering?
         
         // cluster the MEMs
-        unique_ptr<OrientedDistanceMeasurer> distance_measurer = create_distance_measurer();
+        unique_ptr<SnarlOrientedDistanceMeasurer> snarl_measurer(nullptr);
+        unique_ptr<PathOrientedDistanceMeasurer> path_measurer(nullptr);
+        
+        OrientedDistanceMeasurer* distance_measurer;
+        if (distance_index) {
+#ifdef debug_multipath_mapper
+            cerr << "using a snarl-based distance measurer" << endl;
+#endif
+            snarl_measurer = unique_ptr<SnarlOrientedDistanceMeasurer>(new SnarlOrientedDistanceMeasurer(distance_index));
+            distance_measurer = &(*snarl_measurer);
+        }
+        else {
+#ifdef debug_multipath_mapper
+            cerr << "using a path-based distance measurer" << endl;
+#endif
+            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(xindex,
+                                                                                                      &path_component_index,
+                                                                                                      unstranded_clustering));
+            distance_measurer = &(*path_measurer);
+        }
+        
         vector<memcluster_t> clusters = get_clusters(alignment, mems, &(*distance_measurer));
         
 #ifdef debug_multipath_mapper
@@ -800,26 +821,6 @@ namespace vg {
         return false;
     }
     
-    unique_ptr<OrientedDistanceMeasurer> MultipathMapper::create_distance_measurer() {
-        // which distance method are we using?
-        OrientedDistanceMeasurer* measurer;
-        if (distance_index) {
-#ifdef debug_multipath_mapper
-            cerr << "using a snarl-based distance measurer" << endl;
-#endif
-            measurer = new SnarlOrientedDistanceMeasurer(distance_index);
-        }
-        else {
-#ifdef debug_multipath_mapper
-            cerr << "using a path-based distance measurer" << endl;
-#endif
-            measurer = new PathOrientedDistanceMeasurer(xindex, unstranded_clustering);
-        }
-        
-        // wrap it in a unique pointer
-        return move(unique_ptr<OrientedDistanceMeasurer>(measurer));
-    }
-    
     void MultipathMapper::establish_strand_consistency(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
                                                        vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) {
         
@@ -1399,7 +1400,26 @@ namespace vg {
         vector<pair<pair<size_t, size_t>, int64_t>> cluster_pairs;
         vector<pair<size_t, size_t>> duplicate_pairs;
         
-        unique_ptr<OrientedDistanceMeasurer> distance_measurer = create_distance_measurer();
+        unique_ptr<SnarlOrientedDistanceMeasurer> snarl_measurer(nullptr);
+        unique_ptr<PathOrientedDistanceMeasurer> path_measurer(nullptr);
+        
+        OrientedDistanceMeasurer* distance_measurer;
+        if (distance_index) {
+#ifdef debug_multipath_mapper
+            cerr << "using a snarl-based distance measurer" << endl;
+#endif
+            snarl_measurer = unique_ptr<SnarlOrientedDistanceMeasurer>(new SnarlOrientedDistanceMeasurer(distance_index));
+            distance_measurer = &(*snarl_measurer);
+        }
+        else {
+#ifdef debug_multipath_mapper
+            cerr << "using a path-based distance measurer" << endl;
+#endif
+            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(xindex,
+                                                                                                      &path_component_index,
+                                                                                                      unstranded_clustering));
+            distance_measurer = &(*path_measurer);
+        }
         
         // do we want to try to only cluster one read end and rescue the other?
         bool do_repeat_rescue_from_1 = min_match_count_2 > rescue_only_min && min_match_count_1 <= rescue_only_anchor_max;
