@@ -116,3 +116,6 @@
 	path = deps/sglib
 	url = https://github.com/vgteam/sglib.git
 	branch = master
+[submodule "deps/gperftools"]
+    path = deps/gperftools
+    url = https://github.com/gperftools/gperftools.git
