@@ -1248,8 +1248,10 @@ vector<MEMClusterer::cluster_t> MEMClusterer::clusters(const Alignment& alignmen
     
 }
     
-PathOrientedDistanceMeasurer::PathOrientedDistanceMeasurer(XG* xgindex, bool unstranded) :
-    xgindex(xgindex), unstranded(unstranded) {
+PathOrientedDistanceMeasurer::PathOrientedDistanceMeasurer(XG* xgindex,
+                                                           const PathComponentIndex* path_component_index,
+                                                           bool unstranded) :
+    xgindex(xgindex), unstranded(unstranded), path_component_index(path_component_index) {
     
 }
     
@@ -1524,7 +1526,9 @@ vector<pair<size_t, size_t>> PathOrientedDistanceMeasurer::exclude_merges(vector
             }
             
             // we can exclude any hits that are on separate connected components
-            if (!xgindex->paths_on_same_component(i_path, j_path)) {
+            // TODO: not very good isolation, but it is true that XG paths and path handles are identical
+            if (!path_component_index->paths_on_same_component(handlegraph::as_path_handle(i_path),
+                                                               handlegraph::as_path_handle(j_path))) {
                 excludes.emplace_back(i, j);
             }
         }
