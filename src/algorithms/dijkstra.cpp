@@ -13,6 +13,8 @@ namespace algorithms {
 
 using namespace structures;
 
+#define debug_vg_algorithms
+
 bool dijkstra(const HandleGraph* g, handle_t start,
               function<bool(const handle_t&, size_t)> reached_callback,
               bool traverse_leftward) {
@@ -70,6 +72,11 @@ bool dijkstra(const HandleGraph* g, const unordered_set<handle_t>& starts,
         // Emit the handle as being at the given distance
         if (!reached_callback(current, distance)) {
             // The user told us to stop. Return that we stopped early.
+            
+#ifdef debug_vg_algorithms
+            cerr << "\tAbort search" << endl;
+#endif  
+            
             return false;
         }
         
@@ -95,6 +102,11 @@ bool dijkstra(const HandleGraph* g, const unordered_set<handle_t>& starts,
                     << " at distance " << distance << endl;
 #endif
                 
+            } else {
+#ifdef debug_vg_algorithms
+                cerr << "\tDisregard path to " << g->get_id(next) << " " << g->get_is_reverse(next)
+                    << " at distance " << distance << endl;
+#endif
             }
         });
     }

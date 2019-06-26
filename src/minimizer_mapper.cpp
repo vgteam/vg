@@ -1288,6 +1288,7 @@ void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vect
             // We hit the limit, so stop the search.
             return false;
         }
+        cerr << "\tAdd " << gbwt_graph.get_id(reached) << " " << gbwt_graph.get_is_reverse(reached) << " to context" << endl;
         context.insert(reached);
         total_context_ids.insert(gbwt_graph.get_id(reached));
         return true;
@@ -1307,9 +1308,11 @@ void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vect
         // See if each handle has anything to its right that is in the context.
         // If so, we stop early, and the handle is not a tip in the context graph.
         bool is_tip = true;
+        handle_t counterexample;
         gbwt_graph.follow_edges(handle, false, [&](const handle_t& neighbor) {
             if (context.count(neighbor)) {
                 is_tip = false;
+                counterexample = neighbor;
                 return false;
             }
             return true;
@@ -1317,6 +1320,9 @@ void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vect
         
         if (is_tip) {
             right_tips.insert(handle);
+        } else {
+            cerr << "Non-tip: " << gbwt_graph.get_id(handle) << " " << gbwt_graph.get_is_reverse(handle) 
+                << " attached to " << gbwt_graph.get_id(counterexample) << " " << gbwt_graph.get_is_reverse(counterexample) << endl;
         }
     }
     context.clear();
@@ -1342,9 +1348,11 @@ void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vect
         // See if each handle has anything to its left that is in the context.
         // If so, we stop early, and the handle is not a tip in the context graph.
         bool is_tip = true;
+        handle_t counterexample;
         gbwt_graph.follow_edges(handle, true, [&](const handle_t& neighbor) {
             if (context.count(neighbor)) {
                 is_tip = false;
+                counterexample = neighbor;
                 return false;
             }
             return true;
@@ -1352,6 +1360,9 @@ void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vect
         
         if (is_tip) {
             left_tips.insert(handle);
+        } else {
+            cerr << "Non-tip: " << gbwt_graph.get_id(handle) << " " << gbwt_graph.get_is_reverse(handle) 
+                << " attached to " << gbwt_graph.get_id(counterexample) << " " << gbwt_graph.get_is_reverse(counterexample) << endl;
         }
     }
     context.clear();
@@ -1801,6 +1812,8 @@ Path MinimizerMapper::to_path(const ImmutablePath& path) {
     return to_return;
 }
 
+
+#define debug
 void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
     const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
     const function<void(const ImmutablePath&)>& limit_callback) const {
@@ -1901,6 +1914,13 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
             
             // For each place it can go
             handle_t there_handle = gbwt_graph.node_to_handle(there_state.node);
+            
+#ifdef debug
+            handle_t here_handle = gbwt_graph.node_to_handle(here_state.node);
+            cerr << "Saw GBWT edge " << gbwt_graph.get_id(here_handle) << " " << gbwt_graph.get_is_reverse(here_handle)
+                << " -> " << gbwt_graph.get_id(there_handle) << " " << gbwt_graph.get_is_reverse(there_handle) << endl;
+            assert(gbwt_graph.has_edge(here_handle, there_handle));
+#endif
             
             // Record that we got there
             got_anywhere = true;

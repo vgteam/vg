@@ -7,7 +7,11 @@
 #include <string>
 #include "../algorithms/dijkstra.hpp"
 #include "../handle.hpp"
+#include "../json2pb.h"
+#include "../proto_handle_graph.hpp"
 #include "catch.hpp"
+
+#include <vg/vg.pb.h>
 
 #include <sglib/hash_graph.hpp>
 
@@ -87,6 +91,35 @@ TEST_CASE("Dijkstra search handles early stopping correctly", "[dijkstra][algori
     
 }
 
+TEST_CASE("Dijkstra search works on a particular problem graph", "[dijkstra][algorithms]") {
+
+    string graph_json = R"(
+{"node":[{"sequence":"A","id":"2454530"},{"sequence":"AGTGCTGGAGAGGATGTGGAGAAATAGGAAC","id":"2454529"},{"sequence":"C","id":"2454532"},{"sequence":"TTTTACACTGTTGGTGGGACTGTAAA","id":"2454533"},{"sequence":"A","id":"2454527"},{"sequence":"C","id":"2454528"},{"sequence":"G","id":"2454531"},{"sequence":"C","id":"2454534"},{"sequence":"T","id":"2454535"},{"sequence":"GGGTAATAA","id":"2454526"},{"sequence":"TAGTTCAACCATTGTGGAAGACTGTGGCAATT","id":"2454536"}],"edge":[{"from":"2454530","to":"2454532"},{"from":"2454530","to":"2454533"},{"from":"2454529","to":"2454530"},{"from":"2454529","to":"2454531"},{"from":"2454532","to":"2454533"},{"from":"2454533","to":"2454534"},{"from":"2454533","to":"2454535"},{"from":"2454527","to":"2454529"},{"from":"2454528","to":"2454529"},{"from":"2454531","to":"2454532"},{"from":"2454531","to":"2454533"},{"from":"2454534","to":"2454536"},{"from":"2454535","to":"2454536"},{"from":"2454526","to":"2454527"},{"from":"2454526","to":"2454528"}],"path":[{"name":"21","mapping":[{"position":{"node_id":"2454526"},"edit":[{"from_length":9,"to_length":9}],"rank":"3049077"},{"position":{"node_id":"2454528"},"edit":[{"from_length":1,"to_length":1}],"rank":"3049078"},{"position":{"node_id":"2454529"},"edit":[{"from_length":31,"to_length":31}],"rank":"3049079"},{"position":{"node_id":"2454531"},"edit":[{"from_length":1,"to_length":1}],"rank":"3049080"},{"position":{"node_id":"2454532"},"edit":[{"from_length":1,"to_length":1}],"rank":"3049081"},{"position":{"node_id":"2454533"},"edit":[{"from_length":26,"to_length":26}],"rank":"3049082"},{"position":{"node_id":"2454535"},"edit":[{"from_length":1,"to_length":1}],"rank":"3049083"},{"position":{"node_id":"2454536"},"edit":[{"from_length":32,"to_length":32}],"rank":"3049084"}]}]}    
+    )";
+    
+    Graph g;
+    json2pb(g, graph_json);
+    
+    // Wrap the graph in a HandleGraph
+    ProtoHandleGraph graph(&g);
+    
+    // Decide where to start
+    handle_t start = graph.get_handle(2454536, true);
+    
+    // Track what we reach and at what distance
+    unordered_map<handle_t, size_t> seen;
+    
+    
+    algorithms::dijkstra(&graph, start, [&](const handle_t& reached, size_t distance) {
+        seen[reached] = distance;
+        cerr << "Saw " << graph.get_id(reached) << " " << graph.get_is_reverse(reached) << " at distance " << distance << endl;
+        return true;
+    });
+    
+    REQUIRE(seen.size() == graph.get_node_count());
+        
+}
+    
 
    
 }
