@@ -1276,10 +1276,6 @@ void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vect
     // We track the handles we get from the search.
     unordered_set<handle_t> context;
     
-    // We're also going to track the node IDs we get from either direction, to
-    // constrain our haplotype walks later.
-    unordered_set<id_t> total_context_ids;
-    
     // When we reach something going left or right, mark it in the
     // single-direction context and its ID in the total context.
     auto reached_callback = [&](const handle_t& reached, size_t distance) -> bool {
@@ -1291,7 +1287,6 @@ void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vect
         cerr << "\tAdd " << gbwt_graph.get_id(reached) << " " << gbwt_graph.get_is_reverse(reached) << " to context" << endl;
 #endif
         context.insert(reached);
-        total_context_ids.insert(gbwt_graph.get_id(reached));
         return true;
     };
     
@@ -1407,22 +1402,10 @@ void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vect
                 // Don't go past here
                 return false;
                 
-            } else if (total_context_ids.count(gbwt_graph.get_id(here))) {
-                // Keep going, we are still in the context region
-                return true;
             } else {
-                // Stop. We left the context region without visiting a boundary somehow.
-                
-                cerr << "warning: escaped context and reached " << gbwt_graph.get_id(here)
-                    << " " << gbwt_graph.get_is_reverse(here) << " without visiting a boundary" << endl;
-                cerr << "Have " << right_boundaries.size() << " right boundaries" << endl;
-                for (auto& boundary : right_boundaries) {
-                    cerr << "\t" << gbwt_graph.get_id(boundary) << " " << gbwt_graph.get_is_reverse(boundary) << endl;
-                }
-                                
-                return false;
+                // Keep going
+                return true;
             }
-            
         }, [&](const ImmutablePath&) {
             // When we hit the length limit or a dead end, do nothing.
             
