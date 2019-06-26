@@ -2,11 +2,12 @@
 #include "../vg.hpp"
 #include "../utility.hpp"
 #include "../xg.hpp"
-#include "../packed_graph.hpp"
-#include "../hash_graph.hpp"
 #include "../convert_handle.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+
+#include "sglib/packed_graph.hpp"
+#include "sglib/hash_graph.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -102,9 +103,9 @@ int main_convert(int argc, char** argv) {
         if (graph_type == "vg") {
             return new VG();
         } else if (graph_type == "hash") {
-            return new HashGraph();
+            return new sglib::HashGraph();
         } else if (graph_type == "packed") {
-            return new PackedGraph();
+            return new sglib::PackedGraph();
         } else if (graph_type == "xg") {
             return new XG();
         }

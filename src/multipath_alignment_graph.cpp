@@ -3339,7 +3339,7 @@ namespace vg {
 #endif
                 
                 // extract the graph between the matches
-                HashGraph connecting_graph;
+                sglib::HashGraph connecting_graph;
                 unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(&align_graph,      // DAG with split strands
                                                                                                &connecting_graph, // graph to extract into
                                                                                                max_dist,          // longest distance necessary
@@ -3623,7 +3623,7 @@ namespace vg {
                                              aligner->longest_detectable_gap(alignment, path_node.end));
                     pos_t end_pos = final_position(path_node.path);
                     
-                    HashGraph tail_graph;
+                    sglib::HashGraph tail_graph;
                     unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
                                                                                                &tail_graph,
                                                                                                target_length,
@@ -3711,7 +3711,7 @@ namespace vg {
                     pos_t begin_pos = initial_position(path_node.path);
                     
                     
-                    HashGraph tail_graph;
+                    sglib::HashGraph tail_graph;
                     unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
                                                                                                &tail_graph,
                                                                                                target_length,

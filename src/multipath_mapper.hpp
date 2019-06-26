@@ -23,11 +23,11 @@
 #include "min_distance.hpp"
 #include "utility.hpp"
 #include "annotation.hpp"
+#include "path_component_index.hpp"
 
 #include "identity_overlay.hpp"
 #include "reverse_graph.hpp"
 #include "split_strand_graph.hpp"
-#include "hash_graph.hpp"
 
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/extract_containing_graph.hpp"
@@ -42,6 +42,8 @@
 #include "algorithms/dagify.hpp"
 #include "algorithms/reverse_complement.hpp"
 #include "algorithms/extend.hpp"
+
+#include "sglib/hash_graph.hpp"
 
 #include <structures/union_find.hpp>
 #include <gbwt/gbwt.h>
@@ -164,7 +166,7 @@ namespace vg {
         /// actual extracted graph, a list of assigned MEMs, and the number of
         /// bases of read coverage that that MEM cluster provides (which serves
         /// as a priority).
-        using clustergraph_t = tuple<HashGraph*, memcluster_t, size_t>;
+        using clustergraph_t = tuple<sglib::HashGraph*, memcluster_t, size_t>;
         
     protected:
         
@@ -294,7 +296,7 @@ namespace vg {
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
         /// Does NOT necessarily produce a MultipathAlignment in topological order.
-        void multipath_align(const Alignment& alignment, const HashGraph* graph,
+        void multipath_align(const Alignment& alignment, const sglib::HashGraph* graph,
                              memcluster_t& graph_mems,
                              MultipathAlignment& multipath_aln_out) const;
         
@@ -387,9 +389,6 @@ namespace vg {
         /// multipath alignments
         bool share_terminal_positions(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
         
-        /// Generates a distance measurer to be used for a mapping problem
-        unique_ptr<OrientedDistanceMeasurer> create_distance_measurer();
-        
         /// Get a thread_local RRMemo with these parameters
         haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;;
         
@@ -400,6 +399,8 @@ namespace vg {
         
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;
+        
+        PathComponentIndex path_component_index;
         
         /// Memos used by population model
         static thread_local unordered_map<pair<double, size_t>, haploMath::RRMemo> rr_memos;

@@ -633,50 +633,7 @@ TEST_CASE("Path-based distance approximation in XG produces expected results", "
         REQUIRE(get<2>(jump_pos[0]) == 1);
     }
 }
-        
-TEST_CASE("Path component memoization produces expected results", "[xg]") {
-    
-    string graph_json = R"({"node": [{"sequence": "AAACCC", "id": 1}, {"sequence": "CACACA", "id": 2}, {"sequence": "CACACA", "id": 3}, {"sequence": "TTTTGG", "id": 4}, {"sequence": "ACGTAC", "id": 5}], "path": [{"name": "one", "mapping": [{"position": {"node_id": 1}, "rank": 1}, {"position": {"node_id": 2}, "rank": 2}]}, {"name": "three", "mapping": [{"position": {"node_id": 2}, "rank": 1}, {"position": {"node_id": 3}, "rank": 2}]}, {"name": "two", "mapping": [{"position": {"node_id": 4}, "rank": 1}, {"position": {"node_id": 5}, "rank": 2}]}], "edge": [{"from": 1, "to": 2}, {"from": 2, "to": 3}, {"from": 4, "to": 5}]})";
-    
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Build the xg index
-    XG xg_index(proto_graph);
-    
-    for (int node_id : {1, 2, 3}) {
-        for (size_t path_rank : xg_index.paths_of_node(node_id)){
-            for (int other_node_id : {1, 2, 3}) {
-                for (size_t other_path_rank : xg_index.paths_of_node(other_node_id)) {
-                    REQUIRE(xg_index.paths_on_same_component(path_rank, other_path_rank));
-                }
-            }
-            
-            for (int other_node_id : {4, 5}) {
-                for (size_t other_path_rank : xg_index.paths_of_node(other_node_id)) {
-                    REQUIRE(!xg_index.paths_on_same_component(path_rank, other_path_rank));
-                }
-            }
-        }
-    }
-    
-    for (int node_id : {4, 5}) {
-        for (size_t path_rank : xg_index.paths_of_node(node_id)){
-            for (int other_node_id : {1, 2, 3}) {
-                for (size_t other_path_rank : xg_index.paths_of_node(other_node_id)) {
-                    REQUIRE(!xg_index.paths_on_same_component(path_rank, other_path_rank));
-                }
-            }
-            
-            for (int other_node_id : {4, 5}) {
-                for (size_t other_path_rank : xg_index.paths_of_node(other_node_id)) {
-                    REQUIRE(xg_index.paths_on_same_component(path_rank, other_path_rank));
-                }
-            }
-        }
-    }
-}
+
 
 TEST_CASE("Looping over XG handles in parallel works", "[xg]") {
 

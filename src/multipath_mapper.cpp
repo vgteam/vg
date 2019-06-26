@@ -28,7 +28,8 @@ namespace vg {
                                      MinimumDistanceIndex* distance_index) :
         BaseMapper(xg_index, gcsa_index, lcp_array, haplo_score_provider),
         snarl_manager(snarl_manager),
-        distance_index(distance_index)
+        distance_index(distance_index),
+        path_component_index(xg_index)
     {
         // nothing to do
     }
@@ -69,7 +70,27 @@ namespace vg {
         // TODO: use the automatic expected MEM length algorithm to restrict the MEMs used for clustering?
         
         // cluster the MEMs
-        unique_ptr<OrientedDistanceMeasurer> distance_measurer = create_distance_measurer();
+        unique_ptr<SnarlOrientedDistanceMeasurer> snarl_measurer(nullptr);
+        unique_ptr<PathOrientedDistanceMeasurer> path_measurer(nullptr);
+        
+        OrientedDistanceMeasurer* distance_measurer;
+        if (distance_index) {
+#ifdef debug_multipath_mapper
+            cerr << "using a snarl-based distance measurer" << endl;
+#endif
+            snarl_measurer = unique_ptr<SnarlOrientedDistanceMeasurer>(new SnarlOrientedDistanceMeasurer(distance_index));
+            distance_measurer = &(*snarl_measurer);
+        }
+        else {
+#ifdef debug_multipath_mapper
+            cerr << "using a path-based distance measurer" << endl;
+#endif
+            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(xindex,
+                                                                                                      &path_component_index,
+                                                                                                      unstranded_clustering));
+            distance_measurer = &(*path_measurer);
+        }
+        
         vector<memcluster_t> clusters = get_clusters(alignment, mems, &(*distance_measurer));
         
 #ifdef debug_multipath_mapper
@@ -447,7 +468,7 @@ namespace vg {
         }
         
         // pull out the graph around the position(s) we jumped to
-        HashGraph rescue_graph;
+        sglib::HashGraph rescue_graph;
         vector<size_t> backward_dist(jump_positions.size(), 6 * fragment_length_distr.stdev());
         vector<size_t> forward_dist(jump_positions.size(), 6 * fragment_length_distr.stdev() + other_aln.sequence().size());
         algorithms::extract_containing_graph(xindex, &rescue_graph, jump_positions, backward_dist, forward_dist,
@@ -464,12 +485,12 @@ namespace vg {
         size_t target_length = other_aln.sequence().size() + get_aligner()->longest_detectable_gap(other_aln);
         
         // convert from bidirected to directed
-        HashGraph align_graph;
+        sglib::HashGraph align_graph;
         unordered_map<id_t, pair<id_t, bool> > node_trans = algorithms::split_strands(&rescue_graph, &align_graph);
         // if necessary, convert from cyclic to acylic
         if (!algorithms::is_directed_acyclic(&rescue_graph)) {
             // make a dagified graph and translation
-            HashGraph dagified;
+            sglib::HashGraph dagified;
             unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
             
             // replace the original with the dagified ones
@@ -798,26 +819,6 @@ namespace vg {
         }
         
         return false;
-    }
-    
-    unique_ptr<OrientedDistanceMeasurer> MultipathMapper::create_distance_measurer() {
-        // which distance method are we using?
-        OrientedDistanceMeasurer* measurer;
-        if (distance_index) {
-#ifdef debug_multipath_mapper
-            cerr << "using a snarl-based distance measurer" << endl;
-#endif
-            measurer = new SnarlOrientedDistanceMeasurer(distance_index);
-        }
-        else {
-#ifdef debug_multipath_mapper
-            cerr << "using a path-based distance measurer" << endl;
-#endif
-            measurer = new PathOrientedDistanceMeasurer(xindex, unstranded_clustering);
-        }
-        
-        // wrap it in a unique pointer
-        return move(unique_ptr<OrientedDistanceMeasurer>(measurer));
     }
     
     void MultipathMapper::establish_strand_consistency(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
@@ -1399,7 +1400,26 @@ namespace vg {
         vector<pair<pair<size_t, size_t>, int64_t>> cluster_pairs;
         vector<pair<size_t, size_t>> duplicate_pairs;
         
-        unique_ptr<OrientedDistanceMeasurer> distance_measurer = create_distance_measurer();
+        unique_ptr<SnarlOrientedDistanceMeasurer> snarl_measurer(nullptr);
+        unique_ptr<PathOrientedDistanceMeasurer> path_measurer(nullptr);
+        
+        OrientedDistanceMeasurer* distance_measurer;
+        if (distance_index) {
+#ifdef debug_multipath_mapper
+            cerr << "using a snarl-based distance measurer" << endl;
+#endif
+            snarl_measurer = unique_ptr<SnarlOrientedDistanceMeasurer>(new SnarlOrientedDistanceMeasurer(distance_index));
+            distance_measurer = &(*snarl_measurer);
+        }
+        else {
+#ifdef debug_multipath_mapper
+            cerr << "using a path-based distance measurer" << endl;
+#endif
+            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(xindex,
+                                                                                                      &path_component_index,
+                                                                                                      unstranded_clustering));
+            distance_measurer = &(*path_measurer);
+        }
         
         // do we want to try to only cluster one read end and rescue the other?
         bool do_repeat_rescue_from_1 = min_match_count_2 > rescue_only_min && min_match_count_1 <= rescue_only_anchor_max;
@@ -2485,7 +2505,7 @@ namespace vg {
             auto prev_1 = previous_multipath_alns_1.find(cluster_pair.first.first);
             if (prev_1 == previous_multipath_alns_1.end()) {
                 // we haven't done this alignment yet, so we have to complete it for the first time
-                HashGraph* graph1 = get<0>(cluster_graphs1[cluster_pair.first.first]);
+                sglib::HashGraph* graph1 = get<0>(cluster_graphs1[cluster_pair.first.first]);
                 memcluster_t& graph_mems1 = get<1>(cluster_graphs1[cluster_pair.first.first]);
                 
 #ifdef debug_multipath_mapper
@@ -2587,7 +2607,7 @@ namespace vg {
         unordered_map<id_t, size_t> node_id_to_cluster;
         
         // to hold the clusters as they are (possibly) merged
-        unordered_map<size_t, HashGraph*> cluster_graphs;
+        unordered_map<size_t, sglib::HashGraph*> cluster_graphs;
         
         // to keep track of which clusters have been merged
         UnionFind union_find(clusters.size());
@@ -2629,7 +2649,7 @@ namespace vg {
             
             // extract the subgraph within the search distance
             
-            auto cluster_graph = new HashGraph();
+            auto cluster_graph = new sglib::HashGraph();
             algorithms::extract_containing_graph(xindex, cluster_graph, positions, forward_max_dist, backward_max_dist,
                                                  num_alt_alns > 1 ? reversing_walk_length : 0);
                                                  
@@ -2684,7 +2704,7 @@ namespace vg {
                 cerr << "merging as cluster " << remaining_idx << endl;
 #endif
                 
-                HashGraph* merging_graph;
+                sglib::HashGraph* merging_graph;
                 if (remaining_idx == i) {
                     // the new graph was chosen to remain, so add it to the record
                     cluster_graphs[i] = cluster_graph;
@@ -2747,7 +2767,7 @@ namespace vg {
 #endif
             
             for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
-                cluster_graphs[max_graph_idx + i] = new HashGraph();
+                cluster_graphs[max_graph_idx + i] = new sglib::HashGraph();
             }
             
             // divvy up the nodes
@@ -2899,7 +2919,7 @@ namespace vg {
             
         // find the node ID range for the cluster graphs to help set up a stable, system-independent ordering
         // note: technically this is not quite a total ordering, but it should be close to one
-        unordered_map<HashGraph*, pair<id_t, id_t>> node_range;
+        unordered_map<sglib::HashGraph*, pair<id_t, id_t>> node_range;
         node_range.reserve(cluster_graphs_out.size());
         for (const auto& cluster_graph : cluster_graphs_out) {
             node_range[get<0>(cluster_graph)] = make_pair(get<0>(cluster_graph)->min_node_id(),
@@ -2920,7 +2940,7 @@ namespace vg {
         
     }
     
-    void MultipathMapper::multipath_align(const Alignment& alignment, const HashGraph* graph,
+    void MultipathMapper::multipath_align(const Alignment& alignment, const sglib::HashGraph* graph,
                                           memcluster_t& graph_mems,
                                           MultipathAlignment& multipath_aln_out) const {
 
@@ -2933,7 +2953,7 @@ namespace vg {
         
         // convert from bidirected to directed
         unordered_map<id_t, pair<id_t, bool> > node_trans;
-        HashGraph align_graph;
+        sglib::HashGraph align_graph;
         
         // check if we can get away with using only one strand of the graph
         bool use_single_stranded = algorithms::is_single_stranded(graph);
@@ -2978,7 +2998,7 @@ namespace vg {
             cerr << "graph contains directed cycles, performing dagification" << endl;
 #endif
             // make a dagified graph and translation
-            HashGraph dagified;
+            sglib::HashGraph dagified;
             unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
             
             // replace the original with the dagified ones

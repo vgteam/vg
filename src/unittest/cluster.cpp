@@ -23,7 +23,7 @@ namespace unittest {
 
 
     TEST_CASE( "TVS for simple nested snarl",
-                   "[tvs][bug]" ) {
+                   "[tvs]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -140,34 +140,31 @@ namespace unittest {
     
         
         SECTION( "Test tvs" ) {
-            pos_t pos1 = make_pos_t(1, false, 0);
-            pos_t pos1r = make_pos_t(1, true, 0);
-            pos_t pos2 = make_pos_t(2, false, 0);
-            pos_t pos3 = make_pos_t(3, false, 0);
-            pos_t pos4 = make_pos_t(4, false, 0);
-            pos_t pos5 = make_pos_t(5, false, 0);
-            pos_t pos6r = make_pos_t(6, true, 0);
-            pos_t pos6 = make_pos_t(6, false, 0);
-            pos_t pos7 = make_pos_t(7, false, 0);
-            pos_t pos8 = make_pos_t(8, false, 0);
-            pos_t pos9 = make_pos_t(9, false, 0);
-            pos_t pos10 = make_pos_t(10, false, 0);
-            pos_t pos11 = make_pos_t(11, false, 0);
-            pos_t pos12 = make_pos_t(12, false, 0);
 
-            REQUIRE(tvs.tv_path(pos1, pos2, 3, 5).size() == 2);
-            REQUIRE(tvs.tv_path(pos1, pos11, 18, 5).size() == 10);
-//TODO: This depends on the max distance            REQUIRE(tvs.tv_path(pos1, pos11, 26, 5).size() == 10);
-            REQUIRE(tvs.tv_path(pos1, pos11, 8, 5).size() == 6);
-            REQUIRE(tvs.tv_path(pos1, pos11, 7, 5).size() == 6);
-            REQUIRE(tvs.tv_path(pos2, pos11, 8, 5).size() == 8);
-            REQUIRE(tvs.tv_path(pos11, pos6r, 8, 5).size() == 6);
-            REQUIRE(tvs.tv_path(pos11, pos6r, 9, 1).size() == 6);
-            REQUIRE(tvs.tv_path(pos11, pos6r, 10, 0).size() == 6);
-            REQUIRE(tvs.tv_path(pos11, pos6r, 9, 0).size() == 0);
-            REQUIRE(tvs.tv_path(pos1, pos12, 3, 3).size() == 0);
-            REQUIRE(tvs.tv_path(pos1, pos9, 9, 5).size() == 7);
-           
+            REQUIRE(tvs.tv_path(make_pos_t(1, false, 0), 
+                                make_pos_t(2, false, 0), 3, 5).size() == 2);
+            REQUIRE(tvs.tv_path(make_pos_t(1, false, 0), 
+                                make_pos_t(11, false, 0), 18, 5).size() == 10);
+            REQUIRE(tvs.tv_path(make_pos_t(1, false, 0), 
+                                make_pos_t(11, false, 0), 26, 5).size() != 0);
+            REQUIRE(tvs.tv_path(make_pos_t(1, false, 0), 
+                                make_pos_t(11, false, 0), 8, 5).size() == 6);
+            REQUIRE(tvs.tv_path(make_pos_t(1, false, 0), 
+                                make_pos_t(11, false, 0), 7, 5).size() == 6);
+            REQUIRE(tvs.tv_path(make_pos_t(2, false, 0), 
+                                make_pos_t(11, false, 0), 8, 5).size() == 8);
+            REQUIRE(tvs.tv_path(make_pos_t(11, false, 0), 
+                                make_pos_t(6, true, 0), 8, 5).size() == 6);
+            REQUIRE(tvs.tv_path(make_pos_t(11, false, 0), 
+                                make_pos_t(6, true, 0), 9, 1).size() == 6);
+            REQUIRE(tvs.tv_path(make_pos_t(11, false, 0), 
+                                make_pos_t(6, true, 0), 10, 0).size() == 6);
+            REQUIRE(tvs.tv_path(make_pos_t(11, false, 0), 
+                                make_pos_t(6, true, 0), 9, 0).size() == 0);
+            REQUIRE(tvs.tv_path(make_pos_t(1, false, 0), 
+                                make_pos_t(12, false, 0), 3, 3).size() == 0);
+            REQUIRE(tvs.tv_path(make_pos_t(1, false, 0), 
+                                make_pos_t(9, false, 0), 9, 5).size() == 7);
         }
     }//End test case
     TEST_CASE( "TVS for unary snarl",
