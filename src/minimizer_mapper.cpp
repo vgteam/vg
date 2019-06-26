@@ -1278,7 +1278,6 @@ void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vect
     
     // We're also going to track the node IDs we get from either direction, to
     // constrain our haplotype walks later.
-    // TODO: We *shouldn't* need this; we should not be able to escape the context without hitting a tip!
     unordered_set<id_t> total_context_ids;
     
     // When we reach something going left or right, mark it in the
@@ -1288,7 +1287,9 @@ void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vect
             // We hit the limit, so stop the search.
             return false;
         }
+#ifdef debug
         cerr << "\tAdd " << gbwt_graph.get_id(reached) << " " << gbwt_graph.get_is_reverse(reached) << " to context" << endl;
+#endif
         context.insert(reached);
         total_context_ids.insert(gbwt_graph.get_id(reached));
         return true;
@@ -1301,36 +1302,34 @@ void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vect
     cerr << "Got right context of " << context.size() << endl;
 #endif
     
-    // Pull out all the tips of the right-walking context graph.
+    // Pull out all the boundary nodes of the right-walking context graph that
+    // have contact with the outside world, or that have no edges.
     // When looking for haplotypes, we have to walk left from them.
-    unordered_set<handle_t> right_tips;
+    unordered_set<handle_t> right_boundaries;
     for (auto& handle : context) {
-        // See if each handle has anything to its right that is in the context.
-        // If so, we stop early, and the handle is not a tip in the context graph.
+        // See if each handle has anything to its right that is not the context.
+        // If so, we stop early, and the handle is a boundary in the context graph.
+        bool is_enterable = false;
         bool is_tip = true;
-        handle_t counterexample;
         gbwt_graph.follow_edges(handle, false, [&](const handle_t& neighbor) {
-            if (context.count(neighbor)) {
-                is_tip = false;
-                counterexample = neighbor;
+            is_tip = false;
+            if (!context.count(neighbor)) {
+                is_enterable = true;
                 return false;
             }
             return true;
         });
         
-        if (is_tip) {
-            right_tips.insert(handle);
-        } else {
-            cerr << "Non-tip: " << gbwt_graph.get_id(handle) << " " << gbwt_graph.get_is_reverse(handle) 
-                << " attached to " << gbwt_graph.get_id(counterexample) << " " << gbwt_graph.get_is_reverse(counterexample) << endl;
+        if (is_tip || is_enterable) {
+            right_boundaries.insert(handle);
         }
     }
     context.clear();
     
 #ifdef debug
-    cerr << "Got " << right_tips.size() << " right tips" << endl;
-    for (auto& tip : right_tips) {
-        cerr << "\t" << gbwt_graph.get_id(tip) << " " << gbwt_graph.get_is_reverse(tip) << endl;
+    cerr << "Got " << right_boundaries.size() << " right boundaries" << endl;
+    for (auto& boundary : right_boundaries) {
+        cerr << "\t" << gbwt_graph.get_id(boundary) << " " << gbwt_graph.get_is_reverse(boundary) << endl;
     }
 #endif
     
@@ -1341,60 +1340,55 @@ void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vect
     cerr << "Got left context of " << context.size() << endl;
 #endif
     
-    // Pull out all the tips of the left-walking context graph.
+    // Pull out all the boundary nodes of the left-walking context graph.
     // When looking for haplotypes, we have to walk right from them.
-    unordered_set<handle_t> left_tips;
+    unordered_set<handle_t> left_boundaries;
     for (auto& handle : context) {
-        // See if each handle has anything to its left that is in the context.
-        // If so, we stop early, and the handle is not a tip in the context graph.
+        bool is_enterable = false;
         bool is_tip = true;
-        handle_t counterexample;
         gbwt_graph.follow_edges(handle, true, [&](const handle_t& neighbor) {
-            if (context.count(neighbor)) {
-                is_tip = false;
-                counterexample = neighbor;
+            is_tip = false;
+            if (!context.count(neighbor)) {
+                is_enterable = true;
                 return false;
             }
             return true;
         });
         
-        if (is_tip) {
-            left_tips.insert(handle);
-        } else {
-            cerr << "Non-tip: " << gbwt_graph.get_id(handle) << " " << gbwt_graph.get_is_reverse(handle) 
-                << " attached to " << gbwt_graph.get_id(counterexample) << " " << gbwt_graph.get_is_reverse(counterexample) << endl;
+        if (is_tip || is_enterable) {
+            left_boundaries.insert(handle);
         }
     }
     context.clear();
     
 #ifdef debug
-    cerr << "Got " << left_tips.size() << " left tips" << endl;
-    for (auto& tip : left_tips) {
-        cerr << "\t" << gbwt_graph.get_id(tip) << " " << gbwt_graph.get_is_reverse(tip) << endl;
+    cerr << "Got " << left_boundaries.size() << " left boundaries" << endl;
+    for (auto& boundary : left_boundaries) {
+        cerr << "\t" << gbwt_graph.get_id(boundary) << " " << gbwt_graph.get_is_reverse(boundary) << endl;
     }
 #endif
     
-    // Now we have the left and right tips, so we can find the haplotypes.
+    // Now we have the left and right boundaries, so we can find the haplotypes.
     vector<Path> haplotypes;
     
-    for (auto& left_tip : left_tips) {
-        // For each left tip
+    for (auto& left_boundary : left_boundaries) {
+        // For each left boundary
         
-        // Explore the GBWT forward until we hit a right tip or very generous length limit.
-        // We want to go until we hit the opposing tip or run out of paths.
-        Position tip_start = make_position(gbwt_graph.get_id(left_tip), gbwt_graph.get_is_reverse(left_tip), 0);
-        explore_gbwt(tip_start, numeric_limits<size_t>::max(), [&](const ImmutablePath& path_to, const handle_t& here) -> bool {
+        // Explore the GBWT forward until we hit a right boundary.
+        // We want to go until we hit the opposing boundary or run out of paths.
+        Position boundary_start = make_position(gbwt_graph.get_id(left_boundary), gbwt_graph.get_is_reverse(left_boundary), 0);
+        explore_gbwt(boundary_start, numeric_limits<size_t>::max(), [&](const ImmutablePath& path_to, const handle_t& here) -> bool {
             // When we actually touch something
             
 #ifdef debug
             cerr << "Visit " << gbwt_graph.get_id(here) << " " << gbwt_graph.get_is_reverse(here) << endl;
 #endif
             
-            if (right_tips.count(here)) {
-                // This is a right tip.
+            if (right_boundaries.count(here)) {
+                // This is a right boundary.
                 
 #ifdef debug
-                cerr << "\tReached right tip" << endl;
+                cerr << "\tReached right boundary" << endl;
 #endif
                 
                 // Complete the path
@@ -1417,19 +1411,15 @@ void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vect
                 // Keep going, we are still in the context region
                 return true;
             } else {
-                // Stop. We left the context region without visiting a tip somehow.
+                // Stop. We left the context region without visiting a boundary somehow.
                 
                 cerr << "warning: escaped context and reached " << gbwt_graph.get_id(here)
-                    << " " << gbwt_graph.get_is_reverse(here) << " without visiting a tip" << endl;
-                cerr << "Have " << right_tips.size() << " right tips" << endl;
-                for (auto& tip : right_tips) {
-                    cerr << "\t" << gbwt_graph.get_id(tip) << " " << gbwt_graph.get_is_reverse(tip) << endl;
+                    << " " << gbwt_graph.get_is_reverse(here) << " without visiting a boundary" << endl;
+                cerr << "Have " << right_boundaries.size() << " right boundaries" << endl;
+                for (auto& boundary : right_boundaries) {
+                    cerr << "\t" << gbwt_graph.get_id(boundary) << " " << gbwt_graph.get_is_reverse(boundary) << endl;
                 }
-                cerr << "Have " << left_tips.size() << " left tips" << endl;
-                for (auto& tip : left_tips) {
-                    cerr << "\t" << gbwt_graph.get_id(tip) << " " << gbwt_graph.get_is_reverse(tip) << endl;
-                }
-
+                                
                 return false;
             }
             
@@ -1442,16 +1432,16 @@ void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vect
             
         });
         
-        // If we actually reach a tip, that's a Path, so keep it
+        // If we actually reach a boundary, that's a Path, so keep it
     }
     
 #ifdef debug
     cerr << "Got " << haplotypes.size() << " haplotypes" << endl;
 #endif
         
-    // Then if there are any remaining right tips, we don't actually care, because they aren't in haplotypes with any left tips.
-    // Nor do we care about left tips that couldn't get anywhere.
-    // Because they are tips, left tips can't be on the same haplotype through the context graph together.
+    // Then if there are any remaining right boundaries, we don't actually care, because they aren't in haplotypes with any left boundaries.
+    // Nor do we care about left boundaries that couldn't get anywhere.
+    // Because they are boundaries, boundaries must be on some haplotype that exits the local graph region through them.
     
     // Align to each haplotype path we found
     
@@ -1813,7 +1803,6 @@ Path MinimizerMapper::to_path(const ImmutablePath& path) {
 }
 
 
-#define debug
 void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
     const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
     const function<void(const ImmutablePath&)>& limit_callback) const {

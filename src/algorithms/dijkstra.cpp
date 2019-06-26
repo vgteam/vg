@@ -13,8 +13,6 @@ namespace algorithms {
 
 using namespace structures;
 
-#define debug_vg_algorithms
-
 bool dijkstra(const HandleGraph* g, handle_t start,
               function<bool(const handle_t&, size_t)> reached_callback,
               bool traverse_leftward) {
