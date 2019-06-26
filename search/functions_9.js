@@ -27,7 +27,6 @@ var searchData=
   ['incrementiter',['IncrementIter',['../structvg_1_1IncrementIter.html#a1231b6b6c0fde0c7ae6cf69b9cfe9a6b',1,'vg::IncrementIter']]],
   ['indegree',['indegree',['../classvg_1_1XG.html#a57daa960c39210357991296c90b672b6',1,'vg::XG']]],
   ['index',['index',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a426ae848a0a7a40295a8789fd87a603d',1,'vg::MinimumDistanceIndex::SnarlIndex::index()'],['../classvg_1_1StreamIndex.html#a8ee1930510b5d02e9a00ba1a246ba146',1,'vg::StreamIndex::index()'],['../classvg_1_1Index.html#adb022550b02c2f07099f8543177cef51',1,'vg::Index::Index(void)'],['../classvg_1_1Index.html#a15127be3fa63cfa8e1f8639c7609f496',1,'vg::Index::Index(string &amp;name)']]],
-  ['index_5fcomponent_5fpath_5fsets',['index_component_path_sets',['../classvg_1_1XG.html#a920ed3110e0d094a6c8d2e7228088a70',1,'vg::XG']]],
   ['index_5fedge_5fby_5fnode_5fsides',['index_edge_by_node_sides',['../classvg_1_1VG.html#a53ff7033966852f5fb3852716cab21a9',1,'vg::VG']]],
   ['index_5fpositions',['index_positions',['../namespacevg.html#a3ad3588bcc84b46c6ed107e604f9128e',1,'vg']]],
   ['indexedvg',['IndexedVG',['../classvg_1_1IndexedVG.html#a89030b52047b0e005a5c86b7f9a206f6',1,'vg::IndexedVG::IndexedVG(string graph_filename)'],['../classvg_1_1IndexedVG.html#a4f034462276f6e3ed4b1ab86979d699c',1,'vg::IndexedVG::IndexedVG(IndexedVG &amp;&amp;other)=default'],['../classvg_1_1IndexedVG.html#a0972bd3bf8d93bfa8b41aff828aab070',1,'vg::IndexedVG::IndexedVG(const IndexedVG &amp;other)=delete']]],

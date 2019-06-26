@@ -391,10 +391,6 @@ size_t &gt;, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom
 <tr class="separator:ac5398224011f7ed5f8f200e801b515a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae152e4fca517f42655c1747e0abe10d0"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ae152e4fca517f42655c1747e0abe10d0">share_terminal_positions</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_1, const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_2) const </td></tr>
 <tr class="separator:ae152e4fca517f42655c1747e0abe10d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa52161f4cd35f9d9ca0980ec34ebd4c8"><td class="memItemLeft" align="right" valign="top">unique_ptr<br class="typebreak"/>
-&lt; <a class="el" href="classvg_1_1OrientedDistanceMeasurer.html">OrientedDistanceMeasurer</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aa52161f4cd35f9d9ca0980ec34ebd4c8">create_distance_measurer</a> ()</td></tr>
-<tr class="memdesc:aa52161f4cd35f9d9ca0980ec34ebd4c8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Generates a distance measurer to be used for a mapping problem.  <a href="#aa52161f4cd35f9d9ca0980ec34ebd4c8">More...</a><br/></td></tr>
-<tr class="separator:aa52161f4cd35f9d9ca0980ec34ebd4c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afdea9e5e3d5e07cc05e367d572a9b37c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhaplo_1_1haploMath_1_1RRMemo.html">haploMath::RRMemo</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#afdea9e5e3d5e07cc05e367d572a9b37c">get_rr_memo</a> (double <a class="el" href="classvg_1_1MultipathMapper.html#a26993f76e9bbe5c48e0b436cc9c3fda8">recombination_penalty</a>, size_t population_size) const </td></tr>
 <tr class="memdesc:afdea9e5e3d5e07cc05e367d572a9b37c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a thread_local RRMemo with these parameters.  <a href="#afdea9e5e3d5e07cc05e367d572a9b37c">More...</a><br/></td></tr>
 <tr class="separator:afdea9e5e3d5e07cc05e367d572a9b37c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -445,6 +441,8 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:a82e1a1af4b8ba0170cf7817cd44f1008"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abf0b02bf9912b86d3292c13a72c7d6d1"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#abf0b02bf9912b86d3292c13a72c7d6d1">distance_index</a></td></tr>
 <tr class="separator:abf0b02bf9912b86d3292c13a72c7d6d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aed953c796da9df6f2942ee78907742e3"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1PathComponentIndex.html">PathComponentIndex</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aed953c796da9df6f2942ee78907742e3">path_component_index</a></td></tr>
+<tr class="separator:aed953c796da9df6f2942ee78907742e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abdbf3ba803032d80377c54aa49f1e007"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#abdbf3ba803032d80377c54aa49f1e007">band_padding_memo</a></td></tr>
 <tr class="separator:abdbf3ba803032d80377c54aa49f1e007"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_attribs_classvg_1_1BaseMapper"><td colspan="2" onclick="javascript:toggleInherit('pro_attribs_classvg_1_1BaseMapper')"><img src="closed.png" alt="-"/>&#160;Protected Attributes inherited from <a class="el" href="classvg_1_1BaseMapper.html">vg::BaseMapper</a></td></tr>
@@ -1288,31 +1286,6 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Compute a mapping quality from a list of scores, using the selected method. </p>
-
-</div>
-</div>
-<a class="anchor" id="aa52161f4cd35f9d9ca0980ec34ebd4c8"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">unique_ptr&lt; <a class="el" href="classvg_1_1OrientedDistanceMeasurer.html">OrientedDistanceMeasurer</a> &gt; vg::MultipathMapper::create_distance_measurer </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Generates a distance measurer to be used for a mapping problem. </p>
 
 </div>
 </div>
@@ -2700,6 +2673,26 @@ Additional Inherited Members</h2></td></tr>
   </td>
   <td class="mlabels-right">
 <span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="aed953c796da9df6f2942ee78907742e3"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1PathComponentIndex.html">PathComponentIndex</a> vg::MultipathMapper::path_component_index</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">

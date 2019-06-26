@@ -66,6 +66,7 @@ var searchData=
   ['write_5fbuffered',['write_buffered',['../namespacevg_1_1io.html#abec94de0c23a7a9a473068e85dc9e1fd',1,'vg::io']]],
   ['write_5fcopy',['write_copy',['../classvg_1_1io_1_1MessageEmitter.html#af50b05f458e958c26ac55f7994d1f573',1,'vg::io::MessageEmitter::write_copy()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a8ded624b6ba6d5dddf1abe668214ce7e',1,'vg::io::ProtobufEmitter::write_copy()']]],
   ['write_5fedits',['write_edits',['../classvg_1_1Packer.html#ae7887294608eba5b47484182d657feb3',1,'vg::Packer::write_edits(vector&lt; ofstream * &gt; &amp;out) const '],['../classvg_1_1Packer.html#a956f82c4ff6fbd460a2b6201f051b5ae',1,'vg::Packer::write_edits(ostream &amp;out, size_t bin) const ']]],
+  ['write_5ffasta_5fsequence',['write_fasta_sequence',['../namespacevg.html#a239160a6fee7d0af8914c4ebc7275c78',1,'vg']]],
   ['write_5fgcsa_5fkmers',['write_gcsa_kmers',['../namespacevg.html#a6d8c71ff9f77ddd4a366119e83122771',1,'vg']]],
   ['write_5fgcsa_5fkmers_5fascii',['write_gcsa_kmers_ascii',['../classvg_1_1VGset.html#a025bbf9c919cd28e16ca857d78bcc073',1,'vg::VGset']]],
   ['write_5fgcsa_5fkmers_5fbinary',['write_gcsa_kmers_binary',['../classvg_1_1VGset.html#aa48a0bc96e1707b148c43f07a1855c08',1,'vg::VGset::write_gcsa_kmers_binary(ostream &amp;out, int kmer_size, size_t &amp;size_limit, int64_t head_id=0, int64_t tail_id=0)'],['../classvg_1_1VGset.html#a9bcfc1213bc9125e0e05f7ca83afb903',1,'vg::VGset::write_gcsa_kmers_binary(int kmer_size, size_t &amp;size_limit, int64_t head_id=0, int64_t tail_id=0)']]],

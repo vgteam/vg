@@ -13,6 +13,7 @@ var searchData=
   ['pathbasedtraversalfinder',['PathBasedTraversalFinder',['../classvg_1_1PathBasedTraversalFinder.html',1,'vg']]],
   ['pathbranch',['PathBranch',['../structvg_1_1PathBranch.html',1,'vg']]],
   ['pathchunker',['PathChunker',['../classvg_1_1PathChunker.html',1,'vg']]],
+  ['pathcomponentindex',['PathComponentIndex',['../classvg_1_1PathComponentIndex.html',1,'vg']]],
   ['pathforeachsocket',['PathForEachSocket',['../classhandlegraph_1_1PathForEachSocket.html',1,'handlegraph']]],
   ['pathhandlegraph',['PathHandleGraph',['../classhandlegraph_1_1PathHandleGraph.html',1,'handlegraph']]],
   ['pathindex',['PathIndex',['../structvg_1_1PathIndex.html',1,'vg']]],

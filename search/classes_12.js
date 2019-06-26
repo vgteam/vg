@@ -14,8 +14,8 @@ var searchData=
   ['traversalfinder',['TraversalFinder',['../classvg_1_1TraversalFinder.html',1,'vg']]],
   ['traversalsupportcalculator',['TraversalSupportCalculator',['../classvg_1_1TraversalSupportCalculator.html',1,'vg']]],
   ['tree',['Tree',['../structvg_1_1Tree.html',1,'vg']]],
-  ['treenode',['TreeNode',['../structvg_1_1TreeNode.html',1,'vg']]],
   ['treenode',['TreeNode',['../structvg_1_1BitStringTree_1_1TreeNode.html',1,'vg::BitStringTree']]],
+  ['treenode',['TreeNode',['../structvg_1_1TreeNode.html',1,'vg']]],
   ['trivialtraversalfinder',['TrivialTraversalFinder',['../classvg_1_1TrivialTraversalFinder.html',1,'vg']]],
   ['tsvalignmentemitter',['TSVAlignmentEmitter',['../classvg_1_1TSVAlignmentEmitter.html',1,'vg']]],
   ['tvsclusterer',['TVSClusterer',['../classvg_1_1TVSClusterer.html',1,'vg']]]
