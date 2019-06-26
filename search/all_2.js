@@ -73,6 +73,8 @@ var searchData=
   ['benchmark_5fmain_2ecpp',['benchmark_main.cpp',['../benchmark__main_8cpp.html',1,'']]],
   ['benchmarkresult',['BenchmarkResult',['../structvg_1_1BenchmarkResult.html',1,'vg']]],
   ['benchtime',['benchtime',['../namespacevg.html#a4ab10687f0a0cca11ecfd062d9bb0a07',1,'vg']]],
+  ['best_5fleft',['best_left',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#a18e86ee375128ff9d9af4f81d3aff20e',1,'vg::SnarlSeedClusterer::NodeClusters']]],
+  ['best_5fright',['best_right',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#a3332e5306eb19de39a875f0202d1ac65',1,'vg::SnarlSeedClusterer::NodeClusters']]],
   ['bfs',['bfs',['../classvg_1_1FlowSort.html#a7aec281b9414097e6d80fcb2f59727dd',1,'vg::FlowSort']]],
   ['bfs_5fleft',['bfs_left',['../classvg_1_1RepresentativeTraversalFinder.html#a2d9526f7512a88d8ed9caa4518ceb2be',1,'vg::RepresentativeTraversalFinder']]],
   ['bfs_5fright',['bfs_right',['../classvg_1_1RepresentativeTraversalFinder.html#a527da8cefe9c920e3da0dc34e6f9020f',1,'vg::RepresentativeTraversalFinder']]],

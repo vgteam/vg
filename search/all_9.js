@@ -2,7 +2,7 @@ var searchData=
 [
   ['i',['I',['../structhaplo_1_1haplo__DP__rectangle.html#a90bf6b0298eccf61379f8aa980b8b6cf',1,'haplo::haplo_DP_rectangle']]],
   ['id',['id',['../structvg_1_1Node.html#af886497fd0ba196f651b5d8f9678b52d',1,'vg::Node::id()'],['../namespacevg.html#a9f6602b7e7a46c19819c8f362147b315',1,'vg::id()']]],
-  ['id_5fin_5fparent',['id_in_parent',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a232c3e634d3d2991605883f478942fae',1,'vg::MinimumDistanceIndex::SnarlIndex::id_in_parent()'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#aed44ab3c3147ec9eec0c37a8b0ead39c',1,'vg::MinimumDistanceIndex::ChainIndex::id_in_parent()']]],
+  ['id_5fin_5fparent',['id_in_parent',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a232c3e634d3d2991605883f478942fae',1,'vg::MinimumDistanceIndex::SnarlIndex::id_in_parent()'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#aed44ab3c3147ec9eec0c37a8b0ead39c',1,'vg::MinimumDistanceIndex::ChainIndex::id_in_parent()'],['../structvg_1_1SnarlSeedClusterer_1_1NetgraphNode.html#a809cad1d5711a0b48a958089d5d1bdc6',1,'vg::SnarlSeedClusterer::NetgraphNode::id_in_parent()']]],
   ['id_5foffset',['ID_OFFSET',['../classvg_1_1MinimizerIndex.html#a2ce9731fee8d027304209006d2e28c18',1,'vg::MinimizerIndex']]],
   ['id_5frev_5fto_5fside',['id_rev_to_side',['../classvg_1_1XG.html#afd6b32c20e2114982a58787ccda11cd5',1,'vg::XG']]],
   ['id_5fsort',['id_sort',['../classvg_1_1VG.html#ab1aecdffe7759a1e14248e00f2866b84',1,'vg::VG']]],

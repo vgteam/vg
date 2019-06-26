@@ -2,8 +2,6 @@ var searchData=
 [
   ['cell_5ftype',['cell_type',['../classvg_1_1MinimizerIndex.html#aa29bcf5b604cec909b58f794a194ad66',1,'vg::MinimizerIndex']]],
   ['chain',['Chain',['../namespacevg.html#aa9d8b2ece3ab50a38656273662553f2d',1,'vg']]],
-  ['child_5fcluster_5ft',['child_cluster_t',['../classvg_1_1SnarlSeedClusterer.html#a15e3adee202ce6176dde81c915e9c5de',1,'vg::SnarlSeedClusterer']]],
-  ['child_5fnode_5ft',['child_node_t',['../classvg_1_1SnarlSeedClusterer.html#a7fa0ce9f19be7aa678cf76f60934b3e2',1,'vg::SnarlSeedClusterer']]],
   ['clock',['clock',['../classvg_1_1Watchdog.html#a7ef04f4ac4f47f7bb02f7ac1b17feb09',1,'vg::Watchdog']]],
   ['cluster_5ft',['cluster_t',['../classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d',1,'vg::MEMClusterer']]],
   ['cluster_5ftype',['cluster_type',['../classvg_1_1GaplessExtender.html#afcd0dcc83012ca927949f243a830a89e',1,'vg::GaplessExtender']]],

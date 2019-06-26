@@ -8,6 +8,7 @@ var searchData=
   ['random_5fsequence_5fgen',['random_sequence_gen',['../namespacevg.html#a4012afd56ccb35387121c71c2119e244',1,'vg']]],
   ['range',['range',['../classvg_1_1io_1_1MessageIterator.html#af88ac04ab7cbb8245a86d21a71a5dd76',1,'vg::io::MessageIterator::range()'],['../classvg_1_1io_1_1ProtobufIterator.html#acf75c4c7a16e406f9bb860e3f0c7dae9',1,'vg::io::ProtobufIterator::range()']]],
   ['range_5fvector',['range_vector',['../namespacevg.html#a931d9271de88fc786030fdd0ab4bf534',1,'vg::range_vector(size_t begin, size_t end)'],['../namespacevg.html#a39adca1737de5d28d007d95b809deb7f',1,'vg::range_vector(size_t end)']]],
+  ['rank_5fin_5fparent',['rank_in_parent',['../structvg_1_1SnarlSeedClusterer_1_1NetgraphNode.html#a8d0982d827721c83102a835e4ca05ee5',1,'vg::SnarlSeedClusterer::NetgraphNode']]],
   ['rank_5fto_5fid',['rank_to_id',['../classvg_1_1XG.html#a64292870ea537fc31cd88387ddf97d33',1,'vg::XG']]],
   ['rarevariantsimplifier',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html#a08cf82d7c40db195176b9bf177a50e32',1,'vg::RareVariantSimplifier']]],
   ['read_5fcoverage',['read_coverage',['../classvg_1_1MultipathMapper.html#aad3de01816bc0be9ac9f6474c15087af',1,'vg::MultipathMapper']]],

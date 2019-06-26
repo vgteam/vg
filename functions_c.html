@@ -275,6 +275,9 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <li>chain_start
 : <a class="el" href="structvg_1_1ChainIterator.html#a61e019f94f481b190d14bebe51264c09">vg::ChainIterator</a>
 </li>
+<li>chain_to_snarls
+: <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html#ab425c56983b3e7c209a292917c66f5fd">vg::SnarlSeedClusterer::TreeState</a>
+</li>
 <li>chainDistance()
 : <a class="el" href="classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#ad6bae37869b6e78a82c8d0c8bfdb5bbc">vg::MinimumDistanceIndex::ChainIndex</a>
 </li>
@@ -323,12 +326,6 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </li>
 <li>child_chains
 : <a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html#a4d3d44b4a07fd7598a414eae1f5a2d33">vg::SnarlManager::SnarlRecord</a>
-</li>
-<li>child_cluster_t
-: <a class="el" href="classvg_1_1SnarlSeedClusterer.html#a15e3adee202ce6176dde81c915e9c5de">vg::SnarlSeedClusterer</a>
-</li>
-<li>child_node_t
-: <a class="el" href="classvg_1_1SnarlSeedClusterer.html#a7fa0ce9f19be7aa678cf76f60934b3e2">vg::SnarlSeedClusterer</a>
 </li>
 <li>ChildNodeType
 : <a class="el" href="classvg_1_1SnarlSeedClusterer.html#a835e4f3125a877f2baebd11886750225">vg::SnarlSeedClusterer</a>
@@ -416,8 +413,29 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <li>closest_shared_path_unstranded_distance()
 : <a class="el" href="classvg_1_1XG.html#a7e819ef7648aa1571ff94f66db55e747">vg::XG</a>
 </li>
+<li>cluster_chains()
+: <a class="el" href="classvg_1_1SnarlSeedClusterer.html#a74797ba51aa74da8ac969fce6592d386">vg::SnarlSeedClusterer</a>
+</li>
+<li>cluster_dists
+: <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html#acc9d21286d9663e417f688b6ac606f0d">vg::SnarlSeedClusterer::TreeState</a>
+</li>
+<li>cluster_heads
+: <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#a512c1a25d9d6f4d8641d4dd6002109a2">vg::SnarlSeedClusterer::NodeClusters</a>
+</li>
+<li>cluster_one_chain()
+: <a class="el" href="classvg_1_1SnarlSeedClusterer.html#a2c15cdd1fd5363c7c6b9b3934e277bd7">vg::SnarlSeedClusterer</a>
+</li>
+<li>cluster_one_node()
+: <a class="el" href="classvg_1_1SnarlSeedClusterer.html#a41ce3800f2277217a73b99788bb3257c">vg::SnarlSeedClusterer</a>
+</li>
+<li>cluster_one_snarl()
+: <a class="el" href="classvg_1_1SnarlSeedClusterer.html#aa8389fa529e1989aa30fb41b88e82280">vg::SnarlSeedClusterer</a>
+</li>
 <li>cluster_seeds()
 : <a class="el" href="classvg_1_1SnarlSeedClusterer.html#a3352c07c7bb87c63d38aad949d627449">vg::SnarlSeedClusterer</a>
+</li>
+<li>cluster_snarls()
+: <a class="el" href="classvg_1_1SnarlSeedClusterer.html#a86e6ce461185fa4ff7f95f526b10de51">vg::SnarlSeedClusterer</a>
 </li>
 <li>cluster_subgraph_strict()
 : <a class="el" href="classvg_1_1Mapper.html#a1a47059a349f16c139cb2851c14e858c">vg::Mapper</a>
@@ -703,11 +721,11 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 , <a class="el" href="structvg_1_1XG_1_1ThreadSearchState.html#a784cc63b1b179c48ab2237f14fb50fd7">vg::XG::ThreadSearchState</a>
 </li>
 <li>count_haplotypes()
-: <a class="el" href="classvg_1_1GenomeState.html#a0a892d78d60bd586ae25a3a472ff0671">vg::GenomeState</a>
+: <a class="el" href="classvg_1_1GenomeState.html#a80ffcd90334fd674df62f2faa53f5549">vg::GenomeState</a>
 , <a class="el" href="classvg_1_1XG.html#a30e48e078b1193fc50af0f80c2a9ee03">vg::XG</a>
 </li>
 <li>count_matches()
-: <a class="el" href="classvg_1_1XG.html#a5c08eca0205cccbb94d360d6bee307b9">vg::XG</a>
+: <a class="el" href="classvg_1_1XG.html#a7c60b02e6a4068f2654bc4448d2225b6">vg::XG</a>
 </li>
 <li>count_mismatches()
 : <a class="el" href="classvg_1_1Pileups.html#a9daae92b7e7954d755f834498d4934df">vg::Pileups</a>
@@ -744,10 +762,10 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </li>
 <li>create_edge()
 : <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a3ff0a0f9497da3498170fdfc2ce97797">handlegraph::MutableHandleGraph</a>
-, <a class="el" href="classvg_1_1VG.html#a8ecb9833a1b3e7d5ca41fcaa96000976">vg::VG</a>
+, <a class="el" href="classvg_1_1VG.html#a8fd0565d5133a239856444049783edcd">vg::VG</a>
 </li>
 <li>create_gssw_graph()
-: <a class="el" href="classvg_1_1GSSWAligner.html#aad8804d915fa143bd102807d112aa984">vg::GSSWAligner</a>
+: <a class="el" href="classvg_1_1GSSWAligner.html#a04ce215997273a19d632a5a21c7226d3">vg::GSSWAligner</a>
 </li>
 <li>create_handle()
 : <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#ae844fce457858cd2dc54dde786f79e5c">handlegraph::MutableHandleGraph</a>
@@ -773,7 +791,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </li>
 <li>create_path()
 : <a class="el" href="classvg_1_1Paths.html#a55306d115aee9abbf3166505bacdb35a">vg::Paths</a>
-, <a class="el" href="classvg_1_1VG.html#a3195bfadb7e65e4952c4b98d51e862f1">vg::VG</a>
+, <a class="el" href="classvg_1_1VG.html#adc07ec73a57485a700e621517c962b8b">vg::VG</a>
 </li>
 <li>create_path_chunk_nodes()
 : <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#ae544522fd51c2b6e853d76d5c971a6f8">vg::MultipathAlignmentGraph</a>
@@ -857,7 +875,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 : <a class="el" href="classvg_1_1Homogenizer.html#a13fefa241cbae8c0aac05334b2f10eb4">vg::Homogenizer</a>
 </li>
 <li>cut_tips()
-: <a class="el" href="classvg_1_1Homogenizer.html#a1ce07681ff57215bfdfff95c96c433f5">vg::Homogenizer</a>
+: <a class="el" href="classvg_1_1Homogenizer.html#a85942931139bd8f40e2616206580eb8d">vg::Homogenizer</a>
 </li>
 </ul>
 </div><!-- contents -->

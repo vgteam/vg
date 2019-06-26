@@ -2,6 +2,7 @@ var searchData=
 [
   ['i',['I',['../structhaplo_1_1haplo__DP__rectangle.html#a90bf6b0298eccf61379f8aa980b8b6cf',1,'haplo::haplo_DP_rectangle']]],
   ['id',['id',['../namespacevg.html#a9f6602b7e7a46c19819c8f362147b315',1,'vg']]],
+  ['id_5fin_5fparent',['id_in_parent',['../structvg_1_1SnarlSeedClusterer_1_1NetgraphNode.html#a809cad1d5711a0b48a958089d5d1bdc6',1,'vg::SnarlSeedClusterer::NetgraphNode']]],
   ['id_5frev_5fto_5fside',['id_rev_to_side',['../classvg_1_1XG.html#afd6b32c20e2114982a58787ccda11cd5',1,'vg::XG']]],
   ['id_5fsort',['id_sort',['../classvg_1_1VG.html#ab1aecdffe7759a1e14248e00f2866b84',1,'vg::VG']]],
   ['id_5fto_5fprefix',['id_to_prefix',['../classvg_1_1StreamIndexBase.html#a4b0e44b8cb40b33c5ef4db47a8a89272',1,'vg::StreamIndexBase']]],

@@ -22,6 +22,7 @@ var searchData=
   ['uniform_5freal_5fdistribution',['uniform_real_distribution',['../classvg_1_1uniform__real__distribution.html#aaa8046adecf3b01e7e702df2e4fe3abd',1,'vg::uniform_real_distribution']]],
   ['uniform_5freal_5fdistribution_3c_20double_20_3e',['uniform_real_distribution&lt; double &gt;',['../classvg_1_1uniform__real__distribution.html',1,'vg']]],
   ['unindex_5fedge_5fby_5fnode_5fsides',['unindex_edge_by_node_sides',['../classvg_1_1VG.html#a1c0b7db8d3043747e8b9a44cba4eaac9',1,'vg::VG::unindex_edge_by_node_sides(const NodeSide &amp;side1, const NodeSide &amp;side2)'],['../classvg_1_1VG.html#a5677da9ff22052f6c6a85bfe66e1256d',1,'vg::VG::unindex_edge_by_node_sides(Edge *edge)']]],
+  ['union_5ffind_5fclusters',['union_find_clusters',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a30f7ed272507eabe50070bb498ae0830',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['unique',['unique',['../structvg_1_1MinimizerIndex_1_1Header.html#ae0f6a6187e3924f9230f5cad878352d9',1,'vg::MinimizerIndex::Header']]],
   ['unique_5fkeys',['unique_keys',['../classvg_1_1MinimizerIndex.html#a3473d5cadcf2434ec13c626e84cbb259',1,'vg::MinimizerIndex']]],
   ['uniqueness',['uniqueness',['../structvg_1_1Alignment.html#a2d744ce39b375cdeb8adfc3721a18eb0',1,'vg::Alignment']]],

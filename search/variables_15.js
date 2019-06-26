@@ -3,6 +3,7 @@ var searchData=
   ['unaligned_5fbands',['unaligned_bands',['../classvg_1_1AlignmentChainModel.html#a86bcd77b21cc9b8b9c2b9f100fb9ce71',1,'vg::AlignmentChainModel']]],
   ['unary_5fboundaries',['unary_boundaries',['../classvg_1_1NetGraph.html#ae573871a7c3cd0be507222751f870f72',1,'vg::NetGraph']]],
   ['unfold_5fmax_5flength',['unfold_max_length',['../classvg_1_1Genotyper.html#ab3e4270419b361c9455125ca305709e2',1,'vg::Genotyper']]],
+  ['union_5ffind_5fclusters',['union_find_clusters',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a30f7ed272507eabe50070bb498ae0830',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['unique',['unique',['../structvg_1_1MinimizerIndex_1_1Header.html#ae0f6a6187e3924f9230f5cad878352d9',1,'vg::MinimizerIndex::Header']]],
   ['uniqueness',['uniqueness',['../structvg_1_1Alignment.html#a2d744ce39b375cdeb8adfc3721a18eb0',1,'vg::Alignment']]],
   ['unpaired_5fpenalty',['unpaired_penalty',['../classvg_1_1BaseMapper.html#ad20ea9a68bcaca157350595f03b4601c',1,'vg::BaseMapper']]],
