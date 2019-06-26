@@ -59,7 +59,7 @@ public:
     size_t max_multimaps = 1;
     size_t distance_limit = 1000;
     bool do_chaining = true;
-    size_t max_tails = 2;
+    size_t max_tails = numeric_limits<size_t>::max();
     bool use_xdrop_for_tails = false;
     string sample_name;
     string read_group;

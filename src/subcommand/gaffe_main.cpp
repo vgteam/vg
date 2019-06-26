@@ -85,7 +85,7 @@ int main_gaffe(int argc, char** argv) {
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_chaining = true;
     // How many tails should we tolerate
-    size_t max_tails = 2;
+    size_t max_tails = numeric_limits<size_t>::max();
     // Whould we use the xdrop aligner for aligning tails?
     bool use_xdrop_for_tails = false;
     // What GAMs should we realign?
