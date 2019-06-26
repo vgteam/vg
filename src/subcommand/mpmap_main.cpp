@@ -13,7 +13,7 @@
 #include "../path.hpp"
 #include "../watchdog.hpp"
 
-#define record_read_run_times
+//#define record_read_run_times
 
 #ifdef record_read_run_times
 #define READ_TIME_FILE "_read_times.tsv"
