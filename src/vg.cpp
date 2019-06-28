@@ -774,20 +774,25 @@ pair<step_handle_t, step_handle_t> VG::rewrite_segment(const step_handle_t& segm
         cerr << "error:[VG] attempted to rewrite segment delimited by steps on two separate paths" << endl;
         exit(1);
     }
+    int64_t path_id = as_integer(get_path_handle_of_step(segment_begin));
     
     // erase the old segment, using the get_next_step logic to wrap around circular paths
     
     // collect the mapping_t*'s that we'll need to erase from the mapping_itr once we don't need them for get_next_step
     vector<mapping_t*> to_erase;
     
-    auto& path_list = paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(segment_begin))));
-    for (step_handle_t step = segment_begin; step != segment_end; ) {
-        step_handle_t next = get_next_step(step);
-        path_list.erase(paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step)[1])).first);
-        step = next;
+    for (step_handle_t step = segment_begin; step != segment_end; step = get_next_step(step)) {
+        to_erase.push_back(reinterpret_cast<mapping_t*>(as_integers(step)[1]));
     }
     
+    vector<int32_t> ranks;
+    ranks.reserve(to_erase.size());
+    auto& path_list = paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(segment_begin))));
     for (mapping_t* mapping : to_erase) {
+        
+        ranks.push_back(mapping->rank);
+        paths.node_mapping[mapping->node_id()][path_id].erase(mapping);
+        path_list.erase(paths.mapping_itr.at(mapping).first);
         paths.mapping_itr.erase(mapping);
     }
     
@@ -804,23 +809,38 @@ pair<step_handle_t, step_handle_t> VG::rewrite_segment(const step_handle_t& segm
     pair<step_handle_t, step_handle_t> return_val(segment_end, segment_end);
     
     bool first_iter = true;
-    for (const handle_t& handle : new_segment) {
+    for (size_t i = 0; i < new_segment.size(); ++i) {
+        const handle_t& handle = new_segment[i];
         
         // translate to a mapping
         mapping_t mapping;
         mapping.set_node_id(get_id(handle));
         mapping.set_is_reverse(get_is_reverse(handle));
         mapping.length = get_length(handle);
+        // TODO: there's no efficient way to maintain the ranks dynamically if we're going to be expanding them
+        if (new_segment.size() <= ranks.size()) {
+            mapping.rank = ranks[i];
+        }
         
         auto iterator = path_list.insert(last_pos, mapping);
         
+        if (new_segment.size() <= ranks.size()) {
+            paths.mappings_by_rank[get_path_name(as_path_handle(path_id))][ranks[i]] = &(*iterator);
+        }
+        
         paths.mapping_itr[&(*iterator)] = pair<list<mapping_t>::iterator, int64_t>(iterator, as_integers(segment_end)[0]);
+        paths.node_mapping[get_id(handle)][path_id].insert(&(*iterator));
         
         // on the first iteration, construct the first step handle for the return value
         if (first_iter) {
             as_integers(return_val.first)[1] = reinterpret_cast<int64_t>(&(*iterator));
             first_iter = false;
         }
+    }
+    
+    // if we're shrinking the rank space, clear out ranks that are now unused
+    for (size_t i = new_segment.size(); i < ranks.size(); ++i) {
+        paths.mappings_by_rank[get_path_name(as_path_handle(path_id))].erase(ranks[i]);
     }
     
     return return_val;
@@ -874,12 +894,10 @@ void VG::serialize_to_function(const function<void(Graph&)>& emit, id_t chunk_si
             // This prevents duplication of edges in the serialized output.
             nonoverlapping_node_context_without_paths(node, g);
             auto& mappings = paths.get_node_mapping(node);
-            //cerr << "getting node mappings for " << node->id() << endl;
             for (auto m : mappings) {
                 auto& name = paths.get_path_name(m.first);
                 auto& mappings = m.second;
                 for (auto& mapping : mappings) {
-                    //cerr << "mapping " << name << pb2json(*mapping) << endl;
                     sorted_paths[name][mapping->rank] = mapping;
                 }
             }
