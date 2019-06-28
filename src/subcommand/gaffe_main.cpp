@@ -100,11 +100,11 @@ int main_gaffe(int argc, char** argv) {
     // How many extended clusters should we align, max?
     size_t max_alignments = 8;
     //Throw away cluster with scores that are this amount below the best
-    double cluster_score = 50;
+    double cluster_score = 75;
     //Throw away clusters with coverage this amount below the best 
-    double cluster_coverage = 0.3;
+    double cluster_coverage = 1;
     //Throw away extensions with scores that are this amount below the best
-    double extension_score = 50;
+    double extension_score = 75;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
