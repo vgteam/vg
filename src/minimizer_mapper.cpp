@@ -253,7 +253,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     double best_cluster_score = cluster_score.size() == 0 ? 0 : 
                                  *std::max_element(cluster_score.begin(), cluster_score.end());
     //TODO: Find a good cutoff
-    double cluster_score_cutoff = best_cluster_score - 50;
+    double cluster_score_cutoff = best_cluster_score - cluster_score_threshold;
 
 
 #ifdef debug
@@ -273,7 +273,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         return (read_coverage_by_cluster[a] > read_coverage_by_cluster[b]);
         //return (cluster_score[a] > cluster_score[b]);
     });
-    double cluster_coverage_cutoff = read_coverage_by_cluster[cluster_indexes_in_order[0]] - 0.3;
+    double cluster_coverage_cutoff = read_coverage_by_cluster[cluster_indexes_in_order[0]] - cluster_coverage_threshold;
     
 #ifdef TRACK_PROVENANCE
     // Now we go from clusters to gapless extensions
@@ -372,7 +372,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
     double best_extension_score = cluster_extension_scores.size() == 0 ? 0 :
                                   cluster_extension_scores[extension_indexes_in_order[0]];
-    double extension_score_cutoff = best_extension_score - 70; 
+    double extension_score_cutoff = best_extension_score - extension_score_threshold; 
     
 #ifdef TRACK_PROVENANCE
     funnel.stage("align");
