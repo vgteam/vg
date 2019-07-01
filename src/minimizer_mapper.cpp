@@ -287,10 +287,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     size_t num_extensions = 0;
     for (size_t i = 0; i < clusters.size() && num_extensions < max_extensions &&
-                 read_coverage_by_cluster[cluster_indexes_in_order[i]] > cluster_coverage_cutoff; i++) {
+                 (cluster_coverage_threshold == 0 || read_coverage_by_cluster[cluster_indexes_in_order[i]] > cluster_coverage_cutoff); i++) {
         // For each cluster, in sorted order
         size_t& cluster_num = cluster_indexes_in_order[i];
-        if (cluster_score[cluster_num] < cluster_score_cutoff) {
+        if (cluster_score_threshold != 0 && cluster_score[cluster_num] < cluster_score_cutoff) {
             continue;
         }
         num_extensions ++;
@@ -328,7 +328,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         //Keep only the extension whose score is within extension_score_threshold
         //of the best scoring extension
         for (GaplessExtension& extension : extensions) {
-            if ((int)extension.core_length() > best_extension_score - extension_score_threshold) {
+            if (extension_score_threshold == 0 || 
+                (int)extension.core_length() > best_extension_score - extension_score_threshold) {
                 filtered_extensions.push_back(std::move(extension));
             }
         }
@@ -417,7 +418,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
         auto& extensions = cluster_extensions[extension_num];
         
-        if (i < 2 || cluster_extension_scores[extension_indexes_in_order[i]] > extension_set_cutoff || second_best_score < 1) {
+        if (i < 2 || (extension_set_score_threshold == 0 || cluster_extension_scores[extension_indexes_in_order[i]] > extension_set_cutoff) || second_best_score < 1) {
             // Always take the first and second.
             // For later ones, check if this score is significant relative to the running best and second best scores.
             
