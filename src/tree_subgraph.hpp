@@ -22,7 +22,11 @@ using namespace std;
      * Useful for describing the haplotype tree embedded in a graph, radiating
      * from a certain point.
      *
-     * The leading and trailing nodes can be cut.
+     * The tree is always exposed as rooted at the left, with child nodes
+     * radiating out on the right. The user has to re-orient the handles fed in
+     * to match that topology.
+     *
+     * The root handle can be trimmed on its left side.
      *
      * Supports translation of other Paths from this graph into the base graph.
      */
@@ -30,13 +34,27 @@ using namespace std;
     public:
         
         /// Create a TreeSubgraph describing the subgraph of the given graph
-        /// defined by the given tree. The tree is stored as a vector of tuples
-        /// of (previous item number, base graph handle, left trim, right
-        /// trim). The tree must be topologically sorted.
-        TreeSubgraph(const HandleGraph* base, vector<tuple<int64_t, handle_t, size_t, size_t>>&& tree);
+        /// defined by the given tree. The tree is stored as a vector of pairs
+        /// of (previous item number, base graph handle).
+        ///
+        /// The tree handles must be given reading from the root end of the
+        /// tree towards the branches.
+        ///
+        /// The tree must be topologically sorted, with the root at 0. The root
+        /// must point to -1.
+        ///
+        /// If given, root_trim specifies a number of bases to cut off of the
+        /// left side of the root handle.
+        ///
+        TreeSubgraph(const HandleGraph* super, vector<pair<int64_t, handle_t>>&& tree, size_t root_trim = 0);
         
         /// Get a topological order very easily, since the tree defines one.
         vector<handle_t> get_topological_order() const;
+        
+        /// Get a handle to the root of the tree, oriented towards the side with edges, if any.
+        ///
+        /// Throws an exception if the tree is empty and there is no root.
+        handle_t get_root() const;
         
         //////////////////////////
         /// HandleGraph interface
@@ -103,10 +121,19 @@ using namespace std;
         /// Translate a Path against us to a Path against the base graph
         Path translate_down(const Path& path_against_subgraph) const;
         
-    private:
-        const HandleGraph* super = nullptr;
+    protected:
+        /// What graph are we based on?
+        const HandleGraph* super;
         
-         vector<tuple<int64_t, handle_t, size_t, size_t>> defining_tree;
+        /// What tree are we using in the backing graph?
+        /// Index in this vector corresponds to node ID in the projected graph.
+        vector<pair<int64_t, handle_t>> tree;
+        
+        /// How much of the root do we trim off?
+        size_t root_trim;
+        
+        /// For each node, what child indexes does it have?
+        vector<vector<size_t>> children;
     };
 }
 
