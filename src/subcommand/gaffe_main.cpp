@@ -271,7 +271,7 @@ int main_gaffe(int argc, char** argv) {
             case 's':
                 {
                     double score = parse<double>(optarg);
-                    if (score <= 0) {
+                    if (score < 0) {
                         cerr << "error: [vg gaffe] Cluster score threshold (" << score << ") must be positive" << endl;
                         exit(1);
                     }
@@ -282,7 +282,7 @@ int main_gaffe(int argc, char** argv) {
             case 'u':
                 {
                     double score = parse<double>(optarg);
-                    if (score <= 0) {
+                    if (score < 0) {
                         cerr << "error: [vg gaffe] Cluster coverage threshold (" << score << ") must be positive" << endl;
                         exit(1);
                     }
@@ -292,7 +292,7 @@ int main_gaffe(int argc, char** argv) {
             case 'v':
                 {
                     double score = parse<double>(optarg);
-                    if (score <= 0) {
+                    if (score < 0) {
                         cerr << "error: [vg gaffe] Extension score threshold (" << score << ") must be positive" << endl;
                         exit(1);
                     }
@@ -302,7 +302,7 @@ int main_gaffe(int argc, char** argv) {
             case 'w':
                 {
                     int score = parse<int>(optarg);
-                    if (score <= 0) {
+                    if (score < 0) {
                         cerr << "error: [vg gaffe] Extension set score threshold (" << score << ") must be positive" << endl;
                         exit(1);
                     }

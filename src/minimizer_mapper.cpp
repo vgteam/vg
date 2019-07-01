@@ -418,7 +418,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
         auto& extensions = cluster_extensions[extension_num];
         
-        if (i < 2 || (extension_set_score_threshold == 0 || cluster_extension_scores[extension_indexes_in_order[i]] > extension_set_cutoff) || second_best_score < 1) {
+        if (i < 2 || (extension_set_score_threshold == 0 || cluster_extension_scores[extension_num] > extension_set_cutoff) || second_best_score < 1) {
             // Always take the first and second.
             // For later ones, check if this score is significant relative to the running best and second best scores.
             
