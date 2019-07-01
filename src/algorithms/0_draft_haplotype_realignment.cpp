@@ -876,6 +876,12 @@ void move_path_to_snarl(MutablePathDeletableHandleGraph &graph,
         // since it could begin in the middle of the handle.
         vector<int> starting_indices =
             check_handle_as_start_of_path_seq(handle_seq, path_seq);
+        //TODO: debug_code: indices of start?            
+        cerr << "indices of start?" << endl;
+        for (auto start : starting_indices){
+            cerr << start << " ";
+        }
+        cerr << endl;
         // if there is a starting index,
         if (starting_indices.size() != 0) {
             // if the starting_indices implies that the starting handle entirely contains
