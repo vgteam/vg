@@ -11,7 +11,7 @@
 #include "catch.hpp"
 
 #include <vg/vg.pb.h>
-#include <sglib/hashgraph.hpp>
+#include <sglib/hash_graph.hpp>
 
 namespace vg {
 namespace unittest {
@@ -22,7 +22,7 @@ using namespace std;
 TEST_CASE("TreeSubgraph can be created and traversed", "[subgraph]") {
     
     // Make up a base graph
-    HashGraph base;
+    sglib::HashGraph base;
     
     handle_t start = base.create_handle("GAT");
     handle_t middle = base.create_handle("TA");
@@ -46,7 +46,8 @@ TEST_CASE("TreeSubgraph can be created and traversed", "[subgraph]") {
     tree.emplace_back(2, end);
     tree.emplace_back(3, end);
     
-    TreeSubgraph subgraph(&base, tree);
+    TreeSubgraph subgraph(&base, std::move(tree));
+    tree.clear();
     
     // Make sure it works.
     

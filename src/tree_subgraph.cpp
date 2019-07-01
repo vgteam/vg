@@ -14,7 +14,7 @@ using namespace std;
 
 
 TreeSubgraph::TreeSubgraph(const HandleGraph* super, vector<pair<int64_t, handle_t>>&& tree, size_t root_trim) : super(super),
-    tree(tree), root_trim(root_trim), children(tree.size()); {
+    tree(tree), root_trim(root_trim), children(tree.size()) {
     
     for (size_t i = 1; i < tree.size(); i++) {
         // Populate children by scanning the tree vector.
@@ -50,7 +50,7 @@ bool TreeSubgraph::has_node(id_t node_id) const {
 }
 
 handle_t TreeSubgraph::get_handle(const id_t& node_id, bool is_reverse) const {
-    return handlegraph::number_bool_packing::pack(node_id - 1, is_reverse)
+    return handlegraph::number_bool_packing::pack(node_id - 1, is_reverse);
 }
 
 id_t TreeSubgraph::get_id(const handle_t& handle) const {
@@ -131,7 +131,7 @@ bool TreeSubgraph::follow_edges_impl(const handle_t& handle, bool go_left, const
    
 }
 
-bool TreeSubgraph::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const {
+bool TreeSubgraph::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
     for (size_t i = 0; i < tree.size(); i++) {
         // For each index, turn it into the corresponding ID and get the handle and run on it.
         if (!iteratee(get_handle(i + 1, false))) {
@@ -190,6 +190,8 @@ Path TreeSubgraph::translate_down(const Path& path_against_subgraph) const {
             translated.mutable_mapping(i)->mutable_position()->set_offset(translated.mapping(i).position().offset() + root_trim);
         }
     }
+    
+    return translated;
 }
 
 }
