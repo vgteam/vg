@@ -22,6 +22,7 @@
 #include "graph.hpp"
 #include "path.hpp"
 #include "handle.hpp"
+#include "utility.hpp"
 
 // We can have DYNAMIC or SDSL-based gPBWTs
 #define MODE_DYNAMIC 1
@@ -33,7 +34,7 @@
 #include "dynamic.hpp"
 #endif
 
-namespace xg {
+namespace vg {
 
 using namespace std;
 using namespace sdsl;
@@ -117,9 +118,9 @@ public:
                bool is_sorted_dag);
                
     // What's the maximum XG version number we can read with this code?
-    const static uint32_t MAX_INPUT_VERSION = 10;
+    const static uint32_t MAX_INPUT_VERSION = 11;
     // What's the version we serialize?
-    const static uint32_t OUTPUT_VERSION = 10;
+    const static uint32_t OUTPUT_VERSION = 11;
                
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
@@ -618,7 +619,7 @@ public:
     map<string, list<thread_t> > extract_threads_matching(const string& pattern, bool reverse) const;
     /// Extract a particular thread, referring to it by its offset at node; step
     /// it out to a maximum of max_length
-    thread_t extract_thread(xg::XG::ThreadMapping node, int64_t offset, int64_t max_length);
+    thread_t extract_thread(XG::ThreadMapping node, int64_t offset, int64_t max_length);
     /// Count matches to a subthread among embedded threads
     size_t count_matches(const thread_t& t) const;
     size_t count_matches(const Path& t) const;
@@ -873,18 +874,6 @@ private:
     // succinct name representation is built.
     string names_str;
     
-    // Memoized sets of the path ranks that co-occur on a connected component
-    vector<unordered_set<size_t>> component_path_sets;
-    // An index from a path rank to the set of path ranks that occur on the same connected component as it
-    vector<size_t> component_path_set_of_path;
-
-    // Fill the component path sets indexes
-    void index_component_path_sets();
-    // Create a representation of the component path set indexes in serializable sdsl types
-    void create_succinct_component_path_sets(int_vector<>& path_ranks_iv_out, bit_vector& path_ranks_bv_out) const;
-    // Convert the serializable sdsl representation of the component path set indexes into the in-memory class members
-    void unpack_succinct_component_path_sets(const int_vector<>& path_ranks_iv, const bit_vector& path_ranks_bv);
-    
     // A "destination" is either a local edge number + 2, BS_NULL for stopping,
     // or possibly BS_SEPARATOR for cramming multiple Benedict arrays into one.
     using destination_t = size_t;
@@ -967,7 +956,7 @@ Mapping new_mapping(const string& name, int64_t id, size_t rank, bool is_reverse
 void to_text(ostream& out, Graph& graph);
 
 // Serialize a rank_select_int_vector in an SDSL serialization compatible way. Returns the number of bytes written.
-size_t serialize(const XG::rank_select_int_vector& to_serialize, ostream& out,
+size_t serialize_vector(const XG::rank_select_int_vector& to_serialize, ostream& out,
     sdsl::structure_tree_node* parent, const std::string name);
 
 // Deserialize a rank_select_int_vector in an SDSL serialization compatible way.
@@ -993,10 +982,6 @@ bool depart_by_reverse(const Edge& e, int64_t node_id, bool node_is_reverse);
 
 // Make an edge from its fields (generally for comparison)
 Edge make_edge(int64_t from, bool from_start, int64_t to, bool to_end);
-
-// Helpers for when we're picking up parts of the graph without returning full Node objects
-char reverse_complement(const char& c);
-string reverse_complement(const string& seq);
 
 // Position parsing helpers for CLI
 void extract_pos(const string& pos_str, int64_t& id, bool& is_rev, size_t& off);

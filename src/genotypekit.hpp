@@ -302,7 +302,7 @@ struct SupportAugmentedGraph : public AugmentedGraph {
      * Read the suppors from output of vg pack
      * Everything put in forward support, average used for nodes
      */
-    void load_pack_as_supports(const string& pack_file_name, xg::XG* xg);
+    void load_pack_as_supports(const string& pack_file_name, XG* xg);
 
     /**
      * Write the supports to protobuf

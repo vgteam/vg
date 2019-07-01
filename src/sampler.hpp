@@ -28,7 +28,7 @@ using namespace std;
 /// orientations, into pos_ts. Remember that pos_t counts offset from the start
 /// of the reoriented node, while here we count offset from the beginning of the
 /// forward version of the path.
-pos_t position_at(xg::XG* xgidx, const string& path_name, const size_t& path_offset, bool is_reverse);
+pos_t position_at(XG* xgidx, const string& path_name, const size_t& path_offset, bool is_reverse);
 
 /**
  * Generate Alignments (with or without mutations, and in pairs or alone) from
@@ -38,7 +38,7 @@ class Sampler {
 
 public:
 
-    xg::XG* xgidx;
+    XG* xgidx;
     // We need this so we don't re-load the node for every character we visit in
     // it.
     LRUCache<id_t, Node> node_cache;
@@ -53,7 +53,7 @@ public:
     // A vector which, if nonempty, gives the names of the paths to restrict simulated reads to.
     vector<string> source_paths;
     vg::discrete_distribution<> path_sampler; // draw an index in source_paths
-    inline Sampler(xg::XG* x,
+    inline Sampler(XG* x,
             int seed = 0,
             bool forward_only = false,
             bool allow_Ns = false,
@@ -143,7 +143,7 @@ public:
     /// distribution. The simulation can also be restricted to named paths in the graph.
     /// Alternatively, it can match an expression profile. However, it cannot be simulateously
     /// restricted to paths and to an expression profile.
-    NGSSimulator(xg::XG& xg_index,
+    NGSSimulator(XG& xg_index,
                  const string& ngs_fastq_file,
                  bool interleaved_fastq = false,
                  const vector<string>& source_paths = {},
@@ -275,7 +275,7 @@ private:
     /// A distribution for the joint initial qualities of a read pair
     MarkovDistribution<pair<uint8_t, bool>, pair<pair<uint8_t, bool>, pair<uint8_t, bool>>> joint_initial_distr;
     
-    xg::XG& xg_index;
+    XG& xg_index;
     
     LRUCache<id_t, Node> node_cache;
     LRUCache<id_t, vector<Edge> > edge_cache;

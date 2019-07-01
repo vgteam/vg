@@ -117,7 +117,7 @@ int main_benchmark(int argc, char** argv) {
     const VG vg(vg_mut);
     
     // Get an XG for it
-    const xg::XG xg_index(vg_mut.graph);
+    const XG xg_index(vg_mut.graph);
     
     // And an IndexedVG
     auto filename = temp_file::create();

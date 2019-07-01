@@ -27,7 +27,7 @@ TEST_CASE("We can build an xg index on a nice graph", "[xg]") {
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
     
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    XG xg_index(proto_graph);
 
     Graph graph = xg_index.graph_context_id(make_pos_t(1, false, 0), 100);
     sort_by_id_dedup_and_clean(graph);
@@ -51,7 +51,7 @@ TEST_CASE("We can build an xg index on a nasty graph", "[xg]") {
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
     
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    XG xg_index(proto_graph);
 
     Graph graph = xg_index.graph_context_id(make_pos_t(1, false, 0), 100);
     sort_by_id_dedup_and_clean(graph);
@@ -161,7 +161,7 @@ TEST_CASE("We can build an xg index on a very nasty graph", "[xg]") {
 
     sort_by_id_dedup_and_clean(proto_graph);
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    XG xg_index(proto_graph);
 
     SECTION("Context extraction gets something") {
         Graph graph = xg_index.graph_context_id(make_pos_t(1420, false, 0), 30);
@@ -224,7 +224,7 @@ TEST_CASE("We can build the xg index on a small graph with discontinuous node id
 
     sort_by_id_dedup_and_clean(proto_graph);
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    XG xg_index(proto_graph);
 
     Graph graph = xg_index.graph_context_id(make_pos_t(10, false, 0), 100);
     sort_by_id_dedup_and_clean(graph);
@@ -301,7 +301,7 @@ TEST_CASE("Target to alignment extraction", "[xg-target-to-aln]") {
     mapping->mutable_position()->set_is_reverse(true);
     mapping->set_rank(7);
             
-    xg::XG xg_index(graph);
+    XG xg_index(graph);
 
     SECTION("Subpath getting gives us the expected 1bp alignment") {
         Alignment target = xg_index.target_alignment("path", 1, 2, "feature", false);
@@ -400,7 +400,7 @@ TEST_CASE("Path-based distance approximation in XG produces expected results", "
     mapping->mutable_position()->set_is_reverse(true);
     mapping->set_rank(7);
     
-    xg::XG xg_index(graph);
+    XG xg_index(graph);
 
     
     SECTION("Distance approxmation produces exactly correct path distances when positions are on path") {
@@ -633,50 +633,7 @@ TEST_CASE("Path-based distance approximation in XG produces expected results", "
         REQUIRE(get<2>(jump_pos[0]) == 1);
     }
 }
-        
-TEST_CASE("Path component memoization produces expected results", "[xg]") {
-    
-    string graph_json = R"({"node": [{"sequence": "AAACCC", "id": 1}, {"sequence": "CACACA", "id": 2}, {"sequence": "CACACA", "id": 3}, {"sequence": "TTTTGG", "id": 4}, {"sequence": "ACGTAC", "id": 5}], "path": [{"name": "one", "mapping": [{"position": {"node_id": 1}, "rank": 1}, {"position": {"node_id": 2}, "rank": 2}]}, {"name": "three", "mapping": [{"position": {"node_id": 2}, "rank": 1}, {"position": {"node_id": 3}, "rank": 2}]}, {"name": "two", "mapping": [{"position": {"node_id": 4}, "rank": 1}, {"position": {"node_id": 5}, "rank": 2}]}], "edge": [{"from": 1, "to": 2}, {"from": 2, "to": 3}, {"from": 4, "to": 5}]})";
-    
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Build the xg index
-    xg::XG xg_index(proto_graph);
-    
-    for (int node_id : {1, 2, 3}) {
-        for (size_t path_rank : xg_index.paths_of_node(node_id)){
-            for (int other_node_id : {1, 2, 3}) {
-                for (size_t other_path_rank : xg_index.paths_of_node(other_node_id)) {
-                    REQUIRE(xg_index.paths_on_same_component(path_rank, other_path_rank));
-                }
-            }
-            
-            for (int other_node_id : {4, 5}) {
-                for (size_t other_path_rank : xg_index.paths_of_node(other_node_id)) {
-                    REQUIRE(!xg_index.paths_on_same_component(path_rank, other_path_rank));
-                }
-            }
-        }
-    }
-    
-    for (int node_id : {4, 5}) {
-        for (size_t path_rank : xg_index.paths_of_node(node_id)){
-            for (int other_node_id : {1, 2, 3}) {
-                for (size_t other_path_rank : xg_index.paths_of_node(other_node_id)) {
-                    REQUIRE(!xg_index.paths_on_same_component(path_rank, other_path_rank));
-                }
-            }
-            
-            for (int other_node_id : {4, 5}) {
-                for (size_t other_path_rank : xg_index.paths_of_node(other_node_id)) {
-                    REQUIRE(xg_index.paths_on_same_component(path_rank, other_path_rank));
-                }
-            }
-        }
-    }
-}
+
 
 TEST_CASE("Looping over XG handles in parallel works", "[xg]") {
 
@@ -691,7 +648,7 @@ TEST_CASE("Looping over XG handles in parallel works", "[xg]") {
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
     
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    XG xg_index(proto_graph);
 
     size_t count = 0;
 
@@ -728,7 +685,7 @@ TEST_CASE("next_path_position can search out for several nodes", "[xg]") {
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
     
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    XG xg_index(proto_graph);
     
     SECTION("nothing is found when searching a zero distance") {
         pair<pos_t, int64_t> result = xg_index.next_path_position(make_pos_t(1, false, 0), 0);

@@ -96,13 +96,13 @@ class Filter{
         void set_split_read_limit(int split_limit);
         void set_window_length(int window_length);
         void set_my_vg(vg::VG* vg);
-        void set_my_xg_idx(xg::XG* xg_idx);
+        void set_my_xg_idx(XG* xg_idx);
         void set_inverse(bool do_inv);
 
         void init_mapper();
 
         vg::VG* my_vg = NULL;
-        xg::XG* my_xg_index = NULL;
+        XG* my_xg_index = NULL;
         gcsa::GCSA* gcsa_ind;
         gcsa::LCPArray * lcp_ind;
         Mapper* my_mapper;

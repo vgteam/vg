@@ -8,7 +8,7 @@ const int Packer::lru_cache_size = 50;
 
 Packer::Packer(void) : xgidx(nullptr), qual_adjust(false), quality_cache(nullptr) { }
 
-Packer::Packer(xg::XG* xidx, size_t binsz, bool qual_adjust) : xgidx(xidx), bin_size(binsz), qual_adjust(qual_adjust) {
+Packer::Packer(XG* xidx, size_t binsz, bool qual_adjust) : xgidx(xidx), bin_size(binsz), qual_adjust(qual_adjust) {
     coverage_dynamic = gcsa::CounterArray(xgidx->seq_length, qual_adjust ? 16 : 8);
     edge_coverage_dynamic = gcsa::CounterArray(xgidx->get_g_iv_size(), qual_adjust ? 16 : 8);
     if (binsz) n_bins = xgidx->seq_length / bin_size + 1;
@@ -133,11 +133,23 @@ void Packer::write_edits(ostream& out, size_t bin) const {
 void Packer::collect_coverage(const Packer& c) {
     // assume the same basis vector
     assert(!is_compacted);
-    for (size_t i = 0; i < c.graph_length(); ++i) {
-        coverage_dynamic.increment(i, c.coverage_at_position(i));
-    }
-    for (size_t i = 0; i < c.edge_vector_size(); ++i){
-        edge_coverage_dynamic.increment(i, c.edge_coverage(i));
+#pragma omp parallel
+    {
+#pragma omp single
+        {
+#pragma omp task
+            {
+                for (size_t i = 0; i < c.graph_length(); ++i) {
+                    coverage_dynamic.increment(i, c.coverage_at_position(i));
+                }
+            }
+#pragma omp task
+            {
+                for (size_t i = 0; i < c.edge_vector_size(); ++i){
+                    edge_coverage_dynamic.increment(i, c.edge_coverage(i));
+                }
+            }
+        }
     }
 }
 

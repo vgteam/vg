@@ -22,7 +22,8 @@ namespace vg {
 
 using namespace std;
 
-MinimizerMapper::MinimizerMapper(const xg::XG* xg_index, const gbwt::GBWT* gbwt_index, const MinimizerIndex* minimizer_index,
+
+MinimizerMapper::MinimizerMapper(const XG* xg_index, const gbwt::GBWT* gbwt_index, const MinimizerIndex* minimizer_index,
      MinimumDistanceIndex* distance_index) :
     xg_index(xg_index), gbwt_index(gbwt_index), minimizer_index(minimizer_index),
     distance_index(distance_index), gbwt_graph(*gbwt_index, *xg_index),

@@ -8,10 +8,11 @@
 #include <random>
 
 #include "../json2pb.h"
-#include "../hash_graph.hpp"
 #include "random_graph.hpp"
 
 #include "algorithms/are_equivalent.hpp"
+
+#include "sglib/hash_graph.hpp"
 
 #include "catch.hpp"
 
@@ -32,7 +33,7 @@ using namespace std;
         uniform_int_distribution<int> circ_distr(0, 1);
         
         for (int i = 0; i < num_graphs; i++) {
-            HashGraph graph;
+            sglib::HashGraph graph;
             random_graph(seq_length, long_var_length, num_variants, &graph);
             
             graph.for_each_path_handle([&](const path_handle_t& path) {
@@ -42,7 +43,7 @@ using namespace std;
             stringstream strm;
             graph.serialize(strm);
             strm.seekg(0);
-            HashGraph loaded(strm);
+            sglib::HashGraph loaded(strm);
             REQUIRE(algorithms::are_equivalent_with_paths(&graph, &loaded));
         }
     }
