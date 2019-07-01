@@ -320,7 +320,21 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         }
         
         // Extend seed hits in the cluster into one or more gapless extensions
-        cluster_extensions.emplace_back(extender.extend(seed_matchings, aln.sequence()));
+        vector<GaplessExtension> extensions = extender.extend(seed_matchings, aln.sequence());
+        //Find the best scoring (best core length) extension
+        vector<GaplessExtension> filtered_extensions;
+        int best_extension_score = 0;
+        for (GaplessExtension& extension : extensions) {
+            best_extension_score = max(best_extension_score, (int)extension.core_length());
+        }
+        //Keep only the extension whose score is within extension_score_threshold
+        //of the best scoring extension
+        for (GaplessExtension& extension : extensions) {
+            if ((int)extension.core_length() > best_extension_score - extension_score_threshold) {
+                filtered_extensions.push_back(std::move(extension));
+            }
+        }
+        cluster_extensions.emplace_back(std::move(filtered_extensions));
         
 #ifdef TRACK_PROVENANCE
         // Record with the funnel that the previous group became a group of this size.
@@ -370,9 +384,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         return cluster_extension_scores.at(a) > cluster_extension_scores.at(b);
     });
 
-    double best_extension_score = cluster_extension_scores.size() == 0 ? 0 :
+    double best_extension_set_score = cluster_extension_scores.size() == 0 ? 0 :
                                   cluster_extension_scores[extension_indexes_in_order[0]];
-    double extension_score_cutoff = best_extension_score - extension_score_threshold; 
+    double extension_set_cutoff = best_extension_set_score - extension_set_score_threshold; 
     
 #ifdef TRACK_PROVENANCE
     funnel.stage("align");
@@ -393,10 +407,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     // Go through the gapless extension groups in score order.
     // Keep track of best and second best scores.
-    int best_score = 0;
-    int second_best_score = 0;
-    for (size_t i = 0; i < extension_indexes_in_order.size() && i < max_alignments && 
-                        cluster_extension_scores[extension_indexes_in_order[i]] > extension_score_cutoff; i++) {
+    int second_best_score = cluster_extension_scores.size() < 2 ? 0 :
+                            cluster_extension_scores[1];
+    for (size_t i = 0; i < extension_indexes_in_order.size() && i < max_alignments ; i++) {
         // Find the extension group we are talking about
         size_t& extension_num = extension_indexes_in_order[i];
         
@@ -406,7 +419,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
         auto& extensions = cluster_extensions[extension_num];
         
-        if (i < 2 || score_is_significant(cluster_extension_scores[extension_num], best_score, second_best_score)) {
+        if (i < 2 || cluster_extension_scores[extension_indexes_in_order[i]] > extension_set_cutoff || second_best_score < 1) {
             // Always take the first and second.
             // For later ones, check if this score is significant relative to the running best and second best scores.
             
@@ -457,13 +470,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // Leave out unaligned
             }
             
-            // Update the running best and second best scores.
-            if (out.score() > best_score) {
-                second_best_score = best_score;
-                best_score = out.score();
-            } else if (out.score() > second_best_score) {
-                second_best_score = out.score();
-            }
             
 #ifdef TRACK_PROVENANCE
             // Record the Alignment and its score with the funnel
