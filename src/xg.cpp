@@ -1721,6 +1721,30 @@ size_t XG::get_step_count(const path_handle_t& path_handle) const {
 size_t XG::get_path_length(const path_handle_t& path_handle) const {
     return paths[as_integer(path_handle) - 1]->offsets.size();
 }
+    
+size_t XG::get_position_of_step(const step_handle_t& step) const {
+    const auto& xgpath = *paths[as_integer(get_path_handle_of_step(step)) - 1];
+    if (as_integers(step)[1] >= xgpath.positions.size()) {
+        // the past-the-last position
+        return xgpath.offsets.size();
+    }
+    else {
+        return xgpath.positions[as_integers(step)[1]];
+    }
+}
+
+step_handle_t XG::get_step_at_position(const path_handle_t& path, const size_t& position) const {
+    step_handle_t step;
+    as_integers(step)[0] = as_integer(path);
+    const auto& xgpath = *paths[as_integer(path) - 1];
+    if (position >= xgpath.offsets.size()) {
+        as_integers(step)[1] = xgpath.ids.size();
+    }
+    else {
+        as_integers(step)[1] = xgpath.offsets_rank(position + 1) - 1;
+    }
+    return step;
+}
 
 handle_t XG::get_handle_of_step(const step_handle_t& step_handle) const {
     const auto& xgpath = *paths[as_integer(get_path_handle_of_step(step_handle)) - 1];

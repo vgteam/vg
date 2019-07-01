@@ -67,7 +67,7 @@ class XGFormatError : public runtime_error {
  * Provides succinct storage for a graph, its positional paths, and a set of
  * embedded threads.
  */
-class XG : public PathHandleGraph, public SerializableHandleGraph {
+class XG : public PathPositionHandleGraph, public SerializableHandleGraph {
 public:
     
     ////////////////////////////////////////////////////////////////////////////
@@ -272,8 +272,6 @@ public:
     bool get_is_circular(const path_handle_t& path_handle) const;
     /// Returns the number of node steps in the path
     size_t get_step_count(const path_handle_t& path_handle) const;
-    /// Returns the total length of sequence in the path
-    size_t get_path_length(const path_handle_t& path_handle) const;
     /// Get a node handle (node ID and orientation) from a handle to a step on a path
     handle_t get_handle_of_step(const step_handle_t& step_handle) const;
     /// Returns a handle to the path that an step is on
@@ -317,6 +315,19 @@ public:
     bool for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const;
     /// Executes a function on each step of a handle in any path.
     bool for_each_step_on_handle_impl(const handle_t& handle, const function<bool(const step_handle_t&)>& iteratee) const;
+    
+    /// Returns the total length of sequence in the path
+    size_t get_path_length(const path_handle_t& path_handle) const;
+    
+    /// Returns the position along the path of the beginning of this step measured in
+    /// bases of sequence. In a circular path, positions start at the step returned by
+    /// path_begin().
+    size_t get_position_of_step(const step_handle_t& step) const;
+    
+    /// Returns the step at this position, measured in bases of sequence starting at
+    /// the step returned by path_begin(). If the position is past the end of the
+    /// path, returns path_end().
+    step_handle_t get_step_at_position(const path_handle_t& path, const size_t& position) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Higher-level graph API
