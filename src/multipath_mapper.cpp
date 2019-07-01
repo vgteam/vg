@@ -763,9 +763,8 @@ namespace vg {
             }
         }
         else {
-            dist = xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                                 id(pos_2), offset(pos_2), is_rev(pos_2),
-                                                                 forward_strand);
+            PathOrientedDistanceMeasurer measurer(xindex);
+            dist = measurer.oriented_distance(pos_1, pos_2);
         }
         return dist;
     }

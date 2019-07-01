@@ -1544,6 +1544,16 @@ vector<pair<size_t, size_t>> PathOrientedDistanceMeasurer::exclude_merges(vector
                                                                           const function<pos_t(size_t)>& get_position){
     
     
+    // the pairs that we are going to exclude
+    vector<pair<size_t, size_t>> excludes;
+    
+    if (!path_component_index) {
+#ifdef debug_mem_clusterer
+        cerr << "no path component index, skipping process of excluding merges" << endl;
+#endif
+        return excludes;
+    }
+    
 #ifdef debug_mem_clusterer
     cerr << "using path component index to exclude strand merges" << endl;
 #endif
@@ -1609,9 +1619,6 @@ vector<pair<size_t, size_t>> PathOrientedDistanceMeasurer::exclude_merges(vector
         }
         return size_t(0);
     };
-    
-    // the pairs that we are going to exclude
-    vector<pair<size_t, size_t>> excludes;
     
     for (size_t i = 1; i < current_groups.size(); i++) {
         size_t i_path = find_path_of_group(current_groups[i]);

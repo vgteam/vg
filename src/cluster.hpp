@@ -370,7 +370,7 @@ public:
     /// Construct a distance service to measures distance along paths in this XG. Optionally
     /// measures all distances on the forward strand of the paths.
     PathOrientedDistanceMeasurer(XG* graph,
-                                 const PathComponentIndex* path_component_index);
+                                 const PathComponentIndex* path_component_index = nullptr);
     
     /// Default desctructor
     ~PathOrientedDistanceMeasurer() = default;

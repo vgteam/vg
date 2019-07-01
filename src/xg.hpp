@@ -473,30 +473,6 @@ public:
     /// returns a the memoized result from get_handle if a memo is provided that the result has been queried previously
     /// otherwise, returns the result of get_handle directly and stores it in the memo if one is provided
     handle_t memoized_get_handle(int64_t id, bool rev, unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
-    
-    /// the oriented distance (positive if pos2 is further along the path than pos1, otherwise negative)
-    /// estimated by the distance along the nearest shared path to the two positions. returns numeric_limits<int64_t>::max()
-    // if no pair of nodes that occur same path are reachable within the max search distance (measured in sequence length,
-    /// not node length).
-    int64_t closest_shared_path_unstranded_distance(int64_t id1, size_t offset1, bool rev1,
-                                                    int64_t id2, size_t offset2, bool rev2,
-                                                    size_t max_search_dist,
-                                                    unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
-                                                    unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr,
-                                                    unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
-    
-    /// the oriented distance (positive if pos2 is further along the path than pos1, otherwise negative)
-    /// estimated by the distance along the nearest shared path to the two positions plus the distance
-    /// to traverse to that path. returns numeric_limits<int64_t>::max() if no pair of nodes that occur same
-    /// on the strand of a path are reachable within the max search distance (measured in sequence length,
-    /// not node length). optionally returns the distance along the forward strand
-    int64_t closest_shared_path_oriented_distance(int64_t id1, size_t offset1, bool rev1,
-                                                  int64_t id2, size_t offset2, bool rev2,
-                                                  bool forward_strand = false,
-                                                  size_t max_search_dist = 100,
-                                                  unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
-                                                  unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr,
-                                                  unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
                                                   
     /// Return a vector of pairs of handles that occur on the same relative
     /// strand as the start handle, the distance from the right or left end
@@ -525,16 +501,6 @@ public:
                                                                  unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr,
                                                                  unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
     
-    /// checks whether two positions are on or near the same strand of some path. if the position can reach both strands of a
-    /// path, it is only considered to be on the nearer of the two strands. positions are also considered consistent if they
-    /// can traverse to each other within the maximum search distance. returns a pair of orientations that are the same and
-    /// equal to the orientation on the strand if they are consistent, and different if they are inconsistent
-    pair<bool, bool> validate_strand_consistency(int64_t id1, size_t offset1, bool rev1,
-                                                 int64_t id2, size_t offset2, bool rev2,
-                                                 size_t max_search_dist,
-                                                 unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
-                                                 unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr,
-                                                 unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
     ////////////////////////////////////////////////////////////////////////////
     // Sample database API
     ////////////////////////////////////////////////////////////////////////////
