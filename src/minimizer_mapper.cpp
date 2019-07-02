@@ -979,7 +979,7 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
 }
 
 pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const vector<Path>& paths,
-    const string& sequence, bool pinned, bool pin_left) {
+    const string& sequence, bool pinned, bool pin_left) const {
     
     // We want the best alignment, to the base graph, done against any target path
     Path best_path;
@@ -1640,6 +1640,93 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
     
 }
 
+unordered_map<size_t, vector<vector<int64_t, handle_t>>> MinimizerMapper::get_tail_forests(const vector<GaplessExtension>& extended_seeds,
+    size_t read_length, const unordered_map<size_t, unordered_map<size_t, vector<Path>>>& connecting_paths, bool left_tails) const {
+
+    // We will fill this in with all the trees we return, by parent extension.
+    unordered_map<size_t, vector<vector<int64_t, handle_t>>> to_return;
+
+    // First, find all the source/sink extensions we actually want to do.
+    unordered_set<size_t> tail_havers;
+    if (left_tails) {
+        // We have a left tail if nothing in connecting_paths comes to us.
+        for (size_t i = 0; i < extended_seeds.size(); i++) {
+            // So everything has left tails to start with
+            if (extended_seeds[i].core_interval.first != 0) {
+                // As long as it has some read before it
+                tail_havers.insert(i);
+            }
+        }
+        
+        for (auto& kv : connecting_paths) {
+            for (auto& dest_and_path : kv.second) {
+                // And then we remove things when they are visited.
+                // Note that we assume paths to/from
+                // numeric_limits<size_t>::max() (i.e. tail paths) don't
+                // appear.
+                tail_havers.erase(seed_and_path.first);
+            }
+        }
+    } else {
+        // We have a right tail if we go nowhere in connecting_paths
+        for (size_t i = 0; i < extended_seeds.size(); i++) {
+            auto found = connecting_paths.find(i);
+            if (found == connecting_paths.end() || found->second.empty() && extended_seeds[i].core_interval.second < read_length) {
+                // So if we go nowhere and actually have bases after us, add us
+                tail_havers.insert(i);
+            }
+        }
+    }
+    
+    for (auto& extension_number : tail_havers) {
+        // Now for each extension that can have tails, walk the GBWT in the appropriate direction
+        
+        // TODO: Come up with a better way to do this with more accessors on the extension and less get_handle
+        // Get the Position reading out of the extnsion on the appropriate tail\
+        Position from;
+        // And the length of that tail
+        size_t tail_length;
+        if (left_tails) {
+            // Look right from start 
+            from = extended_seeds[extension_number].starting_position();
+            // And then flip to look the other way at the prev base
+            from = reverse(from, gbwt_graph.get_length(gbwt_graph.get_handle(from.node_id(), false)));
+            
+            tail_length = extended_seeds[extension_number].core_interval.first;
+        } else {
+            // Look right from end
+            from = extended_seeds[extension_number].tail_position();
+            
+            tail_length = read_length - extended_seeds[extension_number].core_interval.second;
+        }
+    
+        // Do the GBWT walk.
+        // TODO: feed in the GBWT search state from the extension.
+        explore_gbwt(from, tail_length, [&](const ImmutablePath& path_to, const handle_t& here) -> bool {
+            // Whenever we go somewhere, add it to the tree.
+            
+            // Problem: knowing where the tree is rooted means walking all the
+            // way to the far end of path_to
+            
+            // Problem: path_to is mappings and not handles so we will maybe
+            // need to get_handle
+            
+            // Problem: we've already coalesced GBWT states to the same node to
+            // look the same; we somehow need to know which branch of our tree
+            // to be on by looking at the entire ImmutablePath.
+            // We should do the GBWT traversal ourselves so at each point we
+            // can keep track of the parent index in the tree vector.
+        }, [&](const ImmutablePath& path_to_end) {
+        });
+        
+        // Whenever you reach something, add it to the appropriate tree.
+        
+    }
+    
+    
+
+}
+
 size_t MinimizerMapper::immutable_path_from_length(const ImmutablePath& path) {
     size_t to_return = 0;
     for (auto& m : path) {
@@ -1667,9 +1754,22 @@ Path MinimizerMapper::to_path(const ImmutablePath& path) {
 void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
     const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
     const function<void(const ImmutablePath&)>& limit_callback) const {
+   
+    // Get a handle to the node the from position is on, in the position's forward orientation
+    handle_t start_handle = gbwt_graph.get_handle(from.node_id(), from.is_reverse());
+    
+    // Delegate to the handle-based version
+    explore_gbwt(start_handle, from.offset(), walk_distance, visit_callback, limit_callback);
+    
+}
+
+void MinimizerMapper::explore_gbwt(handle_t from_handle, size_t from_offset, size_t walk_distance,
+    const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
+    const function<void(const ImmutablePath&)>& limit_callback) const {
     
 #ifdef debug
-    cerr << "Exploring GBWT out from " << pb2json(from) << " to distance " << walk_distance << endl;
+    cerr << "Exploring GBWT out from " << gbwt_graph.get_id(from_handle) << " " << gbwt_graph.get_is_reverse(from_handle)
+        << " + " << from_offset << " to distance " << walk_distance << endl;
 #endif
     
     // Holds the gbwt::SearchState we are at, and the ImmutablePath (backward)
@@ -1677,12 +1777,9 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
     // searched. The from_length of the path tracks our consumption of distance
     // limit.
     using traversal_state_t = pair<gbwt::SearchState, ImmutablePath>;
-    
-    // Get a handle to the node the from position is on, in its forward orientation
-    handle_t start_handle = gbwt_graph.get_handle(from.node_id(), from.is_reverse());
 
     // Turn it into a SearchState
-    gbwt::SearchState start_state = gbwt_graph.get_state(start_handle);
+    gbwt::SearchState start_state = gbwt_graph.get_state(from_handle);
     
     if (start_state.empty()) {
         // No haplotypes even visit the first node. Have a 0-mapping dead end.
@@ -1696,7 +1793,7 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
     // the node. Our start position is a cut *between* bases, and we take everything after it.
     // If the cut is at the offset of the whole length of the node, we take 0 bases.
     // If it is at 0, wer take all the bases in the node.
-    size_t distance_to_node_end = gbwt_graph.get_length(start_handle) - from.offset();    
+    size_t distance_to_node_end = gbwt_graph.get_length(from_handle) - from_offset;    
     
     // And make a Path that represents the part of the node we're on that goes out to the end.
     // This may be empty if the hit already stopped at the end of the node
@@ -1706,7 +1803,8 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
 
         // Make a mapping that starts on the right side of the cut we started our search at.
         Mapping m;
-        *m.mutable_position() = from;
+        *m.mutable_position() = make_position(gbwt_graph.get_id(from_handle),
+            gbwt_graph.get_is_reverse(from_handle), from_offset);
         m.mutable_position()->set_offset(m.position().offset());
 
         // Make it the requested length of perfect match.
@@ -1723,7 +1821,8 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
     for (auto& mapping : path_to_end) {
         cerr << " " << pb2json(mapping);
     }
-    cerr << " from " << pb2json(from) << endl;
+    cerr << " from " << gbwt_graph.get_id(from_handle) << " " << gbwt_graph.get_is_reverse(from_handle)
+        << " + " << from_offset << endl;
 #endif
     
     // Glom these together into a traversal state and queue it up.
