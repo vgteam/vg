@@ -1115,69 +1115,6 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const ve
     return make_pair(best_path, best_score);
 }
 
-unordered_map<handle_t, vector<int64_t, handle_t>> MinimizerMapper::coalesce_shared_path_regions(const vector<Path>& paths,
-    bool coalesce_ends) {
-    
-    // Re-de-duplicate the shared ends of the paths.
-    // Note that there may not be a shared leading node, when the
-    // extension ends at a node boundary, so we may still need multiple
-    // trees.
-    
-    // TODO: just bring the ImmutableLists through to here, or directly build these from GBWT traversal.
-    
-    // This is the tree vector of handle, parent pairs
-    vector<pair<int64_t, handle_t>> tree;
-    
-    // This maps from handle to index in the tree vector
-    unordered_map<handle_t, size_t> tree_indexes;
-    
-    for (auto& path : kv.second) {
-        // For each path we can take to get to the source
-        
-        if (path.mapping_size() == 0) {
-            // Softclip is an option, so start out the scan fro the best alignment with that.
-            if (best_score < 0) {
-                best_score = 0;
-                best_path.clear_mapping();
-                Mapping* m = best_path.add_mapping();
-                Edit* e = m->add_edit();
-                e->set_from_length(0);
-                e->set_to_length(before_sequence.size());
-                e->set_sequence(before_sequence);
-                // Since the softclip consumes no graph, we place it on the node we are going to.
-                *m->mutable_position() = extended_seeds[source].starting_position(gbwt_graph);
-                
-#ifdef debug
-                cerr << "New best alignment: " << pb2json(best_path) << endl;
-#endif
-            }
-        } else {
-            for (size_t i = 0; i < path.mapping_size(); i++) {
-                // For each mapping
-                auto& mapping = path.mapping(i);
-                
-                // Look up the handle for each mapping
-                handle_t visited = gbwt_graph.get_handle(mapping.position().get_id(), mapping.position().get_is_reverse());
-                
-                // Work out the parent
-                int64_t parent_index = nullptr
-                
-                
-                if (!tree_indexes.count(visited)) {
-                    // Add each mapping to the tree if not present already.
-                    tree_indexes[visited] = tree.size();
-                    tree.push_back(
-                }
-            }
-        }
-        
-    }
-            
-            
-            
-            
-}
-
 void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
     
 #ifdef debug
@@ -1601,16 +1538,19 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
         }, [&](const ImmutablePath& limit_path) {
             // When we blow past the walk distance limit or hit a dead end
             
-            if (cut_pos_read < read_length && !reachable_extended_seeds) {
-                // We have sequence to align and a way to escape and align it, and nowhere else we know of (yet) to go with it.
-                // Save that as a path.
+            if (cut_pos_read < read_length && !reachable_extended_seeds && linear_tails) {
+                // We have sequence to align and a way to escape and align it,
+                // and nowhere else we know of (yet) to go with it, and we want
+                // tails.
+                
+                // Save that as a tail path.
                 to_return[i][numeric_limits<size_t>::max()].emplace_back(to_path(limit_path));
                 // If we end up with paths anywhere else after all, we will destroy it, so we
                 // will only keep it for sinks.
             }
         });
         
-        if (reachable_extended_seeds) {
+        if (reachable_extended_seeds && linear_tails) {
             // Make sure that if we can go anywhere else we *don't* consider wandering off to nowhere.
             auto found = to_return[i].find(numeric_limits<size_t>::max());
             if (to_return[i].size() > 1 && found != to_return[i].end()) {
@@ -1625,7 +1565,14 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
     cerr << "After rightward extensions, have " << sources.size() << " sources" << endl;
 #endif
 
-    // Now we need the paths *from* numeric_limits<size_t>::max() to sources.
+    if (!linear_tails) {
+        // We have all the non-tail paths, which is what we need
+        return to_return;
+    }
+
+    // Otherwise we want tails.
+
+    // We need the paths *from* numeric_limits<size_t>::max() to sources.
     // Luckily we know the sources.
     for (const size_t& i : sources) {
         // For each source

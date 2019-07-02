@@ -107,13 +107,6 @@ protected:
     bool chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const; 
     
     /**
-     * Given a vector of paths, find shared regions on the starts or ends of
-     * the paths and merge them together. Produces a forest of tree structures
-     * usable with the TreeSubgraph.
-     */
-    unordered_map<handle_t, vector<int64_t, handle_t>> coalesce_shared_path_regions(const vector<Path>& paths, bool coalesce_ends = false);
-    
-    /**
      * Find the best alignment of the given sequence against any of the paths
      * defined in paths.
      *
@@ -147,6 +140,9 @@ protected:
      * ending before sources (which cannot be reached from other extended
      * seeds) and starting after sinks (which cannot reach any other extended
      * seeds). Only sources and sinks have these "tail" paths.
+     *
+     * Tail paths are only calculated if the MinimizerMapper has linear_tails
+     * set to true.
      */
     unordered_map<size_t, unordered_map<size_t, vector<Path>>> find_connecting_paths(const vector<GaplessExtension>& extended_seeds,
         size_t read_length) const;
