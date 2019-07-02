@@ -107,18 +107,6 @@ protected:
     bool chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const; 
     
     /**
-     * Find the best alignment of the given sequence against any of the paths
-     * defined in paths.
-     *
-     * If pinned is true, pin the alignment on one end to the start or end of
-     * each path.
-     *
-     * When pinning, if pin_left is true, pin it on the left to the start of
-     * each path. Otherwise pin it on the right to the end.
-     */
-    pair<Path, size_t> get_best_alignment_against_any_path(const vector<Path>& paths, const string& sequence, bool pinned, bool pin_left) const;
-    
-    /**
      * Operating on the given input alignment, extract the haplotypes around
      * the given extended perfect-match seeds and produce the best
      * haplotype-consistent alignment into the given output Alignment object.
@@ -153,13 +141,13 @@ protected:
      * connecting_paths, get all the trees defining tails off the specified
      * side of the gapless extension. Assumes that connecting_paths contains no
      * tail entries itself (i.e. that linear_tails was false on the
-     * MinimizerMapper when find_connecting_paths computed it).
+     * MinimizerMapper when find_connecting_paths computed it), but uses it to
+     * identify the source or sink extensions.
      *
      * If the gapless extension starts or ends at a node boundary, there may be
      * multiple trees produced, each with a distinct root.
      *
-     * Each tree is a vector of (parent index, handle) pairs in topological
-     * order, with the root having parent index -1.
+     * Each tree is represented as a TreeSubgraph over our gbwt_graph.
      *
      * If left_tails is true, the trees read out of the left sides of the
      * gapless extensions. Otherwise they read out of the right sides.
@@ -167,8 +155,43 @@ protected:
      * Gapless extensions with no tails off the appropriate end get no map
      * entries.
      */
-    unordered_map<size_t, vector<vector<int64_t, handle_t>>> get_tail_forests(const vector<GaplessExtension>& extended_seeds,
+    unordered_map<size_t, vector<TreeSubgraph>> get_tail_forests(const vector<GaplessExtension>& extended_seeds,
         size_t read_length, const unordered_map<size_t, unordered_map<size_t, vector<Path>>>& connecting_paths, bool left_tails) const;
+        
+    /**
+     * Find the best alignment of the given sequence against any of the paths
+     * defined in paths.
+     *
+     * If no mapping is possible, produce a pure insert at default_position.
+     *
+     * If pinned is true, pin the alignment on one end to the start or end of
+     * each path.
+     *
+     * When pinning, if pin_left is true, pin it on the left to the start of
+     * each path. Otherwise pin it on the right to the end.
+     *
+     * Returns alingments in gbwt_graph space.
+     */
+    pair<Path, size_t> get_best_alignment_against_any_path(const vector<Path>& paths, const string& sequence,
+        const Position& default_position, bool pinned, bool pin_left) const;
+    
+    /**
+     * Find the best alignment of the given sequence against any of the trees
+     * provided in trees, where each tree is a TreeSubgraph over the GBWT
+     * graph. Each tree subgraph is rooted at the left in its own local
+     * coordinate space, even if we are pinning on the right.
+     *
+     * If no mapping is possible, produce a pure insert at default_position.
+     *
+     * Alignment is always pinned.
+     *
+     * If pin_left is true, pin the alignment on the left to the root of each
+     * tree. Otherwise pin it on the right to the root of each tree.
+     *
+     * Returns alingments in gbwt_graph space.
+     */
+    pair<Path, size_t> get_best_alignment_against_any_tree(const vector<vector<int64_t, handle_t>>& trees, const string& sequence,
+        const Position& default_position, bool pin_left) const;
         
     /// We define a type for shared-tail lists of Mappings, to avoid constantly
     /// copying Path objects.

@@ -809,41 +809,84 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
             mp.add_start(mp.subpath_size() - 1);
         }
     }
+    
+    // Handle the leading/left tails
+    if (linear_tails) {
+        // Handle left tails as several parallel strings
 
-    for (auto& kv : paths_between_seeds[numeric_limits<size_t>::max()]) {
-        // For each extended seed that can come from something outside the cluster
-        const size_t& source = kv.first;
-        
-        // Grab the part of the read sequence that comes before it
-        string before_sequence = aln.sequence().substr(0, extended_seeds[source].core_interval.first);
-        
-        // Record that a source has this many incoming haplotypes to process.
-        tail_path_counts.push_back(kv.second.size());
-        // Against a sequence this long
-        tail_lengths.push_back(before_sequence.size());
-        
-        // Do right-pinned alignment
-        auto result = get_best_alignment_against_any_path(kv.second, before_sequence, true, true);
+        for (auto& kv : paths_between_seeds[numeric_limits<size_t>::max()]) {
+            // For each extended seed that can come from something outside the cluster
+            const size_t& source = kv.first;
+            
+            // Grab the part of the read sequence that comes before it
+            string before_sequence = aln.sequence().substr(0, extended_seeds[source].core_interval.first);
+            
+            // Record that a source has this many incoming haplotypes to process.
+            tail_path_counts.push_back(kv.second.size());
+            // Against a sequence this long
+            tail_lengths.push_back(before_sequence.size());
+            
+            // Do right-pinned alignment
+            auto result = get_best_alignment_against_any_path(kv.second, before_sequence,
+                extended_seeds[source].starting_position(gbwt_graph), true, true);
 
-        // Grab the best path in backing graph space (which may be empty)
-        Path& best_path = result.first;
-        // And its score
-        int64_t& best_score = result.second;
-        
-        // Put it in the MultipathAlignment
-        Subpath* s = mp.add_subpath();
-        *s->mutable_path() = std::move(best_path);
-        s->set_score(best_score);
-        
-        // And make the edge from it to the correct source
-        s->add_next(source);
-        
+            // Grab the best path in backing graph space (which may be empty)
+            Path& best_path = result.first;
+            // And its score
+            int64_t& best_score = result.second;
+            
+            // Put it in the MultipathAlignment
+            Subpath* s = mp.add_subpath();
+            *s->mutable_path() = std::move(best_path);
+            s->set_score(best_score);
+            
+            // And make the edge from it to the correct source
+            s->add_next(source);
+            
 #ifdef debug
-        cerr << "Add leading tail " << (mp.subpath_size() - 1) << " -> " << source << endl;
+            cerr << "Add leading tail " << (mp.subpath_size() - 1) << " -> " << source << endl;
 #endif
+            
+            // And mark it as a start subpath
+            mp.add_start(mp.subpath_size() - 1);
+        }
+    } else {
+        // Handle left tails as a forest of trees
+       
+        // Get the forests of all left tails by extension they belong to
+        auto tails_by_extension = get_tail_forests(extended_seeds, aln.sequence().size(), paths_between_seeds, true);
         
-        // And mark it as a start subpath
-        mp.add_start(mp.subpath_size() - 1);
+        for (auto& kv : tails_by_extension) {
+            // For each source extension
+            const size_t& source = kv.first;
+            
+            // Grab the part of the read sequence that comes before it
+            string before_sequence = aln.sequence().substr(0, extended_seeds[source].core_interval.first);
+            
+            // Do right-pinned alignment
+            auto result = get_best_alignment_against_any_tree(kv.second, before_sequence,
+                extended_seeds[source].starting_position(gbwt_graph), false);
+
+            // Grab the best path in backing graph space (which may be empty)
+            Path& best_path = result.first;
+            // And its score
+            int64_t& best_score = result.second;
+            
+            // Put it in the MultipathAlignment
+            Subpath* s = mp.add_subpath();
+            *s->mutable_path() = std::move(best_path);
+            s->set_score(best_score);
+            
+            // And make the edge from it to the correct source
+            s->add_next(source);
+            
+#ifdef debug
+            cerr << "Add leading tail " << (mp.subpath_size() - 1) << " -> " << source << endl;
+#endif
+            
+            // And mark it as a start subpath
+            mp.add_start(mp.subpath_size() - 1);
+        }
     }
     
     // We must have somewhere to start.
@@ -884,7 +927,8 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                     tail_lengths.push_back(trailing_sequence.size());
 
                     // Do left-pinned alignment
-                    auto result = get_best_alignment_against_any_path(to_and_paths.second, trailing_sequence, true, true);
+                    auto result = get_best_alignment_against_any_path(to_and_paths.second, trailing_sequence,
+                        extended_seeds[from].tail_position(gbwt_graph), true, true);
 
                     // Grab the best path in backing graph space (which may be empty)
                     Path& best_path = result.first;
@@ -913,7 +957,8 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                 string intervening_sequence = aln.sequence().substr(from_end, extended_seeds[to].core_interval.first - from_end); 
 
                 // Do un-pinned alignment
-                auto result = get_best_alignment_against_any_path(to_and_paths.second, intervening_sequence, false, false);
+                auto result = get_best_alignment_against_any_path(to_and_paths.second, intervening_sequence,
+                    extended_seeds[to].tail_position(gbwt_graph), false, false);
 
                 // Grab the best path in backing graph space (which may be empty)
                 Path& best_path = result.first;
@@ -950,9 +995,49 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                 }
 
             }
-
+            
         }
 
+    }
+    
+     if (!linear_tails) {
+        // Handle right tails as a forest of trees
+   
+        // Get the forests of all right tails by extension they belong to
+        auto tails_by_extension = get_tail_forests(extended_seeds, aln.sequence().size(), paths_between_seeds, false);
+        
+        for (auto& kv : tails_by_extension) {
+            // For each source extension
+            const size_t& from = kv.first;
+            
+            // Find the sequence
+            string trailing_sequence = aln.sequence().substr(from_end);
+            
+            // There should be actual trailing sequence to align on this escape path
+            assert(!trailing_sequence.empty());
+            
+            // Do left-pinned alignment
+            auto result = get_best_alignment_against_any_tree(kv.second, trailing_sequence,
+                extended_seeds[from].tail_position(gbwt_graph), true);
+
+            // Grab the best path in backing graph space (which may be empty)
+            Path& best_path = result.first;
+            // And its score
+            int64_t& best_score = result.second;
+            
+            // Put it in the MultipathAlignment
+            Subpath* s = mp.add_subpath();
+            *s->mutable_path() = std::move(best_path);
+            s->set_score(best_score);
+            
+            // And make the edge to hook it up
+            mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
+            
+#ifdef debug
+            cerr << "Add trailing tail " << from << " -> " << (mp.subpath_size() - 1) << endl;
+#endif
+                
+        }
     }
 
         
@@ -979,7 +1064,7 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
 }
 
 pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const vector<Path>& paths,
-    const string& sequence, bool pinned, bool pin_left) const {
+    const string& sequence, const Position& default_position, bool pinned, bool pin_left) const {
     
     // We want the best alignment, to the base graph, done against any target path
     Path best_path;
@@ -987,7 +1072,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const ve
     int64_t best_score = numeric_limits<int64_t>::min();
     
     // We can align it once per target path
-    for (auto& path : kv.second) {
+    for (auto& path : paths) {
         // For each path we can take to get to the source
         
         if (path.mapping_size() == 0) {
@@ -1008,7 +1093,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const ve
                     e->set_to_length(sequence.size());
                     e->set_sequence(sequence);
                     // Since the softclip consumes no graph, we place it on the node we are going to.
-                    *m->mutable_position() = extended_seeds[source].starting_position(gbwt_graph);
+                    *m->mutable_position() = default_position;
                     
 #ifdef debug
                     cerr << "New best alignment: " << pb2json(best_path) << endl;
@@ -1103,6 +1188,116 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const ve
                 
 #ifdef debug
                 cerr << "New best alignment against: " << pb2json(path) << " is "
+                    << pb2json(best_path) << " score " << best_score << endl;
+#endif
+            }
+        }
+    }
+
+    // We really should have gotten something
+    assert(best_path.mapping_size() != 0);
+    
+    return make_pair(best_path, best_score);
+}
+
+pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees,
+    const string& sequence, const Position& default_position, bool pin_left) const {
+    
+    // We want the best alignment, to the base graph, done against any target path
+    Path best_path;
+    // And its score
+    int64_t best_score = numeric_limits<int64_t>::min();
+    
+    // We can align it once per target tree
+    for (auto& subgraph : trees) {
+        // For each tree we can map against, map pinning the correct edge of the sequence to the root.
+        
+        if (path.mapping_size() == 0) {
+            // There's no graph bases here
+            // We might have extra read outside the graph. Handle leading insertions.
+            // We consider a pure softclip, since all alignment here is pinning.
+            // We don't consider an empty sequence since that would produce no trees.
+            if (best_score < 0) {
+            
+                best_score = 0;
+                best_path.clear_mapping();
+                Mapping* m = best_path.add_mapping();
+                Edit* e = m->add_edit();
+                e->set_from_length(0);
+                e->set_to_length(sequence.size());
+                e->set_sequence(sequence);
+                // Since the softclip consumes no graph, we place it on the node we are going to.
+                *m->mutable_position() = default_position;
+                
+#ifdef debug
+                cerr << "New best alignment: " << pb2json(best_path) << endl;
+#endif
+            }
+        } else {
+            // This path has bases in it
+
+            // Do alignment to the subgraph with GSSWAligner.
+            Alignment current_alignment;
+            // If pinning right, we need to reverse the sequence, since we are
+            // always pinning left to the left edge of the tree subgraph.
+            current_alignment.set_sequence(pin_left ? sequence : reverse_complement(sequence));
+#ifdef debug
+            cerr << "Align " << pb2json(current_alignment) << " pinned left";
+
+#ifdef debug_dump_graph
+            cerr << " vs graph:" << endl;
+            subgraph.for_each_handle([&](const handle_t& here) {
+                cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
+                subgraph.follow_edges(here, true, [&](const handle_t& there) {
+                    cerr << "\t" << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ") ->" << endl;
+                });
+                subgraph.follow_edges(here, false, [&](const handle_t& there) {
+                    cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
+                });
+            });
+#else
+            cerr << endl;
+#endif
+#endif
+            
+            // Align, accounting for full length bonus
+            
+            
+            if (use_xdrop_for_tails) {
+#ifdef debug
+                Alignment clone = current_alignment;
+                get_regular_aligner()->align_pinned(clone, subgraph, subgraph.get_topological_order(), pin_left);
+#endif
+                get_regular_aligner()->get_xdrop()->align_pinned(current_alignment, subgraph, subgraph.get_topological_order(), pin_left);
+#ifdef debug
+                cerr << "Xdrop: " << pb2json(current_alignment) << endl;
+                cerr << "Normal: " << pb2json(clone) << endl;
+#endif
+            } else {
+                get_regular_aligner()->align_pinned(current_alignment, subgraph, subgraph.get_topological_order(), pin_left);
+            }
+            
+#ifdef debug
+            cerr << "\tScore: " << current_alignment.score() << endl;
+#endif
+            
+            if (current_alignment.score() > best_score) {
+                // This is a new best alignment.
+                best_path = current_alignment.path();
+                
+                if (!pin_left) {
+                    // Un-reverse it if we were pinning right
+                    best_path = reverse_complement_path(best_path, [&](id_t node) { 
+                        return subgraph.get_length(subgraph.get_handle(node, false));
+                    })
+                }
+                
+                // Translate from subgraph into base graph and keep it.
+                best_path = subgraph.translate_down(best_path);
+                best_score = current_alignment.score();
+                
+#ifdef debug
+                cerr << "New best alignment is "
                     << pb2json(best_path) << " score " << best_score << endl;
 #endif
             }
@@ -1640,11 +1835,11 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
     
 }
 
-unordered_map<size_t, vector<vector<int64_t, handle_t>>> MinimizerMapper::get_tail_forests(const vector<GaplessExtension>& extended_seeds,
+unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(const vector<GaplessExtension>& extended_seeds,
     size_t read_length, const unordered_map<size_t, unordered_map<size_t, vector<Path>>>& connecting_paths, bool left_tails) const {
 
     // We will fill this in with all the trees we return, by parent extension.
-    unordered_map<size_t, vector<vector<int64_t, handle_t>>> to_return;
+    unordered_map<size_t, vector<TreeSubgraph>> to_return;
 
     // First, find all the source/sink extensions we actually want to do.
     unordered_set<size_t> tail_havers;
@@ -1715,7 +1910,7 @@ unordered_map<size_t, vector<vector<int64_t, handle_t>>> MinimizerMapper::get_ta
                 
                 if (!tree.empty()) {
                     // Save the old tree and start a new one
-                    to_return[extension_number].emplace_back(std::move(tree));
+                    to_return[extension_number].emplace_back(&gbwt_graph, std::move(tree), from.offset());
                     tree.clear();
                 }
                 
@@ -1733,9 +1928,11 @@ unordered_map<size_t, vector<vector<int64_t, handle_t>>> MinimizerMapper::get_ta
             parent_stack.pop_back();
         });
         
-        // Now save the last tree
-        to_return[extension_number].emplace_back(std::move(tree));
-        tree.clear();
+        if (!tree.empty()) {
+            // Now save the last tree
+            to_return[extension_number].emplace_back(&gbwt_graph, std::move(tree), from.offset());
+            tree.clear();
+        }
     }
     
     // Now we have all the trees!
