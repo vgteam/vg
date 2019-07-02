@@ -33,7 +33,7 @@ namespace vg {
         }
     }
     
-    PhasedGenome::PhasedGenome(SnarlManager& snarl_manager) : snarl_manager(snarl_manager) {
+    PhasedGenome::PhasedGenome(const SnarlManager& snarl_manager) : snarl_manager(snarl_manager) {
         // nothing to do
     }
     
