@@ -61,6 +61,7 @@ public:
     bool do_chaining = true;
     size_t max_tails = numeric_limits<size_t>::max();
     bool use_xdrop_for_tails = false;
+    bool linear_tails = false;
     string sample_name;
     string read_group;
 
@@ -106,11 +107,30 @@ protected:
     bool chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const; 
     
     /**
+     * Given a vector of paths, find shared regions on the starts or ends of
+     * the paths and merge them together. Produces a forest of tree structures
+     * usable with the TreeSubgraph.
+     */
+    unordered_map<handle_t, vector<int64_t, handle_t>> coalesce_shared_path_regions(const vector<Path>& paths, bool coalesce_ends = false);
+    
+    /**
+     * Find the best alignment of the given sequence against any of the paths
+     * defined in paths.
+     *
+     * If pinned is true, pin the alignment on one end to the start or end of
+     * each path.
+     *
+     * When pinning, if pin_left is true, pin it on the left to the start of
+     * each path. Otherwise pin it on the right to the end.
+     */
+    pair<Path, size_t> get_best_alignment_against_any_path(const vector<Path>& paths, const string& sequence, bool pinned, bool pin_left);
+    
+    /**
      * Operating on the given input alignment, extract the haplotypes around
      * the given extended perfect-match seeds and produce the best
      * haplotype-consistent alignment into the given output Alignment object.
      */
-    void align_to_local_haplotypes(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const; 
+    void align_to_local_haplotypes(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const;
     
     /**
      * Find for each pair of extended seeds all the haplotype-consistent graph
