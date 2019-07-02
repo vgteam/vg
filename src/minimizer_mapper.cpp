@@ -265,14 +265,17 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     }
 
     // Put the most covering cluster's index first
-    std::sort(cluster_indexes_in_order.begin(), cluster_indexes_in_order.end(), [&](const size_t& a, const size_t& b) -> bool {
-        // Return true if a must come before b, and false otherwise
-        return (read_coverage_by_cluster[a] > read_coverage_by_cluster[b]);
+    std::sort(cluster_indexes_in_order.begin(), cluster_indexes_in_order.end(), 
+        [&](const size_t& a, const size_t& b) -> bool {
+            // Return true if a must come before b, and false otherwise
+            return (read_coverage_by_cluster[a] > read_coverage_by_cluster[b]);
     });
 
+    //Retain clusters only if their read coverage is better than this
     double cluster_coverage_cutoff = cluster_indexes_in_order.size() == 0 ? 0 : 
                                  read_coverage_by_cluster[cluster_indexes_in_order[0]]
                                     - cluster_coverage_threshold;
+    //Retain clusters only if their score is better than this
     double cluster_score_cutoff = cluster_score.size() == 0 ? 0 :
                     *std::max_element(cluster_score.begin(), cluster_score.end()) - cluster_score_threshold;
     
@@ -291,6 +294,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // For each cluster, in sorted order
         size_t& cluster_num = cluster_indexes_in_order[i];
         if (cluster_score_threshold != 0 && cluster_score[cluster_num] < cluster_score_cutoff) {
+            //If the score isn't good enough, ignore this cluster
             continue;
         }
         num_extensions ++;
@@ -325,7 +329,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         for (GaplessExtension& extension : extensions) {
             best_extension_score = max(best_extension_score, (int)extension.core_length());
         }
-        //Keep only the extension whose score is within extension_score_threshold
+        //Keep only the extensions whose score is within extension_score_threshold
         //of the best scoring extension
         for (GaplessExtension& extension : extensions) {
             if (extension_score_threshold == 0 || 
@@ -383,6 +387,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         return cluster_extension_scores.at(a) > cluster_extension_scores.at(b);
     });
 
+    //Retain cluster_extensions only if their score (coverage of the read) is at
+    //least as good as this
     double extension_set_cutoff = cluster_extension_scores.size() == 0 ? 0 :
                               cluster_extension_scores[extension_indexes_in_order[0]]
                                     - extension_set_score_threshold;
@@ -418,7 +424,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
         auto& extensions = cluster_extensions[extension_num];
         
-        if (i < 2 || (extension_set_score_threshold == 0 || cluster_extension_scores[extension_num] > extension_set_cutoff) || second_best_score < 1) {
+        if (i < 2 || (extension_set_score_threshold == 0 || cluster_extension_scores[extension_num] > extension_set_cutoff)) {
             // Always take the first and second.
             // For later ones, check if this score is significant relative to the running best and second best scores.
             
