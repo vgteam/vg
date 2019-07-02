@@ -1699,32 +1699,47 @@ unordered_map<size_t, vector<vector<int64_t, handle_t>>> MinimizerMapper::get_ta
             
             tail_length = read_length - extended_seeds[extension_number].core_interval.second;
         }
-    
-        // Do the GBWT walk.
-        // TODO: feed in the GBWT search state from the extension.
-        explore_gbwt(from, tail_length, [&](const ImmutablePath& path_to, const handle_t& here) -> bool {
-            // Whenever we go somewhere, add it to the tree.
+        
+        // This is one tree that we are filling in
+        vector<int64_t, handle_t> tree;
+        
+        // This is a stack of indexes at which we put parents in the tree
+        list<int64_t> parent_stack;
+        
+        // Do a DFS over the haplotypes in the GBWT out to that distance.
+        dfs_gbwt(from, tail_length, [&](const handle_t& entered) {
+            // Enter a new handle.
             
-            // Problem: knowing where the tree is rooted means walking all the
-            // way to the far end of path_to
+            if (parent_stack.empty()) {
+                // This is the root of a new tree in the forrest
+                
+                if (!tree.empty()) {
+                    // Save the old tree and start a new one
+                    to_return[extension_number].emplace_back(std::move(tree));
+                    tree.clear();
+                }
+                
+                // Add this to the tree with no parent
+                tree.emplace_back(-1, entered);
+            } else {
+                // Just say this is visitable from our parent.
+                tree.emplace_back(parent_stack.back(), entered);
+            }
             
-            // Problem: path_to is mappings and not handles so we will maybe
-            // need to get_handle
-            
-            // Problem: we've already coalesced GBWT states to the same node to
-            // look the same; we somehow need to know which branch of our tree
-            // to be on by looking at the entire ImmutablePath.
-            // We should do the GBWT traversal ourselves so at each point we
-            // can keep track of the parent index in the tree vector.
-        }, [&](const ImmutablePath& path_to_end) {
+            // Record the parent index
+            parent_stack.push_back(tree.size() - 1);
+        }, [&]() {
+            // Exit the last visited handle. Pop off the stack.
+            parent_stack.pop_back();
         });
         
-        // Whenever you reach something, add it to the appropriate tree.
-        
+        // Now save the last tree
+        to_return[extension_number].emplace_back(std::move(tree));
+        tree.clear();
     }
     
-    
-
+    // Now we have all the trees!
+    return to_return;
 }
 
 size_t MinimizerMapper::immutable_path_from_length(const ImmutablePath& path) {
@@ -1749,7 +1764,6 @@ Path MinimizerMapper::to_path(const ImmutablePath& path) {
     // Return the completed path
     return to_return;
 }
-
 
 void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
     const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
@@ -1792,7 +1806,7 @@ void MinimizerMapper::explore_gbwt(handle_t from_handle, size_t from_offset, siz
     // Tack on how much search limit distance we consume by going to the end of
     // the node. Our start position is a cut *between* bases, and we take everything after it.
     // If the cut is at the offset of the whole length of the node, we take 0 bases.
-    // If it is at 0, wer take all the bases in the node.
+    // If it is at 0, we take all the bases in the node.
     size_t distance_to_node_end = gbwt_graph.get_length(from_handle) - from_offset;    
     
     // And make a Path that represents the part of the node we're on that goes out to the end.
@@ -1915,6 +1929,79 @@ void MinimizerMapper::explore_gbwt(handle_t from_handle, size_t from_offset, siz
     cerr << "Queue max: " << queue_max << " Limit hits: " << limit_hits << " Dead ends: " << dead_ends << endl;
 #endif
 }
+
+void MinimizerMapper::dfs_gbwt(const Position& from, size_t walk_distance,
+    const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const {
+   
+    // Get a handle to the node the from position is on, in the position's forward orientation
+    handle_t start_handle = gbwt_graph.get_handle(from.node_id(), from.is_reverse());
+    
+    // Delegate to the handle-based version
+    dfs_gbwt(start_handle, from.offset(), walk_distance, enter_handle, exit_handle);
+    
+}
+
+void MinimizerMapper::dfs_gbwt(handle_t from_handle, size_t from_offset, size_t walk_distance,
+    const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const {
+    
+    // Holds the gbwt::SearchState we are at, and the distance we have consumed
+    using traversal_state_t = pair<gbwt::SearchState, size_t>;
+
+    // Turn from_handle into a SearchState.
+    // TODO: Let a search state come in.
+    gbwt::SearchState start_state = gbwt_graph.get_state(from_handle);
+    
+    if (start_state.empty()) {
+        // No haplotypes even visit the first node. Stop.
+        return;
+    }
+
+    // The search state represents searching through the end of the node, so we have to consume that much search limit.
+
+    // Tack on how much search limit distance we consume by going to the end of
+    // the node. Our start position is a cut *between* bases, and we take everything after it.
+    // If the cut is at the offset of the whole length of the node, we take 0 bases.
+    // If it is at 0, we take all the bases in the node.
+    size_t distance_to_node_end = gbwt_graph.get_length(from_handle) - from_offset;    
+
+    // Have a recursive function that does the DFS. We fire the enter and exit
+    // callbacks, and the user can keep their own stack.
+    auto recursive_dfs = [&](const gbwt::SearchState& here_state, size_t used_distance) {
+        // Enter this state
+        handle_t here_handle = gbwt_graph.node_to_handle(here_state.node);
+        enter_handle(here_handle);
+        
+        // Up the used distance with our length
+        used_distance += gbwt_graph.get_length(here_handle);
+        
+        if (used_distance < walk_distance) {
+            // If we haven't used up all our distance yet
+            
+            gbwt_graph.follow_paths(here_state, [&](const gbwt::SearchState& there_state) -> bool {
+                // For each next state
+                
+                if (there_state.empty()) {
+                    // If it is empty, don't do it
+                    return true;
+                }
+                
+                // Otherwise, do it with the new distance value.
+                recursive_dfs(there_state, used_distance);
+                
+                return true;
+            });
+        }
+            
+        // Exit this state
+        exit_handle();
+    };
+    
+    // Start the DFS with our stating node, consuming the distance from our
+    // offset to its end.
+    recursive_dfs(start_state, distance_to_node_end);
+
+}
+
 
 
 }

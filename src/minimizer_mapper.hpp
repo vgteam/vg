@@ -210,12 +210,35 @@ protected:
         const function<void(const ImmutablePath&)>& limit_callback) const;
         
     /**
-     * The same as explore_gbwt on a position, but takes a handle in the
+     * The same as explore_gbwt on a Position, but takes a handle in the
      * backing gbwt_graph and an offset from the start of the handle instead.
      */
     void explore_gbwt(handle_t from_handle, size_t from_offset, size_t walk_distance,
         const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
         const function<void(const ImmutablePath&)>& limit_callback) const;
+    
+    /**
+     * Run a DFS on valid haplotypes in the GBWT starting from the given
+     * Position, and continuing up to the given number of bases.
+     *
+     * Calls enter_handle when the DFS enters a haplotype visit to a particular
+     * handle, and exit_handle when it exits a visit. These let the caller
+     * maintain a stack and track the traversals.
+     *
+     * The starting node is only entered if its offset isn't equal to its
+     * length (i.e. bases remain to be visited).
+     *
+     * Stopping early is not permitted.
+     */
+    void dfs_gbwt(const Position& from, size_t walk_distance,
+        const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const;
+     
+    /**
+     * The same as dfs_gbwt on a Position, but takes a handle in the
+     * backing gbwt_graph and an offset from the start of the handle instead.
+     */ 
+    void dfs_gbwt(handle_t from_handle, size_t from_offset, size_t walk_distance,
+        const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const;
      
 };
 
