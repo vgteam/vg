@@ -24,6 +24,7 @@
 #include "utility.hpp"
 #include "annotation.hpp"
 #include "path_component_index.hpp"
+#include "memoizing_graph.hpp"
 
 #include "identity_overlay.hpp"
 #include "reverse_graph.hpp"
@@ -42,6 +43,8 @@
 #include "algorithms/dagify.hpp"
 #include "algorithms/reverse_complement.hpp"
 #include "algorithms/extend.hpp"
+#include "algorithms/jump_along_path.hpp"
+
 
 #include "sglib/hash_graph.hpp"
 

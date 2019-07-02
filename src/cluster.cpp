@@ -1248,7 +1248,7 @@ vector<MEMClusterer::cluster_t> MEMClusterer::clusters(const Alignment& alignmen
     
 }
     
-PathOrientedDistanceMeasurer::PathOrientedDistanceMeasurer(XG* graph,
+PathOrientedDistanceMeasurer::PathOrientedDistanceMeasurer(const PathPositionHandleGraph* graph,
                                                            const PathComponentIndex* path_component_index) :
     graph(graph), path_component_index(path_component_index) {
     
@@ -1273,7 +1273,7 @@ int64_t PathOrientedDistanceMeasurer::oriented_distance(const pos_t& pos_1, cons
     handle_t handle_1 = graph->get_handle(id(pos_1), is_rev(pos_1));
     handle_t handle_2 = graph->get_handle(id(pos_2), is_rev(pos_2));
     
-    graph->for_each_step_on_handle(handle_1, [&](const step_handle_t& step) {
+    for (const step_handle_t& step : graph->steps_of_handle(handle_1)) {
         pair<path_handle_t, bool> path_occurrence(graph->get_path_handle_of_step(step),
                                                   graph->get_handle_of_step(step) != handle_1);
         path_strand_dists_1[path_occurrence].emplace_back(step, -((int64_t) offset(pos_1)));
@@ -1281,9 +1281,9 @@ int64_t PathOrientedDistanceMeasurer::oriented_distance(const pos_t& pos_1, cons
 #ifdef debug_algorithms
         cerr << "[PathDistance] first position " << id(pos_1) << "[" << offset(pos_1) << "]" << (is_rev(pos_1) ? "-" : "+") << " has an initial path occurrence on " << as_integer(graph->get_path_handle_of_step(step)) << (graph->get_handle_of_step(step) != handle_1 ? "-" : "+") << endl;
 #endif
-    });
+    }
     
-    graph->for_each_step_on_handle(handle_2, [&](const step_handle_t& step) {
+    for (const step_handle_t& step : graph->steps_of_handle(handle_2)) {
         pair<path_handle_t, bool> path_occurrence(graph->get_path_handle_of_step(step),
                                                   graph->get_handle_of_step(step) != handle_2);
         path_strand_dists_2[path_occurrence].emplace_back(step, -((int64_t) offset(pos_2)));
@@ -1299,7 +1299,7 @@ int64_t PathOrientedDistanceMeasurer::oriented_distance(const pos_t& pos_1, cons
             shared_path_strands.insert(path_occurrence);
         }
         
-    });
+    }
     
     
     // if we already found shared paths on the start nodes, don't search anymore
@@ -1350,7 +1350,7 @@ int64_t PathOrientedDistanceMeasurer::oriented_distance(const pos_t& pos_1, cons
             if (!(curr_queue == &queue_1 && trav.first.first == handle_1)
                 && !(curr_queue == &queue_2 && trav.first.first == handle_2)) {
                 // this is not one of the start positions, so it might have new paths on it
-                graph->for_each_step_on_handle(trav.first.first, [&](const step_handle_t& step) {
+                for (const step_handle_t& step : graph->steps_of_handle(trav.first.first)) {
         
                     pair<path_handle_t, bool> path_occurrence(graph->get_path_handle_of_step(step),
                                                               graph->get_handle_of_step(step) != trav.first.first);
@@ -1367,7 +1367,7 @@ int64_t PathOrientedDistanceMeasurer::oriented_distance(const pos_t& pos_1, cons
                             shared_path_strands.insert(path_occurrence);
                         }
                     }
-                });
+                }
             }
             
             graph->follow_edges(trav.first.first, trav.first.second, [&](const handle_t& next) {
@@ -1444,96 +1444,83 @@ vector<vector<size_t>> PathOrientedDistanceMeasurer::get_buckets(const function<
     // the return value
     vector<vector<size_t>> buckets;
     
-    // enter which paths occur on the nodes of each hit into the memo
+    // we will associate each path strand with the index of a bucket
+    unordered_map<pair<path_handle_t, bool>, size_t> bucket_of_path_strand;
+    
+    // we will also keep track of any hits that were not on any path
+    vector<size_t> non_path_hits;
+    
     for (size_t i = 0; i < num_items; i++) {
         pos_t pos = get_position(i);
 #ifdef debug_mem_clusterer
         cerr << "adding position " << pos << " to memo" << endl;
 #endif
-        if (!paths_of_node_memo.count(id(pos))) {
-            paths_of_node_memo[id(pos)] = graph->paths_of_node(id(pos));
+        
+        // iterate over the path steps that this node is on
+        bool on_path = false;
+        for (const step_handle_t& step : graph->steps_of_handle(graph->get_handle(id(pos)))) {
+            on_path = true;
+            
+            // key indicating a path and a strand
+            pair<path_handle_t, bool> key(graph->get_path_handle_of_step(step),
+                                          graph->get_is_reverse(graph->get_handle_of_step(step)) != is_rev(pos));
+            
+            size_t bucket;
+            if (!bucket_of_path_strand.count(key)) {
+                // add a new bucket
+                bucket_of_path_strand[key] = buckets.size();
+                bucket = buckets.size();
+                buckets.emplace_back();
+            }
+            else {
+                // access the old bucket
+                bucket = bucket_of_path_strand[key];
+            }
+            buckets[bucket].push_back(i);
         }
         
-        for (size_t path : paths_of_node_memo[id(pos)]) {
-            if (!oriented_occurences_memo.count(make_pair(id(pos), path))) {
-                oriented_occurences_memo[make_pair(id(pos), path)] = graph->oriented_occurrences_on_path(id(pos), path);
-#ifdef debug_mem_clusterer
-                cerr << "node " << id(pos) << " has occurrences on path " << path << ":" << endl;
-                for (auto occurrence : oriented_occurences_memo[make_pair(id(pos), path)]) {
-                    cerr << "\t" << occurrence.first << " " << (occurrence.second ? "rev" : "fwd") << endl;
-                }
-#endif
-            }
+        if (!on_path) {
+            // record that this hit was not on any paths
+            non_path_hits.push_back(i);
         }
     }
     
-#ifdef debug_mem_clusterer
-    cerr << "reversing node to strand memo" << endl;
-#endif
-    
-    // reverse the memo so that it tells us which hits occur on a strand of a path and identify hits with no paths
-    unordered_map<pair<size_t, bool>, size_t> bucket_of_path_strand;
-    // record which hits aren't on a path and associate them with their nearest neighbor's node ID
-    unordered_map<size_t, id_t> non_path_hits;
-    for (size_t i = 0; i < num_items; i++) {
-        pos_t pos = get_position(i);
-        vector<size_t>& paths = paths_of_node_memo.at(id(pos));
-        if (paths.empty()) {
-            // just add a sentinel for now
-            non_path_hits[i] = 0;
-        }
-        else {
-            for (size_t path : paths) {
-                for (pair<size_t, bool> oriented_occurrence : oriented_occurences_memo[make_pair(id(pos), path)]) {
-#ifdef debug_mem_clusterer
-                    cerr << "position " << pos << " is on strand " << path << (oriented_occurrence.second != is_rev(pos) ? "-" : "+") << endl;
-#endif
-                    auto key = make_pair(path, oriented_occurrence.second != is_rev(pos));
-                    if (!bucket_of_path_strand.count(key)) {
-                        bucket_of_path_strand[key] = buckets.size();
-                        buckets.emplace_back();
-                    }
-                    buckets[bucket_of_path_strand[key]].push_back(i);
-                }
-            }
-        }
-    }
-    
-    // check the nearest nodes to each singleton to see if we can use it to bucket the item
-    for (pair<const size_t, id_t>& non_path_hit : non_path_hits) {
-        pos_t pos = get_position(non_path_hit.first);
-        handle_t handle = graph->memoized_get_handle(id(pos), is_rev(pos), &handle_memo);
+    // check the nearest nodes to each non-path hit to see if we can use them to bucket the item
+    for (size_t non_path_hit : non_path_hits) {
+        
+        pos_t pos = get_position(non_path_hit);
+        
+        handle_t handle = graph->get_handle(id(pos), is_rev(pos));
         size_t right_dist = graph->get_length(handle) - offset(pos);
         size_t trav_dist = min(offset(pos), right_dist);
         if (trav_dist <= max_walk) {
-            bool go_left = offset(pos) < right_dist;
-            function<bool(const handle_t&)> bucket_using_neighbors = [&](const handle_t& handle) {
-                id_t neighbor_id = graph->get_id(handle);
-                bool neighbor_rev = graph->get_is_reverse(handle);
-                if (!paths_of_node_memo.count(neighbor_id)) {
-                    paths_of_node_memo[neighbor_id] = graph->paths_of_node(neighbor_id);
-                }
-                auto& neighbor_paths = paths_of_node_memo.at(neighbor_id);
-                for (size_t path : neighbor_paths) {
-                    for (pair<size_t, bool>& node_occurence : graph->memoized_oriented_occurrences_on_path(neighbor_id, path, &oriented_occurences_memo)) {
-#ifdef debug_mem_clusterer
-                        cerr << "position " << pos << " has neighbor " << neighbor_id << " on strand " << path  << (node_occurence.second != neighbor_rev ? "-" : "+") << endl;
-#endif
-                        auto key = make_pair(path, node_occurence.second != neighbor_rev);
-                        if (!bucket_of_path_strand.count(key)) {
-                            bucket_of_path_strand[key] = buckets.size();
-                            buckets.emplace_back();
-                        }
-                        buckets[bucket_of_path_strand[key]].push_back(non_path_hit.first);
+            // we want to consider neighbors out this far according to our walk parameter
+            
+            graph->follow_edges(handle, offset(pos) < right_dist, [&](const handle_t& neighbor) {
+                // check whether this neighbor is on any paths
+                for (const step_handle_t& step : graph->steps_of_handle(neighbor)) {
+                    
+                    // key indicating a path and a strand
+                    pair<path_handle_t, bool> key(graph->get_path_handle_of_step(step),
+                                                  graph->get_is_reverse(graph->get_handle_of_step(step)) != is_rev(pos));
+                    
+                    size_t bucket;
+                    if (!bucket_of_path_strand.count(key)) {
+                        // add a new bucket
+                        bucket_of_path_strand[key] = buckets.size();
+                        bucket = buckets.size();
+                        buckets.emplace_back();
                     }
+                    else {
+                        // access the old bucket
+                        bucket = bucket_of_path_strand[key];
+                    }
+                    buckets[bucket].push_back(non_path_hit);
+                    // we can stop after this bucketing
+                    return false;
                 }
-                // replace the sentinel value with the actual neighbor's ID (but only if we find a path on it)
-                if (!neighbor_paths.empty()) {
-                    non_path_hit.second = neighbor_id;
-                }
-                return neighbor_paths.empty();
-            };
-            graph->follow_edges(handle, go_left, bucket_using_neighbors);
+                return true;
+            });
         }
     }
     
@@ -1573,70 +1560,56 @@ vector<pair<size_t, size_t>> PathOrientedDistanceMeasurer::exclude_merges(vector
     }
 #endif
     
-    function<size_t(const vector<size_t>&)> find_path_of_group = [&](const vector<size_t>& group) {
+    // returns the path and a bool indicating whether the search was successful
+    function<pair<path_handle_t, bool>(const vector<size_t>&)> find_path_of_group = [&](const vector<size_t>& group) {
         // try to find a member of the group that is on a path
         for (size_t i : group) {
-            auto iter = paths_of_node_memo.find(id(get_position(i)));
-            if (iter == paths_of_node_memo.end()) {
-                paths_of_node_memo[id(get_position(i))] = graph->paths_of_node(id(get_position(i)));
-                iter = paths_of_node_memo.find(id(get_position(i)));
+            handle_t handle = graph->get_handle(id(get_position(i)));
+            for (const step_handle_t& step : graph->steps_of_handle(handle)) {
+                return make_pair(graph->get_path_handle_of_step(step), true);
             }
-            if (!iter->second.empty()) {
-                return iter->second.front();
-            }
+            
         }
-        
-        // try to find a member of the group with a nearest neighbor that is on a path
+        // try to find a member whose neighbor is on a path
         for (size_t i : group) {
             pos_t pos = get_position(i);
-            handle_t handle = graph->memoized_get_handle(id(pos), is_rev(pos), &handle_memo);
+            handle_t handle = graph->get_handle(id(pos));
             size_t right_dist = graph->get_length(handle) - offset(pos);
             size_t trav_dist = min(offset(pos), right_dist);
             if (trav_dist <= max_walk) {
-                
-                size_t neighbor_path = 0;
-                
-                function<bool(const handle_t&)> find_neighbor_on_path = [&](const handle_t& handle) {
-                    id_t neighbor_id = graph->get_id(handle);
-                    bool neighbor_rev = graph->get_is_reverse(handle);
-                    if (!paths_of_node_memo.count(neighbor_id)) {
-                        paths_of_node_memo[neighbor_id] = graph->paths_of_node(neighbor_id);
-                    }
-                    if (!paths_of_node_memo[neighbor_id].empty()) {
-                        neighbor_path = paths_of_node_memo[neighbor_id].front();
+                path_handle_t result;
+                bool not_found = graph->follow_edges(handle, offset(pos) < right_dist, [&](const handle_t& neighbor) {
+                    for (const step_handle_t& step : graph->steps_of_handle(neighbor)) {
+                        result = graph->get_path_handle_of_step(step);
                         return false;
                     }
                     return true;
-                };
-                
-                bool go_left = offset(pos) < right_dist;
-                graph->follow_edges(handle, go_left, find_neighbor_on_path);
-                
-                if (neighbor_path) {
-                    return neighbor_path;
+                });
+                if (!not_found) {
+                    return make_pair(result, true);
                 }
             }
         }
-        return size_t(0);
+        
+        // we ran through every hit and did not find a path
+        return make_pair(handlegraph::as_path_handle(0), false);
     };
     
     for (size_t i = 1; i < current_groups.size(); i++) {
-        size_t i_path = find_path_of_group(current_groups[i]);
+        pair<path_handle_t, bool> i_path = find_path_of_group(current_groups[i]);
         
-        if (!i_path) {
+        if (!i_path.second) {
             continue;
         }
         
         for (size_t j = 0; j < i; j++) {
-            size_t j_path = find_path_of_group(current_groups[j]);
-            if (!j_path) {
+            pair<path_handle_t, bool> j_path = find_path_of_group(current_groups[j]);
+            if (!j_path.second) {
                 continue;
             }
             
             // we can exclude any hits that are on separate connected components
-            // TODO: not very good isolation, but it is true that XG paths and path handles are identical
-            if (!path_component_index->paths_on_same_component(handlegraph::as_path_handle(i_path),
-                                                               handlegraph::as_path_handle(j_path))) {
+            if (!path_component_index->paths_on_same_component(i_path.first, j_path.first)) {
                 excludes.emplace_back(i, j);
             }
         }

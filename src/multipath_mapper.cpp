@@ -72,6 +72,7 @@ namespace vg {
         // cluster the MEMs
         unique_ptr<SnarlOrientedDistanceMeasurer> snarl_measurer(nullptr);
         unique_ptr<PathOrientedDistanceMeasurer> path_measurer(nullptr);
+        MemoizingGraph memoizing_graph(xindex);
         
         OrientedDistanceMeasurer* distance_measurer;
         if (distance_index) {
@@ -85,7 +86,7 @@ namespace vg {
 #ifdef debug_multipath_mapper
             cerr << "using a path-based distance measurer" << endl;
 #endif
-            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(xindex,
+            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
                                                                                                       &path_component_index));
             distance_measurer = &(*path_measurer);
         }
@@ -454,7 +455,7 @@ namespace vg {
         int64_t jump_dist = rescue_forward ? fragment_length_distr.mean() - other_aln.sequence().size() : -fragment_length_distr.mean();
         
         // get the seed position(s) for the rescue by jumping along paths
-        vector<pos_t> jump_positions = xindex->jump_along_closest_path(id(pos_from), is_rev(pos_from), offset(pos_from), jump_dist, 250);
+        vector<pos_t> jump_positions = algorithms::jump_along_closest_path(xindex, pos_from, jump_dist, 250);
         
 #ifdef debug_multipath_mapper
         cerr << "found jump positions:" << endl;
@@ -1337,6 +1338,7 @@ namespace vg {
         
         unique_ptr<SnarlOrientedDistanceMeasurer> snarl_measurer(nullptr);
         unique_ptr<PathOrientedDistanceMeasurer> path_measurer(nullptr);
+        MemoizingGraph memoizing_graph(xindex);
         
         OrientedDistanceMeasurer* distance_measurer;
         if (distance_index) {
@@ -1350,7 +1352,7 @@ namespace vg {
 #ifdef debug_multipath_mapper
             cerr << "using a path-based distance measurer" << endl;
 #endif
-            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(xindex,
+            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
                                                                                                       &path_component_index));
             distance_measurer = &(*path_measurer);
         }

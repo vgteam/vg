@@ -492,15 +492,6 @@ public:
                                                                   unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
                                                                   unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
     
-    /// returns a vector of (node id, is reverse, offset) tuples that are found by jumping a fixed oriented distance
-    /// along path(s) from the given position. if the position is not on a path, searches from the position to a path
-    /// and adds/subtracts the search distance to the jump depending on the search direction. returns an empty vector
-    /// if there is no path within the max search distance or if the jump distance goes past the end of the path
-    vector<tuple<int64_t, bool, size_t>> jump_along_closest_path(int64_t id, bool is_rev, size_t offset, int64_t jump_dist, size_t max_search_dist,
-                                                                 unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
-                                                                 unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr,
-                                                                 unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
-    
     ////////////////////////////////////////////////////////////////////////////
     // Sample database API
     ////////////////////////////////////////////////////////////////////////////
