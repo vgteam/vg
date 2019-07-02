@@ -6,6 +6,8 @@
 
 #include "jump_along_path.hpp"
 
+//#define debug_algorithms
+
 namespace vg {
 namespace algorithms {
 
@@ -63,6 +65,11 @@ using namespace std;
                                            path_rev_strand
                                               ? graph->get_position_of_step(jump_step) + graph->get_length(jump_handle) - target_path_pos
                                               : target_path_pos - graph->get_position_of_step(jump_step));
+                    
+                    found_jumpable_path = true;
+#ifdef debug_algorithms
+                    cerr << "found jump position " << to_return.back() << " at forward path offset " << target_path_pos << endl;
+#endif
                 }
             }
             

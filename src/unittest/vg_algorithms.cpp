@@ -5444,7 +5444,7 @@ namespace vg {
             REQUIRE(rev_graph.has_edge(r3, rev_graph.flip(r4)));
         }
         
-        TEST_CASE("Jumping along paths works correctly", "[algorithms][mapping]") {
+        TEST_CASE("Jumping along paths works correctly", "[algorithms][mapping][jump]") {
             
             VG vg;
             
