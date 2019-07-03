@@ -56,6 +56,7 @@ var searchData=
   ['check_5fprotobuf_5ftag',['check_protobuf_tag',['../classvg_1_1io_1_1Registry.html#a0600b489129e1f4090172fccb7863f2b',1,'vg::io::Registry']]],
   ['children_5fof',['children_of',['../classvg_1_1SnarlManager.html#a63dfe5dbace5551d276f6d1d1bc94d78',1,'vg::SnarlManager']]],
   ['choose_5fln',['choose_ln',['../namespacevg.html#abf777e701e331bb422d91135a13408d2',1,'vg']]],
+  ['choose_5ftraversal',['choose_traversal',['../classvg_1_1Deconstructor.html#a1c3d9bfac17e3943d59ba3aac648c5de',1,'vg::Deconstructor']]],
   ['cigar_5fagainst_5fpath',['cigar_against_path',['../namespacevg.html#a43ac2d1903fa51a20a2366a865f5f0a4',1,'vg']]],
   ['cigar_5fmapping',['cigar_mapping',['../namespacevg.html#ad2b7a43b08ac85a2d4df8ee79243deee',1,'vg::cigar_mapping(const bam1_t *b, Mapping *mapping, XG *xgindex)'],['../namespacevg.html#a3dde1bced1d71a9a838bf2eeade1188b',1,'vg::cigar_mapping(const bam1_t *b, Mapping &amp;mapping, XG *xgindex)']]],
   ['cigar_5fstring',['cigar_string',['../namespacevg.html#a022b99db4260a7fd77a248bf27c50041',1,'vg']]],
