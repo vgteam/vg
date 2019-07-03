@@ -457,22 +457,6 @@ public:
     /// and the orientation of the occurrences. false indicates that the traversal occurs in the same
     /// orientation as in the path, true indicates.
     vector<pair<size_t, vector<pair<size_t, bool>>>> oriented_paths_of_node(int64_t id) const;
-    
-    /// same as paths_of_node, but with an optional memo to avoid repeated recalculation
-    vector<size_t> memoized_paths_of_node(int64_t id, unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr) const;
-    
-    /// same as oriented_occurrences_on_path, but with an optional memo to avoid repeated recalculation
-    vector<pair<size_t, bool>> memoized_oriented_occurrences_on_path(int64_t id, size_t path,
-                                                                     unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
-    
-    /// same as oriented_paths_of_node, but with an optional memo to avoid repeated recalculation
-    vector<pair<size_t, vector<pair<size_t, bool>>>> memoized_oriented_paths_of_node(int64_t id,
-                                                                                     unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
-                                                                                     unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
-    
-    /// returns a the memoized result from get_handle if a memo is provided that the result has been queried previously
-    /// otherwise, returns the result of get_handle directly and stores it in the memo if one is provided
-    handle_t memoized_get_handle(int64_t id, bool rev, unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
                                                   
     /// Return a vector of pairs of handles that occur on the same relative
     /// strand as the start handle, the distance from the right or left end
@@ -488,9 +472,7 @@ public:
     ///
     /// Will only ever return an empty vector or a 1-element vector.
     vector<tuple<handle_t, size_t, bool>> find_closest_with_paths(handle_t start, size_t max_search_dist,
-                                                                  size_t right_extra_dist = 0, size_t left_extra_dist = 0,
-                                                                  unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
-                                                                  unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
+                                                                  size_t right_extra_dist = 0, size_t left_extra_dist = 0) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Sample database API

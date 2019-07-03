@@ -2651,72 +2651,9 @@ int64_t XG::min_approx_path_distance(int64_t id1, int64_t id2) const {
     }
     return min_distance;
 }
-    
-vector<size_t> XG::memoized_paths_of_node(int64_t id, unordered_map<int64_t, vector<size_t>>* paths_of_node_memo) const {
-    if (paths_of_node_memo) {
-        auto iter = paths_of_node_memo->find(id);
-        if (iter != paths_of_node_memo->end()) {
-            return iter->second;
-        }
-        else {
-            (*paths_of_node_memo)[id] = paths_of_node(id);
-            return paths_of_node_memo->at(id);
-        }
-    }
-    else {
-        return paths_of_node(id);
-    }
-}
-
-vector<pair<size_t, bool>> XG::memoized_oriented_occurrences_on_path(int64_t id, size_t path,
-                                                                     unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo) const {
-    if (oriented_occurrences_memo) {
-        auto iter = oriented_occurrences_memo->find(make_pair(id, path));
-        if (iter != oriented_occurrences_memo->end()) {
-            return iter->second;
-        }
-        else {
-            (*oriented_occurrences_memo)[make_pair(id, path)] = oriented_occurrences_on_path(id, path);
-            return oriented_occurrences_memo->at(make_pair(id, path));
-        }
-    }
-    else {
-        return oriented_occurrences_on_path(id, path);
-    }
-}
-    
-    
-vector<pair<size_t, vector<pair<size_t, bool>>>> XG::memoized_oriented_paths_of_node(int64_t id,
-                                                                                     unordered_map<int64_t, vector<size_t>>* paths_of_node_memo,
-                                                                                     unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo) const {
-    vector<pair<size_t, vector<pair<size_t, bool>>>> oriented_path_occurrences;
-    for (size_t path : memoized_paths_of_node(id, paths_of_node_memo)) {
-        oriented_path_occurrences.emplace_back(path, memoized_oriented_occurrences_on_path(id, path));
-    }
-    return oriented_path_occurrences;
-}
-    
-handle_t XG::memoized_get_handle(int64_t id, bool rev, unordered_map<pair<int64_t, bool>, handle_t>* handle_memo) const {
-    if (handle_memo) {
-        auto iter = handle_memo->find(make_pair(id, rev));
-        if (iter != handle_memo->end()) {
-            return iter->second;
-        }
-        else {
-            handle_t handle = get_handle(id, rev);
-            (*handle_memo)[make_pair(id, rev)] = handle;
-            return handle;
-        }
-    }
-    else {
-        return get_handle(id, rev);
-    }
-}
 
 vector<tuple<handle_t, size_t, bool>> XG::find_closest_with_paths(handle_t start, size_t max_search_dist,
-    size_t right_extra_dist, size_t left_extra_dist,
-    unordered_map<int64_t, vector<size_t>>* paths_of_node_memo,
-    unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo) const {
+    size_t right_extra_dist, size_t left_extra_dist) const {
     
     // Holds all the handles with paths, their unsigned distances from the start handle, and whether they were found going left.
     vector<tuple<handle_t, size_t, bool>> to_return;
@@ -2751,8 +2688,7 @@ vector<tuple<handle_t, size_t, bool>> XG::find_closest_with_paths(handle_t start
             << search_dist << " from searching " << (search_left ? "leftwards" : "rightwards") << endl;
 #endif
         
-        for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : memoized_oriented_paths_of_node(trav_id,
-            paths_of_node_memo, oriented_occurrences_memo)) {
+        for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : oriented_paths_of_node(trav_id)) {
             
             // For each path this node occurs on
             
