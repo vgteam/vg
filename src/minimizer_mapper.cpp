@@ -24,9 +24,6 @@ namespace vg {
 
 using namespace std;
 
-#define debug
-
-
 MinimizerMapper::MinimizerMapper(const XG* xg_index, const gbwt::GBWT* gbwt_index, const MinimizerIndex* minimizer_index,
      MinimumDistanceIndex* distance_index) :
     xg_index(xg_index), gbwt_index(gbwt_index), minimizer_index(minimizer_index),
@@ -1020,6 +1017,11 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
             // For each source extension
             const size_t& from = kv.first;
             
+#ifdef debug
+            cerr << "Consider right tails for extension " << from << " with interval "
+                << extended_seeds[from].core_interval.first << " - " << extended_seeds[from].core_interval.second << endl;
+#endif
+            
             // Find the sequence
             string trailing_sequence = aln.sequence().substr(extended_seeds[from].core_interval.second);
             
@@ -1854,12 +1856,17 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
     // First, find all the source/sink extensions we actually want to do.
     unordered_set<size_t> tail_havers;
     if (left_tails) {
-        // We have a left tail if nothing in connecting_paths comes to us.
         for (size_t i = 0; i < extended_seeds.size(); i++) {
+            // We have a left tail if nothing in connecting_paths comes to us.
+        
             // So everything has left tails to start with
             if (extended_seeds[i].core_interval.first != 0) {
                 // As long as it has some read before it
                 tail_havers.insert(i);
+#ifdef debug
+                cerr << "Extension " << i << " running " << extended_seeds[i].core_interval.first
+                    << " - " << extended_seeds[i].core_interval.second << " may have a left tail" << endl;
+#endif
             }
         }
         
@@ -1873,12 +1880,19 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
             }
         }
     } else {
-        // We have a right tail if we go nowhere in connecting_paths
         for (size_t i = 0; i < extended_seeds.size(); i++) {
+            // We might have a right tail if we go nowhere in connecting_paths
+            
             auto found = connecting_paths.find(i);
-            if (found == connecting_paths.end() || found->second.empty() && extended_seeds[i].core_interval.second < read_length) {
+            if ((found == connecting_paths.end() || found->second.empty()) && extended_seeds[i].core_interval.second < read_length) {
                 // So if we go nowhere and actually have bases after us, add us
                 tail_havers.insert(i);
+                
+#ifdef debug
+                cerr << "Extension " << i << " running " << extended_seeds[i].core_interval.first
+                    << " - " << extended_seeds[i].core_interval.second << " may have a right tail in read of length " << read_length << endl;
+#endif
+                
             }
         }
     }

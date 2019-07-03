@@ -148,6 +148,9 @@ protected:
      * If the gapless extension starts or ends at a node boundary, there may be
      * multiple trees produced, each with a distinct root.
      *
+     * If the gapless extension abuts the edge of the read, no forests will be
+     * produced for it.
+     *
      * Each tree is represented as a TreeSubgraph over our gbwt_graph.
      *
      * If left_tails is true, the trees read out of the left sides of the
