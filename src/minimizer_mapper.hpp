@@ -14,6 +14,7 @@
 #include "snarls.hpp"
 #include "min_distance.hpp"
 #include "seed_clusterer.hpp"
+#include "tree_subgraph.hpp"
 
 #include <structures/immutable_list.hpp>
 
@@ -190,7 +191,7 @@ protected:
      *
      * Returns alingments in gbwt_graph space.
      */
-    pair<Path, size_t> get_best_alignment_against_any_tree(const vector<vector<int64_t, handle_t>>& trees, const string& sequence,
+    pair<Path, size_t> get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees, const string& sequence,
         const Position& default_position, bool pin_left) const;
         
     /// We define a type for shared-tail lists of Mappings, to avoid constantly

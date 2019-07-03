@@ -24,6 +24,8 @@ namespace vg {
 
 using namespace std;
 
+#define debug
+
 
 MinimizerMapper::MinimizerMapper(const XG* xg_index, const gbwt::GBWT* gbwt_index, const MinimizerIndex* minimizer_index,
      MinimumDistanceIndex* distance_index) :
@@ -813,6 +815,10 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
     // Handle the leading/left tails
     if (linear_tails) {
         // Handle left tails as several parallel strings
+        
+#ifdef debug
+        cerr << "Handle " << paths_between_seeds[numeric_limits<size_t>::max()].size() << " left tails linearly" << endl;
+#endif
 
         for (auto& kv : paths_between_seeds[numeric_limits<size_t>::max()]) {
             // For each extended seed that can come from something outside the cluster
@@ -827,8 +833,8 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
             tail_lengths.push_back(before_sequence.size());
             
             // Do right-pinned alignment
-            auto result = get_best_alignment_against_any_path(kv.second, before_sequence,
-                extended_seeds[source].starting_position(gbwt_graph), true, true);
+            pair<Path, int64_t> result = get_best_alignment_against_any_path(kv.second, before_sequence,
+                extended_seeds[source].starting_position(gbwt_graph), true, false);
 
             // Grab the best path in backing graph space (which may be empty)
             Path& best_path = result.first;
@@ -856,6 +862,10 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
         // Get the forests of all left tails by extension they belong to
         auto tails_by_extension = get_tail_forests(extended_seeds, aln.sequence().size(), paths_between_seeds, true);
         
+#ifdef debug
+        cerr << "Handle " << tails_by_extension.size() << " left tail forests" << endl;
+#endif
+        
         for (auto& kv : tails_by_extension) {
             // For each source extension
             const size_t& source = kv.first;
@@ -864,7 +874,7 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
             string before_sequence = aln.sequence().substr(0, extended_seeds[source].core_interval.first);
             
             // Do right-pinned alignment
-            auto result = get_best_alignment_against_any_tree(kv.second, before_sequence,
+            pair<Path, int64_t> result = get_best_alignment_against_any_tree(kv.second, before_sequence,
                 extended_seeds[source].starting_position(gbwt_graph), false);
 
             // Grab the best path in backing graph space (which may be empty)
@@ -927,7 +937,7 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                     tail_lengths.push_back(trailing_sequence.size());
 
                     // Do left-pinned alignment
-                    auto result = get_best_alignment_against_any_path(to_and_paths.second, trailing_sequence,
+                    pair<Path, int64_t> result = get_best_alignment_against_any_path(to_and_paths.second, trailing_sequence,
                         extended_seeds[from].tail_position(gbwt_graph), true, true);
 
                     // Grab the best path in backing graph space (which may be empty)
@@ -957,7 +967,7 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                 string intervening_sequence = aln.sequence().substr(from_end, extended_seeds[to].core_interval.first - from_end); 
 
                 // Do un-pinned alignment
-                auto result = get_best_alignment_against_any_path(to_and_paths.second, intervening_sequence,
+                pair<Path, int64_t> result = get_best_alignment_against_any_path(to_and_paths.second, intervening_sequence,
                     extended_seeds[to].tail_position(gbwt_graph), false, false);
 
                 // Grab the best path in backing graph space (which may be empty)
@@ -1000,7 +1010,7 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
 
     }
     
-     if (!linear_tails) {
+    if (!linear_tails) {
         // Handle right tails as a forest of trees
    
         // Get the forests of all right tails by extension they belong to
@@ -1011,13 +1021,13 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
             const size_t& from = kv.first;
             
             // Find the sequence
-            string trailing_sequence = aln.sequence().substr(from_end);
+            string trailing_sequence = aln.sequence().substr(extended_seeds[from].core_interval.second);
             
             // There should be actual trailing sequence to align on this escape path
             assert(!trailing_sequence.empty());
             
             // Do left-pinned alignment
-            auto result = get_best_alignment_against_any_tree(kv.second, trailing_sequence,
+            pair<Path, int64_t> result = get_best_alignment_against_any_tree(kv.second, trailing_sequence,
                 extended_seeds[from].tail_position(gbwt_graph), true);
 
             // Grab the best path in backing graph space (which may be empty)
@@ -1122,7 +1132,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const ve
                         e->set_to_length(sequence.size());
                         e->set_sequence(sequence);
                         // We can copy the position of where we are going to, since we consume no graph.
-                        *m->mutable_position() = extended_seeds[to].starting_position(gbwt_graph);
+                        *m->mutable_position() = default_position;
                     }
                 }
             }
@@ -1212,7 +1222,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
     for (auto& subgraph : trees) {
         // For each tree we can map against, map pinning the correct edge of the sequence to the root.
         
-        if (path.mapping_size() == 0) {
+        if (subgraph.get_node_count() == 0) {
             // There's no graph bases here
             // We might have extra read outside the graph. Handle leading insertions.
             // We consider a pure softclip, since all alignment here is pinning.
@@ -1289,7 +1299,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
                     // Un-reverse it if we were pinning right
                     best_path = reverse_complement_path(best_path, [&](id_t node) { 
                         return subgraph.get_length(subgraph.get_handle(node, false));
-                    })
+                    });
                 }
                 
                 // Translate from subgraph into base graph and keep it.
@@ -1859,7 +1869,7 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
                 // Note that we assume paths to/from
                 // numeric_limits<size_t>::max() (i.e. tail paths) don't
                 // appear.
-                tail_havers.erase(seed_and_path.first);
+                tail_havers.erase(dest_and_path.first);
             }
         }
     } else {
@@ -1877,26 +1887,26 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
         // Now for each extension that can have tails, walk the GBWT in the appropriate direction
         
         // TODO: Come up with a better way to do this with more accessors on the extension and less get_handle
-        // Get the Position reading out of the extnsion on the appropriate tail\
+        // Get the Position reading out of the extnsion on the appropriate tail
         Position from;
         // And the length of that tail
         size_t tail_length;
         if (left_tails) {
             // Look right from start 
-            from = extended_seeds[extension_number].starting_position();
+            from = extended_seeds[extension_number].starting_position(gbwt_graph);
             // And then flip to look the other way at the prev base
             from = reverse(from, gbwt_graph.get_length(gbwt_graph.get_handle(from.node_id(), false)));
             
             tail_length = extended_seeds[extension_number].core_interval.first;
         } else {
             // Look right from end
-            from = extended_seeds[extension_number].tail_position();
+            from = extended_seeds[extension_number].tail_position(gbwt_graph);
             
             tail_length = read_length - extended_seeds[extension_number].core_interval.second;
         }
         
         // This is one tree that we are filling in
-        vector<int64_t, handle_t> tree;
+        vector<pair<int64_t, handle_t>> tree;
         
         // This is a stack of indexes at which we put parents in the tree
         list<int64_t> parent_stack;
@@ -2163,7 +2173,7 @@ void MinimizerMapper::dfs_gbwt(handle_t from_handle, size_t from_offset, size_t 
 
     // Have a recursive function that does the DFS. We fire the enter and exit
     // callbacks, and the user can keep their own stack.
-    auto recursive_dfs = [&](const gbwt::SearchState& here_state, size_t used_distance) {
+    function<void(const gbwt::SearchState&, size_t)> recursive_dfs = [&](const gbwt::SearchState& here_state, size_t used_distance) {
         // Enter this state
         handle_t here_handle = gbwt_graph.node_to_handle(here_state.node);
         enter_handle(here_handle);

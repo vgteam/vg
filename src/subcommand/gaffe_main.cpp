@@ -61,6 +61,7 @@ void help_gaffe(char** argv) {
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
     << "  -O, --no-chaining             disable seed chaining and all gapped alignment" << endl
     << "  -T, --max-tails INT           fall back on alignment to haplotypes when there are more than INT tails" << endl
+    << "  -l, --linear-tails            align tails as individual linear alignments instead of POA trees" << endl
     << "  -X, --xdrop                   use xdrop alignment for tails" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
@@ -86,6 +87,8 @@ int main_gaffe(int argc, char** argv) {
     bool do_chaining = true;
     // How many tails should we tolerate
     size_t max_tails = numeric_limits<size_t>::max();
+    // Should we do individual linear tail alignments instead of tree-shaped ones?
+    bool linear_tails = false;
     // Whould we use the xdrop aligner for aligning tails?
     bool use_xdrop_for_tails = false;
     // What GAMs should we realign?
@@ -132,13 +135,14 @@ int main_gaffe(int argc, char** argv) {
             {"score-fraction", required_argument, 0, 'F'},
             {"no-chaining", no_argument, 0, 'O'},
             {"max-tails", required_argument, 0, 'T'},
+            {"linear-tails", no_argument, 0, 'l'},
             {"xdrop", no_argument, 0, 'X'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:OT:Xt:",
+        c = getopt_long (argc, argv, "hx:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:OT:lXt:",
                          long_options, &option_index);
 
 
@@ -264,6 +268,10 @@ int main_gaffe(int argc, char** argv) {
                 max_tails = parse<size_t>(optarg);
                 break;
                 
+            case 'l':
+                linear_tails = true;
+                break;
+                
             case 'X':
                 use_xdrop_for_tails = true;
                 break;
@@ -386,6 +394,11 @@ int main_gaffe(int argc, char** argv) {
         cerr << "--max-tails " << max_tails << endl;
     }
     minimizer_mapper.max_tails = max_tails;
+    
+    if (progress) {
+        cerr << "--linear-tails " << linear_tails << endl;
+    }
+    minimizer_mapper.linear_tails = linear_tails;
     
     if (progress) {
         cerr << "--xdrop " << use_xdrop_for_tails << endl;
