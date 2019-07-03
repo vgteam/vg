@@ -961,11 +961,16 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
 
                 // Find the sequence
                 assert(extended_seeds[to].core_interval.first >= from_end);
-                string intervening_sequence = aln.sequence().substr(from_end, extended_seeds[to].core_interval.first - from_end); 
+                string intervening_sequence = aln.sequence().substr(from_end, extended_seeds[to].core_interval.first - from_end);
+                
+#ifdef debug
+                cerr << "Connect " << pb2json(extended_seeds[from].tail_position(gbwt_graph))
+                    << " and " << pb2json(extended_seeds[to].starting_position(gbwt_graph)) << endl;
+#endif
 
                 // Do un-pinned alignment
                 pair<Path, int64_t> result = get_best_alignment_against_any_path(to_and_paths.second, intervening_sequence,
-                    extended_seeds[to].tail_position(gbwt_graph), false, false);
+                    extended_seeds[from].tail_position(gbwt_graph), false, false);
 
                 // Grab the best path in backing graph space (which may be empty)
                 Path& best_path = result.first;
@@ -1087,6 +1092,10 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const ve
     for (auto& path : paths) {
         // For each path we can take to get to the source
         
+#ifdef debug
+        cerr << "Consider " << sequence.size() << " bp against path of " << path_from_length(path) << " bp" << endl;
+#endif
+        
         if (path.mapping_size() == 0) {
             // There's no graph bases here
             if (pinned) {
@@ -1118,6 +1127,9 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const ve
                     if (best_score < 0) {
                         best_score = 0;
                         best_path.clear_mapping();
+#ifdef debug
+                        cerr << "New best alignment: " << pb2json(best_path) << " score " << best_score << endl;
+#endif
                     }
                 } else {
                     // Consider the something to nothing alignment.
@@ -1127,6 +1139,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const ve
                     // We know the extended seeds we are between won't start/end with gaps, so we own the gap open.
                     int64_t score = get_regular_aligner()->score_gap(sequence.size());
                     if (score > best_score) {
+                        best_score = score;
                         best_path.clear_mapping();
                         Mapping* m = best_path.add_mapping();
                         Edit* e = m->add_edit();
@@ -1135,6 +1148,11 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const ve
                         e->set_sequence(sequence);
                         // We can copy the position of where we are going to, since we consume no graph.
                         *m->mutable_position() = default_position;
+                    
+#ifdef debug
+                        cerr << "New best alignment: " << pb2json(best_path) << " score " << best_score << endl;
+#endif
+                    
                     }
                 }
             }
