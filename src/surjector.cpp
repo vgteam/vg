@@ -80,7 +80,7 @@ using namespace std;
 #ifdef debug_anchored_surject
         cerr << "got path overlapping segments" << endl;
         for (const auto& path_record : path_overlapping_anchors) {
-            cerr << "path handle " << as_integer(path_record.first) << endl;
+            cerr << "path " << xindex->get_path_name(path_record.first) << endl;
             for (auto& anchor : path_record.second) {
                 cerr << "\t read[" << (anchor.first.first - source.sequence().begin()) << ":" << (anchor.first.second - source.sequence().begin()) << "] : ";
                 for (auto iter = anchor.first.first; iter != anchor.first.second; iter++) {
@@ -96,7 +96,7 @@ using namespace std;
         unordered_map<path_handle_t, Alignment> path_surjections;
         for (pair<const path_handle_t, vector<path_chunk_t>>& path_record : path_overlapping_anchors) {
 #ifdef debug_anchored_surject
-            cerr << "found overlaps on path " << path_record.first << ", performing surjection" << endl;
+            cerr << "found overlaps on path " << xindex->get_path_name(path_record.first) << ", performing surjection" << endl;
 #endif
             
             // find the interval of the ref path we need to consider
@@ -226,13 +226,24 @@ using namespace std;
             const Position& pos = path.mapping(i).position();
             handle_t handle = graph->get_handle(pos.node_id(), pos.is_reverse());
             
+#ifdef debug_anchored_surject
+            cerr << "looking for paths on mapping " << i << " at position " << make_pos_t(pos) << endl;
+#endif
+            
             unordered_map<pair<step_handle_t, bool>, size_t> next_extending_steps;
             
             for (const step_handle_t& step : graph->steps_of_handle(handle)) {
                 
+#ifdef debug_anchored_surject
+                cerr << "found a step on " << graph->get_path_name(graph->get_path_handle_of_step(step)) << endl;
+#endif
+                
                 path_handle_t path_handle = graph->get_path_handle_of_step(step);
                 if (!surjection_paths.count(path_handle)) {
                     // we are not surjecting onto this path
+#ifdef debug_anchored_surject
+                    cerr << "not surjecting to this path, skipping" << endl;
+#endif
                     continue;
                 }
                 
@@ -242,6 +253,14 @@ using namespace std;
                 bool path_strand = graph->get_is_reverse(handle) != graph->get_is_reverse(graph->get_handle_of_step(step));
                 
                 step_handle_t prev_step = path_strand ? graph->get_next_step(step) : graph->get_previous_step(step);
+                
+#ifdef debug_anchored_surject
+                cerr << "path strand is " << (path_strand ? "rev" : "fwd") << ", prev step is " << graph->get_id(graph->get_handle_of_step(prev_step)) << (graph->get_is_reverse(graph->get_handle_of_step(prev_step)) ? "-" : "+") << endl;
+                cerr << "possible extensions from: " << endl;
+                for (const auto& record : extending_steps) {
+                    cerr << "\t" << graph->get_id(graph->get_handle_of_step(record.first.first)) << (graph->get_is_reverse(graph->get_handle_of_step(record.first.first)) ? "-" : "+") << " on " << graph->get_path_name(graph->get_path_handle_of_step(record.first.first)) << " " << (record.first.second ? "rev" : "fwd") << endl;
+                }
+#endif
                 
                 if (extending_steps.count(make_pair(prev_step, path_strand))) {
                     // we are extending from the previous step, so we continue with the extension
@@ -257,7 +276,7 @@ using namespace std;
                     mapping->set_rank(chunk.second.mapping(chunk.second.mapping_size() - 2).rank() + 1);
                     
                     // in the next iteration, this step should point into the chunk it just extended
-                    next_extending_steps[make_pair(prev_step, path_strand)] = extending_steps[make_pair(prev_step, path_strand)];
+                    next_extending_steps[make_pair(step, path_strand)] = extending_steps[make_pair(prev_step, path_strand)];
                 }
                 else {
                     // this step does not extend a previous step, so we start a new chunk
@@ -276,7 +295,7 @@ using namespace std;
                     
                     // keep track of where this chunk is in the vector and which step it came from
                     // for the next iteration
-                    next_extending_steps[make_pair(prev_step, path_strand)] = path_chunks.size() - 1;
+                    next_extending_steps[make_pair(step, path_strand)] = path_chunks.size() - 1;
                 }
             }
             
@@ -350,7 +369,7 @@ using namespace std;
                                              path_handle_t path_handle, size_t first, size_t last) const {
         
 #ifdef debug_anchored_surject
-        cerr << "extracting path graph for position interval " << first << ":" << last << " in path of length " << xpath.positions[xpath.positions.size() - 1] + xindex->node_length(xpath.node(xpath.ids.size() - 1)) << endl;
+        cerr << "extracting path graph for position interval " << first << ":" << last << " in path of length " << graph->get_path_length(path_handle) << endl;
 #endif
         
         unordered_map<id_t, pair<id_t, bool>> node_trans;
@@ -389,6 +408,10 @@ using namespace std;
                                       path_handle_t best_path_handle,
                                       string& path_name_out, int64_t& path_pos_out, bool& path_rev_out) const {
         
+#ifdef debug_anchored_surject
+        cerr << "choosing a path position for surjected alignment on path " << graph->get_path_name(best_path_handle) << endl;
+#endif
+        
         const Path& path = surjected.path();
         
         if (path.mapping_size() == 0){
@@ -404,8 +427,14 @@ using namespace std;
         handle_t start_handle = graph->get_handle(start_pos.node_id(), start_pos.is_reverse());
         // TODO: depending on path coverage, it could be inefficient to iterate over all steps on the handle
         for (const step_handle_t& step : graph->steps_of_handle(start_handle)) {
+#ifdef debug_anchored_surject
+            cerr << "found step on " << graph->get_path_name(graph->get_path_handle_of_step(step)) << endl;
+#endif
             if (graph->get_path_handle_of_step(step) != best_path_handle) {
                 // this is not the path we surjected onto
+#ifdef debug_anchored_surject
+                cerr << "wrong path, skipping" << endl;
+#endif
                 continue;
             }
             
@@ -413,20 +442,30 @@ using namespace std;
             
             // does the alignment follow the path here?
             bool match = true;
-            step_handle_t path_step = graph->get_next_step(step);
+            step_handle_t path_step = strand ? graph->get_previous_step(step) : graph->get_next_step(step);
             for (size_t i = 1; i < path.mapping_size(); ++i) {
                 
                 if (path_step == graph->path_end(best_path_handle) ||
                     path_step == graph->path_front_end(best_path_handle)) {
                     // we've gone off the end of the path
+#ifdef debug_anchored_surject
+                    cerr << "encountered end of path at mapping index " << i << ", skipping" << endl;
+#endif
                     match = false;
                     break;
                 }
                 
                 const Position& pos = path.mapping(i).position();
+#ifdef debug_anchored_surject
+                cerr << "at mapping pos " << make_pos_t(pos) << " and path pos " << graph->get_id(graph->get_handle_of_step(path_step)) << (graph->get_is_reverse(graph->get_handle_of_step(path_step)) ? "-" : "+") << endl;
+#endif
+                
                 if (pos.node_id() != graph->get_id(graph->get_handle_of_step(path_step)) ||
-                    (pos.is_reverse() != graph->get_is_reverse(graph->get_handle_of_step(path_step)) == strand)) {
+                    (pos.is_reverse() != graph->get_is_reverse(graph->get_handle_of_step(path_step)) != strand)) {
                     // the path here doesn't match the surjected path
+#ifdef debug_anchored_surject
+                    cerr << "encountered mismatch at mapping index " << i << ", skipping" << endl;
+#endif
                     match = false;
                     break;
                 }
