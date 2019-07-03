@@ -1075,8 +1075,6 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
     return true;
 }
 
-#define debug
-#define debug_dump_graph
 pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const vector<Path>& paths,
     const string& sequence, const Position& default_position, bool pinned, bool pin_left) const {
     
@@ -1274,21 +1272,22 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
 #endif
 #endif
             
-            // Align, accounting for full length bonus
+            // Align, accounting for full length bonus.
+            // We *always* do left-pinned alignment internally, since that's the shape of trees we get.
             
             
             if (use_xdrop_for_tails) {
 #ifdef debug
                 Alignment clone = current_alignment;
-                get_regular_aligner()->align_pinned(clone, subgraph, subgraph.get_topological_order(), pin_left);
+                get_regular_aligner()->align_pinned(clone, subgraph, subgraph.get_topological_order(), true);
 #endif
-                get_regular_aligner()->get_xdrop()->align_pinned(current_alignment, subgraph, subgraph.get_topological_order(), pin_left);
+                get_regular_aligner()->get_xdrop()->align_pinned(current_alignment, subgraph, subgraph.get_topological_order(), true);
 #ifdef debug
                 cerr << "Xdrop: " << pb2json(current_alignment) << endl;
                 cerr << "Normal: " << pb2json(clone) << endl;
 #endif
             } else {
-                get_regular_aligner()->align_pinned(current_alignment, subgraph, subgraph.get_topological_order(), pin_left);
+                get_regular_aligner()->align_pinned(current_alignment, subgraph, subgraph.get_topological_order(), true);
             }
             
 #ifdef debug
@@ -1323,8 +1322,6 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
     
     return make_pair(best_path, best_score);
 }
-#undef debug_dump_graph
-#undef debug
 
 void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
     
@@ -2174,7 +2171,6 @@ void MinimizerMapper::dfs_gbwt(const Position& from, size_t walk_distance,
     
 }
 
-#define debug
 void MinimizerMapper::dfs_gbwt(handle_t from_handle, size_t from_offset, size_t walk_distance,
     const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const {
     
@@ -2260,9 +2256,6 @@ void MinimizerMapper::dfs_gbwt(handle_t from_handle, size_t from_offset, size_t 
     recursive_dfs(start_state, distance_to_node_end, distance_to_node_end == 0);
 
 }
-#undef debug
-
-
 
 }
 
