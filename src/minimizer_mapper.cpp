@@ -1088,6 +1088,9 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const ve
     // And its score
     int64_t best_score = numeric_limits<int64_t>::min();
     
+    // We must have some target paths
+    assert(!paths.empty());
+    
     // We can align it once per target path
     for (auto& path : paths) {
         // For each path we can take to get to the source
@@ -1224,8 +1227,8 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const ve
         }
     }
 
-    // We really should have gotten something
-    assert(best_path.mapping_size() != 0);
+    // We really should have gotten something to replace the placeholder score
+    assert(best_score != numeric_limits<int64_t>::min());
     
     return make_pair(best_path, best_score);
 }
