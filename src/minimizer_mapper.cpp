@@ -1075,6 +1075,8 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
     return true;
 }
 
+#define debug
+#define debug_dump_graph
 pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const vector<Path>& paths,
     const string& sequence, const Position& default_position, bool pinned, bool pin_left) const {
     
@@ -1108,7 +1110,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const ve
                     *m->mutable_position() = default_position;
                     
 #ifdef debug
-                    cerr << "New best alignment: " << pb2json(best_path) << endl;
+                    cerr << "New best alignment: " << pb2json(best_path) << " score " << best_score << endl;
 #endif
                 }
             } else {
@@ -1242,7 +1244,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
                 *m->mutable_position() = default_position;
                 
 #ifdef debug
-                cerr << "New best alignment: " << pb2json(best_path) << endl;
+                cerr << "New best alignment: " << pb2json(best_path) << " score " << best_score << endl;
 #endif
             }
         } else {
@@ -1321,6 +1323,8 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
     
     return make_pair(best_path, best_score);
 }
+#undef debug_dump_graph
+#undef debug
 
 void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
     
@@ -1925,16 +1929,24 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
         // This is a stack of indexes at which we put parents in the tree
         list<int64_t> parent_stack;
         
+        // Get the handle we are starting from
+        handle_t start_handle = gbwt_graph.get_handle(from.node_id(), from.is_reverse());
+        
+        // Decide if the start node will end up included in the tree, or if we cut it all off with the offset.
+        bool start_included = (from.offset() < gbwt_graph.get_length(start_handle));
+        
         // Do a DFS over the haplotypes in the GBWT out to that distance.
-        dfs_gbwt(from, tail_length, [&](const handle_t& entered) {
+        dfs_gbwt(start_handle, from.offset(), tail_length, [&](const handle_t& entered) {
             // Enter a new handle.
             
             if (parent_stack.empty()) {
                 // This is the root of a new tree in the forrest
                 
                 if (!tree.empty()) {
-                    // Save the old tree and start a new one
-                    to_return[extension_number].emplace_back(&gbwt_graph, std::move(tree), from.offset());
+                    // Save the old tree and start a new one.
+                    // We need to cut off from.offset() from the root, unless we would cut off the whole root.
+                    // In that case, the GBWT DFS will have skipped the empty root entirely, so we cut off nothing.
+                    to_return[extension_number].emplace_back(&gbwt_graph, std::move(tree), start_included ? from.offset() : 0);
                     tree.clear();
                 }
                 
@@ -1954,7 +1966,7 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
         
         if (!tree.empty()) {
             // Now save the last tree
-            to_return[extension_number].emplace_back(&gbwt_graph, std::move(tree), from.offset());
+            to_return[extension_number].emplace_back(&gbwt_graph, std::move(tree), start_included ? from.offset() : 0);
             tree.clear();
         }
     }
@@ -2162,6 +2174,7 @@ void MinimizerMapper::dfs_gbwt(const Position& from, size_t walk_distance,
     
 }
 
+#define debug
 void MinimizerMapper::dfs_gbwt(handle_t from_handle, size_t from_offset, size_t walk_distance,
     const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const {
     
@@ -2183,14 +2196,30 @@ void MinimizerMapper::dfs_gbwt(handle_t from_handle, size_t from_offset, size_t 
     // the node. Our start position is a cut *between* bases, and we take everything after it.
     // If the cut is at the offset of the whole length of the node, we take 0 bases.
     // If it is at 0, we take all the bases in the node.
-    size_t distance_to_node_end = gbwt_graph.get_length(from_handle) - from_offset;    
+    size_t distance_to_node_end = gbwt_graph.get_length(from_handle) - from_offset;
+    
+#ifdef debug
+    cerr << "DFS starting at offset " << from_offset << " on node of length "
+        << gbwt_graph.get_length(from_handle) << " leaving " << distance_to_node_end << " bp" << endl;
+#endif
+
 
     // Have a recursive function that does the DFS. We fire the enter and exit
     // callbacks, and the user can keep their own stack.
-    function<void(const gbwt::SearchState&, size_t)> recursive_dfs = [&](const gbwt::SearchState& here_state, size_t used_distance) {
-        // Enter this state
+    function<void(const gbwt::SearchState&, size_t, bool)> recursive_dfs = [&](const gbwt::SearchState& here_state,
+        size_t used_distance, bool hide_root) {
+        
         handle_t here_handle = gbwt_graph.node_to_handle(here_state.node);
-        enter_handle(here_handle);
+        
+        if (!hide_root) {
+            // Enter this handle if there are any bases on it to visit
+            
+#ifdef debug
+            cerr << "Enter handle " << gbwt_graph.get_id(here_handle) << " " << gbwt_graph.get_is_reverse(here_handle) << endl;
+#endif
+            
+            enter_handle(here_handle);
+        }
         
         // Up the used distance with our length
         used_distance += gbwt_graph.get_length(here_handle);
@@ -2207,21 +2236,31 @@ void MinimizerMapper::dfs_gbwt(handle_t from_handle, size_t from_offset, size_t 
                 }
                 
                 // Otherwise, do it with the new distance value.
-                recursive_dfs(there_state, used_distance);
+                // Don't hide the root on any child subtrees; only the top root can need hiding.
+                recursive_dfs(there_state, used_distance, false);
                 
                 return true;
             });
         }
             
-        // Exit this state
-        exit_handle();
+        if (!hide_root) {
+            // Exit this handle if we entered it
+            
+#ifdef debug
+            cerr << "Exit handle " << gbwt_graph.get_id(here_handle) << " " << gbwt_graph.get_is_reverse(here_handle) << endl;
+#endif
+            
+            exit_handle();
+        }
     };
     
     // Start the DFS with our stating node, consuming the distance from our
-    // offset to its end.
-    recursive_dfs(start_state, distance_to_node_end);
+    // offset to its end. Don't show the root state to the user if we don't
+    // actually visit any bases on that node.
+    recursive_dfs(start_state, distance_to_node_end, distance_to_node_end == 0);
 
 }
+#undef debug
 
 
 
