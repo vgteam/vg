@@ -1932,8 +1932,11 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
         // Decide if the start node will end up included in the tree, or if we cut it all off with the offset.
         bool start_included = (from.offset() < gbwt_graph.get_length(start_handle));
         
+        // How long should we search? It should be the longest detectable gap plus the remaining sequence.
+        size_t search_limit = get_regular_aligner()->longest_detectable_gap(tail_length, read_length) + tail_length;
+        
         // Do a DFS over the haplotypes in the GBWT out to that distance.
-        dfs_gbwt(start_handle, from.offset(), tail_length, [&](const handle_t& entered) {
+        dfs_gbwt(start_handle, from.offset(), search_limit, [&](const handle_t& entered) {
             // Enter a new handle.
             
             if (parent_stack.empty()) {
