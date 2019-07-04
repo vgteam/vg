@@ -103,11 +103,12 @@ Inheritance diagram for handlegraph::PathHandleGraph:</div>
  <div class="center">
   <img src="classhandlegraph_1_1PathHandleGraph.png" usemap="#handlegraph::PathHandleGraph_map" alt=""/>
   <map id="handlegraph::PathHandleGraph_map" name="handlegraph::PathHandleGraph_map">
-<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="297,0,584,24"/>
+<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="222,0,509,24"/>
 <area href="classhandlegraph_1_1MutablePathHandleGraph.html" alt="handlegraph::MutablePathHandleGraph" shape="rect" coords="0,112,287,136"/>
-<area href="classhandlegraph_1_1PathPositionHandleGraph.html" alt="handlegraph::PathPositionHandleGraph" shape="rect" coords="297,112,584,136"/>
-<area href="classvg_1_1XG.html" alt="vg::XG" shape="rect" coords="594,112,881,136"/>
+<area href="classhandlegraph_1_1PathPositionHandleGraph.html" alt="handlegraph::PathPositionHandleGraph" shape="rect" coords="445,112,732,136"/>
 <area href="classhandlegraph_1_1MutablePathMutableHandleGraph.html" alt="handlegraph::MutablePathMutableHandleGraph" shape="rect" coords="0,168,287,192"/>
+<area href="classvg_1_1MemoizingGraph.html" alt="vg::MemoizingGraph" shape="rect" coords="297,168,584,192"/>
+<area href="classvg_1_1XG.html" alt="vg::XG" shape="rect" coords="594,168,881,192"/>
 <area href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html" alt="handlegraph::MutablePathDeletableHandleGraph" shape="rect" coords="0,224,287,248"/>
 <area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="0,280,287,304"/>
 </map>
@@ -286,6 +287,8 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Execute a function on each path in the graph. If it returns false, stop iteration. Returns true if we finished and false if we stopped early. </p>
 
+<p>Implemented in <a class="el" href="classvg_1_1MemoizingGraph.html#a135aeec3e524fb61988b40e2168df236">vg::MemoizingGraph</a>.</p>
+
 </div>
 </div>
 <a class="anchor" id="a31c085eb8590fff9d4035a9bf87cf7a7"></a>
@@ -379,6 +382,8 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Execute a function on each step of a handle in any path. If it returns false, stop iteration. Returns true if we finished and false if we stopped early. </p>
 
+<p>Implemented in <a class="el" href="classvg_1_1MemoizingGraph.html#a3d47aa9161449db5bc6daaa0e851c8cc">vg::MemoizingGraph</a>.</p>
+
 </div>
 </div>
 <a class="anchor" id="a339e690ce3e2bb8280dd1f3ea45abe42"></a>
@@ -405,7 +410,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Get a node handle (node ID and orientation) from a handle to an step on a path. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#a69a307fdfe1a24cdc1f7afb4da61b5a8">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a80e9b71f9dd2cbfb1881b830ae4654b6">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#a69a307fdfe1a24cdc1f7afb4da61b5a8">vg::XG</a>, <a class="el" href="classvg_1_1VG.html#a80e9b71f9dd2cbfb1881b830ae4654b6">vg::VG</a>, and <a class="el" href="classvg_1_1MemoizingGraph.html#a6d6b6264f70cb61fa638ba44c257a86a">vg::MemoizingGraph</a>.</p>
 
 </div>
 </div>
@@ -433,7 +438,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Look up whether a path is circular. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#a5cb0106f26be1be44c575a067605f73f">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a5b36247a6ca74800a80d83170948fee9">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#a5cb0106f26be1be44c575a067605f73f">vg::XG</a>, <a class="el" href="classvg_1_1VG.html#a5b36247a6ca74800a80d83170948fee9">vg::VG</a>, and <a class="el" href="classvg_1_1MemoizingGraph.html#ade374390d5baa6011f698b0c58ce0be4">vg::MemoizingGraph</a>.</p>
 
 </div>
 </div>
@@ -460,7 +465,7 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Returns a handle to the next step on the path. If the given step is the final step of a non-circular path, this method has undefined behavior. In a circular path, the "last" step will loop around to the "first" step. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#af4ef9dc83d3a5f704fcbabd9afab21a2">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#aa94c162ade42415f7defe7677e5bae53">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#af4ef9dc83d3a5f704fcbabd9afab21a2">vg::XG</a>, <a class="el" href="classvg_1_1VG.html#aa94c162ade42415f7defe7677e5bae53">vg::VG</a>, and <a class="el" href="classvg_1_1MemoizingGraph.html#add6db8653e130fae8006766470facece">vg::MemoizingGraph</a>.</p>
 
 </div>
 </div>
@@ -487,7 +492,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Returns the number of paths stored in the graph. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#a15c7827d4e97be1e46faee8b56226834">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a20417af67e14d7800b20df8b0ac763f9">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#a15c7827d4e97be1e46faee8b56226834">vg::XG</a>, <a class="el" href="classvg_1_1VG.html#a20417af67e14d7800b20df8b0ac763f9">vg::VG</a>, and <a class="el" href="classvg_1_1MemoizingGraph.html#a7a1d6f281f0a1116636255e55d64d05e">vg::MemoizingGraph</a>.</p>
 
 </div>
 </div>
@@ -513,6 +518,8 @@ template&lt;typename Iteratee &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Look up the path handle for the given path name. The path with that name must exist. </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1MemoizingGraph.html#a2425e698c3d2df2161a56f9f1bbb3f6d">vg::MemoizingGraph</a>.</p>
 
 </div>
 </div>
@@ -540,7 +547,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Returns a handle to the path that an step is on. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#ad64cb12c0d31ca54db18330bc8a81043">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a5c8b0de9776e2f4ee0b1185ba59485c0">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#ad64cb12c0d31ca54db18330bc8a81043">vg::XG</a>, <a class="el" href="classvg_1_1VG.html#a5c8b0de9776e2f4ee0b1185ba59485c0">vg::VG</a>, and <a class="el" href="classvg_1_1MemoizingGraph.html#a6ce9cf7ba072bfad198bfe2318f35d6b">vg::MemoizingGraph</a>.</p>
 
 </div>
 </div>
@@ -568,7 +575,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Look up the name of a path from a handle to it. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#a62ce5ffe7013a141d8b4b595f5ea787f">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#ac71b9547040f0d8ae430d564aa897d97">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#a62ce5ffe7013a141d8b4b595f5ea787f">vg::XG</a>, <a class="el" href="classvg_1_1VG.html#ac71b9547040f0d8ae430d564aa897d97">vg::VG</a>, and <a class="el" href="classvg_1_1MemoizingGraph.html#aedb4222fa8905e7270f05fc6c80da02a">vg::MemoizingGraph</a>.</p>
 
 </div>
 </div>
@@ -595,7 +602,7 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Returns a handle to the previous step on the path. If the given step is the first step of a non-circular path, this method has undefined behavior. In a circular path, it will loop around from the "first" step (i.e. the one returned by path_begin) to the "last" step. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#a3457b1f6c46df2898191168689d00f39">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a1723ce56da21a5f6953464d03e4849ac">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#a3457b1f6c46df2898191168689d00f39">vg::XG</a>, <a class="el" href="classvg_1_1VG.html#a1723ce56da21a5f6953464d03e4849ac">vg::VG</a>, and <a class="el" href="classvg_1_1MemoizingGraph.html#aaee18e43a512827e84b496a5de093e44">vg::MemoizingGraph</a>.</p>
 
 </div>
 </div>
@@ -623,7 +630,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Returns the number of node steps in the path. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#ae9a97e6b913364de89ac8dbfac6a40e0">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a212238ea52a6c8f542bb3c6b866cb040">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#ae9a97e6b913364de89ac8dbfac6a40e0">vg::XG</a>, <a class="el" href="classvg_1_1VG.html#a212238ea52a6c8f542bb3c6b866cb040">vg::VG</a>, and <a class="el" href="classvg_1_1MemoizingGraph.html#a25e4de56c03f0fd4fba11d9150b6dd46">vg::MemoizingGraph</a>.</p>
 
 </div>
 </div>
@@ -651,7 +658,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Returns true if the step is not the last step in a non-circular path. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#a94f855eb6c8c7e13ddea4ba1ba4785c5">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a76c0e39a4a3f4df40c3a460b92a4a484">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#a94f855eb6c8c7e13ddea4ba1ba4785c5">vg::XG</a>, <a class="el" href="classvg_1_1VG.html#a76c0e39a4a3f4df40c3a460b92a4a484">vg::VG</a>, and <a class="el" href="classvg_1_1MemoizingGraph.html#ae4bc306e9c7ee21a104bd9e778cbd67d">vg::MemoizingGraph</a>.</p>
 
 </div>
 </div>
@@ -679,6 +686,8 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Determine if a path name exists and is legal to get a path handle for. </p>
 
+<p>Implemented in <a class="el" href="classvg_1_1MemoizingGraph.html#a9cb97d659812fc35dcf60524f354b634">vg::MemoizingGraph</a>.</p>
+
 </div>
 </div>
 <a class="anchor" id="a93a1ee451e750cb82f1711fd6c3db8cc"></a>
@@ -705,7 +714,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Returns true if the step is not the first step in a non-circular path. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#acf385ca9bf8283ede876c75113fb28a0">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a07ff80d377e97f67e98b75d6e64f3dbc">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#acf385ca9bf8283ede876c75113fb28a0">vg::XG</a>, <a class="el" href="classvg_1_1VG.html#a07ff80d377e97f67e98b75d6e64f3dbc">vg::VG</a>, and <a class="el" href="classvg_1_1MemoizingGraph.html#abd7d3ea11e137c7e046a816e55b0b755">vg::MemoizingGraph</a>.</p>
 
 </div>
 </div>
@@ -733,6 +742,8 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Returns true if the given path is empty, and false otherwise. </p>
 
+<p>Reimplemented in <a class="el" href="classvg_1_1MemoizingGraph.html#aa363c0900e6d9afb1d136bf169b329c3">vg::MemoizingGraph</a>.</p>
+
 </div>
 </div>
 <a class="anchor" id="a31bb33a87ad8efd68876fc5ae1deeb09"></a>
@@ -758,7 +769,7 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Get a handle to the last step, which will be an arbitrary step in a circular path that we consider "last" based on our construction of the path. If the path is empty then the implementation must return the same value as <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#ad7412bf19084f2b38ffec42517a6a9e9">path_front_end()</a>. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#af5b377cbffa07a3b01013da8cf00d845">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a868379db6918fd879eb5da7e6f9bc798">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#af5b377cbffa07a3b01013da8cf00d845">vg::XG</a>, <a class="el" href="classvg_1_1VG.html#a868379db6918fd879eb5da7e6f9bc798">vg::VG</a>, and <a class="el" href="classvg_1_1MemoizingGraph.html#a8f4ecc961ceb3c7d5b49e1c52e6b06a7">vg::MemoizingGraph</a>.</p>
 
 </div>
 </div>
@@ -785,7 +796,7 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Get a handle to the first step, which will be an arbitrary step in a circular path that we consider "first" based on our construction of the path. If the path is empty, then the implementation must return the same value as <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a5c3a5e04838d9e4a0a0ddf574c4de827">path_end()</a>. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#a8d267a8c770207177409e58a6c228604">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a8ba115ffda674c76e8956a8057545b25">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#a8d267a8c770207177409e58a6c228604">vg::XG</a>, <a class="el" href="classvg_1_1VG.html#a8ba115ffda674c76e8956a8057545b25">vg::VG</a>, and <a class="el" href="classvg_1_1MemoizingGraph.html#ae9dbd7d3e193ad5c4ff6837d6b4c2dd0">vg::MemoizingGraph</a>.</p>
 
 </div>
 </div>
@@ -812,7 +823,7 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Get a handle to a fictitious position past the end of a path. This position is returned by get_next_step for the final step in a path in a non-circular path. Note: get_next_step will <em>NEVER</em> return this value for a circular path. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#a1dc5f4504cc1736ffd75ad30bc3c7b81">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a6eaa8a920a65428b70b7b77142805208">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#a1dc5f4504cc1736ffd75ad30bc3c7b81">vg::XG</a>, <a class="el" href="classvg_1_1VG.html#a6eaa8a920a65428b70b7b77142805208">vg::VG</a>, and <a class="el" href="classvg_1_1MemoizingGraph.html#a2dd709b73c68712c62d95232ae83b564">vg::MemoizingGraph</a>.</p>
 
 </div>
 </div>
@@ -839,7 +850,7 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Get a handle to a fictitious position before the beginning of a path. This position is return by get_previous_step for the first step in a path in a non-circular path. Note: get_previous_step will <em>NEVER</em> return this value for a circular path. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1XG.html#ad2053a58a4740713db368b21ff1f22c5">vg::XG</a>, and <a class="el" href="classvg_1_1VG.html#acfe330c38f9bd036838e4e5d133b1657">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1XG.html#ad2053a58a4740713db368b21ff1f22c5">vg::XG</a>, <a class="el" href="classvg_1_1VG.html#acfe330c38f9bd036838e4e5d133b1657">vg::VG</a>, and <a class="el" href="classvg_1_1MemoizingGraph.html#a2755a6db50949064a8a7144f11f02350">vg::MemoizingGraph</a>.</p>
 
 </div>
 </div>
@@ -892,6 +903,8 @@ template&lt;typename Iteratee &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Returns a vector of all steps of a node on paths. Optionally restricts to steps that match the handle in orientation. </p>
+
+<p>Reimplemented in <a class="el" href="classvg_1_1MemoizingGraph.html#a9337c746e476d2d19cf3c4fdd1aaa8cf">vg::MemoizingGraph</a>.</p>
 
 </div>
 </div>

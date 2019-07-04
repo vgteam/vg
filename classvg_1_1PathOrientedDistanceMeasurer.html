@@ -110,8 +110,8 @@ Inheritance diagram for vg::PathOrientedDistanceMeasurer:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a755813cf60b64c55c872f97db0c2a794"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathOrientedDistanceMeasurer.html#a755813cf60b64c55c872f97db0c2a794">PathOrientedDistanceMeasurer</a> (<a class="el" href="classvg_1_1XG.html">XG</a> *<a class="el" href="classvg_1_1PathOrientedDistanceMeasurer.html#a56a3ba473128c53d852670115d03dde2">xgindex</a>, const <a class="el" href="classvg_1_1PathComponentIndex.html">PathComponentIndex</a> *<a class="el" href="classvg_1_1PathOrientedDistanceMeasurer.html#aec1793ac0e2bf87292b90a5a2c8f14d8">path_component_index</a>, bool <a class="el" href="classvg_1_1PathOrientedDistanceMeasurer.html#a76f22a53508287163b78a6d9aafb4797">unstranded</a>=false)</td></tr>
-<tr class="separator:a755813cf60b64c55c872f97db0c2a794"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a483512f5650b15d5f56935ce2d7ce1bf"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathOrientedDistanceMeasurer.html#a483512f5650b15d5f56935ce2d7ce1bf">PathOrientedDistanceMeasurer</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1PathOrientedDistanceMeasurer.html#a528e7742b43628c6c93c6542810ffdfd">graph</a>, const <a class="el" href="classvg_1_1PathComponentIndex.html">PathComponentIndex</a> *<a class="el" href="classvg_1_1PathOrientedDistanceMeasurer.html#aec1793ac0e2bf87292b90a5a2c8f14d8">path_component_index</a>=nullptr)</td></tr>
+<tr class="separator:a483512f5650b15d5f56935ce2d7ce1bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6ae7fe802887b8e9c1dbd4ab0106a2e3"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathOrientedDistanceMeasurer.html#a6ae7fe802887b8e9c1dbd4ab0106a2e3">~PathOrientedDistanceMeasurer</a> ()=default</td></tr>
 <tr class="memdesc:a6ae7fe802887b8e9c1dbd4ab0106a2e3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Default desctructor.  <a href="#a6ae7fe802887b8e9c1dbd4ab0106a2e3">More...</a><br/></td></tr>
 <tr class="separator:a6ae7fe802887b8e9c1dbd4ab0106a2e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -133,48 +133,27 @@ Public Attributes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
-<tr class="memitem:a56a3ba473128c53d852670115d03dde2"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1XG.html">XG</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathOrientedDistanceMeasurer.html#a56a3ba473128c53d852670115d03dde2">xgindex</a> = nullptr</td></tr>
-<tr class="separator:a56a3ba473128c53d852670115d03dde2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a528e7742b43628c6c93c6542810ffdfd"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathOrientedDistanceMeasurer.html#a528e7742b43628c6c93c6542810ffdfd">graph</a> = nullptr</td></tr>
+<tr class="separator:a528e7742b43628c6c93c6542810ffdfd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aec1793ac0e2bf87292b90a5a2c8f14d8"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1PathComponentIndex.html">PathComponentIndex</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathOrientedDistanceMeasurer.html#aec1793ac0e2bf87292b90a5a2c8f14d8">path_component_index</a> = nullptr</td></tr>
 <tr class="separator:aec1793ac0e2bf87292b90a5a2c8f14d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af6684e64e4a9d9386294835746b9d106"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, vector<br class="typebreak"/>
-&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathOrientedDistanceMeasurer.html#af6684e64e4a9d9386294835746b9d106">paths_of_node_memo</a></td></tr>
-<tr class="memdesc:af6684e64e4a9d9386294835746b9d106"><td class="mdescLeft">&#160;</td><td class="mdescRight">A memo for the results of <a class="el" href="classvg_1_1XG.html#a29a934034803bccbf0907080dbf1c465">XG::paths_of_node</a>.  <a href="#af6684e64e4a9d9386294835746b9d106">More...</a><br/></td></tr>
-<tr class="separator:af6684e64e4a9d9386294835746b9d106"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a83d5e8313f43fddd7ba9e134804803e1"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; pair&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, <br class="typebreak"/>
-size_t &gt;, vector&lt; pair&lt; size_t, <br class="typebreak"/>
-bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathOrientedDistanceMeasurer.html#a83d5e8313f43fddd7ba9e134804803e1">oriented_occurences_memo</a></td></tr>
-<tr class="memdesc:a83d5e8313f43fddd7ba9e134804803e1"><td class="mdescLeft">&#160;</td><td class="mdescRight">A memo for the results of <a class="el" href="classvg_1_1XG.html#aa7e53b7705bd69235be1caf79638f93c" title="returns the ranks (NOT base positions) and orientations of a given node on a path ...">XG::oriented_occurrences_on_path</a>.  <a href="#a83d5e8313f43fddd7ba9e134804803e1">More...</a><br/></td></tr>
-<tr class="separator:a83d5e8313f43fddd7ba9e134804803e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a73fae6600abc1114e0f28b1cd9e74ee4"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; pair&lt; int64_t, <br class="typebreak"/>
-bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathOrientedDistanceMeasurer.html#a73fae6600abc1114e0f28b1cd9e74ee4">handle_memo</a></td></tr>
-<tr class="memdesc:a73fae6600abc1114e0f28b1cd9e74ee4"><td class="mdescLeft">&#160;</td><td class="mdescRight">A memo for the results of <a class="el" href="classvg_1_1XG.html#aafd5083707374d1c17bbc1ca564e0f74" title="Look up the handle for the node with the given ID in the given orientation. ">XG::get_handle</a>.  <a href="#a73fae6600abc1114e0f28b1cd9e74ee4">More...</a><br/></td></tr>
-<tr class="separator:a73fae6600abc1114e0f28b1cd9e74ee4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a76f22a53508287163b78a6d9aafb4797"><td class="memItemLeft" align="right" valign="top">const bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathOrientedDistanceMeasurer.html#a76f22a53508287163b78a6d9aafb4797">unstranded</a></td></tr>
-<tr class="separator:a76f22a53508287163b78a6d9aafb4797"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="a755813cf60b64c55c872f97db0c2a794"></a>
+<a class="anchor" id="a483512f5650b15d5f56935ce2d7ce1bf"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">vg::PathOrientedDistanceMeasurer::PathOrientedDistanceMeasurer </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1XG.html">XG</a> *&#160;</td>
-          <td class="paramname"><em>xgindex</em>, </td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="classvg_1_1PathComponentIndex.html">PathComponentIndex</a> *&#160;</td>
-          <td class="paramname"><em>path_component_index</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>unstranded</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>path_component_index</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -325,7 +304,7 @@ bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a class="anchor" id="a73fae6600abc1114e0f28b1cd9e74ee4"></a>
+<a class="anchor" id="a528e7742b43628c6c93c6542810ffdfd"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -333,7 +312,7 @@ bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">unordered_map&lt;pair&lt;int64_t, bool&gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&gt; vg::PathOrientedDistanceMeasurer::handle_memo</td>
+          <td class="memname">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a>* vg::PathOrientedDistanceMeasurer::graph = nullptr</td>
         </tr>
       </table>
   </td>
@@ -342,8 +321,6 @@ bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>A memo for the results of <a class="el" href="classvg_1_1XG.html#aafd5083707374d1c17bbc1ca564e0f74" title="Look up the handle for the node with the given ID in the given orientation. ">XG::get_handle</a>. </p>
 
 </div>
 </div>
@@ -361,28 +338,6 @@ bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>
 
 </div>
 </div>
-<a class="anchor" id="a83d5e8313f43fddd7ba9e134804803e1"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">unordered_map&lt;pair&lt;<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, size_t&gt;, vector&lt;pair&lt;size_t, bool&gt; &gt; &gt; vg::PathOrientedDistanceMeasurer::oriented_occurences_memo</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>A memo for the results of <a class="el" href="classvg_1_1XG.html#aa7e53b7705bd69235be1caf79638f93c" title="returns the ranks (NOT base positions) and orientations of a given node on a path ...">XG::oriented_occurrences_on_path</a>. </p>
-
-</div>
-</div>
 <a class="anchor" id="aec1793ac0e2bf87292b90a5a2c8f14d8"></a>
 <div class="memitem">
 <div class="memproto">
@@ -392,68 +347,6 @@ bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>
       <table class="memname">
         <tr>
           <td class="memname">const <a class="el" href="classvg_1_1PathComponentIndex.html">PathComponentIndex</a>* vg::PathOrientedDistanceMeasurer::path_component_index = nullptr</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="af6684e64e4a9d9386294835746b9d106"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">unordered_map&lt;<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, vector&lt;size_t&gt; &gt; vg::PathOrientedDistanceMeasurer::paths_of_node_memo</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>A memo for the results of <a class="el" href="classvg_1_1XG.html#a29a934034803bccbf0907080dbf1c465">XG::paths_of_node</a>. </p>
-
-</div>
-</div>
-<a class="anchor" id="a76f22a53508287163b78a6d9aafb4797"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const bool vg::PathOrientedDistanceMeasurer::unstranded</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a56a3ba473128c53d852670115d03dde2"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classvg_1_1XG.html">XG</a>* vg::PathOrientedDistanceMeasurer::xgindex = nullptr</td>
         </tr>
       </table>
   </td>

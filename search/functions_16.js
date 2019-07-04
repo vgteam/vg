@@ -2,7 +2,6 @@ var searchData=
 [
   ['valid_5foffset',['valid_offset',['../classvg_1_1MinimizerIndex.html#ae2a589aac7ec8c0fb4bc4c2b28583434',1,'vg::MinimizerIndex']]],
   ['validate_5fmultipath_5falignment',['validate_multipath_alignment',['../namespacevg.html#a89a7010176a6425c2a8183054cc9781f',1,'vg']]],
-  ['validate_5fstrand_5fconsistency',['validate_strand_consistency',['../classvg_1_1XG.html#a49c6b685af4bff6fbfd73280efbee4d2',1,'vg::XG']]],
   ['value_5fcast',['value_cast',['../namespacevg.html#a76fc86953f8c080621c080cd35bc9ae0',1,'vg::value_cast(const google::protobuf::Value &amp;value)'],['../namespacevg.html#ac84a9621d5108f53976d51f1188e7214',1,'vg::value_cast(const T &amp;wrap)'],['../namespacevg.html#a12109d27c9801031e32a408e75af2bd1',1,'vg::value_cast(const google::protobuf::Value &amp;value)'],['../namespacevg.html#aca53457219a2ced000f439df5bd0d71f',1,'vg::value_cast(const Container &amp;wrap)']]],
   ['value_5fcast_3c_20bool_20_3e',['value_cast&lt; bool &gt;',['../namespacevg.html#ac90d23f22ad3ec78da4e03dc011cabf8',1,'vg::value_cast&lt; bool &gt;(const google::protobuf::Value &amp;value)'],['../namespacevg.html#ab572dfa4b65db43984f1572d74a94036',1,'vg::value_cast&lt; bool &gt;(const bool &amp;wrap)']]],
   ['value_5fcast_3c_20double_20_3e',['value_cast&lt; double &gt;',['../namespacevg.html#a13a0cc45e4277281efeedb821c1444f6',1,'vg::value_cast&lt; double &gt;(const google::protobuf::Value &amp;value)'],['../namespacevg.html#ac16fdb4078f95e252450a80a1e9e14f2',1,'vg::value_cast&lt; double &gt;(const double &amp;wrap)']]],

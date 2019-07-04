@@ -110,7 +110,7 @@ Inheritance diagram for vg::NullMaskingGraph:</div>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a2d348fa5aa3bd9216fc4133d320575ef"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NullMaskingGraph.html#a2d348fa5aa3bd9216fc4133d320575ef">NullMaskingGraph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *<a class="el" href="classvg_1_1NullMaskingGraph.html#a691c9aa63e3e20dbba329691b482f311">graph</a>)</td></tr>
-<tr class="memdesc:a2d348fa5aa3bd9216fc4133d320575ef"><td class="mdescLeft">&#160;</td><td class="mdescRight">Initialize as the backwards version of another graph.  <a href="#a2d348fa5aa3bd9216fc4133d320575ef">More...</a><br/></td></tr>
+<tr class="memdesc:a2d348fa5aa3bd9216fc4133d320575ef"><td class="mdescLeft">&#160;</td><td class="mdescRight">Initialize with the graph we want to mask null nodes in.  <a href="#a2d348fa5aa3bd9216fc4133d320575ef">More...</a><br/></td></tr>
 <tr class="separator:a2d348fa5aa3bd9216fc4133d320575ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:addeb1ab4002f516c686a5af59018597f"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NullMaskingGraph.html#addeb1ab4002f516c686a5af59018597f">NullMaskingGraph</a> ()=default</td></tr>
 <tr class="memdesc:addeb1ab4002f516c686a5af59018597f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Default constructor &ndash; not actually functional.  <a href="#addeb1ab4002f516c686a5af59018597f">More...</a><br/></td></tr>
@@ -143,6 +143,7 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:af2aa8860d26c0c8042298f43de905f09"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NullMaskingGraph.html#af2aa8860d26c0c8042298f43de905f09">for_each_handle_impl</a> (const function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee, bool parallel=false) const </td></tr>
 <tr class="separator:af2aa8860d26c0c8042298f43de905f09"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aac777246cd05beeade16bc4d48cd39cf"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NullMaskingGraph.html#aac777246cd05beeade16bc4d48cd39cf">get_node_count</a> () const </td></tr>
+<tr class="memdesc:aac777246cd05beeade16bc4d48cd39cf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the number of nodes in the graph.  <a href="#aac777246cd05beeade16bc4d48cd39cf">More...</a><br/></td></tr>
 <tr class="separator:aac777246cd05beeade16bc4d48cd39cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af0dc18e6bb9dba7a73103c3c6d7f4e6c"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NullMaskingGraph.html#af0dc18e6bb9dba7a73103c3c6d7f4e6c">min_node_id</a> () const </td></tr>
 <tr class="separator:af0dc18e6bb9dba7a73103c3c6d7f4e6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -211,7 +212,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Initialize as the backwards version of another graph. </p>
+<p>Initialize with the graph we want to mask null nodes in. </p>
 
 </div>
 </div>
@@ -512,7 +513,8 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Return the number of nodes in the graph. <em>WARNING</em> This method's implementation is O(N) in the size of the graph, unlike for most HandleGraphs. </p>
+
+<p>Return the number of nodes in the graph. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a9f95108e6c3f68f404fa93bd3306e4c6">handlegraph::HandleGraph</a>.</p>
 

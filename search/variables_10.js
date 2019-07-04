@@ -31,7 +31,6 @@ var searchData=
   ['path_5fto_5fsample',['path_to_sample',['../classvg_1_1Deconstructor.html#a38b458b541ea01415d938e8c8ff7d615',1,'vg::Deconstructor']]],
   ['path_5ftrav_5ffinder',['path_trav_finder',['../classvg_1_1Deconstructor.html#a85927e49cf01f8e7e8aeaf63e71d8855',1,'vg::Deconstructor']]],
   ['paths',['paths',['../classvg_1_1VG.html#a7c5150aba84e7ed2bde7986462a79989',1,'vg::VG::paths()'],['../classvg_1_1XG.html#a2fea1336e357bced077728c4f427f6ad',1,'vg::XG::paths()']]],
-  ['paths_5fof_5fnode_5fmemo',['paths_of_node_memo',['../classvg_1_1PathOrientedDistanceMeasurer.html#af6684e64e4a9d9386294835746b9d106',1,'vg::PathOrientedDistanceMeasurer']]],
   ['pbsize',['pbSize',['../classvg_1_1io_1_1fdinbuf.html#a1756a5735e7daf8ea042bc81343f7a0f',1,'vg::io::fdinbuf']]],
   ['penalties',['penalties',['../structhaplo_1_1linear__haplo__structure.html#af55d7f33177180d033e8e925cf20e5fd',1,'haplo::linear_haplo_structure']]],
   ['perfect_5fpair_5fidentity_5fthreshold',['perfect_pair_identity_threshold',['../classvg_1_1FragmentLengthStatistics.html#a4e65bc3de5657555df556429284f5251',1,'vg::FragmentLengthStatistics']]],

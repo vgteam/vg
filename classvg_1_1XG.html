@@ -110,9 +110,10 @@ Inheritance diagram for vg::XG:</div>
  <div class="center">
   <img src="classvg_1_1XG.png" usemap="#vg::XG_map" alt=""/>
   <map id="vg::XG_map" name="vg::XG_map">
-<area href="classhandlegraph_1_1PathHandleGraph.html" alt="handlegraph::PathHandleGraph" shape="rect" coords="0,56,230,80"/>
-<area href="classhandlegraph_1_1SerializableHandleGraph.html" alt="handlegraph::SerializableHandleGraph" shape="rect" coords="240,56,470,80"/>
-<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="0,0,230,24"/>
+<area href="classhandlegraph_1_1PathPositionHandleGraph.html" alt="handlegraph::PathPositionHandleGraph" shape="rect" coords="0,112,233,136"/>
+<area href="classhandlegraph_1_1SerializableHandleGraph.html" alt="handlegraph::SerializableHandleGraph" shape="rect" coords="243,112,476,136"/>
+<area href="classhandlegraph_1_1PathHandleGraph.html" alt="handlegraph::PathHandleGraph" shape="rect" coords="0,56,233,80"/>
+<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="0,0,233,24"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -296,9 +297,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ae9a97e6b913364de89ac8dbfac6a40e0"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#ae9a97e6b913364de89ac8dbfac6a40e0">get_step_count</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const </td></tr>
 <tr class="memdesc:ae9a97e6b913364de89ac8dbfac6a40e0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the number of node steps in the path.  <a href="#ae9a97e6b913364de89ac8dbfac6a40e0">More...</a><br/></td></tr>
 <tr class="separator:ae9a97e6b913364de89ac8dbfac6a40e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0a85611752ffd2d62f8793f2c246432f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a0a85611752ffd2d62f8793f2c246432f">get_path_length</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const </td></tr>
-<tr class="memdesc:a0a85611752ffd2d62f8793f2c246432f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the total length of sequence in the path.  <a href="#a0a85611752ffd2d62f8793f2c246432f">More...</a><br/></td></tr>
-<tr class="separator:a0a85611752ffd2d62f8793f2c246432f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a69a307fdfe1a24cdc1f7afb4da61b5a8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a69a307fdfe1a24cdc1f7afb4da61b5a8">get_handle_of_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle) const </td></tr>
 <tr class="memdesc:a69a307fdfe1a24cdc1f7afb4da61b5a8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a node handle (node ID and orientation) from a handle to a step on a path.  <a href="#a69a307fdfe1a24cdc1f7afb4da61b5a8">More...</a><br/></td></tr>
 <tr class="separator:a69a307fdfe1a24cdc1f7afb4da61b5a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -329,6 +327,13 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a2b8112716a5e52174c8826fbc95030bb"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a2b8112716a5e52174c8826fbc95030bb">for_each_step_on_handle_impl</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const function&lt; bool(const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;)&gt; &amp;iteratee) const </td></tr>
 <tr class="memdesc:a2b8112716a5e52174c8826fbc95030bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Executes a function on each step of a handle in any path.  <a href="#a2b8112716a5e52174c8826fbc95030bb">More...</a><br/></td></tr>
 <tr class="separator:a2b8112716a5e52174c8826fbc95030bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0a85611752ffd2d62f8793f2c246432f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a0a85611752ffd2d62f8793f2c246432f">get_path_length</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const </td></tr>
+<tr class="memdesc:a0a85611752ffd2d62f8793f2c246432f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the total length of sequence in the path.  <a href="#a0a85611752ffd2d62f8793f2c246432f">More...</a><br/></td></tr>
+<tr class="separator:a0a85611752ffd2d62f8793f2c246432f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a340a0ded41fdeeacc0a35886c6e53e4f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a340a0ded41fdeeacc0a35886c6e53e4f">get_position_of_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step) const </td></tr>
+<tr class="separator:a340a0ded41fdeeacc0a35886c6e53e4f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac48a4cf68b7e4a8fe6bae0b755557b15"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#ac48a4cf68b7e4a8fe6bae0b755557b15">get_step_at_position</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;<a class="el" href="classvg_1_1XG.html#a5fcf93da66516192acb39001c8bd8e74">path</a>, const size_t &amp;position) const </td></tr>
+<tr class="separator:ac48a4cf68b7e4a8fe6bae0b755557b15"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaf355b5d0a8a5c617e43321fe0683c7b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#aaf355b5d0a8a5c617e43321fe0683c7b">neighborhood</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, size_t dist, <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;g, bool use_steps=true) const </td></tr>
 <tr class="separator:aaf355b5d0a8a5c617e43321fe0683c7b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aade86b9199f38f8ba5f88785ae0588fc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#aade86b9199f38f8ba5f88785ae0588fc">for_path_range</a> (const string &amp;name, int64_t start, int64_t stop, function&lt; void(int64_t node_id, bool rev)&gt; lambda, bool <a class="el" href="namespacevg.html#aac725dd44bc5a8f540554d4b1882c1fe">is_rev</a>=false) const </td></tr>
@@ -461,31 +466,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a74b21858fdc2c9d0a279304aee111c28"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; size_t, vector<br class="typebreak"/>
 &lt; pair&lt; size_t, bool &gt; &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a74b21858fdc2c9d0a279304aee111c28">oriented_paths_of_node</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>) const </td></tr>
 <tr class="separator:a74b21858fdc2c9d0a279304aee111c28"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a24f48a70bba034a42857c5a49db22b26"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a24f48a70bba034a42857c5a49db22b26">memoized_paths_of_node</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *paths_of_node_memo=nullptr) const </td></tr>
-<tr class="memdesc:a24f48a70bba034a42857c5a49db22b26"><td class="mdescLeft">&#160;</td><td class="mdescRight">same as paths_of_node, but with an optional memo to avoid repeated recalculation  <a href="#a24f48a70bba034a42857c5a49db22b26">More...</a><br/></td></tr>
-<tr class="separator:a24f48a70bba034a42857c5a49db22b26"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0394da2c755e03cfdea70b8c4a493b1e"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; size_t, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a0394da2c755e03cfdea70b8c4a493b1e">memoized_oriented_occurrences_on_path</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, size_t <a class="el" href="classvg_1_1XG.html#a5fcf93da66516192acb39001c8bd8e74">path</a>, unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *oriented_occurrences_memo=nullptr) const </td></tr>
-<tr class="memdesc:a0394da2c755e03cfdea70b8c4a493b1e"><td class="mdescLeft">&#160;</td><td class="mdescRight">same as oriented_occurrences_on_path, but with an optional memo to avoid repeated recalculation  <a href="#a0394da2c755e03cfdea70b8c4a493b1e">More...</a><br/></td></tr>
-<tr class="separator:a0394da2c755e03cfdea70b8c4a493b1e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a699c4e278f5e8d20d5e0abcb42e6f0e2"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; size_t, vector<br class="typebreak"/>
-&lt; pair&lt; size_t, bool &gt; &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a699c4e278f5e8d20d5e0abcb42e6f0e2">memoized_oriented_paths_of_node</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *paths_of_node_memo=nullptr, unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *oriented_occurrences_memo=nullptr) const </td></tr>
-<tr class="memdesc:a699c4e278f5e8d20d5e0abcb42e6f0e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">same as oriented_paths_of_node, but with an optional memo to avoid repeated recalculation  <a href="#a699c4e278f5e8d20d5e0abcb42e6f0e2">More...</a><br/></td></tr>
-<tr class="separator:a699c4e278f5e8d20d5e0abcb42e6f0e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a136fa2488dc13ae5b01dee551e07f695"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a136fa2488dc13ae5b01dee551e07f695">memoized_get_handle</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, bool rev, unordered_map&lt; pair&lt; int64_t, bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; *handle_memo=nullptr) const </td></tr>
-<tr class="separator:a136fa2488dc13ae5b01dee551e07f695"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7e819ef7648aa1571ff94f66db55e747"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a7e819ef7648aa1571ff94f66db55e747">closest_shared_path_unstranded_distance</a> (int64_t id1, size_t offset1, bool rev1, int64_t id2, size_t offset2, bool rev2, size_t max_search_dist, unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *paths_of_node_memo=nullptr, unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *oriented_occurrences_memo=nullptr, unordered_map&lt; pair&lt; int64_t, bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; *handle_memo=nullptr) const </td></tr>
-<tr class="memdesc:a7e819ef7648aa1571ff94f66db55e747"><td class="mdescLeft">&#160;</td><td class="mdescRight">not node length).  <a href="#a7e819ef7648aa1571ff94f66db55e747">More...</a><br/></td></tr>
-<tr class="separator:a7e819ef7648aa1571ff94f66db55e747"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa1e04b6de958ae05a6f3b9f5f6c42462"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#aa1e04b6de958ae05a6f3b9f5f6c42462">closest_shared_path_oriented_distance</a> (int64_t id1, size_t offset1, bool rev1, int64_t id2, size_t offset2, bool rev2, bool forward_strand=false, size_t max_search_dist=100, unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *paths_of_node_memo=nullptr, unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *oriented_occurrences_memo=nullptr, unordered_map&lt; pair&lt; int64_t, bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; *handle_memo=nullptr) const </td></tr>
-<tr class="separator:aa1e04b6de958ae05a6f3b9f5f6c42462"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a88dd6d6a9221ac934e700e8f4860a5f1"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, <br class="typebreak"/>
-size_t, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a88dd6d6a9221ac934e700e8f4860a5f1">find_closest_with_paths</a> (<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> start, size_t max_search_dist, size_t right_extra_dist=0, size_t left_extra_dist=0, unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *paths_of_node_memo=nullptr, unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *oriented_occurrences_memo=nullptr) const </td></tr>
-<tr class="separator:a88dd6d6a9221ac934e700e8f4860a5f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abfe23be6cc56ef141b62dd841a7e317b"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; int64_t, bool, <br class="typebreak"/>
-size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#abfe23be6cc56ef141b62dd841a7e317b">jump_along_closest_path</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, bool <a class="el" href="namespacevg.html#aac725dd44bc5a8f540554d4b1882c1fe">is_rev</a>, size_t <a class="el" href="namespacevg.html#a416939020600ce2996331c350f1fe68c">offset</a>, int64_t jump_dist, size_t max_search_dist, unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *paths_of_node_memo=nullptr, unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *oriented_occurrences_memo=nullptr, unordered_map&lt; pair&lt; int64_t, bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; *handle_memo=nullptr) const </td></tr>
-<tr class="separator:abfe23be6cc56ef141b62dd841a7e317b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a49c6b685af4bff6fbfd73280efbee4d2"><td class="memItemLeft" align="right" valign="top">pair&lt; bool, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a49c6b685af4bff6fbfd73280efbee4d2">validate_strand_consistency</a> (int64_t id1, size_t offset1, bool rev1, int64_t id2, size_t offset2, bool rev2, size_t max_search_dist, unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *paths_of_node_memo=nullptr, unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *oriented_occurrences_memo=nullptr, unordered_map&lt; pair&lt; int64_t, bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; *handle_memo=nullptr) const </td></tr>
-<tr class="separator:a49c6b685af4bff6fbfd73280efbee4d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4b99f6c621b439c710ef832418767af9"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, <br class="typebreak"/>
+size_t, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a4b99f6c621b439c710ef832418767af9">find_closest_with_paths</a> (<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> start, size_t max_search_dist, size_t right_extra_dist=0, size_t left_extra_dist=0) const </td></tr>
+<tr class="separator:a4b99f6c621b439c710ef832418767af9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a50cfd4437052baa5ffaed2e2a5057342"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a50cfd4437052baa5ffaed2e2a5057342">set_thread_names</a> (const vector&lt; string &gt; &amp;names)</td></tr>
 <tr class="separator:a50cfd4437052baa5ffaed2e2a5057342"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a09f15194947ebb5cffe481cf085a7d11"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a09f15194947ebb5cffe481cf085a7d11">thread_name</a> (int64_t thread_id) const </td></tr>
@@ -552,6 +535,9 @@ size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el
 <tr class="separator:a224b21d8bab3cb0b5ca8be19ff3e7e34"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8914b4578ce853df9a1a873f5e73ba99"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a8914b4578ce853df9a1a873f5e73ba99">bs_dump</a> (ostream &amp;out) const </td></tr>
 <tr class="separator:a8914b4578ce853df9a1a873f5e73ba99"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_methods_classhandlegraph_1_1PathPositionHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1PathPositionHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">handlegraph::PathPositionHandleGraph</a></td></tr>
+<tr class="memitem:a9816f56f1626d7f8c14e732dfb9d83af inherit pub_methods_classhandlegraph_1_1PathPositionHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html#a9816f56f1626d7f8c14e732dfb9d83af">for_each_step_position_on_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;, const bool &amp;, const size_t &amp;)&gt; &amp;iteratee) const </td></tr>
+<tr class="separator:a9816f56f1626d7f8c14e732dfb9d83af inherit pub_methods_classhandlegraph_1_1PathPositionHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1PathHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1PathHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">handlegraph::PathHandleGraph</a></td></tr>
 <tr class="memitem:ab7de11c1e994bc104378c4b798013430 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#ab7de11c1e994bc104378c4b798013430">has_path</a> (const std::string &amp;path_name) const =0</td></tr>
 <tr class="memdesc:ab7de11c1e994bc104378c4b798013430 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if a path name exists and is legal to get a path handle for.  <a href="#ab7de11c1e994bc104378c4b798013430">More...</a><br/></td></tr>
@@ -1248,164 +1234,6 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Get the rank of the edge, or numeric_limits&lt;size_t&gt;.max() if no such edge exists. </p>
-
-</div>
-</div>
-<a class="anchor" id="aa1e04b6de958ae05a6f3b9f5f6c42462"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int64_t vg::XG::closest_shared_path_oriented_distance </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>offset1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>rev1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id2</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>offset2</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>rev2</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>forward_strand</em> = <code>false</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_search_dist</em> = <code>100</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *&#160;</td>
-          <td class="paramname"><em>paths_of_node_memo</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *&#160;</td>
-          <td class="paramname"><em>oriented_occurrences_memo</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; pair&lt; int64_t, bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; *&#160;</td>
-          <td class="paramname"><em>handle_memo</em> = <code>nullptr</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>the oriented distance (positive if pos2 is further along the path than pos1, otherwise negative) estimated by the distance along the nearest shared path to the two positions plus the distance to traverse to that path. returns numeric_limits&lt;int64_t&gt;::max() if no pair of nodes that occur same on the strand of a path are reachable within the max search distance (measured in sequence length, not node length). optionally returns the distance along the forward strand </p>
-
-</div>
-</div>
-<a class="anchor" id="a7e819ef7648aa1571ff94f66db55e747"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int64_t vg::XG::closest_shared_path_unstranded_distance </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>offset1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>rev1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id2</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>offset2</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>rev2</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_search_dist</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *&#160;</td>
-          <td class="paramname"><em>paths_of_node_memo</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *&#160;</td>
-          <td class="paramname"><em>oriented_occurrences_memo</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; pair&lt; int64_t, bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; *&#160;</td>
-          <td class="paramname"><em>handle_memo</em> = <code>nullptr</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>not node length). </p>
-<p>the oriented distance (positive if pos2 is further along the path than pos1, otherwise negative) estimated by the distance along the nearest shared path to the two positions. returns numeric_limits&lt;int64_t&gt;::max() </p>
 
 </div>
 </div>
@@ -2136,7 +1964,7 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a88dd6d6a9221ac934e700e8f4860a5f1"></a>
+<a class="anchor" id="a4b99f6c621b439c710ef832418767af9"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -2162,19 +1990,7 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>left_extra_dist</em> = <code>0</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *&#160;</td>
-          <td class="paramname"><em>paths_of_node_memo</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *&#160;</td>
-          <td class="paramname"><em>oriented_occurrences_memo</em> = <code>nullptr</code>&#160;</td>
+          <td class="paramname"><em>left_extra_dist</em> = <code>0</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -2996,6 +2812,9 @@ Additional Inherited Members</h2></td></tr>
 <a class="anchor" id="a0a85611752ffd2d62f8793f2c246432f"></a>
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">size_t vg::XG::get_path_length </td>
@@ -3005,9 +2824,16 @@ Additional Inherited Members</h2></td></tr>
           <td> const</td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 <p>Returns the total length of sequence in the path. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html#ab71f007638c65db10efbe198f923413b">handlegraph::PathPositionHandleGraph</a>.</p>
 
 </div>
 </div>
@@ -3083,6 +2909,33 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a340a0ded41fdeeacc0a35886c6e53e4f"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::XG::get_position_of_step </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>step</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Returns the position along the path of the beginning of this step measured in bases of sequence. In a circular path, positions start at the step returned by <a class="el" href="classvg_1_1XG.html#a8d267a8c770207177409e58a6c228604">path_begin()</a>. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html#a473d58ac35a06551e06ae7f5ad5073be">handlegraph::PathPositionHandleGraph</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="a3457b1f6c46df2898191168689d00f39"></a>
 <div class="memitem">
 <div class="memproto">
@@ -3134,6 +2987,43 @@ Additional Inherited Members</h2></td></tr>
 <p>Get the sequence of a node, presented in the handle's local forward orientation. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a8cc2ab8a1292e30ba5e167a823f66d92">handlegraph::HandleGraph</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="ac48a4cf68b7e4a8fe6bae0b755557b15"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> vg::XG::get_step_at_position </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const size_t &amp;&#160;</td>
+          <td class="paramname"><em>position</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Returns the step at this position, measured in bases of sequence starting at the step returned by <a class="el" href="classvg_1_1XG.html#a8d267a8c770207177409e58a6c228604">path_begin()</a>. If the position is past the end of the path, returns <a class="el" href="classvg_1_1XG.html#a1dc5f4504cc1736ffd75ad30bc3c7b81">path_end()</a>. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html#aefbae4c3392c32ec13534a44bcc21136">handlegraph::PathPositionHandleGraph</a>.</p>
 
 </div>
 </div>
@@ -3580,69 +3470,6 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="abfe23be6cc56ef141b62dd841a7e317b"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt; tuple&lt; int64_t, bool, size_t &gt; &gt; vg::XG::jump_along_closest_path </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>is_rev</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>offset</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>jump_dist</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_search_dist</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *&#160;</td>
-          <td class="paramname"><em>paths_of_node_memo</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *&#160;</td>
-          <td class="paramname"><em>oriented_occurrences_memo</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; pair&lt; int64_t, bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; *&#160;</td>
-          <td class="paramname"><em>handle_memo</em> = <code>nullptr</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>returns a vector of (node id, is reverse, offset) tuples that are found by jumping a fixed oriented distance along path(s) from the given position. if the position is not on a path, searches from the position to a path and adds/subtracts the search distance to the jump depending on the search direction. returns an empty vector if there is no path within the max search distance or if the jump distance goes past the end of the path </p>
-
-</div>
-</div>
 <a class="anchor" id="ad53add6b44b17dea551749df803d88c3"></a>
 <div class="memitem">
 <div class="memproto">
@@ -3746,135 +3573,6 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Returns the maxiumum rank of any existing path. A path does exist at this rank. </p>
-
-</div>
-</div>
-<a class="anchor" id="a136fa2488dc13ae5b01dee551e07f695"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::XG::memoized_get_handle </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>rev</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; pair&lt; int64_t, bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; *&#160;</td>
-          <td class="paramname"><em>handle_memo</em> = <code>nullptr</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>returns a the memoized result from get_handle if a memo is provided that the result has been queried previously otherwise, returns the result of get_handle directly and stores it in the memo if one is provided </p>
-
-</div>
-</div>
-<a class="anchor" id="a0394da2c755e03cfdea70b8c4a493b1e"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt; pair&lt; size_t, bool &gt; &gt; vg::XG::memoized_oriented_occurrences_on_path </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>path</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *&#160;</td>
-          <td class="paramname"><em>oriented_occurrences_memo</em> = <code>nullptr</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>same as oriented_occurrences_on_path, but with an optional memo to avoid repeated recalculation </p>
-
-</div>
-</div>
-<a class="anchor" id="a699c4e278f5e8d20d5e0abcb42e6f0e2"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt; pair&lt; size_t, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &gt; vg::XG::memoized_oriented_paths_of_node </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *&#160;</td>
-          <td class="paramname"><em>paths_of_node_memo</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *&#160;</td>
-          <td class="paramname"><em>oriented_occurrences_memo</em> = <code>nullptr</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>same as oriented_paths_of_node, but with an optional memo to avoid repeated recalculation </p>
-
-</div>
-</div>
-<a class="anchor" id="a24f48a70bba034a42857c5a49db22b26"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt; size_t &gt; vg::XG::memoized_paths_of_node </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *&#160;</td>
-          <td class="paramname"><em>paths_of_node_memo</em> = <code>nullptr</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>same as paths_of_node, but with an optional memo to avoid repeated recalculation </p>
 
 </div>
 </div>
@@ -5599,81 +5297,6 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a49c6b685af4bff6fbfd73280efbee4d2"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">pair&lt; bool, bool &gt; vg::XG::validate_strand_consistency </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>offset1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>rev1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id2</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>offset2</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>rev2</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_search_dist</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *&#160;</td>
-          <td class="paramname"><em>paths_of_node_memo</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *&#160;</td>
-          <td class="paramname"><em>oriented_occurrences_memo</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">unordered_map&lt; pair&lt; int64_t, bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; *&#160;</td>
-          <td class="paramname"><em>handle_memo</em> = <code>nullptr</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>checks whether two positions are on or near the same strand of some path. if the position can reach both strands of a path, it is only considered to be on the nearer of the two strands. positions are also considered consistent if they can traverse to each other within the maximum search distance. returns a pair of orientations that are the same and equal to the orientation on the strand if they are consistent, and different if they are inconsistent </p>
 
 </div>
 </div>
