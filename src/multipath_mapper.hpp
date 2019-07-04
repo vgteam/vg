@@ -24,6 +24,7 @@
 #include "utility.hpp"
 #include "annotation.hpp"
 #include "path_component_index.hpp"
+#include "memoizing_graph.hpp"
 
 #include "identity_overlay.hpp"
 #include "reverse_graph.hpp"
@@ -42,6 +43,8 @@
 #include "algorithms/dagify.hpp"
 #include "algorithms/reverse_complement.hpp"
 #include "algorithms/extend.hpp"
+#include "algorithms/jump_along_path.hpp"
+
 
 #include "sglib/hash_graph.hpp"
 
@@ -116,7 +119,6 @@ namespace vg {
         size_t band_padding_memo_size = 500;
         double pseudo_length_multiplier = 1.65;
         double max_mapping_p_value = 0.00001;
-        bool unstranded_clustering = true;
         size_t max_single_end_mappings_for_rescue = 64;
         size_t max_rescue_attempts = 32;
         size_t plausible_rescue_cluster_coverage_diff = 5;

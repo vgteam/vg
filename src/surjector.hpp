@@ -13,11 +13,15 @@
 #include "xg.hpp"
 #include "vg.hpp"
 #include "translator.hpp"
+#include "utility.hpp"
 #include <vg/vg.pb.h>
 #include "multipath_alignment_graph.hpp"
+#include "memoizing_graph.hpp"
 
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/split_strands.hpp"
+
+#include "sglib/hash_graph.hpp"
 
 namespace vg {
 
@@ -64,25 +68,25 @@ using namespace std;
     private:
         
         /// get the chunks of the alignment path that follow the given reference paths
-        unordered_map<size_t, vector<path_chunk_t>>
-        extract_overlapping_paths(const Alignment& source, const unordered_map<size_t, string>& path_rank_to_name,
-                                  unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
-                                  unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
+        unordered_map<path_handle_t, vector<path_chunk_t>>
+        extract_overlapping_paths(const PathPositionHandleGraph* graph, const Alignment& source,
+                                  const unordered_set<path_handle_t>& surjection_paths) const;
         
         /// compute the widest interval of path positions that the realigned sequence could align to
         pair<size_t, size_t>
-        compute_path_interval(const Alignment& source, size_t path_rank, const XGPath& xpath, const vector<path_chunk_t>& path_chunks,
-                              unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
+        compute_path_interval(const PathPositionHandleGraph* graph, const Alignment& source, path_handle_t path_handle,
+                              const vector<path_chunk_t>& path_chunks) const;
         
         /// make a linear graph that corresponds to a path interval, possibly duplicating nodes in case of cycles
-        VG extract_linearized_path_graph(size_t first, size_t last, const XGPath& xpath,
-                                         unordered_map<id_t, pair<id_t, bool>>& node_trans) const;
+        unordered_map<id_t, pair<id_t, bool>>
+        extract_linearized_path_graph(const PathPositionHandleGraph* graph, MutableHandleGraph* into,
+                                      path_handle_t path_handle, size_t first, size_t last) const;
         
         
         /// associate a path position and strand to a surjected alignment against this path
-        void set_path_position(const Alignment& surjected, size_t best_path_rank, const XGPath& xpath,
-                               string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
-                               unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
+        void set_path_position(const PathPositionHandleGraph* graph, const Alignment& surjected,
+                               path_handle_t best_path_handle,
+                               string& path_name_out, int64_t& path_pos_out, bool& path_rev_out) const;
         
         // make a sentinel meant to indicate an unmapped read
         static Alignment make_null_alignment(const Alignment& source);
