@@ -56,6 +56,22 @@ public:
     /// How many extended clusters should we align, max?
     size_t max_alignments = 8;
 
+    //If a cluster's score is smaller than the best score of any cluster by more than
+    //this much, then don't extend it
+    double cluster_score_threshold = 0;
+
+    //If the read coverage of a cluster is less than the best coverage of any cluster
+    //by more than this much, don't extend it
+    double cluster_coverage_threshold = 0;
+
+    //If an extension set's score is smaller than the best 
+    //extension's score by more than this much, don't align it
+    double extension_set_score_threshold = 0;
+
+    //If an extension's score is smaller than the best extension's score by
+    //more than this much, don't align it
+    int extension_score_threshold = 0;
+
     size_t max_multimaps = 1;
     size_t distance_limit = 1000;
     bool do_chaining = true;
