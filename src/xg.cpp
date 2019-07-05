@@ -2,6 +2,8 @@
 #include <vg/io/stream.hpp>
 #include "alignment.hpp"
 
+#include "algorithms/find_closest_with_paths.hpp"
+
 #include <bitset>
 #include <arpa/inet.h>
 
@@ -2581,7 +2583,8 @@ pair<pos_t, int64_t> XG::next_path_position(pos_t pos, int64_t max_search) const
     int64_t fwd_seen = node_length(id(pos)) - offset(pos);
     
     // Find the closest on-a-path node, accounting for offsets to start/end of this node.
-    vector<tuple<handle_t, size_t, bool>> closest = find_closest_with_paths(h_fwd, max_search, fwd_seen, rev_seen);
+    vector<tuple<handle_t, size_t, bool>> closest = algorithms::find_closest_with_paths(*this,
+        h_fwd, max_search, fwd_seen, rev_seen);
     
     if (!closest.empty()) {
         // We found something.
@@ -2650,106 +2653,6 @@ int64_t XG::min_approx_path_distance(int64_t id1, int64_t id2) const {
         }
     }
     return min_distance;
-}
-
-vector<tuple<handle_t, size_t, bool>> XG::find_closest_with_paths(handle_t start, size_t max_search_dist,
-    size_t right_extra_dist, size_t left_extra_dist) const {
-    
-    // Holds all the handles with paths, their unsigned distances from the start handle, and whether they were found going left.
-    vector<tuple<handle_t, size_t, bool>> to_return;
-    
-    // a local struct for traversals that are ordered by search distance and keep
-    // track of whether we're searching to the left or right
-    struct Traversal {
-        Traversal() {}
-        Traversal(int64_t dist, handle_t handle, bool search_left) :
-        dist(dist), handle(handle), search_left(search_left) {}
-        handle_t handle;
-        int64_t dist;
-        bool search_left;
-        inline bool operator<(const Traversal& other) const {
-            return dist > other.dist; // opposite order so priority queue selects minimum
-        }
-    };
-    
-    // Check if the node for the given handle occurs on any paths.
-    // Remember we reached it at the given distance, and whether we reached it searching left or not.
-    // Record the handle and its signed distance if it has paths.
-    // Return true if any paths touching the handle were found.
-    function<bool(handle_t,int64_t,bool)> look_for_paths = [&](handle_t handle, int64_t search_dist, bool search_left) {
-        
-        bool found_path = false;
-        
-        int64_t trav_id = get_id(handle);
-        bool trav_is_rev = get_is_reverse(handle);
-        
-#ifdef debug_algorithms
-        cerr << "[XG] checking for paths for " << trav_id << (trav_is_rev ? "-" : "+") << " at search dist "
-            << search_dist << " from searching " << (search_left ? "leftwards" : "rightwards") << endl;
-#endif
-        
-        for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : oriented_paths_of_node(trav_id)) {
-            
-            // For each path this node occurs on
-            
-            const XGPath& path = *paths[oriented_occurrences.first - 1];
-            
-            if (!oriented_occurrences.second.empty()) {
-                // The node has some occurrences on this path. Record that fact.
-                to_return.emplace_back(handle, search_dist, search_left);
-                return true;
-            }
-        }
-        
-        return false;
-    };
-    
-    // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a UpdateablePriorityQueue.
-    priority_queue<Traversal> queue;
-    unordered_set<handle_t> traversed;
-    
-    handle_t handle = start; 
-    
-    // add in the initial traversals in both directions from the start position
-    queue.emplace(left_extra_dist, handle, true);
-    queue.emplace(right_extra_dist, handle, false);
-    
-    // Start by checking the start node
-    traversed.insert(handle);
-    bool found_path = look_for_paths(handle, 0, false);
-    
-    while (!queue.empty() && !found_path) {
-        // get the queue that has the next shortest path
-        
-        Traversal trav = queue.top();
-        queue.pop();
-        
-#ifdef debug_algorithms
-        cerr << "[XG] traversing " << get_id(trav.handle) << (get_is_reverse(trav.handle) ? "-" : "+") << " in " << (trav.search_left ? "leftward" : "rightward") << " direction at distance " << trav.dist << endl;
-#endif
-        
-        function<bool(const handle_t& next)> check_next = [&](const handle_t& next) {
-#ifdef debug_algorithms
-            cerr << "\tfollowing edge to " << get_id(next) << (get_is_reverse(next) ? "-" : "+") << " at dist " << trav.dist << endl;
-#endif
-            
-            if (!traversed.count(next)) {
-                found_path = look_for_paths(next, trav.dist, trav.search_left);
-                
-                int64_t dist_thru = trav.dist + get_length(next);
-                
-                if (dist_thru <= (int64_t) max_search_dist) {
-                    queue.emplace(dist_thru, next, trav.search_left);
-                }
-                traversed.emplace(next);
-            }
-            return !found_path;
-        };
-        
-        follow_edges(trav.handle, trav.search_left, check_next);
-    }
-    
-    return std::move(to_return);
 }
 
 void XG::for_path_range(const string& name, int64_t start, int64_t stop,

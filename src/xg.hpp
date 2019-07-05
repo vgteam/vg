@@ -458,22 +458,6 @@ public:
     /// orientation as in the path, true indicates.
     vector<pair<size_t, vector<pair<size_t, bool>>>> oriented_paths_of_node(int64_t id) const;
                                                   
-    /// Return a vector of pairs of handles that occur on the same relative
-    /// strand as the start handle, the distance from the right or left end
-    /// of the start handle needed to reach them, and whether they were reached
-    /// going right (true) or left (false) from the start. The handles are the
-    /// closest one(s) to the start handle that touch any paths.
-    ///
-    /// Distances are always positive. If specified, right_extra_dist and
-    /// left_extra_dist are added to the search distances, to allow for
-    /// searching from a particular point on the starting node. 
-    ///
-    /// Search does not exceed max_search_dist bases.
-    ///
-    /// Will only ever return an empty vector or a 1-element vector.
-    vector<tuple<handle_t, size_t, bool>> find_closest_with_paths(handle_t start, size_t max_search_dist,
-                                                                  size_t right_extra_dist = 0, size_t left_extra_dist = 0) const;
-    
     ////////////////////////////////////////////////////////////////////////////
     // Sample database API
     ////////////////////////////////////////////////////////////////////////////
