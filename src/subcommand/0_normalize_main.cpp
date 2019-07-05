@@ -6,7 +6,7 @@
 
 #include "subcommand.hpp"
 
-#include "../hash_graph.hpp"
+#include "../../include/sglib/hash_graph.hpp"
 #include "../algorithms/0_draft_haplotype_realignment.hpp"
 #include "../gbwt_helper.hpp"
 #include "../../include/vg/io/vpkg.hpp"
@@ -61,9 +61,9 @@ int main_normalize(int argc, char** argv) {
         }
     }
 
-    HashGraph* graph;
+    sglib::HashGraph* graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
-        graph = new HashGraph(in);
+        graph = new sglib::HashGraph(in);
     });
 
     if ( normalize ) 

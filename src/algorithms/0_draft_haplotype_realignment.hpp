@@ -49,7 +49,7 @@ namespace vg {
 void disambiguate_top_level_snarls(MutablePathDeletableHandleGraph &graph,
                                    const GBWTGraph &haploGraph, ifstream &snarl_stream);
 
-void disambiguate_snarl(MutablePathDeletableHandleGraph &graph,
+bool disambiguate_snarl(MutablePathDeletableHandleGraph &graph,
                         const GBWTGraph &haploGraph, const id_t &source_id,
                         const id_t &sink_id);
 
@@ -81,7 +81,8 @@ void integrate_snarl(MutablePathDeletableHandleGraph &graph, const HandleGraph &
 
 void move_path_to_snarl(MutablePathDeletableHandleGraph &graph,
                         const pair<step_handle_t, step_handle_t> &old_embedded_path,
-                        const vector<handle_t> &new_snarl_handles);
+                        vector<handle_t> &new_snarl_handles, id_t &source_id,
+                        id_t &sink_id);
 
 vector<int> check_handle_as_start_of_path_seq(const string &handle_seq,
                                               const string &path_seq);
@@ -108,9 +109,9 @@ void jordan_bug(MutablePathDeletableHandleGraph& graph){
     handle_t example = graph.get_handle(23448);
     handle_t replacement = graph.create_handle("GATTACA", 1);
 
-    // move the source edges: 
-    //TODO: note the copy/paste. Ask if there's a better way to do this (I totally could in Python!)
-    graph.follow_edges(example, true,
+    // move the source edges:
+    //TODO: note the copy/paste. Ask if there's a better way to do this (I totally could
+in Python!) graph.follow_edges(example, true,
                        [&](const handle_t &prev_handle) {
                            graph.create_edge(prev_handle, replacement);
                        });
@@ -122,7 +123,8 @@ void jordan_bug(MutablePathDeletableHandleGraph& graph){
     // move the paths:
     graph.for_each_step_on_handle(example, [&](step_handle_t step)
     {
-        graph.rewrite_segment(step, graph.get_next_step(step), vector<handle_t>{replacement});
+        graph.rewrite_segment(step, graph.get_next_step(step),
+vector<handle_t>{replacement});
     });
 
     // example with two nodes:
@@ -131,9 +133,9 @@ void jordan_bug(MutablePathDeletableHandleGraph& graph){
     handle_t replacement_2 = graph.create_handle("GATTACA", 3);
     graph.create_edge(replacement_1, replacement_2);
 
-    // move the source edges: 
-    //TODO: note the copy/paste. Ask if there's a better way to do this (I totally could in Python!)
-    graph.follow_edges(example_1, true,
+    // move the source edges:
+    //TODO: note the copy/paste. Ask if there's a better way to do this (I totally could
+in Python!) graph.follow_edges(example_1, true,
                        [&](const handle_t &prev_handle) {
                            graph.create_edge(prev_handle, replacement_1);
                        });
@@ -149,5 +151,3 @@ void jordan_bug(MutablePathDeletableHandleGraph& graph){
     });
 }
  */
-
-
