@@ -1310,7 +1310,7 @@ vector<vector<size_t>> PathOrientedDistanceMeasurer::get_buckets(const function<
         // check the nearest nodes to each singleton to see if we can use it to bucket the item
         for (pair<const size_t, id_t>& non_path_hit : non_path_hits) {
             pos_t pos = get_position(non_path_hit.first);
-            handle_t handle = xgindex->memoized_get_handle(id(pos), is_rev(pos), &handle_memo);
+            handle_t handle = xgindex->get_handle(id(pos), is_rev(pos), &handle_memo);
             size_t right_dist = xgindex->get_length(handle) - offset(pos);
             size_t trav_dist = min(offset(pos), right_dist);
             if (trav_dist <= max_walk) {
@@ -1398,7 +1398,7 @@ vector<vector<size_t>> PathOrientedDistanceMeasurer::get_buckets(const function<
         // check the nearest nodes to each singleton to see if we can use it to bucket the item
         for (pair<const size_t, id_t>& non_path_hit : non_path_hits) {
             pos_t pos = get_position(non_path_hit.first);
-            handle_t handle = xgindex->memoized_get_handle(id(pos), is_rev(pos), &handle_memo);
+            handle_t handle = xgindex->get_handle(id(pos), is_rev(pos), &handle_memo);
             size_t right_dist = xgindex->get_length(handle) - offset(pos);
             size_t trav_dist = min(offset(pos), right_dist);
             if (trav_dist <= max_walk) {
@@ -1476,7 +1476,7 @@ vector<pair<size_t, size_t>> PathOrientedDistanceMeasurer::exclude_merges(vector
         // try to find a member of the group with a nearest neighbor that is on a path
         for (size_t i : group) {
             pos_t pos = get_position(i);
-            handle_t handle = xgindex->memoized_get_handle(id(pos), is_rev(pos), &handle_memo);
+            handle_t handle = xgindex->get_handle(id(pos), is_rev(pos), &handle_memo);
             size_t right_dist = xgindex->get_length(handle) - offset(pos);
             size_t trav_dist = min(offset(pos), right_dist);
             if (trav_dist <= max_walk) {
@@ -3441,7 +3441,7 @@ sglib::HashGraph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, c
     assert(mems.size());
     auto& start_mem = mems.front();
     auto start_pos = make_pos_t(start_mem.nodes.front());
-    auto rev_start_pos = reverse(start_pos, xg.node_length(id(start_pos)));
+    auto rev_start_pos = reverse(start_pos, xg.get_length(get_handle(id(start_pos))));
     // Even if the MEM is right up against the start of the read, it may not be
     // part of the best alignment. Make sure to have some padding.
     // TODO: how much padding?
@@ -3450,8 +3450,7 @@ sglib::HashGraph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, c
     int end_padding = max(8, (int)aln.sequence().size()/8);
     int get_before = end_padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     if (get_before) {
-        //graph.MergeFrom(xg.graph_context_id(rev_start_pos, get_before));
-        
+        algorithms::extract_context(xg, graph, xg.get_handle(id(rev_start_pos), is_rev(rev_start_pos)), offset(rev_start_pos), get_before, false, true);
     }
     //cerr << "======================================================" << endl;
     for (int i = 0; i < mems.size(); ++i) {
@@ -3463,14 +3462,15 @@ sglib::HashGraph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, c
             match_positions.push_back(make_pair(mem.nodes.front(), mem.length()));
         }
         for (auto& p : match_positions) {
-            graph.MergeFrom(xg.node_subgraph_id(gcsa::Node::id(p.first)));
+            handle_t h = xg.get_handle(gcsa::Node::id(p.first), gcsa::Node::rc(p.first));
+            algorithms::extract_context(xg, graph, h, gcsa::Node::offset(p.first), xg.get_length(h));
         }
         // extend after the last match node with the expansion
         auto& p = match_positions.back();
         auto& pos = p.first;
         int mem_remainder = p.second;
         //cerr << p.first << " " << p.second << endl;
-        int get_after = xg.node_length(gcsa::Node::id(pos))
+        int get_after = xg.get_length(gcsa::Node::id(pos))
             + (i+1 == mems.size() ?
                end_padding +
                expansion * ((int)(aln.sequence().end() - mem.end) + mem_remainder)
