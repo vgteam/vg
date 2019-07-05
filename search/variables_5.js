@@ -46,6 +46,8 @@ var searchData=
   ['exp_5frho',['exp_rho',['../structhaplo_1_1haploMath_1_1RRMemo.html#a7979b3ef938f0a887ea1b5511d33e9f6',1,'haplo::haploMath::RRMemo']]],
   ['expected_5fcoverage',['expected_coverage',['../classvg_1_1SupportCaller.html#a72cd919ebff400d32250e4f0882929f4',1,'vg::SupportCaller']]],
   ['extender',['extender',['../classvg_1_1MinimizerMapper.html#a7384299b6fd570ee8454c6f74c7a6583',1,'vg::MinimizerMapper']]],
+  ['extension_5fscore_5fthreshold',['extension_score_threshold',['../classvg_1_1MinimizerMapper.html#adeff081b3c6a83ddfa7f620245b61fd0',1,'vg::MinimizerMapper']]],
+  ['extension_5fset_5fscore_5fthreshold',['extension_set_score_threshold',['../classvg_1_1MinimizerMapper.html#ac47b8ebb0479d86727c97e37e7f103ee',1,'vg::MinimizerMapper']]],
   ['extra_5fdata',['extra_data',['../structvg_1_1FeatureSet_1_1Feature.html#ad95acb3def1e4c9b5fa2a590b77e4993',1,'vg::FeatureSet::Feature']]],
   ['extra_5fmultimaps',['extra_multimaps',['../classvg_1_1Mapper.html#afe9cdcfbff73199e755c5bead44c9674',1,'vg::Mapper']]]
 ];

@@ -23,7 +23,7 @@ var searchData=
   ['fill_5fnode_5fto_5fposition',['fill_node_to_position',['../classvg_1_1Filter.html#ac7216130c6fbd20580901090f8185048',1,'vg::Filter']]],
   ['fill_5fnonredundant_5fsub_5fmem_5fnodes',['fill_nonredundant_sub_mem_nodes',['../classvg_1_1BaseMapper.html#a3d3cdacd0ec3e6b27ced793aeb9b561a',1,'vg::BaseMapper']]],
   ['fill_5fvalue',['fill_value',['../classvg_1_1io_1_1ProtobufIterator.html#aec100b14b027d294e2a0aaaaad3b4abd',1,'vg::io::ProtobufIterator']]],
-  ['filter',['filter',['../classvg_1_1ReadFilter.html#a7fe8cb61ed8a2f376b0404e934af8b91',1,'vg::ReadFilter::filter()'],['../classvg_1_1Filter.html#a1a9dadc8fe8b9abe295373627e033b89',1,'vg::Filter::Filter()']]],
+  ['filter',['Filter',['../classvg_1_1Filter.html#a1a9dadc8fe8b9abe295373627e033b89',1,'vg::Filter::Filter()'],['../classvg_1_1ReadFilter.html#a7fe8cb61ed8a2f376b0404e934af8b91',1,'vg::ReadFilter::filter()']]],
   ['filter_5falignment',['filter_alignment',['../classvg_1_1ReadFilter.html#a398d61417de9097c385315490b7034df',1,'vg::ReadFilter']]],
   ['filter_5fand_5fprocess_5fmultimaps',['filter_and_process_multimaps',['../classvg_1_1Mapper.html#a7b5db2f8b56cb6210431cc7d0d25a18f',1,'vg::Mapper']]],
   ['filter_5fhits_5fto',['filter_hits_to',['../classvg_1_1MaximalExactMatch.html#a106b116185bf9cc3e3e675ce0ed81da0',1,'vg::MaximalExactMatch']]],
