@@ -440,9 +440,6 @@ public:
     // nearest node (in steps) that is in a path, and the paths
     pair<int64_t, vector<size_t> > nearest_path_node(int64_t id, int max_steps = 16) const;
     int64_t min_approx_path_distance(int64_t id1, int64_t id2) const;
-    /// nearest position that is in a path and the distance between it and the current position is <= max_search.
-    /// Will search over multiple nodes.
-    pair<pos_t, int64_t> next_path_position(pos_t pos, int64_t max_search) const;
     
     /// returns true if the paths are on the same connected component of the graph (constant time)
     bool paths_on_same_component(size_t path_rank_1, size_t path_rank_2) const;

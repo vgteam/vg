@@ -2,7 +2,7 @@
 #include <vg/io/stream.hpp>
 #include "alignment.hpp"
 
-#include "algorithms/find_closest_with_paths.hpp"
+#include "algorithms/next_path_position.hpp"
 
 #include <bitset>
 #include <arpa/inet.h>
@@ -2571,38 +2571,6 @@ bool XG::path_is_circular(size_t rank) const {
     return paths[rank-1]->is_circular;
 }
 
-pair<pos_t, int64_t> XG::next_path_position(pos_t pos, int64_t max_search) const {
-    // We need the closest on-a-path position to the passed in position, and the approximate rightward offset to it.
-    // Offset will be negative if you have to go left instead.
-    
-    // Get a handle to where we start
-    handle_t h_fwd = get_handle(id(pos), is_rev(pos));
-    
-    // Record offsets to its ends
-    int64_t rev_seen = offset(pos);
-    int64_t fwd_seen = node_length(id(pos)) - offset(pos);
-    
-    // Find the closest on-a-path node, accounting for offsets to start/end of this node.
-    vector<tuple<handle_t, size_t, bool>> closest = algorithms::find_closest_with_paths(*this,
-        h_fwd, max_search, fwd_seen, rev_seen);
-    
-    if (!closest.empty()) {
-        // We found something.
-        // Unpack it.
-        auto& found = get<0>(closest.front());
-        auto& dist = get<1>(closest.front());
-        auto& arrived_at_end = get<2>(closest.front());
-        
-        // Output the position. Make sure to get the offset we end up at in the
-        // node's forward strand for the end of the node we arrive at.
-        return make_pair(make_pos_t(get_id(found), get_is_reverse(found),
-            (arrived_at_end != get_is_reverse(found)) ? (get_length(found) - 1) : 0), dist);
-    } else {
-        // We aren't connected to anything on a path within the requested distance limit
-        return make_pair(make_pos_t(0,false,0), numeric_limits<int64_t>::max());
-    }
-}
-
 pair<int64_t, vector<size_t> > XG::nearest_path_node(int64_t id, int max_steps) const {
     set<int64_t> todo;
     set<int64_t> seen;
@@ -2802,7 +2770,7 @@ map<string, vector<pair<size_t, bool> > > XG::offsets_in_paths(pos_t pos) const 
 }
 
 map<string, vector<pair<size_t, bool> > > XG::nearest_offsets_in_paths(pos_t pos, int64_t max_search) const {
-    pair<pos_t, int64_t> pz = next_path_position(pos, max_search);
+    pair<pos_t, int64_t> pz = algorithms::next_path_position(*this, pos, max_search);
     auto& path_pos = pz.first;
     auto& diff = pz.second;
     if (id(path_pos)) {
