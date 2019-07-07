@@ -17,7 +17,7 @@ namespace algorithms {
 
 using namespace std;
 
-vector<tuple<handle_t, int64_t, bool>> find_closest_with_paths(const PathHandleGraph& graph, handle_t start, size_t offset, size_t max_search_dist) {
+vector<tuple<handle_t, int64_t, bool>> find_closest_with_paths(const PathHandleGraph& graph, handle_t start, size_t offset, int64_t max_search_dist) {
     
     
 #ifdef debug_algorithms
