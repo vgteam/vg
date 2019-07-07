@@ -2769,25 +2769,6 @@ map<string, vector<pair<size_t, bool> > > XG::offsets_in_paths(pos_t pos) const 
     return positions;
 }
 
-map<string, vector<pair<size_t, bool> > > XG::nearest_offsets_in_paths(pos_t pos, int64_t max_search) const {
-    pair<pos_t, int64_t> pz = algorithms::next_path_position(*this, pos, max_search);
-    auto& path_pos = pz.first;
-    auto& diff = pz.second;
-    if (id(path_pos)) {
-        // Now apply approximate offset, second in pair returned by next_path_position
-        auto offsets = offsets_in_paths(path_pos);
-        for (auto& o : offsets) {
-            for (auto& p : o.second) {
-                p.first += diff;
-            }
-        }
-        return offsets;
-    } else {
-        map<string, vector<pair<size_t, bool> > > empty;
-        return empty;
-    }
-}
-
 map<string, vector<size_t> > XG::distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
                                                    int64_t id2, bool is_rev2, size_t offset2) const {
     auto pos1 = position_in_paths(id1, is_rev1, offset1);

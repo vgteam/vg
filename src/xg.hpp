@@ -406,11 +406,6 @@ public:
     /// which the given pos_t occurs.
     map<string, vector<pair<size_t, bool> > > offsets_in_paths(pos_t pos) const;
     
-    /// Return, for the nearest position in a path to the given position,
-    /// subject to the given max search distance, a mapping from path name to
-    /// all positions on each path where that pos_t occurs.
-    map<string, vector<pair<size_t, bool> > > nearest_offsets_in_paths(pos_t pos, int64_t max_search) const;
-    
     map<string, vector<size_t> > distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
                                                    int64_t id2, bool is_rev2, size_t offset2) const;
     int64_t min_distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,

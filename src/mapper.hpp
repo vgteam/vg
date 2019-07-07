@@ -27,6 +27,7 @@
 #include "translator.hpp"
 // TODO: pull out ScoreProvider into its own file
 #include "haplotypes.hpp"
+#include "algorithms/nearest_offsets_in_paths.hpp"
 
 // #define BENCH
 // #include "bench.h"

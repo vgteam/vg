@@ -12,6 +12,8 @@
 #include <vector>
 #include <utility>
 
+#include "structures/rank_pairing_heap.hpp"
+
 namespace vg {
 namespace algorithms {
 
@@ -30,8 +32,7 @@ using namespace std;
     /// Search does not exceed max_search_dist bases.
     ///
     /// Will only ever return an empty vector or a 1-element vector.
-    vector<tuple<handle_t, size_t, bool>> find_closest_with_paths(const PathHandleGraph& graph, handle_t start, size_t max_search_dist,
-                                                                  size_t right_extra_dist = 0, size_t left_extra_dist = 0);
+    vector<tuple<handle_t, int64_t, bool>> find_closest_with_paths(const PathHandleGraph& graph, handle_t start, size_t offset, size_t max_search_dist);
     
 
 }

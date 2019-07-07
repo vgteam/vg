@@ -22,15 +22,11 @@ pair<pos_t, int64_t> next_path_position(const PathHandleGraph& graph, pos_t pos,
     // Offset will be negative if you have to go left instead.
     
     // Get a handle to where we start
-    handle_t h_fwd = graph.get_handle(id(pos), is_rev(pos));
+    handle_t h = graph.get_handle(id(pos), is_rev(pos));
     
-    // Record offsets to its ends
-    int64_t rev_seen = offset(pos);
-    int64_t fwd_seen = graph.get_length(h_fwd) - offset(pos);
-    
-    // Find the closest on-a-path node, accounting for offsets to start/end of this node.
-    vector<tuple<handle_t, size_t, bool>> closest = algorithms::find_closest_with_paths(graph,
-        h_fwd, max_search, fwd_seen, rev_seen);
+    // Find the closest on-a-path node
+    vector<tuple<handle_t, int64_t, bool>> closest = algorithms::find_closest_with_paths(graph,
+        h, offset(pos), max_search);
     
     if (!closest.empty()) {
         // We found something.
@@ -41,8 +37,10 @@ pair<pos_t, int64_t> next_path_position(const PathHandleGraph& graph, pos_t pos,
         
         // Output the position. Make sure to get the offset we end up at in the
         // node's forward strand for the end of the node we arrive at.
-        return make_pair(make_pos_t(graph.get_id(found), graph.get_is_reverse(found),
-            (arrived_at_end != graph.get_is_reverse(found)) ? (graph.get_length(found) - 1) : 0), dist);
+        return make_pair(make_pos_t(graph.get_id(found),
+                                    graph.get_is_reverse(found),
+                                    arrived_at_end ? graph.get_length(found) : 0),
+                         dist);
     } else {
         // We aren't connected to anything on a path within the requested distance limit
         return make_pair(make_pos_t(0,false,0), numeric_limits<int64_t>::max());
