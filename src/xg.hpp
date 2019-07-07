@@ -402,10 +402,6 @@ public:
     vector<size_t> position_in_path(int64_t id, size_t rank) const;
     map<string, vector<size_t> > position_in_paths(int64_t id, bool is_rev = false, size_t offset = 0) const;
     
-    /// Return a mapping from path name to all positions along each path at
-    /// which the given pos_t occurs.
-    map<string, vector<pair<size_t, bool> > > offsets_in_paths(pos_t pos) const;
-    
     map<string, vector<size_t> > distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
                                                    int64_t id2, bool is_rev2, size_t offset2) const;
     int64_t min_distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,

@@ -2455,7 +2455,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                   return approx_position(n);
                               },
                               [&](pos_t n) -> map<string, vector<pair<size_t, bool> > > {
-                                  return xindex->offsets_in_paths(n);
+                                  return algorithms::offsets_in_paths(xindex, n);
                               },
                               transition_weight,
                               band_width);
@@ -3147,7 +3147,7 @@ Mapper::align_mem_multi(const Alignment& aln,
                                   return approx_position(n);
                               },
                               [&](pos_t n) -> map<string, vector<pair<size_t, bool> > > {
-                                  return xindex->offsets_in_paths(n);
+                                  return algorithms::offsets_in_paths(xindex, n);
                               },
                               transition_weight,
                               aln.sequence().size());

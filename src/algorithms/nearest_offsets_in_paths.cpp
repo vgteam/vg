@@ -62,7 +62,15 @@ unordered_map<path_handle_t, vector<pair<size_t, bool>>> nearest_offsets_in_path
     }
     return return_val;
 }
-    
+
+map<string, vector<pair<size_t, bool>>> offsets_in_paths(const PathPositionHandleGraph* graph, const pos_t& pos) {
+    auto offsets = nearest_offsets_in_paths(graph, pos, 0);
+    map<string, vector<pair<size_t, bool>>> named_offsets;
+    for (pair<const path_handle_t, vector<pair<size_t, bool>>>& offset : offsets) {
+        named_offsets[graph->get_path_name(offset.first)] = move(offset.second);
+    }
+    return named_offsets;
+}
     
 }
 }

@@ -14,6 +14,7 @@
 #include <vector>
 #include <utility>
 #include <unordered_map>
+#include <map>
 
 namespace vg {
 namespace algorithms {
@@ -26,6 +27,11 @@ using namespace std;
 /// all positions on each path where that pos_t occurs.
 unordered_map<path_handle_t, vector<pair<size_t, bool>>> nearest_offsets_in_paths(const PathPositionHandleGraph* graph,
                                                                                   const pos_t& pos, int64_t max_search);
+    
+/// Wrapper for the above to support some earlier code. Only looks for paths
+/// that directly touch the position, and returns the paths by name.
+map<string, vector<pair<size_t, bool>>> offsets_in_paths(const PathPositionHandleGraph* graph, const pos_t& pos);
+
     
 
 }

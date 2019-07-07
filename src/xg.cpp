@@ -2744,31 +2744,6 @@ map<string, vector<size_t> > XG::position_in_paths(int64_t id, bool is_rev, size
     return positions;
 }
 
-map<string, vector<pair<size_t, bool> > > XG::offsets_in_paths(pos_t pos) const {
-    map<string, vector<pair<size_t, bool> > > positions;
-    id_t node_id = id(pos);
-    for (auto& prank : paths_of_node(node_id)) {
-        auto& path = *paths[prank-1];
-        auto& pos_in_path = positions[path_name(prank)];
-        for (auto i : node_ranks_in_path(node_id, prank)) {
-            // relative direction to this traversal
-            bool dir = path.directions[i] != is_rev(pos);
-            // Make sure to interpret the pos_t offset on the correct strand.
-            // Normalize to a forward strand offset.
-            size_t node_forward_strand_offset = is_rev(pos) ? (node_length(node_id) - offset(pos) - 1) : offset(pos);
-            // Then go forward or backward along the path as appropriate. If
-            // the node is on the path in reverse we have where its end landed
-            // and have to flip the forward strand offset around again.
-            size_t off = path.positions[i] + (path.directions[i] ?
-                (node_length(node_id) - node_forward_strand_offset - 1) :
-                node_forward_strand_offset);
-            
-            pos_in_path.push_back(make_pair(off, dir));
-        }
-    }
-    return positions;
-}
-
 map<string, vector<size_t> > XG::distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
                                                    int64_t id2, bool is_rev2, size_t offset2) const {
     auto pos1 = position_in_paths(id1, is_rev1, offset1);
