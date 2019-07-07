@@ -21,7 +21,7 @@ vector<tuple<handle_t, int64_t, bool>> find_closest_with_paths(const PathHandleG
     
     
 #ifdef debug_algorithms
-    cerr << "looking for closest postition on a path starting from " << graph.get_id(start) << (graph.get_is_reverse(start) ? "-" : "+") << ":" << offset << " with max search dist " << max_search_dist << endl;
+    cerr << "looking for closest position on a path starting from " << graph.get_id(start) << (graph.get_is_reverse(start) ? "-" : "+") << ":" << offset << " with max search dist " << max_search_dist << endl;
 #endif
     
     // Holds all the handles with paths, their unsigned distances from the start handle, and whether they were found going left.

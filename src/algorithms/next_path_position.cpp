@@ -10,7 +10,7 @@
 #include "find_closest_with_paths.hpp"
 
 
-//#define debug_algorithms
+#define debug_algorithms
 
 namespace vg {
 namespace algorithms {
@@ -33,14 +33,14 @@ pair<pos_t, int64_t> next_path_position(const PathHandleGraph& graph, pos_t pos,
         // Unpack it.
         auto& found = get<0>(closest.front());
         auto& dist = get<1>(closest.front());
-        auto& arrived_at_end = get<2>(closest.front());
+        auto& searched_left = get<2>(closest.front());
         
         // Output the position. Make sure to get the offset we end up at in the
         // node's forward strand for the end of the node we arrive at.
         return make_pair(make_pos_t(graph.get_id(found),
                                     graph.get_is_reverse(found),
-                                    arrived_at_end ? graph.get_length(found) : 0),
-                         dist);
+                                    searched_left ? graph.get_length(found) : 0),
+                         searched_left ? dist : -dist);
     } else {
         // We aren't connected to anything on a path within the requested distance limit
         return make_pair(make_pos_t(0,false,0), numeric_limits<int64_t>::max());

@@ -39,7 +39,7 @@ unordered_map<path_handle_t, vector<pair<size_t, bool>>> nearest_offsets_in_path
             
             // the offset of this step on the forward strand of the path plus the search distance
             int64_t path_offset = graph->get_position_of_step(step) + diff;
-            
+                        
             // handle the offset on the node in a path-strand appropriate manner
             bool rev_on_path = (handle_on_path != graph->get_handle_of_step(step));
             if (rev_on_path) {
