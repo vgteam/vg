@@ -1,7 +1,7 @@
 #include "deconstructor.hpp"
 #include "traversal_finder.hpp"
 
-//#define debug
+#define debug
 
 using namespace std;
 
@@ -90,6 +90,14 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
         --v.position;
         assert(v.position >= 1);
     }
+
+    if (v.position == 7969952) {
+      for (auto trav : travs) {
+        cerr << "TRAV : " << pb2json(trav) <<endl;
+      }
+           cerr << "refix " << ref_path_idx <<endl;
+    }
+      
 
     v.updateAlleleIndexes();
 
@@ -279,6 +287,10 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     }
     char prev_char = ::toupper(graph->get_sequence(graph->get_handle(prev_visit.node_id()))[offset]);
 
+    if (v.position == 7969952) {
+      cerr << "SITE " << pb2json(*snarl) << endl;
+    }
+
     // Convert the snarl traversals to strings and add them to the variant
     vector<int> trav_to_allele = get_alleles(v, named_travs.first, ref_trav_idx, prev_char);
 
@@ -370,7 +382,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph, SnarlMa
                                                                                                    *snarl_manager,
                                                                                                    reads_by_name,
                                                                                                    1,
-                                                                                                   100,
+                                                                                                   1000000,
                                                                                                    true));
     
     if (!path_restricted) {
@@ -401,10 +413,10 @@ void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph, SnarlMa
 }
 
 bool Deconstructor::check_max_nodes(const Snarl* snarl)  {
-    unordered_set<Node*> nodeset = snarl_manager->deep_contents(snarl, *graph, false).first;
+    unordered_set<handle_t> nodeset = snarl_manager->deep_contents(snarl, *graph, false).first;
     int node_count = 0;
     for (auto node : nodeset) {
-        if (graph->start_degree(node) > 1 || graph->end_degree(node) > 1) {
+        if (graph->get_degree(node, true) > 1 || graph->get_degree(node, false) > 1) {
             ++node_count;
             if (node_count > max_nodes_for_exhaustive) {
                 return false;

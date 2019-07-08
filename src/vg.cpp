@@ -5756,7 +5756,8 @@ void VG::to_dot(ostream& out,
             
             // Serialize them
             stringstream vb;
-            for (Node* node : contents) {
+            for (const handle_t& handle : contents) {
+                Node* node = get_node(get_id(handle));
                 vb << node->id() << ",";
             }
             auto repr = vb.str();
@@ -5765,7 +5766,8 @@ void VG::to_dot(ostream& out,
             string emoji = ascii_labels ? picts.hashed_char(repr) : picts.hashed(repr);
             string color = colors.hashed(repr);
             auto label = make_pair(color, emoji);
-            for (Node* node : contents) {
+            for (const handle_t& handle : contents) {
+                Node* node = get_node(get_id(handle));
                 symbols_for_node[node->id()].insert(label);
             }
         });

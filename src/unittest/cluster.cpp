@@ -244,25 +244,25 @@ namespace unittest {
                 const Snarl* snarl1 = allSnarls[randSnarlIndex(generator)];
                 const Snarl* snarl2 = allSnarls[randSnarlIndex(generator)];
                  
-                pair<unordered_set<Node*>, unordered_set<Edge*>> contents1 = 
+                pair<unordered_set<handle_t>, unordered_set<edge_t>> contents1 = 
                            snarl_manager.shallow_contents(snarl1, graph, true);
-                pair<unordered_set<Node*>, unordered_set<Edge*>> contents2 = 
+                pair<unordered_set<handle_t>, unordered_set<edge_t>> contents2 = 
                            snarl_manager.shallow_contents(snarl2, graph, true);
  
-                vector<Node*> nodes1 (contents1.first.begin(), contents1.first.end());
-                vector<Node*> nodes2 (contents2.first.begin(), contents2.first.end());
+                vector<handle_t> nodes1 (contents1.first.begin(), contents1.first.end());
+                vector<handle_t> nodes2 (contents2.first.begin(), contents2.first.end());
 
                 
                 uniform_int_distribution<int> randNodeIndex2(0,nodes2.size()-1);
                 uniform_int_distribution<int> randNodeIndex1(0,nodes1.size()-1);
  
-                Node* node1 = nodes1[randNodeIndex1(generator)];
-                Node* node2 = nodes2[randNodeIndex2(generator)];
-                id_t nodeID1 = node1->id();
-                id_t nodeID2 = node2->id();
+                handle_t node1 = nodes1[randNodeIndex1(generator)];
+                handle_t node2 = nodes2[randNodeIndex2(generator)];
+                id_t nodeID1 = graph.get_id(node1);
+                id_t nodeID2 = graph.get_id(node2);
  
-                off_t offset1 = uniform_int_distribution<int>(0,node1->sequence().size() - 1)(generator);
-                off_t offset2 = uniform_int_distribution<int>(0,node2->sequence().size() - 1)(generator);
+                off_t offset1 = uniform_int_distribution<int>(0,graph.get_length(node1) - 1)(generator);
+                off_t offset2 = uniform_int_distribution<int>(0,graph.get_length(node2) - 1)(generator);
 
                 pos_t pos1 = make_pos_t(nodeID1, 
                   uniform_int_distribution<int>(0,1)(generator) == 0,offset1 );
