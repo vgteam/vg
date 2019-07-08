@@ -268,7 +268,7 @@ map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const XG* xg
                 auto& v = offsets[xgidx->get_path_name(p.first)];
                 
                 for (pair<size_t, bool>& y : p.second) {
-                    v.emplace_back(y.second ? y.first - mapping_width - 1 : y.first,
+                    v.emplace_back(y.second ? y.first - mapping_width : y.first,
                                    y.second);
                 }
                 

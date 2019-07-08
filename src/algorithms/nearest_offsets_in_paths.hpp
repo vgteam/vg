@@ -9,12 +9,13 @@
  */
 
 #include "../handle.hpp"
-#include "next_path_position.hpp"
 
 #include <vector>
 #include <utility>
 #include <unordered_map>
 #include <map>
+
+#include "structures/rank_pairing_heap.hpp"
 
 namespace vg {
 namespace algorithms {

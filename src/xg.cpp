@@ -2,8 +2,6 @@
 #include <vg/io/stream.hpp>
 #include "alignment.hpp"
 
-#include "algorithms/next_path_position.hpp"
-
 #include <bitset>
 #include <arpa/inet.h>
 

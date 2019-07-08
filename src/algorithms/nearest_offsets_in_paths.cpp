@@ -17,41 +17,60 @@ unordered_map<path_handle_t, vector<pair<size_t, bool>>> nearest_offsets_in_path
                                                                                   const pos_t& pos,
                                                                                   int64_t max_search) {
     
+    // init the return value
     unordered_map<path_handle_t, vector<pair<size_t, bool>>> return_val;
     
-    pair<pos_t, int64_t> pz = algorithms::next_path_position(*graph, pos, max_search);
+    // use greater so that we traverse in ascending order of distance
+    structures::RankPairingHeap<pair<handle_t, bool>, int64_t, greater<int64_t>> queue;
     
-#ifdef debug
-    cerr << "got next path position " << pz.first << " at search distance " << pz.second << endl;
-#endif
+    // add in the initial traversals in both directions from the start position
+    // distances are measured to the left side of the node
+    handle_t start = graph->get_handle(id(pos), is_rev(pos));
+    queue.push_or_reprioritize(make_pair(start, false), -offset(pos));
+    queue.push_or_reprioritize(make_pair(graph->flip(start), true), offset(pos) - graph->get_length(start));
     
-    auto& path_pos = pz.first;
-    auto& diff = pz.second;
-    if (id(path_pos)) {
-        handle_t handle_on_path = graph->get_handle(id(path_pos), is_rev(path_pos));
-        for (const step_handle_t& step : graph->steps_of_handle(handle_on_path)) {
-            
+    while (!queue.empty()) {
+        // get the queue that has the next shortest path
+        auto trav = queue.top();
+        queue.pop();
+        
+        // unpack this record
+        handle_t here = trav.first.first;
+        bool search_left = trav.first.second;
+        int64_t dist = trav.second;
+        
+#ifdef debug_algorithms
+        cerr << "traversing " << graph->get_id(here) << (graph->get_is_reverse(here) ? "-" : "+")
+        << " in " << (search_left ? "leftward" : "rightward") << " direction at distance " << dist << endl;
+#endif
+        
+        for (const step_handle_t& step : graph->steps_of_handle(here)) {
+            // For each path visit that occurs on this node
 #ifdef debug
-            cerr << "position is on step at path offset " << graph->get_position_of_step(step) << endl;
+            cerr << "handle is on step at path offset " << graph->get_position_of_step(step) << endl;
 #endif
             
-            path_handle_t path_handle = graph->get_path_handle_of_step(step);
+            // flip the handle back to the orientation it started in
+            handle_t oriented = search_left ? graph->flip(here) : here;
             
-            // the offset of this step on the forward strand of the path plus the search distance
-            int64_t path_offset = graph->get_position_of_step(step) + diff;
-                        
-            // handle the offset on the node in a path-strand appropriate manner
-            bool rev_on_path = (handle_on_path != graph->get_handle_of_step(step));
-            if (rev_on_path) {
-                path_offset += graph->get_length(handle_on_path) - offset(path_pos);
+            // the orientation of the position relative to the forward strand of the path
+            bool rev_on_path = (oriented != graph->get_handle_of_step(step));
+            
+            // the offset of this step on the forward strand
+            int64_t path_offset = graph->get_position_of_step(step);
+            
+            if (rev_on_path == search_left) {
+                path_offset -= dist;
             }
             else {
-                path_offset += offset(path_pos);
+                path_offset += graph->get_length(oriented) + dist;
             }
             
 #ifdef debug
             cerr << "after adding search distance and node offset, " << path_offset << " on strand " << rev_on_path << endl;
 #endif
+            
+            path_handle_t path_handle = graph->get_path_handle_of_step(step);
             
             // handle possible under/overflow from the search distance
             path_offset = max<int64_t>(min<int64_t>(path_offset, graph->get_path_length(path_handle)), 0);
@@ -59,7 +78,30 @@ unordered_map<path_handle_t, vector<pair<size_t, bool>>> nearest_offsets_in_path
             // add in the search distance and add the result to the output
             return_val[path_handle].emplace_back(path_offset, rev_on_path);
         }
+        
+        if (!return_val.empty()) {
+            // we found the closest, we're done
+            break;
+        }
+        
+        int64_t dist_thru = dist + graph->get_length(here);
+        
+        if (dist_thru <= max_search) {
+            
+            // we can cross the node within our budget of search distance, enqueue
+            // the next nodes in the search direction
+            graph->follow_edges(here, false, [&](const handle_t& next) {
+                
+#ifdef debug_algorithms
+                cerr << "\tfollowing edge to " << graph->get_id(next) << (graph->get_is_reverse(next) ? "-" : "+")
+                << " at dist " << dist_thru << endl;
+#endif
+                
+                queue.push_or_reprioritize(make_pair(next, search_left), dist_thru);
+            });
+        }
     }
+    
     return return_val;
 }
 
