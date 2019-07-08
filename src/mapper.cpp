@@ -1982,10 +1982,11 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
     }
     map<string, vector<pair<size_t, bool> > > offsets;
     for (auto& mapping : aln.path().mapping()) {
-        auto pos_offs = xindex->nearest_offsets_in_paths(make_pos_t(mapping.position()), aln.sequence().size());
+        auto pos_offs = algorithms::nearest_offsets_in_paths(xindex, make_pos_t(mapping.position()), aln.sequence().size());
         for (auto& p : pos_offs) {
-            if (offsets.find(p.first)  == offsets.end()) {
-                offsets[p.first] = p.second;
+            string pname = xindex->get_path_name(p.first);
+            if (offsets.find(pname)  == offsets.end()) {
+                offsets[pname] = p.second;
             }
         }
         if (offsets.size()) break; // find a single node that has a path position
@@ -2454,7 +2455,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                   return approx_position(n);
                               },
                               [&](pos_t n) -> map<string, vector<pair<size_t, bool> > > {
-                                  return xindex->offsets_in_paths(n);
+                                  return algorithms::offsets_in_paths(xindex, n);
                               },
                               transition_weight,
                               band_width);
@@ -3146,7 +3147,7 @@ Mapper::align_mem_multi(const Alignment& aln,
                                   return approx_position(n);
                               },
                               [&](pos_t n) -> map<string, vector<pair<size_t, bool> > > {
-                                  return xindex->offsets_in_paths(n);
+                                  return algorithms::offsets_in_paths(xindex, n);
                               },
                               transition_weight,
                               aln.sequence().size());
