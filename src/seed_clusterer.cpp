@@ -72,8 +72,15 @@ cerr << endl << "New cluster calculation:" << endl;
         }
 
 #ifdef DEBUG 
-        cerr << "Found clusters : " << endl;
+        cerr << "Found read clusters : " << endl;
         for (auto group : tree_state.read_union_find.all_groups()){
+            for (size_t c : group) {
+               cerr << tree_state.seeds->at(c) << " ";
+            }
+            cerr << endl;
+        }
+        cerr << "Found fragment clusters : " << endl;
+        for (auto group : tree_state.fragment_union_find.all_groups()){
             for (size_t c : group) {
                cerr << tree_state.seeds->at(c) << " ";
             }
@@ -299,6 +306,7 @@ cerr << endl << "New cluster calculation:" << endl;
                                                       node_clusters.best_right);
 
                 tree_state.read_union_find.union_groups(group_id, seed_i);
+                tree_state.fragment_union_find.union_groups(group_id, seed_i);
 
             }
 
@@ -306,13 +314,15 @@ cerr << endl << "New cluster calculation:" << endl;
             group_id = tree_state.read_union_find.find_group(group_id);
             tree_state.read_cluster_dists[group_id] = make_pair(node_clusters.best_left, 
                                                 node_clusters.best_right);
+            tree_state.fragment_cluster_dists[group_id] = make_pair(node_clusters.best_left, 
+                                                node_clusters.best_right);
             node_clusters.cluster_heads.insert(group_id);
 #ifdef DEBUG 
             assert (group_id == tree_state.read_union_find.find_group(group_id));
             cerr << "Found single cluster on node " << node_id << endl;
             bool got_left = false;
             bool got_right = false;
-            for (size_t c : cluster_group_ids) {
+            for (size_t c : node_clusters.cluster_heads) {
                 pair<int64_t, int64_t> dists = tree_state.read_cluster_dists[c];
                 assert(dists.first == -1 || dists.first >= node_clusters.best_left);
                 assert(dists.second == -1 || dists.second >= node_clusters.best_right);
@@ -349,44 +359,64 @@ cerr << endl << "New cluster calculation:" << endl;
                           return a.second < b.second; 
                       } );
 
-        int64_t last_offset = 0;
-        size_t last_cluster = seed_offsets[0].first;
-        int64_t last_left = -1; int64_t last_right = -1;
-        node_clusters.cluster_heads.insert(last_cluster);
+        int64_t last_offset = 0; int64_t read_last_left = -1;
+        size_t read_last_cluster = seed_offsets[0].first;
+        int64_t fragment_last_left = -1;
+        size_t fragment_last_cluster = seed_offsets[0].first;
+        node_clusters.cluster_heads.insert(read_last_cluster);
 
         for ( pair<size_t, int64_t> s : seed_offsets) {
             //For each seed, in order of position in the node,
-            //see if it belongs to a new cluster - if it is close enough to
-            //the previous seed
-            //i is initially its own group id
+            //see if it belongs to a new read/fragment cluster - if it is 
+            //close enough to the previous seed
 
-            size_t i_group = s.first;
-            int64_t offset = s.second;
-
-            if (last_left != -1 &&
-                abs(offset - last_offset) <= tree_state.read_distance_limit) {
-                //If this seed is in the same cluster as the previous one,
+            if (read_last_left != -1 &&
+                abs(s.second - last_offset) <= tree_state.read_distance_limit) {
+                //If this seed is in the same read cluster as the previous one,
                 //union them
 
-                tree_state.read_union_find.union_groups(i_group, last_cluster);
-                last_cluster = tree_state.read_union_find.find_group(i_group);
-                last_right = min_positive(last_right, node_length-offset+1);
-                tree_state.read_cluster_dists[last_cluster] = make_pair(last_left, last_right);
+                tree_state.read_union_find.union_groups(s.first, read_last_cluster);
+                read_last_cluster = tree_state.read_union_find.find_group(s.first);
+                tree_state.read_cluster_dists[read_last_cluster] = make_pair(read_last_left, node_length-s.second+1);
 
+                if (tree_state.fragment_distance_limit != 0) {
+                    //If we are also clustering paired end reads by fragment distance,
+                    //cluster these together
+                    tree_state.fragment_union_find.union_groups(s.first, fragment_last_cluster);
+                    fragment_last_cluster = tree_state.fragment_union_find.find_group(s.first);
+                    tree_state.fragment_cluster_dists[fragment_last_cluster] = 
+                                make_pair(fragment_last_left, node_length-s.second+1);
+                }
             } else {
                 //This becomes a new cluster
-                node_clusters.cluster_heads.insert(i_group);
-                last_cluster = i_group;
-                last_left = offset;
-                last_right = node_length - offset + 1;
-                tree_state.read_cluster_dists[i_group] = make_pair(last_left, last_right);
+                node_clusters.cluster_heads.insert(s.first);
+                read_last_cluster = s.first;
+                read_last_left = s.second;
+                tree_state.read_cluster_dists[s.first] = make_pair(read_last_left, node_length - s.second + 1);
+                if (tree_state.fragment_distance_limit != 0) {
+                    if (read_last_left != -1 &&
+                        abs(s.second - last_offset) <= tree_state.fragment_distance_limit) {
+                        //If this is a new read cluster but the same fragment cluster
+                        tree_state.fragment_union_find.union_groups(s.first, fragment_last_cluster);
+                        fragment_last_cluster = tree_state.fragment_union_find.find_group(s.first);
+                        tree_state.fragment_cluster_dists[fragment_last_cluster] = 
+                                                make_pair(fragment_last_left, node_length-s.second+1);
+
+                    } else {
+                        //If this is a new fragment cluster as well
+                        fragment_last_cluster = s.first;
+                        fragment_last_left = s.second;
+                        tree_state.fragment_cluster_dists[s.first] = 
+                          make_pair(fragment_last_left, node_length - s.second + 1);
+                    }
+                }
             }
-            last_offset = offset;
+            last_offset = s.second;
                         
         }
         
 #ifdef DEBUG 
-        cerr << "Found clusters on node " << node_id << endl;
+        cerr << "Found read clusters on node " << node_id << endl;
         bool got_left = false;
         bool got_right = false;
         for (size_t c : node_clusters.cluster_heads) {
@@ -1212,7 +1242,7 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
              << snarl_clusters.best_right << endl;
         bool got_left = false;
         bool got_right = false;
-        for (size_t c : snarl_cluster.cluster_heads) {
+        for (size_t c : snarl_clusters.cluster_heads) {
             pair<int64_t, int64_t> dists = tree_state.read_cluster_dists[c];
             if (dists.first == snarl_clusters.best_left) {got_left = true;}
             if (dists.second == snarl_clusters.best_right) {got_right = true;}
