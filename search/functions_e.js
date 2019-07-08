@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['nearest_5foffsets_5fin_5fpaths',['nearest_offsets_in_paths',['../classvg_1_1XG.html#a2f548c7d41c9fccba80d97262546ca46',1,'vg::XG']]],
   ['nearest_5fpath_5fnode',['nearest_path_node',['../classvg_1_1XG.html#ac136d38e6b23f8dfe725e77016cff68e',1,'vg::XG']]],
   ['neighborhood',['neighborhood',['../classvg_1_1XG.html#aaf355b5d0a8a5c617e43321fe0683c7b',1,'vg::XG']]],
   ['nestedtraversalfinder',['NestedTraversalFinder',['../classvg_1_1NestedTraversalFinder.html#a0ab18d1355be2772f9ca78c5eb269e6c',1,'vg::NestedTraversalFinder']]],
@@ -15,7 +14,6 @@ var searchData=
   ['next',['next',['../classvg_1_1WindowedVcfBuffer.html#a0d66b5a177f55cb726122577840d8911',1,'vg::WindowedVcfBuffer::next()'],['../classvg_1_1io_1_1BlockedGzipInputStream.html#a91e4dc4f48957737a80e99a8ad32ba53',1,'vg::io::BlockedGzipInputStream::Next()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a0c3e80161a999b884abf3965dd0a5a39',1,'vg::io::BlockedGzipOutputStream::Next()']]],
   ['next_5fempty_5falignment',['next_empty_alignment',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a08e8eed8f95a621c9786bca1b0850dd2',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
   ['next_5fis_5fempty',['next_is_empty',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a016150b6b6f4551ee3eb7600d7037b67',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
-  ['next_5fpath_5fposition',['next_path_position',['../classvg_1_1XG.html#a1b118713cb13d498413a847cc6543748',1,'vg::XG']]],
   ['next_5fpos_5fchars',['next_pos_chars',['../classvg_1_1BaseMapper.html#a9b162009930636565dbb15614d76619f',1,'vg::BaseMapper::next_pos_chars()'],['../classvg_1_1Sampler.html#ab5455f8f6faf176b418e3dbcb6bf1ce8',1,'vg::Sampler::next_pos_chars()']]],
   ['next_5fsnarl',['next_snarl',['../classvg_1_1SnarlManager.html#a9b8702e75f648f081fa3cf40c557a00d',1,'vg::SnarlManager']]],
   ['next_5ftraceback_5falignment',['next_traceback_alignment',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a8d6cbc921387724da8db3c8c0f20f363',1,'vg::BandedGlobalAligner::AltTracebackStack']]],

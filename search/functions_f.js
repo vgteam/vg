@@ -3,7 +3,6 @@ var searchData=
   ['of_5fnode',['of_node',['../classvg_1_1Paths.html#abda01c563a3455d491b152a23b22a27a',1,'vg::Paths']]],
   ['offset',['offset',['../namespacevg.html#a416939020600ce2996331c350f1fe68c',1,'vg']]],
   ['offset_5fat_5fposition',['offset_at_position',['../classvg_1_1XGPath.html#a0cb9b30c4b4b60b9091fbde42871d5c6',1,'vg::XGPath']]],
-  ['offsets_5fin_5fpaths',['offsets_in_paths',['../classvg_1_1XG.html#a1262578b37546fc703a58a393c718164',1,'vg::XG']]],
   ['old_5fheight',['old_height',['../classhaplo_1_1hDP__graph__accessor.html#abb5ed692933b144596b8a7fafe09ce0c',1,'haplo::hDP_graph_accessor']]],
   ['on_5fgroup',['on_group',['../classvg_1_1io_1_1MessageEmitter.html#a5b5f11b2f9b08a870fc68a980c91f1e4',1,'vg::io::MessageEmitter::on_group()'],['../classvg_1_1io_1_1ProtobufEmitter.html#af22328bc428af2be817a7a0d097ca370',1,'vg::io::ProtobufEmitter::on_group()']]],
   ['on_5fmessage',['on_message',['../classvg_1_1io_1_1ProtobufEmitter.html#a6a3a16550dcd7dd7a320109125d4e2a1',1,'vg::io::ProtobufEmitter']]],
