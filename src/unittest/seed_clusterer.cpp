@@ -75,7 +75,9 @@ namespace unittest {
                 seeds.push_back(make_pos_t(n, false, 0));
             }
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 10); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 10); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
             REQUIRE(clusters.size() == 1); 
 
         }
@@ -89,8 +91,10 @@ namespace unittest {
                 seeds.push_back(make_pos_t(n, false, 0));
             }
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                         seeds, 7); 
+
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 7); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
             vector<hash_set<size_t>> cluster_sets;
             for (vector<size_t> v : clusters) {
                 hash_set<size_t> h;
@@ -161,8 +165,11 @@ namespace unittest {
             seeds.push_back(make_pos_t(3, false, 0));
             seeds.push_back(make_pos_t(4, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 13); 
+
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 13); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
             REQUIRE( clusters.size() == 1);
         }
         SECTION( "Different snarl" ) {
@@ -170,8 +177,11 @@ namespace unittest {
             seeds.push_back(make_pos_t(3, false, 0));
             seeds.push_back(make_pos_t(11, false, 9));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 8);
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 8); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
             REQUIRE( clusters.size() == 1);
         }
     }//end test case
@@ -218,7 +228,11 @@ namespace unittest {
             seeds.push_back(make_pos_t(7, false, 0));
             seeds.push_back(make_pos_t(6, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 20); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 20); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
             REQUIRE( clusters.size() == 1);
         }
         SECTION( "two clusters" ) {
@@ -226,15 +240,22 @@ namespace unittest {
             seeds.push_back(make_pos_t(2, false, 0));
             seeds.push_back(make_pos_t(6, true, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 20); 
-            REQUIRE( clusters.size() == 2);
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 20); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
         }
         SECTION( "different snarl" ) {
             vector<pos_t> seeds;
             seeds.push_back(make_pos_t(8, false, 0));
             seeds.push_back(make_pos_t(6, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 20); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 20); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
             REQUIRE( clusters.size() == 1);
         }
     }//end test case
@@ -305,8 +326,10 @@ namespace unittest {
             seeds.push_back(make_pos_t(6, false, 0));
             seeds.push_back(make_pos_t(8, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                         seeds, 3); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 3); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
             REQUIRE( clusters.size() == 2);
             vector<hash_set<size_t>> cluster_sets;
             for (vector<size_t> v : clusters) {
@@ -347,8 +370,11 @@ namespace unittest {
             seeds.push_back(make_pos_t(14, false, 0));
             seeds.push_back(make_pos_t(15, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                         seeds, 3);
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 3); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
             REQUIRE( clusters.size() == 4);
         }
         SECTION( "Same node, same cluster" ) {
@@ -357,8 +383,11 @@ namespace unittest {
             seeds.push_back(make_pos_t(5, false, 11));
             seeds.push_back(make_pos_t(5, false, 5));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                         seeds, 7); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 7); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
             REQUIRE( clusters.size() == 1);
         }
     }//end test case
@@ -402,8 +431,11 @@ namespace unittest {
             seeds.push_back(make_pos_t(2, false, 0));
             seeds.push_back(make_pos_t(7, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 10); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 10); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
             REQUIRE( clusters.size() == 1);
         }
         SECTION("One cluster") {
@@ -413,8 +445,11 @@ namespace unittest {
             seeds.push_back(make_pos_t(7, false, 0));
             seeds.push_back(make_pos_t(4, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 10);
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 10); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
             REQUIRE( clusters.size() == 1);
         }
         SECTION("One cluster") {
@@ -422,8 +457,12 @@ namespace unittest {
             seeds.push_back(make_pos_t(2, false, 0));
             seeds.push_back(make_pos_t(4, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 10); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 10); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
+
             REQUIRE( clusters.size() == 1);
         }
         SECTION("Two clusters") {
@@ -432,15 +471,21 @@ namespace unittest {
             seeds.push_back(make_pos_t(4, false, 1));
             seeds.push_back(make_pos_t(6, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 5); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 5); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
             REQUIRE( clusters.size() == 2);
         }
         SECTION("No clusters") {
             vector<pos_t> seeds;
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 5); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 5); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
             REQUIRE( clusters.size() == 0);
         }
     }
@@ -492,8 +537,11 @@ namespace unittest {
             seeds.push_back(make_pos_t(3, false, 0));
             seeds.push_back(make_pos_t(9, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 5); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 5); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
             REQUIRE( clusters.size() == 2);
 
         }
@@ -541,8 +589,11 @@ namespace unittest {
             seeds.push_back(make_pos_t(3, false, 0));
             seeds.push_back(make_pos_t(8, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 3); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 3); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
             REQUIRE( clusters.size() == 2);
 
         }
@@ -552,8 +603,11 @@ namespace unittest {
             seeds.push_back(make_pos_t(2, false, 0));
             seeds.push_back(make_pos_t(7, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 6); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 6); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
             REQUIRE( clusters.size() == 1);
 
         }
@@ -563,8 +617,11 @@ namespace unittest {
             seeds.push_back(make_pos_t(8, false, 0));
             seeds.push_back(make_pos_t(10, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 3); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 3); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
             REQUIRE( clusters.size() == 1);
 
         }
@@ -609,8 +666,11 @@ namespace unittest {
             seeds.push_back(make_pos_t(3, false, 0));
             seeds.push_back(make_pos_t(4, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 10); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 10); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
             REQUIRE( clusters.size() == 1);
         }
         SECTION( "One cluster nested" ) {
@@ -618,8 +678,11 @@ namespace unittest {
             seeds.push_back(make_pos_t(5, false, 0));
             seeds.push_back(make_pos_t(3, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 10); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 10); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
             REQUIRE( clusters.size() == 1);
         }
         SECTION( "Three clusters" ) {
@@ -628,8 +691,12 @@ namespace unittest {
             seeds.push_back(make_pos_t(3, false, 0));
             seeds.push_back(make_pos_t(8, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 3); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 3); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
+
             REQUIRE( clusters.size() == 3);
         }
         SECTION( "One cluster taking loop" ) {
@@ -637,8 +704,11 @@ namespace unittest {
             seeds.push_back(make_pos_t(2, false, 0));
             seeds.push_back(make_pos_t(3, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 15); 
+            tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                clusterer.cluster_seeds(seeds, 15); 
+            vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
             REQUIRE( clusters.size() == 1);
         }
     }//end test case
@@ -690,8 +760,11 @@ namespace unittest {
                     seeds.push_back(pos);
 
                 }
-                vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                      seeds, lim);
+                tuple<vector<vector<size_t>>, vector<vector<size_t>>> paired_clusters = 
+                    clusterer.cluster_seeds(seeds, lim); 
+                vector<vector<size_t>> clusters = std::get<0>(paired_clusters);
+
+
 
                 for (size_t a = 0; a < clusters.size(); a++) {
                     // For each cluster -cluster this cluster to ensure that 

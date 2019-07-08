@@ -18,10 +18,15 @@ class SnarlSeedClusterer {
         //cluster the seeds such that two seeds whose minimum distance
         //between them (including both of the positions) is less than
         // the distance limit are in the same cluster
+        //If a fragment_distance_limit is give, then also cluster based on
+        //this distance for paired-end clusters. fragment_distance_limit
+        //must be greater than read_distance_limit
+        //If fragment_distance_limit is 0, then ignore it
         //Returns a vector of clusters. Each cluster is a vector of
         //indices into seeds
-        vector<vector<size_t>> cluster_seeds ( vector<pos_t> seeds,
-               int64_t distance_limit);
+        tuple<vector<vector<size_t>>,vector<vector<size_t>>> cluster_seeds ( 
+                vector<pos_t> seeds,
+               int64_t read_distance_limit, int64_t fragment_distance_limit=0);
     private:
 
         MinimumDistanceIndex& dist_index;
@@ -117,19 +122,22 @@ class SnarlSeedClusterer {
 
             //The minimum distance between nodes for them to be put in the
             //same cluster
-            int64_t distance_limit;
+            int64_t read_distance_limit;
+            int64_t fragment_distance_limit;
 
 
             //////////Data structures to hold clustering information
 
             //Structure to hold the clustering of the seeds
-            structures::UnionFind union_find_clusters;
+            structures::UnionFind read_union_find;
+            structures::UnionFind fragment_union_find;
 
             //For each seed, store the distances to the left and right ends
             //of the netgraph node of the cluster it belongs to
             //These values are only relevant for seeds that represent a cluster
-            //in union_find_clusters
-            vector<pair<int64_t, int64_t>> cluster_dists;
+            //in union_find_reads
+            vector<pair<int64_t, int64_t>> read_cluster_dists;
+            vector<pair<int64_t, int64_t>> fragment_cluster_dists;
 
 
 
@@ -164,11 +172,15 @@ class SnarlSeedClusterer {
                                                           parent_snarl_to_nodes;
 
             //Constructor takes in a pointer to the seeds and the distance limit 
-            TreeState (vector<pos_t>* seeds, int64_t distance_limit) :
+            TreeState (vector<pos_t>* seeds, int64_t read_distance_limit, 
+                       int64_t fragment_distance_limit) :
                 seeds(seeds),
-                cluster_dists(seeds->size(), make_pair(-1, -1)),
-                union_find_clusters (seeds->size(), false),
-                distance_limit(distance_limit){
+                read_cluster_dists(seeds->size(), make_pair(-1, -1)),
+                fragment_cluster_dists(seeds->size(), make_pair(-1, -1)),
+                read_union_find (seeds->size(), false),
+                fragment_union_find (seeds->size(), false),
+                read_distance_limit(read_distance_limit),
+                fragment_distance_limit(fragment_distance_limit){
             }
         };
 

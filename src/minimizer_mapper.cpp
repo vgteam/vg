@@ -181,7 +181,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
         
     // Cluster the seeds. Get sets of input seed indexes that go together.
-    vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit);
+    tuple<vector<vector<size_t>>,vector<vector<size_t>>> paired_clusters = clusterer.cluster_seeds(seeds, distance_limit);
+    vector<vector<size_t>> clusters = std::move(std::get<0>(paired_clusters));
     
 #ifdef TRACK_PROVENANCE
     funnel.substage("score");
