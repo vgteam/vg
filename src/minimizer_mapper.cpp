@@ -273,11 +273,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
     //Retain clusters only if their read coverage is better than this
     double cluster_coverage_cutoff = cluster_indexes_in_order.size() == 0 ? 0 : 
-                                 read_coverage_by_cluster[cluster_indexes_in_order[0]]
-                                    - cluster_coverage_threshold;
+                    *std::max_element(read_coverage_by_cluster.begin(), read_coverage_by_cluster.end()) 
+                    - cluster_coverage_threshold;
     //Retain clusters only if their score is better than this
     double cluster_score_cutoff = cluster_score.size() == 0 ? 0 :
-                    *std::max_element(cluster_score.begin(), cluster_score.end()) - cluster_score_threshold;
+                                 cluster_score[cluster_indexes_in_order[0]]
+                                    - cluster_score_threshold;
     
 #ifdef TRACK_PROVENANCE
     // Now we go from clusters to gapless extensions
@@ -397,6 +398,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     double extension_set_cutoff = cluster_extension_scores.size() == 0 ? 0 :
                               cluster_extension_scores[extension_indexes_in_order[0]]
                                     - extension_set_score_threshold;
+    int best_extension_set_score = cluster_extension_scores.size() == 0 ? 0 :
+                              cluster_extension_scores[extension_indexes_in_order[0]];
     
 #ifdef TRACK_PROVENANCE
     funnel.stage("align");
@@ -429,7 +432,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
         auto& extensions = cluster_extensions[extension_num];
         
-        if (i < 2 || (extension_set_score_threshold == 0 || cluster_extension_scores[extension_num] > extension_set_cutoff)) {
+        if (i < 2 || 
+            (score_is_significant(cluster_extension_scores[extension_num], best_extension_set_score, second_best_score) 
+            &&  (extension_set_score_threshold == 0 || cluster_extension_scores[extension_num] > extension_set_cutoff))) {
             // Always take the first and second.
             // For later ones, check if this score is significant relative to the running best and second best scores.
             
