@@ -47,12 +47,12 @@ public:
 
 class ExhaustiveTraversalFinder : public TraversalFinder {
     
-    VG& graph;
+    const HandleGraph& graph;
     SnarlManager& snarl_manager;
     bool include_reversing_traversals;
     
 public:
-    ExhaustiveTraversalFinder(VG& graph, SnarlManager& snarl_manager,
+    ExhaustiveTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
                               bool include_reversing_traversals = false);
     
     virtual ~ExhaustiveTraversalFinder();
@@ -64,10 +64,10 @@ public:
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
     
 protected:
-    void stack_up_valid_walks(NodeTraversal walk_head, vector<NodeTraversal>& stack);
-    virtual bool visit_next_node(const Node*, const Edge*) { return true; }
-    void add_traversals(vector<SnarlTraversal>& traversals, NodeTraversal traversal_start,
-                        set<NodeTraversal>& stop_at, set<NodeTraversal>& yield_at);
+    void stack_up_valid_walks(handle_t walk_head, vector<Visit>& stack);
+    virtual bool visit_next_node(handle_t handle) { return true; }
+    void add_traversals(vector<SnarlTraversal>& traversals, handle_t traversal_start,
+                        unordered_set<handle_t>& stop_at, unordered_set<handle_t>& yield_at);
 };
 
 /** Does exhaustive traversal, but restricting to nodes and edges that meet 

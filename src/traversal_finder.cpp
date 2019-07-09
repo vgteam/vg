@@ -129,7 +129,7 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
     return ret;
 }
    
-ExhaustiveTraversalFinder::ExhaustiveTraversalFinder(VG& graph, SnarlManager& snarl_manager,
+ExhaustiveTraversalFinder::ExhaustiveTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
                                                      bool include_reversing_traversals) :
     graph(graph), snarl_manager(snarl_manager),
     include_reversing_traversals(include_reversing_traversals) {
@@ -140,65 +140,51 @@ ExhaustiveTraversalFinder::~ExhaustiveTraversalFinder() {
     // no heap objects
 }
 
-void ExhaustiveTraversalFinder::stack_up_valid_walks(NodeTraversal walk_head, vector<NodeTraversal>& stack) {
+void ExhaustiveTraversalFinder::stack_up_valid_walks(handle_t walk_head, vector<Visit>& stack) {
     
-    id_t head_id = walk_head.node->id();
+    id_t head_id = graph.get_id(walk_head);
 
     // get all edges involving this node so we can filter them down to valid walks
-    for (Edge* edge : graph.edges_of(walk_head.node)) {
-        Node* next_node = nullptr;
-        bool next_backward;
-        bool from_start;
-        // determine id and orientation of our nodes given that they can
-        // be either from or to in the edge
-        if (head_id == edge->from()) {
-            next_node = graph.get_node(edge->to());
-            next_backward = edge->to_end();
-            from_start = edge->from_start();
-        } else {
-            next_node = graph.get_node(edge->from());
-            next_backward = !edge->from_start();
-            from_start = !edge->to_end();
-        }
-        // are we walking the same direction relative to head_id?
-        if (walk_head.backward == from_start &&
-            // derived classes can use this to filter search
-            visit_next_node(next_node, edge)) {
-            // add the next traversal in the walk to the stack            
-            stack.push_back(NodeTraversal(next_node, next_backward));
-        }
-    }
+    graph.follow_edges(walk_head, false, [&](const handle_t next_node) {
+            if (visit_next_node(next_node)) {
+                Visit next_visit;
+                next_visit.set_node_id(graph.get_id(next_node));
+                next_visit.set_backward(graph.get_is_reverse(next_node));
+                stack.push_back(next_visit);
+            }
+        });
 }
 
 void ExhaustiveTraversalFinder::add_traversals(vector<SnarlTraversal>& traversals,
-                                               NodeTraversal traversal_start,
-                                               set<NodeTraversal>& stop_at,
-                                               set<NodeTraversal>& yield_at) {
+                                               handle_t traversal_start,
+                                               unordered_set<handle_t>& stop_at,
+                                               unordered_set<handle_t>& yield_at) {
     // keeps track of the walk of the DFS traversal
     list<Visit> path;
     
     // these mark the start of the edges out of the node that is on the head of the path
     // they can be used to see how many nodes we need to peel off the path when we're
     // backtracking
-    NodeTraversal stack_sentinel(nullptr);
+    Visit stack_sentinel;
     
     // initialize stack for DFS traversal of site
-    vector<NodeTraversal> stack{traversal_start};
+    vector<Visit> stack{to_visit(graph, traversal_start)};
     
     while (stack.size()) {
         
-        NodeTraversal node_traversal = stack.back();
+        Visit node_visit = stack.back();
         stack.pop_back();
         
         // we have traversed all of edges out of the head of the path, so we can pop it off
-        if (node_traversal == stack_sentinel) {
+        if (node_visit == stack_sentinel) {
             path.pop_back();
             continue;
         }
         
         // have we finished a traversal through the site?
-        if (stop_at.count(node_traversal)) {
-            if (yield_at.count(node_traversal)) {
+        handle_t node_handle = graph.get_handle(node_visit.node_id(), node_visit.backward());
+        if (stop_at.count(node_handle)) {
+            if (yield_at.count(node_handle)) {
                 // yield path as a snarl traversal
                 traversals.emplace_back();
                 
@@ -207,7 +193,7 @@ void ExhaustiveTraversalFinder::add_traversals(vector<SnarlTraversal>& traversal
                     *traversals.back().add_visit() = *iter;
                 }
                 // add the final visit
-                *traversals.back().add_visit() = to_visit(node_traversal);
+                *traversals.back().add_visit() = node_visit;
             }
             
             // don't proceed to add more onto the DFS stack
@@ -219,15 +205,15 @@ void ExhaustiveTraversalFinder::add_traversals(vector<SnarlTraversal>& traversal
         
         // make a visit through the node traversal and add it to the path
         path.emplace_back();
-        path.back().set_node_id(node_traversal.node->id());
-        path.back().set_backward(node_traversal.backward);
+        path.back().set_node_id(node_visit.node_id());
+        path.back().set_backward(node_visit.backward());
         
         // does this traversal point into a child snarl?
-        const Snarl* into_snarl = snarl_manager.into_which_snarl(node_traversal.node->id(),
-                                                                 node_traversal.backward);
+        const Snarl* into_snarl = snarl_manager.into_which_snarl(node_visit.node_id(),
+                                                                 node_visit.backward());
                                                                  
 #ifdef debug
-        cerr << "Traversal " << node_traversal.node->id() << " " << node_traversal.backward << " enters";
+        cerr << "Traversal " << node_visit.node_id() << " " << node_visit.backward() << " enters";
         if (into_snarl != nullptr) {
             cerr << " " << pb2json(*into_snarl) << endl;
         } else {
@@ -235,7 +221,7 @@ void ExhaustiveTraversalFinder::add_traversals(vector<SnarlTraversal>& traversal
         }
 #endif
                                                                  
-        if (into_snarl && !(node_traversal == traversal_start)) {
+        if (into_snarl && !(node_handle == traversal_start)) {
             // add a visit for the child snarl
             path.emplace_back();
             *path.back().mutable_snarl()->mutable_start() = into_snarl->start();
@@ -245,26 +231,28 @@ void ExhaustiveTraversalFinder::add_traversals(vector<SnarlTraversal>& traversal
             stack.push_back(stack_sentinel);
             
             // which side of the snarl does the traversal point into?
-            if (into_snarl->start().node_id() == node_traversal.node->id()
-                && into_snarl->start().backward() == node_traversal.backward) {
+            if (into_snarl->start().node_id() == node_visit.node_id()
+                && into_snarl->start().backward() == node_visit.backward()) {
                 // Into the start
 #ifdef debug
                 cerr << "Entered child through its start" << endl;
 #endif
                 if (into_snarl->start_end_reachable()) {
                     // skip to the other side and proceed in the orientation that the end node takes.
-                    stack.push_back(to_node_traversal(into_snarl->end(), graph));
+                    stack.push_back(into_snarl->end());
 #ifdef debug
-                    cerr << "Stack up " << stack.back().node->id() << " " << stack.back().backward << endl;
+                    cerr << "Stack up " << stack.back().node_id() << " " << stack.back().backward() << endl;
 #endif
                 }
                 
                 // if the same side is also reachable, add it to the stack too
                 if (into_snarl->start_self_reachable()) {
                     // Make sure to flip it around so we come out of the snarl instead of going in again,
-                    stack.push_back(to_rev_node_traversal(into_snarl->start(), graph).reverse());
+                    Visit rev_visit = into_snarl->start();
+                    rev_visit.set_backward(!rev_visit.backward());
+                    stack.push_back(rev_visit);
 #ifdef debug
-                    cerr << "Stack up " << stack.back().node->id() << " " << stack.back().backward << endl;
+                    cerr << "Stack up " << stack.back().node_id() << " " << stack.back().backward() << endl;
 #endif
                 }
                 
@@ -278,24 +266,28 @@ void ExhaustiveTraversalFinder::add_traversals(vector<SnarlTraversal>& traversal
                     // skip to the other side and proceed in the orientation
                     // *opposite* what the start node takes (i.e. out of the
                     // snarl)
-                    stack.push_back(to_node_traversal(into_snarl->start(), graph).reverse());
+                    Visit rev_visit = into_snarl->start();
+                    rev_visit.set_backward(!rev_visit.backward());
+                    stack.push_back(rev_visit);
 #ifdef debug
-                    cerr << "Stack up " << stack.back().node->id() << " " << stack.back().backward << endl;
+                    cerr << "Stack up " << stack.back().node_id() << " " << stack.back().backward() << endl;
 #endif
                 }
                 
                 // if the same side is also reachable, add it to the stack too
                 if (into_snarl->end_self_reachable()) {
-                    stack.push_back(to_rev_node_traversal(into_snarl->end(), graph));
+                    Visit rev_visit = into_snarl->end();
+                    rev_visit.set_backward(!rev_visit.backward());
+                    stack.push_back(rev_visit);
 #ifdef debug
-                    cerr << "Stack up " << stack.back().node->id() << " " << stack.back().backward << endl;
+                    cerr << "Stack up " << stack.back().node_id() << " " << stack.back().backward() << endl;
 #endif
                 }
             }
         }
         else {
             // add all of the node traversals we can reach through valid walks to stack
-            stack_up_valid_walks(node_traversal, stack);
+            stack_up_valid_walks(node_handle, stack);
         }
     }
 }
@@ -303,18 +295,18 @@ void ExhaustiveTraversalFinder::add_traversals(vector<SnarlTraversal>& traversal
 vector<SnarlTraversal> ExhaustiveTraversalFinder::find_traversals(const Snarl& site) {
 
     vector<SnarlTraversal> to_return;
-    
-    NodeTraversal site_end = to_node_traversal(site.end(), graph);
-    NodeTraversal site_start = to_node_traversal(site.start(), graph);
-    NodeTraversal site_rev_start = NodeTraversal(site_start.node, !site_start.backward);
+
+    handle_t site_end = graph.get_handle(site.end().node_id(), site.end().backward());
+    handle_t site_start = graph.get_handle(site.start().node_id(), site.start().backward());
+    handle_t site_rev_start = graph.get_handle(site.start().node_id(), !site.start().backward());
     
     // stop searching when the traversal is leaving the site
-    set<NodeTraversal> stop_at;
+    unordered_set<handle_t> stop_at;
     stop_at.insert(site_end);
     stop_at.insert(site_rev_start);
     
     // choose which side(s) can be the end of the traversal
-    set<NodeTraversal> yield_at;
+    unordered_set<handle_t> yield_at;
     yield_at.insert(site_end);
     if (include_reversing_traversals) {
         yield_at.insert(site_rev_start);
@@ -327,7 +319,7 @@ vector<SnarlTraversal> ExhaustiveTraversalFinder::find_traversals(const Snarl& s
         // if the end is reachable from itself, also look for traversals that both enter and
         // leave through the end
         yield_at.erase(site_rev_start);
-        add_traversals(to_return, NodeTraversal(site_end.node, !site_end.backward),
+        add_traversals(to_return, graph.get_handle(graph.get_id(site_end), !graph.get_is_reverse(site_end)),
                        stop_at, yield_at);
     }
     
