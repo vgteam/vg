@@ -32,12 +32,6 @@ namespace vg {
                                                            graph.get_is_reverse(edge_handle.first)),
                                              NodeTraversal(graph.get_node(graph.get_id(edge_handle.second)),
                                                            graph.get_is_reverse(edge_handle.second)));
-            if (!edge) {
-                cerr << "null edge for) " << NodeTraversal(graph.get_node(graph.get_id(edge_handle.first)),
-                                                           graph.get_is_reverse(edge_handle.first)) << endl
-                     << NodeTraversal(graph.get_node(graph.get_id(edge_handle.second)),
-                                      graph.get_is_reverse(edge_handle.second)) << endl;
-            }
             ret.second.insert(edge);
         }
         return ret;
@@ -1191,7 +1185,7 @@ namespace vg {
                 
                 REQUIRE(nodes.count(n2));
                 REQUIRE(nodes.count(n7));
-
+                
                 REQUIRE(edges.size() == 3);
                 
                 REQUIRE(edges.count(e1));
@@ -1305,7 +1299,7 @@ namespace vg {
                 list<Snarl> snarls;
                 snarls.push_back(snarl1);
                 snarls.push_back(snarl2);
-                
+
                 SnarlManager snarl_manager(snarls.begin(), snarls.end());
                 
                 const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
@@ -1595,7 +1589,7 @@ namespace vg {
                 REQUIRE(snarl->start().backward());
                 REQUIRE(snarl->end().node_id() == 8480141);
                 REQUIRE(!snarl->end().backward());
-                
+
                 // And it needs to contain just those two nodes and the edges connecting them.
                 REQUIRE(contents.first.size() == 2);
                 REQUIRE(contents.second.size() == 1);

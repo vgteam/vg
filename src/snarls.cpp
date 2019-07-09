@@ -1159,7 +1159,7 @@ pair<unordered_set<handle_t>, unordered_set<edge_t> > SnarlManager::shallow_cont
     
     pair<unordered_set<handle_t>, unordered_set<edge_t> > to_return;
         
-    unordered_set<handle_t> already_stacked;
+    unordered_set<id_t> already_stacked;
         
     // initialize stack for DFS traversal of site
     vector<handle_t> stack;
@@ -1168,35 +1168,41 @@ pair<unordered_set<handle_t>, unordered_set<edge_t> > SnarlManager::shallow_cont
     handle_t end_node = graph.get_handle(snarl->end().node_id());
         
     // mark the boundary nodes as already stacked so that paths will terminate on them
-    already_stacked.insert(start_node);
-    already_stacked.insert(end_node);
+    already_stacked.insert(graph.get_id(start_node));
+    already_stacked.insert(graph.get_id(end_node));
         
     // add boundary nodes as directed
     if (include_boundary_nodes) {
         to_return.first.insert(start_node);
         to_return.first.insert(end_node);
     }
-        
+
     // stack up the nodes one edge inside the snarl from the start
     graph.follow_edges(start_node, snarl->start().backward(), [&](const handle_t& node) {            
 
-            if (!already_stacked.count(node)) {
+            if (!already_stacked.count(graph.get_id(node))) {
                 stack.push_back(node);
-                already_stacked.insert(node);
+                already_stacked.insert(graph.get_id(node));
             }
-            
-            to_return.second.insert(graph.edge_handle(start_node, node));
+            if (snarl->start().backward()) {
+                to_return.second.insert(graph.edge_handle(node, start_node));
+            } else {
+                to_return.second.insert(graph.edge_handle(start_node, node));
+            }
         });
       
     // stack up the nodes one edge inside the snarl from the end
-    graph.follow_edges(end_node, !snarl->start().backward(), [&](const handle_t& node) {
+    graph.follow_edges(end_node, !snarl->end().backward(), [&](const handle_t& node) {
             
-            if (!already_stacked.count(node)) {
+            if (!already_stacked.count(graph.get_id(node))) {
                 stack.push_back(node);
-                already_stacked.insert(node);
+                already_stacked.insert(graph.get_id(node));
             }
-            
-            to_return.second.insert(graph.edge_handle(node, end_node));
+            if (snarl->end().backward()) {
+                to_return.second.insert(graph.edge_handle(end_node, node));
+            } else {
+                to_return.second.insert(graph.edge_handle(node, end_node));
+            }
         });
         
     // traverse the snarl with DFS, skipping over any child snarls
@@ -1221,9 +1227,9 @@ pair<unordered_set<handle_t>, unordered_set<edge_t> > SnarlManager::shallow_cont
             // stack up the node on the opposite side of the snarl
             // rather than traversing it
             handle_t opposite_node = graph.get_handle(other_id);
-            if (!already_stacked.count(opposite_node)) {
+            if (!already_stacked.count(other_id)) {
                 stack.push_back(opposite_node);
-                already_stacked.insert(opposite_node);
+                already_stacked.insert(other_id);
             }
         }
             
@@ -1236,41 +1242,40 @@ pair<unordered_set<handle_t>, unordered_set<edge_t> > SnarlManager::shallow_cont
             // stack up the node on the opposite side of the snarl
             // rather than traversing it
             handle_t opposite_node = graph.get_handle(other_id);
-            if (!already_stacked.count(opposite_node)) {
+            if (!already_stacked.count(other_id)) {
                 stack.push_back(opposite_node);
-                already_stacked.insert(opposite_node);
+                already_stacked.insert(other_id);
             }
         }
             
         graph.follow_edges(node, false, [&](const handle_t& next_node) {
                 edge_t edge = graph.edge_handle(node, next_node);
-                
                 // does this edge point forward or backward?
                 if ((graph.get_is_reverse(node) && !backward_snarl) ||
                     (!graph.get_is_reverse(node) && !forward_snarl)) {
-                        
+
                         to_return.second.insert(edge);
                         
-                        if (!already_stacked.count(next_node)) {
+                        if (!already_stacked.count(graph.get_id(next_node))) {
                             
                             stack.push_back(next_node);
-                            already_stacked.insert(next_node);
+                            already_stacked.insert(graph.get_id(next_node));
                         }
                 }
             });
         
-        graph.follow_edges(node, true, [&](const handle_t& next_node) {
-                edge_t edge = graph.edge_handle(node, next_node);
+        graph.follow_edges(node, true, [&](const handle_t& prev_node) {
+                edge_t edge = graph.edge_handle(prev_node, node);
                 // does this edge point forward or backward?
                 if ((graph.get_is_reverse(node) && !forward_snarl) ||
                     (!graph.get_is_reverse(node) && !backward_snarl)) {
-                        
+
                     to_return.second.insert(edge);
                         
-                    if (!already_stacked.count(next_node)) {
+                    if (!already_stacked.count(graph.get_id(prev_node))) {
                             
-                        stack.push_back(next_node);
-                        already_stacked.insert(next_node);
+                        stack.push_back(prev_node);
+                        already_stacked.insert(graph.get_id(prev_node));
                     }
                 }
             });
@@ -1284,17 +1289,17 @@ pair<unordered_set<handle_t>, unordered_set<edge_t> > SnarlManager::deep_content
         
     pair<unordered_set<handle_t>, unordered_set<edge_t> > to_return;
         
-    unordered_set<handle_t> already_stacked;
+    unordered_set<id_t> already_stacked;
         
     // initialize stack for DFS traversal of site
     vector<handle_t> stack;
-        
+
     handle_t start_node = graph.get_handle(snarl->start().node_id());
     handle_t end_node = graph.get_handle(snarl->end().node_id());
         
     // mark the boundary nodes as already stacked so that paths will terminate on them
-    already_stacked.insert(start_node);
-    already_stacked.insert(end_node);
+    already_stacked.insert(graph.get_id(start_node));
+    already_stacked.insert(graph.get_id(end_node));
         
     // add boundary nodes as directed
     if (include_boundary_nodes) {
@@ -1305,23 +1310,29 @@ pair<unordered_set<handle_t>, unordered_set<edge_t> > SnarlManager::deep_content
     // stack up the nodes one edge inside the snarl from the start
     graph.follow_edges(start_node, snarl->start().backward(), [&](const handle_t& node) {            
 
-            if (!already_stacked.count(node)) {
+            if (!already_stacked.count(graph.get_id(node))) {
                 stack.push_back(node);
-                already_stacked.insert(node);
+                already_stacked.insert(graph.get_id(node));
             }
-            
-            to_return.second.insert(graph.edge_handle(start_node, node));
+            if (snarl->start().backward()) {
+                to_return.second.insert(graph.edge_handle(node, start_node));
+            } else {
+                to_return.second.insert(graph.edge_handle(start_node, node));
+            }
         });
       
     // stack up the nodes one edge inside the snarl from the end
-    graph.follow_edges(end_node, !snarl->start().backward(), [&](const handle_t& node) {
+    graph.follow_edges(end_node, !snarl->end().backward(), [&](const handle_t& node) {
             
-            if (!already_stacked.count(node)) {
+            if (!already_stacked.count(graph.get_id(node))) {
                 stack.push_back(node);
-                already_stacked.insert(node);
+                already_stacked.insert(graph.get_id(node));
             }
-            
-            to_return.second.insert(graph.edge_handle(node, end_node));
+            if (snarl->end().backward()) {
+                to_return.second.insert(graph.edge_handle(end_node, node));
+            } else {
+                to_return.second.insert(graph.edge_handle(node, end_node));
+            }
         });
         
     // traverse the snarl with DFS, skipping over any child snarls
@@ -1335,16 +1346,23 @@ pair<unordered_set<handle_t>, unordered_set<edge_t> > SnarlManager::deep_content
         // record that this node is in the snarl
         to_return.first.insert(node);
 
-        auto visit_edge = [&] (const handle_t& next_node) {
+        graph.follow_edges(node, false, [&] (const handle_t& next_node) {
             edge_t edge = graph.edge_handle(node, next_node);
             to_return.second.insert(edge);
-            if (!already_stacked.count(next_node)) {
+            if (!already_stacked.count(graph.get_id(next_node))) {
                 stack.push_back(next_node);
-                already_stacked.insert(next_node);
-                }
-        };
-        graph.follow_edges(node, false, visit_edge);
-        graph.follow_edges(node, true, visit_edge);
+                already_stacked.insert(graph.get_id(next_node));
+            }
+            });
+        
+        graph.follow_edges(node, true, [&] (const handle_t& prev_node) {
+            edge_t edge = graph.edge_handle(prev_node, node);
+            to_return.second.insert(edge);
+            if (!already_stacked.count(graph.get_id(prev_node))) {
+                stack.push_back(prev_node);
+                already_stacked.insert(graph.get_id(prev_node));
+            }
+            });
     }
         
     return to_return;
