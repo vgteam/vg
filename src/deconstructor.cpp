@@ -413,9 +413,10 @@ void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph, SnarlMa
 }
 
 bool Deconstructor::check_max_nodes(const Snarl* snarl)  {
-    unordered_set<handle_t> nodeset = snarl_manager->deep_contents(snarl, *graph, false).first;
+    unordered_set<id_t> nodeset = snarl_manager->deep_contents(snarl, *graph, false).first;
     int node_count = 0;
-    for (auto node : nodeset) {
+    for (auto node_id : nodeset) {
+        handle_t node = graph->get_handle(node_id);
         if (graph->get_degree(node, true) > 1 || graph->get_degree(node, false) > 1) {
             ++node_count;
             if (node_count > max_nodes_for_exhaustive) {

@@ -620,10 +620,10 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
         
         Support child_max;
         size_t child_size = 0;
-        for (handle_t handle : snarl_manager.deep_contents(snarl_manager.manage(child),
+        for (id_t node_id : snarl_manager.deep_contents(snarl_manager.manage(child),
             augmented.graph, true).first) {
             // For every node in the child
-            Node* node = augmented.graph.get_node(augmented.graph.get_id(handle));
+            Node* node = augmented.graph.get_node(node_id);
             
             if (coverage_counted.count(node)) {
                 // Already used by another child snarl on this traversal
@@ -2307,8 +2307,8 @@ void SupportCaller::call(
                 auto contents = site_manager.deep_contents(site, augmented.graph, true);
 #pragma omp critical (covered)            
                 {
-                    for (auto& node_handle : contents.first) {
-                        Node* node = augmented.graph.get_node(augmented.graph.get_id(node_handle));
+                    for (auto& node_id : contents.first) {
+                        Node* node = augmented.graph.get_node(node_id);
                         covered_nodes.insert(node);
                     }
                     for (auto& edge_handle : contents.second) {

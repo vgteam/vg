@@ -672,16 +672,16 @@ namespace unittest {
                     //Check clusters of 15 random positions 
                     const Snarl* snarl1 = allSnarls[randSnarlIndex(generator)];
 
-                    pair<unordered_set<handle_t>, unordered_set<edge_t>> contents1 =
+                    pair<unordered_set<id_t>, unordered_set<edge_t>> contents1 =
                            snarl_manager.shallow_contents(snarl1, graph, true);
   
-                    vector<handle_t> nodes1 (contents1.first.begin(), contents1.first.end());
+                    vector<id_t> nodes1 (contents1.first.begin(), contents1.first.end());
 
 
                     uniform_int_distribution<int> randNodeIndex1(0,nodes1.size()-1);
  
-                    handle_t node1 = nodes1[randNodeIndex1(generator)];
-                    id_t nodeID1 = graph.get_id(node1);
+                    id_t nodeID1 = nodes1[randNodeIndex1(generator)];
+                    handle_t node1 = graph.get_handle(nodeID1);
  
                     off_t offset1 = uniform_int_distribution<int>(0,graph.get_length(node1) - 1)(generator);
 

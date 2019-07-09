@@ -134,8 +134,8 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
              graph.get_node(5), graph.get_node(6)};
                 
         REQUIRE(nodes.size() == correct.size());
-        for (const handle_t& handle : nodes) {
-            REQUIRE(correct.count(graph.get_node(graph.get_id(handle))));
+        for (id_t node_id : nodes) {
+            REQUIRE(correct.count(graph.get_node(node_id)));
         }
       }
             

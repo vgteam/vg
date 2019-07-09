@@ -27,7 +27,7 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
    
     // Get the Snarl's nodes
     unordered_set<int64_t> snarl_node_ids;
-    pair<unordered_set<handle_t>, unordered_set<edge_t> > contents = snarlmanager.shallow_contents(&site, graph, true);
+    pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarlmanager.shallow_contents(&site, graph, true);
 
 
     // Get the variant paths at the snarl nodes.
@@ -45,8 +45,8 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
 
 
     // Collect our paths which cross our snarl's nodes.
-    for (const handle_t& handle : contents.first){
-        Node* node = graph.get_node(graph.get_id(handle));
+    for (id_t node_id : contents.first){
+        Node* node = graph.get_node(node_id);
         //cerr << "Processing node " << id << endl;
         set<string> p_of_n = graph.paths.of_node(node->id());
 
@@ -974,12 +974,12 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     
     // Get the site's nodes and edges, including our outer boundary nodes, not used inside children.
     // TODO: can we not include the child boundaries? Would that make things easier?
-    pair<unordered_set<handle_t>, unordered_set<edge_t>> contents = snarl_manager.shallow_contents(&site, augmented.graph, true);
+    pair<unordered_set<id_t>, unordered_set<edge_t>> contents = snarl_manager.shallow_contents(&site, augmented.graph, true);
     
     // Copy its node set
     unordered_set<Node*> nodes_left;
-    for (const handle_t& handle : contents.first) {
-        nodes_left.insert(augmented.graph.get_node(augmented.graph.get_id(handle)));
+    for (id_t node_id : contents.first) {
+        nodes_left.insert(augmented.graph.get_node(node_id));
     }
 
     // Trace the ref path through the site.
@@ -995,8 +995,8 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
          << " and ends with " << to_node_traversal(site.end(), augmented.graph)
          << " at " << site_end << endl;
         
-    for (const handle_t& handle : nodes_left) {
-        cerr << "\tContains node " << graph.get_id(handle) << endl;
+    for (Node* node : nodes_left) {
+        cerr << "\tContains node " << node->id() << endl;
     }
 #endif
 
@@ -1071,7 +1071,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
                 // Until we find something in this parent again that isn't the
                 // closing visit of a child snarl. We'll look at what we find
                 // next.
-            } while (!contents.first.count(augmented.graph.get_handle(here->id())));
+            } while (!contents.first.count(here->id()));
             
             if (snarl_manager.into_which_snarl(reverse(found_visit)) != nullptr) {
                 // We hit the end node of the child snarl.
@@ -1094,7 +1094,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             
             // Make sure we actually found something meeting those criteria.
             // TODO: the path is not allowed to end inside the snarl.
-            assert(contents.first.count(augmented.graph.get_handle(here->id())));
+            assert(contents.first.count(here->id()));
         } else {
             // Otherwise, visit this node
             
@@ -1194,12 +1194,12 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         for(auto& visit : path) {
             if (visit.node_id() != 0) {
                 // Make sure the site actually has the nodes we're visiting.
-                if (!contents.first.count(augmented.graph.get_handle(visit.node_id()))) {
+                if (!contents.first.count(visit.node_id())) {
                     cerr << "error[RepresentativeTraversalFinder::find_traversals]: Node "
                         << visit.node_id() << " not in snarl " << pb2json(site) << " contents:" << endl;
                     
-                    for (auto& node_handle : contents.first) {
-                        cerr << "\t" << augmented.graph.get_id(node_handle) << endl;
+                    for (auto& node_id : contents.first) {
+                        cerr << "\t" << node_id << "," << endl;
                     }
                     
                     cerr << "children:" << endl;
@@ -1433,8 +1433,8 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     cerr << "Explore " << contents.first.size() << " nodes" << endl;
 #endif
 
-    for (const handle_t& handle : contents.first) {
-        Node* node = augmented.graph.get_node(augmented.graph.get_id(handle));
+    for (id_t node_id : contents.first) {
+        Node* node = augmented.graph.get_node(node_id);
         // Find the bubble for each node
         
         if (snarl_manager.into_which_snarl(node->id(), true) || snarl_manager.into_which_snarl(node->id(), false)) {
@@ -2530,10 +2530,10 @@ void VCFTraversalFinder::delete_variant_index() {
 vector<vcflib::Variant*> VCFTraversalFinder::get_variants_in_site(const Snarl& site) {
     vector<vcflib::Variant*> site_variants;
 
-    pair<unordered_set<handle_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(&site, graph, false);
+    pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(&site, graph, false);
 
-    for (auto handle : contents.first) {
-        auto map_it = node_to_variant.find(graph.get_id(handle));
+    for (auto node_id : contents.first) {
+        auto map_it = node_to_variant.find(node_id);
         if (map_it != node_to_variant.end()) {
             for (auto var : map_it->second) {
                 site_variants.push_back(var);

@@ -1154,10 +1154,10 @@ void SnarlManager::regularize() {
     
 }
     
-pair<unordered_set<handle_t>, unordered_set<edge_t> > SnarlManager::shallow_contents(const Snarl* snarl, const HandleGraph& graph,
-                                                                                     bool include_boundary_nodes) const {
+pair<unordered_set<id_t>, unordered_set<edge_t> > SnarlManager::shallow_contents(const Snarl* snarl, const HandleGraph& graph,
+                                                                                 bool include_boundary_nodes) const {
     
-    pair<unordered_set<handle_t>, unordered_set<edge_t> > to_return;
+    pair<unordered_set<id_t>, unordered_set<edge_t> > to_return;
         
     unordered_set<id_t> already_stacked;
         
@@ -1173,8 +1173,8 @@ pair<unordered_set<handle_t>, unordered_set<edge_t> > SnarlManager::shallow_cont
         
     // add boundary nodes as directed
     if (include_boundary_nodes) {
-        to_return.first.insert(start_node);
-        to_return.first.insert(end_node);
+        to_return.first.insert(graph.get_id(start_node));
+        to_return.first.insert(graph.get_id(end_node));
     }
 
     // stack up the nodes one edge inside the snarl from the start
@@ -1214,7 +1214,7 @@ pair<unordered_set<handle_t>, unordered_set<edge_t> > SnarlManager::shallow_cont
         stack.pop_back();
             
         // record that this node is in the snarl
-        to_return.first.insert(node);
+        to_return.first.insert(graph.get_id(node));
             
         const Snarl* forward_snarl = into_which_snarl(graph.get_id(node), false);
         const Snarl* backward_snarl = into_which_snarl(graph.get_id(node), true);
@@ -1284,10 +1284,10 @@ pair<unordered_set<handle_t>, unordered_set<edge_t> > SnarlManager::shallow_cont
     return to_return;
 }
     
-pair<unordered_set<handle_t>, unordered_set<edge_t> > SnarlManager::deep_contents(const Snarl* snarl, const HandleGraph& graph,
-                                                                                  bool include_boundary_nodes) const {
+pair<unordered_set<id_t>, unordered_set<edge_t> > SnarlManager::deep_contents(const Snarl* snarl, const HandleGraph& graph,
+                                                                              bool include_boundary_nodes) const {
         
-    pair<unordered_set<handle_t>, unordered_set<edge_t> > to_return;
+    pair<unordered_set<id_t>, unordered_set<edge_t> > to_return;
         
     unordered_set<id_t> already_stacked;
         
@@ -1303,8 +1303,8 @@ pair<unordered_set<handle_t>, unordered_set<edge_t> > SnarlManager::deep_content
         
     // add boundary nodes as directed
     if (include_boundary_nodes) {
-        to_return.first.insert(start_node);
-        to_return.first.insert(end_node);
+        to_return.first.insert(graph.get_id(start_node));
+        to_return.first.insert(graph.get_id(end_node));
     }
 
     // stack up the nodes one edge inside the snarl from the start
@@ -1344,7 +1344,7 @@ pair<unordered_set<handle_t>, unordered_set<edge_t> > SnarlManager::deep_content
         stack.pop_back();
             
         // record that this node is in the snarl
-        to_return.first.insert(node);
+        to_return.first.insert(graph.get_id(node));
 
         graph.follow_edges(node, false, [&] (const handle_t& next_node) {
             edge_t edge = graph.edge_handle(node, next_node);
@@ -1433,7 +1433,7 @@ vector<Visit> SnarlManager::visits_right(const Visit& visit, const HandleGraph& 
 
     graph.follow_edges(graph.get_handle(right_side.node), !right_side.is_end, [&](const handle_t& next_handle) {
         // For every NodeSide attached to the right side of this visit
-        NodeSide attached(graph.get_id(next_handle), !graph.get_is_reverse(next_handle));
+        NodeSide attached(graph.get_id(next_handle), right_side.is_end ? graph.get_is_reverse(next_handle) : !graph.get_is_reverse(next_handle));
             
 #ifdef debug
         cerr << "\tFind NodeSide " << attached << endl;

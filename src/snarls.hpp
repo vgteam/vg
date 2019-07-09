@@ -518,13 +518,13 @@ public:
         
     /// Returns the Nodes and Edges contained in this Snarl but not in any child Snarls (always includes the
     /// Nodes that form the boundaries of child Snarls, optionally includes this Snarl's own boundary Nodes)
-    pair<unordered_set<handle_t>, unordered_set<edge_t> > shallow_contents(const Snarl* snarl, const HandleGraph& graph,
-                                                                           bool include_boundary_nodes) const;
+    pair<unordered_set<id_t>, unordered_set<edge_t> > shallow_contents(const Snarl* snarl, const HandleGraph& graph,
+                                                                       bool include_boundary_nodes) const;
         
     /// Returns the Nodes and Edges contained in this Snarl, including those in child Snarls (optionally
     /// includes Snarl's own boundary Nodes)
-    pair<unordered_set<handle_t>, unordered_set<edge_t> > deep_contents(const Snarl* snarl, const HandleGraph& graph,
-                                                                        bool include_boundary_nodes) const;
+    pair<unordered_set<id_t>, unordered_set<edge_t> > deep_contents(const Snarl* snarl, const HandleGraph& graph,
+                                                                    bool include_boundary_nodes) const;
         
     /// Look left from the given visit in the given graph and gets all the
     /// attached Visits to nodes or snarls.
@@ -731,7 +731,7 @@ inline Mapping to_mapping(const Visit& visit, std::function<size_t(id_t)> node_l
     
 /// Converts a Visit to a Mapping. Throws an exception if the Visit is of a Snarl instead
 /// of a Node. Uses a graph to get node length.
-inline Mapping to_mapping(const Visit& visit, VG& vg);
+inline Mapping to_mapping(const Visit& visit, const HandleGraph& vg);
     
 /// Copies the boundary Visits from one Snarl into another
 inline void transfer_boundary_info(const Snarl& from, Snarl& to);
@@ -933,9 +933,9 @@ inline Mapping to_mapping(const Visit& visit, std::function<size_t(id_t)> node_l
     return mapping;
 }
     
-inline Mapping to_mapping(const Visit& visit, VG& graph) {
+inline Mapping to_mapping(const Visit& visit, const HandleGraph& graph) {
     return to_mapping(visit, [&](id_t id) {
-            return graph.get_node(id)->sequence().size();
+            return graph.get_length(graph.get_handle(id));
         });
 }
     

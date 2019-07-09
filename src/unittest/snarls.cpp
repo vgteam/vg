@@ -22,10 +22,10 @@ namespace vg {
     namespace unittest {
 
     static pair<unordered_set<Node*>, unordered_set<Edge*> > pb_contents(
-      VG& graph, const pair<unordered_set<handle_t>, unordered_set<edge_t> >& contents) {
+      VG& graph, const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents) {
         pair<unordered_set<Node*>, unordered_set<Edge*> > ret;
-        for (const handle_t& handle : contents.first) {
-            ret.first.insert(graph.get_node(graph.get_id(handle)));
+        for (id_t node_id : contents.first) {
+            ret.first.insert(graph.get_node(node_id));
         }
         for (const edge_t& edge_handle : contents.second) {
             Edge* edge = graph.get_edge(NodeTraversal(graph.get_node(graph.get_id(edge_handle.first)),

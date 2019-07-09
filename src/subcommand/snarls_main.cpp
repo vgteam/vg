@@ -303,9 +303,10 @@ int main_snarl(int argc, char** argv) {
             snarl_buffer.push_back(*snarl);
             vg::io::write_buffered(cout, snarl_buffer, buffer_size);
 
-            auto check_max_nodes = [&graph, &max_nodes](const unordered_set<handle_t>& nodeset)  {
+            auto check_max_nodes = [&graph, &max_nodes](const unordered_set<vg::id_t>& nodeset)  {
                 int node_count = 0;
-                for (auto node : nodeset) {
+                for (auto node_id : nodeset) {
+                    handle_t node = graph->get_handle(node_id);
                     if (graph->get_degree(node, false) > 1 || graph->get_degree(node, true) > 1) {
                         ++node_count;
                         if (node_count > max_nodes) {

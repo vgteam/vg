@@ -60,7 +60,7 @@ vector<SnarlTraversal> NestedTraversalFinder::find_traversals(const Snarl& site)
     };
     
     // Get our contained nodes and edges
-    unordered_set<handle_t> nodes;
+    unordered_set<id_t> nodes;
     unordered_set<edge_t> edges;
     
     // Grab them, including child boundaries but not our boundaries (which we're
@@ -69,8 +69,8 @@ vector<SnarlTraversal> NestedTraversalFinder::find_traversals(const Snarl& site)
     
     for(auto it = nodes.begin(); it != nodes.end(); ) {
         // For each node
-        if (snarl_manager.into_which_snarl(augmented.graph.get_id(*it), false) ||
-            snarl_manager.into_which_snarl(augmented.graph.get_id(*it), true)) {
+        if (snarl_manager.into_which_snarl(*it, false) ||
+            snarl_manager.into_which_snarl(*it, true)) {
         
             // If the node is a child boundary, don't use it. Use visits to the
             // child instead.
@@ -82,9 +82,9 @@ vector<SnarlTraversal> NestedTraversalFinder::find_traversals(const Snarl& site)
         }
     }  
     
-    for (const handle_t handle : nodes) {
+    for (id_t node_id : nodes) {
         // Find bubbles for nodes
-        Node* node = augmented.graph.get_node(augmented.graph.get_id(handle));
+        Node* node = augmented.graph.get_node(node_id);
         emit_path(find_bubble(node, nullptr, nullptr, site));
     }
     
