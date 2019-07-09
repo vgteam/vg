@@ -1,7 +1,7 @@
 #include "deconstructor.hpp"
 #include "traversal_finder.hpp"
 
-#define debug
+//#define debug
 
 using namespace std;
 
@@ -90,14 +90,6 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
         --v.position;
         assert(v.position >= 1);
     }
-
-    if (v.position == 7969952) {
-      for (auto trav : travs) {
-        cerr << "TRAV : " << pb2json(trav) <<endl;
-      }
-           cerr << "refix " << ref_path_idx <<endl;
-    }
-      
 
     v.updateAlleleIndexes();
 
@@ -287,10 +279,6 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     }
     char prev_char = ::toupper(graph->get_sequence(graph->get_handle(prev_visit.node_id()))[offset]);
 
-    if (v.position == 7969952) {
-      cerr << "SITE " << pb2json(*snarl) << endl;
-    }
-
     // Convert the snarl traversals to strings and add them to the variant
     vector<int> trav_to_allele = get_alleles(v, named_travs.first, ref_trav_idx, prev_char);
 
@@ -382,7 +370,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph, SnarlMa
                                                                                                    *snarl_manager,
                                                                                                    reads_by_name,
                                                                                                    1,
-                                                                                                   1000000,
+                                                                                                   100,
                                                                                                    true));
     
     if (!path_restricted) {
