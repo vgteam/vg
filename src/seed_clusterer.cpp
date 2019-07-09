@@ -686,7 +686,8 @@ cerr << "  Combining this cluster from the left " ;
 #endif
                         combine_snarl_clusters(j, snarl_cluster_left, 
                                                to_erase, snarl_dists);
-                        fragment_snarl_cluster_left = tree_state.fragment_union_find.find_group(j);
+                        fragment_snarl_cluster_left = fragment_snarl_cluster_left == -1 ? j :
+                                                    tree_state.fragment_union_find.find_group(j);
                     } else if (tree_state.fragment_distance_limit != 0 &&
                         snarl_cluster_left != -1 &&
                         snarl_clusters.best_left != -1 && snarl_dists.first != -1 && 
@@ -736,7 +737,8 @@ cerr << "  Combining this cluster from the right" << endl;
 #endif
                         combine_snarl_clusters(j, snarl_cluster_right, 
                                                to_erase, snarl_dists);
-                        fragment_snarl_cluster_right = tree_state.fragment_union_find.find_group(j);
+                        fragment_snarl_cluster_right = fragment_snarl_cluster_right == -1 ? j :
+                                        tree_state.fragment_union_find.find_group(j);
                     } else if (tree_state.fragment_distance_limit != 0 &&
                         snarl_cluster_right != -1 &&
                         snarl_clusters.best_right != -1 && snarl_dists.second != -1 && 
@@ -1283,7 +1285,8 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                             if (tree_state.fragment_distance_limit != 0) {
                                 //If we're keeping track of fragment too, already unioned
                                 //but need to get the new group
-                                fragment_group_l_l = tree_state.fragment_union_find.find_group(fragment_group_l_l);
+                                fragment_group_l_l = fragment_group_l_l == -1 ? c_group :
+                                        tree_state.fragment_union_find.find_group(fragment_group_l_l);
                             }
                         } else if (tree_state.fragment_distance_limit != 0 
                                  && dist_l_l != -1 && dists_c.first != -1 
@@ -1309,7 +1312,8 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                             combine_clusters(c_group, group_l_r, new_dists);
 
                             if (tree_state.fragment_distance_limit != 0) {
-                                fragment_group_l_r = tree_state.fragment_union_find.find_group(fragment_group_l_r);
+                                fragment_group_l_r = fragment_group_l_r == -1 ? c_group : 
+                                           tree_state.fragment_union_find.find_group(fragment_group_l_r);
                             }
                         } else if (tree_state.fragment_distance_limit != 0 
                             &&dist_l_r != -1 && dists_c.first != -1 
@@ -1326,19 +1330,20 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                         if (dist_r_l != -1 && dists_c.second != -1 
                             && other_node_clusters.best_left != -1 
                             && dist_r_l + dists_c.second + other_node_clusters.best_left-1
-                                                 <= tree_state.fragment_distance_limit) {
+                                                 <= tree_state.read_distance_limit) {
                             combine_clusters(c_group, group_r_l, new_dists);
 
                             if (tree_state.fragment_distance_limit != 0) {
                                 //If we're keeping track of fragment too, already unioned
                                 //but need to get the new group
-                                fragment_group_r_l = tree_state.fragment_union_find.find_group(fragment_group_r_l);
+                                fragment_group_r_l = fragment_group_r_l == -1 ? c_group :
+                                            tree_state.fragment_union_find.find_group(fragment_group_r_l);
                             }
                         } else if (tree_state.fragment_distance_limit != 0 
                                 &&dist_r_l != -1 && dists_c.second != -1 
                                 && other_node_clusters.best_left != -1 
                                 && dist_r_l + dists_c.second + other_node_clusters.best_left-1
-                                                 <= tree_state.read_distance_limit) {
+                                                 <= tree_state.fragment_distance_limit) {
                             //Same fragment
                             if (fragment_group_r_l == -1) {
                                 fragment_group_r_l = c_group;
@@ -1350,11 +1355,12 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                         if (dist_r_r != -1 && dists_c.second != -1 
                             && other_node_clusters.best_right != -1 
                            && dist_r_r + dists_c.second + other_node_clusters.best_right-1
-                                                 <= tree_state.fragment_distance_limit) {
+                                                 <= tree_state.read_distance_limit) {
                             combine_clusters(c_group, group_r_r, new_dists);
 
                             if (tree_state.fragment_distance_limit != 0) {
-                                fragment_group_r_r = tree_state.fragment_union_find.find_group(fragment_group_r_r);
+                                fragment_group_r_r = fragment_group_r_r == -1 ? c_group :
+                                            tree_state.fragment_union_find.find_group(fragment_group_r_r);
                             }
                         } else if (tree_state.fragment_distance_limit != 0 
                             &&dist_r_r != -1 && dists_c.second != -1 
@@ -1398,7 +1404,8 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                             if (tree_state.fragment_distance_limit != 0) {
                                 //If we're keeping track of fragment too, already unioned
                                 //but need to get the new group
-                                fragment_group_l_l = tree_state.fragment_union_find.find_group(fragment_group_l_l);
+                                fragment_group_l_l = fragment_group_l_l == -1 ? k_group :
+                                        tree_state.fragment_union_find.find_group(fragment_group_l_l);
                             }
                         } else if (tree_state.fragment_distance_limit != 0 
                            && dist_l_l != -1 && curr_child_clusters.best_left != -1 
@@ -1421,7 +1428,8 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                             combine_clusters(k_group, group_l_r, dists_k);
 
                             if (tree_state.fragment_distance_limit != 0) {
-                                fragment_group_l_r = tree_state.fragment_union_find.find_group(fragment_group_l_r);
+                                fragment_group_l_r = fragment_group_l_r == -1 ? k_group :
+                                        tree_state.fragment_union_find.find_group(fragment_group_l_r);
                             }
                         } else if (tree_state.fragment_distance_limit != 0 
                             && dist_l_r != -1 && curr_child_clusters.best_left != -1 
@@ -1446,7 +1454,8 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                             if (tree_state.fragment_distance_limit != 0) {
                                 //If we're keeping track of fragment too, already unioned
                                 //but need to get the new group
-                                fragment_group_r_l = tree_state.fragment_union_find.find_group(fragment_group_r_l);
+                                fragment_group_r_l = fragment_group_r_l == -1 ? k_group :
+                                        tree_state.fragment_union_find.find_group(fragment_group_r_l);
                             }
                         } else if (tree_state.fragment_distance_limit != 0 
                             && dist_r_l != -1 && curr_child_clusters.best_right != -1 
@@ -1469,7 +1478,8 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                             combine_clusters(k_group, group_r_r, dists_k);
 
                             if (tree_state.fragment_distance_limit != 0) {
-                                fragment_group_r_r = tree_state.fragment_union_find.find_group(fragment_group_r_r);
+                                fragment_group_r_r = fragment_group_r_r == -1 ? k_group :
+                                        tree_state.fragment_union_find.find_group(fragment_group_r_r);
                             }
                         } else if (tree_state.fragment_distance_limit != 0 
                            && dist_r_r != -1 && curr_child_clusters.best_right != -1 
