@@ -137,7 +137,6 @@ class SnarlSeedClusterer {
             //These values are only relevant for seeds that represent a cluster
             //in union_find_reads
             vector<pair<int64_t, int64_t>> read_cluster_dists;
-            vector<pair<int64_t, int64_t>> fragment_cluster_dists;
 
 
 
@@ -176,7 +175,6 @@ class SnarlSeedClusterer {
                        int64_t fragment_distance_limit) :
                 seeds(seeds),
                 read_cluster_dists(seeds->size(), make_pair(-1, -1)),
-                fragment_cluster_dists(seeds->size(), make_pair(-1, -1)),
                 read_union_find (seeds->size(), false),
                 fragment_union_find (seeds->size(), false),
                 read_distance_limit(read_distance_limit),

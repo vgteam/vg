@@ -2,7 +2,6 @@
 
 //#define DEBUG 
 
-//TODO: I don't think we need fragment_cluster_dists
 namespace vg {
 
     SnarlSeedClusterer::SnarlSeedClusterer( MinimumDistanceIndex& dist_index) : 
@@ -317,8 +316,6 @@ cerr << endl << "New cluster calculation:" << endl;
             group_id = tree_state.read_union_find.find_group(group_id);
             tree_state.read_cluster_dists[group_id] = make_pair(node_clusters.best_left, 
                                                 node_clusters.best_right);
-            tree_state.fragment_cluster_dists[group_id] = make_pair(node_clusters.best_left, 
-                                                node_clusters.best_right);
             node_clusters.cluster_heads.insert(group_id);
 #ifdef DEBUG 
             assert (group_id == tree_state.read_union_find.find_group(group_id));
@@ -387,8 +384,6 @@ cerr << endl << "New cluster calculation:" << endl;
                     //cluster these together
                     tree_state.fragment_union_find.union_groups(s.first, fragment_last_cluster);
                     fragment_last_cluster = tree_state.fragment_union_find.find_group(s.first);
-                    tree_state.fragment_cluster_dists[fragment_last_cluster] = 
-                                make_pair(fragment_last_left, node_length-s.second+1);
                 }
             } else {
                 //This becomes a new cluster
@@ -402,15 +397,11 @@ cerr << endl << "New cluster calculation:" << endl;
                         //If this is a new read cluster but the same fragment cluster
                         tree_state.fragment_union_find.union_groups(s.first, fragment_last_cluster);
                         fragment_last_cluster = tree_state.fragment_union_find.find_group(s.first);
-                        tree_state.fragment_cluster_dists[fragment_last_cluster] = 
-                                                make_pair(fragment_last_left, node_length-s.second+1);
 
                     } else {
                         //If this is a new fragment cluster as well
                         fragment_last_cluster = s.first;
                         fragment_last_left = s.second;
-                        tree_state.fragment_cluster_dists[s.first] = 
-                          make_pair(fragment_last_left, node_length - s.second + 1);
                     }
                 }
             }
