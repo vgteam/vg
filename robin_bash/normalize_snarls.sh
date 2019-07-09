@@ -23,17 +23,18 @@ echo compiling!
 echo running!
 
 ## testing vg convert
-TEST_CONVERT_FILE=test/robin_haplotypes/test_convert/test_convert
-vg convert -v $TEST_CONVERT_FILE.vg -A >$TEST_CONVERT_FILE.hg
-vg convert -a $TEST_CONVERT_FILE.hg -V >$TEST_CONVERT_FILE.vg
+# TEST_CONVERT_FILE=test/robin_haplotypes/test_convert/test_convert
+# TEST_CONVERT_FILE=test/robin_chromosomes/test_convert/test_convert
+# vg convert -v $TEST_CONVERT_FILE.vg -A >$TEST_CONVERT_FILE.hg
+# vg convert -a $TEST_CONVERT_FILE.hg -V >$TEST_CONVERT_FILE.vg
 
-# ##running normalize_snarls on a full chromosome.
-# VG_DIR=/public/groups/cgl/graph-genomes/jmonlong/hgsvc/haps/chr10
-# TEST_DIR=test/robin_chromosomes/chr10
-# FILE_BASENAME=hgsvc_chr10_construct
+##running normalize_snarls on a full chromosome.
+VG_DIR=/public/groups/cgl/graph-genomes/jmonlong/hgsvc/haps/chr10
+TEST_DIR=test/robin_chromosomes/chr10
+FILE_BASENAME=hgsvc_chr10_construct
 
 # # Jordan's buggy command example
-# vg convert -v /public/groups/cgl/graph-genomes/jmonlong/hgsvc/haps/chr10/hgsvc_chr10_construct.vg -A test/robin_chromosomes/chr10/hgsvc_chr10_construct_test.hg -V >test/robin_chromosomes/chr10/hgsvc_chr10_construct_test.vg
+# vg convert -v /public/groups/cgl/graph-genomes/jmonlong/hgsvc/haps/chr10/hgsvc_chr10_construct.vg -A >test/robin_chromosomes/chr10/hgsvc_chr10_construct_test.hg
 # echo halfway_there
 # vg convert -a test/robin_chromosomes/chr10/hgsvc_chr10_construct_test.hg -P >test/robin_chromosomes/chr10/hgsvc_chr10_construct_test.pg
 # echo all_done
@@ -47,9 +48,9 @@ vg convert -a $TEST_CONVERT_FILE.hg -V >$TEST_CONVERT_FILE.vg
 # Convert .vg to .hg:
 # vg convert -v $VG_DIR/$FILE_BASENAME.vg -A >$TEST_DIR/$FILE_BASENAME.hg
 # echo "CONVERTED VG TO HG"
-# # Run normalize algorithm:
-# vg normalize -n -g $TEST_DIR/$FILE_BASENAME.gbwt -s $TEST_DIR/$FILE_BASENAME.snarls $TEST_DIR/$FILE_BASENAME.hg >$TEST_DIR/$FILE_BASENAME_normalized.hg
-# echo "NORMALIZED HG MADE"
+# Run normalize algorithm:
+vg normalize -g $TEST_DIR/$FILE_BASENAME.gbwt -s $TEST_DIR/$FILE_BASENAME.snarls $TEST_DIR/$FILE_BASENAME.hg >$TEST_DIR/$FILE_BASENAME_normalized.hg
+echo "NORMALIZED HG MADE"
 # # convert .hg to .vg
 # vg convert -a $TEST_DIR/$FILE_BASENAME_normalized.hg -V $TEST_DIR/$FILE_BASENAME_normalized.vg
 # echo "CONVERTED BACK TO VG."

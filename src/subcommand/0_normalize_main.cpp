@@ -22,6 +22,8 @@ void help_normalize(char** argv) {
          << endl
          << "options:" << endl
          << "    -n, --normalize       normalizes a currently-hardcoded snarl from a graph." << endl;
+         << "    -g, --gbwt       gbwt corresponding to hashgraph." << endl;
+         << "    -s, --snarls       snarls file corresponding to hashgraph." << endl;
 }
 
 int main_normalize(int argc, char** argv) {
@@ -32,6 +34,8 @@ int main_normalize(int argc, char** argv) {
     }
 
     bool normalize = false;
+    string gbwt;
+    string snarls;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -40,12 +44,13 @@ int main_normalize(int argc, char** argv) {
 
         {
             {"help", no_argument, 0, 'h'},
-            {"normalize", no_argument, 0, 'n'}, //TODO: change no_argument to required_argument, assuming we want one.
+            {"gbwt", required_argument, 0, 'g'},
+            {"snarls", required_argument, 0, 's'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n", //TODO: change to "n:" later, when we have something to specify.
+        c = getopt_long (argc, argv, "g:s:h", 
                 long_options, &option_index);
 
 
@@ -56,9 +61,13 @@ int main_normalize(int argc, char** argv) {
         switch (c)
         {
 
-        case 'n':
+        case 'g':
+            gbwt = optarg;
             normalize = true;
-        }
+        
+        case 's':
+            snarls = optarg;
+        
     }
 
     sglib::HashGraph* graph;
