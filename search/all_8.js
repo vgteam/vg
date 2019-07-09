@@ -10,7 +10,7 @@ var searchData=
   ['handle_5fbuffer',['handle_buffer',['../classvg_1_1VcfBuffer.html#a1d8968beb2952113ea8a724dad1e1752',1,'vg::VcfBuffer']]],
   ['handle_5fgraph',['handle_graph',['../classvg_1_1TargetValueSearch.html#a99dd4b74b5894a228a6d31174ca322de',1,'vg::TargetValueSearch::handle_graph()'],['../classvg_1_1MinDistanceClusterer.html#a6bc0aa3fb6df2824a2fe88f941312f09',1,'vg::MinDistanceClusterer::handle_graph()']]],
   ['handle_5fgraph_2ehpp',['handle_graph.hpp',['../handle__graph_8hpp.html',1,'']]],
-  ['handle_5fgraph_5fto_5fcactus',['handle_graph_to_cactus',['../namespacevg.html#a2a6d7cffb12deb3ea3f7ae293755edf4',1,'vg']]],
+  ['handle_5fgraph_5fto_5fcactus',['handle_graph_to_cactus',['../namespacevg.html#a52bc32a03993cdd0e8e8c89b8ca8ba2b',1,'vg']]],
   ['handle_5ft',['handle_t',['../namespacevg.html#aaed4a2b7bc668cf2e076733ee26e036a',1,'vg']]],
   ['handle_5ft',['handle_t',['../structhandlegraph_1_1handle__t.html',1,'handlegraph']]],
   ['handle_5fto_5fgbwt',['handle_to_gbwt',['../namespacevg.html#a1fa5cc80bff735a8803aa9f564c29994',1,'vg']]],

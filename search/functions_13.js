@@ -94,7 +94,7 @@ var searchData=
   ['set_5fwindow_5flength',['set_window_length',['../classvg_1_1Filter.html#adb96fca6a301e45c84b010f5461440a9',1,'vg::Filter']]],
   ['sha1head',['sha1head',['../namespacevg.html#a6821cd887e206752c50c1a7be764d1f5',1,'vg']]],
   ['sha1sum',['sha1sum',['../namespacevg.html#a0cada7d579d914675f53490e0488ab53',1,'vg']]],
-  ['shallow_5fcontents',['shallow_contents',['../classvg_1_1SnarlManager.html#ac2e33e1eb573d4f15cc73a681e33f241',1,'vg::SnarlManager']]],
+  ['shallow_5fcontents',['shallow_contents',['../classvg_1_1SnarlManager.html#a5271912ddac4073a02aa420e78fd9589',1,'vg::SnarlManager']]],
   ['share_5fterminal_5fpositions',['share_terminal_positions',['../classvg_1_1MultipathMapper.html#ae152e4fca517f42655c1747e0abe10d0',1,'vg::MultipathMapper']]],
   ['short_5fmode_5fname',['short_mode_name',['../prune__main_8cpp.html#adf85e917657920f23dce6cefc2ecd2b9',1,'prune_main.cpp']]],
   ['shortest_5fseq_5fpaths',['shortest_seq_paths',['../classvg_1_1BandedGlobalAligner.html#a7156058732c9d6f40226609f650944a2',1,'vg::BandedGlobalAligner']]],

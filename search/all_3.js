@@ -15,7 +15,7 @@ var searchData=
   ['cactus_5fto_5fvg',['cactus_to_vg',['../namespacevg.html#adf53e86632a6d1d4b54370e6d948d08c',1,'vg']]],
   ['cactusify',['cactusify',['../namespacevg.html#aa4d05bc207717708d48e1da09f83eec6',1,'vg']]],
   ['cactusside',['CactusSide',['../structvg_1_1CactusSide.html',1,'vg']]],
-  ['cactussnarlfinder',['CactusSnarlFinder',['../classvg_1_1CactusSnarlFinder.html#afdff5dc31b6ba5bc49fdc19e09972d0c',1,'vg::CactusSnarlFinder::CactusSnarlFinder(VG &amp;graph)'],['../classvg_1_1CactusSnarlFinder.html#aac21eac2923f69cc29bc4687725156d6',1,'vg::CactusSnarlFinder::CactusSnarlFinder(VG &amp;graph, const string &amp;hint_path)']]],
+  ['cactussnarlfinder',['CactusSnarlFinder',['../classvg_1_1CactusSnarlFinder.html#aca2a5fe4b29acbaf965a1b14543d6330',1,'vg::CactusSnarlFinder::CactusSnarlFinder(const PathHandleGraph &amp;graph)'],['../classvg_1_1CactusSnarlFinder.html#ab7b3dae2202a706ef5503ae1d6333563',1,'vg::CactusSnarlFinder::CactusSnarlFinder(const PathHandleGraph &amp;graph, const string &amp;hint_path)']]],
   ['cactussnarlfinder',['CactusSnarlFinder',['../classvg_1_1CactusSnarlFinder.html',1,'vg']]],
   ['calculate_5fand_5fsave_5falignment',['calculate_and_save_alignment',['../classvg_1_1XdropAligner.html#a7a06127b2ab0a8166107b627a7d14bc2',1,'vg::XdropAligner']]],
   ['calculate_5fconsistency',['calculate_consistency',['../classvg_1_1ConsistencyCalculator.html#a208c36e5e95ab3c538f2c16175275c39',1,'vg::ConsistencyCalculator::calculate_consistency()'],['../classvg_1_1SimpleConsistencyCalculator.html#a2e16ad074a74d98b2ba95e79d08316e8',1,'vg::SimpleConsistencyCalculator::calculate_consistency()']]],

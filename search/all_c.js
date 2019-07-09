@@ -70,7 +70,7 @@ var searchData=
   ['locus',['Locus',['../structvg_1_1Locus.html',1,'vg']]],
   ['locus',['locus',['../structvg_1_1Alignment.html#afe47b70cd7b78e97a9cf18e9c60ef4f0',1,'vg::Alignment']]],
   ['locus_5fbuffer_5fsize',['locus_buffer_size',['../classvg_1_1SupportCaller.html#ae6584c21b8d57196db570a3642e23a27',1,'vg::SupportCaller']]],
-  ['locus_5fto_5fvariant',['locus_to_variant',['../classvg_1_1Genotyper.html#acdc3a6f24680b8f44564e15e671141db',1,'vg::Genotyper']]],
+  ['locus_5fto_5fvariant',['locus_to_variant',['../classvg_1_1Genotyper.html#a55c456d612728331007f2f6c4307195f',1,'vg::Genotyper']]],
   ['log10_5fto_5fln',['log10_to_ln',['../namespacevg.html#a48d9ec9295afc7457506af4ddaf44217',1,'vg']]],
   ['log_5fbase',['log_base',['../classvg_1_1GSSWAligner.html#a5a1a7e6edc3764ff32f7815999d6345f',1,'vg::GSSWAligner']]],
   ['log_5fcontinue_5ffactor',['log_continue_factor',['../structhaplo_1_1haploMath_1_1RRMemo.html#a4a3dacc819f40fd7e5063821b133028d',1,'haplo::haploMath::RRMemo']]],

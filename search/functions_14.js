@@ -26,7 +26,7 @@ var searchData=
   ['to_5flength',['to_length',['../namespacevg.html#a5ed83dc32e575ae68b591d142eb38912',1,'vg']]],
   ['to_5flength_5fafter_5fpos',['to_length_after_pos',['../namespacevg.html#ad47f373b3433b3190f9f1c0f5f17274d',1,'vg']]],
   ['to_5flength_5fbefore_5fpos',['to_length_before_pos',['../namespacevg.html#aa40f0cfd74a9eeaa7b6ffecbc0926a6d',1,'vg']]],
-  ['to_5fmapping',['to_mapping',['../classvg_1_1mapping__t.html#a559df4267176d76fcea445a66834b1a4',1,'vg::mapping_t::to_mapping()'],['../namespacevg.html#a28be7f9898d5ad6e075e25b81df512e8',1,'vg::to_mapping(const Visit &amp;visit, std::function&lt; size_t(id_t)&gt; node_length)'],['../namespacevg.html#ace232035b9ab613b2378baa3497b5da7',1,'vg::to_mapping(const Visit &amp;visit, VG &amp;vg)']]],
+  ['to_5fmapping',['to_mapping',['../classvg_1_1mapping__t.html#a559df4267176d76fcea445a66834b1a4',1,'vg::mapping_t::to_mapping()'],['../namespacevg.html#a28be7f9898d5ad6e075e25b81df512e8',1,'vg::to_mapping(const Visit &amp;visit, std::function&lt; size_t(id_t)&gt; node_length)'],['../namespacevg.html#a128ffce6142542678bbbdc6e2e0b40cd',1,'vg::to_mapping(const Visit &amp;visit, const HandleGraph &amp;vg)']]],
   ['to_5fmultipath_5falignment',['to_multipath_alignment',['../namespacevg.html#a2d4b02bdea78f086b0e207563d7de800',1,'vg']]],
   ['to_5fnode_5ftraversal',['to_node_traversal',['../namespacevg.html#a5a2e772d69c9e45cbc1c1d1a9e6df842',1,'vg::to_node_traversal(const Visit &amp;visit, const VG &amp;graph)'],['../namespacevg.html#a2c04918053577c402e4f2cab61abd754',1,'vg::to_node_traversal(const Visit &amp;visit, VG &amp;graph)']]],
   ['to_5fnumber',['to_number',['../classvg_1_1BitString.html#a07cb174f5467485f888de26cd8b4bb6e',1,'vg::BitString']]],

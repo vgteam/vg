@@ -133,7 +133,7 @@ var searchData=
   ['alignments_5fby_5fedge',['alignments_by_edge',['../structvg_1_1AugmentedGraph.html#ab78aba710aba7ff86e2af85b359fa162',1,'vg::AugmentedGraph']]],
   ['alignments_5fby_5fnode',['alignments_by_node',['../structvg_1_1AugmentedGraph.html#a9fed1d73cde7c2a3b0b616ca0b291d37',1,'vg::AugmentedGraph']]],
   ['alignments_5fconsistent',['alignments_consistent',['../classvg_1_1Mapper.html#a5edacb959a00dcee901b42948ebf9e75',1,'vg::Mapper']]],
-  ['all_5fchildren_5ftrivial',['all_children_trivial',['../classvg_1_1SnarlManager.html#a0fac44cd969db5961b536197bcee8f8f',1,'vg::SnarlManager']]],
+  ['all_5fchildren_5ftrivial',['all_children_trivial',['../classvg_1_1SnarlManager.html#afe563c20786a76906a20bf6e58a7d0b5',1,'vg::SnarlManager']]],
   ['all_5fpath_5fnames',['all_path_names',['../classvg_1_1Paths.html#a246f21fbf08d613e3ce8122705044cbe',1,'vg::Paths']]],
   ['all_5fsnarls',['all_snarls',['../classvg_1_1Genotyper.html#ac177e2664adf7be9b92939148ea77c65',1,'vg::Genotyper']]],
   ['allatgc',['allATGC',['../namespacevg.html#a7a1786f1e7e453c4b76b319ba101782d',1,'vg']]],

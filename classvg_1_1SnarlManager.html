@@ -167,24 +167,24 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aae7efb7b2608894b946c78b889f0db2b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#aae7efb7b2608894b946c78b889f0db2b">is_root</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl) const </td></tr>
 <tr class="memdesc:aae7efb7b2608894b946c78b889f0db2b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if snarl has no parent and false otherwise.  <a href="#aae7efb7b2608894b946c78b889f0db2b">More...</a><br/></td></tr>
 <tr class="separator:aae7efb7b2608894b946c78b889f0db2b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abf421ca80fa05d3a9371fddb19b86014"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#abf421ca80fa05d3a9371fddb19b86014">is_trivial</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph) const </td></tr>
-<tr class="separator:abf421ca80fa05d3a9371fddb19b86014"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0fac44cd969db5961b536197bcee8f8f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a0fac44cd969db5961b536197bcee8f8f">all_children_trivial</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph) const </td></tr>
-<tr class="memdesc:a0fac44cd969db5961b536197bcee8f8f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the snarl lacks any nontrivial children.  <a href="#a0fac44cd969db5961b536197bcee8f8f">More...</a><br/></td></tr>
-<tr class="separator:a0fac44cd969db5961b536197bcee8f8f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad41733340f2a496a879f5659f174f24e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#ad41733340f2a496a879f5659f174f24e">is_trivial</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph) const </td></tr>
+<tr class="separator:ad41733340f2a496a879f5659f174f24e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afe563c20786a76906a20bf6e58a7d0b5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#afe563c20786a76906a20bf6e58a7d0b5">all_children_trivial</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph) const </td></tr>
+<tr class="memdesc:afe563c20786a76906a20bf6e58a7d0b5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the snarl lacks any nontrivial children.  <a href="#afe563c20786a76906a20bf6e58a7d0b5">More...</a><br/></td></tr>
+<tr class="separator:afe563c20786a76906a20bf6e58a7d0b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6aab5ee175227d2f8c016d2522afaabb"><td class="memItemLeft" align="right" valign="top">const vector&lt; const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> * &gt; &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a6aab5ee175227d2f8c016d2522afaabb">top_level_snarls</a> () const </td></tr>
 <tr class="memdesc:a6aab5ee175227d2f8c016d2522afaabb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a reference to a vector with the roots of the <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes. ">Snarl</a> trees.  <a href="#a6aab5ee175227d2f8c016d2522afaabb">More...</a><br/></td></tr>
 <tr class="separator:a6aab5ee175227d2f8c016d2522afaabb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac2e33e1eb573d4f15cc73a681e33f241"><td class="memItemLeft" align="right" valign="top">pair&lt; unordered_set&lt; <a class="el" href="structvg_1_1Node.html">Node</a> * &gt;<br class="typebreak"/>
-, unordered_set&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> * &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#ac2e33e1eb573d4f15cc73a681e33f241">shallow_contents</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph, bool include_boundary_nodes) const </td></tr>
-<tr class="separator:ac2e33e1eb573d4f15cc73a681e33f241"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a17e06c6cda3f0668b70bc97e1a98a206"><td class="memItemLeft" align="right" valign="top">pair&lt; unordered_set&lt; <a class="el" href="structvg_1_1Node.html">Node</a> * &gt;<br class="typebreak"/>
-, unordered_set&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> * &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a17e06c6cda3f0668b70bc97e1a98a206">deep_contents</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph, bool include_boundary_nodes) const </td></tr>
-<tr class="separator:a17e06c6cda3f0668b70bc97e1a98a206"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a631de1bc1f9b33c291c4fcd450be6d21"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Visit.html">Visit</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a631de1bc1f9b33c291c4fcd450be6d21">visits_left</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;visit, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *in_snarl) const </td></tr>
-<tr class="separator:a631de1bc1f9b33c291c4fcd450be6d21"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac51216998e9cd904b33b5bde7f4a94d9"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Visit.html">Visit</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#ac51216998e9cd904b33b5bde7f4a94d9">visits_right</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;visit, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *in_snarl) const </td></tr>
-<tr class="separator:ac51216998e9cd904b33b5bde7f4a94d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5271912ddac4073a02aa420e78fd9589"><td class="memItemLeft" align="right" valign="top">pair&lt; unordered_set&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &gt;<br class="typebreak"/>
+, unordered_set&lt; <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a5271912ddac4073a02aa420e78fd9589">shallow_contents</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, bool include_boundary_nodes) const </td></tr>
+<tr class="separator:a5271912ddac4073a02aa420e78fd9589"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2204490e685d9c423ef5f035903c340c"><td class="memItemLeft" align="right" valign="top">pair&lt; unordered_set&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &gt;<br class="typebreak"/>
+, unordered_set&lt; <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a2204490e685d9c423ef5f035903c340c">deep_contents</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, bool include_boundary_nodes) const </td></tr>
+<tr class="separator:a2204490e685d9c423ef5f035903c340c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad139450efd81ac297e0b760173993890"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Visit.html">Visit</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#ad139450efd81ac297e0b760173993890">visits_left</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;visit, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *in_snarl) const </td></tr>
+<tr class="separator:ad139450efd81ac297e0b760173993890"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4c690878e0a0415057d92034b51a81fd"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Visit.html">Visit</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a4c690878e0a0415057d92034b51a81fd">visits_right</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;visit, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *in_snarl) const </td></tr>
+<tr class="separator:a4c690878e0a0415057d92034b51a81fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a823dc9410176ce513c0a35200551c5d8"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; pair&lt; int64_t, <br class="typebreak"/>
 bool &gt;, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a823dc9410176ce513c0a35200551c5d8">snarl_boundary_index</a> () const </td></tr>
 <tr class="separator:a823dc9410176ce513c0a35200551c5d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -448,7 +448,7 @@ template&lt;typename SnarlIterator &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a0fac44cd969db5961b536197bcee8f8f"></a>
+<a class="anchor" id="afe563c20786a76906a20bf6e58a7d0b5"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -461,7 +461,7 @@ template&lt;typename SnarlIterator &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em>&#160;</td>
         </tr>
         <tr>
@@ -612,12 +612,12 @@ template&lt;typename SnarlIterator &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a17e06c6cda3f0668b70bc97e1a98a206"></a>
+<a class="anchor" id="a2204490e685d9c423ef5f035903c340c"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">pair&lt; unordered_set&lt; <a class="el" href="structvg_1_1Node.html">Node</a> * &gt;, unordered_set&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> * &gt; &gt; vg::SnarlManager::deep_contents </td>
+          <td class="memname">pair&lt; unordered_set&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &gt;, unordered_set&lt; <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &gt; &gt; vg::SnarlManager::deep_contents </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td>
           <td class="paramname"><em>snarl</em>, </td>
@@ -625,7 +625,7 @@ template&lt;typename SnarlIterator &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
         </tr>
         <tr>
@@ -901,7 +901,7 @@ template&lt;typename SnarlIterator &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="abf421ca80fa05d3a9371fddb19b86014"></a>
+<a class="anchor" id="ad41733340f2a496a879f5659f174f24e"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -914,7 +914,7 @@ template&lt;typename SnarlIterator &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em>&#160;</td>
         </tr>
         <tr>
@@ -1179,12 +1179,12 @@ template&lt;typename SnarlIterator &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="ac2e33e1eb573d4f15cc73a681e33f241"></a>
+<a class="anchor" id="a5271912ddac4073a02aa420e78fd9589"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">pair&lt; unordered_set&lt; <a class="el" href="structvg_1_1Node.html">Node</a> * &gt;, unordered_set&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> * &gt; &gt; vg::SnarlManager::shallow_contents </td>
+          <td class="memname">pair&lt; unordered_set&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &gt;, unordered_set&lt; <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &gt; &gt; vg::SnarlManager::shallow_contents </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td>
           <td class="paramname"><em>snarl</em>, </td>
@@ -1192,7 +1192,7 @@ template&lt;typename SnarlIterator &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
         </tr>
         <tr>
@@ -1380,7 +1380,7 @@ template&lt;typename SnarlIterator &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a631de1bc1f9b33c291c4fcd450be6d21"></a>
+<a class="anchor" id="ad139450efd81ac297e0b760173993890"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -1393,7 +1393,7 @@ template&lt;typename SnarlIterator &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
         </tr>
         <tr>
@@ -1413,7 +1413,7 @@ template&lt;typename SnarlIterator &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="ac51216998e9cd904b33b5bde7f4a94d9"></a>
+<a class="anchor" id="a4c690878e0a0415057d92034b51a81fd"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -1426,7 +1426,7 @@ template&lt;typename SnarlIterator &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
         </tr>
         <tr>

@@ -19,7 +19,7 @@ var searchData=
   ['deconstructor_2ehpp',['deconstructor.hpp',['../deconstructor_8hpp.html',1,'']]],
   ['decrement_5fnode_5fids',['decrement_node_ids',['../classvg_1_1VG.html#a356612f42ba60fe5895f3abe7501173a',1,'vg::VG']]],
   ['deduplicate_5fcluster_5fpairs',['deduplicate_cluster_pairs',['../classvg_1_1MEMClusterer.html#ae99c87e944c8c1056abb8efc7da5786e',1,'vg::MEMClusterer']]],
-  ['deep_5fcontents',['deep_contents',['../classvg_1_1SnarlManager.html#a17e06c6cda3f0668b70bc97e1a98a206',1,'vg::SnarlManager']]],
+  ['deep_5fcontents',['deep_contents',['../classvg_1_1SnarlManager.html#a2204490e685d9c423ef5f035903c340c',1,'vg::SnarlManager']]],
   ['default_5fdefault_5fquality',['Default_default_quality',['../classvg_1_1PileupAugmenter.html#aa24ff6402effbe06c6d379d09ff9d6d4',1,'vg::PileupAugmenter']]],
   ['default_5fmin_5faug_5fsupport',['Default_min_aug_support',['../classvg_1_1PileupAugmenter.html#a65bf2a86bb36b378c5a9b763d4c2eac3',1,'vg::PileupAugmenter']]],
   ['default_5fpath_5fweight',['DEFAULT_PATH_WEIGHT',['../classvg_1_1FlowSort.html#a68d8af802f0e2a61c81bf0ae4ebfc301',1,'vg::FlowSort']]],

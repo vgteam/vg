@@ -2,7 +2,7 @@ var searchData=
 [
   ['handle',['handle',['../classvg_1_1io_1_1MessageIterator.html#a4b3ba16717c1900a0638518bd33a4a59',1,'vg::io::MessageIterator::handle()'],['../classvg_1_1io_1_1ProtobufEmitter.html#afb457287f96e5ed57d53f91fd5247ec7',1,'vg::io::ProtobufEmitter::handle()']]],
   ['handle_5fbuffer',['handle_buffer',['../classvg_1_1VcfBuffer.html#a1d8968beb2952113ea8a724dad1e1752',1,'vg::VcfBuffer']]],
-  ['handle_5fgraph_5fto_5fcactus',['handle_graph_to_cactus',['../namespacevg.html#a2a6d7cffb12deb3ea3f7ae293755edf4',1,'vg']]],
+  ['handle_5fgraph_5fto_5fcactus',['handle_graph_to_cactus',['../namespacevg.html#a52bc32a03993cdd0e8e8c89b8ca8ba2b',1,'vg']]],
   ['handle_5fto_5fgbwt',['handle_to_gbwt',['../namespacevg.html#a1fa5cc80bff735a8803aa9f564c29994',1,'vg']]],
   ['handle_5fto_5fnode',['handle_to_node',['../classvg_1_1GBWTGraph.html#a995770cdf4bf3acbce4e375299ba33a1',1,'vg::GBWTGraph']]],
   ['haplo_5fdp',['haplo_DP',['../structhaplo_1_1haplo__DP.html#a35035e7b00f8d5503ae3582afebbac50',1,'haplo::haplo_DP']]],
