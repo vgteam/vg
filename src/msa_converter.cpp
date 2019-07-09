@@ -7,7 +7,6 @@
 #include "vg.hpp"
 #include "msa_converter.hpp"
 
-
 // #define debug_msa_converter
 
 namespace vg {

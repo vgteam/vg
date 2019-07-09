@@ -162,4 +162,7 @@ echo "CONVERTED BACK TO VG."
 # vg view -dpn chr10_subgraph_0_new.vg| \
 # dot -Tsvg -o chr10_subgraph_0_new_2.svg
 # chromium-browser chr10_subgraph_0_new_2.svg
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin
