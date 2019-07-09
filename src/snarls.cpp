@@ -12,13 +12,11 @@
 
 namespace vg {
 
-CactusSnarlFinder::CactusSnarlFinder(VG& graph) :
-    graph(graph) {
-    // Make sure the graph is sorted.
-    graph.sort();
+CactusSnarlFinder::CactusSnarlFinder(const PathHandleGraph& graph) :
+    graph(&graph) {
 }
 
-CactusSnarlFinder::CactusSnarlFinder(VG& graph, const string& hint_path) :
+CactusSnarlFinder::CactusSnarlFinder(const PathHandleGraph& graph, const string& hint_path) :
     CactusSnarlFinder(graph) {
     
     // Save the hint path
@@ -29,12 +27,12 @@ CactusSnarlFinder::CactusSnarlFinder(VG& graph, const string& hint_path) :
 
 SnarlManager CactusSnarlFinder::find_snarls() {
     
-    if (graph.size() == 0) {
+    if (graph->get_node_count() == 0) {
         // No snarls here!
         return SnarlManager();
     }
     // convert to cactus
-    pair<stCactusGraph*, stList*> cac_pair = handle_graph_to_cactus(graph, hint_paths);
+    pair<stCactusGraph*, stList*> cac_pair = handle_graph_to_cactus(*graph, hint_paths);
     stCactusGraph* cactus_graph = cac_pair.first;
     stList* telomeres = cac_pair.second;
 
@@ -204,7 +202,7 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         {
 
             // Make a net graph for the snarl that uses internal connectivity
-            NetGraph connectivity_net_graph(start, end, child_chains, &graph, true);
+            NetGraph connectivity_net_graph(start, end, child_chains, graph, true);
             
             // Evaluate connectivity
             // A snarl is minimal, so we know out start and end will be normal nodes.
@@ -308,7 +306,7 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
             // Determine cyclicity/acyclicity
         
             // Make a net graph that just pretends child snarls/chains are ordinary nodes
-            NetGraph flat_net_graph(start, end, child_chains, &graph);
+            NetGraph flat_net_graph(start, end, child_chains, graph);
             
             // This definitely should be calculated based on the internal-connectivity-ignoring net graph.
             snarl.set_directed_acyclic_net_graph(algorithms::is_directed_acyclic(&flat_net_graph));
@@ -685,14 +683,14 @@ bool SnarlManager::is_root(const Snarl* snarl) const {
     return parent_of(snarl) == nullptr;
 }
 
-bool SnarlManager::is_trivial(const Snarl* snarl, VG& graph) const {
+bool SnarlManager::is_trivial(const Snarl* snarl, const HandleGraph& graph) const {
     // If it's an ultrabubble with no children and no contained nodes, it is a trivial snarl.
     return snarl->type() == ULTRABUBBLE &&
         is_leaf(snarl)
         && shallow_contents(snarl, graph, false).first.size() == 0;
 }
 
-bool SnarlManager::all_children_trivial(const Snarl* snarl, VG& graph) const {
+bool SnarlManager::all_children_trivial(const Snarl* snarl, const HandleGraph& graph) const {
     for (auto& child : children_of(snarl)) {
         if (!is_trivial(child, graph)) {
             return false;
@@ -1156,115 +1154,82 @@ void SnarlManager::regularize() {
     
 }
     
-pair<unordered_set<Node*>, unordered_set<Edge*> > SnarlManager::shallow_contents(const Snarl* snarl, VG& graph,
+pair<unordered_set<id_t>, unordered_set<edge_t> > SnarlManager::shallow_contents(const Snarl* snarl, const HandleGraph& graph,
                                                                                  bool include_boundary_nodes) const {
+    
+    pair<unordered_set<id_t>, unordered_set<edge_t> > to_return;
         
-    pair<unordered_set<Node*>, unordered_set<Edge*> > to_return;
-        
-    unordered_set<Node*> already_stacked;
+    unordered_set<id_t> already_stacked;
         
     // initialize stack for DFS traversal of site
-    vector<Node*> stack;
+    vector<handle_t> stack;
         
-    Node* start_node = graph.get_node(snarl->start().node_id());
-    Node* end_node = graph.get_node(snarl->end().node_id());
+    handle_t start_node = graph.get_handle(snarl->start().node_id());
+    handle_t end_node = graph.get_handle(snarl->end().node_id());
         
     // mark the boundary nodes as already stacked so that paths will terminate on them
-    already_stacked.insert(start_node);
-    already_stacked.insert(end_node);
+    already_stacked.insert(graph.get_id(start_node));
+    already_stacked.insert(graph.get_id(end_node));
         
     // add boundary nodes as directed
     if (include_boundary_nodes) {
-        to_return.first.insert(start_node);
-        to_return.first.insert(end_node);
+        to_return.first.insert(graph.get_id(start_node));
+        to_return.first.insert(graph.get_id(end_node));
     }
-        
-    vector<Edge*> edges_of_node;
-        
+
     // stack up the nodes one edge inside the snarl from the start
-    graph.edges_of_node(start_node, edges_of_node);
-    for (Edge* edge : edges_of_node) {
-            
-        // does the edge point into the snarl?
-        if (edge->from() == snarl->start().node_id() && edge->from_start() == snarl->start().backward()) {
+    graph.follow_edges(start_node, snarl->start().backward(), [&](const handle_t& node) {            
 
-            Node* node = graph.get_node(edge->to());
-                
-            if (!already_stacked.count(node)) {
+            if (!already_stacked.count(graph.get_id(node))) {
                 stack.push_back(node);
-                already_stacked.insert(node);
+                already_stacked.insert(graph.get_id(node));
             }
-
-            to_return.second.insert(edge);
-        }
-        else if (edge->to() == snarl->start().node_id() && edge->to_end() != snarl->start().backward()) {
-
-            Node* node = graph.get_node(edge->from());
-                
-            if (!already_stacked.count(node)) {
-                stack.push_back(node);
-                already_stacked.insert(node);
+            if (snarl->start().backward()) {
+                to_return.second.insert(graph.edge_handle(node, start_node));
+            } else {
+                to_return.second.insert(graph.edge_handle(start_node, node));
             }
-                
-            to_return.second.insert(edge);
-        }
-    }
-    edges_of_node.clear();
-        
+        });
+      
     // stack up the nodes one edge inside the snarl from the end
-    graph.edges_of_node(end_node, edges_of_node);
-    for (Edge* edge : edges_of_node) {
-        // does the edge point into the snarl?
-        if (edge->from() == snarl->end().node_id() && edge->from_start() != snarl->end().backward()) {
-                
-            Node* node = graph.get_node(edge->to());
-                
-            if (!already_stacked.count(node)) {
+    graph.follow_edges(end_node, !snarl->end().backward(), [&](const handle_t& node) {
+            
+            if (!already_stacked.count(graph.get_id(node))) {
                 stack.push_back(node);
-                already_stacked.insert(node);
+                already_stacked.insert(graph.get_id(node));
             }
-                
-            to_return.second.insert(edge);
-        }
-        else if (edge->to() == snarl->end().node_id() && edge->to_end() == snarl->end().backward()) {
-                
-            Node* node = graph.get_node(edge->from());
-                
-            if (!already_stacked.count(node)) {
-                stack.push_back(node);
-                already_stacked.insert(node);
+            if (snarl->end().backward()) {
+                to_return.second.insert(graph.edge_handle(end_node, node));
+            } else {
+                to_return.second.insert(graph.edge_handle(node, end_node));
             }
-                
-            to_return.second.insert(edge);
-        }
-    }
-    edges_of_node.clear();
+        });
         
     // traverse the snarl with DFS, skipping over any child snarls
     // do not pay attention to valid walks since we also want to discover any tips
     while (stack.size()) {
             
         // pop the top node off the stack
-        Node* node = stack.back();
+        handle_t node = stack.back();
         stack.pop_back();
             
         // record that this node is in the snarl
-        to_return.first.insert(node);
+        to_return.first.insert(graph.get_id(node));
             
-        const Snarl* forward_snarl = into_which_snarl(node->id(), false);
-        const Snarl* backward_snarl = into_which_snarl(node->id(), true);
+        const Snarl* forward_snarl = into_which_snarl(graph.get_id(node), false);
+        const Snarl* backward_snarl = into_which_snarl(graph.get_id(node), true);
         if (forward_snarl) {
             // this node points into a snarl
                 
             // What's on the other side of the snarl?
-            id_t other_id = forward_snarl->start().node_id() == node->id() ? forward_snarl->end().node_id() : forward_snarl->start().node_id();
+            id_t other_id = forward_snarl->start().node_id() == graph.get_id(node) ? forward_snarl->end().node_id() : forward_snarl->start().node_id();
                 
             // stack up the node on the opposite side of the snarl
             // rather than traversing it
-            Node* opposite_node = graph.get_node(other_id);
-            if (!already_stacked.count(opposite_node)) {
+            handle_t opposite_node = graph.get_handle(other_id);
+            if (!already_stacked.count(other_id)) {
                 stack.push_back(opposite_node);
-                already_stacked.insert(opposite_node);
+                already_stacked.insert(other_id);
             }
         }
             
@@ -1272,167 +1237,132 @@ pair<unordered_set<Node*>, unordered_set<Edge*> > SnarlManager::shallow_contents
             // the reverse of this node points into a snarl
                 
             // What's on the other side of the snarl?
-            id_t other_id = backward_snarl->end().node_id() == node->id() ? backward_snarl->start().node_id(): backward_snarl->end().node_id();
+            id_t other_id = backward_snarl->end().node_id() == graph.get_id(node) ? backward_snarl->start().node_id(): backward_snarl->end().node_id();
                 
             // stack up the node on the opposite side of the snarl
             // rather than traversing it
-            Node* opposite_node = graph.get_node(other_id);
-            if (!already_stacked.count(opposite_node)) {
+            handle_t opposite_node = graph.get_handle(other_id);
+            if (!already_stacked.count(other_id)) {
                 stack.push_back(opposite_node);
-                already_stacked.insert(opposite_node);
+                already_stacked.insert(other_id);
             }
         }
             
-        graph.edges_of_node(node, edges_of_node);
-            
-        for (Edge* edge : edges_of_node) {
-            // which end of the edge is the current node?
-            if (edge->from() == node->id()) {
+        graph.follow_edges(node, false, [&](const handle_t& next_node) {
+                edge_t edge = graph.edge_handle(node, next_node);
                 // does this edge point forward or backward?
-                if ((edge->from_start() && !backward_snarl) ||
-                    (!edge->from_start() && !forward_snarl)) {
+                if ((graph.get_is_reverse(node) && !backward_snarl) ||
+                    (!graph.get_is_reverse(node) && !forward_snarl)) {
+
+                        to_return.second.insert(edge);
                         
-                    to_return.second.insert(edge);
-                    Node* next_node = graph.get_node(edge->to());
-                        
-                    if (!already_stacked.count(next_node)) {
+                        if (!already_stacked.count(graph.get_id(next_node))) {
                             
-                        stack.push_back(next_node);
-                        already_stacked.insert(next_node);
+                            stack.push_back(next_node);
+                            already_stacked.insert(graph.get_id(next_node));
+                        }
+                }
+            });
+        
+        graph.follow_edges(node, true, [&](const handle_t& prev_node) {
+                edge_t edge = graph.edge_handle(prev_node, node);
+                // does this edge point forward or backward?
+                if ((graph.get_is_reverse(node) && !forward_snarl) ||
+                    (!graph.get_is_reverse(node) && !backward_snarl)) {
+
+                    to_return.second.insert(edge);
+                        
+                    if (!already_stacked.count(graph.get_id(prev_node))) {
+                            
+                        stack.push_back(prev_node);
+                        already_stacked.insert(graph.get_id(prev_node));
                     }
                 }
-            }
-            else {
-                // does this edge point forward or backward?
-                if ((edge->to_end() && !forward_snarl) ||
-                    (!edge->to_end() && !backward_snarl)) {
-                        
-                    to_return.second.insert(edge);
-                    Node* next_node = graph.get_node(edge->from());
-                        
-                    if (!already_stacked.count(next_node)) {
-                            
-                        stack.push_back(next_node);
-                        already_stacked.insert(next_node);
-                    }
-                }
-            }
-        }
-            
-        edges_of_node.clear();
+            });
     }
         
     return to_return;
 }
     
-pair<unordered_set<Node*>, unordered_set<Edge*> > SnarlManager::deep_contents(const Snarl* snarl, VG& graph,
+pair<unordered_set<id_t>, unordered_set<edge_t> > SnarlManager::deep_contents(const Snarl* snarl, const HandleGraph& graph,
                                                                               bool include_boundary_nodes) const {
         
-    pair<unordered_set<Node*>, unordered_set<Edge*> > to_return;
+    pair<unordered_set<id_t>, unordered_set<edge_t> > to_return;
         
-    unordered_set<Node*> already_stacked;
+    unordered_set<id_t> already_stacked;
         
     // initialize stack for DFS traversal of site
-    vector<Node*> stack;
-        
-    Node* start_node = graph.get_node(snarl->start().node_id());
-    Node* end_node = graph.get_node(snarl->end().node_id());
+    vector<handle_t> stack;
+
+    handle_t start_node = graph.get_handle(snarl->start().node_id());
+    handle_t end_node = graph.get_handle(snarl->end().node_id());
         
     // mark the boundary nodes as already stacked so that paths will terminate on them
-    already_stacked.insert(start_node);
-    already_stacked.insert(end_node);
+    already_stacked.insert(graph.get_id(start_node));
+    already_stacked.insert(graph.get_id(end_node));
         
     // add boundary nodes as directed
     if (include_boundary_nodes) {
-        to_return.first.insert(start_node);
-        to_return.first.insert(end_node);
+        to_return.first.insert(graph.get_id(start_node));
+        to_return.first.insert(graph.get_id(end_node));
     }
-        
-    vector<Edge*> edges_of_node;
-        
+
     // stack up the nodes one edge inside the snarl from the start
-    graph.edges_of_node(start_node, edges_of_node);
-    for (Edge* edge : edges_of_node) {
-        // does the edge point into the snarl?
-        if (edge->from() == snarl->start().node_id() && edge->from_start() == snarl->start().backward()) {
-                
-            Node* node = graph.get_node(edge->to());
-                
-            if (!already_stacked.count(node)) {
+    graph.follow_edges(start_node, snarl->start().backward(), [&](const handle_t& node) {            
+
+            if (!already_stacked.count(graph.get_id(node))) {
                 stack.push_back(node);
-                already_stacked.insert(node);
+                already_stacked.insert(graph.get_id(node));
             }
-                
-            to_return.second.insert(edge);
-        }
-        else if (edge->to() == snarl->start().node_id() && edge->to_end() != snarl->start().backward()) {
-                
-            Node* node = graph.get_node(edge->from());
-                
-            if (!already_stacked.count(node)) {
-                stack.push_back(node);
-                already_stacked.insert(node);
+            if (snarl->start().backward()) {
+                to_return.second.insert(graph.edge_handle(node, start_node));
+            } else {
+                to_return.second.insert(graph.edge_handle(start_node, node));
             }
-                
-            to_return.second.insert(edge);
-        }
-    }
-    edges_of_node.clear();
-        
+        });
+      
     // stack up the nodes one edge inside the snarl from the end
-    graph.edges_of_node(end_node, edges_of_node);
-    for (Edge* edge : edges_of_node) {
-        // does the edge point into the snarl?
-        if (edge->from() == snarl->end().node_id() && edge->from_start() != snarl->end().backward()) {
-                
-            Node* node = graph.get_node(edge->to());
-                
-            if (!already_stacked.count(node)) {
+    graph.follow_edges(end_node, !snarl->end().backward(), [&](const handle_t& node) {
+            
+            if (!already_stacked.count(graph.get_id(node))) {
                 stack.push_back(node);
-                already_stacked.insert(node);
+                already_stacked.insert(graph.get_id(node));
             }
-                
-            to_return.second.insert(edge);
-        }
-        else if (edge->to() == snarl->end().node_id() && edge->to_end() == snarl->end().backward()) {
-                
-            Node* node = graph.get_node(edge->from());
-                
-            if (!already_stacked.count(node)) {
-                stack.push_back(node);
-                already_stacked.insert(node);
+            if (snarl->end().backward()) {
+                to_return.second.insert(graph.edge_handle(end_node, node));
+            } else {
+                to_return.second.insert(graph.edge_handle(node, end_node));
             }
-                
-            to_return.second.insert(edge);
-        }
-    }
-    edges_of_node.clear();
+        });
         
     // traverse the snarl with DFS, skipping over any child snarls
     // do not pay attention to valid walks since we also want to discover any tips
     while (stack.size()) {
             
         // pop the top node off the stack
-        Node* node = stack.back();
+        handle_t node = stack.back();
         stack.pop_back();
             
         // record that this node is in the snarl
-        to_return.first.insert(node);
-            
-        graph.edges_of_node(node, edges_of_node);
-            
-        for (Edge* edge : edges_of_node) {
+        to_return.first.insert(graph.get_id(node));
+
+        graph.follow_edges(node, false, [&] (const handle_t& next_node) {
+            edge_t edge = graph.edge_handle(node, next_node);
             to_return.second.insert(edge);
-            // get the other end of the edge
-            Node* next_node = edge->from() == node->id() ? graph.get_node(edge->to()) :
-                graph.get_node(edge->from());
-            if (!already_stacked.count(next_node)) {
+            if (!already_stacked.count(graph.get_id(next_node))) {
                 stack.push_back(next_node);
-                already_stacked.insert(next_node);
+                already_stacked.insert(graph.get_id(next_node));
             }
-        }
-            
-        edges_of_node.clear();
+            });
+        
+        graph.follow_edges(node, true, [&] (const handle_t& prev_node) {
+            edge_t edge = graph.edge_handle(prev_node, node);
+            to_return.second.insert(edge);
+            if (!already_stacked.count(graph.get_id(prev_node))) {
+                stack.push_back(prev_node);
+                already_stacked.insert(graph.get_id(prev_node));
+            }
+            });
     }
         
     return to_return;
@@ -1459,7 +1389,7 @@ const Snarl* SnarlManager::manage(const Snarl& not_owned) const {
     return it->second;
 }
     
-vector<Visit> SnarlManager::visits_right(const Visit& visit, VG& graph, const Snarl* in_snarl) const {
+vector<Visit> SnarlManager::visits_right(const Visit& visit, const HandleGraph& graph, const Snarl* in_snarl) const {
         
 #ifdef debug
     cerr << "Look right from " << visit << endl;
@@ -1500,9 +1430,10 @@ vector<Visit> SnarlManager::visits_right(const Visit& visit, VG& graph, const Sn
         }
             
     }
-        
-    for (auto attached : graph.sides_of(right_side)) {
+
+    graph.follow_edges(graph.get_handle(right_side.node), !right_side.is_end, [&](const handle_t& next_handle) {
         // For every NodeSide attached to the right side of this visit
+        NodeSide attached(graph.get_id(next_handle), right_side.is_end ? graph.get_is_reverse(next_handle) : !graph.get_is_reverse(next_handle));
             
 #ifdef debug
         cerr << "\tFind NodeSide " << attached << endl;
@@ -1560,13 +1491,13 @@ vector<Visit> SnarlManager::visits_right(const Visit& visit, VG& graph, const Sn
 #endif
                 
         }
-    }
+    });
         
     return to_return;
         
 }
     
-vector<Visit> SnarlManager::visits_left(const Visit& visit, VG& graph, const Snarl* in_snarl) const {
+vector<Visit> SnarlManager::visits_left(const Visit& visit, const HandleGraph& graph, const Snarl* in_snarl) const {
         
     // Get everything right of the reversed visit
     vector<Visit> to_return = visits_right(reverse(visit), graph, in_snarl);

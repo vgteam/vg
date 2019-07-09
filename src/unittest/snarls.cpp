@@ -20,6 +20,23 @@
 
 namespace vg {
     namespace unittest {
+
+    static pair<unordered_set<Node*>, unordered_set<Edge*> > pb_contents(
+      VG& graph, const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents) {
+        pair<unordered_set<Node*>, unordered_set<Edge*> > ret;
+        for (id_t node_id : contents.first) {
+            ret.first.insert(graph.get_node(node_id));
+        }
+        for (const edge_t& edge_handle : contents.second) {
+            Edge* edge = graph.get_edge(NodeTraversal(graph.get_node(graph.get_id(edge_handle.first)),
+                                                           graph.get_is_reverse(edge_handle.first)),
+                                             NodeTraversal(graph.get_node(graph.get_id(edge_handle.second)),
+                                                           graph.get_is_reverse(edge_handle.second)));
+            ret.second.insert(edge);
+        }
+        return ret;
+    }
+    
         TEST_CASE( "NetGraph can allow traversal of a simple net graph",
                   "[snarls][netgraph]" ) {
         
@@ -1156,7 +1173,7 @@ namespace vg {
                 for (const Snarl* snarl : top_level_snarls) {
                     if ((snarl->start().node_id() == n1->id() && snarl->end().node_id() == n8->id()) ||
                         (snarl->start().node_id() == n8->id() && snarl->end().node_id() == n1->id())) {
-                        contents = snarl_manager.shallow_contents(snarl, graph, false);
+                        contents = pb_contents(graph, snarl_manager.shallow_contents(snarl, graph, false));
                         break;
                     }
                 }
@@ -1213,7 +1230,7 @@ namespace vg {
                 for (const Snarl* snarl : top_level_snarls) {
                     if ((snarl->start().node_id() == n1->id() && snarl->end().node_id() == n8->id()) ||
                         (snarl->start().node_id() == n8->id() && snarl->end().node_id() == n1->id())) {
-                        contents = snarl_manager.deep_contents(snarl, graph, false);
+                        contents = pb_contents(graph, snarl_manager.deep_contents(snarl, graph, false));
                         break;
                     }
                 }
@@ -1282,7 +1299,7 @@ namespace vg {
                 list<Snarl> snarls;
                 snarls.push_back(snarl1);
                 snarls.push_back(snarl2);
-                
+
                 SnarlManager snarl_manager(snarls.begin(), snarls.end());
                 
                 const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
@@ -1291,7 +1308,7 @@ namespace vg {
                 for (const Snarl* snarl : top_level_snarls) {
                     if ((snarl->start().node_id() == n2->id() && snarl->end().node_id() == n7->id()) ||
                         (snarl->start().node_id() == n7->id() && snarl->end().node_id() == n2->id())) {
-                        contents = snarl_manager.shallow_contents(snarl, graph, false);
+                        contents = pb_contents(graph, snarl_manager.shallow_contents(snarl, graph, false));
                         break;
                     }
                 }
@@ -1361,7 +1378,7 @@ namespace vg {
                 for (const Snarl* snarl : top_level_snarls) {
                     if ((snarl->start().node_id() == n2->id() && snarl->end().node_id() == n7->id()) ||
                         (snarl->start().node_id() == n7->id() && snarl->end().node_id() == n2->id())) {
-                        contents = snarl_manager.deep_contents(snarl, graph, false);
+                        contents = pb_contents(graph, snarl_manager.deep_contents(snarl, graph, false));
                         break;
                     }
                 }
@@ -1565,14 +1582,14 @@ namespace vg {
                 const Snarl* snarl = snarl_manager.top_level_snarls()[0];
                 
                 // Get its contents
-                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarl_manager.deep_contents(snarl, graph, true);
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = pb_contents(graph, snarl_manager.deep_contents(snarl, graph, true));
                 
                 // We need the right snarl
                 REQUIRE(snarl->start().node_id() == 6462830);
                 REQUIRE(snarl->start().backward());
                 REQUIRE(snarl->end().node_id() == 8480141);
                 REQUIRE(!snarl->end().backward());
-                
+
                 // And it needs to contain just those two nodes and the edges connecting them.
                 REQUIRE(contents.first.size() == 2);
                 REQUIRE(contents.second.size() == 1);
@@ -1699,8 +1716,8 @@ namespace vg {
                 // Find the root snarl again
                 const Snarl* snarl = snarl_manager.manage(snarl1);
                 
-                // Get its contents
-                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarl_manager.shallow_contents(snarl, graph, true);
+                // Get its contents0
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = pb_contents(graph, snarl_manager.shallow_contents(snarl, graph, true));
                 
                 // We need the right snarl
                 REQUIRE(snarl->start().node_id() == 178894);
@@ -3210,7 +3227,7 @@ namespace vg {
             
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
                 // Get the contents of each snarl
-                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarl_manager.shallow_contents(snarl, graph, true);
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = pb_contents(graph, snarl_manager.shallow_contents(snarl, graph, true));
             
                 for (auto& node_ptr : contents.first) {
                     // And record all the nodes
@@ -3252,7 +3269,7 @@ namespace vg {
             
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
                 // Get the contents of each snarl
-                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarl_manager.shallow_contents(snarl, graph, true);
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = pb_contents(graph, snarl_manager.shallow_contents(snarl, graph, true));
             
                 for (auto& node_ptr : contents.first) {
                     // And record all the nodes
