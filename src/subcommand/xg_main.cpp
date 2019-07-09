@@ -14,10 +14,10 @@
 #include "subcommand.hpp"
 
 #include "sdsl/bit_vectors.hpp"
+#include <vg/vg.pb.h>
 #include "../version.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
-#include "../cpp/vg.pb.h"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 #include "../xg.hpp"
 #include "../region.hpp"
 #include "../convert_handle.hpp"
@@ -25,7 +25,6 @@
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
-using namespace xg;
 
 void help_xg(char** argv) {
     cerr << "usage: " << argv[0] << " xg [options]" << endl
@@ -262,7 +261,7 @@ int main_xg(int argc, char** argv) {
     if (in_name.size()) {
         get_input_file(in_name, [&](istream& in) {
             // Load from an XG file or - (stdin)
-            graph = stream::VPKG::load_one<XG>(in);
+            graph = vg::io::VPKG::load_one<XG>(in);
         });
     }
 
@@ -283,22 +282,7 @@ int main_xg(int argc, char** argv) {
         
         VG converted;
         // Convert the xg graph to vg format
-        convert_handle_graph(graph.get(), &converted);
-        
-        // TODO: The converter doesn't copy circular paths yet.
-        // When it does, we can remove all this path copying code.
-
-        // Make a raw Proto Graph to hold Path objects
-        Graph path_graph;
-
-        // Since paths are not copied, copy the paths.
-        for (size_t rank = 1; rank <= graph->max_path_rank(); rank++) {
-            // Extract each path into the path graph
-            *path_graph.add_path() = graph->path(graph->path_name(rank));
-        }
-
-        // Merge in all the paths
-        converted.extend(path_graph);
+        convert_path_handle_graph(graph.get(), &converted);
         
         if (vg_out == "-") {
             converted.serialize_to_ostream(std::cout);
@@ -317,9 +301,9 @@ int main_xg(int argc, char** argv) {
         ostream& out = (out_name == "-") ? std::cout : out_file;
         
         // Encapsulate output in VPKG
-        stream::VPKG::with_save_stream(out, "XG", [&](ostream& tagged) {
+        vg::io::VPKG::with_save_stream(out, "XG", [&](ostream& tagged) {
             // Serialize to the file while recording space usage to the structure.
-            graph->serialize(tagged, structure.get(), "xg");
+            graph->serialize_and_measure(tagged, structure.get(), "xg");
         });
         
         out.flush();
@@ -397,7 +381,7 @@ int main_xg(int argc, char** argv) {
             to_text(cout, g);
         } else {
             vector<Graph> gb = { g };
-            stream::write_buffered(cout, gb, 0);
+            vg::io::write_buffered(cout, gb, 0);
         }
     }
 
@@ -412,7 +396,7 @@ int main_xg(int argc, char** argv) {
             to_text(cout, g);
         } else {
             vector<Graph> gb = { g };
-            stream::write_buffered(cout, gb, 0);
+            vg::io::write_buffered(cout, gb, 0);
         }
     }
     
@@ -459,7 +443,7 @@ int main_xg(int argc, char** argv) {
                 to_text(cout, g);
             } else {
                 vector<Graph> gb = { g };
-                stream::write_buffered(cout, gb, 0);
+                vg::io::write_buffered(cout, gb, 0);
             }
             
         }

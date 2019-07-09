@@ -15,7 +15,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <list>
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "vg.hpp"
 #include "translator.hpp"
 #include "hash_map.hpp"
@@ -24,6 +24,7 @@
 #include "distributions.hpp"
 #include "snarls.hpp"
 #include "path_index.hpp"
+#include "packer.hpp"
 
 namespace vg {
 
@@ -296,6 +297,12 @@ struct SupportAugmentedGraph : public AugmentedGraph {
     * Read the supports from protobuf.
     */
     void load_supports(istream& in_file);
+
+    /**
+     * Read the suppors from output of vg pack
+     * Everything put in forward support, average used for nodes
+     */
+    void load_pack_as_supports(const string& pack_file_name, XG* xg);
 
     /**
      * Write the supports to protobuf

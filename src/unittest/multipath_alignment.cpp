@@ -10,7 +10,7 @@
 
 #include "../haplotypes.hpp"
 #include "../json2pb.h"
-#include "../vg.pb.h"
+#include <vg/vg.pb.h>
 #include "../vg.hpp"
 #include "../multipath_alignment.hpp"
 #include "../utility.hpp"

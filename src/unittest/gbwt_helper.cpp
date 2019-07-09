@@ -96,7 +96,7 @@ TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
     // Build an XG index.
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
-    xg::XG xg_index(graph);
+    XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
@@ -116,7 +116,7 @@ TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
         static_cast<id_t>(9)
     };
     SECTION("node id space is correct") {
-        REQUIRE(gbwt_graph.node_size() == correct_nodes.size());
+        REQUIRE(gbwt_graph.get_node_count() == correct_nodes.size());
         REQUIRE(gbwt_graph.min_node_id() == *(correct_nodes.begin()));
         REQUIRE(gbwt_graph.max_node_id() == *(correct_nodes.rbegin()));
         for (id_t id = gbwt_graph.min_node_id(); id <= gbwt_graph.max_node_id(); id++) {
@@ -153,6 +153,23 @@ TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
             REQUIRE(gbwt_graph.get_sequence(gbwt_fw) == xg_index.get_sequence(xg_fw));
             REQUIRE(gbwt_graph.get_length(gbwt_rev) == xg_index.get_length(xg_rev));
             REQUIRE(gbwt_graph.get_sequence(gbwt_rev) == xg_index.get_sequence(xg_rev));
+        }
+    }
+
+    // Substrings and characters.
+    SECTION("access to partial sequence") {
+        for (id_t id : correct_nodes) {
+            handle_t fw = gbwt_graph.get_handle(id, false);
+            handle_t rev = gbwt_graph.get_handle(id, true);
+            std::string fw_str = gbwt_graph.get_sequence(fw);
+            std::string rev_str = gbwt_graph.get_sequence(rev);
+            REQUIRE(fw_str.length() == rev_str.length());
+            for (size_t i = 0; i < fw_str.length(); i++) {
+                REQUIRE(gbwt_graph.get_base(fw, i) == fw_str[i]);
+                REQUIRE(gbwt_graph.get_base(rev, i) == rev_str[i]);
+                REQUIRE(gbwt_graph.get_subsequence(fw, i, 2) == fw_str.substr(i, 2));
+                REQUIRE(gbwt_graph.get_subsequence(rev, i, 2) == rev_str.substr(i, 2));
+            }
         }
     }
 
@@ -329,7 +346,7 @@ TEST_CASE("for_each_window() finds the correct windows with GBWT", "[gbwt_helper
     // Build an XG index.
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
-    xg::XG xg_index(graph);
+    XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
@@ -393,7 +410,7 @@ TEST_CASE("for_each_window() finds the correct windows without GBWT", "[gbwt_hel
     // Build an XG index.
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
-    xg::XG xg_index(graph);
+    XG xg_index(graph);
 
     // These are the windows the traversal should find.
     typedef std::pair<std::vector<handle_t>, std::string> kmer_type;

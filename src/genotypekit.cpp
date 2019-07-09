@@ -18,7 +18,7 @@ SnarlTraversal get_traversal_of_snarl(VG& graph, const Snarl* snarl, const Snarl
     for(size_t i = 0; i < path.mapping_size(); i++) {
         const Mapping& mapping = path.mapping(i);
 
-        if(contents.first.count(graph.get_node(mapping.position().node_id()))) {
+        if(contents.first.count(mapping.position().node_id())) {
             // We're inside the bubble. This is super simple when we have the contents!
             *to_return.add_visit() = to_visit(mapping, true);
         }
@@ -228,7 +228,8 @@ void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
     
         // Run them through vg::edit() to modify the graph, but don't embed them
         // as paths. Update the paths in place, and save the translations.
-        vector<Translation> augmentation_translations = graph.edit(paths, false, true, false);
+        vector<Translation> augmentation_translations;
+        graph.edit(paths, &augmentation_translations, false, true, false);
         
         for (size_t i = 0; i < paths.size(); i++) {
             // Copy all the modified paths back.
@@ -285,12 +286,12 @@ void AugmentedGraph::load_translations(istream& in_file) {
     function<void(Translation&)> lambda = [&](Translation& translation) {
         translator.translations.push_back(translation);
     };
-    stream::for_each(in_file, lambda);
+    vg::io::for_each(in_file, lambda);
     translator.build_position_table();
 }
 
 void AugmentedGraph::write_translations(ostream& out_file) {
-    stream::write_buffered(out_file, translator.translations, 0);
+    vg::io::write_buffered(out_file, translator.translations, 0);
 }
 
 void SupportAugmentedGraph::clear() {
@@ -327,7 +328,39 @@ void SupportAugmentedGraph::load_supports(istream& in_file) {
                                          NodeSide(edge.to(), edge.to_end()))] = location_support.support();
         }
     };
-    stream::for_each(in_file, lambda);    
+    vg::io::for_each(in_file, lambda);    
+}
+
+void SupportAugmentedGraph::load_pack_as_supports(const string& pack_file_name, XG* xg) {
+    Packer packer(xg);
+    packer.load_from_file(pack_file_name);
+    xg->for_each_handle([&](const handle_t& handle) {
+            Position pos;
+            pos.set_node_id(xg->get_id(handle));
+            size_t sequence_offset = packer.position_in_basis(pos);
+            size_t total_coverage = 0;
+            size_t node_length = xg->get_length(handle);
+            for (size_t i = 0; i < node_length; ++i) {
+                total_coverage += packer.coverage_at_position(sequence_offset + i);
+            }
+            double avg_coverage = node_length > 0 ? (double)total_coverage / node_length : 0.;
+            Support support;
+            // we just get one value and put it in "forward".  can't fill out the rest of the Support object. 
+            support.set_forward(avg_coverage);
+            node_supports[graph.get_node(xg->get_id(handle))] = support;
+        });
+    xg->for_each_edge([&](const edge_t& handle_edge) {
+            Edge edge;
+            edge.set_from(xg->get_id(handle_edge.first));
+            edge.set_from_start(xg->get_is_reverse(handle_edge.first));
+            edge.set_to(xg->get_id(handle_edge.second));
+            edge.set_to_end(xg->get_is_reverse(handle_edge.second));
+            Support support;
+            support.set_forward(packer.edge_coverage(edge));
+            edge_supports[graph.get_edge(NodeSide(edge.from(), !edge.from_start()),
+                                         NodeSide(edge.to(), edge.to_end()))] = support;
+            return true;
+        });
 }
 
 void SupportAugmentedGraph::write_supports(ostream& out_file) {
@@ -337,16 +370,16 @@ void SupportAugmentedGraph::write_supports(ostream& out_file) {
         *location_support.mutable_support() = node_support.second;
         location_support.set_node_id(node_support.first->id());
         buffer.push_back(location_support);
-        stream::write_buffered(out_file, buffer, 500);
+        vg::io::write_buffered(out_file, buffer, 500);
     }
     for (auto& edge_support : edge_supports) {
         LocationSupport location_support;
         *location_support.mutable_support() = edge_support.second;        
         *location_support.mutable_edge() = *edge_support.first;
         buffer.push_back(location_support);
-        stream::write_buffered(out_file, buffer, 500);
+        vg::io::write_buffered(out_file, buffer, 500);
     }
-    stream::write_buffered(out_file, buffer, 0);
+    vg::io::write_buffered(out_file, buffer, 0);
 }
 
 

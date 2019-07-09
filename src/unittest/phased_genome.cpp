@@ -8,7 +8,7 @@
 #include <iostream>
 #include <list>
 #include "json2pb.h"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "catch.hpp"
 #include "utility.hpp"
 #include "phased_genome.hpp"

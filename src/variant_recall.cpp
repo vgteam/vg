@@ -63,13 +63,15 @@ void genotype_svs(VG* graph,
         }
 
     };
-    stream::for_each_interleaved_pair_parallel(gamstream, readfunc);
+    vg::io::for_each_interleaved_pair_parallel(gamstream, readfunc);
     vector<Translation> transls;
     if (refpath != ""){
-        transls = graph->edit(direct_ins); // TODO could maybe use edit_fast??
+        graph->edit(direct_ins, &transls); // TODO could maybe use edit_fast??
                
         Deconstructor decon;
-        decon.deconstruct(refpath, graph);
+        CactusSnarlFinder finder(*graph);
+        SnarlManager snarl_manager = finder.find_snarls();
+        decon.deconstruct({refpath}, graph, &snarl_manager, false);
     }
     direct_ins.clear();
 
@@ -342,7 +344,7 @@ void variant_recall(VG* graph,
     if (!isIndex){
         ifstream gamstream(gamfile);
         if (gamstream.good()){
-            stream::for_each(gamstream, incr);
+            vg::io::for_each(gamstream, incr);
         }
         else{
             cerr << "GAM stream is bad " << gamfile << endl;
@@ -353,7 +355,7 @@ void variant_recall(VG* graph,
     else if (use_snarls && !isIndex){
         ifstream gamstream(gamfile);
         if (gamstream.good()){
-            stream::for_each(gamstream, count_traversal_supports);
+            vg::io::for_each(gamstream, count_traversal_supports);
         }
         gamstream.close();
     }

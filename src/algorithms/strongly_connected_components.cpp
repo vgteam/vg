@@ -1,5 +1,7 @@
 #include "strongly_connected_components.hpp"
 
+//#define debug
+
 namespace vg {
 namespace algorithms {
 

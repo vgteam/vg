@@ -75,8 +75,8 @@ using namespace std;
         }, parallel);
     }
     
-    size_t NullMaskingGraph::node_size() const {
-        return graph->node_size() - num_null_nodes;
+    size_t NullMaskingGraph::get_node_count() const {
+        return graph->get_node_count() - num_null_nodes;
     }
     
     id_t NullMaskingGraph::min_node_id() const {

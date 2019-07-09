@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 25
+plan tests 26
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -97,3 +97,8 @@ vg construct -m 1000 -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a 2> /dev/null 
 vg index -x w.xg w.vg
 is $(( cat w.vg | vg mod -D - ; vg find -x w.xg -Q alt ) | vg paths -L -v - | wc -l) 38 "pattern based path extraction works"
 rm -f w.xg w.vg
+
+vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >t.vg
+vg index -x t.xg t.vg
+is $(vg find -x t.xg -E x:30-35 | vg view - | grep ^S | wc -l) 4 "path DAG range query works"
+rm -f t.xg t.vg

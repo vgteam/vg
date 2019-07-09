@@ -1,9 +1,44 @@
 #include "gbwt_helper.hpp"
+#include "utility.hpp"
 
 #include <queue>
+#include <sstream>
 #include <stack>
 
+#include <omp.h>
+
 namespace vg {
+
+//------------------------------------------------------------------------------
+
+// Numerical class constants.
+
+constexpr size_t GBWTGraph::CHUNK_SIZE;
+
+//------------------------------------------------------------------------------
+
+std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i) {
+    if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || i >= gbwt_index.metadata.paths()) {
+        return "";
+    }
+
+    const gbwt::PathName& path = gbwt_index.metadata.path(i);
+    std::stringstream stream;
+    stream << "_thread_";
+    if (gbwt_index.metadata.hasSampleNames()) {
+        stream << gbwt_index.metadata.sample(path.sample);
+    } else {
+        stream << path.sample;
+    }
+    stream << "_";
+    if (gbwt_index.metadata.hasContigNames()) {
+        stream << gbwt_index.metadata.contig(path.contig);
+    } else {
+        stream << path.contig;
+    }
+    stream << "_" << path.phase << "_" << path.count;
+    return stream.str();
+}
 
 //------------------------------------------------------------------------------
 
@@ -13,21 +48,41 @@ GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_s
     // Sanity checks for the GBWT index.
     assert(this->index.bidirectional());
 
-    // Determine the number of real nodes and the total length of the sequences.
+    // Determine the real nodes and cache the handles.
     // Node n is real, if real_nodes[node_offset(n) / 2] is true.
-    size_t total_length = 0, potential_nodes = this->index.sigma() - this->index.firstNode();
-    this->real_nodes = std::vector<bool>(potential_nodes / 2, false);
-    std::vector<handle_t> handle_cache(potential_nodes); // Getting handles from XG is slow.
-    for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
-        if (this->index.empty(node)) {
-            continue;
+    size_t potential_nodes = this->index.sigma() - this->index.firstNode();
+    this->real_nodes = sdsl::bit_vector(potential_nodes / 2, 0);
+    std::vector<handle_t> handle_cache(potential_nodes / 2); // Getting handles from XG is slow.
+    #pragma omp parallel
+    {
+        #pragma omp single
+        {
+            #pragma omp task
+            {
+                for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
+                    if (!(this->index.empty(node))) {
+                        this->real_nodes[this->node_offset(node) / 2] = 1;
+                        this->total_nodes++;
+                    }
+                }
+            }
+            #pragma omp task
+            {
+                for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
+                    handle_t source_handle = sequence_source.get_handle(gbwt::Node::id(node), false);
+                    handle_cache[this->node_offset(node) / 2] = source_handle;
+                }
+            }
         }
-        size_t offset = this->node_offset(node);
-        this->real_nodes[offset / 2] = true;
-        this->total_nodes++;
-        handle_t source_handle = sequence_source.get_handle(gbwt::Node::id(node), false);
-        total_length += sequence_source.get_length(source_handle);
-        handle_cache[offset] = source_handle;
+    }
+
+    // Determine the total length of the sequences.
+    size_t total_length = 0;
+    for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
+        size_t offset = this->node_offset(node) / 2;
+        if (this->real_nodes[offset]) {
+            total_length += sequence_source.get_length(handle_cache[offset]);
+        }
     }
     this->sequences.reserve(2 * total_length);
     this->offsets = sdsl::int_vector<0>(potential_nodes + 1, 0, gbwt::bit_length(this->sequences.capacity()));
@@ -38,11 +93,11 @@ GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_s
         std::string seq;
         size_t offset = this->node_offset(node);
         if (this->real_nodes[offset / 2]) {
-            seq = sequence_source.get_sequence(handle_cache[offset]);
+            seq = sequence_source.get_sequence(handle_cache[offset / 2]);
         }
         this->sequences.insert(this->sequences.end(), seq.begin(), seq.end());
         this->offsets[offset + 1] = this->sequences.size();
-        seq = reverse_complement(seq);
+        reverse_complement_in_place(seq);
         this->sequences.insert(this->sequences.end(), seq.begin(), seq.end());
         this->offsets[offset + 2] = this->sequences.size();
     }
@@ -97,7 +152,19 @@ std::string GBWTGraph::get_sequence(const handle_t& handle) const {
     return std::string(this->sequences.begin() + this->offsets[offset], this->sequences.begin() + this->offsets[offset + 1]);
 }
 
-size_t GBWTGraph::node_size() const {
+char GBWTGraph::get_base(const handle_t& handle, size_t index) const {
+    size_t offset = this->node_offset(handle);
+    return this->sequences[this->offsets[offset] + index];
+}
+
+std::string GBWTGraph::get_subsequence(const handle_t& handle, size_t index, size_t size) const {
+    size_t offset = this->node_offset(handle);
+    size_t start = std::min(static_cast<size_t>(this->offsets[offset] + index), static_cast<size_t>(this->offsets[offset + 1]));
+    size = std::min(size, static_cast<size_t>(this->offsets[offset + 1] - start));
+    return std::string(this->sequences.begin() + start, this->sequences.begin() + start + size);
+}
+
+size_t GBWTGraph::get_node_count() const {
     return total_nodes;
 }
 

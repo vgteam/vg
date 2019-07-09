@@ -16,8 +16,8 @@
 #include "../vg.hpp"
 #include "../vectorizer.hpp"
 #include "../mapper.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 
 using namespace std;
 using namespace vg;
@@ -180,9 +180,9 @@ int main_vectorize(int argc, char** argv){
         }
     }
 
-    unique_ptr<xg::XG> xg_index;
+    unique_ptr<XG> xg_index;
     if (!xg_name.empty()) {
-        xg_index = stream::VPKG::load_one<xg::XG>(xg_name);
+        xg_index = vg::io::VPKG::load_one<XG>(xg_name);
     }
     else{
         cerr << "No XG index given. An XG index must be provided." << endl;
@@ -198,11 +198,11 @@ int main_vectorize(int argc, char** argv){
     unique_ptr<gcsa::GCSA> gcsa_index;
     unique_ptr<gcsa::LCPArray> lcp_index;
     if (!gcsa_name.empty()) {
-        gcsa_index = stream::VPKG::load_one<gcsa::GCSA>(gcsa_name);
+        gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_name);
         
         // default LCP is the gcsa base name +.lcp
         string lcp_name = gcsa_name + ".lcp";
-        lcp_index = stream::VPKG::load_one<gcsa::LCPArray>(lcp_name);
+        lcp_index = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_name);
     }
 
     Mapper* mapper = nullptr;
@@ -297,7 +297,7 @@ int main_vectorize(int argc, char** argv){
     };
     
     get_input_file(optind, argc, argv, [&](istream& in) {
-        stream::for_each(in, lambda);
+        vg::io::for_each(in, lambda);
     });
 
     string mapping_str = vz.output_wabbit_map();

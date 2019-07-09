@@ -1,12 +1,14 @@
 #include "xg_position.hpp"
 
+//#define debug
+
 namespace vg {
 
-Node xg_node(id_t id, const xg::XG* xgidx) {
+Node xg_node(id_t id, const XG* xgidx) {
     return xgidx->node(id);
 }
 
-vector<Edge> xg_edges_on_start(id_t id, const xg::XG* xgidx) {
+vector<Edge> xg_edges_on_start(id_t id, const XG* xgidx) {
     vector<Edge> all_edges = xgidx->edges_of(id);
     auto new_end = std::remove_if(all_edges.begin(), all_edges.end(),
                                   [&](const Edge& edge) {
@@ -17,7 +19,7 @@ vector<Edge> xg_edges_on_start(id_t id, const xg::XG* xgidx) {
     return all_edges;
 }
 
-vector<Edge> xg_edges_on_end(id_t id, const xg::XG* xgidx) {
+vector<Edge> xg_edges_on_end(id_t id, const XG* xgidx) {
     vector<Edge> all_edges = xgidx->edges_of(id);
     auto new_end = std::remove_if(all_edges.begin(), all_edges.end(),
                                   [&](const Edge& edge) {
@@ -28,23 +30,23 @@ vector<Edge> xg_edges_on_end(id_t id, const xg::XG* xgidx) {
     return all_edges;
 }
 
-string xg_node_sequence(id_t id, const xg::XG* xgidx) {
+string xg_node_sequence(id_t id, const XG* xgidx) {
     return xgidx->node(id).sequence();
 }
 
-size_t xg_node_length(id_t id, const xg::XG* xgidx) {
+size_t xg_node_length(id_t id, const XG* xgidx) {
     return xgidx->node_length(id);
 }
 
-int64_t xg_node_start(id_t id, const xg::XG* xgidx) {
+int64_t xg_node_start(id_t id, const XG* xgidx) {
     return xgidx->node_start(id);
 }
 
-char xg_pos_char(pos_t pos, const xg::XG* xgidx) {
+char xg_pos_char(pos_t pos, const XG* xgidx) {
     return xgidx->pos_char(id(pos), is_rev(pos), offset(pos));
 }
 
-map<pos_t, char> xg_next_pos_chars(pos_t pos, const xg::XG* xgidx) {
+map<pos_t, char> xg_next_pos_chars(pos_t pos, const XG* xgidx) {
 
     map<pos_t, char> nexts;
     // See if the node is cached (did we just visit it?)
@@ -92,7 +94,7 @@ map<pos_t, char> xg_next_pos_chars(pos_t pos, const xg::XG* xgidx) {
     return nexts;
 }
 
-set<pos_t> xg_next_pos(pos_t pos, bool whole_node, const xg::XG* xgidx) {
+set<pos_t> xg_next_pos(pos_t pos, bool whole_node, const XG* xgidx) {
     set<pos_t> nexts;
     // See if the node is cached (did we just visit it?)
     Node node = xgidx->node(id(pos));
@@ -134,7 +136,7 @@ set<pos_t> xg_next_pos(pos_t pos, bool whole_node, const xg::XG* xgidx) {
     return nexts;
 }
 
-int64_t xg_distance(pos_t pos1, pos_t pos2, int64_t maximum, const xg::XG* xgidx) {
+int64_t xg_distance(pos_t pos1, pos_t pos2, int64_t maximum, const XG* xgidx) {
     //cerr << "distance from " << pos1 << " to " << pos2 << endl;
     if (pos1 == pos2) return 0;
     int64_t adj = (offset(pos1) == xg_node_length(id(pos1), xgidx) ? 0 : 1);
@@ -167,9 +169,9 @@ int64_t xg_distance(pos_t pos1, pos_t pos2, int64_t maximum, const xg::XG* xgidx
     return numeric_limits<int64_t>::max();
 }
 
-set<pos_t> xg_positions_bp_from(pos_t pos, int64_t distance, bool rev, const xg::XG* xgidx) {
+set<pos_t> xg_positions_bp_from(pos_t pos, int64_t distance, bool rev, const XG* xgidx) {
     // handle base case
-    //size_t xg_node_length(id_t id, xg::XG* xgidx);
+    //size_t xg_node_length(id_t id, XG* xgidx);
     if (rev) {
         pos = reverse(pos, xg_node_length(id(pos), xgidx));
     }
@@ -212,7 +214,24 @@ set<pos_t> xg_positions_bp_from(pos_t pos, int64_t distance, bool rev, const xg:
     }
 }
 
-map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby, const xg::XG* xgidx) {
+map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const XG* xgidx, const Alignment& aln, bool just_min,
+    bool nearby, size_t search_limit) {
+    
+    if (nearby && search_limit == 0) {
+        // Fill in the search limit
+        search_limit = aln.sequence().size();
+    }
+    
+#ifdef debug
+    cerr << "Searching for path positions for " << aln.name();
+    if (nearby) {
+        cerr << " within " << search_limit << " bp";
+    } else {
+        cerr << " that are actually touched";
+    }
+    cerr << endl;
+#endif
+    
     map<string, vector<pair<size_t, bool> > > offsets;
     for (auto& mapping : aln.path().mapping()) {
     
@@ -232,40 +251,40 @@ map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const Alignm
             end.push_back(true);
         }
         
+        // Find the position of this end of this mapping
+        pos_t mapping_pos = make_pos_t(mapping.position());
+        
+        // Find the positions for this end of this Mapping
+        auto pos_offs = algorithms::nearest_offsets_in_paths(xgidx, mapping_pos,
+                                                             nearby ? search_limit : -1);
+        
         for (auto look_at_end : end) {
             // For the start and the end of the Mapping, as needed
             
-            if (mapping_width == 1 && look_at_end) {
-                // The end is the same as the start so we don't need to look it
-                // up separately.
-                continue;
-            }
-       
-            // Find the position of this end of this mapping
-            pos_t mapping_pos = make_pos_t(mapping.position());
-            if (look_at_end) {
-                // Look at the end of the mapping instead of the start
-                get_offset(mapping_pos) += mapping_width - 1;
-            }
-       
-            // Find the positions for this end of this Mapping
-            auto pos_offs = (nearby ?
-                             xgidx->nearest_offsets_in_paths(mapping_pos, aln.sequence().size())
-                             : xgidx->offsets_in_paths(mapping_pos));
             for (auto& p : pos_offs) {
                 // For each path, splice the list of path positions for this
                 // Mapping onto the end of the list of positions we found in that
                 // path
-                auto& v = offsets[p.first];
-                auto& y = p.second;
-                v.reserve(v.size() + distance(y.begin(),y.end()));
-                v.insert(v.end(),y.begin(),y.end());
+                auto& v = offsets[xgidx->get_path_name(p.first)];
+                
+                for (pair<size_t, bool>& y : p.second) {
+                    v.emplace_back(y.second ? y.first - mapping_width : y.first,
+                                   y.second);
+                }
+                
+#ifdef debug
+                cerr << "\tFound hit on path " << xgidx->get_path_name(p.first) << endl;
+#endif
             }
         }
+        
+        
+        
+        
     }
     if (!nearby && offsets.empty()) {
         // find the nearest if we couldn't find any before
-        return xg_alignment_path_offsets(aln, just_min, true, xgidx);
+        return xg_alignment_path_offsets(xgidx, aln, just_min, true, search_limit);
     }
     if (just_min) {
         // We need the minimum position for each path
@@ -282,9 +301,9 @@ map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const Alignm
     return offsets;
 }
 
-void xg_annotate_with_initial_path_positions(Alignment& aln, const xg::XG* xgidx) {
+void xg_annotate_with_initial_path_positions(const XG* xgidx, Alignment& aln, size_t search_limit) {
     if (!aln.refpos_size()) {
-        auto init_path_positions = xg_alignment_path_offsets(aln, true, false, xgidx);
+        auto init_path_positions = xg_alignment_path_offsets(xgidx, aln, true, false, search_limit);
         for (const pair<string, vector<pair<size_t, bool> > >& pos_record : init_path_positions) {
             for (auto& pos : pos_record.second) {
                 Position* refpos = aln.add_refpos();

@@ -8,7 +8,7 @@ using namespace std;
     unordered_map<id_t, pair<id_t, bool>> reverse_complement_graph(const HandleGraph* source,
                                                                    MutableHandleGraph* into) {
         
-        if (into->node_size()) {
+        if (into->get_node_count()) {
             cerr << "error:[algorithms] attempted to create reversed graph in a non-empty graph" << endl;
             exit(1);
         }
@@ -18,8 +18,8 @@ using namespace std;
         // for translating b/w the graphs the other direction in the course in the algorithm
         unordered_map<handle_t, handle_t> forward_translation;
         
-        node_translation.reserve(source->node_size());
-        forward_translation.reserve(source->node_size());
+        node_translation.reserve(source->get_node_count());
+        forward_translation.reserve(source->get_node_count());
         
         // make the nodes in reverse orientation
         source->for_each_handle([&](const handle_t& handle) {

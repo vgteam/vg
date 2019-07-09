@@ -16,8 +16,8 @@
 #include "../vg.hpp"
 #include "../mapper.hpp"
 #include "../sampler.hpp"
-#include "../stream/protobuf_emitter.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/protobuf_emitter.hpp>
+#include <vg/io/vpkg.hpp>
 
 using namespace std;
 using namespace vg;
@@ -244,9 +244,9 @@ int main_sim(int argc, char** argv) {
         transcript_expressions = parse_rsem_expression_file(rsem_in);
     }
 
-    unique_ptr<xg::XG> xgidx;
+    unique_ptr<XG> xgidx;
     if (!xg_name.empty()) {
-        xgidx = stream::VPKG::load_one<xg::XG>(xg_name);
+        xgidx = vg::io::VPKG::load_one<XG>(xg_name);
     }
     
     for (auto& path_name : path_names) {
@@ -263,10 +263,10 @@ int main_sim(int argc, char** argv) {
         }
     }
     
-    unique_ptr<stream::ProtobufEmitter<Alignment>> aln_emitter;
+    unique_ptr<vg::io::ProtobufEmitter<Alignment>> aln_emitter;
     if (align_out && !json_out) {
         // Make an emitter to emit Alignments
-        aln_emitter = unique_ptr<stream::ProtobufEmitter<Alignment>>(new stream::ProtobufEmitter<Alignment>(cout));
+        aln_emitter = unique_ptr<vg::io::ProtobufEmitter<Alignment>>(new vg::io::ProtobufEmitter<Alignment>(cout));
     }
 
     // Make a Mapper to score reads, with the default parameters

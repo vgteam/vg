@@ -1,19 +1,18 @@
 DEP_DIR:=./deps
 SRC_DIR:=src
 ALGORITHMS_SRC_DIR:=$(SRC_DIR)/algorithms
-STREAM_SRC_DIR:=$(SRC_DIR)/stream
+IO_SRC_DIR:=$(SRC_DIR)/io
 SUBCOMMAND_SRC_DIR:=$(SRC_DIR)/subcommand
 UNITTEST_SRC_DIR:=$(SRC_DIR)/unittest
 BIN_DIR:=bin
 OBJ_DIR:=obj
 ALGORITHMS_OBJ_DIR:=$(OBJ_DIR)/algorithms
-STREAM_OBJ_DIR:=$(OBJ_DIR)/stream
+IO_OBJ_DIR:=$(OBJ_DIR)/io
 SUBCOMMAND_OBJ_DIR:=$(OBJ_DIR)/subcommand
 UNITTEST_OBJ_DIR:=$(OBJ_DIR)/unittest
 LIB_DIR:=lib
 # INC_DIR must be a relative path
 INC_DIR:=include
-CPP_DIR:=cpp
 CWD:=$(shell pwd)
 
 EXE:=vg
@@ -23,16 +22,19 @@ all: $(BIN_DIR)/$(EXE)
 # Magic dependencies (see <http://make.mad-scientist.net/papers/advanced-auto-dependency-generation/#tldr>)
 include $(wildcard $(OBJ_DIR)/*.d)
 include $(wildcard $(ALGORITHMS_OBJ_DIR)/*.d)
-include $(wildcard $(STREAM_OBJ_DIR)/*.d)
+include $(wildcard $(IO_OBJ_DIR)/*.d)
 include $(wildcard $(SUBCOMMAND_OBJ_DIR)/*.d)
 include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
 
 # We don't ask for -fopenmp here because how we get it can depend on the compiler
 CXXFLAGS := -O3 -Werror=return-type -std=c++14 -ggdb -g -MMD -MP -msse4.2 $(CXXFLAGS)
 
-LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib $(shell pkg-config --cflags cairo jansson)
+LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib $(shell pkg-config --cflags cairo jansson)
 
-LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lhandlegraph -lvcflib -lgssw -lssw -lprotobuf -lsublinearLS -lhts -ldeflate -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -lstructures -lvw -lboost_program_options -lallreduce
+# Define libraries to link against. Make sure to always link statically against
+# htslib and libdeflate and Protobuf so that we can use position-dependent code
+# there for speed.
+LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) $(CWD)/$(LIB_DIR)/libvgio.a -lhandlegraph -lvcflib -lgssw -lssw $(CWD)/$(LIB_DIR)/libprotobuf.a -lsublinearLS $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -lstructures -lvw -lboost_program_options -lallreduce -lsglib
 # Use pkg-config to find Cairo and all the libs it uses
 LD_LIB_FLAGS += $(shell pkg-config --libs --static cairo jansson)
 
@@ -53,7 +55,14 @@ ifeq ($(shell uname -s),Darwin)
     ifeq ($(shell if [ -d /usr/local/include ];then echo 1;else echo 0;fi), 1)
         # Use /usr/local/include as system-level (to avoid overriding our Protobuf) if present.
         # One might expect this to already be there but see https://github.com/vgteam/vg/issues/2133
-        LD_LIB_FLAGS += -isystem /usr/local/include
+        CXXFLAGS += -isystem /usr/local/include
+
+        ifeq ($(shell if [ -d /usr/local/include/cairo ];then echo 1;else echo 0;fi), 1)	
+            # pkg-config is not always smart enough to find Cairo's include path for us.
+            # We make sure to grab its directory manually if we see it.
+            CXXFLAGS += -I /usr/local/include/cairo
+            LD_LIB_FLAGS += -lcairo
+        endif
     endif
 
     # Our compiler might be clang that lacks -fopenmp support.
@@ -80,6 +89,9 @@ ifeq ($(shell uname -s),Darwin)
     else
         CXXFLAGS += -fopenmp
     endif
+	
+    # Note shared libraries are dylibs
+    SHARED_SUFFIX = dylib
 
 else
     # We are not running on OS X
@@ -94,6 +106,9 @@ else
 
     # We get OpenMP the normal way, using whatever the compiler knows about
     CXXFLAGS += -fopenmp
+	
+    # Note shared libraries are so files
+    SHARED_SUFFIX = so
 endif
 
 # These libs need to come after libdw if used, because libdw depends on them
@@ -126,16 +141,16 @@ LD_LIB_FLAGS += -lrocksdb
 ROCKSDB_LDFLAGS = $(shell grep PLATFORM_LDFLAGS deps/rocksdb/make_config.mk | cut -d '=' -f2 | sed s/-ljemalloc// | sed s/-ltcmalloc// | sed s/-ltbb//)
 
 # When building statically, we need to tell the linker not to bail if it sees multiple definitions.
-# libc on e.g. our Jenkins host does not define malloc as weak, so tcmalloc can't override it in a static build.
+# libc on e.g. our Jenkins host does not define malloc as weak, so other mallocs can't override it in a static build.
 # TODO: Why did this problem only begin to happen when libvw was added?
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc -Wl,--allow-multiple-definition 
 
-# These are put into libvg. Grab everything except main.
+# These are put into libvg. Grab everything except main
 OBJ = $(filter-out $(OBJ_DIR)/main.o,$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(wildcard $(SRC_DIR)/*.cpp)))
 # And all the algorithms
 ALGORITHMS_OBJ = $(patsubst $(ALGORITHMS_SRC_DIR)/%.cpp,$(ALGORITHMS_OBJ_DIR)/%.o,$(wildcard $(ALGORITHMS_SRC_DIR)/*.cpp))
 # And all the IO logic
-STREAM_OBJ = $(patsubst $(STREAM_SRC_DIR)/%.cpp,$(STREAM_OBJ_DIR)/%.o,$(wildcard $(STREAM_SRC_DIR)/*.cpp))
+IO_OBJ = $(patsubst $(IO_SRC_DIR)/%.cpp,$(IO_OBJ_DIR)/%.o,$(wildcard $(IO_SRC_DIR)/*.cpp))
 
 # These aren't put into libvg, but they provide subcommand implementations for the vg bianry
 SUBCOMMAND_OBJ = $(patsubst $(SUBCOMMAND_SRC_DIR)/%.cpp,$(SUBCOMMAND_OBJ_DIR)/%.o,$(wildcard $(SUBCOMMAND_SRC_DIR)/*.cpp))
@@ -143,11 +158,16 @@ SUBCOMMAND_OBJ = $(patsubst $(SUBCOMMAND_SRC_DIR)/%.cpp,$(SUBCOMMAND_OBJ_DIR)/%.
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ = $(patsubst $(UNITTEST_SRC_DIR)/%.cpp,$(UNITTEST_OBJ_DIR)/%.o,$(wildcard $(UNITTEST_SRC_DIR)/*.cpp))
 
+# These aren't put into libvg. They are linked into vg itself to communicate
+# things about the platform
+CONFIGURATION_OBJ =
+
 
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
-GPERF_DIR:=deps/gperftools
+JEMALLOC_DIR:=deps/jemalloc
+LOCKFREE_MALLOC_DIR:=deps/lockfree-malloc
 SDSL_DIR:=deps/sdsl-lite
 SNAPPY_DIR:=deps/snappy
 ROCKSDB_DIR:=deps/rocksdb
@@ -167,16 +187,18 @@ SSW_DIR:=deps/ssw/src
 LINLS_DIR:=deps/sublinear-Li-Stephens
 STRUCTURES_DIR:=deps/structures
 BACKWARD_CPP_DIR:=deps/backward-cpp
+DOZEU_DIR:=deps/dozeu
 ELFUTILS_DIR:=deps/elfutils
 BOOST_DIR:=deps/boost-subset
 VOWPALWABBIT_DIR:=deps/vowpal_wabbit
 LIBDEFLATE_DIR:=deps/libdeflate
+LIBVGIO_DIR:=deps/libvgio
 LIBHANDLEGRAPH_DIR:=deps/libhandlegraph
+SGLIB_DIR:=deps/sglib
 
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
 DEP_OBJ =
-DEP_OBJ += $(OBJ_DIR)/vg.pb.o 
 DEP_OBJ += $(OBJ_DIR)/progress_bar.o
 DEP_OBJ += $(OBJ_DIR)/sha1.o
 DEP_OBJ += $(OBJ_DIR)/Fasta.o
@@ -209,7 +231,9 @@ LIB_DEPS += $(LIB_DIR)/libvw.a
 LIB_DEPS += $(LIB_DIR)/liballreduce.a
 LIB_DEPS += $(LIB_DIR)/libboost_program_options.a
 LIB_DEPS += $(LIB_DIR)/libdeflate.a
+LIB_DEPS += $(LIB_DIR)/libvgio.a
 LIB_DEPS += $(LIB_DIR)/libhandlegraph.a
+LIB_DEPS += $(LIB_DIR)/libsglib.a
 ifneq ($(shell uname -s),Darwin)
     # On non-Mac (i.e. Linux), where ELF binaries are used, pull in libdw which
     # backward-cpp will use.
@@ -222,7 +246,6 @@ endif
 
 # common dependencies to build before all vg src files
 DEPS = $(LIB_DEPS)
-DEPS += $(CPP_DIR)/vg.pb.h
 DEPS += $(INC_DIR)/gcsa/gcsa.h
 DEPS += $(INC_DIR)/gbwt/dynamic_gbwt.h
 DEPS += $(INC_DIR)/lru_cache.h
@@ -233,23 +256,30 @@ DEPS += $(INC_DIR)/gfakluge.hpp
 DEPS += $(INC_DIR)/sha1.hpp
 DEPS += $(INC_DIR)/progress_bar.hpp
 DEPS += $(INC_DIR)/backward.hpp
+DEPS += $(INC_DIR)/dozeu/dozeu.h
+DEPS += $(INC_DIR)/raptor2/raptor2.h
+
+# Only depend on these files for the final linking stage.	
+# These libraries provide no headers to affect the vg build.	
+LINK_DEPS =
 
 ifneq ($(shell uname -s),Darwin)
-    DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
-    LD_LIB_FLAGS += -ltcmalloc_minimal
+	# Use jemalloc
+	LINK_DEPS += $(LIB_DIR)/libjemalloc.a
+	LD_LIB_FLAGS += -ljemalloc
 endif
 
 .PHONY: clean get-deps deps test set-path static docs .pre-build .check-environment .check-git .no-git
 
-$(BIN_DIR)/vg: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(DEPS)
-	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+$(BIN_DIR)/vg: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
+	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
-static: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ)
-	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) -lvg $(STATIC_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+static: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
+	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(STATIC_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) 
 
-$(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(STREAM_OBJ) $(DEP_OBJ) $(DEPS)
+$(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
 	rm -f $@
-	ar rs $@ $(OBJ) $(ALGORITHMS_OBJ) $(STREAM_OBJ) $(DEP_OBJ)
+	ar rs $@ $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ)
 
 # We have system-level deps to install
 get-deps:
@@ -258,10 +288,10 @@ get-deps:
 # And we have submodule deps to build
 deps: $(DEPS)
 
-test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(VCFLIB_DIR)/bin/vcf2tsv $(FASTAHACK_DIR)/fastahack
+test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(VCFLIB_DIR)/bin/vcf2tsv $(FASTAHACK_DIR)/fastahack $(BIN_DIR)/rapper
 	. ./source_me.sh && cd test && prove -v t
 
-docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(CPP_DIR)/vg.pb.cc
+docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp
 	doxygen
 	echo "View documentation at: file://$(PWD)/doc/doxygen/index.html"
 
@@ -280,16 +310,11 @@ $(LIB_DIR)/libprotobuf.a: deps/protobuf/src/google/protobuf/*.cc
 	rm -Rf include/google/protobuf/
 	+. ./source_me.sh && cd $(PROTOBUF_DIR) && ./autogen.sh && export DIST_LANG=cpp && ./configure --prefix="$(CWD)" $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install && export PATH=$(CWD)/bin:$$PATH
 
-test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(CPP_DIR)/vg.pb.h $(SRC_DIR)/json2pb.h $(SRC_DIR)/vg.hpp
+test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/json2pb.h $(SRC_DIR)/vg.hpp
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LD_INCLUDE_FLAGS) -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(FILTER)
 
-# remove annoying large alloc messages from tcmalloc
-$(GPERF_DIR)/src/tcmalloc.cc.bak:
-	cp $(GPERF_DIR)/src/tcmalloc.cc $(GPERF_DIR)/src/tcmalloc.cc.bak
-	sed 's/printer.printf("tcmalloc: large alloc/return; printer.printf("tcmalloc: large alloc/' $(GPERF_DIR)/src/tcmalloc.cc.bak >$(GPERF_DIR)/src/tcmalloc.cc
-
-$(LIB_DIR)/libtcmalloc_minimal.a: $(GPERF_DIR)/src/tcmalloc.cc.bak
-	+. ./source_me.sh && cd $(GPERF_DIR) && ./autogen.sh && ./configure --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r bin/* $(CWD)/$(BIN_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
+$(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
+	+. ./source_me.sh && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libsdsl.a: $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
 ifeq ($(shell uname -s),Darwin)
@@ -329,23 +354,48 @@ $(INC_DIR)/progress_bar.hpp: $(PROGRESS_BAR_DIR)/progress_bar.hpp
 	+cp $(PROGRESS_BAR_DIR)/progress_bar.hpp $(CWD)/$(INC_DIR)
 
 $(OBJ_DIR)/progress_bar.o: $(PROGRESS_BAR_DIR)/*.hpp $(PROGRESS_BAR_DIR)/*.cpp
-	+cd $(PROGRESS_BAR_DIR) && $(MAKE) $(FILTER) && cp progress_bar.o $(CWD)/$(OBJ_DIR)
+	+. ./source_me.sh && cd $(PROGRESS_BAR_DIR) && $(MAKE) $(FILTER) && cp progress_bar.o $(CWD)/$(OBJ_DIR)
 
 $(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
-	+cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER) && mv Fasta.o $(CWD)/$(OBJ_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
+	+. ./source_me.sh && cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER) && mv Fasta.o $(CWD)/$(OBJ_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
+
+# TODO: libvgio.so gets built to link against system-installed Protobuf .so, if the linker finds one when making libvgio.so.
+# It *shouldn't* do this, but cmake and pkg-config don't quite work right together inside libvgio's build process yet.
+# So we delete libvgio.so and always link statically against libvgio.a.
+# But we don't delete libvgio.dylib; Mac insists on it for some reason.
+# We also need to clear out the old Protobuf header in case Protobuf updated;
+# we don't want to accidentally build against it.
+$(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/libprotobuf.a $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp
+	+rm -f $(CWD)/$(INC_DIR)/vg.pb.h $(CWD)/$(INC_DIR)/vg/vg.pb.h
+	+rm -Rf $(CWD)/$(INC_DIR)/vg/io/
+	+. ./source_me.sh && cd $(LIBVGIO_DIR) && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib . $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install && rm -f $(CWD)/$(LIB_DIR)/libvgio.so
 
 $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp $(LIBHANDLEGRAPH_DIR)/src/*.cpp
 	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && cmake . && $(MAKE) $(FILTER) && cp libhandlegraph.a $(CWD)/$(LIB_DIR) && cp -r src/include/handlegraph $(CWD)/$(INC_DIR)
 
+# On Linux, libdeflate builds a .so.
+# On Mac, it *still* builds an so, which is just a dylib with .so extension.
+# On Mac we need to make sure to set the install name. We do that by renaming to dylib.
+# We don't just leave it as .so because we need to deal with outdated .so files with no paths set.
+$(LIB_DIR)/libdeflate.$(SHARED_SUFFIX): $(LIB_DIR)/libdeflate.a
+	+cd $(LIBDEFLATE_DIR) && cp libdeflate.so $(CWD)/$(LIB_DIR)
+	+touch $(CWD)/$(LIB_DIR)/libdeflate.so
+ifeq ($(shell uname -s),Darwin)
+	+mv $(LIB_DIR)/libdeflate.so $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX)
+	+install_name_tool -id $(CWD)/$(LIB_DIR)/libdeflate.$(SHARED_SUFFIX) $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX)
+endif
+	
 $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDEFLATE_DIR)/lib/*/*.h $(LIBDEFLATE_DIR)/lib/*.c $(LIBDEFLATE_DIR)/lib/*/*.c
-
 	+cd $(LIBDEFLATE_DIR) && $(MAKE) $(FILTER) && cp libdeflate.a $(CWD)/$(LIB_DIR) && cp libdeflate.h $(CWD)/$(INC_DIR)
 	
-# We clear out the include/htslib/* headers because they may be cached and out of date and confuse the build.
-# Also we build after libdeflate so it can be used
-$(LIB_DIR)/libhts.a: $(LIB_DIR)/libdeflate.a $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h $(HTSLIB_DIR)/htslib/*.h $(HTSLIB_DIR)/cram/*.c $(HTSLIB_DIR)/cram/*.h
-	+rm -Rf $(CWD)/$(INC_DIR)/htslib $(CWD)/$(LIB_DIR)/libhts.a
-	+cd $(HTSLIB_DIR) && autoheader && autoconf && CFLAGS="-I$(CWD)/$(INC_DIR)" LDFLAGS="-L$(CWD)/$(LIB_DIR)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins $(FILTER) && $(MAKE) lib-static $(FILTER) && cp libhts.a $(CWD)/$(LIB_DIR) && cp *.h $(CWD)/$(INC_DIR) && cp -r htslib $(CWD)/$(INC_DIR)/
+# We build htslib after libdeflate so it can use libdeflate
+# We have to do a full build in order to install, to get the pkg-config file so libvgio can link against it.
+# We also have to have the shared libdeflate or we will get complaints that the static one is not position independent.
+# If we need either the library or the pkg-config file (which we didn't used to ship), run the whole build.
+# We use a wildcard match to make sure make understands that both files come from one command run.
+# See https://stackoverflow.com/a/3077254
+$(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc: $(LIB_DIR)/libdeflate.a $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX) $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h $(HTSLIB_DIR)/htslib/*.h $(HTSLIB_DIR)/cram/*.c $(HTSLIB_DIR)/cram/*.h
+	+. ./source_me.sh && cd $(HTSLIB_DIR) && autoheader && autoconf && CFLAGS="-I$(CWD)/$(INC_DIR)" LDFLAGS="-L$(CWD)/$(LIB_DIR)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins --prefix=$(CWD) $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install
 
 # We tell the vcflib build to use our own htslib
 $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/intervaltree/*.cpp $(VCFLIB_DIR)/intervaltree/*.h $(VCFLIB_DIR)/tabixpp/*.cpp $(VCFLIB_DIR)/tabixpp/*.hpp
@@ -355,10 +405,10 @@ $(VCFLIB_DIR)/bin/vcf2tsv: $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.h $(LIB_D
 	+. ./source_me.sh && cd $(VCFLIB_DIR) && HTS_LIB="$(CWD)/$(LIB_DIR)/libhts.a" HTS_INCLUDES="-I$(CWD)/$(INC_DIR)" HTS_LDFLAGS="-L$(CWD)/$(LIB_DIR) -lhts -lpthread -lm -lbz2 -llzma -lz -ldeflate" $(MAKE) vcf2tsv $(FILTER)
 
 $(FASTAHACK_DIR)/fastahack: $(FASTAHACK_DIR)/*.c $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
-	+cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER)
+	+. ./source_me.sh && cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER)
 
 $(LIB_DIR)/libgssw.a: $(GSSW_DIR)/src/gssw.c $(GSSW_DIR)/src/gssw.h
-	+cd $(GSSW_DIR) && $(MAKE) $(FILTER) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp obj/* $(CWD)/$(OBJ_DIR) && cp src/*.h $(CWD)/$(INC_DIR)
+	+. ./source_me.sh && cd $(GSSW_DIR) && $(MAKE) $(FILTER) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp obj/* $(CWD)/$(OBJ_DIR) && cp src/*.h $(CWD)/$(INC_DIR)
 
 $(INC_DIR)/lru_cache.h: $(DEP_DIR)/lru_cache/*.h $(DEP_DIR)/lru_cache/*.cc
 	+cd $(DEP_DIR)/lru_cache && cp *.h* $(CWD)/$(INC_DIR)/
@@ -374,26 +424,39 @@ $(INC_DIR)/sparsepp/spp.h: $(wildcard $(SPARSEHASH_DIR)/sparsepp/*.h)
 
 #$(INC_DIR)/Variant.h
 $(LIB_DIR)/libvcfh.a: $(DEP_DIR)/libVCFH/*.cpp $(DEP_DIR)/libVCFH/*.hpp 
-	+cd $(DEP_DIR)/libVCFH && $(MAKE) $(FILTER) && cp libvcfh.a $(CWD)/$(LIB_DIR)/ && cp vcfheader.hpp $(CWD)/$(INC_DIR)/
+	+. ./source_me.sh && cd $(DEP_DIR)/libVCFH && $(MAKE) $(FILTER) && cp libvcfh.a $(CWD)/$(LIB_DIR)/ && cp vcfheader.hpp $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libgfakluge.a: $(INC_DIR)/gfakluge.hpp $(DEP_DIR)/gfakluge/src/*.hpp $(DEP_DIR)/gfakluge/src/*.cpp
-	+cd $(DEP_DIR)/gfakluge && $(MAKE) libgfakluge.a $(FILTER) && cp libgfakluge.a $(CWD)/$(LIB_DIR)/
+	+. ./source_me.sh && cd $(DEP_DIR)/gfakluge && $(MAKE) libgfakluge.a $(FILTER) && cp libgfakluge.a $(CWD)/$(LIB_DIR)/
 
 $(INC_DIR)/gfakluge.hpp: $(DEP_DIR)/gfakluge/src/gfakluge.hpp
 	+cp $(DEP_DIR)/gfakluge/src/*.hpp $(CWD)/$(INC_DIR)/ && cp $(DEP_DIR)/gfakluge/src/tinyFA/*.hpp $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libsonlib.a: $(CWD)/$(DEP_DIR)/sonLib/C/inc/*.h $(CWD)/$(DEP_DIR)/sonLib/C/impl/*.c
-	+cd $(DEP_DIR)/sonLib && kyotoTycoonLib="" $(MAKE) $(FILTER) && cp lib/sonLib.a $(CWD)/$(LIB_DIR)/libsonlib.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
+	+. ./source_me.sh && cd $(DEP_DIR)/sonLib && kyotoTycoonLib="" $(MAKE) $(FILTER) && cp lib/sonLib.a $(CWD)/$(LIB_DIR)/libsonlib.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
 
 $(LIB_DIR)/libpinchesandcacti.a: $(LIB_DIR)/libsonlib.a $(CWD)/$(DEP_DIR)/pinchesAndCacti/inc/*.h $(CWD)/$(DEP_DIR)/pinchesAndCacti/impl/*.c
-	+cd $(DEP_DIR)/pinchesAndCacti && $(MAKE) $(FILTER) && cd $(CWD)/$(DEP_DIR)/sonLib && cp lib/stPinchesAndCacti.a $(CWD)/$(LIB_DIR)/libpinchesandcacti.a && cp lib/3EdgeConnected.a $(CWD)/$(LIB_DIR)/lib3edgeconnected.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
+	+. ./source_me.sh && cd $(DEP_DIR)/pinchesAndCacti && $(MAKE) $(FILTER) && cd $(CWD)/$(DEP_DIR)/sonLib && cp lib/stPinchesAndCacti.a $(CWD)/$(LIB_DIR)/libpinchesandcacti.a && cp lib/3EdgeConnected.a $(CWD)/$(LIB_DIR)/lib3edgeconnected.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
 
 # When building raptor we need to make sure to pre-generate and fix up the lexer
-$(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/*.c $(RAPTOR_DIR)/src/*.h
-	+cd $(RAPTOR_DIR)/build && cmake .. && rm -f src/turtle_parser.c && rm -f src/turtle_lexer.c && make turtle_lexer_tgt && make -f src/CMakeFiles/raptor2.dir/build.make src/turtle_lexer.c && sed -i.bak '/yycleanup/d' src/turtle_lexer.c && $(MAKE) $(FILTER) && cp src/libraptor2.a $(CWD)/$(LIB_DIR) && mkdir -p $(CWD)/$(INC_DIR)/raptor2 && cp src/*.h $(CWD)/$(INC_DIR)/raptor2
+# We also need to clear out its cmake stuff in case it found a wrong Bison and cached it.
+$(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/* $(RAPTOR_DIR)/build/*
+	which bison
+	+. ./source_me.sh && cd $(RAPTOR_DIR)/build && rm -Rf CMakeCache.txt CMakeFiles CTestTestfile.cmake Makefile cmake_install.cmake src tests utils && cmake .. && rm -f src/turtle_parser.c && rm -f src/turtle_lexer.c && make turtle_lexer_tgt && make -f src/CMakeFiles/raptor2.dir/build.make src/turtle_lexer.c && sed -i.bak '/yycleanup/d' src/turtle_lexer.c && $(MAKE) $(FILTER) && cp src/libraptor2.a $(CWD)/$(LIB_DIR)
+	+touch $(LIB_DIR)/libraptor2.a
 
-$(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STRUCTURES_DIR)/src/*.cpp 
-	+. ./source_me.sh && cd $(STRUCTURES_DIR) && $(MAKE) lib/libstructures.a $(FILTER) && cp lib/libstructures.a $(CWD)/$(LIB_DIR)/ && cp -r src/include/structures $(CWD)/$(INC_DIR)/
+# We need rapper from Raptor for the tests
+$(BIN_DIR)/rapper: $(LIB_DIR)/libraptor2.a
+	+cp $(RAPTOR_DIR)/build/utils/rapper $(BIN_DIR)/
+
+# The Raptor header needs to be newer than the library.
+# Mac Travis managed to get an old header with a new binary.
+$(INC_DIR)/raptor2/raptor2.h: $(LIB_DIR)/libraptor2.a $(RAPTOR_DIR)/build/*
+	+cd $(RAPTOR_DIR)/build && mkdir -p $(CWD)/$(INC_DIR)/raptor2 && cp src/*.h $(CWD)/$(INC_DIR)/raptor2
+	+touch $(INC_DIR)/raptor2/raptor2.h
+
+$(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STRUCTURES_DIR)/src/*.cpp $(STRUCTURES_DIR)/Makefile 
+	+. ./source_me.sh && cd $(STRUCTURES_DIR) && $(MAKE) clean && $(MAKE) lib/libstructures.a $(FILTER) && cp lib/libstructures.a $(CWD)/$(LIB_DIR)/ && cp -r src/include/structures $(CWD)/$(INC_DIR)/
     
 # To build libvw we need to point it at our Boost, but then configure decides
 # it needs to build vwdll, which depends on codecvt, which isn't actually
@@ -425,6 +488,9 @@ $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
 
 $(INC_DIR)/backward.hpp: $(BACKWARD_CPP_DIR)/backward.hpp
 	+cp $(BACKWARD_CPP_DIR)/backward.hpp $(CWD)/$(INC_DIR)/
+	
+$(INC_DIR)/dozeu/dozeu.h: $(DOZEU_DIR)/*.h
+	+mkdir -p $(CWD)/$(INC_DIR)/dozeu && cp $(DOZEU_DIR)/*.h $(CWD)/$(INC_DIR)/dozeu/
 
 $(LIB_DIR)/libebl.a: $(LIB_DIR)/libelf.a
 
@@ -437,13 +503,14 @@ $(LIB_DIR)/libdwfl.a: $(LIB_DIR)/libelf.a
 # We can't build elfutils from Git without "maintainer mode".
 # There are some release-only headers or something that it complains it can't find otherwise.
 # We also don't do a normal make and make install here because we don't want to build and install all the elfutils binaries and libasm.
-$(LIB_DIR)/libelf.a: $(ELFUTILS_DIR)/libebl/* $(ELFUTILS_DIR)/libdw/* $(ELFUTILS_DIR)/libelf/* $(ELFUTILS_DIR)/src/*
+$(LIB_DIR)/libelf.a: $(ELFUTILS_DIR)/libebl/*.c $(ELFUTILS_DIR)/libebl/*.h $(ELFUTILS_DIR)/libdw/*.c $(ELFUTILS_DIR)/libdw/*.h $(ELFUTILS_DIR)/libelf/*.c $(ELFUTILS_DIR)/libelf/*.h $(ELFUTILS_DIR)/src/*.c $(ELFUTILS_DIR)/src/*.h
+	+cd $(CWD)/$(INC_DIR)/ && rm -Rf elfutils gelf.h libelf.h dwarf.h libdwflP.h libdwfl.h libebl.h libelf.h
 	+cd $(ELFUTILS_DIR) && autoreconf -i -f && ./configure --enable-maintainer-mode --prefix=$(CWD) $(FILTER)
-	+cd $(ELFUTILS_DIR)/libelf && $(MAKE) libelf.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/libebl && $(MAKE) libebl.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/libdw && $(MAKE) libdw.a known-dwarf.h $(FILTER)
-	+cd $(ELFUTILS_DIR)/libdwfl && $(MAKE) libdwfl.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/libdwelf && $(MAKE) libdwelf.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libelf && $(MAKE) clean && $(MAKE) libelf.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libebl && $(MAKE) clean && $(MAKE) libebl.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libdwfl && $(MAKE) clean && $(MAKE) libdwfl.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libdwelf && $(MAKE) clean && $(MAKE) libdwelf.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libdw && $(MAKE) clean && $(MAKE) libdw.a known-dwarf.h $(FILTER)
 	+cd $(ELFUTILS_DIR) && mkdir -p $(CWD)/$(INC_DIR)/elfutils && cp libdw/known-dwarf.h libdw/libdw.h libebl/libebl.h libelf/elf-knowledge.h version.h libdwfl/libdwfl.h libdwelf/libdwelf.h $(CWD)/$(INC_DIR)/elfutils && cp libelf/gelf.h libelf/libelf.h libdw/dwarf.h $(CWD)/$(INC_DIR) && cp libebl/libebl.a libdw/libdw.a libdwfl/libdwfl.a libdwelf/libdwelf.a libelf/libelf.a $(CWD)/$(LIB_DIR)/
 
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
@@ -455,6 +522,9 @@ $(LIB_DIR)/libfml.a: $(FERMI_DIR)/*.h $(FERMI_DIR)/*.c
 # We don't need to hack the build to point at our htslib because sublinearLS gets its htslib from the include flags we set
 $(LIB_DIR)/libsublinearLS.a: $(LINLS_DIR)/src/*.cpp $(LINLS_DIR)/src/*.hpp $(LIB_DIR)/libhts.a
 	cd $(LINLS_DIR) && INCLUDE_FLAGS="-I$(CWD)/$(INC_DIR)" $(MAKE) libs $(FILTER) && cp lib/libsublinearLS.a $(CWD)/$(LIB_DIR)/ && mkdir -p $(CWD)/$(INC_DIR)/sublinearLS && cp src/*.hpp $(CWD)/$(INC_DIR)/sublinearLS/
+
+$(LIB_DIR)/libsglib.a: $(SGLIB_DIR)/src/*.cpp $(SGLIB_DIR)/include/sglib/*.hpp $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/libsdsl.a $(INC_DIR)/sparsepp/spp.h
+	cd $(SGLIB_DIR) && CPLUS_INCLUDE_PATH=$(CWD)/$(INC_DIR):$(CPLUS_INCLUDE_PATH) make && cp lib/libsglib.a $(CWD)/$(LIB_DIR) && pwd && cp -r include/sglib $(CWD)/$(INC_DIR)
 
 # Auto-git-versioning
 
@@ -489,7 +559,7 @@ $(INC_DIR)/vg_git_version.hpp: $(GIT_VERSION_FILE_DEPS)
 # If it's not the same as the old one, replace the old one.
 # If it is the same, do nothing and don't rebuild dependent targets.
 .check-environment:
-	@echo "#define VG_COMPILER_VERSION \"$(shell $(CXX) --version | head -n 1)\"" > $(INC_DIR)/vg_environment_version.hpp.tmp
+	@echo "#define VG_COMPILER_VERSION \"$(shell $(CXX) --version 2>/dev/null | head -n 1)\"" > $(INC_DIR)/vg_environment_version.hpp.tmp
 	@echo "#define VG_OS \"$(shell uname)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp
 	@echo "#define VG_BUILD_USER \"$(shell whoami)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp
 	@echo "#define VG_BUILD_HOST \"$(shell hostname)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp
@@ -503,20 +573,6 @@ $(INC_DIR)/vg_environment_version.hpp: .check-environment
 ## VG source code compilation begins here
 ####################################
 
-include/stream.hpp: src/stream.hpp
-	cp src/stream.hpp include/stream.hpp
-
-$(OBJ_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.o
-	cp $(CPP_DIR)/vg.pb.o $(OBJ_DIR)/vg.pb.o
-
-$(CPP_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.cc
-
-$(CPP_DIR)/vg.pb.cc: $(CPP_DIR)/vg.pb.h 
-
-$(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a bin/protoc $(SRC_DIR)/vg.proto
-	+. ./source_me.sh && ./bin/protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
-	+cp $@ $(INC_DIR)
-
 $(OBJ_DIR)/version.o: $(SRC_DIR)/version.cpp $(SRC_DIR)/version.hpp $(INC_DIR)/vg_git_version.hpp $(INC_DIR)/vg_environment_version.hpp
 
 ########################
@@ -528,13 +584,13 @@ $(OBJ_DIR)/version.o: $(SRC_DIR)/version.cpp $(SRC_DIR)/version.hpp $(INC_DIR)/v
 # Make sure to touch the .o file after the compiler finishes so it is always newer than the .d file
 # Use static pattern rules so the dependency files will not be ignored if the output exists
 # See <https://stackoverflow.com/a/34983297>
-$(OBJ) $(OBJ_DIR)/main.o: $(OBJ_DIR)/%.o : $(SRC_DIR)/%.cpp $(OBJ_DIR)/%.d $(DEPS)
+$(OBJ) $(CONFIGURATION_OBJ) $(OBJ_DIR)/main.o: $(OBJ_DIR)/%.o : $(SRC_DIR)/%.cpp $(OBJ_DIR)/%.d $(DEPS)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
 	@touch $@
 $(ALGORITHMS_OBJ): $(ALGORITHMS_OBJ_DIR)/%.o : $(ALGORITHMS_SRC_DIR)/%.cpp $(ALGORITHMS_OBJ_DIR)/%.d $(DEPS)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
 	@touch $@
-$(STREAM_OBJ): $(STREAM_OBJ_DIR)/%.o : $(STREAM_SRC_DIR)/%.cpp $(STREAM_OBJ_DIR)/%.d $(DEPS)
+$(IO_OBJ): $(IO_OBJ_DIR)/%.o : $(IO_SRC_DIR)/%.cpp $(IO_OBJ_DIR)/%.d $(DEPS)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
 	@touch $@
 $(SUBCOMMAND_OBJ): $(SUBCOMMAND_OBJ_DIR)/%.o : $(SUBCOMMAND_SRC_DIR)/%.cpp $(SUBCOMMAND_OBJ_DIR)/%.d $(DEPS)
@@ -544,19 +600,15 @@ $(UNITTEST_OBJ): $(UNITTEST_OBJ_DIR)/%.o : $(UNITTEST_SRC_DIR)/%.cpp $(UNITTEST_
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
 	@touch $@
         
-# Protobuf stuff builds into its same directory
-$(CPP_DIR)/%.o : $(CPP_DIR)/%.cc $(DEPS)
-	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
-
 # Use a fake rule to build .d files, so we don't complain if they don't exist.
 $(OBJ_DIR)/%.d: ;
 $(ALGORITHMS_OBJ_DIR)/%.d: ;
-$(STREAM_OBJ_DIR)/%.d: ;
+$(IO_OBJ_DIR)/%.d: ;
 $(SUBCOMMAND_OBJ_DIR)/%.d: ;
 $(UNITTEST_OBJ_DIR)/%.d: ;
 
 # Don't delete them.
-.PRECIOUS: $(OBJ_DIR)/%.d $(ALGORITHMS_OBJ_DIR)/%.d $(STREAM_OBJ_DIR)/%.d $(SUBCOMMAND_OBJ_DIR)/%.d $(UNITTEST_OBJ_DIR)/%.d
+.PRECIOUS: $(OBJ_DIR)/%.d $(ALGORITHMS_OBJ_DIR)/%.d $(IO_OBJ_DIR)/%.d $(SUBCOMMAND_OBJ_DIR)/%.d $(UNITTEST_OBJ_DIR)/%.d
 
 # Use no implicit rules
 .SUFFIXES:
@@ -572,11 +624,10 @@ $(UNITTEST_OBJ_DIR)/%.d: ;
 	@if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi
 	@if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi
 	@if [ ! -d $(ALGORITHMS_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_OBJ_DIR); fi
-	@if [ ! -d $(STREAM_OBJ_DIR) ]; then mkdir -p $(STREAM_OBJ_DIR); fi
+	@if [ ! -d $(IO_OBJ_DIR) ]; then mkdir -p $(IO_OBJ_DIR); fi
 	@if [ ! -d $(SUBCOMMAND_OBJ_DIR) ]; then mkdir -p $(SUBCOMMAND_OBJ_DIR); fi
 	@if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi
 	@if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi
-	@if [ ! -d $(CPP_DIR) ]; then mkdir -p $(CPP_DIR); fi
 
 # run .pre-build before we make anything at all.
 -include .pre-build
@@ -587,7 +638,6 @@ clean-vg:
 	$(RM) -r $(UNITTEST_OBJ_DIR)/*.o $(UNITTEST_OBJ_DIR)/*.d
 	$(RM) -r $(SUBCOMMAND_OBJ_DIR)/*.o $(SUBCOMMAND_OBJ_DIR)/*.d
 	$(RM) -r $(OBJ_DIR)/*.o $(OBJ_DIR)/*.d
-	$(RM) -r $(CPP_DIR)/*.o $(CPP_DIR)/*.d $(CPP_DIR)/*.cc $(CPP_DIR)/*.h
 	$(RM) -f $(INC_DIR)/vg_git_version.hpp $(INC_DIR)/vg_system_version.hpp
 
 clean: clean-rocksdb clean-protobuf clean-vcflib
@@ -595,11 +645,10 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	$(RM) -r $(LIB_DIR)
 	$(RM) -r $(UNITTEST_OBJ_DIR)
 	$(RM) -r $(SUBCOMMAND_OBJ_DIR)
-	$(RM) -r $(STREAM_OBJ_DIR)
+	$(RM) -r $(IO_OBJ_DIR)
 	$(RM) -r $(ALGORITHMS_OBJ_DIR)
 	$(RM) -r $(OBJ_DIR)
 	$(RM) -r $(INC_DIR)
-	$(RM) -r $(CPP_DIR)
 	$(RM) -r share/
 	cd $(DEP_DIR) && cd sonLib && $(MAKE) clean
 	cd $(DEP_DIR) && cd sparsehash && $(MAKE) clean
@@ -616,9 +665,11 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	cd $(DEP_DIR) && cd gfakluge && $(MAKE) clean
 	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
 	cd $(DEP_DIR) && cd structures && $(MAKE) clean
-	cd $(DEP_DIR) && cd gperftools && $(MAKE) clean
+	cd $(DEP_DIR) && cd jemalloc && $(MAKE) clean
 	cd $(DEP_DIR) && cd vowpal_wabbit && $(MAKE) clean
 	cd $(DEP_DIR) && cd sublinear-Li-Stephens && $(MAKE) clean
+	cd $(DEP_DIR) && cd libhandlegraph && $(MAKE) clean
+	cd $(DEP_DIR) && cd libvgio && $(MAKE) clean 
 	rm -Rf $(RAPTOR_DIR)/build/*
 	# lru_cache is never built because it is header-only.
 	# bash-tap is never built either.

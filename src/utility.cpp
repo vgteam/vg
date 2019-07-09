@@ -177,6 +177,14 @@ string toUppercase(const string& s) {
     return n;
 }
 
+void write_fasta_sequence(const std::string& name, const std::string& sequence, ostream& os, size_t width) {
+    os << ">" << name << "\n";
+    for (size_t written = 0; written < sequence.length(); written += width) {
+        os << sequence.substr(written, min(width, sequence.length() - written)) << "\n";
+    }
+    os << flush;
+}
+
 namespace temp_file {
 
 // We use this to make the API thread-safe
@@ -304,9 +312,11 @@ string make_variant_id(const vcflib::Variant& variant) {
     std::stringstream variant_stringer;
     variant_stringer << variant.sequenceName << '\n';
     variant_stringer << variant.position << '\n';
-    variant_stringer << variant.ref << '\n';
+    // Case insensitive so we can use this function to get ids consistent with
+    // vg construct (which converts to uppercase before assigning ids)
+    variant_stringer << toUppercase(variant.ref) << '\n';
     for (auto& alt : variant.alt) {
-        variant_stringer << alt << '\n';
+      variant_stringer << toUppercase(alt) << '\n';
     }
     hasher.update(variant_stringer.str());
 

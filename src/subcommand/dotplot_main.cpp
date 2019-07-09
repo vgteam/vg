@@ -14,8 +14,10 @@
 
 #include "../vg.hpp"
 #include "../xg.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/vpkg.hpp>
 #include "../position.hpp"
+
+#include "algorithms/nearest_offsets_in_paths.hpp"
 
 using namespace std;
 using namespace vg;
@@ -77,8 +79,8 @@ int main_dotplot(int argc, char** argv) {
         cerr << "[vg dotplot] Error: an xg index is required" << endl;
         exit(1);
     } else {
-        unique_ptr<xg::XG> xindex;
-        xindex = stream::VPKG::load_one<xg::XG>(xg_file);
+        unique_ptr<XG> xindex;
+        xindex = vg::io::VPKG::load_one<XG>(xg_file);
     
         cout << "query.name" << "\t"
              << "query.pos" << "\t"
@@ -89,7 +91,7 @@ int main_dotplot(int argc, char** argv) {
                 vg::id_t id = xindex->get_id(h);
                 for (size_t i = 0; i < xindex->node_length(id); ++i) {
                     pos_t p = make_pos_t(id, false, i);
-                    map<string, vector<pair<size_t, bool> > > offsets = xindex->offsets_in_paths(p);
+                    map<string, vector<pair<size_t, bool> > > offsets = algorithms::offsets_in_paths(&(*xindex), p);
                     // cross the offsets in output
                     for (auto& o : offsets) {
                         auto& name1 = o.first;

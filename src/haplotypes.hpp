@@ -5,7 +5,7 @@
 #include <vector>
 #include <iostream>
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "xg.hpp"
 
 #include <gbwt/gbwt.h>
@@ -24,7 +24,7 @@ using namespace std;
 // 
 // A. Construct the following shared objects
 //    1. An index, either a
-//        i.   xg::XG index
+//        i.   XG index
 //        ii.  gbwt::GBWT
 //        iii. gbwt::DynamicGBWT
 //    2. An appropriate ScoreProvider implementation that will use the index.
@@ -52,7 +52,7 @@ using namespace std;
 //    which takes in inputs
 //        i.   const vg::Path& Path
 //        ii.  indexType& index where indexType is one of
-//             a. xg::XG
+//             a. XG
 //             b. gbwt::GBWT
 //             c. gbwt::DynamicGBWT
 //        iii. haploMath::RRMemo
@@ -65,7 +65,7 @@ namespace haplo {
 // If this global is set, warn the user when scoring fails
 extern bool warn_on_score_fail;
  
-using thread_t = vector<xg::XG::ThreadMapping>;
+using thread_t = vector<vg::XG::ThreadMapping>;
 
 namespace haploMath{
   double logsum(double a, double b);
@@ -129,34 +129,34 @@ private:
   vector<vg::Edge> out;
 public:
   haplo_DP_edge_memo();                      // for constructing null edge_memos
-  haplo_DP_edge_memo(xg::XG& graph, 
-                     xg::XG::ThreadMapping last_node, 
-                     xg::XG::ThreadMapping node);
+  haplo_DP_edge_memo(vg::XG& graph,
+                     vg::XG::ThreadMapping last_node,
+                     vg::XG::ThreadMapping node);
   const vector<vg::Edge>& edges_in() const;
   const vector<vg::Edge>& edges_out() const;
   bool is_null() const;
-  static bool has_edge(xg::XG& graph, xg::XG::ThreadMapping old_node, xg::XG::ThreadMapping new_node);
+  static bool has_edge(vg::XG& graph, vg::XG::ThreadMapping old_node, vg::XG::ThreadMapping new_node);
 };
 
 // -----------------------------------------------------------------------------
 
 class hDP_graph_accessor {
 public:
-  const xg::XG::ThreadMapping old_node;
-  const xg::XG::ThreadMapping new_node;
+  const vg::XG::ThreadMapping old_node;
+  const vg::XG::ThreadMapping new_node;
   const haplo_DP_edge_memo edges;
-  const xg::XG& graph;
+  const vg::XG& graph;
   haploMath::RRMemo& memo;
   
   // accessor for noninitial nodes in a haplotype
-  hDP_graph_accessor(xg::XG& graph, 
-                     xg::XG::ThreadMapping old_node, 
-                     xg::XG::ThreadMapping new_node, 
+  hDP_graph_accessor(vg::XG& graph,
+                     vg::XG::ThreadMapping old_node,
+                     vg::XG::ThreadMapping new_node,
                      haploMath::RRMemo& memo);
   // accessor for initial node in a haplotype                   
   // old_node and edge-vectors are null; do not use to extend nonempty states
-  hDP_graph_accessor(xg::XG& graph, 
-                     xg::XG::ThreadMapping new_node,
+  hDP_graph_accessor(vg::XG& graph,
+                     vg::XG::ThreadMapping new_node,
                      haploMath::RRMemo& memo);
                      
   int64_t new_side() const;
@@ -302,7 +302,7 @@ private:
 public:
 //------------------------------------------------------------------------------
 // API functions
-  static haplo_score_type score(const vg::Path& path, xg::XG& graph, haploMath::RRMemo& memo);
+  static haplo_score_type score(const vg::Path& path, vg::XG& graph, haploMath::RRMemo& memo);
   template<class GBWTType>
   static haplo_score_type score(const vg::Path& path, GBWTType& graph, haploMath::RRMemo& memo);
 //------------------------------------------------------------------------------
@@ -311,7 +311,7 @@ public:
   template<class accessorType>
   haplo_DP(accessorType& ga);
   haplo_DP_column* get_current_column();
-  static haplo_score_type score(const thread_t& thread, xg::XG& graph, haploMath::RRMemo& memo);
+  static haplo_score_type score(const thread_t& thread, vg::XG& graph, haploMath::RRMemo& memo);
   template<class GBWTType>
   static haplo_score_type score(const gbwt_thread_t& thread, GBWTType& graph, haploMath::RRMemo& memo);
 };
@@ -324,7 +324,7 @@ private:
   siteIndex* index = nullptr;
   haplotypeCohort* cohort = nullptr;
   penaltySet* penalties = nullptr;
-  xg::XG& xg_index;
+  vg::XG& xg_index;
   size_t xg_ref_rank;
 public:
   typedef enum nodeType{
@@ -352,7 +352,7 @@ public:
   
   /// Make a new linear_haplo_structure with the given indexes, mutation and recombination scoring parameters, and reference path in the XG.
   /// Penalties *must* be negative, and ought to be something like -9*2.3 mutation and -6*2.3 recombination.
-  linear_haplo_structure(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, xg::XG& xg_index, size_t xg_ref_rank);
+  linear_haplo_structure(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, vg::XG& xg_index, size_t xg_ref_rank);
   ~linear_haplo_structure();
   haplo_score_type score(const vg::Path& path) const;
   
@@ -422,11 +422,11 @@ public:
 /// Score haplotypes using the gPBWT haplotype data stored in an XG index
 class XGScoreProvider : public ScoreProvider {
 public:
-  XGScoreProvider(xg::XG& index);
+  XGScoreProvider(vg::XG& index);
   pair<double, bool> score(const vg::Path&, haploMath::RRMemo& memo);
   int64_t get_haplotype_count() const;
 private:
-  xg::XG& index;
+  vg::XG& index;
 };
 
 /// Score haplotypes using a GBWT haplotype database (normal or dynamic)

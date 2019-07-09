@@ -5,7 +5,7 @@
 #include <set>
 #include <string>
 #include "ssw_cpp.h"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "path.hpp"
 
 namespace vg {

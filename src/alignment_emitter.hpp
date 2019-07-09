@@ -8,14 +8,17 @@
  */
 
 #include <mutex>
+#include <thread>
 #include <vector>
+#include <deque>
 
 #include <htslib/hfile.h>
 #include <htslib/hts.h>
 #include <htslib/sam.h>
 
-#include "vg.pb.h"
-#include "stream/protobuf_emitter.hpp"
+#include <vg/vg.pb.h>
+#include <vg/io/protobuf_emitter.hpp>
+#include <vg/io/stream_multiplexer.hpp>
 
 namespace vg {
 using namespace std;
@@ -25,24 +28,57 @@ using namespace std;
  * relationships, and writes them out somewhere.
  *
  * All implementations must be thread safe.
+ *
+ * All implementations assume OMP threading.
  */
 class AlignmentEmitter {
 public:
+    
+    // These batched methods are the ones you need to implement. We batch for
+    // efficiency. If there are any locks necessary to ensure thread safety,
+    // you must lock once per batch instead of locking for every read.
+
+    /// Emit a batch of Alignments
+    virtual void emit_singles(vector<Alignment>&& aln_batch) = 0;
+    /// Emit batch of Alignments with secondaries. All secondaries must have is_secondary set already.
+    virtual void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch) = 0;
+    /// Emit a batch of pairs of Alignments. The tlen_limit_batch, if
+    /// specified, is the maximum pairing distance for ewch pair to flag
+    /// properly paired, if the output format cares about such things. TODO:
+    /// Move to a properly paired annotation that runs with the Alignment.
+    virtual void emit_pairs(vector<Alignment>&& aln1_batch, vector<Alignment>&& aln2_batch,
+        vector<int64_t>&& tlen_limit_batch) = 0;
+    /// Emit the mappings of a batch of pairs of Alignments. All secondaries
+    /// must have is_secondary set already. The tlen_limit_batch, if specified,
+    /// is the maximum pairing distance for each pair to flag properly paired,
+    /// if the output format cares about such things. TODO: Move to a properly
+    /// paired annotation that runs with the Alignment.
+    ///
+    /// Both ends of each pair must have the same number of mappings.
+    virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+        vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch) = 0;
+    
+    
+    // These single-read methods have default implementations.
+    
     /// Emit a single Alignment
-    virtual void emit_single(Alignment&& aln) = 0;
+    virtual void emit_single(Alignment&& aln);
     /// Emit a single Alignment with secondaries. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_single(vector<Alignment>&& alns) = 0;
+    virtual void emit_mapped_single(vector<Alignment>&& alns);
     /// Emit a pair of Alignments. The tlen_limit, if specified, is the maximum
     /// pairing distance to flag properly paired, if the output format cares
     /// about such things. TODO: Move to a properly paired annotation that runs
     /// with the Alignment.
-    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0) = 0;
+    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0);
     /// Emit the mappings of a pair of Alignments. All secondaries must have
     /// is_secondary set already. The tlen_limit, if specified, is the maximum
     /// pairing distance to flag properly paired, if the output format cares
     /// about such things. TODO: Move to a properly paired annotation that runs
     /// with the Alignment.
-    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit = 0) = 0;
+    ///
+    /// Both ends of the pair must have the same number of mappings.
+    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2,
+        int64_t tlen_limit = 0);
     
     /// Allow destruction through base class pointer.
     virtual ~AlignmentEmitter() = default;
@@ -50,45 +86,23 @@ public:
 
 /// Get an AlignmentEmitter that can emit to the given file (or "-") in the
 /// given format. A table of contig lengths is required for HTSlib formats.
-/// Automatically applies buffering.
-unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, const map<string, int64_t>& path_length);
+/// Automatically applies per-thread buffering, but needs to know how many OMP
+/// threads will be in use.
+unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, 
+    const map<string, int64_t>& path_length,  size_t max_threads);
 
 /**
- * Throws per-OMP-thread buffers over the top of a backing AlignmentEmitter, which it owns.
+ * Discards all alignments.
  */
-class OMPThreadBufferedAlignmentEmitter : public AlignmentEmitter {
+class NullAlignmentEmitter : public AlignmentEmitter {
 public:
-    /// Create an OMPThreadBufferedAlignmentEmitter that emits alignments to
-    /// the given backing AlignmentEmitter. The backing emitter will become
-    /// owned by this one.
-    OMPThreadBufferedAlignmentEmitter(AlignmentEmitter* backing);
-    
-    /// Destroy and flush all the buffers
-    ~OMPThreadBufferedAlignmentEmitter();
-    
-    /// Emit a single Alignment
-    virtual void emit_single(Alignment&& aln);
-    /// Emit a single Alignment with secondaries. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_single(vector<Alignment>&& alns);
-    /// Emit a pair of Alignments.
-    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0);
-    /// Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit = 0);
-    
-private:
-    /// Save all the buffered alignments from the given thread.
-    void flush(size_t thread);
-
-    /// Keep a reference to the backing emitter
-    unique_ptr<AlignmentEmitter> backing;
-    
-    // We have one buffer for each type of emit operation, for each thread
-    vector<vector<Alignment>> single_buffer;
-    vector<vector<vector<Alignment>>> mapped_single_buffer;
-    vector<vector<tuple<Alignment, Alignment, size_t>>> pair_buffer;
-    vector<vector<tuple<vector<Alignment>, vector<Alignment>, size_t>>> mapped_pair_buffer;
-
-    const static size_t BUFFER_LIMIT = 1000;
+    inline virtual void emit_singles(vector<Alignment>&& aln_batch) {}
+    inline virtual void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch) {}
+    inline virtual void emit_pairs(vector<Alignment>&& aln1_batch, vector<Alignment>&& aln2_batch,
+        vector<int64_t>&& tlen_limit_batch) {}
+    inline virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+        vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch) {}
+        
 };
 
 /**
@@ -98,33 +112,36 @@ class TSVAlignmentEmitter : public AlignmentEmitter {
 public:
     
     /// Create a TSVAlignmentEmitter writing to the given file (or "-")
-    TSVAlignmentEmitter(const string& filename);
+    TSVAlignmentEmitter(const string& filename, size_t max_threads);
 
     /// The default destructor should clean up the open file, if any.
     ~TSVAlignmentEmitter() = default;
     
-    /// Emit a single Alignment
-    virtual void emit_single(Alignment&& aln);
-    /// Emit a single Alignment with secondaries. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_single(vector<Alignment>&& alns);
-    /// Emit a pair of Alignments.
-    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0);
-    /// Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit = 0);
+    /// Emit a batch of Alignments.
+    virtual void emit_singles(vector<Alignment>&& aln_batch);
+    /// Emit a batch of Alignments with secondaries. All secondaries must have
+    /// is_secondary set already.
+    virtual void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch);
+    /// Emit a batch of pairs of Alignments.
+    virtual void emit_pairs(vector<Alignment>&& aln1_batch, vector<Alignment>&& aln2_batch,
+        vector<int64_t>&& tlen_limit_batch);
+    /// Emit the mappings of a batch of pairs of Alignments. All secondaries
+    /// must have is_secondary set already.
+    virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+        vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch);
     
 private:
 
     /// If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty.
     unique_ptr<ofstream> out_file;
-
-    /// Access to the output stream is protected by this mutex
-    mutex sync;
-
-    /// Emit a single alignment as TSV
-    void emit_single_internal(Alignment&& aln, const lock_guard<mutex>& lock);
     
-    /// Emit a pair of alignments as TSV, in order.
-    void emit_pair_internal(Alignment&& aln1, Alignment&& aln2, const lock_guard<mutex>& lock);
+    /// This holds a StreamMultiplexer on the output stream, for sharing it
+    /// between threads.
+    vg::io::StreamMultiplexer multiplexer;
+
+    /// Emit single alignment as TSV.
+    /// This is all we use; we don't do anything for pairing.
+    void emit(Alignment&& aln_batch);
 };
 
 /**
@@ -139,7 +156,7 @@ public:
     /// groups for the header will be guessed from the first reads. HTSlib
     /// positions will be read from the alignments' refpos, and the alignments
     /// must be surjected.
-    HTSAlignmentEmitter(const string& filename, const string& format, const map<string, int64_t>& path_length);
+    HTSAlignmentEmitter(const string& filename, const string& format, const map<string, int64_t>& path_length, size_t max_threads);
     
     /// Tear down an HTSAlignmentEmitter and destroy HTSlib structures.
     ~HTSAlignmentEmitter();
@@ -151,37 +168,97 @@ public:
     HTSAlignmentEmitter& operator=(HTSAlignmentEmitter&& other) = delete;
     
     
-    /// Emit a single Alignment
-    virtual void emit_single(Alignment&& aln);
-    /// Emit a single Alignment with secondaries. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_single(vector<Alignment>&& alns);
-    /// Emit a pair of Alignments.
-    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0);
-    /// Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit = 0);
+    /// Emit a batch of Alignments.
+    virtual void emit_singles(vector<Alignment>&& aln_batch);
+    /// Emit a batch of Alignments with secondaries. All secondaries must have
+    /// is_secondary set already.
+    virtual void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch);
+    /// Emit a batch of pairs of Alignments.
+    virtual void emit_pairs(vector<Alignment>&& aln1_batch, vector<Alignment>&& aln2_batch,
+        vector<int64_t>&& tlen_limit_batch);
+    /// Emit the mappings of a batch of pairs of Alignments. All secondaries
+    /// must have is_secondary set already.
+    virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+        vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch);
     
 private:
-    
-    /// We need a mutex to synchronize on
-    mutex sync;
 
-    /// Remember what format we are using.
+    /// We hack about with htslib's BGZF EOF footers, so we need to know how long they are.
+    static const size_t BGZF_FOOTER_LENGTH;
+
+    /// If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty.
+    unique_ptr<ofstream> out_file;
+    /// This holds a StreamMultiplexer on the output stream, for sharing it
+    /// between threads.
+    vg::io::StreamMultiplexer multiplexer;
+    
+    /// This holds our format name, for later error messages.
     string format;
     
-    /// Sorte the path length map until the header can be made.
+    /// Store the path length map until the header can be made.
     map<string, int64_t> path_length;
     
-    /// We need a samFile
-    samFile* sam_file = nullptr;
-    /// We need a header
-    bam_hdr_t* hdr = nullptr;
-    /// We also need a header string
-    string sam_header;
+    /// To back our samFile*s, we need the hFILE* objects wrapping our C++
+    /// streams. We need to manually flush these after HTS headers are written,
+    /// since bgzf_flush, which samtools calls, closes a BGZF block and sends
+    /// the data to the hFILE* but does not actually flush the hFILE*.
+    /// These will be pointers to the hFILE* for each thread's samFile*. We may
+    /// only use them while the samFile* they belong to is still open; closing
+    /// the samFile* will free the hFILE* but not null it out of this vector.
+    vector<hFILE*> backing_files;
     
-    /// Emit a single alignment, with a lock already held.
-    void emit_single_internal(Alignment&& aln, const lock_guard<mutex>& lock);
-    /// Emit a pair of alignments, with a lock already held.
-    void emit_pair_internal(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit, const lock_guard<mutex>& lock);
+    /// We make one samFile* per thread, on each thread's output stream form
+    /// the multiplexer. As soon as we create them, we show them the header, so
+    /// they are initialized properly. If they have not yet been filled in
+    /// (because the header is not ready yet), they are null.
+    vector<samFile*> sam_files;
+    
+    /// We need a header
+    atomic<bam_hdr_t*> atomic_header;
+    /// We also need a header string.
+    /// Not atomic, because by the time we read it we know the header is ready
+    /// and nobody is writing to it.
+    string sam_header;
+    /// If the header isn't present when we want to write, we need a mutex to control creating it.
+    mutex header_mutex;
+    
+    /// Remember if we are outputting BGZF-compressed data or not.
+    /// If we are, we trim off spurious EOF markers and append our own.
+    bool output_is_bgzf;
+    
+    /// Remember the HTSlib mode string we need to open our files.
+    string hts_mode;
+    
+    /// Convert an unpaired alignment to HTS format.
+    /// Header must have been created already.
+    void convert_unpaired(Alignment& aln, vector<bam1_t*>& dest);
+    /// Convert a paired alignment to HTS format.
+    /// Header must have been created already.
+    void convert_paired(Alignment& aln1, Alignment& aln2, int64_t tlen_limit, vector<bam1_t*>& dest);
+    
+    /// Write and deallocate a bunch of BAM records. Takes care of locking the
+    /// file. Header must have been written already.
+    void save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t thread_number);
+    
+    /// Make sure that the HTS header has been written, and the samFile* in
+    /// sam_files has been created for the given thread.
+    ///
+    /// If the header has not been written, blocks until it has been written.
+    ///
+    /// If we end up being the thread to write it, sniff header information
+    /// from the given alignment.
+    ///
+    /// Returns the header pointer, so we don't have to do another atomic read
+    /// later.
+    bam_hdr_t* ensure_header(const Alignment& sniff, size_t thread_number);
+    
+    /// Given a header and a thread number, make sure the samFile* for that
+    /// thread is initialized and ready to have alignments written to it. If
+    /// true, actually writes the given header into the output file created by
+    /// the multiplexer. If the samFile* was already initialized, flushes it
+    /// out and makes a breakpoint.
+    void initialize_sam_file(bam_hdr_t* header, size_t thread_number, bool keep_header = false);
+    
 };
 
 /**
@@ -194,30 +271,35 @@ class VGAlignmentEmitter : public AlignmentEmitter {
 public:
     /// Create a VGAlignmentEmitter writing to the given file (or "-") in the given
     /// non-HTS format ("JSON", "GAM").
-    VGAlignmentEmitter(const string& filename, const string& format);
+    VGAlignmentEmitter(const string& filename, const string& format, size_t max_threads);
     
     /// Finish and drstroy a VGAlignmentEmitter.
     ~VGAlignmentEmitter();
     
-    /// Emit a single Alignment
-    virtual void emit_single(Alignment&& aln);
-    /// Emit a single Alignment with secondaries. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_single(vector<Alignment>&& alns);
-    /// Emit a pair of Alignments.
-    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0);
-    /// Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit = 0);
+    /// Emit a batch of Alignments.
+    virtual void emit_singles(vector<Alignment>&& aln_batch);
+    /// Emit a batch of Alignments with secondaries. All secondaries must have
+    /// is_secondary set already.
+    virtual void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch);
+    /// Emit a batch of pairs of Alignments.
+    virtual void emit_pairs(vector<Alignment>&& aln1_batch, vector<Alignment>&& aln2_batch,
+        vector<int64_t>&& tlen_limit_batch);
+    /// Emit the mappings of a batch of pairs of Alignments. All secondaries
+    /// must have is_secondary set already.
+    virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+        vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch);
     
 private:
 
     /// If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty.
     unique_ptr<ofstream> out_file;
-
-    /// If we are doing Protobuf output we need a backing emitter. If we are doing JSON out, this will be empty.
-    unique_ptr<stream::ProtobufEmitter<Alignment>> proto;
     
-    /// If we are doing JSON, we need to take care of our own stream locking.
-    mutex stream_mutex;
+    /// This holds a StreamMultiplexer on the output stream, for sharing it
+    /// between threads.
+    vg::io::StreamMultiplexer multiplexer;
+    
+    /// We also keep ProtobufEmitters, one per thread, if we are doing protobuf output.
+    vector<unique_ptr<vg::io::ProtobufEmitter<Alignment>>> proto;
 };
 
 }

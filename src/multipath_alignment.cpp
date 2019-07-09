@@ -1560,7 +1560,7 @@ namespace vg {
         }
         
         // did we merge and remove any subpaths?
-        if (removed_so_far.back()) {
+        if (removed_so_far.empty() ? false : removed_so_far.back() > 0) {
             // trim the vector of subpaths
             multipath_aln.mutable_subpath()->DeleteSubrange(multipath_aln.subpath_size() - removed_so_far.back(),
                                                             removed_so_far.back());
@@ -1571,6 +1571,11 @@ namespace vg {
                 for (size_t j = 0; j < subpath->next_size(); j++) {
                     subpath->set_next(j, subpath->next(j) - removed_so_far[subpath->next(j)]);
                 }
+            }
+            
+            // update the indexes of the starts
+            for (size_t i = 0; i < multipath_aln.start_size(); ++i) {
+                multipath_aln.set_start(i, multipath_aln.start(i) - removed_so_far[multipath_aln.start(i)]);
             }
         }
     }
@@ -1664,7 +1669,7 @@ namespace vg {
         }
     }
     
-    
+#define debug_verbose_validation
     bool validate_multipath_alignment(const MultipathAlignment& multipath_aln, const HandleGraph& handle_graph) {
         
         // are the subpaths in topological order?
@@ -1799,42 +1804,55 @@ namespace vg {
         
         auto validate_adjacent_mappings = [&](const Mapping& mapping_from, const Mapping& mapping_to) {
             size_t mapping_from_end_offset = mapping_from.position().offset() + mapping_from_length(mapping_from);
-            if (mapping_from.position().node_id() == mapping_to.position().node_id() &&
-                mapping_from.position().is_reverse() == mapping_to.position().is_reverse()) {
-                if (mapping_to.position().offset() != mapping_from_end_offset) {
+            
+            handle_t handle_from = handle_graph.get_handle(mapping_from.position().node_id(), mapping_from.position().is_reverse());
+            handle_t handle_to = handle_graph.get_handle(mapping_to.position().node_id(), mapping_to.position().is_reverse());
+            
+            
+            
+            if (handle_from == handle_to) {
+                if (!(mapping_to.position().offset() == 0 && mapping_from_end_offset == handle_graph.get_length(handle_from))) {
+                    // We aren't going from the end of the handle back to its start (over an edge)
+                
+                    if (mapping_to.position().offset() != mapping_from_end_offset) {
+                        // So then the mappings need to abut and they don't.
 #ifdef debug_verbose_validation
-                    cerr << "validation failure on within-node adjacency" << endl;
-                    cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
+                        cerr << "validation failure on within-node adjacency" << endl;
+                        cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
 #endif
-                    return false;
+                        return false;
+                    } else {
+                        // No edge involved. We can succeed early.
+                        return true;
+                    }
                 }
             }
-            else {
-                if (mapping_from_end_offset != handle_graph.get_length(handle_graph.get_handle(mapping_from.position().node_id()))) {
+            
+            // If we get here, we must be crossing an edge.
+            
+            if (mapping_from_end_offset != handle_graph.get_length(handle_graph.get_handle(mapping_from.position().node_id()))) {
 #ifdef debug_verbose_validation
-                    cerr << "validation failure on using edge at middle of node" << endl;
-                    cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
+                cerr << "validation failure on using edge at middle of node" << endl;
+                cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
 #endif
-                    return false;
-                }
-                
-                handle_t handle_from = handle_graph.get_handle(mapping_from.position().node_id(), mapping_from.position().is_reverse());
-                handle_t handle_to = handle_graph.get_handle(mapping_to.position().node_id(), mapping_to.position().is_reverse());
-                
-                bool found_edge = false;
-                function<bool(const handle_t&)> check_for_edge = [&](const handle_t& next_handle) {
-                    found_edge = (next_handle == handle_to);
-                    return !found_edge;
-                };
-                handle_graph.follow_edges(handle_from, false, check_for_edge);
-                
-                if (!found_edge) {
+                return false;
+            }
+            
+            
+            
+            bool found_edge = false;
+            function<bool(const handle_t&)> check_for_edge = [&](const handle_t& next_handle) {
+                found_edge = (next_handle == handle_to);
+                return !found_edge;
+            };
+            handle_graph.follow_edges(handle_from, false, check_for_edge);
+            
+            if (!found_edge) {
 #ifdef debug_verbose_validation
-                    cerr << "validation failure on nodes not connected by an edge" << endl;
-                    cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
+                cerr << "validation failure on nodes not connected by an edge" << endl;
+                cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
 #endif
-                    return false;
-                }
+                return false;
             }
             return true;
         };
@@ -1870,6 +1888,10 @@ namespace vg {
                         if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) != subseq[seq_idx]) {
 #ifdef debug_verbose_validation
                             cerr << "validation failure on match that does not match for read " << multipath_aln.name() << endl;
+                            cerr << "Node sequence: " << node_seq << " orientation: "
+                                << mapping.position().is_reverse() << " offset: " << node_idx << endl;
+                            cerr << "Read subsequence: " << subseq << " offset: " << seq_idx << endl;
+                            
                             cerr << pb2json(mapping) << ", " << subseq << endl;
 #endif
                             return false;
@@ -1877,8 +1899,10 @@ namespace vg {
                     }
                 }
                 else if (edit_is_sub(edit)) {
+                    bool is_Ns = find_if(edit.sequence().begin(), edit.sequence().end(), [](char c) {return c != 'N';}) == edit.sequence().end();
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
-                        if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) == subseq[seq_idx]) {
+                        // we will also let N's be marked as mismatches even if the node sequence is also Ns
+                        if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) == subseq[seq_idx] && !is_Ns) {
 #ifdef debug_verbose_validation
                             cerr << "validation failure on mismatch that matches" << endl;
                             cerr << pb2json(mapping) << ", " << subseq << endl;

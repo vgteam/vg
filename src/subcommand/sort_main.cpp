@@ -160,10 +160,10 @@ int main_sort(int argc, char *argv[]) {
             }
         } else if (algorithm == "id") {
             // Sort by ID
-            algorithms::id_sort(graph.get());
+            graph.get()->id_sort();
         } else if (algorithm == "topo") {
             // Sort topologically
-            algorithms::topological_sort(graph.get());
+            graph.get()->sort();
         } else {
             throw runtime_error("Unimplemented sort algorithm: " + algorithm);
         }
@@ -180,7 +180,7 @@ int main_sort(int argc, char *argv[]) {
         
         {
             // Make our own emitter for serialization
-            stream::ProtobufEmitter<Graph> emitter(std::cout);
+            vg::io::ProtobufEmitter<Graph> emitter(std::cout);
             
             if (index) {
                 emitter.on_message([&](const Graph& g) {

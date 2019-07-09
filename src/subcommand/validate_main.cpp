@@ -14,7 +14,7 @@
 
 #include "../vg.hpp"
 #include "../alignment.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/vpkg.hpp>
 
 using namespace std;
 using namespace vg;
@@ -122,10 +122,10 @@ int main_validate(int argc, char** argv) {
             return 1;
         }
         ifstream in(xg_path.c_str());
-        unique_ptr<xg::XG> xindex = stream::VPKG::load_one<xg::XG>(in);
+        unique_ptr<XG> xindex = vg::io::VPKG::load_one<XG>(in);
         in.close();
         get_input_file(gam_path, [&](istream& in) {
-                stream::for_each<Alignment>(in, [&](Alignment& aln) {
+                vg::io::for_each<Alignment>(in, [&](Alignment& aln) {
                         if (!alignment_is_valid(aln, xindex.get())) {
                             exit(1);
                         }

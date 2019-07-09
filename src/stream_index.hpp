@@ -3,7 +3,7 @@
 
 /**
  * \file stream_index.hpp
- * Contains the StreamIndex template, which allows lookup by relevant node ID in sorted stream/stream.hpp-formatted files.
+ * Contains the StreamIndex template, which allows lookup by relevant node ID in sorted VPKG-formatted files.
  */
  
 #include <iostream>
@@ -13,8 +13,8 @@
 #include <type_traits>
 
 #include "types.hpp"
-#include "vg.pb.h"
-#include "stream/protobuf_iterator.hpp"
+#include <vg/vg.pb.h>
+#include <vg/io/protobuf_iterator.hpp>
 #include "scanner.hpp"
 
 namespace vg {
@@ -160,7 +160,7 @@ protected:
 };
 
 /**
- * An index for a node-ID-sorted stream/stream.hpp-formatted file, such as GAM or VG.
+ * An index for a node-ID-sorted VPKG-formatted Protobuf file, such as GAM or VG.
  *
  * Works on a BAI-like concept of bins partitioning node ID space.
  *
@@ -359,7 +359,7 @@ public:
     StreamIndex() = default;
     
     // Methods that actually go get messages for you are going to need a cursor on an open, seekable data file.
-    using cursor_t = stream::ProtobufIterator<Message>;
+    using cursor_t = vg::io::ProtobufIterator<Message>;
     
     ///////////////////
     // Top-level message-based interface
@@ -746,7 +746,7 @@ auto StreamIndex<Message>::find(cursor_t& cursor, const vector<pair<id_t, id_t>>
             // currently looking up.
             int64_t group_vo = cursor.tell_group();
             id_t group_min_id = numeric_limits<id_t>::max();
-            while (cursor.has_next() && cursor.tell_group() < past_end_vo) {
+            while (cursor.has_current() && cursor.tell_group() < past_end_vo) {
                 // Read each message until we find a group that starts out of range
                 
                 // Which group is this message in?
@@ -836,7 +836,7 @@ auto StreamIndex<Message>::find(cursor_t& cursor, const vector<pair<id_t, id_t>>
                 }
                 
                 // Look for the next message
-                cursor.get_next();
+                cursor.advance();
                 
             }
            
@@ -880,7 +880,7 @@ auto StreamIndex<Message>::index(cursor_t& cursor) -> void {
     // We need to have seek support
     assert(group_vo != -1);
     
-    while (cursor.has_next()) {
+    while (cursor.has_current()) {
         // For each message
         
         // Work out what group it is in

@@ -12,7 +12,7 @@
 #include <unordered_map>
 #include <algorithm>
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "path.hpp"
 #include "alignment.hpp"
 #include "utility.hpp"

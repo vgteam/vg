@@ -8,7 +8,7 @@
 #include <limits>
 #include <unordered_set>
 #include <tuple>
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "vg.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"
@@ -139,7 +139,7 @@ public:
      * pileup_filename is provided, the pileup is loaded again and used to add
      * comments describing variants
      */
-    void call(SupportAugmentedGraph& augmented, string pileup_filename = "");
+    void call(SupportAugmentedGraph& augmented, SnarlManager& site_manager, string pileup_filename = "");
 
     /** 
      * Get the support and size for each traversal in a list. Discount support
@@ -149,7 +149,7 @@ public:
     tuple<vector<Support>, vector<size_t> > get_traversal_supports_and_sizes(
         SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
         const vector<SnarlTraversal>& traversals,
-        const SnarlTraversal* minus_traversal = NULL);
+        const vector<const SnarlTraversal*>& minus_traversals = {});
 
     /**
      * Get the min support, total support, bp size (to divide total by for average
@@ -160,8 +160,8 @@ public:
      * diluted by shared reference.
      */
     tuple<Support, Support, size_t> get_traversal_support(
-        SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
-        const SnarlTraversal& traversal, const SnarlTraversal* already_used = nullptr,
+        SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl* site,
+        const SnarlTraversal& traversal, const vector<const SnarlTraversal*>& already_used = {},
         const SnarlTraversal* ref_traversal = nullptr);
 
     /** 
@@ -194,12 +194,51 @@ public:
      *
      * If no path through the Snarl can be found, emits no Locus and returns no
      * SnarlTraversals.
+     *
      */
     vector<SnarlTraversal> find_best_traversals(SupportAugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
         const Support& baseline_support, size_t copy_budget,
-        function<void(const Locus&, const Snarl*)> emit_locus);
-    
+        function<void(const Locus&, const Snarl*, const vcflib::Variant*)> emit_locus);
+
+    /**
+     * Instead of just emitting the locus, use the site info from the VCF
+     * to output a locus for each variant in the VCF that touchces our site. 
+     */
+    void recall_locus(Locus& locus, const Snarl& site, vector<SnarlTraversal>& traversals,
+                      vector<vector<int>>& trav_alleles, 
+                      vector<vcflib::Variant*>& site_variants,
+                      function<void(const Locus&, const Snarl*, const vcflib::Variant*)> emit_locus);
+
+    /** This function emits the given variant on the given primary path, as
+     * VCF. It needs to take the site as an argument because it may be
+     * called for children of the site we're working on right now.
+     */
+    void emit_variant(map<string, string>& contig_names_by_path_name,
+                      vcflib::VariantCallFile& vcf,
+                      SupportAugmentedGraph& augmented,
+                      Support& baseline_support,
+                      Support& global_baseline_support, 
+                      const Locus& locus, PrimaryPath& primary_path, const Snarl* site);
+
+    /** Like emit_variant, but use the given vcf variant as a template and just 
+     * compute the genotype and info */
+    void emit_recall_variant(map<string, string>& contig_names_by_path_name,
+                             vcflib::VariantCallFile& vcf,
+                             SupportAugmentedGraph& augmented,
+                             Support& baseline_support,
+                             Support& global_baseline_support, 
+                             const Locus& locus, PrimaryPath& primary_path, const Snarl* site,
+                             const vcflib::Variant* recall_variant);
+
+    /** add the info fields to a variant and actually emit it 
+     * (used by both emit_variant and emit_recall_variant) */
+    void add_variant_info_and_emit(vcflib::Variant& variant, SupportAugmentedGraph& augmented,
+                                   const Locus& locus, const Genotype& genotype,
+                                   int best_allele, int second_best_allele,
+                                   const vector<int>& used_alleles,
+                                   Support& baseline_support, Support& global_baseline_support);
+
     /**
      * Decide if the given SnarlTraversal is included in the original base graph
      * (true), or if it represents a novel variant (false).
@@ -374,6 +413,29 @@ public:
 
     Option<int> max_inversion_size{this, "max-inv", "e", 1000,
             "maximum detectable inversion size in number of nodes"};
+
+    Option<string> recall_vcf_filename{this, "recall-vcf", "f", "",
+            "VCF to genotype against.  Must have been used to create input graph with vg construct -a"};
+
+    Option<string> recall_ref_fasta_filename{this, "recall-fasta", "a", "",
+            "Reference FASTA required for --recall-vcf in the presence of symbolic deletions or inversions"};
+
+    Option<string> recall_ins_fasta_filename{this, "insertion-fasta", "Z", "",
+            "Insertion FASTA required for --recall-vcf in the presence of symbolic insertions"};
+
+    /// Path of pack file generated from vg pack
+    Option<string> pack_file_name{this, "pack-file", "P", {}, 
+            "path of pack file from vg pack"};
+
+    Option<string> xg_file_name{this, "xg-file", "x", {},
+            "path of xg file (required to read pack file with -P)"};
+
+    /// structures to hold the recall vcf and fastas
+    vcflib::VariantCallFile variant_file;
+    unique_ptr<FastaReference> ref_fasta;
+    unique_ptr<FastaReference> ins_fasta;
+    /// minimum average base support on alt path for it to be considered
+    double min_alt_path_support = 0.2;
     
     /// print warnings etc. to stderr
     bool verbose = false;

@@ -5,7 +5,7 @@
 
 namespace vg {
 
-int hts_for_each(string& filename, function<void(Alignment&)> lambda, xg::XG* xgindex) {
+int hts_for_each(string& filename, function<void(Alignment&)> lambda, XG* xgindex) {
 
     samFile *in = hts_open(filename.c_str(), "r");
     if (in == NULL) return 0;
@@ -28,7 +28,7 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda) {
     return hts_for_each(filename, lambda, nullptr);
 }
 
-int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda, xg::XG* xgindex) {
+int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda, XG* xgindex) {
 
     samFile *in = hts_open(filename.c_str(), "r");
     if (in == NULL) return 0;
@@ -856,7 +856,7 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char>>& cigar) {
     }
 }
 
-int64_t cigar_mapping(const bam1_t *b, Mapping* mapping, xg::XG* xgindex) {
+int64_t cigar_mapping(const bam1_t *b, Mapping* mapping, XG* xgindex) {
     int64_t ref_length = 0;
     int64_t query_length = 0;
 
@@ -889,7 +889,7 @@ int64_t cigar_mapping(const bam1_t *b, Mapping* mapping, xg::XG* xgindex) {
     return ref_length;
 }
 
-void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, xg::XG* xgindex, bool on_reverse_strand) {
+void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, XG* xgindex, bool on_reverse_strand) {
 
     if (b->core.pos == -1) return;
 
@@ -1041,7 +1041,7 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
     return flag;
 }
 
-Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh, xg::XG* xgindex) {
+Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh, XG* xgindex) {
 
     Alignment alignment;
 
@@ -1400,6 +1400,21 @@ int softclip_end(const Alignment& alignment) {
     return 0;
 }
 
+int softclip_trim(Alignment& alignment) {
+    // Trim the softclips off of every read
+    // Work out were to cut
+    int cut_start = softclip_start(alignment);
+    int cut_end = softclip_end(alignment);
+    // Cut the sequence and quality
+    alignment.set_sequence(alignment.sequence().substr(cut_start, alignment.sequence().size() - cut_start - cut_end));
+    if (alignment.quality().size() != 0) {
+        alignment.set_quality(alignment.quality().substr(cut_start, alignment.quality().size() - cut_start - cut_end));
+    }
+    // Trim the path
+    *alignment.mutable_path() = trim_hanging_ends(alignment.path());
+    return cut_start + cut_end;
+}
+
 int query_overlap(const Alignment& aln1, const Alignment& aln2) {
     if (!alignment_to_length(aln1) || !alignment_to_length(aln2)
         || !aln1.path().mapping_size() || !aln2.path().mapping_size()
@@ -1453,6 +1468,175 @@ Alignment simplify(const Alignment& a, bool trim_internal_deletions) {
     }
     return aln;
 }
+    
+void normalize_alignment(Alignment& alignment) {
+    
+    enum edit_type_t {None, Match, Mismatch, Insert, Delete, N};
+    
+    size_t cumul_to_length = 0;
+    
+    // we only build the normalized path if we find things we need to normalize
+    // (this makes the whole algorithm a little fucky, but it should be less overhead)
+    bool doing_normalization = false;
+    Path normalized;
+    
+    const Path& path = alignment.path();
+    const string& seq = alignment.sequence();
+    
+    auto ensure_init_normalized_path = [&](size_t i, size_t j) {
+        // we won't copy the already normalized prefix unless we have to
+        if (!doing_normalization) {
+            for (size_t k = 0; k < i; k++) {
+                *normalized.add_mapping() = path.mapping(k);
+            }
+            Mapping* mapping = normalized.add_mapping();
+            *mapping->mutable_position() = path.mapping(i).position();
+            mapping->set_rank(path.mapping_size());
+            for (size_t k = 0; k < j; k++) {
+                *mapping->add_edit() = path.mapping(i).edit(k);
+            }
+            doing_normalization = true;
+        }
+    };
+    
+    edit_type_t prev = None;
+    
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        
+        const Mapping& mapping = path.mapping(i);
+        prev = None;
+        
+        if (doing_normalization) {
+            // we're maintaining the normalized path, so we need to add mappings
+            // as we go
+            Mapping* norm_mapping = normalized.add_mapping();
+            *norm_mapping->mutable_position() = mapping.position();
+            norm_mapping->set_rank(normalized.mapping_size());
+        }
+        
+        for (size_t j = 0; j < mapping.edit_size(); ++j) {
+            
+            const Edit& edit = mapping.edit(j);
+            
+            if (edit.from_length() > 0 && edit.to_length() == 0) {
+                
+                if (prev == Delete || doing_normalization) {
+                    // we need to modify the normalized path this round
+                    ensure_init_normalized_path(i, j);
+                    Mapping* norm_mapping = normalized.mutable_mapping(normalized.mapping_size() - 1);
+                    if (prev == Delete) {
+                        // merge with the previous
+                        Edit* norm_edit = norm_mapping->mutable_edit(norm_mapping->edit_size() - 1);
+                        norm_edit->set_from_length(norm_edit->from_length() + edit.from_length());
+                    }
+                    else {
+                        // just copy
+                        *norm_mapping->add_edit() = edit;
+                    }
+                }
+                
+                prev = Delete;
+            }
+            else if (edit.from_length() == 0 && edit.to_length() > 0) {
+                
+                if (prev == Insert || doing_normalization) {
+                    // we need to modify the normalized path this round
+                    ensure_init_normalized_path(i, j);
+                    Mapping* norm_mapping = normalized.mutable_mapping(normalized.mapping_size() - 1);
+                    if (prev == Insert) {
+                        // merge with the previous
+                        Edit* norm_edit = norm_mapping->mutable_edit(norm_mapping->edit_size() - 1);
+                        norm_edit->set_to_length(norm_edit->to_length() + edit.to_length());
+                        norm_edit->mutable_sequence()->append(edit.sequence());
+                    }
+                    else {
+                        // just copy
+                        *norm_mapping->add_edit() = edit;
+                    }
+                }
+                
+                cumul_to_length += edit.to_length();
+                prev = Insert;
+            }
+            else {
+                auto begin = seq.begin() + cumul_to_length;
+                auto end = begin + edit.to_length();
+                
+                auto first_N = find(begin, end, 'N');
+                
+                edit_type_t type =  edit.sequence().empty() ? Match : Mismatch;
+                
+                if (prev == type || first_N != end || doing_normalization) {
+                    // we have to do some normalization here
+                    ensure_init_normalized_path(i, j);
+                    
+                    Mapping* norm_mapping = normalized.mutable_mapping(normalized.mapping_size() - 1);
+                    if (first_N == end && prev != type) {
+                        // just need to copy, no fancy normalization
+                        *norm_mapping->add_edit() = edit;
+                        prev = type;
+                    }
+                    else if (first_N == end) {
+                        // we need to extend the previous edit, but we don't need
+                        // to worry about Ns
+                        Edit* norm_edit = norm_mapping->mutable_edit(norm_mapping->edit_size() - 1);
+                        norm_edit->set_from_length(norm_edit->from_length() + edit.from_length());
+                        norm_edit->set_to_length(norm_edit->to_length() + edit.to_length());
+                        if (type == Mismatch) {
+                            norm_edit->mutable_sequence()->append(edit.sequence());
+                        }
+                    }
+                    else {
+                        bool on_Ns = first_N == begin;
+                        auto next_pos = begin;
+                        // iterate until we've handled the whole edit sequence
+                        while (next_pos != end) {
+                            // find the next place where we switch from N to non-N or the reverse
+                            auto next_end = find_if(next_pos, end, [&](char c) {
+                                return c == 'N' != on_Ns;
+                            });
+                            
+                            if ((prev == N && on_Ns) || (prev == type && !on_Ns)) {
+                                // we need to merge with the previous edit
+                                Edit* norm_edit = norm_mapping->mutable_edit(norm_mapping->edit_size() - 1);
+                                norm_edit->set_from_length(norm_edit->from_length() + edit.from_length());
+                                norm_edit->set_to_length(norm_edit->to_length() + edit.to_length());
+                                
+                                // we copy sequence for Ns and for mismatches only
+                                if ((prev == N && on_Ns) || (prev == type && !on_Ns && type == Mismatch)) {
+                                    norm_edit->mutable_sequence()->append(next_pos, next_end);
+                                }
+                            }
+                            else {
+                                // we can just copy
+                                Edit* norm_edit = norm_mapping->add_edit();
+                                norm_edit->set_from_length(next_end - next_pos);
+                                norm_edit->set_to_length(next_end - next_pos);
+                                *norm_edit->mutable_sequence() = string(next_pos, next_end);
+                            }
+                            
+                            next_pos = next_end;
+                            prev = on_Ns ? N : type;
+                            on_Ns = !on_Ns;
+                        }
+                    }
+                }
+                else {
+                    // no normalization yet
+                    prev = type;
+                }
+                
+                cumul_to_length += edit.to_length();
+            }
+        }
+    }
+    
+    if (doing_normalization) {
+        // we found things we needed to normalize away, so we must have built the normalized
+        // path, now replace the original with it
+        *alignment.mutable_path() = move(normalized);
+    }
+}
 
 map<id_t, int> alignment_quality_per_node(const Alignment& aln) {
     map<id_t, int> quals;
@@ -1501,7 +1685,7 @@ pair<string, string> signature(const Alignment& aln1, const Alignment& aln2) {
 }
 
 void parse_bed_regions(istream& bedstream,
-                       xg::XG* xgindex,
+                       XG* xgindex,
                        vector<Alignment>* out_alignments) {
     out_alignments->clear();
     if (!bedstream) {
@@ -1568,7 +1752,7 @@ void parse_bed_regions(istream& bedstream,
 }
 
 void parse_gff_regions(istream& gffstream,
-                       xg::XG* xgindex,
+                       XG* xgindex,
                        vector<Alignment>* out_alignments) {
     out_alignments->clear();
     if (!gffstream) {

@@ -1,8 +1,8 @@
 #include "subcommand.hpp"
 #include "../utility.hpp"
 #include "../viz.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -110,12 +110,12 @@ int main_viz(int argc, char** argv) {
         }
     }
 
-    unique_ptr<xg::XG> xgidx;
+    unique_ptr<XG> xgidx;
     if (xg_name.empty()) {
         cerr << "No XG index given. An XG index must be provided." << endl;
         exit(1);
     } else {
-        xgidx = stream::VPKG::load_one<xg::XG>(xg_name);
+        xgidx = vg::io::VPKG::load_one<XG>(xg_name);
     }
 
     // todo one packer per thread and merge

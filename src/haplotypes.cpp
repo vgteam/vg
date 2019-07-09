@@ -16,9 +16,9 @@ haplo_DP_edge_memo::haplo_DP_edge_memo() :
   
 }
 
-haplo_DP_edge_memo::haplo_DP_edge_memo(xg::XG& graph, 
-                                       xg::XG::ThreadMapping last_node,
-                                       xg::XG::ThreadMapping node) {
+haplo_DP_edge_memo::haplo_DP_edge_memo(vg::XG& graph,
+                                       vg::XG::ThreadMapping last_node,
+                                       vg::XG::ThreadMapping node) {
   if(has_edge(graph, last_node, node)) {
     out = last_node.is_reverse ? 
          graph.edges_on_start(last_node.node_id) : 
@@ -44,8 +44,8 @@ bool haplo_DP_edge_memo::is_null() const {
   return out.size() == 0;
 }
 
-bool haplo_DP_edge_memo::has_edge(xg::XG& graph, xg::XG::ThreadMapping old_node, xg::XG::ThreadMapping new_node) {
-  vg::Edge edge_taken = xg::make_edge(old_node.node_id, old_node.is_reverse, new_node.node_id, new_node.is_reverse);
+bool haplo_DP_edge_memo::has_edge(vg::XG& graph, vg::XG::ThreadMapping old_node, vg::XG::ThreadMapping new_node) {
+  vg::Edge edge_taken = vg::make_edge(old_node.node_id, old_node.is_reverse, new_node.node_id, new_node.is_reverse);
 
   bool edge_found = false;
 
@@ -54,7 +54,7 @@ bool haplo_DP_edge_memo::has_edge(xg::XG& graph, xg::XG::ThreadMapping old_node,
   
   for(auto& edge : edges) {
     // Look at every edge in order.
-    if(xg::edges_equivalent(edge, edge_taken)) {
+    if(vg::edges_equivalent(edge, edge_taken)) {
       // If we found the edge we're taking, break.
       edge_found = true;
       break;
@@ -67,17 +67,17 @@ bool haplo_DP_edge_memo::has_edge(xg::XG& graph, xg::XG::ThreadMapping old_node,
 hDP_graph_accessor
 *******************************************************************************/
 
-hDP_graph_accessor::hDP_graph_accessor(xg::XG& graph, 
-                                       xg::XG::ThreadMapping new_node, 
+hDP_graph_accessor::hDP_graph_accessor(vg::XG& graph,
+                                       vg::XG::ThreadMapping new_node,
                                        haploMath::RRMemo& memo) :
   graph(graph), edges(haplo_DP_edge_memo()), 
-  old_node(xg::XG::ThreadMapping()), new_node(new_node), memo(memo) {
+  old_node(vg::XG::ThreadMapping()), new_node(new_node), memo(memo) {
     
 }
 
-hDP_graph_accessor::hDP_graph_accessor(xg::XG& graph, 
-                                       xg::XG::ThreadMapping old_node, 
-                                       xg::XG::ThreadMapping new_node, 
+hDP_graph_accessor::hDP_graph_accessor(vg::XG& graph,
+                                       vg::XG::ThreadMapping old_node,
+                                       vg::XG::ThreadMapping new_node,
                                        haploMath::RRMemo& memo) :
   graph(graph), old_node(old_node), new_node(new_node), memo(memo),
   edges(haplo_DP_edge_memo(graph, old_node, new_node)) {
@@ -385,11 +385,11 @@ bool haplo_DP_column::is_empty() const {
 /*******************************************************************************
 haplo_DP
 *******************************************************************************/
-haplo_score_type haplo_DP::score(const vg::Path& path, xg::XG& graph, haploMath::RRMemo& memo) {
+haplo_score_type haplo_DP::score(const vg::Path& path, vg::XG& graph, haploMath::RRMemo& memo) {
   return score(path_to_thread_t(path), graph, memo);
 }
 
-haplo_score_type haplo_DP::score(const thread_t& thread, xg::XG& graph, haploMath::RRMemo& memo) {
+haplo_score_type haplo_DP::score(const thread_t& thread, vg::XG& graph, haploMath::RRMemo& memo) {
   hDP_graph_accessor ga_i(graph, thread[0], memo);
   haplo_DP hdp(ga_i);
 #ifdef debug
@@ -783,7 +783,7 @@ inputHaplotype* linear_haplo_structure::path_to_input_haplotype(const vg::Path& 
   return to_return;
 }
 
-linear_haplo_structure::linear_haplo_structure(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, xg::XG& xg_index, size_t xg_ref_rank) : xg_index(xg_index), xg_ref_rank(xg_ref_rank) {
+linear_haplo_structure::linear_haplo_structure(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, vg::XG& xg_index, size_t xg_ref_rank) : xg_index(xg_index), xg_ref_rank(xg_ref_rank) {
   
   if (log_mut_penalty > 0) {
     throw runtime_error("log mutation penalty must be negative");
@@ -846,7 +846,7 @@ IncrementalSearchState ScoreProvider::incremental_extend(const IncrementalSearch
 XGScoreProvider
 *******************************************************************************/
 
-XGScoreProvider::XGScoreProvider(xg::XG& index) : index(index) {
+XGScoreProvider::XGScoreProvider(vg::XG& index) : index(index) {
   // Nothing to do!
 }
 
@@ -855,7 +855,7 @@ pair<double, bool> XGScoreProvider::score(const vg::Path& path, haploMath::RRMem
 }
 
 int64_t XGScoreProvider::get_haplotype_count() const {
-  // XG indexes track a haplotype count still.
+  // vg::XG indexes track a haplotype count still.
   // TODO: This should be removed!
   return index.get_haplotype_count();
 }
@@ -889,7 +889,7 @@ thread_t path_to_thread_t(const vg::Path& path) {
   for(size_t i = 0; i < path.mapping_size(); i++) {
     vg::Mapping mapping = path.mapping(i);
     auto pos = mapping.position();
-    xg::XG::ThreadMapping m = {pos.node_id(), pos.is_reverse()};
+    vg::XG::ThreadMapping m = {pos.node_id(), pos.is_reverse()};
     t.push_back(m);
   }
   return t;

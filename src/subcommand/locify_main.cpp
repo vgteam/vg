@@ -15,8 +15,8 @@
 #include "../vg.hpp"
 #include "../index.hpp"
 #include "../convert.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 
 using namespace std;
 using namespace vg;
@@ -130,7 +130,7 @@ int main_locify(int argc, char** argv){
         return 1;
     }
     ifstream xgstream(xg_idx_name);
-    unique_ptr<xg::XG> xgidx = stream::VPKG::load_one<xg::XG>(xgstream);
+    unique_ptr<XG> xgidx = vg::io::VPKG::load_one<XG>(xgstream);
 
     std::function<vector<string>(string, char)> strsplit = [&](string x, char delim){
 
@@ -230,7 +230,7 @@ int main_locify(int argc, char** argv){
 
     if (!loci_file.empty()){
         ifstream ifi(loci_file);
-        stream::for_each(ifi, lambda);
+        vg::io::for_each(ifi, lambda);
     } else {
         cerr << "[vg locify] Warning: empty locus file given, could not annotate alignments with loci." << endl;
     }
@@ -311,11 +311,11 @@ int main_locify(int argc, char** argv){
                     *l.add_allele() = allele;
                 }
                 buffer.push_back(l);
-                stream::write_buffered(outloci, buffer, 100);
+                vg::io::write_buffered(outloci, buffer, 100);
             };
             ifstream ifi(loci_file);
-            stream::for_each(ifi, lambda);
-            stream::write_buffered(outloci, buffer, 0);
+            vg::io::for_each(ifi, lambda);
+            vg::io::write_buffered(outloci, buffer, 0);
             outloci.close();
         } else {
             cerr << "[vg locify] Warning: empty locus file given, could not update loci." << endl;
@@ -349,9 +349,9 @@ int main_locify(int argc, char** argv){
         } else {
             output_buf.push_back(aln.second);
         }
-        stream::write_buffered(cout, output_buf, 100);
+        vg::io::write_buffered(cout, output_buf, 100);
     }
-    stream::write_buffered(cout, output_buf, 0);        
+    vg::io::write_buffered(cout, output_buf, 0);        
     
     return 0;
 }

@@ -15,7 +15,7 @@
 
 #include "../vg.hpp"
 #include "../readfilter.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/vpkg.hpp>
 
 using namespace std;
 using namespace vg;
@@ -276,10 +276,10 @@ int main_filter(int argc, char** argv) {
     sort(filter.name_prefixes.begin(), filter.name_prefixes.end());
     
      // If the user gave us an XG index, we probably ought to load it up.
-    unique_ptr<xg::XG> xindex;
+    unique_ptr<XG> xindex;
     if (!xg_name.empty()) {
         // read the xg index
-        xindex = stream::VPKG::load_one<xg::XG>(xg_name);
+        xindex = vg::io::VPKG::load_one<XG>(xg_name);
     }
     filter.xindex = xindex.get();
     

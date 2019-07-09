@@ -23,12 +23,13 @@ namespace vg {
     //size_t MultipathMapper::SECONDARY_RESCUE_ATTEMPT = 0;
     //size_t MultipathMapper::SECONDARY_RESCUE_TOTAL = 0;
     
-    MultipathMapper::MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
+    MultipathMapper::MultipathMapper(XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                                      haplo::ScoreProvider* haplo_score_provider, SnarlManager* snarl_manager,
-                                     DistanceIndex* distance_index) :
+                                     MinimumDistanceIndex* distance_index) :
         BaseMapper(xg_index, gcsa_index, lcp_array, haplo_score_provider),
         snarl_manager(snarl_manager),
-        distance_index(distance_index)
+        distance_index(distance_index),
+        path_component_index(xg_index)
     {
         // nothing to do
     }
@@ -69,7 +70,27 @@ namespace vg {
         // TODO: use the automatic expected MEM length algorithm to restrict the MEMs used for clustering?
         
         // cluster the MEMs
-        unique_ptr<OrientedDistanceMeasurer> distance_measurer = create_distance_measurer();
+        unique_ptr<SnarlOrientedDistanceMeasurer> snarl_measurer(nullptr);
+        unique_ptr<PathOrientedDistanceMeasurer> path_measurer(nullptr);
+        MemoizingGraph memoizing_graph(xindex);
+        
+        OrientedDistanceMeasurer* distance_measurer;
+        if (distance_index) {
+#ifdef debug_multipath_mapper
+            cerr << "using a snarl-based distance measurer" << endl;
+#endif
+            snarl_measurer = unique_ptr<SnarlOrientedDistanceMeasurer>(new SnarlOrientedDistanceMeasurer(distance_index));
+            distance_measurer = &(*snarl_measurer);
+        }
+        else {
+#ifdef debug_multipath_mapper
+            cerr << "using a path-based distance measurer" << endl;
+#endif
+            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
+                                                                                                      &path_component_index));
+            distance_measurer = &(*path_measurer);
+        }
+        
         vector<memcluster_t> clusters = get_clusters(alignment, mems, &(*distance_measurer));
         
 #ifdef debug_multipath_mapper
@@ -146,21 +167,23 @@ namespace vg {
     vector<MultipathMapper::memcluster_t> MultipathMapper::get_clusters(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
                                                                         OrientedDistanceMeasurer* distance_measurer) const {
         
+        vector<MultipathMapper::memcluster_t> return_val;
         if (use_tvs_clusterer) {
             TVSClusterer clusterer(xindex, distance_index);
-            return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
-                                      log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+            return_val = clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
+                                            log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
         else if (use_min_dist_clusterer) {
             MinDistanceClusterer clusterer(distance_index);
-            return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
-                                      log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+            return_val = clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
+                                            log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
         else {
-            OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering, max_expected_dist_approx_error);
-            return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
-                                      log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+            OrientedDistanceClusterer clusterer(*distance_measurer, max_expected_dist_approx_error);
+            return_val = clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
+                                            log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
+        return return_val;
     }
     
     vector<pair<pair<size_t, size_t>, int64_t>> MultipathMapper::get_cluster_pairs(const Alignment& alignment1,
@@ -218,7 +241,7 @@ namespace vg {
                                            ceil(10.0 * fragment_length_distr.stdev()));
         }
         else {
-            OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering);
+            OrientedDistanceClusterer clusterer(*distance_measurer);
             return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
                                            alt_anchors_1, alt_anchors_2,
                                            fragment_length_distr.mean(),
@@ -337,12 +360,11 @@ namespace vg {
             MultipathAlignment& multipath_aln_1 = multipath_alns_1.front();
             MultipathAlignment& multipath_aln_2 = multipath_alns_2.front();
             
-            auto match_score = get_aligner()->match;
-            auto full_length_bonus = get_aligner()->full_length_bonus;
+            auto aligner = get_aligner();
             
             // score possible of a perfect match (at full base quality)
-            int32_t max_score_1 = multipath_aln_1.sequence().size() * match_score + 2 * full_length_bonus * !strip_bonuses;
-            int32_t max_score_2 = multipath_aln_2.sequence().size() * match_score + 2 * full_length_bonus * !strip_bonuses;
+            int32_t max_score_1 = multipath_aln_1.sequence().size() * aligner->match + 2 * aligner->full_length_bonus * !strip_bonuses;
+            int32_t max_score_2 = multipath_aln_2.sequence().size() * aligner->match + 2 * aligner->full_length_bonus * !strip_bonuses;
             
 #ifdef debug_multipath_mapper
             cerr << "single ended mappings achieves scores " << optimal_alignment_score(multipath_aln_1) << " and " << optimal_alignment_score(multipath_aln_2) << ", looking for scores " << .8 * max_score_1 << " and " << .8 * max_score_2 << endl;
@@ -433,7 +455,7 @@ namespace vg {
         int64_t jump_dist = rescue_forward ? fragment_length_distr.mean() - other_aln.sequence().size() : -fragment_length_distr.mean();
         
         // get the seed position(s) for the rescue by jumping along paths
-        vector<pos_t> jump_positions = xindex->jump_along_closest_path(id(pos_from), is_rev(pos_from), offset(pos_from), jump_dist, 250);
+        vector<pos_t> jump_positions = algorithms::jump_along_closest_path(xindex, pos_from, jump_dist, 250);
         
 #ifdef debug_multipath_mapper
         cerr << "found jump positions:" << endl;
@@ -446,7 +468,7 @@ namespace vg {
         }
         
         // pull out the graph around the position(s) we jumped to
-        HashGraph rescue_graph;
+        sglib::HashGraph rescue_graph;
         vector<size_t> backward_dist(jump_positions.size(), 6 * fragment_length_distr.stdev());
         vector<size_t> forward_dist(jump_positions.size(), 6 * fragment_length_distr.stdev() + other_aln.sequence().size());
         algorithms::extract_containing_graph(xindex, &rescue_graph, jump_positions, backward_dist, forward_dist,
@@ -463,12 +485,12 @@ namespace vg {
         size_t target_length = other_aln.sequence().size() + get_aligner()->longest_detectable_gap(other_aln);
         
         // convert from bidirected to directed
-        HashGraph align_graph;
+        sglib::HashGraph align_graph;
         unordered_map<id_t, pair<id_t, bool> > node_trans = algorithms::split_strands(&rescue_graph, &align_graph);
         // if necessary, convert from cyclic to acylic
         if (!algorithms::is_directed_acyclic(&rescue_graph)) {
             // make a dagified graph and translation
-            HashGraph dagified;
+            sglib::HashGraph dagified;
             unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
             
             // replace the original with the dagified ones
@@ -724,27 +746,28 @@ namespace vg {
         cerr << "measuring left-to-" << (full_fragment ? "right" : "left") << " end distance between " << pos_1 << " and " << pos_2 << endl;
 #endif
         
-        if (use_min_dist_clusterer) {
+        int64_t dist;
+        if (use_min_dist_clusterer || use_tvs_clusterer) {
             assert(!forward_strand);
-            int64_t dist = distance_index->minDistance(pos_1, pos_2);
-            if (dist == -1) {
-                dist = distance_index->minDistance(pos_2, pos_1);
-                if (dist == -1) {
-                    return numeric_limits<int64_t>::max();
-                }
-                else {
-                    return -dist;
-                }
+            // measure the distance in both directions and choose the minimum (or the only) absolute distance
+            int64_t forward_dist = distance_index->minDistance(pos_1, pos_2);
+            int64_t reverse_dist = distance_index->minDistance(pos_2, pos_1);
+            if (forward_dist == -1 && reverse_dist == -1) {
+                // unreachable both ways, convert to the sentinel that the client code expects
+                dist = numeric_limits<int64_t>::max();
+            }
+            else if (forward_dist == -1 || (reverse_dist < forward_dist && reverse_dist != -1)) {
+                dist = -reverse_dist;
             }
             else {
-                return dist;
+                dist = forward_dist;
             }
         }
         else {
-            return xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                                 id(pos_2), offset(pos_2), is_rev(pos_2),
-                                                                 forward_strand);
+            PathOrientedDistanceMeasurer measurer(xindex);
+            dist = measurer.oriented_distance(pos_1, pos_2);
         }
+        return dist;
     }
     
     bool MultipathMapper::is_consistent(int64_t distance) const {
@@ -795,89 +818,6 @@ namespace vg {
         }
         
         return false;
-    }
-    
-    unique_ptr<OrientedDistanceMeasurer> MultipathMapper::create_distance_measurer() {
-        // which distance method are we using?
-        OrientedDistanceMeasurer* measurer;
-        if (distance_index) {
-#ifdef debug_multipath_mapper
-            cerr << "using a snarl-based distance measurer" << endl;
-#endif
-            measurer = new SnarlOrientedDistanceMeasurer(distance_index);
-        }
-        else {
-#ifdef debug_multipath_mapper
-            cerr << "using a path-based distance measurer" << endl;
-#endif
-            measurer = new PathOrientedDistanceMeasurer(xindex, unstranded_clustering);
-        }
-        
-        // wrap it in a unique pointer
-        return move(unique_ptr<OrientedDistanceMeasurer>(measurer));
-    }
-    
-    void MultipathMapper::establish_strand_consistency(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
-                                                       vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) {
-        
-#ifdef debug_multipath_mapper
-        cerr << "establishing consistency between mapped pairs" << endl;
-#endif
-        
-        int64_t search_dist = 0.5 * fragment_length_distr.mean() + 5.0 * fragment_length_distr.stdev();
-        vector<pair<bool, bool>> strand_assignments;
-        strand_assignments.reserve(multipath_aln_pairs.size());
-        for (const pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs) {
-            Alignment optimal_aln_1, optimal_aln_2;
-            optimal_alignment(multipath_aln_pair.first, optimal_aln_1);
-            optimal_alignment(multipath_aln_pair.second, optimal_aln_2);
-            pos_t pos_1 = initial_position(optimal_aln_1.path());
-            pos_t pos_2 = initial_position(optimal_aln_2.path());
-            
-            strand_assignments.push_back(xindex->validate_strand_consistency(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                                             id(pos_2), offset(pos_2), is_rev(pos_2), search_dist));
-            
-#ifdef debug_multipath_mapper
-            cerr << "pair has initial positions " << pos_1 << " and " << pos_2 << " on strands " << (strand_assignments.back().first ? "-" : "+") << " and " << (strand_assignments.back().second ? "-" : "+") << endl;
-#endif
-        }
-        
-        size_t end = multipath_aln_pairs.size();
-        for (size_t i = 0; i < end; ) {
-            // move strand inconsistent mappings to the end
-            if (strand_assignments[i].first != strand_assignments[i].second) {
-#ifdef debug_multipath_mapper
-                cerr << "removing inconsistent strand at " << i << " and not advancing index" << endl;
-#endif                
-                std::swap(multipath_aln_pairs[i], multipath_aln_pairs[end - 1]);
-                std::swap(strand_assignments[i], strand_assignments[end - 1]);
-                std::swap(cluster_pairs[i], cluster_pairs[end - 1]);
-                
-                --end;
-            }
-            else {
-#ifdef debug_multipath_mapper
-                cerr << "identifying " << i << " as consistent" << endl;
-#endif
-                // reverse the distance if it's on the reverse strand
-                if (strand_assignments[i].first) {
-#ifdef debug_multipath_mapper
-                    cerr << "\tinverting distance " << cluster_pairs[i].second << " because on negative strand" << endl;
-#endif
-                    cluster_pairs[i].second = -cluster_pairs[i].second;
-                }
-                ++i;
-            }
-        }
-        
-        // remove the inconsistent mappings
-        if (end != multipath_aln_pairs.size()) {
-#ifdef debug_multipath_mapper
-            cerr << "found " << multipath_aln_pairs.size() - end << " strand inconsitent pairs, removing now" << endl;
-#endif
-            multipath_aln_pairs.resize(end);
-            cluster_pairs.resize(end);
-        }
     }
     
     bool MultipathMapper::align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
@@ -1396,7 +1336,26 @@ namespace vg {
         vector<pair<pair<size_t, size_t>, int64_t>> cluster_pairs;
         vector<pair<size_t, size_t>> duplicate_pairs;
         
-        unique_ptr<OrientedDistanceMeasurer> distance_measurer = create_distance_measurer();
+        unique_ptr<SnarlOrientedDistanceMeasurer> snarl_measurer(nullptr);
+        unique_ptr<PathOrientedDistanceMeasurer> path_measurer(nullptr);
+        MemoizingGraph memoizing_graph(xindex);
+        
+        OrientedDistanceMeasurer* distance_measurer;
+        if (distance_index) {
+#ifdef debug_multipath_mapper
+            cerr << "using a snarl-based distance measurer" << endl;
+#endif
+            snarl_measurer = unique_ptr<SnarlOrientedDistanceMeasurer>(new SnarlOrientedDistanceMeasurer(distance_index));
+            distance_measurer = &(*snarl_measurer);
+        }
+        else {
+#ifdef debug_multipath_mapper
+            cerr << "using a path-based distance measurer" << endl;
+#endif
+            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
+                                                                                                      &path_component_index));
+            distance_measurer = &(*path_measurer);
+        }
         
         // do we want to try to only cluster one read end and rescue the other?
         bool do_repeat_rescue_from_1 = min_match_count_2 > rescue_only_min && min_match_count_1 <= rescue_only_anchor_max;
@@ -2381,7 +2340,7 @@ namespace vg {
                 for (pair<MultipathAlignment, MultipathAlignment>& split_multipath_aln_pair : split_multipath_alns) {
                     // we also need to measure the disance for scoring
                     int64_t dist = distance_between(split_multipath_aln_pair.first, split_multipath_aln_pair.second,
-                                                    true, unstranded_clustering);
+                                                    true);
                     
                     // if we can't measure a distance, then don't add the pair
                     if (dist != numeric_limits<int64_t>::max()) {
@@ -2436,6 +2395,11 @@ namespace vg {
                     });
         
 #ifdef debug_multipath_mapper
+        cerr << "sorting cluster pairs by approximate likelihood:" << endl;
+        for (size_t i = 0; i < cluster_pairs.size(); i++) {
+            cerr << i << "-th cluster: " << cluster_pairs[i].first.first << " " << cluster_pairs[i].first.second << ", likelihood " << get_pair_approx_likelihood(cluster_pairs[i]) << endl;
+        }
+        
         cerr << "aligning to cluster pairs..." << endl;
 #endif
         
@@ -2477,7 +2441,7 @@ namespace vg {
             auto prev_1 = previous_multipath_alns_1.find(cluster_pair.first.first);
             if (prev_1 == previous_multipath_alns_1.end()) {
                 // we haven't done this alignment yet, so we have to complete it for the first time
-                HashGraph* graph1 = get<0>(cluster_graphs1[cluster_pair.first.first]);
+                sglib::HashGraph* graph1 = get<0>(cluster_graphs1[cluster_pair.first.first]);
                 memcluster_t& graph_mems1 = get<1>(cluster_graphs1[cluster_pair.first.first]);
                 
 #ifdef debug_multipath_mapper
@@ -2535,12 +2499,6 @@ namespace vg {
             topologically_order_subpaths(multipath_aln_pair.second);
         }
         
-        // if we haven't been checking strand consistency, enforce it now at the end
-        // TODO: this doesn't fit very well into the DistanceMeasurer framework...
-        if (unstranded_clustering) {
-            establish_strand_consistency(multipath_aln_pairs_out, cluster_pairs);
-        }
-        
         // put pairs in score sorted order and compute mapping quality of best pair using the score
         sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs, !delay_population_scoring, &duplicate_pairs_out);
         
@@ -2579,7 +2537,7 @@ namespace vg {
         unordered_map<id_t, size_t> node_id_to_cluster;
         
         // to hold the clusters as they are (possibly) merged
-        unordered_map<size_t, HashGraph*> cluster_graphs;
+        unordered_map<size_t, sglib::HashGraph*> cluster_graphs;
         
         // to keep track of which clusters have been merged
         UnionFind union_find(clusters.size());
@@ -2621,7 +2579,7 @@ namespace vg {
             
             // extract the subgraph within the search distance
             
-            auto cluster_graph = new HashGraph();
+            auto cluster_graph = new sglib::HashGraph();
             algorithms::extract_containing_graph(xindex, cluster_graph, positions, forward_max_dist, backward_max_dist,
                                                  num_alt_alns > 1 ? reversing_walk_length : 0);
                                                  
@@ -2676,7 +2634,7 @@ namespace vg {
                 cerr << "merging as cluster " << remaining_idx << endl;
 #endif
                 
-                HashGraph* merging_graph;
+                sglib::HashGraph* merging_graph;
                 if (remaining_idx == i) {
                     // the new graph was chosen to remain, so add it to the record
                     cluster_graphs[i] = cluster_graph;
@@ -2739,7 +2697,7 @@ namespace vg {
 #endif
             
             for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
-                cluster_graphs[max_graph_idx + i] = new HashGraph();
+                cluster_graphs[max_graph_idx + i] = new sglib::HashGraph();
             }
             
             // divvy up the nodes
@@ -2891,7 +2849,7 @@ namespace vg {
             
         // find the node ID range for the cluster graphs to help set up a stable, system-independent ordering
         // note: technically this is not quite a total ordering, but it should be close to one
-        unordered_map<HashGraph*, pair<id_t, id_t>> node_range;
+        unordered_map<sglib::HashGraph*, pair<id_t, id_t>> node_range;
         node_range.reserve(cluster_graphs_out.size());
         for (const auto& cluster_graph : cluster_graphs_out) {
             node_range[get<0>(cluster_graph)] = make_pair(get<0>(cluster_graph)->min_node_id(),
@@ -2912,7 +2870,7 @@ namespace vg {
         
     }
     
-    void MultipathMapper::multipath_align(const Alignment& alignment, const HashGraph* graph,
+    void MultipathMapper::multipath_align(const Alignment& alignment, const sglib::HashGraph* graph,
                                           memcluster_t& graph_mems,
                                           MultipathAlignment& multipath_aln_out) const {
 
@@ -2925,7 +2883,7 @@ namespace vg {
         
         // convert from bidirected to directed
         unordered_map<id_t, pair<id_t, bool> > node_trans;
-        HashGraph align_graph;
+        sglib::HashGraph align_graph;
         
         // check if we can get away with using only one strand of the graph
         bool use_single_stranded = algorithms::is_single_stranded(graph);
@@ -2953,7 +2911,7 @@ namespace vg {
                 // the later code's expectations are met
                 // TODO: can we do this without the copy constructor?
                 align_graph = *graph;
-                node_trans.reserve(graph->node_size());
+                node_trans.reserve(graph->get_node_count());
                 graph->for_each_handle([&](const handle_t& handle) {
                     node_trans[graph->get_id(handle)] = make_pair(graph->get_id(handle), false);
                     return true;
@@ -2970,7 +2928,7 @@ namespace vg {
             cerr << "graph contains directed cycles, performing dagification" << endl;
 #endif
             // make a dagified graph and translation
-            HashGraph dagified;
+            sglib::HashGraph dagified;
             unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
             
             // replace the original with the dagified ones
@@ -3545,6 +3503,7 @@ namespace vg {
         // just fragment score, for running without population adjustment, to make scores nonnegative
         double min_frag_score = numeric_limits<double>::max();
         
+        
         for (size_t i = 0; i < multipath_aln_pairs.size(); i++) {
             // For each pair of read placements
             pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair = multipath_aln_pairs[i];
@@ -3678,6 +3637,7 @@ namespace vg {
                                 best_pop_score[end] = pop_score.first / log_base;
                                 have_best_linearization[end] = true;
 #ifdef debug_multipath_mapper
+
                                 if (end == 0) {
                                     chosen_align_score[i].first = alignments[end][j].score();
                                     chosen_population_score[i].first = pop_score.first / log_base;
@@ -3800,7 +3760,7 @@ namespace vg {
         
             cerr << "\tpos:" << start1 << "(" << aln1.score() << ")-" << start2 << "(" << aln2.score() << ")"
                 << " align:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second)
-            << ", length: " << cluster_pairs[i].second;
+                << ", length: " << cluster_pairs[i].second;
             if (include_population_component && all_multipaths_pop_consistent) {
                 cerr << ", pop adjusted aligns: " << chosen_align_score[i].first << " " << chosen_align_score[i].second << ", population: " << chosen_population_score[i].first << " " << chosen_population_score[i].second;
             }

@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include "gssw.h"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "vg.hpp"
 #include "Variant.h"
 #include "Fasta.h"
@@ -18,10 +18,9 @@
 #include "banded_global_aligner.hpp"
 #include "xdrop_aligner.hpp"
 #include "handle.hpp"
-#include "backwards_graph.hpp"
+#include "reverse_graph.hpp"
 #include "null_masking_graph.hpp"
 #include "algorithms/distance_to_tail.hpp"
-
 // #define BENCH
 // #include "bench.h"
 
@@ -125,7 +124,9 @@ namespace vg {
         // assumes that graph is topologically sorted by node index
         virtual void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const = 0;
         
-        /// Same as previous, but takes advantage of a pre-computed topological order
+        /// Same as previous, but takes advantage of a pre-computed topological order.
+        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
+        /// If alignment needs to proceed backward, it will be reversed internally.
         virtual void align_pinned(Alignment& alignment, const HandleGraph& g,
                                   const vector<handle_t>& topological_order, bool pin_left) const = 0;
         
@@ -139,7 +140,9 @@ namespace vg {
                                         bool pin_left, int32_t max_alt_alns) const = 0;
         
         
-        /// Same as previous, but takes advantage of a pre-computed topological order
+        /// Same as previous, but takes advantage of a pre-computed topological order.
+        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
+        /// If alignment needs to proceed backward, it will be reversed internally.
         virtual void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                         const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns) const = 0;
         
@@ -159,6 +162,9 @@ namespace vg {
         // xdrop aligner
         virtual void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const = 0;
         virtual void align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const = 0;
+        /// Get a fresh XdropAligner instance to align with.
+        /// TODO: make XdropAligner thread safe, and make it a thing you can get from GetAligner.
+        virtual unique_ptr<XdropAligner> get_xdrop() const = 0;
 
         /// Compute the score of an exact match in the given alignment, from the
         /// given offset, of the given length.
@@ -170,6 +176,9 @@ namespace vg {
         /// Qualities may be ignored by some implementations.
         virtual int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
                                           string::const_iterator base_qual_begin) const = 0;
+      
+        // TODO: Provide a generic way to score a mismatch.
+        
         /// Compute the score of a path against the given range of subsequence with the given qualities.
         virtual int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
                                                 string::const_iterator seq_begin) const = 0;
@@ -221,6 +230,9 @@ namespace vg {
         
         /// The longest gap detectable from a read position without soft-clipping
         size_t longest_detectable_gap(const Alignment& alignment, const string::const_iterator& read_pos) const;
+        
+        /// The longest gap detectable from a read position without soft-clipping, for a generic read.
+        size_t longest_detectable_gap(size_t read_length, size_t read_pos) const;
         
         /// The longest gap detectable from any read position without soft-clipping
         size_t longest_detectable_gap(const Alignment& alignment) const;
@@ -305,47 +317,51 @@ namespace vg {
         void align(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
                    bool traceback_aln, bool print_score_matrices) const;
         
-        // store optimal alignment against a graph in the Alignment object with one end of the sequence
-        // guaranteed to align to a source/sink node
-        //
-        // pinning left means that that the alignment starts with the first base of the read sequence and
-        // the first base of a source node sequence, pinning right means that the alignment starts with
-        // the final base of the read sequence and the final base of a sink node sequence
-        //
-        // Gives the full length bonus only on the non-pinned end of the alignment.
-        //
-        // assumes that graph is topologically sorted by node index
+        /// store optimal alignment against a graph in the Alignment object with one end of the sequence
+        /// guaranteed to align to a source/sink node
+        ///
+        /// pinning left means that that the alignment starts with the first base of the read sequence and
+        /// the first base of a source node sequence, pinning right means that the alignment starts with
+        /// the final base of the read sequence and the final base of a sink node sequence
+        ///
+        /// Gives the full length bonus only on the non-pinned end of the alignment.
+        ///
         void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const;
+        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
+        /// If alignment needs to proceed backward, it will be reversed internally.
         void align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
                           bool pin_left) const;
                 
-        // store the top scoring pinned alignments in the vector in descending score order up to a maximum
-        // number of alignments (including the optimal one). if there are fewer than the maximum number in
-        // the return value, then it includes all alignments with a positive score. the optimal alignment
-        // will be stored in both the vector and in the main alignment object
-        //
-        // assumes that graph is topologically sorted by node index
+        /// store the top scoring pinned alignments in the vector in descending score order up to a maximum
+        /// number of alignments (including the optimal one). if there are fewer than the maximum number in
+        /// the return value, then it includes all alignments with a positive score. the optimal alignment
+        /// will be stored in both the vector and in the main alignment object
+        ///
+        /// assumes that graph is topologically sorted by node index
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 bool pin_left, int32_t max_alt_alns) const;
+        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
+        /// If alignment needs to proceed backward, it will be reversed internally.
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns) const;
         
-        // store optimal global alignment against a graph within a specified band in the Alignment object
-        // permissive banding auto detects the width of band needed so that paths can travel
-        // through every node in the graph
+        /// store optimal global alignment against a graph within a specified band in the Alignment object
+        /// permissive banding auto detects the width of band needed so that paths can travel
+        /// through every node in the graph
         void align_global_banded(Alignment& alignment, const HandleGraph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true) const;
         
-        // store top scoring global alignments in the vector in descending score order up to a maximum number
-        // of alternate alignments (including the optimal alignment). if there are fewer than the maximum
-        // number of alignments in the return value, then the vector contains all possible alignments. the
-        // optimal alignment will be stored in both the vector and the original alignment object
+        /// store top scoring global alignments in the vector in descending score order up to a maximum number
+        /// of alternate alignments (including the optimal alignment). if there are fewer than the maximum
+        /// number of alignments in the return value, then the vector contains all possible alignments. the
+        /// optimal alignment will be stored in both the vector and the original alignment object
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true) const;
 
         // xdrop aligner
         void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const;
         void align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const;
+        unique_ptr<XdropAligner> get_xdrop() const;
 
         int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const;
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
@@ -353,6 +369,9 @@ namespace vg {
                                   string::const_iterator base_qual_begin) const;
         int32_t score_exact_match(const string& sequence) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end) const;
+        
+        /// Score a mismatch given just the length. Only possible since we ignore qualities.
+        int32_t score_mismatch(size_t length) const;
 
         int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
                                         string::const_iterator seq_begin) const;
@@ -382,17 +401,24 @@ namespace vg {
         void align_global_banded(Alignment& alignment, const HandleGraph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true) const;
         void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const;
+        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
+        /// If alignment needs to proceed backward, it will be reversed internally.
         void align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
                           bool pin_left) const;
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true) const;
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 bool pin_left, int32_t max_alt_alns) const;
+        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
+        /// If alignment needs to proceed backward, it will be reversed internally.
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns) const;
+                                
+        // TODO: xdrop isn't actually possible with the quality adjusted aligner (yet).
         // xdrop aligner
         void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const;
         void align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const;
+        unique_ptr<XdropAligner> get_xdrop() const;
 
         void init_mapping_quality(double gc_content);
         
@@ -400,7 +426,7 @@ namespace vg {
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
                                   string::const_iterator base_qual_begin) const;
-        
+                                  
         int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
                                         string::const_iterator seq_begin) const;
         

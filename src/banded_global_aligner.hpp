@@ -42,6 +42,10 @@ namespace vg {
      * start node. Any signed integer type can be used for the dynamic programming matrices, but there
      * are no checks for overflow.
      *
+     * THIS IS A COMPONENT OF THE ALIGNER CLASS.
+     *
+     * Use Aligner::align_global_banded() instead.
+     *
      */
     template <class IntType>
     class BandedGlobalAligner {

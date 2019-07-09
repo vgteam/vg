@@ -11,7 +11,7 @@ namespace vg {
 // init the static memo
 thread_local vector<size_t> BaseMapper::adaptive_reseed_length_memo;
 
-BaseMapper::BaseMapper(xg::XG* xidex,
+BaseMapper::BaseMapper(XG* xidex,
                        gcsa::GCSA* g,
                        gcsa::LCPArray* a,
                        haplo::ScoreProvider* haplo_score_provider) :
@@ -1739,7 +1739,7 @@ void BaseMapper::set_fragment_length_distr_params(size_t maximum_sample_size, si
                                                        robust_estimation_fraction);
 }
     
-Mapper::Mapper(xg::XG* xidex,
+Mapper::Mapper(XG* xidex,
                gcsa::GCSA* g,
                gcsa::LCPArray* a,
                haplo::ScoreProvider* haplo_score_provider) :
@@ -1882,7 +1882,13 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
             // construct a topological order manually using the internal sort order
             vector<handle_t> topological_order(graph.node_size());
             for (size_t i = 0; i < graph.node_size(); i++) {
-                topological_order[i] = proto_handle_graph.get_handle_by_index(i);
+                if (pin_left) {
+                    // The graph has already been sorted backward, so sort it forward
+                    topological_order[i] = proto_handle_graph.flip(proto_handle_graph.get_handle_by_index(graph.node_size() - i - 1));
+                } else {
+                    // The graph is already sorted forward, so keep it sorted forward.
+                    topological_order[i] = proto_handle_graph.get_handle_by_index(i);
+                }
             }
             get_aligner(!aln.quality().empty())->align_pinned(aligned, proto_handle_graph, topological_order, pin_left);
         } else if (xdrop_alignment) {
@@ -1966,7 +1972,7 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
 }
 
 map<string, vector<pair<size_t, bool> > > Mapper::alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby) const {
-    return xg_alignment_path_offsets(aln, just_min, nearby, xindex);
+    return xg_alignment_path_offsets(xindex, aln, just_min, nearby);
 }
 
 vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_mate) {
@@ -1976,10 +1982,11 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
     }
     map<string, vector<pair<size_t, bool> > > offsets;
     for (auto& mapping : aln.path().mapping()) {
-        auto pos_offs = xindex->nearest_offsets_in_paths(make_pos_t(mapping.position()), aln.sequence().size());
+        auto pos_offs = algorithms::nearest_offsets_in_paths(xindex, make_pos_t(mapping.position()), aln.sequence().size());
         for (auto& p : pos_offs) {
-            if (offsets.find(p.first)  == offsets.end()) {
-                offsets[p.first] = p.second;
+            string pname = xindex->get_path_name(p.first);
+            if (offsets.find(pname)  == offsets.end()) {
+                offsets[pname] = p.second;
             }
         }
         if (offsets.size()) break; // find a single node that has a path position
@@ -2117,7 +2124,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
         if (rescue_off_first) {
             Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback, acyclic_and_sorted, false, xdrop_alignment);
             tried2 = true;
-            //stream::write_to_file(aln2, "rescue-" + h + ".gam");
+            //vg::io::write_to_file(aln2, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
                             << " vs " << mate2.score() << "/" << mate2.identity() << endl;
@@ -2137,7 +2144,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
         } else if (rescue_off_second) {
             Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback, acyclic_and_sorted, false, xdrop_alignment);
             tried1 = true;
-            //stream::write_to_file(aln1, "rescue-" + h + ".gam");
+            //vg::io::write_to_file(aln1, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
                             << " vs " << mate1.score() << "/" << mate1.identity() << endl;
@@ -2448,7 +2455,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                   return approx_position(n);
                               },
                               [&](pos_t n) -> map<string, vector<pair<size_t, bool> > > {
-                                  return xindex->offsets_in_paths(n);
+                                  return algorithms::offsets_in_paths(xindex, n);
                               },
                               transition_weight,
                               band_width);
@@ -2950,12 +2957,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
 }
 
-void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns) const {
-    for (auto& aln : alns) annotate_with_initial_path_positions(aln);
+void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns, size_t search_limit) const {
+    for (auto& aln : alns) annotate_with_initial_path_positions(aln, search_limit);
 }
 
-void Mapper::annotate_with_initial_path_positions(Alignment& aln) const {
-    xg_annotate_with_initial_path_positions(aln, xindex);
+void Mapper::annotate_with_initial_path_positions(Alignment& aln, size_t search_limit) const {
+    xg_annotate_with_initial_path_positions(xindex, aln, search_limit);
 }
 
 double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters,
@@ -3140,7 +3147,7 @@ Mapper::align_mem_multi(const Alignment& aln,
                                   return approx_position(n);
                               },
                               [&](pos_t n) -> map<string, vector<pair<size_t, bool> > > {
-                                  return xindex->offsets_in_paths(n);
+                                  return algorithms::offsets_in_paths(xindex, n);
                               },
                               transition_weight,
                               aln.sequence().size());
@@ -3809,7 +3816,7 @@ bool Mapper::check_alignment(const Alignment& aln) {
                  << "expect:\t" << aln.sequence() << endl
                  << "got:\t" << seq << endl;
             // save alignment
-            stream::write_to_file(aln, "fail-" + hash_alignment(aln) + ".gam");
+            vg::io::write_to_file(aln, "fail-" + hash_alignment(aln) + ".gam");
             // save graph, bigger fragment
             xindex->expand_context(sub, 5, true);
             VG gn; gn.extend(sub);
@@ -3960,27 +3967,27 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         } else if (!aln1.has_path() && aln2.has_path()) {
             return 0.0;
         }
-        auto aln1_end = make_pos_t(path_end(aln1.path()));
-        auto aln2_begin = make_pos_t(path_start(aln2.path()));
+        auto aln1_end = make_pos_t(path_end_position(aln1.path()));
+        auto aln2_begin = make_pos_t(path_start_position(aln2.path()));
         pair<int64_t, int64_t> distances = min_oriented_distances(pos1, pos2);
         // consider both the forward and inversion case
         // counter[3]++; bench_t b; bench_init(b); bench_start(b);
         int64_t dist_fwd = distances.first;
-        if (dist_fwd < aln2.sequence().size()) {
+        if (aln1_end == aln2_begin || id(aln1_end) == id(aln2_begin) || dist_fwd < aln2.sequence().size()*2) {
             int64_t graph_dist_fwd = graph_distance(aln1_end, aln2_begin, aln2.sequence().size());
             dist_fwd = min(graph_dist_fwd, dist_fwd);
         }
         dist_fwd -= band_distance;
         int64_t dist_inv = distances.second;
-        if (dist_inv < aln2.sequence().size()) {
+        if (dist_inv < aln2.sequence().size()*2) {
             int64_t graph_dist_inv = graph_distance(aln2_begin, aln1_end, aln2.sequence().size());
             dist_inv = min(graph_dist_inv, dist_inv);
         }
         dist_inv -= band_distance;
         // bench_end(b);
 
-        double fwd_score = -((double)gap_open + (double)dist_fwd * (double)gap_extension);
-        double inv_score = -2.0*((double)gap_open + (double)dist_inv * (double)gap_extension);
+        double fwd_score = -((double)(gap_open * dist_fwd != 0) + (double)dist_fwd * (double)gap_extension);
+        double inv_score = -2.0*((double)(gap_open * dist_fwd != 0) + (double)dist_inv * (double)gap_extension);
         return max(fwd_score, inv_score);
     };
 
@@ -3989,7 +3996,8 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     AlignmentChainModel chainer(multi_alns, this, transition_weight, max_band_jump, 64, max_band_jump*2);
     // bench_end(bench[0]);
     if (debug) chainer.display(cerr);
-    vector<Alignment> alignments = chainer.traceback(read, max_multimaps, false, debug);
+    int total_multimaps = max(max_multimaps, extra_multimaps);
+    vector<Alignment> alignments = chainer.traceback(read, total_multimaps, false, debug);
     if (patch_alignments) {
         for (auto& aln : alignments) {
             // patch the alignment to deal with short unaligned regions
@@ -4894,7 +4902,7 @@ AlignmentChainModel::AlignmentChainModel(
             v.aln = &aln;
             v.band_begin = offset;
             v.band_idx = idx;
-            v.weight = aln.sequence().size() + aln.score() + aln.mapping_quality();
+            v.weight = aln.score();
             v.prev = nullptr;
             v.score = 0;
             v.positions = mapper->alignment_path_offsets(aln);
@@ -4912,11 +4920,12 @@ AlignmentChainModel::AlignmentChainModel(
     }
     for (vector<AlignmentChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
         for (auto u = v+1; u != model.end(); ++u) {
-            if (v->next_cost.size() < max_connections && u->prev_cost.size() < max_connections) {
+            if (v->band_idx != u->band_idx &&
+                v->next_cost.size() < max_connections && u->prev_cost.size() < max_connections) {
                 if (v->band_idx + vertex_band_width >= u->band_idx) {
                     // bench_start(mapper->bench[2]);
                     double weight = transition_weight(*v->aln, *u->aln, v->positions, u->positions,
-                                                      u->band_begin - v->band_begin+v->aln->sequence().size());
+                                                      u->band_begin - (v->band_begin+v->aln->sequence().size()));
                     // bench_end(mapper->bench[2]);
                     if (weight > -std::numeric_limits<double>::max()) {
                         v->next_cost.push_back(make_pair(&*u, weight));
@@ -5032,6 +5041,7 @@ vector<Alignment> AlignmentChainModel::traceback(const Alignment& read, int alt_
             }
             aln_trace[vertex.band_idx] = *vertex.aln;
         }
+        //display_dot(cerr, vertex_trace);
     }
     vector<Alignment> alns;
     for (auto& trace : traces) {
@@ -5065,6 +5075,54 @@ void AlignmentChainModel::display(ostream& out) {
         }
         out << endl;
     }
+}
+
+void AlignmentChainModel::display_dot(ostream& out, vector<AlignmentChainModelVertex*> vertex_trace) {
+    map<AlignmentChainModelVertex*, int> vertex_ids;
+    int i = 0;
+    for (auto& vertex : model) {
+        vertex_ids[&vertex] = ++i;
+    }
+    map<AlignmentChainModelVertex*,int> in_trace;
+    i = 0;
+    for (auto& v : vertex_trace) {
+        in_trace[v] = ++i;
+    }
+    out << "digraph memchain {" << endl;
+    out << "rankdir=LR;" << endl;
+    for (auto& vertex : model) {
+        out << vertex_ids[&vertex]
+            << " [label=\""
+            << vertex.aln->sequence()
+            << "\nid:" << vertex_ids[&vertex]
+            << " band:" << vertex.band_idx
+            << " weight:" << vertex.weight
+            << " score:" << vertex.score;
+        out << "\npositions: ";
+        for (auto& p : vertex.positions) {
+            for (auto& q : p.second) {
+                out << p.first << ":" << q.first << (q.second?"-":"+") << " ";
+            }
+        }
+        pos_t p_start = make_pos_t(path_start_position(vertex.aln->path()));
+        pos_t p_end = make_pos_t(path_end_position(vertex.aln->path()));
+        out << "\nstart: " << id(p_start) << (is_rev(p_start)?"-":"+") << ":" << offset(p_start) << " ";
+        out << "end: " << id(p_end) << (is_rev(p_end)?"-":"+") << ":" << offset(p_end) << " ";
+        out << "\"";
+        if (in_trace.find(&vertex) != in_trace.end()) {
+            out << ",color=red";
+        }
+        out << ",shape=box];" << endl;
+        for (auto& p : vertex.next_cost) {
+            out << vertex_ids[&vertex] << " -> " << vertex_ids[p.first] << " [label=\"" << p.second << "\"";
+            if (in_trace.find(&vertex) != in_trace.end() && in_trace.find(p.first) != in_trace.end() &&
+                in_trace[&vertex] - 1 == in_trace[p.first]) {
+                out << ",color=red,fontcolor=red";
+            }
+            out << "];" << endl;
+        }
+    }
+    out << "}" << endl;
 }
 
 FragmentLengthDistribution::FragmentLengthDistribution(size_t maximum_sample_size,

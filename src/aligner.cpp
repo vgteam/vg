@@ -19,8 +19,25 @@ gssw_graph* GSSWAligner::create_gssw_graph(const HandleGraph& g) const {
 
 gssw_graph* GSSWAligner::create_gssw_graph(const HandleGraph& g, const vector<handle_t>& topological_order) const {
     
-    gssw_graph* graph = gssw_graph_create(g.node_size());
+    gssw_graph* graph = gssw_graph_create(g.get_node_count());
     unordered_map<int64_t, gssw_node*> nodes;
+    
+#ifdef debug
+    vector<handle_t> redone_order = algorithms::lazier_topological_order(&g);
+
+    cerr << "Topological order sent:";
+    for (auto& h : topological_order) {
+        cerr << " " << g.get_id(h) << (g.get_is_reverse(h) ? "-" : "+");
+    }
+    cerr << endl;
+    
+    cerr << "Topological order made:";
+    for (auto& h : redone_order) {
+        cerr << " " << g.get_id(h) << (g.get_is_reverse(h) ? "-" : "+");
+    }
+    cerr << endl;
+#endif
+    
     
     // compute the topological order
     for (const handle_t& handle : topological_order) {
@@ -724,8 +741,12 @@ double GSSWAligner::score_to_unnormalized_likelihood_ln(double score) const {
 }
 
 size_t GSSWAligner::longest_detectable_gap(const Alignment& alignment, const string::const_iterator& read_pos) const {
+    return longest_detectable_gap(alignment.sequence().size(), read_pos - alignment.sequence().begin());
+}
+
+size_t GSSWAligner::longest_detectable_gap(size_t read_length, size_t read_pos) const {
     // algebraic solution for when score is > 0 assuming perfect match other than gap
-    int64_t overhang_length = min(read_pos - alignment.sequence().begin(), alignment.sequence().end() - read_pos);
+    int64_t overhang_length = min(read_pos, read_length - read_pos);
     int64_t numer = match * overhang_length + full_length_bonus;
     int64_t gap_length = (numer - gap_open) / gap_extension + 1;
     return gap_length >= 0 && overhang_length > 0 ? gap_length : 0;
@@ -733,8 +754,7 @@ size_t GSSWAligner::longest_detectable_gap(const Alignment& alignment, const str
 
 size_t GSSWAligner::longest_detectable_gap(const Alignment& alignment) const {
     // longest detectable gap across entire read is in the middle
-    return longest_detectable_gap(alignment, alignment.sequence().begin() + (alignment.sequence().size() / 2));
-    
+    return longest_detectable_gap(alignment.sequence().size(), alignment.sequence().size() / 2);
 }
 
 int32_t GSSWAligner::score_gappy_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
@@ -900,11 +920,13 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     // left we need to reverse all the sequences first and translate the alignment back later
     
     // make a place to reverse the graph and sequence if necessary
-    BackwardsGraph reversed_graph(&g);
+    ReverseGraph reversed_graph(&g, false);
+    vector<handle_t> reversed_order;
     string reversed_sequence;
 
     // choose forward or reversed objects
     const HandleGraph* oriented_graph = &g;
+    const vector<handle_t>* oriented_order = topological_order;
     const string* align_sequence = &alignment.sequence();
     if (pin_left) {
         // choose the reversed graph
@@ -914,6 +936,13 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
         reversed_sequence.resize(align_sequence->size());
         reverse_copy(align_sequence->begin(), align_sequence->end(), reversed_sequence.begin());
         align_sequence = &reversed_sequence;
+        
+        if (topological_order != nullptr) {
+            // Reverse but do not flip the topological order
+            reversed_order.reserve(topological_order->size());
+            std::copy(topological_order->rbegin(), topological_order->rend(), std::back_inserter(reversed_order));
+            oriented_order = &reversed_order;
+        }
     }
     
     // to save compute, we won't make these unless we're doing pinning
@@ -928,8 +957,8 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     
     // convert into gssw graph either using the pre-made topological order or computing a
     // topological order in the constructor
-    gssw_graph* graph = topological_order ? create_gssw_graph(*align_graph, *topological_order)
-                                          : create_gssw_graph(*align_graph);
+    gssw_graph* graph = oriented_order ? create_gssw_graph(*align_graph, *oriented_order)
+                                       : create_gssw_graph(*align_graph);
     
     // perform dynamic programming
     gssw_graph_fill_pinned(graph, align_sequence->c_str(),
@@ -943,7 +972,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
             // we can only run gssw's DP on non-empty graphs, but we may have masked the entire graph
             // if it consists of only empty nodes, so don't both with the DP in that case
             gssw_graph_mapping** gms = nullptr;
-            if (align_graph->node_size() > 0) {
+            if (align_graph->get_node_count() > 0) {
                 gssw_node** pinning_nodes = (gssw_node**) malloc(pinning_ids.size() * sizeof(gssw_node*));
                 size_t j = 0;
                 for (size_t i = 0; i < graph->size; i++) {
@@ -1018,7 +1047,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
                     }
                 }
             }
-            else if (g.node_size() > 0) {
+            else if (g.get_node_count() > 0) {
                 // we didn't get any alignments either because the graph was empty and we couldn't run
                 // gssw DP or because they had score 0 and gssw didn't want to do traceback. however,
                 // we can infer the location of softclips based on the pinning nodes, so we'll just make
@@ -1266,6 +1295,12 @@ void Aligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalEx
 
 void Aligner::align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const
 {
+    throw runtime_error("Aligner::align_xdrop_multi not yet implemented");
+}
+
+unique_ptr<XdropAligner> Aligner::get_xdrop() const {
+    // Copy and return our xdrop.
+    return make_unique<XdropAligner>(xdrop);
 }
 
 
@@ -1290,6 +1325,10 @@ int32_t Aligner::score_exact_match(const string& sequence, const string& base_qu
 int32_t Aligner::score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
                                    string::const_iterator base_qual_begin) const {
     return score_exact_match(seq_begin, seq_end);
+}
+
+int32_t Aligner::score_mismatch(size_t length) const {
+    return -match * length;
 }
 
 int32_t Aligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
@@ -1401,12 +1440,14 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     // left we need to reverse all the sequences first and translate the alignment back later
     
     // make a place to reverse the graph and sequence if necessary
-    BackwardsGraph reversed_graph(&g);
+    ReverseGraph reversed_graph(&g, false);
+    vector<handle_t> reversed_order;
     string reversed_sequence;
     string reversed_quality;
     
     // choose forward or reversed objects
     const HandleGraph* oriented_graph = &g;
+    const vector<handle_t>* oriented_order = topological_order;
     const string* align_sequence = &alignment.sequence();
     const string* align_quality = &alignment.quality();
     if (pin_left) {
@@ -1422,6 +1463,13 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
         reversed_quality.resize(align_quality->size());
         reverse_copy(align_quality->begin(), align_quality->end(), reversed_quality.begin());
         align_quality = &reversed_quality;
+        
+        if (topological_order != nullptr) {
+            // Reverse but do not flip the topological order
+            reversed_order.reserve(topological_order->size());
+            std::copy(topological_order->rbegin(), topological_order->rend(), std::back_inserter(reversed_order));
+            oriented_order = &reversed_order;
+        }
     }
     
     if (align_quality->size() != align_sequence->size()) {
@@ -1441,8 +1489,8 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     
     // convert into gssw graph either using the pre-made topological order or computing a
     // topological order in the constructor
-    gssw_graph* graph = topological_order ? create_gssw_graph(*align_graph, *topological_order)
-                                          : create_gssw_graph(*align_graph);
+    gssw_graph* graph = oriented_order ? create_gssw_graph(*align_graph, *oriented_order)
+                                       : create_gssw_graph(*align_graph);
     
     // perform dynamic programming
     // offer a full length bonus on each end, or only on the left if the right end is pinned.
@@ -1455,7 +1503,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     if (traceback_aln) {
         if (pinned) {
             gssw_graph_mapping** gms = nullptr;
-            if (align_graph->node_size() > 0) {
+            if (align_graph->get_node_count() > 0) {
                 
                 gssw_node** pinning_nodes = (gssw_node**) malloc(pinning_ids.size() * sizeof(gssw_node*));
                 size_t j = 0;
@@ -1532,7 +1580,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
                     }
                 }
             }
-            else if (g.node_size() > 0) {
+            else if (g.get_node_count() > 0) {
                 /// we didn't get any alignments either because the graph was empty and we couldn't run
                 // gssw DP or because they had score 0 and gssw didn't want to do traceback. however,
                 // we can infer the location of softclips based on the pinning nodes, so we'll just make
@@ -1685,6 +1733,12 @@ void QualAdjAligner::align_xdrop(Alignment& alignment, Graph& g, const vector<Ma
 
 void QualAdjAligner::align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const
 {
+    // TODO: implement?
+    cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
+    exit(1);
+}
+
+unique_ptr<XdropAligner> QualAdjAligner::get_xdrop() const {
     // TODO: implement?
     cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
     exit(1);

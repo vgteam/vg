@@ -11,8 +11,8 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 #include "../utility.hpp"
 #include "../surjector.hpp"
 #include "../alignment_emitter.hpp"
@@ -179,9 +179,9 @@ int main_surject(int argc, char** argv) {
         }
     }
 
-    unique_ptr<xg::XG> xgidx;
+    unique_ptr<XG> xgidx;
     if (!xg_name.empty()) {
-        xgidx = stream::VPKG::load_one<xg::XG>(xg_name);
+        xgidx = vg::io::VPKG::load_one<XG>(xg_name);
     } else {
         // We need an XG index for the rest of the algorithm
         cerr << "error[vg surject] XG index (-x) is required for surjection" << endl;
@@ -205,19 +205,19 @@ int main_surject(int argc, char** argv) {
         auto name = xgidx->path_name(i);
         path_length[name] = xgidx->path_length(name);
     }
-    
-    // Set up output to an emitter that will handle serialization
-    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length);
-
-    // Count out threads
+   
+    // Count our threads
     int thread_count = get_thread_count();
+   
+    // Set up output to an emitter that will handle serialization
+    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count);
 
     if (input_format == "GAM") {
         get_input_file(file_name, [&](istream& in) {
             if (interleaved) {
                 // GAM input is paired, and for HTS output reads need to know their pair partners' mapping locations.
                 // TODO: We don't preserve order relationships (like primary/secondary) beyond the interleaving.
-                stream::for_each_interleaved_pair_parallel<Alignment>(in, [&](Alignment& src1, Alignment& src2) {
+                vg::io::for_each_interleaved_pair_parallel<Alignment>(in, [&](Alignment& src1, Alignment& src2) {
                
                     // Make sure that the alignments are actually paired with each other
                     // (proper fragment_prev/fragment_next). We want to catch people giving us
@@ -271,7 +271,7 @@ int main_surject(int argc, char** argv) {
             } else {
                 // We can just surject each Alignment by itself.
                 // TODO: We don't preserve order relationships (like primary/secondary).
-                stream::for_each_parallel<Alignment>(in, [&](Alignment& src) {
+                vg::io::for_each_parallel<Alignment>(in, [&](Alignment& src) {
                 
                     // Preprocess read to set metadata before surjection
                     set_metadata(src);

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 8
+plan tests 13
 
 vg construct -m 1000 -r tiny/tiny.fa >flat.vg
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
@@ -47,4 +47,35 @@ y=$(vg pack -x flat.xg -di 2snp.gam.cx.3x | wc -c)
 
 is $x $y "pack index merging produces the expected result"
 
+vg pack -x flat.xg -o 2snp.gam.cx -g 2snp.gam
+vg pack -x flat.xg -o 2snp.gam.cx.3x -i 2snp.gam.cx -i 2snp.gam.cx -i 2snp.gam.cx
+x=$(vg pack -x flat.xg -Di 2snp.gam.cx.3x | wc -c)
+cat 2snp.gam 2snp.gam 2snp.gam | vg pack -x flat.xg -o 2snp.gam.cx -g -
+y=$(vg pack -x flat.xg -Di 2snp.gam.cx.3x | wc -c)
+
+is $x $y "pack index merging produces the expected result for edges"
+
 rm -f flat.vg 2snp.vg 2snp.xg 2snp.sim flat.gcsa flat.gcsa.lcp flat.xg 2snp.xg 2snp.gam 2snp.gam.cx 2snp.gam.cx.3x 2snp.gam.vgpu
+
+vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > tiny.vg
+vg index tiny.vg -x tiny.xg
+vg sim -l 10 -x tiny.xg -n 50 -a  -s 23 > tiny.gam
+vg augment -a pileup tiny.vg tiny.gam -P tiny.vgpu > /dev/null
+x=$(vg view -l tiny.vgpu | jq  '.edge_pileups' | grep num_reads | awk '{print $2}' | sed -e 's/\,//' | awk '{sum+=$1} END {print sum}')
+y=$(vg pack -x tiny.xg -g tiny.gam -D -o tiny.pack | grep -v from | awk '{sum+=$5} END {print sum}')
+is $x $y "pack computes the same total edge coverage as pileup"
+x=$(vg pack -x tiny.xg -i tiny.pack -D | grep -v from | awk '{sum+=$5} END {print sum}')
+is $x $y "pack stores the correct edge pileup to disk"
+
+rm -f tiny.vg tiny.xg tiny.gam tiny.vgpu tiny.pack
+
+vg construct -m 20 -r tiny/tiny.fa >flat.vg
+printf '@forward\nCAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG\n+\n<B<BBB!BBBB<BBBBBBBBBBBBBBBBBBB<BBBBBBBBBBBBB<B7BB\n' > reads.fq
+printf '@reverses\nCAGAGAGTTGGAATATAATAGAACTCCAGAAAATTTCCAAGCCTTATTTG\n+\nBB7B<BBBBBBBBBBBBB<BBBBBBBBBBBBBBBBBBB<BBBB!BBB<B<\n' >> reads.fq
+vg index -x flat.xg -g flat.gcsa -k 16 flat.vg
+vg map -g flat.gcsa -x flat.xg -f reads.fq -k 8 > reads.gam
+vg pack -x flat.xg -o reads.gam.cx -g reads.gam -q
+is $(vg pack -x flat.xg -di reads.gam.cx | tail -n+2 | cut -f 4 | grep ^0$ | wc -l) 1 "qual-adjust packing detects 1 base with 0 quality"
+is $(vg pack -x flat.xg -Di reads.gam.cx | tail | cut -f 5 | grep ^59$ | wc -l) 1 "qual-adjust packing gets correct edge support"
+
+rm -f flat.vg flat.xg flat.gcsa reads.fq reads.gam reads.gam.cx

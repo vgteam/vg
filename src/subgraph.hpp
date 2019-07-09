@@ -18,7 +18,7 @@ using namespace std;
      * the nodes in the super graph are considered part of the subgraph. Subgraph
      * handles can also be used by the super graph.
      */
-    class SubHandleGraph : public HandleGraph {
+    class SubHandleGraph : public ExpandingOverlayGraph {
     public:
         
         /// Initialize with a super graph and nodes returned by iterators to handles
@@ -73,8 +73,7 @@ using namespace std;
         virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
         
         /// Return the number of nodes in the graph
-        /// TODO: can't be node_count because XG has a field named node_count.
-        virtual size_t node_size() const;
+        virtual size_t get_node_count() const;
         
         /// Return the smallest ID in the graph, or some smaller number if the
         /// smallest ID is unavailable. Return value is unspecified if the graph is empty.
@@ -83,6 +82,16 @@ using namespace std;
         /// Return the largest ID in the graph, or some larger number if the
         /// largest ID is unavailable. Return value is unspecified if the graph is empty.
         virtual id_t max_node_id() const;
+        
+        ///////////////////////////////////
+        /// ExpandingOverlayGraph interface
+        ///////////////////////////////////
+        
+        /**
+         * Returns the handle in the underlying graph that corresponds to a handle in the
+         * overlay
+         */
+        virtual handle_t get_underlying_handle(const handle_t& handle) const;
         
     private:
         const HandleGraph* super = nullptr;

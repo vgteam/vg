@@ -27,6 +27,7 @@
 #include "translator.hpp"
 // TODO: pull out ScoreProvider into its own file
 #include "haplotypes.hpp"
+#include "algorithms/nearest_offsets_in_paths.hpp"
 
 // #define BENCH
 // #include "bench.h"
@@ -80,6 +81,7 @@ public:
     AlignmentChainModelVertex* max_vertex(void);
     vector<Alignment> traceback(const Alignment& read, int alt_alns, bool paired, bool debug);
     void display(ostream& out);
+    void display_dot(ostream& out, vector<AlignmentChainModelVertex*> vertex_trace);
     void clear_scores(void);
 };
 
@@ -162,7 +164,7 @@ public:
      *
      * If the GCSA and LCPArray are null, cannot do search, only alignment.
      */
-    BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
+    BaseMapper(XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
     BaseMapper(void);
     
     /// We need to be able to estimate the GC content from the GCSA index in the constructor.
@@ -333,7 +335,7 @@ protected:
     thread_local static vector<size_t> adaptive_reseed_length_memo;
     
     // xg index
-    xg::XG* xindex = nullptr;
+    XG* xindex = nullptr;
     
     // GCSA index and its LCP array
     gcsa::GCSA* gcsa = nullptr;
@@ -468,7 +470,7 @@ protected:
 public:
     // Make a Mapper that pulls from an XG succinct graph, a GCSA2 kmer index +
     // LCP array, and an optional haplotype score provider.
-    Mapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
+    Mapper(XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
     Mapper(void);
     ~Mapper(void);
 
@@ -479,10 +481,20 @@ public:
 
     double graph_entropy(void);
 
-    /// Use the xg index we hold to annotate an Alignment with the first position it touches on each reference path. Thread safe.
-    void annotate_with_initial_path_positions(Alignment& aln) const;
-    /// Use the xg index we hold to annotate Alignments with the first position they touch on each reference path. Thread safe.
-    void annotate_with_initial_path_positions(vector<Alignment>& alns) const;
+    /// Use the xg index we hold to annotate an Alignment with the first
+    /// position it touches on each reference path. Thread safe.
+    ///
+    /// search_limit gives the maximum distance to search for a path if the
+    /// alignment does not actually touch any paths. If 0, the alignment's
+    /// sequence length is used.
+    void annotate_with_initial_path_positions(Alignment& aln, size_t search_limit = 0) const;
+    /// Use the xg index we hold to annotate Alignments with the first position
+    /// they touch on each reference path. Thread safe.
+    ///
+    /// search_limit gives the maximum distance to search for a path if the
+    /// alignment does not actually touch any paths. If 0, the alignment's
+    /// sequence length is used.
+    void annotate_with_initial_path_positions(vector<Alignment>& alns, size_t search_limit = 0) const;
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise
     bool alignments_consistent(const map<string, double>& pos1,

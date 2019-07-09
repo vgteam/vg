@@ -2,8 +2,8 @@
 #include "../vg.hpp"
 #include "../utility.hpp"
 #include "../packer.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -19,10 +19,13 @@ void help_pack(char** argv) {
          << "    -i, --packs-in FILE    begin by summing coverage packs from each provided FILE" << endl
          << "    -g, --gam FILE         read alignments from this file (could be '-' for stdin)" << endl
          << "    -d, --as-table         write table on stdout representing packs" << endl
+         << "    -D, --as-edge-table    write table on stdout representing edge coverage" << endl
          << "    -e, --with-edits       record and write edits rather than only recording graph-matching coverage" << endl
          << "    -b, --bin-size N       number of sequence bases per CSA bin [default: inf]" << endl
          << "    -n, --node ID          write table for only specified node(s)" << endl
          << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
+         << "    -q, --qual-adjust      scale coverage by phred quality (combined from mapq and base quality)" << endl
+         << "    -Q, --min-mapq N       ignore read mappings with Mapping Quality < N [default: 0]" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
 
@@ -33,11 +36,14 @@ int main_pack(int argc, char** argv) {
     string packs_out;
     string gam_in;
     bool write_table = false;
+    bool write_edge_table = false;
     int thread_count = 1;
     bool record_edits = false;
     size_t bin_size = 0;
     vector<vg::id_t> node_ids;
     string node_list_file;
+    bool qual_adjust = false;
+    int min_mapq = 0;
 
     if (argc == 2) {
         help_pack(argv);
@@ -55,16 +61,19 @@ int main_pack(int argc, char** argv) {
             {"count-in", required_argument, 0, 'i'},
             {"gam", required_argument, 0, 'g'},
             {"as-table", no_argument, 0, 'd'},
+            {"as-edge-table", no_argument, 0, 'D'},
             {"threads", required_argument, 0, 't'},
             {"with-edits", no_argument, 0, 'e'},
             {"node", required_argument, 0, 'n'},
             {"node-list", required_argument, 0, 'N'},
             {"bin-size", required_argument, 0, 'b'},
+            {"qual-adjust", no_argument, 0, 'q'},
+            {"min-mapq", required_argument, 0, 'Q'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:o:i:g:dt:eb:n:N:",
+        c = getopt_long (argc, argv, "hx:o:i:g:dDt:eb:n:N:qQ:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -93,6 +102,9 @@ int main_pack(int argc, char** argv) {
         case 'd':
             write_table = true;
             break;
+        case 'D':
+            write_edge_table = true;
+            break;
         case 'e':
             record_edits = true;
             break;
@@ -108,7 +120,12 @@ int main_pack(int argc, char** argv) {
         case 'N':
             node_list_file = optarg;
             break;
-
+        case 'q':
+            qual_adjust = true;
+            break;
+        case 'Q':
+            min_mapq = parse<int>(optarg);
+            break;
         default:
             abort();
         }
@@ -116,12 +133,12 @@ int main_pack(int argc, char** argv) {
 
     omp_set_num_threads(thread_count);
 
-    unique_ptr<xg::XG> xgidx;
+    unique_ptr<XG> xgidx;
     if (xg_name.empty()) {
         cerr << "No XG index given. An XG index must be provided." << endl;
         exit(1);
     } else {
-        xgidx = stream::VPKG::load_one<xg::XG>(xg_name);
+        xgidx = vg::io::VPKG::load_one<XG>(xg_name);
     }
 
     // process input node list
@@ -143,7 +160,7 @@ int main_pack(int argc, char** argv) {
 
     // todo one packer per thread and merge
 
-    vg::Packer packer(xgidx.get(), bin_size);
+    vg::Packer packer(xgidx.get(), bin_size, qual_adjust);
     if (packs_in.size() == 1) {
         packer.load_from_file(packs_in.front());
     } else if (packs_in.size() > 1) {
@@ -156,17 +173,19 @@ int main_pack(int argc, char** argv) {
             packers.push_back(&packer);
         } else {
             for (size_t i = 0; i < thread_count; ++i) {
-                packers.push_back(new Packer(xgidx.get(), bin_size));
+                packers.push_back(new Packer(xgidx.get(), bin_size, qual_adjust));
             }
         }
-        std::function<void(Alignment&)> lambda = [&packer,&record_edits,&packers](Alignment& aln) {
-            packers[omp_get_thread_num()]->add(aln, record_edits);
+        std::function<void(Alignment&)> lambda = [&packer,&record_edits,&packers,&min_mapq](Alignment& aln) {
+            if (aln.mapping_quality() >= min_mapq) {
+                packers[omp_get_thread_num()]->add(aln, record_edits);
+            }
         };
         if (gam_in == "-") {
-            stream::for_each_parallel(std::cin, lambda);
+            vg::io::for_each_parallel(std::cin, lambda);
         } else {
             ifstream gam_stream(gam_in);
-            stream::for_each_parallel(gam_stream, lambda);
+            vg::io::for_each_parallel(gam_stream, lambda);
             gam_stream.close();
         }
         if (thread_count == 1) {
@@ -183,9 +202,14 @@ int main_pack(int argc, char** argv) {
     if (!packs_out.empty()) {
         packer.save_to_file(packs_out);
     }
-    if (write_table) {
+    if (write_table || write_edge_table) {
         packer.make_compact();
-        packer.as_table(cout, record_edits, node_ids);
+        if (write_table) {
+            packer.as_table(cout, record_edits, node_ids);
+        }
+        if (write_edge_table) {
+            packer.as_edge_table(cout, node_ids);
+        }
     }
 
     return 0;

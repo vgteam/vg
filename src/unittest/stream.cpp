@@ -2,11 +2,11 @@
 ///  
 /// Unit tests for stream file external interface
 
-#include "../stream/stream.hpp"
-#include "../stream/protobuf_iterator.hpp"
-#include "../stream/protobuf_emitter.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/protobuf_iterator.hpp>
+#include <vg/io/protobuf_emitter.hpp>
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 
 #include "catch.hpp"
 
@@ -22,14 +22,14 @@ TEST_CASE("Protobuf messages that are all default can be stored and retrieved", 
     stringstream datastream;
     
     // Write one empty message
-    REQUIRE(stream::write<Graph>(datastream, 1, [](size_t i) {
+    REQUIRE(vg::io::write<Graph>(datastream, 1, [](size_t i) {
        return Graph();
     }));
-    stream::finish(datastream);
+    vg::io::finish(datastream);
     
     // Look for it
     int seen = 0;
-    stream::for_each<Graph>(datastream, [&](const Graph& item) {
+    vg::io::for_each<Graph>(datastream, [&](const Graph& item) {
         seen++;
     });
     
@@ -62,8 +62,8 @@ TEST_CASE("Protobuf messages can be written and read back", "[stream]") {
     };
     
     // Serialize some objects
-    REQUIRE(stream::write<message_t>(datastream, 10, get_message));
-    stream::finish(datastream);
+    REQUIRE(vg::io::write<message_t>(datastream, 10, get_message));
+    vg::io::finish(datastream);
     
 #ifdef debug
     // Dump the compressed data
@@ -81,7 +81,7 @@ TEST_CASE("Protobuf messages can be written and read back", "[stream]") {
 #endif
    
     // Read them back
-    stream::for_each<message_t>(datastream, check_message);
+    vg::io::for_each<message_t>(datastream, check_message);
 
 }
 
@@ -107,12 +107,12 @@ TEST_CASE("Multiple write calls work correctly on the same stream", "[stream]") 
     
     for (size_t i = 0; i < 10; i++) {
         // Serialize some objects
-        REQUIRE(stream::write<message_t>(datastream, 1, get_message));
+        REQUIRE(vg::io::write<message_t>(datastream, 1, get_message));
     }
-    stream::finish(datastream);
+    vg::io::finish(datastream);
     
     // Read them back
-    stream::for_each<message_t>(datastream, check_message);
+    vg::io::for_each<message_t>(datastream, check_message);
 
 }
 
@@ -144,16 +144,16 @@ TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
     
     for (size_t i = 0; i < 10; i++) {
         // Serialize some objects (20, in groups of 2)
-        REQUIRE(stream::write<message_t>(datastream, 2, get_message));
+        REQUIRE(vg::io::write<message_t>(datastream, 2, get_message));
     }
-    stream::finish(datastream);
+    vg::io::finish(datastream);
     
     {
         // Scan and populate the table
-        stream::ProtobufIterator<message_t> it(datastream);
+        vg::io::ProtobufIterator<message_t> it(datastream);
         
         size_t index_found = 0;
-        while (it.has_next()) {
+        while (it.has_current()) {
 #ifdef debug
         cerr << "We wrote " << index_found << " at VO " << it.tell_group() << endl;
 #endif
@@ -169,7 +169,7 @@ TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
     datastream = stringstream(datastream.str());
     
     SECTION("Data can be found by seeking") {
-        stream::ProtobufIterator<message_t> it(datastream);
+        vg::io::ProtobufIterator<message_t> it(datastream);
         
 #ifdef debug
         cerr << "Try and load from VO " << index_to_group.at(4) << endl;
@@ -183,7 +183,7 @@ TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
     
     SECTION("Data can be iterated back all in a run") {
         size_t index_expected = 0;
-        for (stream::ProtobufIterator<message_t> it(datastream); it.has_next(); it.get_next()) {
+        for (vg::io::ProtobufIterator<message_t> it(datastream); it.has_current(); it.advance()) {
             auto vo_parts = unvo(it.tell_group());
 #ifdef debug
             cerr << "Found item " << (*it).node_id() << " at VO " << it.tell_group()
@@ -197,6 +197,26 @@ TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
             index_expected++;
         }
     }
+}
+
+TEST_CASE("We can read a tag-only GAM file with for_each_parallel", "[stream][gam][empty]") {
+
+    stringstream ss;
+    {
+        // Make an empty GAM by creating and destroying an Alignment ProtobufEmitter
+        vg::io::ProtobufEmitter<Alignment> empty_gam_maker(ss);
+    }
+    
+    // Make sure it wrote something
+    REQUIRE(ss.str().size() != 0);
+    
+    vg::io::for_each_parallel<Alignment>(ss, [&](const Alignment& observed) {
+        // Should never be triggered
+        REQUIRE(false);
+    });
+    
+    // We should complete the test without any errors from the reader code.
+
 }
 
 }

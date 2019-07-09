@@ -6,14 +6,14 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/vpkg.hpp>
 #include "../haplotype_extracter.hpp"
 
 using namespace vg;
 using namespace std;
 using namespace vg::subcommand;
 
-using thread_t = vector<xg::XG::ThreadMapping>;
+using thread_t = vector<XG::ThreadMapping>;
 
 void help_trace(char** argv) {
     cerr << "usage: " << argv[0] << " trace [options]" << endl
@@ -118,7 +118,7 @@ int main_trace(int argc, char** argv) {
     cerr << "error:[vg trace] start node must be specified with -n" << endl;
     return 1;
   }
-  xg::XG xindex;  
+  XG xindex;  
   ifstream in(xg_name.c_str());
   xindex.load(in);
 
@@ -128,7 +128,7 @@ int main_trace(int argc, char** argv) {
     // We are tracing haplotypes, and we want to use the GBWT instead of the old gPBWT.
     
     // Load the GBWT from its container
-    gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_name.c_str());
+    gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name.c_str());
 
     if (gbwt_index.get() == nullptr) {
       // Complain if we couldn't.

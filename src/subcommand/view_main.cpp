@@ -16,8 +16,8 @@
 #include "../multipath_alignment.hpp"
 #include "../vg.hpp"
 #include "../gfa.hpp"
-#include "../stream/json_stream_helper.hpp"
-#include "../stream/message_iterator.hpp"
+#include "../io/json_stream_helper.hpp"
+#include <vg/io/message_iterator.hpp>
 
 using namespace std;
 using namespace vg;
@@ -426,14 +426,14 @@ int main_view(int argc, char** argv) {
         function<void(Alignment&)> lambda = [&alns](Alignment& aln) { alns.push_back(aln); };
         ifstream in;
         in.open(alignments.c_str());
-        stream::for_each(in, lambda);
+        vg::io::for_each(in, lambda);
     }
     vector<Locus> loci;
     if (!loci_file.empty()) {
         function<void(Locus&)> lambda = [&loci](Locus& locus) { loci.push_back(locus); };
         ifstream in;
         in.open(loci_file.c_str());
-        stream::for_each(in, lambda);
+        vg::io::for_each(in, lambda);
     }
 
     VG* graph = nullptr;
@@ -448,11 +448,11 @@ int main_view(int argc, char** argv) {
     if (!extract_tag.empty()) {
         get_input_file(file_name, [&](istream& in) {
             // Iterate over the input as tagged messages.
-            stream::MessageIterator it(in);
-            while(it.has_next()) {
-                if ((*it).first == extract_tag) {
+            vg::io::MessageIterator it(in);
+            while(it.has_current()) {
+                if ((*it).first == extract_tag && (*it).second.get() != nullptr) {
                     // We match the tag, so dump this message.
-                    cout << (*it).second;
+                    cout << *((*it).second.get());
                 }
                 ++it;
             }
@@ -464,7 +464,7 @@ int main_view(int argc, char** argv) {
         if (output_type == "stream") {
             function<void(Graph&)> lambda = [&](Graph& g) { cout << pb2json(g) << endl; };
             get_input_file(file_name, [&](istream& in) {
-                stream::for_each(in, lambda);
+                vg::io::for_each(in, lambda);
             });
             return 0;
         } else {
@@ -484,7 +484,7 @@ int main_view(int argc, char** argv) {
         // GFA can convert to any of the graph formats, so keep going
     } else if(input_type == "json") {
         assert(input_json);
-        stream::JSONStreamHelper<Graph> json_helper(file_name);
+        vg::io::JSONStreamHelper<Graph> json_helper(file_name);
         function<bool(Graph&)> get_next_graph = json_helper.get_read_fn();
         // TODO: This is less inversion of control and more putting control in the middle.
         graph = new VG([&](const function<void(Graph&)> use_graph) {
@@ -515,7 +515,7 @@ int main_view(int argc, char** argv) {
                     cout << pb2json(a) << "\n";
                 };
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    vg::io::for_each(in, lambda);
                 });
             } else if (output_type == "fastq") {
                 function<void(Alignment&)> lambda = [](Alignment& a) {
@@ -529,7 +529,7 @@ int main_view(int argc, char** argv) {
                     }
                 };
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    vg::io::for_each(in, lambda);
                 });
             }
             else if (output_type == "multipath") {
@@ -537,12 +537,12 @@ int main_view(int argc, char** argv) {
                 function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
                     buf.emplace_back();
                     to_multipath_alignment(aln, buf.back());
-                    stream::write_buffered(cout, buf, 1000);
+                    vg::io::write_buffered(cout, buf, 1000);
                 };
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    vg::io::for_each(in, lambda);
                 });
-                stream::write_buffered(cout, buf, 0);
+                vg::io::write_buffered(cout, buf, 0);
             }
             else {
                 // todo
@@ -550,7 +550,7 @@ int main_view(int argc, char** argv) {
                 return 1;
             }
         } else {
-            stream::JSONStreamHelper<Alignment> json_helper(file_name);
+            vg::io::JSONStreamHelper<Alignment> json_helper(file_name);
             if (output_type == "json" || output_type == "gam") {
                 json_helper.write(cout, output_type == "json");
             }
@@ -560,9 +560,9 @@ int main_view(int argc, char** argv) {
                 while (json_helper.get_read_fn()(aln)) {
                     buf.emplace_back();
                     to_multipath_alignment(aln, buf.back());
-                    stream::write_buffered(std::cout, buf, 1000);
+                    vg::io::write_buffered(std::cout, buf, 1000);
                 }
-                stream::write_buffered(cout, buf, 0);
+                vg::io::write_buffered(cout, buf, 0);
             }
             else {
                 cerr << "[vg view] error: JSON GAM can only be converted to GAM, GAMP, or JSON" << endl;
@@ -573,7 +573,7 @@ int main_view(int argc, char** argv) {
         return 0;
     } else if (input_type == "bam") {
         if (output_type == "gam") {
-            stream::ProtobufEmitter<Alignment> buf(std::cout);
+            vg::io::ProtobufEmitter<Alignment> buf(std::cout);
             function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
                 buf.write(std::move(aln));
             };
@@ -589,7 +589,7 @@ int main_view(int argc, char** argv) {
         }
     } else if (input_type == "multipath") {
         if (input_json) {
-            stream::JSONStreamHelper<MultipathAlignment> json_helper(file_name);
+            vg::io::JSONStreamHelper<MultipathAlignment> json_helper(file_name);
             if (output_type == "multipath") {
                 json_helper.write(cout, false);
             }
@@ -613,9 +613,9 @@ int main_view(int argc, char** argv) {
                 while (json_helper.get_read_fn()(mp_aln)) {
                     buf.emplace_back();
                     optimal_alignment(mp_aln, buf.back());
-                    stream::write_buffered(std::cout, buf, 1000);
+                    vg::io::write_buffered(std::cout, buf, 1000);
                 }
-                stream::write_buffered(cout, buf, 0);
+                vg::io::write_buffered(cout, buf, 0);
             }
             else if (output_type == "json") {
                 json_helper.write(cout, true);
@@ -631,12 +631,12 @@ int main_view(int argc, char** argv) {
                 vector<MultipathAlignment> buf;
                 function<void(MultipathAlignment&)> lambda = [&buf](MultipathAlignment& mp_aln) {
                     buf.push_back(mp_aln);
-                    stream::write_buffered(cout, buf, 1000);
+                    vg::io::write_buffered(cout, buf, 1000);
                 };
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    vg::io::for_each(in, lambda);
                 });
-                stream::write_buffered(std::cout, buf, 0);
+                vg::io::write_buffered(std::cout, buf, 0);
             }
             else if (output_type == "fastq") {
                 function<void(MultipathAlignment&)> lambda = [](MultipathAlignment& mp_aln) {
@@ -650,7 +650,7 @@ int main_view(int argc, char** argv) {
                     }
                 };
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    vg::io::for_each(in, lambda);
                 });
             }
             else if (output_type == "gam") {
@@ -658,19 +658,19 @@ int main_view(int argc, char** argv) {
                 function<void(MultipathAlignment&)> lambda = [&buf](MultipathAlignment& mp_aln) {
                     buf.emplace_back();
                     optimal_alignment(mp_aln, buf.back());
-                    stream::write_buffered(cout, buf, 1000);
+                    vg::io::write_buffered(cout, buf, 1000);
                 };
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    vg::io::for_each(in, lambda);
                 });
-                stream::write_buffered(std::cout, buf, 0);
+                vg::io::write_buffered(std::cout, buf, 0);
             }
             else if (output_type == "json") {
                 function<void(MultipathAlignment&)> lambda = [&](MultipathAlignment& mp_aln) {
                     cout << pb2json(mp_aln) << endl;
                 };
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    vg::io::for_each(in, lambda);
                 });
             }
             else {
@@ -687,7 +687,7 @@ int main_view(int argc, char** argv) {
             fastq2 = get_input_file_name(optind, argc, argv);
         }
         if (output_type == "gam") {
-            stream::ProtobufEmitter<Alignment> buf(std::cout);
+            vg::io::ProtobufEmitter<Alignment> buf(std::cout);
             if (!interleaved_fastq && fastq2.empty()) {
                 function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
                     buf.write(std::move(aln));
@@ -721,7 +721,7 @@ int main_view(int argc, char** argv) {
                     cout << pb2json(p) << "\n";
                 };
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    vg::io::for_each(in, lambda);
                 });
             } else {
                 // todo
@@ -730,7 +730,7 @@ int main_view(int argc, char** argv) {
             }
         } else {
             if (output_type == "json" || output_type == "pileup") {
-                stream::JSONStreamHelper<Pileup> json_helper(file_name);
+                vg::io::JSONStreamHelper<Pileup> json_helper(file_name);
                 json_helper.write(cout, output_type == "json");
             } else {
                 cerr << "[vg view] error: JSON Pileup can only be converted to Pileup or JSON" << endl;
@@ -745,7 +745,7 @@ int main_view(int argc, char** argv) {
                 cout << pb2json(t) << "\n";
             };
             get_input_file(file_name, [&](istream& in) {
-                stream::for_each(in, lambda);
+                vg::io::for_each(in, lambda);
             });
         } else {
             cerr << "[vg view] error: (binary) Translation can only be converted to JSON" << endl;
@@ -760,7 +760,7 @@ int main_view(int argc, char** argv) {
                     cout << pb2json(l) << "\n";
                 };
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    vg::io::for_each(in, lambda);
                 });
             } else {
                 // todo
@@ -769,7 +769,7 @@ int main_view(int argc, char** argv) {
             }
         } else {
             if (output_type == "json" || output_type == "locus") {
-                stream::JSONStreamHelper<Locus> json_helper(file_name);
+                vg::io::JSONStreamHelper<Locus> json_helper(file_name);
                 json_helper.write(cout, output_type == "json");
             } else {
                 cerr << "[vg view] error: JSON Locus can only be converted to Locus or JSON" << endl;
@@ -784,7 +784,7 @@ int main_view(int argc, char** argv) {
                 cout << pb2json(s) << "\n";
             };
             get_input_file(file_name, [&](istream& in) {
-                stream::for_each(in, lambda);
+                vg::io::for_each(in, lambda);
             });
         } else {
             cerr << "[vg view] error: (binary) Snarls can only be converted to JSON" << endl;
@@ -797,7 +797,7 @@ int main_view(int argc, char** argv) {
                 cout << pb2json(s) << "\n";
             };
             get_input_file(file_name, [&](istream& in) {
-                stream::for_each(in, lambda);
+                vg::io::for_each(in, lambda);
             });
         } else {
             cerr << "[vg view] error: (binary) SnarlTraversals can only be converted to JSON" << endl;
@@ -844,7 +844,7 @@ int main_view(int argc, char** argv) {
         graph->to_turtle(std::cout, rdf_base_uri, color_variants);
     } else if (output_type == "vg") {
         graph->serialize_to_ostream(cout);
-        stream::finish(cout);
+        vg::io::finish(cout);
     } else if (output_type == "locus") {
 
     } else {
