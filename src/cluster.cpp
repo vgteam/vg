@@ -25,7 +25,7 @@ MEMChainModel::MEMChainModel(
     const vector<size_t>& aln_lengths,
     const vector<vector<MaximalExactMatch> >& matches,
     const function<int64_t(pos_t)>& approx_position,
-    const function<map<string, vector<pair<size_t, bool> > >(pos_t)>& path_position,
+    const function<unordered_map<path_handle_t, vector<pair<size_t, bool> > >(pos_t)>& path_position,
     const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
     int band_width,
     int position_depth,
@@ -47,7 +47,7 @@ MEMChainModel::MEMChainModel(
                 m.prev = nullptr;
                 m.score = 0;
                 m.mem.positions = path_position(pos);
-                m.mem.positions[""].push_back(make_pair(approx_position(pos), is_rev(pos)));
+                m.mem.positions[handlegraph::as_path_handle(0)].push_back(make_pair(approx_position(pos), is_rev(pos)));
                 m.mem.nodes.clear();
                 m.mem.nodes.push_back(node);
                 m.mem.fragment = frag_n;
@@ -78,7 +78,8 @@ MEMChainModel::MEMChainModel(
     }
     // now build up the model using the positional bandwidth
     set<pair<vector<MEMChainModelVertex>::iterator, vector<MEMChainModelVertex>::iterator> > seen;
-    for (map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > >::iterator c = positions.begin(); c != positions.end(); ++c) {
+    for (unordered_map<path_handle_t, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > >::iterator c = positions.begin(); c != positions.end(); ++
+c) {
         for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = c->second.begin(); p != c->second.end(); ++p) {
             for (auto& v1 : p->second) {
                 // For each vertex...
@@ -292,7 +293,7 @@ void MEMChainModel::display_dot(ostream& out, vector<MEMChainModelVertex*> verte
             << " pos:[";
         for (auto& p : vertex.mem.positions) {
             for (auto& o : p.second) {
-                out << p.first << ":" << o.first << ":" << (o.second?"-":"+") << ",";
+                out << handlegraph::as_integer(p.first) << ":" << o.first << ":" << (o.second?"-":"+") << ",";
             }
         }
         out << "]\"";
@@ -3443,7 +3444,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
 }
     
 // collect node starts to build out graph
-vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const XG& xg, const vg::MaximalExactMatch& mem) {
+vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const HandleGraph& graph, const vg::MaximalExactMatch& mem) {
     // walk the match, getting all the nodes that it touches
     string mem_seq = mem.sequence();
     vector<pair<gcsa::node_type, size_t> > positions;
@@ -3458,8 +3459,8 @@ vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const XG& xg, co
             auto& pos = h.first;
             size_t query_offset = h.second;
             // check if we match each node in next
-            auto handle = xg.get_handle(gcsa::Node::id(pos), gcsa::Node::rc(pos));
-            string h_seq = xg.get_sequence(handle);
+            auto handle = graph.get_handle(gcsa::Node::id(pos), gcsa::Node::rc(pos));
+            string h_seq = graph.get_sequence(handle);
             size_t mem_todo = mem_seq.size() - query_offset;
             size_t overlap = min((size_t)mem_todo, (size_t)(h_seq.size()-gcsa::Node::offset(pos)));
             /*
@@ -3478,8 +3479,8 @@ vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const XG& xg, co
                 // if we continue past this node, insert our next nodes into nexts
                 if (mem_todo - overlap > 0) {
                     size_t new_off = query_offset + overlap;
-                    xg.follow_edges(handle, false, [&](const handle_t& next) {
-                            todo.insert(make_pair(gcsa::Node::encode(xg.get_id(next), 0, xg.get_is_reverse(next)), new_off));
+                    graph.follow_edges(handle, false, [&](const handle_t& next) {
+                            todo.insert(make_pair(gcsa::Node::encode(graph.get_id(next), 0, graph.get_is_reverse(next)), new_off));
                             return true;
                         });
                 }
@@ -3504,75 +3505,52 @@ vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const XG& xg, co
     return positions;
 }
 
-Graph cluster_subgraph_walk(const XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
+sglib::HashGraph cluster_subgraph_walk(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
     assert(mems.size());
     auto& start_mem = mems.front();
     auto start_pos = make_pos_t(start_mem.nodes.front());
-    auto rev_start_pos = reverse(start_pos, xg.node_length(id(start_pos)));
+    auto rev_start_pos = reverse(start_pos, base.get_length(base.get_handle(id(start_pos))));
     // Even if the MEM is right up against the start of the read, it may not be
     // part of the best alignment. Make sure to have some padding.
     // TODO: how much padding?
-    Graph graph;
+    sglib::HashGraph graph;
     int inside_padding = max(1, (int)aln.sequence().size()/16);
     int end_padding = max(8, (int)aln.sequence().size()/8);
     int get_before = end_padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     if (get_before) {
-        graph.MergeFrom(xg.graph_context_id(rev_start_pos, get_before));
+        algorithms::extract_context(base, graph, base.get_handle(id(rev_start_pos), is_rev(rev_start_pos)), offset(rev_start_pos), get_before, false, true);
     }
     //cerr << "======================================================" << endl;
     for (int i = 0; i < mems.size(); ++i) {
         auto& mem = mems[i];
         //cerr << mem << endl;
-        vector<pair<gcsa::node_type, size_t> > match_positions = mem_node_start_positions(xg, mem);
+        vector<pair<gcsa::node_type, size_t> > match_positions = mem_node_start_positions(base, mem);
         if (!match_positions.size()) {
             // TODO XXX is MEM merging causing this to occur?
             match_positions.push_back(make_pair(mem.nodes.front(), mem.length()));
         }
         for (auto& p : match_positions) {
-            graph.MergeFrom(xg.node_subgraph_id(gcsa::Node::id(p.first)));
+            handle_t h = base.get_handle(gcsa::Node::id(p.first), gcsa::Node::rc(p.first));
+            algorithms::extract_context(base, graph, h, gcsa::Node::offset(p.first), base.get_length(h));
         }
         // extend after the last match node with the expansion
         auto& p = match_positions.back();
         auto& pos = p.first;
         int mem_remainder = p.second;
         //cerr << p.first << " " << p.second << endl;
-        int get_after = xg.node_length(gcsa::Node::id(pos))
+        handle_t h = base.get_handle(gcsa::Node::id(pos));
+        int get_after = base.get_length(h);
             + (i+1 == mems.size() ?
                end_padding +
                expansion * ((int)(aln.sequence().end() - mem.end) + mem_remainder)
                :
                inside_padding +
                expansion * ((int)(mems[i+1].begin - mem.end) + mem_remainder));
-        if (get_after > 0) graph.MergeFrom(xg.graph_context_id(make_pos_t(pos), get_after));
+        if (get_after > 0) {
+            algorithms::extract_context(base, graph, h, gcsa::Node::offset(pos), get_after, true, false);
+        }
     }
-    xg.expand_context(graph, 0, false); // get connected edges
-    sort_by_id_dedup_and_clean(graph);
-    return graph;
-}
-
-Graph cluster_subgraph(const XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
-    assert(mems.size());
-    auto& start_mem = mems.front();
-    auto start_pos = make_pos_t(start_mem.nodes.front());
-    auto rev_start_pos = reverse(start_pos, xg.node_length(id(start_pos)));
-    // Even if the MEM is right up against the start of the read, it may not be
-    // part of the best alignment. Make sure to have some padding.
-    // TODO: how much padding?
-    Graph graph;
-    int padding = 1;
-    int get_before = padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
-    if (get_before) {
-        graph.MergeFrom(xg.graph_context_id(rev_start_pos, get_before));
-    }
-    for (int i = 0; i < mems.size(); ++i) {
-        auto& mem = mems[i];
-        auto pos = make_pos_t(mem.nodes.front());
-        int get_after = padding + (i+1 == mems.size() ?
-                                   expansion * (int)(aln.sequence().end() - mem.begin)
-                                   : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
-        graph.MergeFrom(xg.graph_context_id(pos, get_after));
-    }
-    sort_by_id_dedup_and_clean(graph);
+    algorithms::expand_subgraph_by_steps(base, graph, 0);
     return graph;
 }
 
