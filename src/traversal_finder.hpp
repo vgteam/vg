@@ -171,10 +171,10 @@ public:
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 
-   /**
+    /**
     * Like above, but return the path name corresponding to each traversal
     */
-    virtual pair<vector<SnarlTraversal>, vector<string>> find_named_traversals(const Snarl& site);
+    virtual pair<vector<SnarlTraversal>, vector<string> > find_named_traversals(const Snarl& site);
     
 };
 
@@ -209,10 +209,11 @@ public:
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 
-   /**
-    * Like above, but return the path name corresponding to each traversal
+    /**
+    * Like above, but return the path steps for the for the traversal endpoints
     */
-    virtual pair<vector<SnarlTraversal>, vector<string> > find_named_traversals(const Snarl& site);
+    virtual pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > find_path_traversals(const Snarl& site);
+
 };    
     
 

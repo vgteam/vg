@@ -816,10 +816,10 @@ PathTraversalFinder::PathTraversalFinder(const PathHandleGraph& graph, SnarlMana
 }
 
 vector<SnarlTraversal> PathTraversalFinder::find_traversals(const Snarl& site) {
-    return find_named_traversals(site).first;
+    return find_path_traversals(site).first;
 }
 
-pair<vector<SnarlTraversal>, vector<string> > PathTraversalFinder::find_named_traversals(const Snarl& site) {
+pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > PathTraversalFinder::find_path_traversals(const Snarl& site) {
 
     handle_t start_handle = graph.get_handle(site.start().node_id(), site.start().backward());
     handle_t end_handle = graph.get_handle(site.end().node_id(), site.end().backward());
@@ -842,7 +842,7 @@ pair<vector<SnarlTraversal>, vector<string> > PathTraversalFinder::find_named_tr
 #endif
 
     vector<SnarlTraversal> out_travs;
-    vector<string> out_names; //todo: change to step 
+    vector<pair<step_handle_t, step_handle_t> > out_steps;
 
     for (const step_handle_t& start_step : start_steps) {
         path_handle_t start_path_handle = graph.get_path_handle_of_step(start_step);
@@ -893,13 +893,6 @@ pair<vector<SnarlTraversal>, vector<string> > PathTraversalFinder::find_named_tr
                     start_visit->set_node_id(graph.get_id(handle));
                     start_visit->set_backward(graph.get_is_reverse(handle));
 
-                    auto print_edge = [&](const edge_t& e) -> string{
-                        stringstream ss;
-                        ss << graph.get_id(e.first) << ":" << graph.get_is_reverse(e.first) << "->"
-                        << graph.get_id(e.second) << ":" << graph.get_is_reverse(e.second);
-                        return ss.str();
-                    };
-                        
                     can_continue = false;
                     if (graph.has_previous_step(step) && handle != end_handle) {
                         step_handle_t prev_step = graph.get_previous_step(step);
@@ -913,19 +906,14 @@ pair<vector<SnarlTraversal>, vector<string> > PathTraversalFinder::find_named_tr
                     }
                 }
             }
-                auto print_handle = [&](const handle_t& h) -> string{
-                    stringstream ss;
-                    ss << graph.get_id(h) << ":" << graph.get_is_reverse(h) ;
-                    return ss.str();
-                };
             if (graph.get_handle_of_step(step) == end_check) {
                 out_travs.push_back(trav);
-                out_names.push_back(graph.get_path_name(start_path_handle));
+                out_steps.push_back(make_pair(start_step, step));
             } 
         }
     }
     
-    return make_pair(out_travs, out_names);
+    return make_pair(out_travs, out_steps);
 }
  
 

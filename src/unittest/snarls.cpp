@@ -3720,16 +3720,19 @@ namespace vg {
             snarl.mutable_start()->set_node_id(2);
             snarl.mutable_end()->set_node_id(7);
 
-            auto trav_results = trav_finder.find_named_traversals(snarl);
+            auto trav_results = trav_finder.find_path_traversals(snarl);
 
             // get a path for ref, atl1, alt1a and alt2
             REQUIRE(trav_results.first.size() == 4);
 
             set<string> correct_names = {"ref", "alt1", "alt1a", "alt2"};
-            set<string> found_names(trav_results.second.begin(), trav_results.second.end());
-            bool correct_equals_found = correct_names == found_names;
-            REQUIRE(correct_equals_found);
-
+            for (auto step_pair : trav_results.second) {
+                string name1 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.first));
+                string name2 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.second));
+                REQUIRE(name1 == name2);
+                REQUIRE(correct_names.count(name1));
+            }
+            
             map<string, string> true_trav_strings = {
                 {"ref", R"({"visit":[{"node_id":"2"},{"node_id":"4"},{"node_id":"6"},{"node_id":"7"}]})"},
                 {"alt1", R"({"visit":[{"node_id":"2"},{"node_id":"3"},{"node_id":"5"},{"node_id":"7"}]})"},
@@ -3737,9 +3740,10 @@ namespace vg {
                 {"alt2", R"({"visit":[{"node_id":"2"},{"node_id":"3"},{"node_id":"6"},{"node_id":"7"}]})"}
             };
             for (int i = 0; i < trav_results.first.size(); ++i) {
-                REQUIRE(true_trav_strings.count(trav_results.second[i]));
+                string name = graph.get_path_name(graph.get_path_handle_of_step(trav_results.second[i].first));
+                REQUIRE(true_trav_strings.count(name));
                 SnarlTraversal true_trav;
-                json2pb(true_trav, true_trav_strings[trav_results.second[i]]);
+                json2pb(true_trav, true_trav_strings[name]);
                 bool trav_is_correct = trav_results.first[i] == true_trav;
                 REQUIRE(trav_is_correct);
             }
@@ -3757,15 +3761,18 @@ namespace vg {
             snarl.mutable_end()->set_node_id(2);
             snarl.mutable_end()->set_backward(true);
             
-            auto trav_results = trav_finder.find_named_traversals(snarl);
+            auto trav_results = trav_finder.find_path_traversals(snarl);
 
             // get a path for ref, atl1, alt1a and alt2
             REQUIRE(trav_results.first.size() == 4);
 
             set<string> correct_names = {"ref", "alt1", "alt1a", "alt2"};
-            set<string> found_names(trav_results.second.begin(), trav_results.second.end());
-            bool correct_equals_found = correct_names == found_names;
-            REQUIRE(correct_equals_found);
+            for (auto step_pair : trav_results.second) {
+                string name1 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.first));
+                string name2 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.second));
+                REQUIRE(name1 == name2);
+                REQUIRE(correct_names.count(name1));
+            }
 
             map<string, string> true_trav_strings = {
                 {"ref", R"({"visit":[{"node_id":"7","backward":true},{"node_id":"6","backward":true},{"node_id":"4","backward":true},{"node_id":"2","backward":true}]})"},
@@ -3774,9 +3781,10 @@ namespace vg {
                 {"alt2", R"({"visit":[{"node_id":"7","backward":true},{"node_id":"6","backward":true},{"node_id":"3","backward":true},{"node_id":"2","backward":true}]})"}
             };
             for (int i = 0; i < trav_results.first.size(); ++i) {
-                REQUIRE(true_trav_strings.count(trav_results.second[i]));
+                string name = graph.get_path_name(graph.get_path_handle_of_step(trav_results.second[i].first));                
+                REQUIRE(true_trav_strings.count(name));
                 SnarlTraversal true_trav;
-                json2pb(true_trav, true_trav_strings[trav_results.second[i]]);
+                json2pb(true_trav, true_trav_strings[name]);
                 bool trav_is_correct = trav_results.first[i] == true_trav;
                 REQUIRE(trav_is_correct);
             }
@@ -3793,15 +3801,18 @@ namespace vg {
             snarl.mutable_end()->set_node_id(11);
             snarl.mutable_end()->set_backward(true);
             
-            auto trav_results = trav_finder.find_named_traversals(snarl);
+            auto trav_results = trav_finder.find_path_traversals(snarl);
 
             // get a path for ref, atl1, alt1a and alt2
             REQUIRE(trav_results.first.size() == 4);
 
             set<string> correct_names = {"ref", "alt1", "alt3", "alt4"};
-            set<string> found_names(trav_results.second.begin(), trav_results.second.end());
-            bool correct_equals_found = correct_names == found_names;
-            REQUIRE(correct_equals_found);
+            for (auto step_pair : trav_results.second) {
+                string name1 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.first));
+                string name2 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.second));
+                REQUIRE(name1 == name2);
+                REQUIRE(correct_names.count(name1));
+            }
 
             map<string, string> true_trav_strings = {
                 {"ref", R"({"visit":[{"node_id":"8"},{"node_id":"9"},{"node_id":"10"},{"node_id":"11","backward":true}]})"},
@@ -3810,9 +3821,10 @@ namespace vg {
                 {"alt4", R"({"visit":[{"node_id":"8"},{"node_id":"9"},{"node_id":"10"},{"node_id":"11","backward":true}]})"}
             };
             for (int i = 0; i < trav_results.first.size(); ++i) {
-                REQUIRE(true_trav_strings.count(trav_results.second[i]));
+                string name = graph.get_path_name(graph.get_path_handle_of_step(trav_results.second[i].first));                
+                REQUIRE(true_trav_strings.count(name));
                 SnarlTraversal true_trav;
-                json2pb(true_trav, true_trav_strings[trav_results.second[i]]);
+                json2pb(true_trav, true_trav_strings[name]);
                 bool trav_is_correct = trav_results.first[i] == true_trav;
                 REQUIRE(trav_is_correct);
             }
@@ -3829,16 +3841,19 @@ namespace vg {
             snarl.mutable_end()->set_node_id(8);
             snarl.mutable_end()->set_backward(true);
             
-            auto trav_results = trav_finder.find_named_traversals(snarl);
+            auto trav_results = trav_finder.find_path_traversals(snarl);
 
             // get a path for ref, atl1, alt1a and alt2
             REQUIRE(trav_results.first.size() == 4);
 
             set<string> correct_names = {"ref", "alt1", "alt3", "alt4"};
-            set<string> found_names(trav_results.second.begin(), trav_results.second.end());
-            bool correct_equals_found = correct_names == found_names;
-            REQUIRE(correct_equals_found);
-
+            for (auto step_pair : trav_results.second) {
+                string name1 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.first));
+                string name2 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.second));
+                REQUIRE(name1 == name2);
+                REQUIRE(correct_names.count(name1));
+            }
+                
             map<string, string> true_trav_strings = {
                 {"ref", R"({"visit":[{"node_id":"11"},{"node_id":"10","backward":true},{"node_id":"9","backward":true},{"node_id":"8","backward":true}]})"},
                 {"alt1", R"({"visit":[{"node_id":"11"},{"node_id":"9","backward":true},{"node_id":"10"},{"node_id":"8","backward":true}]})"},
@@ -3846,9 +3861,10 @@ namespace vg {
                 {"alt4", R"({"visit":[{"node_id":"11"},{"node_id":"10","backward":true},{"node_id":"9","backward":true},{"node_id":"8","backward":true}]})"}
             };
             for (int i = 0; i < trav_results.first.size(); ++i) {
-                REQUIRE(true_trav_strings.count(trav_results.second[i]));
+                string name = graph.get_path_name(graph.get_path_handle_of_step(trav_results.second[i].first));                                
+                REQUIRE(true_trav_strings.count(name));
                 SnarlTraversal true_trav;
-                json2pb(true_trav, true_trav_strings[trav_results.second[i]]);
+                json2pb(true_trav, true_trav_strings[name]);
                 bool trav_is_correct = trav_results.first[i] == true_trav;
                 REQUIRE(trav_is_correct);
             }
