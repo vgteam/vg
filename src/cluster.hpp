@@ -8,7 +8,6 @@
 #include "aligner.hpp"
 #include "utility.hpp"
 #include "mem.hpp"
-#include "xg.hpp"
 #include "handle.hpp"
 #include "min_distance.hpp"
 #include "path_component_index.hpp"
