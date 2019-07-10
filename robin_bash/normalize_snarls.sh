@@ -25,25 +25,24 @@ echo running!
 
 
 ## testing vg normalize on smaller graph (checking that serialization still works):
-# TEST_NORMALIZE_FILE=test/robin_chromosomes/test_normalize/test_normalize
-# # To produce .snarls:
-# vg snarls $TEST_NORMALIZE_FILE.vg >$TEST_NORMALIZE_FILE.snarls 
-# echo "SNARLS MADE"
-# # To produce .gbwt:
-# vg index -G $TEST_NORMALIZE_FILE.gbwt -v test/robin_chromosomes/test_normalize/HGSVC.haps.chr10.vcf.gz $TEST_NORMALIZE_FILE.vg
-# echo "GBWT MADE"
-# # Convert .vg to .hg:
-# vg convert -v $TEST_NORMALIZE_FILE.vg -A >$TEST_NORMALIZE_FILE.hg
-# echo "CONVERTED VG TO HG"
-# # Run normalize algorithm:
-# vg normalize -g TEST_NORMALIZE_FILE.gbwt -s TEST_NORMALIZE_FILE.snarls TEST_NORMALIZE_FILE.hg >$TEST_DIR/$FILE_BASENAME_normalized.hg
-# echo "normalized."
+TEST_NORMALIZE_FILE=test/robin_tests/test_normalize/chr10_subgraph_0_new
+# To produce .snarls:
+vg snarls $TEST_NORMALIZE_FILE.vg >$TEST_NORMALIZE_FILE.snarls 
+echo "SNARLS MADE"
+# To produce .gbwt:
+vg index -G $TEST_NORMALIZE_FILE.gbwt -v test/robin_chromosomes/test_normalize/HGSVC.haps.chr10.vcf.gz $TEST_NORMALIZE_FILE.vg
+echo "GBWT MADE"
+# Convert .vg to .hg:
+vg convert -v $TEST_NORMALIZE_FILE.vg -A >$TEST_NORMALIZE_FILE.hg
+echo "CONVERTED VG TO HG"
+# Run normalize algorithm:
+vg normalize -g TEST_NORMALIZE_FILE.gbwt -s TEST_NORMALIZE_FILE.snarls TEST_NORMALIZE_FILE.hg >$TEST_DIR/$FILE_BASENAME_normalized.hg
+echo "normalized."
 
 # ##running normalize_snarls on a full chromosome.
 # VG_DIR=/public/groups/cgl/graph-genomes/jmonlong/hgsvc/haps/chr10
 # TEST_DIR=test/robin_chromosomes/chr10
 # FILE_BASENAME=hgsvc_chr10_construct
-
 # # To produce .snarls:
 # vg snarls $VG_DIR/$FILE_BASENAME.vg >$TEST_DIR/$FILE_BASENAME.snarls 
 # echo "SNARLS MADE"
@@ -76,9 +75,9 @@ echo running!
 # vg convert -v $TEST_CONVERT_FILE.vg -A >$TEST_CONVERT_FILE.hg
 # vg convert -a $TEST_CONVERT_FILE.hg -V >$TEST_CONVERT_FILE.vg
 
-##hg-oriented commands for working on aligning haplotype in middle of snarl. (snarl nodes 23493-23505).
-TEST=test/robin_haplotypes/threads_in_middle_example
-vg normalize -g $TEST/chr10_subgraph_0_new.gbwt -s $TEST/chr10_subgraph_0_new.snarls $TEST/chr10_subgraph_0_new.hg >$TEST/cleaned_mid_hap_snarl.hg
+# ##hg-oriented commands for working on aligning haplotype in middle of snarl. (snarl nodes 23493-23505).
+# TEST=test/robin_haplotypes/threads_in_middle_example
+# vg normalize -g $TEST/chr10_subgraph_0_new.gbwt -s $TEST/chr10_subgraph_0_new.snarls $TEST/chr10_subgraph_0_new.hg >$TEST/cleaned_mid_hap_snarl.hg
 # vg convert -a test/robin_haplotypes/threads_in_middle_example/cleaned_mid_hap_snarl.hg -V >test/robin_haplotypes/threads_in_middle_example/cleaned_mid_hap_snarl_from_hash.vg
 # ./bin/vg view -dpn test/robin_haplotypes/threads_in_middle_example/cleaned_mid_hap_snarl_from_hash.vg |
 #     dot -Tsvg -o test/robin_haplotypes/threads_in_middle_example/cleaned_mid_hap_snarl_from_hash.svg
