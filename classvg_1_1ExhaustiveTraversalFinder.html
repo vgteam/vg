@@ -111,8 +111,8 @@ Inheritance diagram for vg::ExhaustiveTraversalFinder:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:abe59f2401d060f33700de6132238bd6c"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#abe59f2401d060f33700de6132238bd6c">ExhaustiveTraversalFinder</a> (<a class="el" href="classvg_1_1VG.html">VG</a> &amp;<a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a183782d11bbe82315773f8f5f1245208">graph</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a8e29fb04ba5a9516d74d1da133f06330">snarl_manager</a>, bool <a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a1904edecc299fc004b02ce44ea9301f8">include_reversing_traversals</a>=false)</td></tr>
-<tr class="separator:abe59f2401d060f33700de6132238bd6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4c35877fcb69aefe449943a4646bd469"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a4c35877fcb69aefe449943a4646bd469">ExhaustiveTraversalFinder</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a66b0e7a1ac972af0e4d381e4202e1f5e">graph</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a8e29fb04ba5a9516d74d1da133f06330">snarl_manager</a>, bool <a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a1904edecc299fc004b02ce44ea9301f8">include_reversing_traversals</a>=false)</td></tr>
+<tr class="separator:a4c35877fcb69aefe449943a4646bd469"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7586c1b256f63d9e4295a9f1011b921a"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a7586c1b256f63d9e4295a9f1011b921a">~ExhaustiveTraversalFinder</a> ()</td></tr>
 <tr class="separator:a7586c1b256f63d9e4295a9f1011b921a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a47d24a43aef54ca51318b8ae89e51328"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a47d24a43aef54ca51318b8ae89e51328">find_traversals</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site)</td></tr>
@@ -123,31 +123,31 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:a315a6431ae4152de9d174042bf60d7d2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a315a6431ae4152de9d174042bf60d7d2">stack_up_valid_walks</a> (<a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> walk_head, vector&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &amp;stack)</td></tr>
-<tr class="separator:a315a6431ae4152de9d174042bf60d7d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a97819cfccf220f9ddf9e649d5ebd1a8e"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a97819cfccf220f9ddf9e649d5ebd1a8e">visit_next_node</a> (const <a class="el" href="structvg_1_1Node.html">Node</a> *, const <a class="el" href="structvg_1_1Edge.html">Edge</a> *)</td></tr>
-<tr class="separator:a97819cfccf220f9ddf9e649d5ebd1a8e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa54aea658805228c76c85594865e8a7a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#aa54aea658805228c76c85594865e8a7a">add_traversals</a> (vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> traversal_start, set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &amp;stop_at, set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &amp;yield_at)</td></tr>
-<tr class="separator:aa54aea658805228c76c85594865e8a7a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab37a28d916291506bfe78a6818943585"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#ab37a28d916291506bfe78a6818943585">stack_up_valid_walks</a> (<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> walk_head, vector&lt; <a class="el" href="structvg_1_1Visit.html">Visit</a> &gt; &amp;stack)</td></tr>
+<tr class="separator:ab37a28d916291506bfe78a6818943585"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2cec9de94838e3575a20271db01a1a4f"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a2cec9de94838e3575a20271db01a1a4f">visit_next_node</a> (<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> handle)</td></tr>
+<tr class="separator:a2cec9de94838e3575a20271db01a1a4f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4d93c5f43e4be897874b2468c026c0ca"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a4d93c5f43e4be897874b2468c026c0ca">add_traversals</a> (vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> traversal_start, unordered_set&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;stop_at, unordered_set&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;yield_at)</td></tr>
+<tr class="separator:a4d93c5f43e4be897874b2468c026c0ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
-<tr class="memitem:a183782d11bbe82315773f8f5f1245208"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a183782d11bbe82315773f8f5f1245208">graph</a></td></tr>
-<tr class="separator:a183782d11bbe82315773f8f5f1245208"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a66b0e7a1ac972af0e4d381e4202e1f5e"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a66b0e7a1ac972af0e4d381e4202e1f5e">graph</a></td></tr>
+<tr class="separator:a66b0e7a1ac972af0e4d381e4202e1f5e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8e29fb04ba5a9516d74d1da133f06330"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a8e29fb04ba5a9516d74d1da133f06330">snarl_manager</a></td></tr>
 <tr class="separator:a8e29fb04ba5a9516d74d1da133f06330"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1904edecc299fc004b02ce44ea9301f8"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a1904edecc299fc004b02ce44ea9301f8">include_reversing_traversals</a></td></tr>
 <tr class="separator:a1904edecc299fc004b02ce44ea9301f8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="abe59f2401d060f33700de6132238bd6c"></a>
+<a class="anchor" id="a4c35877fcb69aefe449943a4646bd469"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">vg::ExhaustiveTraversalFinder::ExhaustiveTraversalFinder </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
         </tr>
         <tr>
@@ -196,7 +196,7 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a class="anchor" id="aa54aea658805228c76c85594865e8a7a"></a>
+<a class="anchor" id="a4d93c5f43e4be897874b2468c026c0ca"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -212,19 +212,19 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a>&#160;</td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td>
           <td class="paramname"><em>traversal_start</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">unordered_set&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>stop_at</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">unordered_set&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>yield_at</em>&#160;</td>
         </tr>
         <tr>
@@ -269,7 +269,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a315a6431ae4152de9d174042bf60d7d2"></a>
+<a class="anchor" id="ab37a28d916291506bfe78a6818943585"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -279,13 +279,13 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::ExhaustiveTraversalFinder::stack_up_valid_walks </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a>&#160;</td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td>
           <td class="paramname"><em>walk_head</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Visit.html">Visit</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>stack</em>&#160;</td>
         </tr>
         <tr>
@@ -303,7 +303,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a97819cfccf220f9ddf9e649d5ebd1a8e"></a>
+<a class="anchor" id="a2cec9de94838e3575a20271db01a1a4f"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -313,19 +313,9 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="memname">virtual bool vg::ExhaustiveTraversalFinder::visit_next_node </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Node.html">Node</a> *&#160;</td>
-          <td class="paramname">, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td>
+          <td class="paramname"><em>handle</em></td><td>)</td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Edge.html">Edge</a> *&#160;</td>
-          <td class="paramname">&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -335,12 +325,10 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Reimplemented in <a class="el" href="classvg_1_1SupportRestrictedTraversalFinder.html#a9cdb3b8f554e58cba6fea9c2ccb40e14">vg::SupportRestrictedTraversalFinder</a>.</p>
-
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a class="anchor" id="a183782d11bbe82315773f8f5f1245208"></a>
+<a class="anchor" id="a66b0e7a1ac972af0e4d381e4202e1f5e"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -348,7 +336,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classvg_1_1VG.html">VG</a>&amp; vg::ExhaustiveTraversalFinder::graph</td>
+          <td class="memname">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>&amp; vg::ExhaustiveTraversalFinder::graph</td>
         </tr>
       </table>
   </td>

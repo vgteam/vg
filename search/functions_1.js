@@ -27,7 +27,7 @@ var searchData=
   ['add_5fthread_5fedges_5fto_5fset',['add_thread_edges_to_set',['../namespacevg.html#afe2d6096dfe672a486e44df018c713c2',1,'vg']]],
   ['add_5fthread_5fnodes_5fto_5fset',['add_thread_nodes_to_set',['../namespacevg.html#a2adfa9e81b2553fefdd5e1d6b24c7a77',1,'vg']]],
   ['add_5ftranscripts',['add_transcripts',['../classvg_1_1Transcriptome.html#a2b91b302d91cbc0db589fbe701fd90c3',1,'vg::Transcriptome']]],
-  ['add_5ftraversals',['add_traversals',['../classvg_1_1ExhaustiveTraversalFinder.html#aa54aea658805228c76c85594865e8a7a',1,'vg::ExhaustiveTraversalFinder']]],
+  ['add_5ftraversals',['add_traversals',['../classvg_1_1ExhaustiveTraversalFinder.html#a4d93c5f43e4be897874b2468c026c0ca',1,'vg::ExhaustiveTraversalFinder']]],
   ['add_5funary_5fchild',['add_unary_child',['../classvg_1_1NetGraph.html#a3780b053c5632c4425b7057d34bffe3a',1,'vg::NetGraph']]],
   ['add_5fvariant_5finfo_5fand_5femit',['add_variant_info_and_emit',['../classvg_1_1SupportCaller.html#a7a34e1af508b8d08eeaa4e5628e6bd11',1,'vg::SupportCaller']]],
   ['add_5fvariants',['add_variants',['../classvg_1_1VariantAdder.html#a4cf25deb4e0e2270c76e2fcd0f3dbf99',1,'vg::VariantAdder']]],

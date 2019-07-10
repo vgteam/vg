@@ -159,7 +159,7 @@ var searchData=
   ['split_5fread_5ffilter',['split_read_filter',['../classvg_1_1Filter.html#a0bc2a72604a0cb134c1f5bad7889a1bf',1,'vg::Filter']]],
   ['ssw_5fto_5fvg',['ssw_to_vg',['../classvg_1_1SSWAligner.html#a8daaaa17b12f1283c006d633d4c9a8fa',1,'vg::SSWAligner']]],
   ['sswaligner',['SSWAligner',['../classvg_1_1SSWAligner.html#ae91911b3a1357b0d3ae9bcecd51a592a',1,'vg::SSWAligner']]],
-  ['stack_5fup_5fvalid_5fwalks',['stack_up_valid_walks',['../classvg_1_1ExhaustiveTraversalFinder.html#a315a6431ae4152de9d174042bf60d7d2',1,'vg::ExhaustiveTraversalFinder']]],
+  ['stack_5fup_5fvalid_5fwalks',['stack_up_valid_walks',['../classvg_1_1ExhaustiveTraversalFinder.html#ab37a28d916291506bfe78a6818943585',1,'vg::ExhaustiveTraversalFinder']]],
   ['stacktrace_5fmanually',['stacktrace_manually',['../namespacevg.html#a8d771862cc44504508267240462cb043',1,'vg']]],
   ['stage',['stage',['../classvg_1_1Funnel.html#a21b5f8762aa446a64b5ddb3809e5c8e2',1,'vg::Funnel']]],
   ['stage_5fstop',['stage_stop',['../classvg_1_1Funnel.html#a87e1b8deccb4438d7f71267ee5f12ced',1,'vg::Funnel']]],
