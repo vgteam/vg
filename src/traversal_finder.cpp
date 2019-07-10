@@ -811,6 +811,124 @@ vector<SnarlTraversal> ReadRestrictedTraversalFinder::find_traversals(const Snar
     return to_return;
 }
 
+PathTraversalFinder::PathTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager)  :
+    graph(graph), snarl_manager(snarl_manager) {    
+}
+
+vector<SnarlTraversal> PathTraversalFinder::find_traversals(const Snarl& site) {
+    return find_named_traversals(site).first;
+}
+
+pair<vector<SnarlTraversal>, vector<string> > PathTraversalFinder::find_named_traversals(const Snarl& site) {
+
+    handle_t start_handle = graph.get_handle(site.start().node_id(), site.start().backward());
+    handle_t end_handle = graph.get_handle(site.end().node_id(), site.end().backward());
+    
+    vector<step_handle_t> start_steps = graph.steps_of_handle(start_handle);
+    vector<step_handle_t> end_steps = graph.steps_of_handle(end_handle);
+
+    pair<unordered_set<id_t>, unordered_set<edge_t> > snarl_contents = snarl_manager.deep_contents(&site, graph, true);
+    
+    // use this to skip paths that don't reach the end node
+    unordered_set<path_handle_t> end_path_handles;
+    for (const step_handle_t& step : end_steps) {
+        end_path_handles.insert(graph.get_path_handle_of_step(step));
+    }
+
+#ifdef debug
+    cerr << "Finding traversals of " << pb2json(site) << " using PathTraversalFinder" << endl
+         << " - there are " << start_steps.size() << " start_steps, " << end_steps.size() << " end_steps"
+         << " and " << end_path_handles.size() << " end_path_handles" << endl;
+#endif
+
+    vector<SnarlTraversal> out_travs;
+    vector<string> out_names; //todo: change to step 
+
+    for (const step_handle_t& start_step : start_steps) {
+        path_handle_t start_path_handle = graph.get_path_handle_of_step(start_step);
+        // only crawl paths that have a chance of reaching the end
+        if (end_path_handles.count(start_path_handle)) {
+
+            handle_t end_check = end_handle;
+
+#ifdef debug
+            cerr << " - considering path " << graph.get_path_name(start_path_handle) << endl;
+#endif
+            // try to make a traversal by walking forward
+            SnarlTraversal trav;
+            bool can_continue = true;
+            step_handle_t step = start_step;
+            while (can_continue) {
+                handle_t handle = graph.get_handle_of_step(step);
+                Visit* start_visit = trav.add_visit();
+                start_visit->set_node_id(graph.get_id(handle));
+                start_visit->set_backward(graph.get_is_reverse(handle));
+
+                can_continue = false;
+                if (graph.has_next_step(step) && handle != end_handle) {
+                    step_handle_t next_step = graph.get_next_step(step);
+                    handle_t next_handle = graph.get_handle_of_step(next_step);
+                    if (snarl_contents.first.count(graph.get_id(next_handle)) &&
+                        snarl_contents.second.count(graph.edge_handle(handle, next_handle))) {
+                        step = next_step;
+                        can_continue = true;
+                    } 
+                }
+            }
+
+            if (graph.get_handle_of_step(step) != end_check) {
+#ifdef debug
+                cerr << "     - failed to find forward traversal of path " << graph.get_path_name(start_path_handle) << endl;
+#endif
+                // try to make a traversal by walking backward
+                end_check = graph.flip(end_handle);
+                
+                trav.Clear();
+                can_continue = true;
+                step = start_step;
+                while (can_continue) {
+                    handle_t handle = graph.flip(graph.get_handle_of_step(step));
+                    
+                    Visit* start_visit = trav.add_visit();
+                    start_visit->set_node_id(graph.get_id(handle));
+                    start_visit->set_backward(graph.get_is_reverse(handle));
+
+                    auto print_edge = [&](const edge_t& e) -> string{
+                        stringstream ss;
+                        ss << graph.get_id(e.first) << ":" << graph.get_is_reverse(e.first) << "->"
+                        << graph.get_id(e.second) << ":" << graph.get_is_reverse(e.second);
+                        return ss.str();
+                    };
+                        
+                    can_continue = false;
+                    if (graph.has_previous_step(step) && handle != end_handle) {
+                        step_handle_t prev_step = graph.get_previous_step(step);
+                        handle_t prev_handle = graph.flip(graph.get_handle_of_step(prev_step));
+
+                        if (snarl_contents.first.count(graph.get_id(prev_handle)) &&
+                            snarl_contents.second.count(graph.edge_handle(handle, prev_handle))) {
+                            step = prev_step;
+                            can_continue = true;
+                        } 
+                    }
+                }
+            }
+                auto print_handle = [&](const handle_t& h) -> string{
+                    stringstream ss;
+                    ss << graph.get_id(h) << ":" << graph.get_is_reverse(h) ;
+                    return ss.str();
+                };
+            if (graph.get_handle_of_step(step) == end_check) {
+                out_travs.push_back(trav);
+                out_names.push_back(graph.get_path_name(start_path_handle));
+            } 
+        }
+    }
+    
+    return make_pair(out_travs, out_names);
+}
+ 
+
 TrivialTraversalFinder::TrivialTraversalFinder(VG& graph) : graph(graph) {
     // Nothing to do!
 }
