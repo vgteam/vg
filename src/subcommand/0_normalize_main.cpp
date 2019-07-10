@@ -21,7 +21,6 @@ void help_normalize(char** argv) {
          << "Modifies snarls, outputs modified on stdout." << endl
          << endl
          << "options:" << endl
-         << "    -n, --normalize       normalizes a currently-hardcoded snarl from a graph." << endl
          << "    -g, --gbwt       gbwt corresponding to hashgraph." << endl
          << "    -s, --snarls       snarls file corresponding to hashgraph." << endl;
 }
@@ -69,7 +68,7 @@ int main_normalize(int argc, char** argv) {
         case 's':
             snarls = optarg;
 
-        // default:
+        // default: //TODO: get this to work, instead of always causing crash.
         //     abort();
         }
     }
