@@ -23,20 +23,20 @@ echo compiling!
 echo running!
 
 
-
 ## testing vg normalize on smaller graph (checking that serialization still works):
-TEST_NORMALIZE_FILE=test/robin_tests/test_normalize/chr10_subgraph_0_new
+TEST_DIR=test/robin_tests/robin_haplotypes/threads_in_middle_example
 # To produce .snarls:
-vg snarls $TEST_NORMALIZE_FILE.vg >$TEST_NORMALIZE_FILE.snarls 
+vg snarls $TEST_DIR/chr10_subgraph_0_new.vg >$TEST_DIR/new_remake_test/normalize.snarls 
 echo "SNARLS MADE"
 # To produce .gbwt:
-vg index -G $TEST_NORMALIZE_FILE.gbwt -v test/robin_chromosomes/test_normalize/HGSVC.haps.chr10.vcf.gz $TEST_NORMALIZE_FILE.vg
+vg index -G $TEST_DIR/new_remake_test/normalize.gbwt -v $TEST_DIR/HGSVC.haps.chr10.vcf.gz $TEST_DIR/chr10_subgraph_0_new.vg
 echo "GBWT MADE"
 # Convert .vg to .hg:
-vg convert -v $TEST_NORMALIZE_FILE.vg -A >$TEST_NORMALIZE_FILE.hg
+vg convert -v $TEST_DIR/chr10_subgraph_0_new.vg -A >$TEST_DIR/new_remake_test/normalize.hg
+# vg convert -v $TEST_DIR/chr10_subgraph_0_new.vg -A >$TEST_DIR/new_remake_test/normalize.hg
 echo "CONVERTED VG TO HG"
 # Run normalize algorithm:
-vg normalize -g TEST_NORMALIZE_FILE.gbwt -s TEST_NORMALIZE_FILE.snarls TEST_NORMALIZE_FILE.hg >$TEST_DIR/$FILE_BASENAME_normalized.hg
+vg normalize -g $TEST_DIR/new_remake_test/normalize.gbwt -s $TEST_DIR/new_remake_test/normalize.snarls $TEST_DIR/new_remake_test/normalize.hg >$TEST_DIR/new_remake_test/normalize_out.hg
 echo "normalized."
 
 # ##running normalize_snarls on a full chromosome.
@@ -76,7 +76,7 @@ echo "normalized."
 # vg convert -a $TEST_CONVERT_FILE.hg -V >$TEST_CONVERT_FILE.vg
 
 # ##hg-oriented commands for working on aligning haplotype in middle of snarl. (snarl nodes 23493-23505).
-# TEST=test/robin_haplotypes/threads_in_middle_example
+# TEST=test/robin_tests/robin_haplotypes/threads_in_middle_example
 # vg normalize -g $TEST/chr10_subgraph_0_new.gbwt -s $TEST/chr10_subgraph_0_new.snarls $TEST/chr10_subgraph_0_new.hg >$TEST/cleaned_mid_hap_snarl.hg
 # vg convert -a test/robin_haplotypes/threads_in_middle_example/cleaned_mid_hap_snarl.hg -V >test/robin_haplotypes/threads_in_middle_example/cleaned_mid_hap_snarl_from_hash.vg
 # ./bin/vg view -dpn test/robin_haplotypes/threads_in_middle_example/cleaned_mid_hap_snarl_from_hash.vg |

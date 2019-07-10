@@ -82,8 +82,7 @@ int main_normalize(int argc, char** argv) {
     {
         /// Build the gbwt:
         ifstream gbwt_stream;
-        string gbwt_name = "test/robin_haplotypes/threads_in_middle_example/chr10_subgraph_0_new.gbwt"; //Nodes 23493 to 23505
-        gbwt_stream.open(gbwt_name);
+        gbwt_stream.open(gbwt);
 
         // Load the GBWT from its container
         unique_ptr<gbwt::GBWT> gbwt;
@@ -91,7 +90,7 @@ int main_normalize(int argc, char** argv) {
         GBWTGraph haploGraph = vg::GBWTGraph(*gbwt, *graph);
 
         std::ifstream snarl_stream;
-        string snarl_file = "test/robin_haplotypes/threads_in_middle_example/chr10_subgraph_0_new.snarls";
+        string snarl_file = snarls;
         snarl_stream.open(snarl_file);
         
         if (!snarl_stream) {
