@@ -43,7 +43,7 @@ struct GaplessExtension
     // For internal use.
     bool                      left_maximal, right_maximal;
     uint32_t                  internal_score; // Total number of mismatches.
-    uint32_t                  flank_score;    // Mismatches in the current flank.
+    uint32_t                  old_score;      // Mismatches before the current flank.
 
     /// Length of the extension.
     size_t length() const { return this->read_interval.second - this->read_interval.first; }
@@ -104,7 +104,26 @@ public:
     explicit GaplessExtender(const GBWTGraph& graph, const Aligner& aligner);
 
     /// Convert (graph position, read offset) to a seed.
-    seed_type to_seed(pos_t pos, size_t read_offset) const;
+    static seed_type to_seed(pos_t pos, size_t read_offset) {
+        return seed_type(GBWTGraph::node_to_handle(gbwt::Node::encode(id(pos), is_rev(pos))),
+                         static_cast<int64_t>(read_offset) - static_cast<int64_t>(offset(pos)));
+    }
+
+    /// Get the graph position from a seed.
+    static pos_t get_pos(seed_type seed) {
+        gbwt::node_type node = GBWTGraph::handle_to_node(seed.first);
+        return make_pos_t(gbwt::Node::id(node), gbwt::Node::is_reverse(node), get_node_offset(seed));
+    }
+
+    /// Get the node offset from a seed.
+    static size_t get_node_offset(seed_type seed) {
+        return (seed.second < 0 ? -(seed.second) : 0);
+    }
+
+    /// Get the read offset from a seed.
+    static size_t get_read_offset(seed_type seed) {
+        return (seed.second < 0 ? 0 : seed.second);
+    }
 
     /**
      * Find the best full-length alignment for the sequence within the cluster with
@@ -112,16 +131,16 @@ public:
      * If that is not possible, find the set of highest-scoring maximal extensions
      * of the seeds, allowing any number of mismatches in the seed node and
      * max_mismatches / 2 mismatches on each flank. Flanks may have more mismatches
-     * if it does not bring the total beyond max_mismatches. Then try to trim
-     * mismatches from the flanks if it improves the score.
+     * if it does not bring the total beyond max_mismatches. Then call trim() if
+     * trim_extensions i set.
      * The extensions are sorted by their coordinates in the sequence.
      */
-    std::vector<GaplessExtension> extend(cluster_type& cluster, const std::string& sequence, size_t max_mismatches = MAX_MISMATCHES) const;
+    std::vector<GaplessExtension> extend(cluster_type& cluster, const std::string& sequence, size_t max_mismatches = MAX_MISMATCHES, bool trim_extensions = true) const;
 
     /**
      * Try to improve the score of each extension by trimming mismatches from the flanks.
      * Do not trim full-length alignments with <= max_mismatches mismatches.
-     * Note that extend() already calls this.
+     * Note that extend() already calls this by default.
      */
     void trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches = MAX_MISMATCHES) const;
 

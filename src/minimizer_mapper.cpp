@@ -313,7 +313,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         GaplessExtender::cluster_type seed_matchings;
         for (auto& seed_index : cluster) {
             // Insert the (graph position, read offset) pair.
-            seed_matchings.insert(extender.to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
+            seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
 #ifdef debug
             cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
                 << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index->count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
