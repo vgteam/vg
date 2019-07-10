@@ -25,6 +25,7 @@ using namespace std;
 
 // Import all the handle stuff into the vg namespace for transition purposes.
 using handle_t = handlegraph::handle_t;
+using nid_t = handlegraph::nid_t;
 using path_handle_t = handlegraph::path_handle_t;
 using step_handle_t = handlegraph::step_handle_t;
 using edge_t = handlegraph::edge_t;
