@@ -51,6 +51,9 @@ void disambiguate_top_level_snarls(MutablePathDeletableHandleGraph &graph,
     int num_snarls_skipped = 0;
     vector<const Snarl *> snarl_roots = snarl_manager->top_level_snarls();
     for (auto roots : snarl_roots) {
+        cerr << "disambiguating snarl #" << (num_snarls_normalized + num_snarls_skipped)
+             << " source: " << roots->start().node_id() << " sink: "
+             << roots->end().node_id() << endl;
         bool success = disambiguate_snarl(graph, haploGraph, roots->start().node_id(),
                                           roots->end().node_id());
         if (success) {
@@ -896,7 +899,8 @@ void move_path_to_snarl(MutablePathDeletableHandleGraph &graph,
     // for every possible path, extend it to determine if it really is the path we're
     // looking for:
     while (!possible_paths.empty()) {
-        // take a path off of possible_paths, which will be copied for every iteration through graph.follow_edges, below:
+        // take a path off of possible_paths, which will be copied for every iteration
+        // through graph.follow_edges, below:
         tuple<vector<handle_t>, int, int> possible_path_query = possible_paths.back();
         possible_paths.pop_back();
 
@@ -904,7 +908,8 @@ void move_path_to_snarl(MutablePathDeletableHandleGraph &graph,
         // paths still satisfy the requirements for being a possible_path:
         bool no_path = graph.follow_edges(
             get<0>(possible_path_query).back(), false, [&](const handle_t &next) {
-                // make a copy to be extended for through each possible next handle in follow edges.
+                // make a copy to be extended for through each possible next handle in
+                // follow edges.
                 tuple<vector<handle_t>, int, int> possible_path = possible_path_query;
 
                 // extract relevant information to make code more readable.

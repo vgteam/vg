@@ -23,36 +23,20 @@ echo compiling!
 echo running!
 
 
-## testing vg normalize in Courtyard on smaller graph:
-TEST_DIR=test/robin_tests/normalize_2
-# To produce .snarls:
-vg snarls $TEST_DIR/normalize.vg >$TEST_DIR/normalize.snarls 
-echo "SNARLS MADE"
-# To produce .gbwt:
-vg index -G $TEST_DIR/normalize.gbwt -v $TEST_DIR/HGSVC.haps.chr10.vcf.gz $TEST_DIR/normalize.vg
-echo "GBWT MADE"
-# Convert .vg to .hg:
-vg convert -v $TEST_DIR/normalize.vg -A >$TEST_DIR/normalize.hg
-echo "CONVERTED VG TO HG"
-# Run normalize algorithm:
-vg normalize -g $TEST_DIR/normalize.gbwt -s $TEST_DIR/normalize.snarls $TEST_DIR/normalize.hg >$TEST_DIR/normalize_out.hg
-echo "normalized."
+## run normalize_snarls on subsetted full chromosome 10:
+TEST_DIR=test/robin_tests/chr10
+vg normalize -g $TEST_DIR/hgsvc_chr10_construct.gbwt -s $TEST_DIR/hgsvc_chr10_construct.snarls $TEST_DIR/hgsvc_chr10_construct.hg >$TEST_DIR/$FILE_BASENAME_normalized.hg
+echo "NORMALIZED HG MADE"
 
-# ## testing vg normalize in local machine on smaller graph (checking that serialization still works):
-# TEST_DIR=test/robin_tests/robin_haplotypes/threads_in_middle_example
-# # To produce .snarls:
-# vg snarls $TEST_DIR/chr10_subgraph_0_new.vg >$TEST_DIR/new_remake_test/normalize.snarls 
-# echo "SNARLS MADE"
-# # To produce .gbwt:
-# vg index -G $TEST_DIR/new_remake_test/normalize.gbwt -v $TEST_DIR/HGSVC.haps.chr10.vcf.gz $TEST_DIR/chr10_subgraph_0_new.vg
-# echo "GBWT MADE"
-# # Convert .vg to .hg:
-# vg convert -v $TEST_DIR/chr10_subgraph_0_new.vg -A >$TEST_DIR/new_remake_test/normalize.hg
-# # vg convert -v $TEST_DIR/chr10_subgraph_0_new.vg -A >$TEST_DIR/new_remake_test/normalize.hg
-# echo "CONVERTED VG TO HG"
-# # Run normalize algorithm:
-# vg normalize -g $TEST_DIR/new_remake_test/normalize.gbwt -s $TEST_DIR/new_remake_test/normalize.snarls $TEST_DIR/new_remake_test/normalize.hg >$TEST_DIR/new_remake_test/normalize_out.hg
-# echo "normalized."
+# ## split off the first few snarls from chromosome ten: (aiming for nodes between 1883 and 12677)
+# VG_DIR=/public/groups/cgl/graph-genomes/jmonlong/hgsvc/haps/chr10
+# TEST_DIR=test/robin_tests/chr10_subset
+# vg mod -g 7280 -x 5360 $VG_DIR/hgsvc_chr10_construct.vg >$TEST_DIR/hgsvc_chr10_construct_first_few_snarls.vg #produces snarl from 1879:12785
+
+# ## run normalize_snarls on already made full chromosome 10:
+# TEST_DIR=test/robin_tests/chr10
+# vg normalize -g $TEST_DIR/hgsvc_chr10_construct.gbwt -s $TEST_DIR/hgsvc_chr10_construct.snarls $TEST_DIR/hgsvc_chr10_construct.hg >$TEST_DIR/$FILE_BASENAME_normalized.hg
+# echo "NORMALIZED HG MADE"
 
 # ##running normalize_snarls on a full chromosome.
 # VG_DIR=/public/groups/cgl/graph-genomes/jmonlong/hgsvc/haps/chr10
@@ -78,6 +62,37 @@ echo "normalized."
 # dot -Tsvg -o $TEST_DIR/$FILE_BASENAME_normalized.svg
 # # chromium-browser $TEST_DIR/$FILE_BASENAME_normalized.svg
 
+
+# ## testing vg normalize in Courtyard on smaller graph:
+# TEST_DIR=test/robin_tests/normalize_2
+# # To produce .snarls:
+# vg snarls $TEST_DIR/normalize.vg >$TEST_DIR/normalize.snarls 
+# echo "SNARLS MADE"
+# # To produce .gbwt:
+# vg index -G $TEST_DIR/normalize.gbwt -v $TEST_DIR/HGSVC.haps.chr10.vcf.gz $TEST_DIR/normalize.vg
+# echo "GBWT MADE"
+# # Convert .vg to .hg:
+# vg convert -v $TEST_DIR/normalize.vg -A >$TEST_DIR/normalize.hg
+# echo "CONVERTED VG TO HG"
+# # Run normalize algorithm:
+# vg normalize -g $TEST_DIR/normalize.gbwt -s $TEST_DIR/normalize.snarls $TEST_DIR/normalize.hg >$TEST_DIR/normalize_out.hg
+# echo "normalized."
+
+# ## testing vg normalize in local machine on smaller graph (checking that serialization still works):
+# TEST_DIR=test/robin_tests/robin_haplotypes/threads_in_middle_example
+# # To produce .snarls:
+# vg snarls $TEST_DIR/chr10_subgraph_0_new.vg >$TEST_DIR/new_remake_test/normalize.snarls 
+# echo "SNARLS MADE"
+# # To produce .gbwt:
+# vg index -G $TEST_DIR/new_remake_test/normalize.gbwt -v $TEST_DIR/HGSVC.haps.chr10.vcf.gz $TEST_DIR/chr10_subgraph_0_new.vg
+# echo "GBWT MADE"
+# # Convert .vg to .hg:
+# vg convert -v $TEST_DIR/chr10_subgraph_0_new.vg -A >$TEST_DIR/new_remake_test/normalize.hg
+# # vg convert -v $TEST_DIR/chr10_subgraph_0_new.vg -A >$TEST_DIR/new_remake_test/normalize.hg
+# echo "CONVERTED VG TO HG"
+# # Run normalize algorithm:
+# vg normalize -g $TEST_DIR/new_remake_test/normalize.gbwt -s $TEST_DIR/new_remake_test/normalize.snarls $TEST_DIR/new_remake_test/normalize.hg >$TEST_DIR/new_remake_test/normalize_out.hg
+# echo "normalized."
 
 # ## Jordan's buggy command example
 # vg convert -v /public/groups/cgl/graph-genomes/jmonlong/hgsvc/haps/chr10/hgsvc_chr10_construct.vg -A >test/robin_tests/chr10/hgsvc_chr10_construct_test.hg
