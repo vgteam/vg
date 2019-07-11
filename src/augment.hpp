@@ -39,6 +39,26 @@ void augment(MutablePathMutableHandleGraph* graph,
              bool break_at_ends = false,
              bool remove_soft_clips = false);
 
+/// Like above, but operates on a vector of Alignments, instead of a stream
+/// (Note: It is best to use stream interface for large numbers of alignments to save memory)
+void augment(MutablePathMutableHandleGraph* graph,
+             vector<Alignment>& gam_vector,
+             vector<Translation>* out_translation = nullptr,
+             ostream* gam_out_stream = nullptr,
+             function<void(Path&)> save_path_fn = nullptr,
+             bool break_at_ends = false,
+             bool remove_soft_clips = false);
+
+/// Generic version used to implement the above two methods.  
+void augment_impl(MutablePathMutableHandleGraph* graph,
+                  function<void(function<void(Alignment&)>, bool)> iterate_gam,
+                  vector<Translation>* out_translation,
+                  ostream* gam_out_stream,
+                  function<void(Path&)> save_path_fn,
+                  bool break_at_ends,
+                  bool remove_soft_clips);
+
+
 /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
 /// them to the given map by node ID of sets of bases in the node that will need
 /// to become the starts of new nodes.
