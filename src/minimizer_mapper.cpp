@@ -296,11 +296,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         size_t& cluster_num = cluster_indexes_in_order[i];
 
         //Always take the first two clusters, but filter the rest
-        if (i > 1 && (cluster_score_threshold != 0 && cluster_score[cluster_indexes_in_order[i]] < cluster_score_cutoff)) {
+        if (cluster_score_threshold != 0 && cluster_score[cluster_indexes_in_order[i]] < cluster_score_cutoff) {
             //If the cluster score isn't good enough, then no later one will be so we break
             continue;
         } 
-        if (i > 1 && (cluster_coverage_threshold != 0 && read_coverage_by_cluster[cluster_num] < cluster_coverage_cutoff)) {
+        if (cluster_coverage_threshold != 0 && read_coverage_by_cluster[cluster_num] < cluster_coverage_cutoff) {
             //If the cluster_coverage isn't good enough, ignore this cluster
             break;
         }
