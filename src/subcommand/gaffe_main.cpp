@@ -442,7 +442,7 @@ int main_gaffe(int argc, char** argv) {
     minimizer_mapper.do_chaining = do_chaining;
 
     if (progress) {
-        cerr << "--max-multipmaps " << max_multimaps << endl;
+        cerr << "--max-multimaps " << max_multimaps << endl;
     }
     minimizer_mapper.max_multimaps = max_multimaps;
 
