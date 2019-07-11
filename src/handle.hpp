@@ -8,6 +8,7 @@
 #include <handlegraph/handle_graph.hpp>
 #include <handlegraph/mutable_handle_graph.hpp>
 #include <handlegraph/path_handle_graph.hpp>
+#include <handlegraph/path_position_handle_graph.hpp>
 #include <handlegraph/mutable_path_handle_graph.hpp>
 #include <handlegraph/mutable_path_mutable_handle_graph.hpp>
 #include <handlegraph/deletable_handle_graph.hpp>
@@ -31,6 +32,7 @@ using edge_t = handlegraph::edge_t;
 using HandleGraph = handlegraph::HandleGraph;
 using MutableHandleGraph = handlegraph::MutableHandleGraph;
 using PathHandleGraph = handlegraph::PathHandleGraph;
+using PathPositionHandleGraph = handlegraph::PathPositionHandleGraph;
 using MutablePathHandleGraph = handlegraph::MutablePathHandleGraph;
 using MutablePathMutableHandleGraph = handlegraph::MutablePathMutableHandleGraph;
 using DeletableHandleGraph = handlegraph::DeletableHandleGraph;

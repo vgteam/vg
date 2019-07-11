@@ -157,7 +157,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         
         for (size_t i = 0; i < seeds.size(); i++) {
             // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
-            auto offsets = xg_index->nearest_offsets_in_paths(seeds[i], 100);
+            auto offsets = algorithms::nearest_offsets_in_paths(xg_index, seeds[i], 100);
             for (auto& hit_pos : offsets[true_pos.name()]) {
                 // Look at all the ones on the path the read's true position is on.
                 if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {

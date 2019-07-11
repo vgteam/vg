@@ -18,7 +18,7 @@ SnarlTraversal get_traversal_of_snarl(VG& graph, const Snarl* snarl, const Snarl
     for(size_t i = 0; i < path.mapping_size(); i++) {
         const Mapping& mapping = path.mapping(i);
 
-        if(contents.first.count(graph.get_node(mapping.position().node_id()))) {
+        if(contents.first.count(mapping.position().node_id())) {
             // We're inside the bubble. This is super simple when we have the contents!
             *to_return.add_visit() = to_visit(mapping, true);
         }

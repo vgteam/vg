@@ -711,9 +711,9 @@ int main_map(int argc, char** argv) {
     // if no paths were given take all of those in the index
     set<string> path_names;
     if ((output_format == "SAM" || output_format == "BAM" || output_format == "CRAM") && path_names.empty()) {
-        for (size_t i = 1; i <= xgidx->path_count; ++i) {
-            path_names.insert(xgidx->path_name(i));
-        }
+        xgidx->for_each_path_handle([&](const path_handle_t& path_handle) {
+            path_names.insert(xgidx->get_path_name(path_handle));
+        });
     }
     
     // If we need to do surjection, we will need a surjector. So set one up.

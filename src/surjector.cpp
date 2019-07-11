@@ -5,7 +5,6 @@
 
 #include "surjector.hpp"
 
-//#define debug_surject
 //#define debug_anchored_surject
 //#define debug_validate_anchored_multipath_alignment
 
@@ -65,24 +64,22 @@ using namespace std;
             }
         }
 
-        // translate the path names into ranks for the XG
-        unordered_map<size_t, string> path_rank_to_name;
+        // translate the path names into ranks for the XG and path hanles
+        unordered_set<path_handle_t> surjection_path_handles;
         for (const string& path_name : path_names) {
-            path_rank_to_name[xindex->path_rank(path_name)] = path_name;
+            surjection_path_handles.insert(xindex->get_path_handle(path_name));
         }
         
-        
-        // memos for expensive succinct operations that may be repeated
-        unordered_map<int64_t, vector<size_t>> paths_of_node_memo;
-        unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>> oriented_occurrences_memo;
+        // make an overlay that will memoize the results of some expensive XG operations
+        MemoizingGraph memoizing_graph(xindex);
         
         // get the chunks of the aligned path that overlap the ref path
-        auto path_overlapping_anchors = extract_overlapping_paths(source, path_rank_to_name, &paths_of_node_memo, &oriented_occurrences_memo);
+        auto path_overlapping_anchors = extract_overlapping_paths(&memoizing_graph, source, surjection_path_handles);
         
 #ifdef debug_anchored_surject
         cerr << "got path overlapping segments" << endl;
         for (const auto& path_record : path_overlapping_anchors) {
-            cerr << "path rank " << path_record.first << endl;
+            cerr << "path " << xindex->get_path_name(path_record.first) << endl;
             for (auto& anchor : path_record.second) {
                 cerr << "\t read[" << (anchor.first.first - source.sequence().begin()) << ":" << (anchor.first.second - source.sequence().begin()) << "] : ";
                 for (auto iter = anchor.first.first; iter != anchor.first.second; iter++) {
@@ -95,34 +92,33 @@ using namespace std;
 #endif
         
         // the surjected alignment for each path we overlapped
-        unordered_map<size_t, Alignment> path_surjections;
-        for (pair<const size_t, vector<path_chunk_t>>& path_record : path_overlapping_anchors) {
+        unordered_map<path_handle_t, Alignment> path_surjections;
+        for (pair<const path_handle_t, vector<path_chunk_t>>& path_record : path_overlapping_anchors) {
 #ifdef debug_anchored_surject
-            cerr << "found overlaps on path " << path_record.first << ", performing surjection" << endl;
+            cerr << "found overlaps on path " << xindex->get_path_name(path_record.first) << ", performing surjection" << endl;
 #endif
             
-            const XGPath& xpath = xindex->get_path(path_rank_to_name[path_record.first]);
-            
             // find the interval of the ref path we need to consider
-            pair<size_t, size_t> ref_path_interval = compute_path_interval(source, path_record.first, xpath, path_record.second,
-                                                                           &oriented_occurrences_memo);
+            pair<size_t, size_t> ref_path_interval = compute_path_interval(&memoizing_graph, source, path_record.first,
+                                                                           path_record.second);
             
 #ifdef debug_anchored_surject
             cerr << "final path interval is " << ref_path_interval.first << ":" << ref_path_interval.second << endl;
 #endif
             
             // get the path graph corresponding to this interval
-            unordered_map<id_t, pair<id_t, bool>> path_trans;
-            VG path_graph = extract_linearized_path_graph(ref_path_interval.first, ref_path_interval.second, xpath, path_trans);
+            sglib::HashGraph path_graph;
+            unordered_map<id_t, pair<id_t, bool>> path_trans = extract_linearized_path_graph(&memoizing_graph, &path_graph, path_record.first,
+                                                                                             ref_path_interval.first, ref_path_interval.second);
             
             // split it into a forward and reverse strand
-            VG split_path_graph;
+            sglib::HashGraph split_path_graph;
             unordered_map<id_t, pair<id_t, bool>> split_trans = algorithms::split_strands(&path_graph, &split_path_graph);
             
-            auto node_trans = split_path_graph.overlay_node_translations(split_trans, path_trans);
+            auto node_trans = overlay_node_translations(split_trans, path_trans);
             
 #ifdef debug_anchored_surject
-            cerr << "made split, linearized path graph " << pb2json(split_path_graph.graph) << endl;
+            cerr << "made split, linearized path graph" << endl;
 #endif
             
             // compute the connectivity between the path chunks
@@ -184,27 +180,23 @@ using namespace std;
         
         // in case we didn't overlap any paths, add a sentinel so the following code still executes correctly
         if (path_surjections.empty()) {
-            path_surjections[0] = make_null_alignment(source);
+            path_surjections[handlegraph::as_path_handle(0)] = make_null_alignment(source);
         }
         
         // choose which path surjection was best
-        size_t best_path_rank;
+        path_handle_t best_path_handle;
         int32_t score = numeric_limits<int32_t>::min();
         for (const auto& surjection : path_surjections) {
             if (surjection.second.score() >= score) {
                 score = surjection.second.score();
-                best_path_rank = surjection.first;
+                best_path_handle = surjection.first;
             }
         }
-        
-        // which path was it?
-        path_name_out = path_rank_to_name[best_path_rank];
-        
-        Alignment& best_surjection = path_surjections[best_path_rank];
+        Alignment& best_surjection = path_surjections[best_path_handle];
         
         // find the position along the path
-        const XGPath& best_xpath = xindex->get_path(path_name_out);
-        set_path_position(best_surjection, best_path_rank, best_xpath, path_name_out, path_pos_out, path_rev_out, &oriented_occurrences_memo);
+        set_path_position(&memoizing_graph, best_surjection, best_path_handle,
+                          path_name_out, path_pos_out, path_rev_out);
         
 #ifdef debug_anchored_surject
         cerr << "chose path " << path_name_out << " at position " << path_pos_out << (path_rev_out ? "-" : "+") << endl;
@@ -212,18 +204,17 @@ using namespace std;
         return move(best_surjection);
     }
     
-    unordered_map<size_t, vector<Surjector::path_chunk_t>>
-    Surjector::extract_overlapping_paths(const Alignment& source, const unordered_map<size_t, string>& path_rank_to_name,
-                                         unordered_map<int64_t, vector<size_t>>* paths_of_node_memo,
-                                         unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo) const {
+    unordered_map<path_handle_t, vector<Surjector::path_chunk_t>>
+    Surjector::extract_overlapping_paths(const PathPositionHandleGraph* graph, const Alignment& source,
+                                         const unordered_set<path_handle_t>& surjection_paths) const {
         
-        
-        unordered_map<size_t, vector<path_chunk_t>> to_return;
+        unordered_map<path_handle_t, vector<path_chunk_t>> to_return;
         
         const Path& path = source.path();
         
-        // for each path rank that we're extending, the offset and relative orientation of the previous node
-        unordered_map<size_t, unordered_set<pair<size_t, bool>>> offset_and_orientations_on_paths;
+        // for each path that we're extending, the previous step and the strand we were at on it
+        // mapped to the index of that path chunk in the path's vector
+        unordered_map<pair<step_handle_t, bool>, size_t> extending_steps;
         int64_t through_to_length = 0;
         
         for (size_t i = 0; i < path.mapping_size(); i++) {
@@ -232,156 +223,163 @@ using namespace std;
             through_to_length += mapping_to_length(path.mapping(i));
             
             const Position& pos = path.mapping(i).position();
-            vector<size_t> paths_of_node = xindex->memoized_paths_of_node(pos.node_id(), paths_of_node_memo);
+            handle_t handle = graph->get_handle(pos.node_id(), pos.is_reverse());
             
-            unordered_set<size_t> paths_here;
-            for (size_t path_rank : paths_of_node) {
-                if (path_rank_to_name.count(path_rank)) {
-                    paths_here.insert(path_rank);
-                }
-            }
+#ifdef debug_anchored_surject
+            cerr << "looking for paths on mapping " << i << " at position " << make_pos_t(pos) << endl;
+#endif
             
-            if (paths_here.empty()) {
-                // none of the paths that this node is on are in the list we're surjecting onto
-                offset_and_orientations_on_paths.clear();
-            }
-            else {
-                // we're on at least one path that we're surjecting onto
+            unordered_map<pair<step_handle_t, bool>, size_t> next_extending_steps;
+            
+            for (const step_handle_t& step : graph->steps_of_handle(handle)) {
                 
-                // for each path
-                for (size_t path_rank : paths_here) {
-                    
-                    // we'll need to know where this node occurs on the path
-                    auto occurrences = xindex->memoized_oriented_occurrences_on_path(pos.node_id(), path_rank,
-                                                                                     oriented_occurrences_memo);
-                    
-                    // the chunks of the alignments along this path
-                    vector<path_chunk_t>& path_chunks = to_return[path_rank];
-                    
-                    // get the location(s) we were extending along the path in the previous iteration (if any)
-                    auto& offset_and_orientations_on_path = offset_and_orientations_on_paths[path_rank];
-                    
-                    if (offset_and_orientations_on_paths.count(path_rank)) {
-                        // we were on the path before too, so we might be extending an existing chunk
-                        
-                        // do any of these locations match up with where we are now?
-                        unordered_set<pair<size_t, bool>> next_offsets_and_orientations;
-                        for (pair<size_t, bool>& occurrence : occurrences) {
-                            bool on_reverse = (occurrence.second != pos.is_reverse());
-                            size_t prev_offset = on_reverse ? occurrence.first + 1 : occurrence.first - 1;
-                            
-                            if (offset_and_orientations_on_path.count(make_pair(prev_offset, on_reverse))) {
-                                next_offsets_and_orientations.emplace(occurrence.first, on_reverse);
-                            }
-                        }
-                        
-                        if (next_offsets_and_orientations.empty()) {
-                            // we're still on the path, but we didn't follow the next edge in the path so this
-                            // is actually the start of a new chunk not a continuation of the current chunk
-                            
-                            // initialize a path chunk
-                            path_chunks.emplace_back();
-                            path_chunks.back().first.first = source.sequence().begin() + before_to_length;
-                            
-                            // mark the locations of this node along the path
-                            offset_and_orientations_on_path.clear();
-                            for (pair<size_t, bool>& occurrence : occurrences) {
-                                offset_and_orientations_on_path.emplace(occurrence.first, occurrence.second != pos.is_reverse());
-                            }
-                        }
-                        else {
-                            // keep track of where the next positions should come from
-                            offset_and_orientations_on_path = move(next_offsets_and_orientations);
-                        }
-                    }
-                    else {
-                        // this is the start of a new chunk, initialize it with a mpapping
-                        path_chunks.emplace_back();
-                        path_chunks.back().first.first = source.sequence().begin() + before_to_length;
-                        
-                        // mark the locations of this node along the path
-                        offset_and_orientations_on_path.clear();
-                        for (pair<size_t, bool>& occurrence : occurrences) {
-                            offset_and_orientations_on_path.emplace(occurrence.first, occurrence.second != pos.is_reverse());
-                        }
-                    }
-                    
-                    // extend the path chunk by this mapping
-                    path_chunks.back().first.second = source.sequence().begin() + through_to_length;
-                    *path_chunks.back().second.add_mapping() = path.mapping(i);
+#ifdef debug_anchored_surject
+                cerr << "found a step on " << graph->get_path_name(graph->get_path_handle_of_step(step)) << endl;
+#endif
+                
+                path_handle_t path_handle = graph->get_path_handle_of_step(step);
+                if (!surjection_paths.count(path_handle)) {
+                    // we are not surjecting onto this path
+#ifdef debug_anchored_surject
+                    cerr << "not surjecting to this path, skipping" << endl;
+#endif
+                    continue;
                 }
                 
-                // if we've left any paths, we need to remove them from the locations index
-                vector<size_t> to_erase;
-                for (const auto& path_record : offset_and_orientations_on_paths) {
-                    if (!paths_here.count(path_record.first)) {
-                        to_erase.push_back(path_record.first);
-                    }
+                // the chunks of the alignments along this path
+                vector<path_chunk_t>& path_chunks = to_return[path_handle];
+                
+                bool path_strand = graph->get_is_reverse(handle) != graph->get_is_reverse(graph->get_handle_of_step(step));
+                
+                step_handle_t prev_step = path_strand ? graph->get_next_step(step) : graph->get_previous_step(step);
+                
+#ifdef debug_anchored_surject
+                cerr << "path strand is " << (path_strand ? "rev" : "fwd") << ", prev step is ";
+                if (prev_step == graph->path_end(path_handle)) {
+                    cerr << " path end";
                 }
-                for (size_t path_rank : to_erase) {
-                    offset_and_orientations_on_paths.erase(path_rank);
+                else if (prev_step == graph->path_front_end(path_handle)) {
+                    cerr << " path front end";
+                }
+                else {
+                    cerr << graph->get_id(graph->get_handle_of_step(prev_step)) << (graph->get_is_reverse(graph->get_handle_of_step(prev_step)) ? "-" : "+");
+                }
+                cerr << endl;
+                cerr << "possible extensions from: " << endl;
+                for (const auto& record : extending_steps) {
+                    cerr << "\t" << graph->get_id(graph->get_handle_of_step(record.first.first)) << (graph->get_is_reverse(graph->get_handle_of_step(record.first.first)) ? "-" : "+") << " on " << graph->get_path_name(graph->get_path_handle_of_step(record.first.first)) << " " << (record.first.second ? "rev" : "fwd") << endl;
+                }
+#endif
+                
+                if (extending_steps.count(make_pair(prev_step, path_strand))) {
+                    // we are extending from the previous step, so we continue with the extension
+                    
+                    auto& path_chunks = to_return[graph->get_path_handle_of_step(step)];
+                    path_chunk_t& chunk = path_chunks[extending_steps[make_pair(prev_step, path_strand)]];
+                    
+                    // move the end of the sequence out
+                    chunk.first.second = source.sequence().begin() + through_to_length;
+                    Mapping* mapping = chunk.second.add_mapping();
+                    // add this mapping
+                    *mapping = path.mapping(i);
+                    mapping->set_rank(chunk.second.mapping(chunk.second.mapping_size() - 2).rank() + 1);
+                    
+                    // in the next iteration, this step should point into the chunk it just extended
+                    next_extending_steps[make_pair(step, path_strand)] = extending_steps[make_pair(prev_step, path_strand)];
+                }
+                else {
+                    // this step does not extend a previous step, so we start a new chunk
+                    auto& path_chunks = to_return[graph->get_path_handle_of_step(step)];
+                    path_chunks.emplace_back();
+                    path_chunk_t& chunk = path_chunks.back();
+                    
+                    // init the new chunk with the sequence interval
+                    chunk.first.first = source.sequence().begin() + before_to_length;
+                    chunk.first.second = source.sequence().begin() + through_to_length;
+                    
+                    // and with the first mapping
+                    Mapping* mapping = chunk.second.add_mapping();
+                    *mapping = path.mapping(i);
+                    mapping->set_rank(1);
+                    
+                    // keep track of where this chunk is in the vector and which step it came from
+                    // for the next iteration
+                    next_extending_steps[make_pair(step, path_strand)] = path_chunks.size() - 1;
                 }
             }
+            
+            // we've finished extending the steps from the previous mapping, so we replace them
+            // with the steps we found in this iteration that we want to extend on the next one
+            extending_steps = next_extending_steps;
         }
         
         return to_return;
     }
     
     pair<size_t, size_t>
-    Surjector::compute_path_interval(const Alignment& source, size_t path_rank, const XGPath& xpath, const vector<path_chunk_t>& path_chunks,
-                                     unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo) const {
+    Surjector::compute_path_interval(const PathPositionHandleGraph* graph, const Alignment& source, path_handle_t path_handle,
+                                     const vector<path_chunk_t>& path_chunks) const {
         
         pair<size_t, size_t> interval(numeric_limits<size_t>::max(), numeric_limits<size_t>::min());
         
         for (const auto& path_chunk : path_chunks) {
             
-            string::const_iterator read_pos = path_chunk.first.first;
+            size_t path_length = graph->get_path_length(path_handle);
             
-            // TODO: do I need to do this at every mapping? it might be enough to just look at the first and last
-            for (size_t i = 0; i < path_chunk.second.mapping_size(); i++) {
-                const Position& pos = path_chunk.second.mapping(i).position();
+            size_t left_overhang = (get_aligner()->longest_detectable_gap(source, path_chunk.first.first)
+                                    + (path_chunk.first.first - source.sequence().begin()));
+            
+            size_t right_overhang = (get_aligner()->longest_detectable_gap(source, path_chunk.first.second)
+                                     + (source.sequence().end() - path_chunk.first.second));
+            
+            const Position& first_pos = path_chunk.second.mapping(0).position();
+            handle_t first_handle = graph->get_handle(first_pos.node_id(), first_pos.is_reverse());
+            for (const step_handle_t& step : graph->steps_of_handle(first_handle)) {
                 
-                // the distance the read could align to the left of this mapping (oriented by the read)
-                int64_t left_overhang = get_aligner()->longest_detectable_gap(source, read_pos) + (read_pos - source.sequence().begin());
+                if (graph->get_path_handle_of_step(step) != path_handle) {
+                    // this step isn't on the path we're considering
+                    continue;
+                }
                 
-                read_pos += mapping_to_length(path_chunk.second.mapping(i));
-                
-                // the distance the read could align to the right of this mapping (oriented by the read)
-                int64_t right_overhang = get_aligner()->longest_detectable_gap(source, read_pos) + (source.sequence().end() - read_pos);
-                
-                auto oriented_occurrences = xindex->memoized_oriented_occurrences_on_path(pos.node_id(), path_rank,
-                                                                                          oriented_occurrences_memo);
-                
-                // the length forward along the path that the end of the mapping is
-                int64_t mapping_length = mapping_from_length(path_chunk.second.mapping(i));
-                
-                for (const pair<size_t, bool>& occurrence : oriented_occurrences) {
-                    if (occurrence.second == pos.is_reverse()) {
-                        int64_t path_offset = xpath.positions[occurrence.first];
-                        
-                        int64_t left_boundary = max<int64_t>(0, path_offset + pos.offset() - left_overhang);
-                        interval.first = min<size_t>(interval.first, left_boundary);
-                        
-                        int64_t right_boundary = min<int64_t>(path_offset + pos.offset() + mapping_length + right_overhang, xpath.offsets.size() - 1);
-                        interval.second = max<size_t>(interval.second, right_boundary);
-                        
-#ifdef debug_anchored_surject
-                        cerr << "path chunk " << pb2json(path_chunk.second) << " can be aligned to forward strand in interval " << left_boundary << ":" << right_boundary << endl;
-#endif
+                if (first_pos.is_reverse() != graph->get_is_reverse(graph->get_handle_of_step(step))) {
+                    size_t path_offset = graph->get_position_of_step(step) + graph->get_length(first_handle) - first_pos.offset();
+                    interval.second = max(interval.second, min(path_offset + left_overhang, path_length));
+                }
+                else {
+                    size_t path_offset = graph->get_position_of_step(step) + first_pos.offset();
+                    if (left_overhang > path_offset) {
+                        // avoid underflow
+                        interval.first = 0;
                     }
                     else {
-                        int64_t path_offset = occurrence.first + 1 < xpath.positions.size() ? xpath.positions[occurrence.first + 1] : xpath.offsets.size();
-                        
-                        int64_t left_boundary = max<int64_t>(0, path_offset - pos.offset() - mapping_length - right_overhang);
-                        interval.first = min<size_t>(interval.first, left_boundary);
-                        
-                        int64_t right_boundary = min<int64_t>(path_offset - pos.offset() + left_overhang, xpath.offsets.size() - 1);
-                        interval.second = max<size_t>(interval.second, right_boundary);
-                        
-#ifdef debug_anchored_surject
-                        cerr << "path chunk " << pb2json(path_chunk.second) << " can be aligned to reverse strand in interval " << left_boundary << ":" << right_boundary << endl;
-#endif
+                        interval.first = min(interval.first, path_offset - left_overhang);
                     }
+                }
+            }
+            
+            const Mapping& final_mapping = path_chunk.second.mapping(path_chunk.second.mapping_size() - 1);
+            const Position& final_pos = final_mapping.position();
+            handle_t final_handle = graph->get_handle(final_pos.node_id(), final_pos.is_reverse());
+            for (const step_handle_t& step : graph->steps_of_handle(final_handle)) {
+                
+                if (graph->get_path_handle_of_step(step) != path_handle) {
+                    // this step isn't on the path we're considering
+                    continue;
+                }
+                
+                if (final_pos.is_reverse() != graph->get_is_reverse(graph->get_handle_of_step(step))) {
+                    size_t path_offset = graph->get_position_of_step(step) + graph->get_length(final_handle) - final_pos.offset() - mapping_from_length(final_mapping);
+                    if (right_overhang > path_offset) {
+                        // avoid underflow
+                        interval.first = 0;
+                    }
+                    else {
+                        interval.first = min(interval.first, path_offset - right_overhang);
+                    }
+                }
+                else {
+                    size_t path_offset = graph->get_position_of_step(step) + first_pos.offset() + mapping_to_length(final_mapping);
+                    interval.second = max(interval.second, min(path_offset + right_overhang, path_length));
                 }
             }
         }
@@ -389,48 +387,51 @@ using namespace std;
         return interval;
     }
     
-    VG Surjector::extract_linearized_path_graph(size_t first, size_t last, const XGPath& xpath,
-                                                unordered_map<id_t, pair<id_t, bool>>& node_trans) const {
+    unordered_map<id_t, pair<id_t, bool>>
+    Surjector::extract_linearized_path_graph(const PathPositionHandleGraph* graph, MutableHandleGraph* into,
+                                             path_handle_t path_handle, size_t first, size_t last) const {
+        
+        // TODO: we need better semantics than an unsigned interval for surjecting to circular paths
         
 #ifdef debug_anchored_surject
-        cerr << "extracting path graph for position interval " << first << ":" << last << " in path of length " << xpath.positions[xpath.positions.size() - 1] + xindex->node_length(xpath.node(xpath.ids.size() - 1)) << endl;
+        cerr << "extracting path graph for position interval " << first << ":" << last << " in path of length " << graph->get_path_length(path_handle) << endl;
 #endif
         
-        VG path_graph;
+        unordered_map<id_t, pair<id_t, bool>> node_trans;
         
-        size_t begin = xpath.offset_at_position(first);
-        size_t end = min<size_t>(xpath.positions.size(), xpath.offset_at_position(last) + 1);
+        step_handle_t begin = graph->get_step_at_position(path_handle, first);
+        step_handle_t end = graph->get_step_at_position(path_handle, last);
         
-        Node* prev_node = nullptr;
-        for (size_t i = begin; i < end; i++) {
-            
-            id_t node_id = xpath.node(i);
-            string seq = xindex->node_sequence(node_id);
-            bool rev = xpath.directions[i];
-            
-            Node* node;
-            if (rev) {
-                node = path_graph.create_node(reverse_complement(seq));
-            }
-            else {
-                node = path_graph.create_node(seq);
-            }
-            
-            if (prev_node) {
-                path_graph.create_edge(prev_node, node);
-            }
-            prev_node = node;
-            
-            node_trans[node->id()] = make_pair(node_id, rev);
+        if (graph->get_position_of_step(end) < last && end != graph->path_end(path_handle)) {
+            // we actually want part of this step too, so we use the next one as the end iterator
+            end = graph->get_next_step(end);
         }
         
-        return path_graph;
+        handle_t prev_node;
+        for (step_handle_t step = begin; step != end; step = graph->get_next_step(step)) {
+            // copy the node with the local orientation now forward
+            handle_t copying = graph->get_handle_of_step(step);
+            handle_t node_here = into->create_handle(graph->get_sequence(copying));
+            
+            if (step != begin) {
+                // add an edge from the previous node
+                into->create_edge(prev_node, node_here);
+            }
+            
+            // record the translation
+            node_trans[into->get_id(node_here)] = pair<id_t, bool>(graph->get_id(copying),
+                                                                   graph->get_is_reverse(copying));
+            
+            prev_node = node_here;
+        }
+        
+        return node_trans;
     }
     
-    void Surjector::set_path_position(const Alignment& surjected, size_t best_path_rank, const XGPath& xpath,
-                                      string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
-                                      unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo) const {
-        
+    void Surjector::set_path_position(const PathPositionHandleGraph* graph, const Alignment& surjected,
+                                      path_handle_t best_path_handle,
+                                      string& path_name_out, int64_t& path_pos_out, bool& path_rev_out) const {
+
         const Path& path = surjected.path();
         
         if (path.mapping_size() == 0){
@@ -441,64 +442,73 @@ using namespace std;
             return;
         }
         
-        const Position& start_pos = path.mapping(0).position();
+#ifdef debug_anchored_surject
+        cerr << "choosing a path position for surjected alignment on path " << graph->get_path_name(best_path_handle) << endl;
+#endif
         
-        vector<pair<size_t, bool>> oriented_occurrences = xindex->memoized_oriented_occurrences_on_path(start_pos.node_id(), best_path_rank,
-                                                                                                        oriented_occurrences_memo);
-
-        for (pair<size_t, bool>& occurrence : oriented_occurrences) {
-            if (occurrence.second == start_pos.is_reverse()) {
-                // the first node in this alignment occurs on the forward strand of the path
-                
-                if (occurrence.first + path.mapping_size() > xpath.ids.size()) {
-                    // but it doesn't fit on the path
-                    continue;
-                }
-                
-                // does the alignment follow the path here?
-                bool match = true;
-                for (size_t i = 1; i < path.mapping_size(); i++) {
-                    const Position& pos = path.mapping(i).position();
-                    if (pos.node_id() != xpath.node(occurrence.first + i) || pos.is_reverse() != xpath.is_reverse(occurrence.first + i)) {
-                        match = false;
-                        break;
-                    }
-                }
-                
-                // we found where the alignment could be from
-                if (match) {
-                    path_pos_out = xpath.positions[occurrence.first] + start_pos.offset();
-                    path_rev_out = false;
-                    return;
-                }
+        const Position& start_pos = path.mapping(0).position();
+        handle_t start_handle = graph->get_handle(start_pos.node_id(), start_pos.is_reverse());
+        // TODO: depending on path coverage, it could be inefficient to iterate over all steps on the handle
+        for (const step_handle_t& step : graph->steps_of_handle(start_handle)) {
+#ifdef debug_anchored_surject
+            cerr << "found step on " << graph->get_path_name(graph->get_path_handle_of_step(step)) << endl;
+#endif
+            if (graph->get_path_handle_of_step(step) != best_path_handle) {
+                // this is not the path we surjected onto
+#ifdef debug_anchored_surject
+                cerr << "wrong path, skipping" << endl;
+#endif
+                continue;
             }
-            else {
-                // the first node in this alignment occurs on the reverse strand of the path
+            
+            bool strand = graph->get_is_reverse(graph->get_handle_of_step(step)) != start_pos.is_reverse();
+            
+            // does the alignment follow the path here?
+            bool match = true;
+            step_handle_t path_step = strand ? graph->get_previous_step(step) : graph->get_next_step(step);
+            for (size_t i = 1; i < path.mapping_size(); ++i) {
                 
-                if (occurrence.first + 1 < path.mapping_size()) {
-                    // but it doesn't fit on the path
-                    continue;
+                if (path_step == graph->path_end(best_path_handle) ||
+                    path_step == graph->path_front_end(best_path_handle)) {
+                    // we've gone off the end of the path
+#ifdef debug_anchored_surject
+                    cerr << "encountered end of path at mapping index " << i << ", skipping" << endl;
+#endif
+                    match = false;
+                    break;
                 }
                 
-                // does the alignment follow the path here?
-                bool match = true;
-                for (size_t i = 1; i < path.mapping_size(); i++) {
-                    const Position& pos = path.mapping(i).position();
-                    if (pos.node_id() != xpath.node(occurrence.first - i) || pos.is_reverse() == xpath.is_reverse(occurrence.first - i)) {
-                        match = false;
-                        break;
-                    }
+                const Position& pos = path.mapping(i).position();
+#ifdef debug_anchored_surject
+                cerr << "at mapping pos " << make_pos_t(pos) << " and path pos " << graph->get_id(graph->get_handle_of_step(path_step)) << (graph->get_is_reverse(graph->get_handle_of_step(path_step)) ? "-" : "+") << endl;
+#endif
+                
+                if (pos.node_id() != graph->get_id(graph->get_handle_of_step(path_step)) ||
+                    (pos.is_reverse() != graph->get_is_reverse(graph->get_handle_of_step(path_step)) != strand)) {
+                    // the path here doesn't match the surjected path
+#ifdef debug_anchored_surject
+                    cerr << "encountered mismatch at mapping index " << i << ", skipping" << endl;
+#endif
+                    match = false;
+                    break;
                 }
                 
-                // we found where the alignment could be from
-                if (match) {
-                    const Mapping& last_mapping = path.mapping(path.mapping_size() - 1);
-                    size_t last_offset = occurrence.first + 1 - path.mapping_size();
-                    int64_t node_start = last_offset + 1 < xpath.positions.size() ? xpath.positions[last_offset + 1] : xpath.offsets.size();
-                    path_pos_out = node_start - last_mapping.position().offset() - mapping_from_length(last_mapping);
-                    path_rev_out = true;
-                    return;
+                path_step = strand ? graph->get_previous_step(path_step) : graph->get_next_step(path_step);
+            }
+            
+            
+            if (match) {
+                // we found a match, so set the position values and return
+                path_name_out = graph->get_path_name(best_path_handle);
+                path_rev_out = strand;
+                size_t start_offset = graph->get_position_of_step(step);
+                if (strand) {
+                    path_pos_out = start_offset + graph->get_length(start_handle) - start_pos.offset() - path_from_length(path);
                 }
+                else {
+                    path_pos_out = start_offset + start_pos.offset();
+                }
+                return;
             }
         }
         

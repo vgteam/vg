@@ -134,27 +134,30 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
              graph.get_node(5), graph.get_node(6)};
                 
         REQUIRE(nodes.size() == correct.size());
-        for (Node* node : nodes) {
-          REQUIRE(correct.count(node));
+        for (id_t node_id : nodes) {
+            REQUIRE(correct.count(graph.get_node(node_id)));
         }
       }
             
       SECTION("and should contain exactly edges 1->6, 1->2, 2->3, 2->4, 3->5, 4->5, 5->6") {
-        auto edges = manager.deep_contents(site_1, graph, true).second;
-        set<Edge*> correct{
-          graph.get_edge(NodeSide(1, true), NodeSide(6)),
-             graph.get_edge(NodeSide(1, true), NodeSide(2)),
-             graph.get_edge(NodeSide(2, true), NodeSide(3)),
-             graph.get_edge(NodeSide(2, true), NodeSide(4)),
-             graph.get_edge(NodeSide(3, true), NodeSide(5)),
-             graph.get_edge(NodeSide(4, true), NodeSide(5)),
-             graph.get_edge(NodeSide(5, true), NodeSide(6))
-             };
+          auto edges = manager.deep_contents(site_1, graph, true).second;
+          set<Edge*> correct{
+              graph.get_edge(NodeSide(1, true), NodeSide(6)),
+                  graph.get_edge(NodeSide(1, true), NodeSide(2)),
+                  graph.get_edge(NodeSide(2, true), NodeSide(3)),
+                  graph.get_edge(NodeSide(2, true), NodeSide(4)),
+                  graph.get_edge(NodeSide(3, true), NodeSide(5)),
+                  graph.get_edge(NodeSide(4, true), NodeSide(5)),
+                  graph.get_edge(NodeSide(5, true), NodeSide(6))
+                  };
                 
-        REQUIRE(edges.size() == correct.size());
-        for (Edge* edge : edges) {
-          REQUIRE(correct.count(edge));
-        }
+          REQUIRE(edges.size() == correct.size());
+          for (const edge_t& edge_handle : edges) {
+              REQUIRE(correct.count(graph.get_edge(NodeTraversal(graph.get_node(graph.get_id(edge_handle.first)),
+                                                                 graph.get_is_reverse(edge_handle.first)),
+                                                   NodeTraversal(graph.get_node(graph.get_id(edge_handle.second)),
+                                                                 graph.get_is_reverse(edge_handle.second)))));
+          }
       }
             
       SECTION("and should contain one child") {

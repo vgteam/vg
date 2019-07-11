@@ -67,7 +67,7 @@ class XGFormatError : public runtime_error {
  * Provides succinct storage for a graph, its positional paths, and a set of
  * embedded threads.
  */
-class XG : public PathHandleGraph, public SerializableHandleGraph {
+class XG : public PathPositionHandleGraph, public SerializableHandleGraph {
 public:
     
     ////////////////////////////////////////////////////////////////////////////
@@ -272,8 +272,6 @@ public:
     bool get_is_circular(const path_handle_t& path_handle) const;
     /// Returns the number of node steps in the path
     size_t get_step_count(const path_handle_t& path_handle) const;
-    /// Returns the total length of sequence in the path
-    size_t get_path_length(const path_handle_t& path_handle) const;
     /// Get a node handle (node ID and orientation) from a handle to a step on a path
     handle_t get_handle_of_step(const step_handle_t& step_handle) const;
     /// Returns a handle to the path that an step is on
@@ -317,6 +315,19 @@ public:
     bool for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const;
     /// Executes a function on each step of a handle in any path.
     bool for_each_step_on_handle_impl(const handle_t& handle, const function<bool(const step_handle_t&)>& iteratee) const;
+    
+    /// Returns the total length of sequence in the path
+    size_t get_path_length(const path_handle_t& path_handle) const;
+    
+    /// Returns the position along the path of the beginning of this step measured in
+    /// bases of sequence. In a circular path, positions start at the step returned by
+    /// path_begin().
+    size_t get_position_of_step(const step_handle_t& step) const;
+    
+    /// Returns the step at this position, measured in bases of sequence starting at
+    /// the step returned by path_begin(). If the position is past the end of the
+    /// path, returns path_end().
+    step_handle_t get_step_at_position(const path_handle_t& path, const size_t& position) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Higher-level graph API
@@ -391,15 +402,6 @@ public:
     vector<size_t> position_in_path(int64_t id, size_t rank) const;
     map<string, vector<size_t> > position_in_paths(int64_t id, bool is_rev = false, size_t offset = 0) const;
     
-    /// Return a mapping from path name to all positions along each path at
-    /// which the given pos_t occurs.
-    map<string, vector<pair<size_t, bool> > > offsets_in_paths(pos_t pos) const;
-    
-    /// Return, for the nearest position in a path to the given position,
-    /// subject to the given max search distance, a mapping from path name to
-    /// all positions on each path where that pos_t occurs.
-    map<string, vector<pair<size_t, bool> > > nearest_offsets_in_paths(pos_t pos, int64_t max_search) const;
-    
     map<string, vector<size_t> > distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
                                                    int64_t id2, bool is_rev2, size_t offset2) const;
     int64_t min_distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
@@ -429,9 +431,6 @@ public:
     // nearest node (in steps) that is in a path, and the paths
     pair<int64_t, vector<size_t> > nearest_path_node(int64_t id, int max_steps = 16) const;
     int64_t min_approx_path_distance(int64_t id1, int64_t id2) const;
-    /// nearest position that is in a path and the distance between it and the current position is <= max_search.
-    /// Will search over multiple nodes.
-    pair<pos_t, int64_t> next_path_position(pos_t pos, int64_t max_search) const;
     
     /// returns true if the paths are on the same connected component of the graph (constant time)
     bool paths_on_same_component(size_t path_rank_1, size_t path_rank_2) const;
@@ -446,84 +445,7 @@ public:
     /// and the orientation of the occurrences. false indicates that the traversal occurs in the same
     /// orientation as in the path, true indicates.
     vector<pair<size_t, vector<pair<size_t, bool>>>> oriented_paths_of_node(int64_t id) const;
-    
-    /// same as paths_of_node, but with an optional memo to avoid repeated recalculation
-    vector<size_t> memoized_paths_of_node(int64_t id, unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr) const;
-    
-    /// same as oriented_occurrences_on_path, but with an optional memo to avoid repeated recalculation
-    vector<pair<size_t, bool>> memoized_oriented_occurrences_on_path(int64_t id, size_t path,
-                                                                     unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
-    
-    /// same as oriented_paths_of_node, but with an optional memo to avoid repeated recalculation
-    vector<pair<size_t, vector<pair<size_t, bool>>>> memoized_oriented_paths_of_node(int64_t id,
-                                                                                     unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
-                                                                                     unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
-    
-    /// returns a the memoized result from get_handle if a memo is provided that the result has been queried previously
-    /// otherwise, returns the result of get_handle directly and stores it in the memo if one is provided
-    handle_t memoized_get_handle(int64_t id, bool rev, unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
-    
-    /// the oriented distance (positive if pos2 is further along the path than pos1, otherwise negative)
-    /// estimated by the distance along the nearest shared path to the two positions. returns numeric_limits<int64_t>::max()
-    // if no pair of nodes that occur same path are reachable within the max search distance (measured in sequence length,
-    /// not node length).
-    int64_t closest_shared_path_unstranded_distance(int64_t id1, size_t offset1, bool rev1,
-                                                    int64_t id2, size_t offset2, bool rev2,
-                                                    size_t max_search_dist,
-                                                    unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
-                                                    unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr,
-                                                    unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
-    
-    /// the oriented distance (positive if pos2 is further along the path than pos1, otherwise negative)
-    /// estimated by the distance along the nearest shared path to the two positions plus the distance
-    /// to traverse to that path. returns numeric_limits<int64_t>::max() if no pair of nodes that occur same
-    /// on the strand of a path are reachable within the max search distance (measured in sequence length,
-    /// not node length). optionally returns the distance along the forward strand
-    int64_t closest_shared_path_oriented_distance(int64_t id1, size_t offset1, bool rev1,
-                                                  int64_t id2, size_t offset2, bool rev2,
-                                                  bool forward_strand = false,
-                                                  size_t max_search_dist = 100,
-                                                  unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
-                                                  unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr,
-                                                  unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
                                                   
-    /// Return a vector of pairs of handles that occur on the same relative
-    /// strand as the start handle, the distance from the right or left end
-    /// of the start handle needed to reach them, and whether they were reached
-    /// going right (true) or left (false) from the start. The handles are the
-    /// closest one(s) to the start handle that touch any paths.
-    ///
-    /// Distances are always positive. If specified, right_extra_dist and
-    /// left_extra_dist are added to the search distances, to allow for
-    /// searching from a particular point on the starting node. 
-    ///
-    /// Search does not exceed max_search_dist bases.
-    ///
-    /// Will only ever return an empty vector or a 1-element vector.
-    vector<tuple<handle_t, size_t, bool>> find_closest_with_paths(handle_t start, size_t max_search_dist,
-                                                                  size_t right_extra_dist = 0, size_t left_extra_dist = 0,
-                                                                  unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
-                                                                  unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
-    
-    /// returns a vector of (node id, is reverse, offset) tuples that are found by jumping a fixed oriented distance
-    /// along path(s) from the given position. if the position is not on a path, searches from the position to a path
-    /// and adds/subtracts the search distance to the jump depending on the search direction. returns an empty vector
-    /// if there is no path within the max search distance or if the jump distance goes past the end of the path
-    vector<tuple<int64_t, bool, size_t>> jump_along_closest_path(int64_t id, bool is_rev, size_t offset, int64_t jump_dist, size_t max_search_dist,
-                                                                 unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
-                                                                 unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr,
-                                                                 unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
-    
-    /// checks whether two positions are on or near the same strand of some path. if the position can reach both strands of a
-    /// path, it is only considered to be on the nearer of the two strands. positions are also considered consistent if they
-    /// can traverse to each other within the maximum search distance. returns a pair of orientations that are the same and
-    /// equal to the orientation on the strand if they are consistent, and different if they are inconsistent
-    pair<bool, bool> validate_strand_consistency(int64_t id1, size_t offset1, bool rev1,
-                                                 int64_t id2, size_t offset2, bool rev2,
-                                                 size_t max_search_dist,
-                                                 unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
-                                                 unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr,
-                                                 unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
     ////////////////////////////////////////////////////////////////////////////
     // Sample database API
     ////////////////////////////////////////////////////////////////////////////

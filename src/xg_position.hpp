@@ -7,6 +7,7 @@
 #include "lru_cache.h"
 #include "utility.hpp"
 #include "json2pb.h"
+#include "algorithms/nearest_offsets_in_paths.hpp"
 #include <gcsa/gcsa.h>
 #include <iostream>
 

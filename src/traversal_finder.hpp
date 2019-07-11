@@ -47,12 +47,12 @@ public:
 
 class ExhaustiveTraversalFinder : public TraversalFinder {
     
-    VG& graph;
+    const HandleGraph& graph;
     SnarlManager& snarl_manager;
     bool include_reversing_traversals;
     
 public:
-    ExhaustiveTraversalFinder(VG& graph, SnarlManager& snarl_manager,
+    ExhaustiveTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
                               bool include_reversing_traversals = false);
     
     virtual ~ExhaustiveTraversalFinder();
@@ -64,10 +64,10 @@ public:
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
     
 protected:
-    void stack_up_valid_walks(NodeTraversal walk_head, vector<NodeTraversal>& stack);
-    virtual bool visit_next_node(const Node*, const Edge*) { return true; }
-    void add_traversals(vector<SnarlTraversal>& traversals, NodeTraversal traversal_start,
-                        set<NodeTraversal>& stop_at, set<NodeTraversal>& yield_at);
+    void stack_up_valid_walks(handle_t walk_head, vector<Visit>& stack);
+    virtual bool visit_next_node(handle_t handle) { return true; }
+    void add_traversals(vector<SnarlTraversal>& traversals, handle_t traversal_start,
+                        unordered_set<handle_t>& stop_at, unordered_set<handle_t>& yield_at);
 };
 
 /** Does exhaustive traversal, but restricting to nodes and edges that meet 
@@ -129,6 +129,8 @@ public:
  * I'm not sure what PathBasedTraversalFinder (see below) does, but it does not work
  * as a drop-in replacement for this class, so keep the two implementations at least 
  * for now.    
+ *
+ * DEPRECATED: Use PathTraversalFinder instead
  */
 class PathRestrictedTraversalFinder : public TraversalFinder {
 
@@ -169,10 +171,10 @@ public:
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 
-   /**
+    /**
     * Like above, but return the path name corresponding to each traversal
     */
-    virtual pair<vector<SnarlTraversal>, vector<string>> find_named_traversals(const Snarl& site);
+    virtual pair<vector<SnarlTraversal>, vector<string> > find_named_traversals(const Snarl& site);
     
 };
 
@@ -185,6 +187,35 @@ class PathBasedTraversalFinder : public TraversalFinder{
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 
 };
+
+/** This is a Handle Graph replacement for PathRestrictedTraversalFinder
+ * that uses the PathHandleGraph interface instead of the VG-based 
+ * path index.  It returns all traversals through a snarl that are contained
+ * within paths in the graph.  It can also return a mapping from the traversals
+ * to their paths*/
+class PathTraversalFinder : public TraversalFinder {
+    
+protected:
+    // our graph with indexed path positions
+    const PathHandleGraph& graph;
+    
+    SnarlManager& snarl_manager;
+    
+public:
+    PathTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager);
+
+    /**
+     * Return all traversals through the site that are sub-paths of embedded paths in the graph
+     */
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+
+    /**
+    * Like above, but return the path steps for the for the traversal endpoints
+    */
+    virtual pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > find_path_traversals(const Snarl& site);
+
+};    
+    
 
 /**
  * This traversal finder finds one or more traversals through leaf sites with

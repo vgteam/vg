@@ -244,25 +244,25 @@ namespace unittest {
                 const Snarl* snarl1 = allSnarls[randSnarlIndex(generator)];
                 const Snarl* snarl2 = allSnarls[randSnarlIndex(generator)];
                  
-                pair<unordered_set<Node*>, unordered_set<Edge*>> contents1 = 
+                pair<unordered_set<id_t>, unordered_set<edge_t>> contents1 = 
                            snarl_manager.shallow_contents(snarl1, graph, true);
-                pair<unordered_set<Node*>, unordered_set<Edge*>> contents2 = 
+                pair<unordered_set<id_t>, unordered_set<edge_t>> contents2 = 
                            snarl_manager.shallow_contents(snarl2, graph, true);
  
-                vector<Node*> nodes1 (contents1.first.begin(), contents1.first.end());
-                vector<Node*> nodes2 (contents2.first.begin(), contents2.first.end());
+                vector<id_t> nodes1 (contents1.first.begin(), contents1.first.end());
+                vector<id_t> nodes2 (contents2.first.begin(), contents2.first.end());
 
                 
                 uniform_int_distribution<int> randNodeIndex2(0,nodes2.size()-1);
                 uniform_int_distribution<int> randNodeIndex1(0,nodes1.size()-1);
+
+                id_t nodeID1 = nodes1[randNodeIndex1(generator)];
+                id_t nodeID2 = nodes2[randNodeIndex2(generator)];
+                handle_t node1 = graph.get_handle(nodeID1);
+                handle_t node2 = graph.get_handle(nodeID2);
  
-                Node* node1 = nodes1[randNodeIndex1(generator)];
-                Node* node2 = nodes2[randNodeIndex2(generator)];
-                id_t nodeID1 = node1->id();
-                id_t nodeID2 = node2->id();
- 
-                off_t offset1 = uniform_int_distribution<int>(0,node1->sequence().size() - 1)(generator);
-                off_t offset2 = uniform_int_distribution<int>(0,node2->sequence().size() - 1)(generator);
+                off_t offset1 = uniform_int_distribution<int>(0,graph.get_length(node1) - 1)(generator);
+                off_t offset2 = uniform_int_distribution<int>(0,graph.get_length(node2) - 1)(generator);
 
                 pos_t pos1 = make_pos_t(nodeID1, 
                   uniform_int_distribution<int>(0,1)(generator) == 0,offset1 );
@@ -281,6 +281,143 @@ namespace unittest {
             }
         }
     }//End test case
+    
+    TEST_CASE("Path oriented distance functions perform as expected", "[cluster][mapping]") {
+        
+        VG vg;
+        
+        Node* n0 = vg.create_node("CGA");
+        Node* n1 = vg.create_node("TTGG");
+        Node* n2 = vg.create_node("CCGT");
+        Node* n3 = vg.create_node("C");
+        Node* n4 = vg.create_node("GT");
+        Node* n5 = vg.create_node("GATAA");
+        Node* n6 = vg.create_node("CGG");
+        Node* n7 = vg.create_node("ACA");
+        Node* n8 = vg.create_node("GCCG");
+        Node* n9 = vg.create_node("A");
+        Node* n10 = vg.create_node("C");
+        Node* n11 = vg.create_node("G");
+        Node* n12 = vg.create_node("T");
+        Node* n13 = vg.create_node("A");
+        Node* n14 = vg.create_node("C");
+        Node* n15 = vg.create_node("C");
+        
+        vg.create_edge(n0, n1);
+        vg.create_edge(n2, n0, true, true);
+        vg.create_edge(n1, n3);
+        vg.create_edge(n2, n3);
+        vg.create_edge(n3, n4, false, true);
+        vg.create_edge(n4, n5, true, false);
+        vg.create_edge(n5, n6);
+        vg.create_edge(n8, n6, false, true);
+        vg.create_edge(n6, n7, false, true);
+        vg.create_edge(n7, n9, true, true);
+        vg.create_edge(n9, n10, true, false);
+        vg.create_edge(n10, n11, false, false);
+        vg.create_edge(n12, n11, false, true);
+        vg.create_edge(n13, n12, false, false);
+        vg.create_edge(n14, n13, true, false);
+        vg.create_edge(n15, n14, true, true);
+        
+        Graph graph = vg.graph;
+        
+        Path* path = graph.add_path();
+        path->set_name("path");
+        Mapping* mapping = path->add_mapping();
+        mapping->mutable_position()->set_node_id(n0->id());
+        mapping->set_rank(1);
+        mapping = path->add_mapping();
+        mapping->mutable_position()->set_node_id(n2->id());
+        mapping->set_rank(2);
+        mapping = path->add_mapping();
+        mapping->mutable_position()->set_node_id(n3->id());
+        mapping->set_rank(3);
+        mapping = path->add_mapping();
+        mapping->mutable_position()->set_node_id(n4->id());
+        mapping->mutable_position()->set_is_reverse(true);
+        mapping->set_rank(4);
+        mapping = path->add_mapping();
+        mapping->mutable_position()->set_node_id(n5->id());
+        mapping->set_rank(5);
+        mapping = path->add_mapping();
+        mapping->mutable_position()->set_node_id(n6->id());
+        mapping->set_rank(6);
+        mapping = path->add_mapping();
+        mapping->mutable_position()->set_node_id(n8->id());
+        mapping->mutable_position()->set_is_reverse(true);
+        mapping->set_rank(7);
+        
+        XG xg_index(graph);
+        PathOrientedDistanceMeasurer measurer(&xg_index);
+        
+        SECTION("Distance approxmation produces exactly correct path distances when positions are on path") {
+            
+            measurer.max_walk = 10;
+            int64_t dist = measurer.oriented_distance(make_pos_t(n2->id(), false, 0),
+                                                      make_pos_t(n5->id(), false, 0));
+            REQUIRE(dist == 7);
+        }
+        
+        SECTION("Distance approxmation produces negative distance when order is reversed when positions are on path") {
+            
+            measurer.max_walk = 10;
+            int64_t dist = measurer.oriented_distance(make_pos_t(n5->id(), false, 0),
+                                                      make_pos_t(n2->id(), false, 0));
+            REQUIRE(dist == -7);
+            
+        }
+        
+        SECTION("Distance approxmation produces correctly signed distances on reverse strand when positions are on path") {
+            
+            measurer.max_walk = 10;
+            int64_t dist = measurer.oriented_distance(make_pos_t(n5->id(), true, n5->sequence().size()),
+                                                      make_pos_t(n2->id(), true, n2->sequence().size()));
+
+            REQUIRE(dist == 7);
+            dist = measurer.oriented_distance(make_pos_t(n2->id(), true, n2->sequence().size()),
+                                              make_pos_t(n5->id(), true, n5->sequence().size()));
+            REQUIRE(dist == -7);
+        }
+        
+        SECTION("Distance approxmation produces expected distances when positions are not on path") {
+            
+            measurer.max_walk = 10;
+            int64_t dist = measurer.oriented_distance(make_pos_t(n1->id(), false, 3),
+                                                      make_pos_t(n7->id(), true, 3));
+            REQUIRE(dist == 15);
+            
+            dist = measurer.oriented_distance(make_pos_t(n7->id(), true, 3),
+                                              make_pos_t(n1->id(), false, 3));
+            REQUIRE(dist == -15);
+            
+        }
+        
+        SECTION("Distance approxmation produces expected output when search to path must traverse every type of edge") {
+            
+            measurer.max_walk = 20;
+            int64_t dist = measurer.oriented_distance(make_pos_t(n1->id(), false, 3),
+                                                      make_pos_t(n15->id(), false, 1));
+            REQUIRE(dist == 22);
+            
+        }
+        
+        SECTION("Distance approxmation produces expected output when positions are on opposite strands") {
+            
+            measurer.max_walk = 10;
+            int64_t dist = measurer.oriented_distance(make_pos_t(n1->id(), true, 3),
+                                                      make_pos_t(n7->id(), true, 3));
+            REQUIRE(dist == std::numeric_limits<int64_t>::max());
+        }
+        
+        SECTION("Distance approxmation produces expected output when cannot reach each other within the maximum distance") {
+            
+            measurer.max_walk = 0;
+            int64_t dist = measurer.oriented_distance(make_pos_t(n1->id(), false, 3),
+                                                      make_pos_t(n7->id(), true, 3));
+            REQUIRE(dist == std::numeric_limits<int64_t>::max());
+        }
+    }
 }
 
 }

@@ -72,6 +72,7 @@ namespace vg {
         // cluster the MEMs
         unique_ptr<SnarlOrientedDistanceMeasurer> snarl_measurer(nullptr);
         unique_ptr<PathOrientedDistanceMeasurer> path_measurer(nullptr);
+        MemoizingGraph memoizing_graph(xindex);
         
         OrientedDistanceMeasurer* distance_measurer;
         if (distance_index) {
@@ -85,9 +86,8 @@ namespace vg {
 #ifdef debug_multipath_mapper
             cerr << "using a path-based distance measurer" << endl;
 #endif
-            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(xindex,
-                                                                                                      &path_component_index,
-                                                                                                      unstranded_clustering));
+            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
+                                                                                                      &path_component_index));
             distance_measurer = &(*path_measurer);
         }
         
@@ -179,7 +179,7 @@ namespace vg {
                                             log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
         else {
-            OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering, max_expected_dist_approx_error);
+            OrientedDistanceClusterer clusterer(*distance_measurer, max_expected_dist_approx_error);
             return_val = clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
                                             log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
@@ -241,7 +241,7 @@ namespace vg {
                                            ceil(10.0 * fragment_length_distr.stdev()));
         }
         else {
-            OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering);
+            OrientedDistanceClusterer clusterer(*distance_measurer);
             return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
                                            alt_anchors_1, alt_anchors_2,
                                            fragment_length_distr.mean(),
@@ -455,7 +455,7 @@ namespace vg {
         int64_t jump_dist = rescue_forward ? fragment_length_distr.mean() - other_aln.sequence().size() : -fragment_length_distr.mean();
         
         // get the seed position(s) for the rescue by jumping along paths
-        vector<pos_t> jump_positions = xindex->jump_along_closest_path(id(pos_from), is_rev(pos_from), offset(pos_from), jump_dist, 250);
+        vector<pos_t> jump_positions = algorithms::jump_along_closest_path(xindex, pos_from, jump_dist, 250);
         
 #ifdef debug_multipath_mapper
         cerr << "found jump positions:" << endl;
@@ -764,9 +764,8 @@ namespace vg {
             }
         }
         else {
-            dist = xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                                 id(pos_2), offset(pos_2), is_rev(pos_2),
-                                                                 forward_strand);
+            PathOrientedDistanceMeasurer measurer(xindex);
+            dist = measurer.oriented_distance(pos_1, pos_2);
         }
         return dist;
     }
@@ -819,69 +818,6 @@ namespace vg {
         }
         
         return false;
-    }
-    
-    void MultipathMapper::establish_strand_consistency(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
-                                                       vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) {
-        
-#ifdef debug_multipath_mapper
-        cerr << "establishing consistency between mapped pairs" << endl;
-#endif
-        
-        int64_t search_dist = 0.5 * fragment_length_distr.mean() + 5.0 * fragment_length_distr.stdev();
-        vector<pair<bool, bool>> strand_assignments;
-        strand_assignments.reserve(multipath_aln_pairs.size());
-        for (const pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs) {
-            Alignment optimal_aln_1, optimal_aln_2;
-            optimal_alignment(multipath_aln_pair.first, optimal_aln_1);
-            optimal_alignment(multipath_aln_pair.second, optimal_aln_2);
-            pos_t pos_1 = initial_position(optimal_aln_1.path());
-            pos_t pos_2 = initial_position(optimal_aln_2.path());
-            
-            strand_assignments.push_back(xindex->validate_strand_consistency(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                                             id(pos_2), offset(pos_2), is_rev(pos_2), search_dist));
-            
-#ifdef debug_multipath_mapper
-            cerr << "pair has initial positions " << pos_1 << " and " << pos_2 << " on strands " << (strand_assignments.back().first ? "-" : "+") << " and " << (strand_assignments.back().second ? "-" : "+") << endl;
-#endif
-        }
-        
-        size_t end = multipath_aln_pairs.size();
-        for (size_t i = 0; i < end; ) {
-            // move strand inconsistent mappings to the end
-            if (strand_assignments[i].first != strand_assignments[i].second) {
-#ifdef debug_multipath_mapper
-                cerr << "removing inconsistent strand at " << i << " and not advancing index" << endl;
-#endif                
-                std::swap(multipath_aln_pairs[i], multipath_aln_pairs[end - 1]);
-                std::swap(strand_assignments[i], strand_assignments[end - 1]);
-                std::swap(cluster_pairs[i], cluster_pairs[end - 1]);
-                
-                --end;
-            }
-            else {
-#ifdef debug_multipath_mapper
-                cerr << "identifying " << i << " as consistent" << endl;
-#endif
-                // reverse the distance if it's on the reverse strand
-                if (strand_assignments[i].first) {
-#ifdef debug_multipath_mapper
-                    cerr << "\tinverting distance " << cluster_pairs[i].second << " because on negative strand" << endl;
-#endif
-                    cluster_pairs[i].second = -cluster_pairs[i].second;
-                }
-                ++i;
-            }
-        }
-        
-        // remove the inconsistent mappings
-        if (end != multipath_aln_pairs.size()) {
-#ifdef debug_multipath_mapper
-            cerr << "found " << multipath_aln_pairs.size() - end << " strand inconsitent pairs, removing now" << endl;
-#endif
-            multipath_aln_pairs.resize(end);
-            cluster_pairs.resize(end);
-        }
     }
     
     bool MultipathMapper::align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
@@ -1402,6 +1338,7 @@ namespace vg {
         
         unique_ptr<SnarlOrientedDistanceMeasurer> snarl_measurer(nullptr);
         unique_ptr<PathOrientedDistanceMeasurer> path_measurer(nullptr);
+        MemoizingGraph memoizing_graph(xindex);
         
         OrientedDistanceMeasurer* distance_measurer;
         if (distance_index) {
@@ -1415,9 +1352,8 @@ namespace vg {
 #ifdef debug_multipath_mapper
             cerr << "using a path-based distance measurer" << endl;
 #endif
-            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(xindex,
-                                                                                                      &path_component_index,
-                                                                                                      unstranded_clustering));
+            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
+                                                                                                      &path_component_index));
             distance_measurer = &(*path_measurer);
         }
         
@@ -2404,7 +2340,7 @@ namespace vg {
                 for (pair<MultipathAlignment, MultipathAlignment>& split_multipath_aln_pair : split_multipath_alns) {
                     // we also need to measure the disance for scoring
                     int64_t dist = distance_between(split_multipath_aln_pair.first, split_multipath_aln_pair.second,
-                                                    true, unstranded_clustering);
+                                                    true);
                     
                     // if we can't measure a distance, then don't add the pair
                     if (dist != numeric_limits<int64_t>::max()) {
@@ -2561,12 +2497,6 @@ namespace vg {
         for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
             topologically_order_subpaths(multipath_aln_pair.first);
             topologically_order_subpaths(multipath_aln_pair.second);
-        }
-        
-        // if we haven't been checking strand consistency, enforce it now at the end
-        // TODO: this doesn't fit very well into the DistanceMeasurer framework...
-        if (unstranded_clustering) {
-            establish_strand_consistency(multipath_aln_pairs_out, cluster_pairs);
         }
         
         // put pairs in score sorted order and compute mapping quality of best pair using the score
