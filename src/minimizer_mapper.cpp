@@ -265,20 +265,20 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         cluster_indexes_in_order.push_back(i);
     }
 
-    // Put the best scoring cluster's index first
+    // Put the most covering cluster's index first
     std::sort(cluster_indexes_in_order.begin(), cluster_indexes_in_order.end(), 
         [&](const size_t& a, const size_t& b) -> bool {
             // Return true if a must come before b, and false otherwise
-            return (cluster_score[a] > cluster_score[b]);
+            return (read_coverage_by_cluster[a] > read_coverage_by_cluster[b]);
     });
 
     //Retain clusters only if their read coverage is better than this
-    double cluster_coverage_cutoff = cluster_indexes_in_order.size() == 0 ? 0 : 
-                    *std::max_element(read_coverage_by_cluster.begin(), read_coverage_by_cluster.end()) 
+    double cluster_coverage_cutoff = cluster_indexes_in_order.size() == 0 ? 0 :
+                    read_coverage_by_cluster[cluster_indexes_in_order[0]]
                     - cluster_coverage_threshold;
     //Retain clusters only if their score is better than this
     double cluster_score_cutoff = cluster_score.size() == 0 ? 0 :
-                                 cluster_score[cluster_indexes_in_order[0]]
+                    *std::max_element(cluster_score.begin(), cluster_score.end())
                                     - cluster_score_threshold;
     
 #ifdef TRACK_PROVENANCE
@@ -298,11 +298,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         //Always take the first two clusters, but filter the rest
         if (i > 1 && (cluster_score_threshold != 0 && cluster_score[cluster_indexes_in_order[i]] < cluster_score_cutoff)) {
             //If the cluster score isn't good enough, then no later one will be so we break
-            break;
+            continue;
         } 
         if (i > 1 && (cluster_coverage_threshold != 0 && read_coverage_by_cluster[cluster_num] < cluster_coverage_cutoff)) {
             //If the cluster_coverage isn't good enough, ignore this cluster
-            continue;
+            break;
         }
         num_extensions ++;
         
@@ -399,8 +399,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     double extension_set_cutoff = cluster_extension_scores.size() == 0 ? 0 :
                               cluster_extension_scores[extension_indexes_in_order[0]]
                                     - extension_set_score_threshold;
-    int best_extension_set_score = cluster_extension_scores.size() == 0 ? 0 :
-                              cluster_extension_scores[extension_indexes_in_order[0]];
     
 #ifdef TRACK_PROVENANCE
     funnel.stage("align");
@@ -420,9 +418,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     aln.set_mapping_quality(0);
     
     // Go through the gapless extension groups in score order.
-    // Keep track of best and second best scores.
-    int second_best_score = cluster_extension_scores.size() < 2 ? 0 :
-                            cluster_extension_scores[extension_indexes_in_order[1]];
     for (size_t i = 0; i < extension_indexes_in_order.size() && i < max_alignments ; i++) {
         // Find the extension group we are talking about
         size_t& extension_num = extension_indexes_in_order[i];
@@ -433,9 +428,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
         auto& extensions = cluster_extensions[extension_num];
         
-        if (i < 2 || 
-            (score_is_significant(cluster_extension_scores[extension_num], best_extension_set_score, second_best_score) 
-            &&  (extension_set_score_threshold == 0 || cluster_extension_scores[extension_num] > extension_set_cutoff))) {
+        if (i < 2 || extension_set_score_threshold == 0 || cluster_extension_scores[extension_num] > extension_set_cutoff) {
             // Always take the first and second.
             // For later ones, check if this score is significant relative to the running best and second best scores.
             
