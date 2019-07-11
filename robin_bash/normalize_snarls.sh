@@ -22,14 +22,24 @@ echo compiling!
 . ./source_me.sh && make -j 8
 echo running!
 
+# ## split off the first few snarls from chromosome ten: (aiming for nodes between 1883 and 12677)
+# VG_DIR=/public/groups/cgl/graph-genomes/jmonlong/hgsvc/haps/chr10
+# TEST_DIR=test/robin_tests/chr10_subset/set_1
+# FILE_NAME=chr10_subset_vg_find
+# # vg find -x $VG_DIR/hgsvc_chr10_construct.xg -p "chr10:1883-12677" -c 10 >$TEST_DIR/$FILE_NAME.vg
+# vg find -x $VG_DIR/hgsvc_chr10_construct.xg -n 7280 -c 5360 >$TEST_DIR/$FILE_NAME.vg #1878:12785 node range.
+# # vg mod -g 3000 -x 5 $VG_DIR/hgsvc_chr10_construct.vg >$TEST_DIR/$FILE_NAME.vg 
+# echo "vg subgraph made!"
+
+
 ## run normalize_snarls on subsetted full chromosome 10:
-TEST_DIR=test/robin_tests/chr10_subset
-FILE_NAME=chr10_subset
+TEST_DIR=test/robin_tests/chr10_subset/set_1
+FILE_NAME=chr10_subset_vg_find
 # To produce .snarls:
 vg snarls $TEST_DIR/$FILE_NAME.vg >$TEST_DIR/$FILE_NAME.snarls 
 echo "SNARLS MADE"
 # To produce .gbwt:
-vg index -G $TEST_DIR/$FILE_NAME.gbwt -v $TEST_DIR/../HGSVC.haps.chr10.vcf.gz $TEST_DIR/$FILE_NAME.vg
+vg index -G $TEST_DIR/$FILE_NAME.gbwt -v $TEST_DIR/../../HGSVC.haps.chr10.vcf.gz $TEST_DIR/$FILE_NAME.vg
 echo "GBWT MADE"
 # Convert .vg to .hg:
 vg convert -v $TEST_DIR/$FILE_NAME.vg -A >$TEST_DIR/$FILE_NAME.hg
@@ -39,7 +49,7 @@ echo "CONVERTED VG TO HG"
 # Run normalize algorithm:
 ls $TEST_DIR
 # echo $TEST_DIR/$FILE_NAME.gbwt -s $TEST_DIR/$FILE_NAME.snarls $TEST_DIR/$FILE_NAME.hg $TEST_DIR/chr10_subset_normalized.hg
-vg normalize -g $TEST_DIR/$FILE_NAME.gbwt -s $TEST_DIR/$FILE_NAME.snarls $TEST_DIR/$FILE_NAME.hg >$TEST_DIR/chr10_subset_normalized.hg
+vg normalize -g $TEST_DIR/$FILE_NAME.gbwt -s $TEST_DIR/$FILE_NAME.snarls $TEST_DIR/$FILE_NAME.hg >$TEST_DIR/chr10_subset_vg_find_normalized.hg
 echo "normalized."
 
 
