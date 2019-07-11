@@ -86,7 +86,6 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
@@ -94,19 +93,11 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="gapless__extender_8hpp.html">gapless_extender.hpp</a>&quot;</code><br/>
+<code>#include &lt;algorithm&gt;</code><br/>
 <code>#include &lt;queue&gt;</code><br/>
 <code>#include &lt;set&gt;</code><br/>
 <code>#include &lt;stack&gt;</code><br/>
 </div><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
-Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessMatch.html">vg::GaplessMatch</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1UnambiguousMatch.html">vg::UnambiguousMatch</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1FlankState.html">vg::FlankState</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
@@ -114,24 +105,23 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a398e4f8a73bd122ee1813d9cd7e03a69"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a398e4f8a73bd122ee1813d9cd7e03a69">vg::operator&lt;&lt;</a> (std::ostream &amp;out, const GaplessMatch &amp;match)</td></tr>
-<tr class="separator:a398e4f8a73bd122ee1813d9cd7e03a69"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acf2de89815d682177c09dad884662d11"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acf2de89815d682177c09dad884662d11">vg::match_forward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, size_t target_offset, GaplessMatch &amp;match, size_t error_bound)</td></tr>
-<tr class="separator:acf2de89815d682177c09dad884662d11"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af3985f24ec3e8b20036650347f4aa99f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af3985f24ec3e8b20036650347f4aa99f">vg::match_backward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, GaplessMatch &amp;match, size_t error_bound)</td></tr>
-<tr class="separator:af3985f24ec3e8b20036650347f4aa99f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ade099dad8956c28dbe1f3bedc752a21f"><td class="memItemLeft" align="right" valign="top">GaplessExtension&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ade099dad8956c28dbe1f3bedc752a21f">vg::match_to_extension</a> (GaplessMatch &amp;match, const std::string &amp;sequence)</td></tr>
-<tr class="separator:ade099dad8956c28dbe1f3bedc752a21f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae182bfacb4b234444c1235b5fa764f7e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae182bfacb4b234444c1235b5fa764f7e">vg::match_forward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, UnambiguousMatch &amp;match)</td></tr>
-<tr class="separator:ae182bfacb4b234444c1235b5fa764f7e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a982b32141214326d950a26a111166527"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a982b32141214326d950a26a111166527">vg::match_backward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, UnambiguousMatch &amp;match)</td></tr>
-<tr class="separator:a982b32141214326d950a26a111166527"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab50e0233c484b770b4ac5baa6061f6ad"><td class="memItemLeft" align="right" valign="top">GaplessExtension&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab50e0233c484b770b4ac5baa6061f6ad">vg::unambiguous_match_to_extension</a> (const UnambiguousMatch &amp;match, const std::string &amp;sequence)</td></tr>
-<tr class="separator:ab50e0233c484b770b4ac5baa6061f6ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ade01d86fc638a3129d4aa65c39184d3f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ade01d86fc638a3129d4aa65c39184d3f">vg::match_forward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, FlankState &amp;match, size_t error_bound)</td></tr>
-<tr class="separator:ade01d86fc638a3129d4aa65c39184d3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af1b4c5931eafe38d41348fd8f29d39cf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af1b4c5931eafe38d41348fd8f29d39cf">vg::match_backward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, FlankState &amp;match, size_t error_bound)</td></tr>
-<tr class="separator:af1b4c5931eafe38d41348fd8f29d39cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a62239efefb85e451fcec6519644186d1"><td class="memTemplParams" colspan="2">template&lt;class Element &gt; </td></tr>
+<tr class="memitem:a62239efefb85e451fcec6519644186d1"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a62239efefb85e451fcec6519644186d1">vg::in_place_subvector</a> (std::vector&lt; Element &gt; &amp;vec, size_t head, size_t tail)</td></tr>
+<tr class="separator:a62239efefb85e451fcec6519644186d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab9cb20c6cd2b65c332b568498f650b32"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab9cb20c6cd2b65c332b568498f650b32">vg::match_initial</a> (GaplessExtension &amp;match, const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, const Aligner *aligner)</td></tr>
+<tr class="separator:ab9cb20c6cd2b65c332b568498f650b32"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a24bca086f8959bef56e9f9b1b61ec55e"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a24bca086f8959bef56e9f9b1b61ec55e">vg::match_forward</a> (GaplessExtension &amp;match, const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, uint32_t mismatch_limit, const Aligner *aligner)</td></tr>
+<tr class="separator:a24bca086f8959bef56e9f9b1b61ec55e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8f97daad99d1c39dcc4ae86658a1f77b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8f97daad99d1c39dcc4ae86658a1f77b">vg::match_backward</a> (GaplessExtension &amp;match, const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, uint32_t mismatch_limit, const Aligner *aligner)</td></tr>
+<tr class="separator:a8f97daad99d1c39dcc4ae86658a1f77b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5d00fa3c72ac473353496aab96965e60"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5d00fa3c72ac473353496aab96965e60">vg::remove_duplicates</a> (std::vector&lt; GaplessExtension &gt; &amp;result)</td></tr>
+<tr class="separator:a5d00fa3c72ac473353496aab96965e60"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2de1f3e3b42d42ba03e4d0b94b10c279"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2de1f3e3b42d42ba03e4d0b94b10c279">vg::find_mismatches</a> (const std::string &amp;seq, const GBWTGraph &amp;graph, std::vector&lt; GaplessExtension &gt; &amp;result)</td></tr>
+<tr class="separator:a2de1f3e3b42d42ba03e4d0b94b10c279"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9467900ec651b93d47190413208cdf6f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9467900ec651b93d47190413208cdf6f">vg::interval_length</a> (std::pair&lt; size_t, size_t &gt; interval)</td></tr>
+<tr class="separator:a9467900ec651b93d47190413208cdf6f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9fd9a1067b7a859b67503943416512c9"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9fd9a1067b7a859b67503943416512c9">vg::trim_mismatches</a> (GaplessExtension &amp;extension, const GBWTGraph &amp;graph, const Aligner &amp;aligner)</td></tr>
+<tr class="separator:a9fd9a1067b7a859b67503943416512c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

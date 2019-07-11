@@ -1,7 +1,7 @@
 var searchData=
 [
   ['gamma_5fln',['gamma_ln',['../namespacevg.html#a05748ab256c93e2393252aa8ebbdde3d',1,'vg']]],
-  ['gaplessextender',['GaplessExtender',['../classvg_1_1GaplessExtender.html#a497cc4e85c6433a3e41f04895703f271',1,'vg::GaplessExtender::GaplessExtender()'],['../classvg_1_1GaplessExtender.html#a08058c1fa9281436ffec780441d9d648',1,'vg::GaplessExtender::GaplessExtender(const GBWTGraph &amp;graph)']]],
+  ['gaplessextender',['GaplessExtender',['../classvg_1_1GaplessExtender.html#a497cc4e85c6433a3e41f04895703f271',1,'vg::GaplessExtender::GaplessExtender()'],['../classvg_1_1GaplessExtender.html#afa2a699dd6ccf1611e12b200df69c576',1,'vg::GaplessExtender::GaplessExtender(const GBWTGraph &amp;graph, const Aligner &amp;aligner)']]],
   ['gbwt_5fthread_5ft',['gbwt_thread_t',['../structhaplo_1_1gbwt__thread__t.html#a5b148ae0a27b81b4b4af07f200a1255b',1,'haplo::gbwt_thread_t::gbwt_thread_t()'],['../structhaplo_1_1gbwt__thread__t.html#aa52a0e84c11044abd6ce20969629e3a9',1,'haplo::gbwt_thread_t::gbwt_thread_t(const gbwt::vector_type &amp;nodes, const vector&lt; size_t &gt; &amp;node_lengths)']]],
   ['gbwt_5fto_5fhandle',['gbwt_to_handle',['../namespacevg.html#a28c93b1c4a71fadf62fc2582cc8f0ed2',1,'vg']]],
   ['gbwt_5fto_5fpos',['gbwt_to_pos',['../namespacevg.html#ae7b5f995eb3e1e824cc4e7db99c81042',1,'vg']]],
@@ -137,6 +137,7 @@ var searchData=
   ['get_5fnode_5fmapping_5fby_5fpath_5fname',['get_node_mapping_by_path_name',['../classvg_1_1Paths.html#a9c9cf2b7f26c788195812e2b8170a6ce',1,'vg::Paths::get_node_mapping_by_path_name(Node *n)'],['../classvg_1_1Paths.html#a72c6a29a41521996fd3454170b1a76f6',1,'vg::Paths::get_node_mapping_by_path_name(id_t id)']]],
   ['get_5fnode_5fmapping_5fcopies_5fby_5frank',['get_node_mapping_copies_by_rank',['../classvg_1_1Paths.html#a36a26abe18d10e17e273fa658be9d5c6',1,'vg::Paths']]],
   ['get_5fnode_5fmappings_5fby_5frank',['get_node_mappings_by_rank',['../classvg_1_1Paths.html#a5a40b701389bcc2c513083b02f17b4f4',1,'vg::Paths']]],
+  ['get_5fnode_5foffset',['get_node_offset',['../classvg_1_1GaplessExtender.html#a12663a32f4bc41137eb372c845f0eafe',1,'vg::GaplessExtender']]],
   ['get_5fnode_5fpath',['get_node_path',['../classvg_1_1Index.html#ad53a8d290adc82aaaf36d7712df06e4e',1,'vg::Index']]],
   ['get_5fnode_5fpath_5frelative_5fposition',['get_node_path_relative_position',['../classvg_1_1Index.html#a102af40b28f12b450f5208b79121a8a2',1,'vg::Index']]],
   ['get_5fnode_5fpileup',['get_node_pileup',['../classvg_1_1Pileups.html#a3e8b9fee616eefe46c199e2a4ac0aeff',1,'vg::Pileups']]],
@@ -163,6 +164,7 @@ var searchData=
   ['get_5fpath_5fsequence',['get_path_sequence',['../classvg_1_1GraphSynchronizer.html#ac33a770c7ce8206e4649133062333898',1,'vg::GraphSynchronizer']]],
   ['get_5fperipheral_5fattachments',['get_peripheral_attachments',['../classvg_1_1GraphSynchronizer_1_1Lock.html#afbd7c2ce70efdcc6c25c20cc7710faa0',1,'vg::GraphSynchronizer::Lock']]],
   ['get_5fpileup_5fline',['get_pileup_line',['../namespacevg.html#aad98d082285cd6dcc92302924095d666',1,'vg']]],
+  ['get_5fpos',['get_pos',['../classvg_1_1GaplessExtender.html#a92241e0a9691fc7b06f5258a21d1c9c4',1,'vg::GaplessExtender']]],
   ['get_5fposition_5fof_5fstep',['get_position_of_step',['../classvg_1_1MemoizingGraph.html#ae1ca0b9da7c1040ea865dfbadfbec58e',1,'vg::MemoizingGraph::get_position_of_step()'],['../classvg_1_1XG.html#a340a0ded41fdeeacc0a35886c6e53e4f',1,'vg::XG::get_position_of_step()'],['../classhandlegraph_1_1PathPositionHandleGraph.html#a473d58ac35a06551e06ae7f5ad5073be',1,'handlegraph::PathPositionHandleGraph::get_position_of_step()']]],
   ['get_5fprefix',['get_prefix',['../classvg_1_1PhaseUnfolder.html#abae52ee7605f03c82622c63c55463db7',1,'vg::PhaseUnfolder']]],
   ['get_5fprevious_5fstep',['get_previous_step',['../classvg_1_1MemoizingGraph.html#aaee18e43a512827e84b496a5de093e44',1,'vg::MemoizingGraph::get_previous_step()'],['../classvg_1_1VG.html#a1723ce56da21a5f6953464d03e4849ac',1,'vg::VG::get_previous_step()'],['../classvg_1_1XG.html#a3457b1f6c46df2898191168689d00f39',1,'vg::XG::get_previous_step()'],['../classhandlegraph_1_1PathHandleGraph.html#a71040226b29aa5046f4cc04c8c9aa9fb',1,'handlegraph::PathHandleGraph::get_previous_step()']]],
@@ -175,6 +177,7 @@ var searchData=
   ['get_5fradius',['get_radius',['../classvg_1_1VariantAdder.html#ae974fd5d06287893b0b1f8690624d18f',1,'vg::VariantAdder']]],
   ['get_5frange',['get_range',['../classvg_1_1Index.html#ad1dd49ebb0404b72aefc21cc1732a5c6',1,'vg::Index']]],
   ['get_5fread_5fname',['get_read_name',['../classvg_1_1NGSSimulator.html#a44c1fcd6a665cc7804e561a7c8700a04',1,'vg::NGSSimulator']]],
+  ['get_5fread_5foffset',['get_read_offset',['../classvg_1_1GaplessExtender.html#a5c568cad31cb0cc1007ef05183c197ab',1,'vg::GaplessExtender']]],
   ['get_5fref_5ffollowing',['get_ref_following',['../structhaplo_1_1linear__haplo__structure.html#a2fb90f093729c49f38f5a39fcbab9615',1,'haplo::linear_haplo_structure']]],
   ['get_5fregistry',['get_registry',['../classvg_1_1subcommand_1_1Subcommand.html#a0e3707f1f4e9ce445faea71fddd61a00',1,'vg::subcommand::Subcommand']]],
   ['get_5fregular_5faligner',['get_regular_aligner',['../classvg_1_1AlignerClient.html#af2fe6d0c3f92c5f69baed5790675725f',1,'vg::AlignerClient']]],

@@ -4,7 +4,6 @@ var searchData=
   ['tag_5fto_5floader',['tag_to_loader',['../structvg_1_1io_1_1Registry_1_1Tables.html#a965e60de0073226a98deef0757d7dfa8',1,'vg::io::Registry::Tables']]],
   ['tag_5fto_5fprotobuf',['tag_to_protobuf',['../structvg_1_1io_1_1Registry_1_1Tables.html#abac3d9be375a86c8f55e5777e97fe323',1,'vg::io::Registry::Tables']]],
   ['tail',['tail',['../structvg_1_1mi_1_1CircularBuffer.html#ac7232c53ef7237c4c6ea202df32bc938',1,'vg::mi::CircularBuffer']]],
-  ['tail_5fmismatches',['tail_mismatches',['../structvg_1_1FlankState.html#a06ea0743b34705d80c16fb67d89314c3',1,'vg::FlankState']]],
   ['task_5fname',['task_name',['../structvg_1_1Watchdog_1_1thread__state__t.html#a797bf67f4267c5ffeda247c041f7cd14',1,'vg::Watchdog::thread_state_t']]],
   ['telomere_5fpair',['telomere_pair',['../structvg_1_1SwapHaplotypesCommand.html#a6a5922c2e74c8227f07631fd2f8cc5f9',1,'vg::SwapHaplotypesCommand']]],
   ['telomeres',['telomeres',['../classvg_1_1GenomeState.html#a2e1564254538fec6438c931a5263ab8a',1,'vg::GenomeState']]],

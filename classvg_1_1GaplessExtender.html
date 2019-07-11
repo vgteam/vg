@@ -90,6 +90,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   <div class="summary">
 <a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pub-static-methods">Static Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pub-static-attribs">Static Public Attributes</a> &#124;
 <a href="classvg_1_1GaplessExtender-members.html">List of all members</a>  </div>
@@ -102,32 +103,46 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
-<tr class="memitem:ae792e6ed6cc186199dc2edd9fbce3dee"><td class="memItemLeft" align="right" valign="top">typedef std::pair&lt; size_t, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ae792e6ed6cc186199dc2edd9fbce3dee">seed_type</a></td></tr>
-<tr class="separator:ae792e6ed6cc186199dc2edd9fbce3dee"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afcd0dcc83012ca927949f243a830a89e"><td class="memItemLeft" align="right" valign="top">typedef std::vector&lt; <a class="el" href="classvg_1_1GaplessExtender.html#ae792e6ed6cc186199dc2edd9fbce3dee">seed_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#afcd0dcc83012ca927949f243a830a89e">cluster_type</a></td></tr>
-<tr class="separator:afcd0dcc83012ca927949f243a830a89e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abee2d6bdd5013ab528d7a0cdc6b685f1"><td class="memItemLeft" align="right" valign="top">typedef std::pair&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, <br class="typebreak"/>
+int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#abee2d6bdd5013ab528d7a0cdc6b685f1">seed_type</a></td></tr>
+<tr class="separator:abee2d6bdd5013ab528d7a0cdc6b685f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7ac1326772ac23e766774279d39e9c04"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="classvg_1_1pair__hash__set.html">pair_hash_set</a>&lt; <a class="el" href="classvg_1_1GaplessExtender.html#abee2d6bdd5013ab528d7a0cdc6b685f1">seed_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a7ac1326772ac23e766774279d39e9c04">cluster_type</a></td></tr>
+<tr class="separator:a7ac1326772ac23e766774279d39e9c04"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a497cc4e85c6433a3e41f04895703f271"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a497cc4e85c6433a3e41f04895703f271">GaplessExtender</a> ()</td></tr>
 <tr class="memdesc:a497cc4e85c6433a3e41f04895703f271"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create an empty <a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a>.  <a href="#a497cc4e85c6433a3e41f04895703f271">More...</a><br/></td></tr>
 <tr class="separator:a497cc4e85c6433a3e41f04895703f271"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a08058c1fa9281436ffec780441d9d648"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a08058c1fa9281436ffec780441d9d648">GaplessExtender</a> (const <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> &amp;<a class="el" href="classvg_1_1GaplessExtender.html#ae481d2656912186a60094f12a440bedc">graph</a>)</td></tr>
-<tr class="memdesc:a08058c1fa9281436ffec780441d9d648"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a <a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a> using the given <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a>.  <a href="#a08058c1fa9281436ffec780441d9d648">More...</a><br/></td></tr>
-<tr class="separator:a08058c1fa9281436ffec780441d9d648"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abc2a8eda3cbf8da43232545ad596a6d1"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#abc2a8eda3cbf8da43232545ad596a6d1">extend</a> (<a class="el" href="classvg_1_1GaplessExtender.html#afcd0dcc83012ca927949f243a830a89e">cluster_type</a> &amp;cluster, const std::string &amp;sequence, size_t max_mismatches=<a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>) const </td></tr>
-<tr class="separator:abc2a8eda3cbf8da43232545ad596a6d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ace719b7faefe1fd68a8f97ca7379ff31"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ace719b7faefe1fd68a8f97ca7379ff31">extend_seeds</a> (<a class="el" href="classvg_1_1GaplessExtender.html#afcd0dcc83012ca927949f243a830a89e">cluster_type</a> &amp;cluster, const std::string &amp;sequence, size_t max_mismatches=<a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>, bool cluster_is_sorted=false) const </td></tr>
-<tr class="separator:ace719b7faefe1fd68a8f97ca7379ff31"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2af378a5fe5d50eb7908ddb9004872d2"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a2af378a5fe5d50eb7908ddb9004872d2">maximal_extensions</a> (<a class="el" href="classvg_1_1GaplessExtender.html#afcd0dcc83012ca927949f243a830a89e">cluster_type</a> &amp;cluster, const std::string &amp;sequence, bool cluster_is_sorted=false) const </td></tr>
-<tr class="separator:a2af378a5fe5d50eb7908ddb9004872d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ada32e562f7675ae38093a20d93ba1742"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ada32e562f7675ae38093a20d93ba1742">extend_flanks</a> (std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extensions, const std::string &amp;sequence, size_t max_mismatches=<a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>/2) const </td></tr>
-<tr class="separator:ada32e562f7675ae38093a20d93ba1742"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afa2a699dd6ccf1611e12b200df69c576"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#afa2a699dd6ccf1611e12b200df69c576">GaplessExtender</a> (const <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> &amp;<a class="el" href="classvg_1_1GaplessExtender.html#ae481d2656912186a60094f12a440bedc">graph</a>, const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> &amp;<a class="el" href="classvg_1_1GaplessExtender.html#ac041ad7cec145f55b68442ac58aeaeed">aligner</a>)</td></tr>
+<tr class="memdesc:afa2a699dd6ccf1611e12b200df69c576"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a <a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a> using the given <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> and <a class="el" href="classvg_1_1Aligner.html">Aligner</a> objects.  <a href="#afa2a699dd6ccf1611e12b200df69c576">More...</a><br/></td></tr>
+<tr class="separator:afa2a699dd6ccf1611e12b200df69c576"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a314b82cf64480ad15ef3123dd0f59880"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a314b82cf64480ad15ef3123dd0f59880">extend</a> (<a class="el" href="classvg_1_1GaplessExtender.html#a7ac1326772ac23e766774279d39e9c04">cluster_type</a> &amp;cluster, const std::string &amp;sequence, size_t max_mismatches=<a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>, bool trim_extensions=true) const </td></tr>
+<tr class="separator:a314b82cf64480ad15ef3123dd0f59880"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaf0419a320a6df71251bc9e8e409cb00"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#aaf0419a320a6df71251bc9e8e409cb00">trim</a> (std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extensions, size_t max_mismatches=<a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>) const </td></tr>
+<tr class="separator:aaf0419a320a6df71251bc9e8e409cb00"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
+Static Public Member Functions</h2></td></tr>
+<tr class="memitem:a5b141ee05b0f704d29e9f34de8c67a32"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="classvg_1_1GaplessExtender.html#abee2d6bdd5013ab528d7a0cdc6b685f1">seed_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a5b141ee05b0f704d29e9f34de8c67a32">to_seed</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos, size_t read_offset)</td></tr>
+<tr class="memdesc:a5b141ee05b0f704d29e9f34de8c67a32"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert (graph position, read offset) to a seed.  <a href="#a5b141ee05b0f704d29e9f34de8c67a32">More...</a><br/></td></tr>
+<tr class="separator:a5b141ee05b0f704d29e9f34de8c67a32"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a92241e0a9691fc7b06f5258a21d1c9c4"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a92241e0a9691fc7b06f5258a21d1c9c4">get_pos</a> (<a class="el" href="classvg_1_1GaplessExtender.html#abee2d6bdd5013ab528d7a0cdc6b685f1">seed_type</a> seed)</td></tr>
+<tr class="memdesc:a92241e0a9691fc7b06f5258a21d1c9c4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the graph position from a seed.  <a href="#a92241e0a9691fc7b06f5258a21d1c9c4">More...</a><br/></td></tr>
+<tr class="separator:a92241e0a9691fc7b06f5258a21d1c9c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a12663a32f4bc41137eb372c845f0eafe"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a12663a32f4bc41137eb372c845f0eafe">get_node_offset</a> (<a class="el" href="classvg_1_1GaplessExtender.html#abee2d6bdd5013ab528d7a0cdc6b685f1">seed_type</a> seed)</td></tr>
+<tr class="memdesc:a12663a32f4bc41137eb372c845f0eafe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the node offset from a seed.  <a href="#a12663a32f4bc41137eb372c845f0eafe">More...</a><br/></td></tr>
+<tr class="separator:a12663a32f4bc41137eb372c845f0eafe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5c568cad31cb0cc1007ef05183c197ab"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a5c568cad31cb0cc1007ef05183c197ab">get_read_offset</a> (<a class="el" href="classvg_1_1GaplessExtender.html#abee2d6bdd5013ab528d7a0cdc6b685f1">seed_type</a> seed)</td></tr>
+<tr class="memdesc:a5c568cad31cb0cc1007ef05183c197ab"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the read offset from a seed.  <a href="#a5c568cad31cb0cc1007ef05183c197ab">More...</a><br/></td></tr>
+<tr class="separator:a5c568cad31cb0cc1007ef05183c197ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
 <tr class="memitem:ae481d2656912186a60094f12a440bedc"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ae481d2656912186a60094f12a440bedc">graph</a></td></tr>
 <tr class="separator:ae481d2656912186a60094f12a440bedc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac041ad7cec145f55b68442ac58aeaeed"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ac041ad7cec145f55b68442ac58aeaeed">aligner</a></td></tr>
+<tr class="separator:ac041ad7cec145f55b68442ac58aeaeed"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
@@ -136,26 +151,26 @@ Static Public Attributes</h2></td></tr>
 <tr class="separator:aaa77a2fc74630664d12527818826e28b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>A class that supports haplotype-consistent seed extension using <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a>. Each seed is a pair of matching read/graph positions and each extension is a gapless alignment of an interval of the read to a haplotype. A cluster is a vector of distinct seeds. The cluster may initially be in an arbitrary order, but it will be sorted during the extension. All seeds in a cluster should correspond to the same alignment or positions near it. </p>
+<div class="textblock"><p>A class that supports haplotype-consistent seed extension using <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a>. Each seed is a pair of matching read/graph positions and each extension is a gapless alignment of an interval of the read to a haplotype. A cluster is an unordered set of distinct seeds. Seeds in the same node with the same (read_offset - node_offset) difference are considered equivalent. All seeds in a cluster should correspond to the same alignment or positions near it. <a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a> also needs an <a class="el" href="classvg_1_1Aligner.html">Aligner</a> object for scoring the extension candidates. </p>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
-<a class="anchor" id="afcd0dcc83012ca927949f243a830a89e"></a>
+<a class="anchor" id="a7ac1326772ac23e766774279d39e9c04"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">typedef std::vector&lt;<a class="el" href="classvg_1_1GaplessExtender.html#ae792e6ed6cc186199dc2edd9fbce3dee">seed_type</a>&gt; <a class="el" href="classvg_1_1GaplessExtender.html#afcd0dcc83012ca927949f243a830a89e">vg::GaplessExtender::cluster_type</a></td>
+          <td class="memname">typedef <a class="el" href="classvg_1_1pair__hash__set.html">pair_hash_set</a>&lt;<a class="el" href="classvg_1_1GaplessExtender.html#abee2d6bdd5013ab528d7a0cdc6b685f1">seed_type</a>&gt; <a class="el" href="classvg_1_1GaplessExtender.html#a7ac1326772ac23e766774279d39e9c04">vg::GaplessExtender::cluster_type</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a class="anchor" id="ae792e6ed6cc186199dc2edd9fbce3dee"></a>
+<a class="anchor" id="abee2d6bdd5013ab528d7a0cdc6b685f1"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">typedef std::pair&lt;size_t, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&gt; <a class="el" href="classvg_1_1GaplessExtender.html#ae792e6ed6cc186199dc2edd9fbce3dee">vg::GaplessExtender::seed_type</a></td>
+          <td class="memname">typedef std::pair&lt;<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, int64_t&gt; <a class="el" href="classvg_1_1GaplessExtender.html#abee2d6bdd5013ab528d7a0cdc6b685f1">vg::GaplessExtender::seed_type</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -180,7 +195,7 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a08058c1fa9281436ffec780441d9d648"></a>
+<a class="anchor" id="afa2a699dd6ccf1611e12b200df69c576"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -191,8 +206,18 @@ Static Public Attributes</h2></td></tr>
           <td class="memname">vg::GaplessExtender::GaplessExtender </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>graph</em></td><td>)</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> &amp;&#160;</td>
+          <td class="paramname"><em>aligner</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -202,89 +227,19 @@ Static Public Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Create a <a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a> using the given <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a>. </p>
+<p>Create a <a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a> using the given <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> and <a class="el" href="classvg_1_1Aligner.html">Aligner</a> objects. </p>
 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a class="anchor" id="abc2a8eda3cbf8da43232545ad596a6d1"></a>
+<a class="anchor" id="a314b82cf64480ad15ef3123dd0f59880"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; vg::GaplessExtender::extend </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1GaplessExtender.html#afcd0dcc83012ca927949f243a830a89e">cluster_type</a> &amp;&#160;</td>
-          <td class="paramname"><em>cluster</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>sequence</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_mismatches</em> = <code><a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a></code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<ol type="1">
-<li>Call <a class="el" href="classvg_1_1GaplessExtender.html#ace719b7faefe1fd68a8f97ca7379ff31">extend_seeds()</a>. If there is a full-length alignment, return the result.</li>
-<li>Call <a class="el" href="classvg_1_1GaplessExtender.html#a2af378a5fe5d50eb7908ddb9004872d2">maximal_extensions()</a>.</li>
-<li>Call <a class="el" href="classvg_1_1GaplessExtender.html#ada32e562f7675ae38093a20d93ba1742">extend_flanks()</a> with max_mismatches / 2 mismatches. The extensions are sorted by (core_interval.first, core_interval.second). </li>
-</ol>
-
-</div>
-</div>
-<a class="anchor" id="ada32e562f7675ae38093a20d93ba1742"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::GaplessExtender::extend_flanks </td>
-          <td>(</td>
-          <td class="paramtype">std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>extensions</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>sequence</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_mismatches</em> = <code><a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>&#160;/&#160;2</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Extends the flanks of each unambiguous extension with up to 'max_mismatches' mismatches in each direction. Trims the mismatches if the flanks start/end with them. Updates 'flanked_interval' to match the longest trimmed interval. Note that the extensions must be exact, non-empty, and non-full. </p>
-
-</div>
-</div>
-<a class="anchor" id="ace719b7faefe1fd68a8f97ca7379ff31"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> vg::GaplessExtender::extend_seeds </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1GaplessExtender.html#afcd0dcc83012ca927949f243a830a89e">cluster_type</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1GaplessExtender.html#a7ac1326772ac23e766774279d39e9c04">cluster_type</a> &amp;&#160;</td>
           <td class="paramname"><em>cluster</em>, </td>
         </tr>
         <tr>
@@ -303,7 +258,7 @@ Static Public Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>cluster_is_sorted</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>trim_extensions</em> = <code>true</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -312,31 +267,139 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Find a full-length extension of the seeds with up to 'max_mismatches' mismatches. Return an alignment with the fewest number of mismatches or an empty extension if no full-length alignment exists. </p>
+<p>Find the best full-length alignment for the sequence within the cluster with at most max_mismatches mismatches. If that is not possible, find the set of highest-scoring maximal extensions of the seeds, allowing any number of mismatches in the seed node and max_mismatches / 2 mismatches on each flank. Flanks may have more mismatches if it does not bring the total beyond max_mismatches. Then call <a class="el" href="classvg_1_1GaplessExtender.html#aaf0419a320a6df71251bc9e8e409cb00">trim()</a> if trim_extensions i set. The extensions are sorted by their coordinates in the sequence. </p>
 
 </div>
 </div>
-<a class="anchor" id="a2af378a5fe5d50eb7908ddb9004872d2"></a>
+<a class="anchor" id="a12663a32f4bc41137eb372c845f0eafe"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static size_t vg::GaplessExtender::get_node_offset </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1GaplessExtender.html#abee2d6bdd5013ab528d7a0cdc6b685f1">seed_type</a>&#160;</td>
+          <td class="paramname"><em>seed</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get the node offset from a seed. </p>
+
+</div>
+</div>
+<a class="anchor" id="a92241e0a9691fc7b06f5258a21d1c9c4"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> vg::GaplessExtender::get_pos </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1GaplessExtender.html#abee2d6bdd5013ab528d7a0cdc6b685f1">seed_type</a>&#160;</td>
+          <td class="paramname"><em>seed</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get the graph position from a seed. </p>
+
+</div>
+</div>
+<a class="anchor" id="a5c568cad31cb0cc1007ef05183c197ab"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static size_t vg::GaplessExtender::get_read_offset </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1GaplessExtender.html#abee2d6bdd5013ab528d7a0cdc6b685f1">seed_type</a>&#160;</td>
+          <td class="paramname"><em>seed</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get the read offset from a seed. </p>
+
+</div>
+</div>
+<a class="anchor" id="a5b141ee05b0f704d29e9f34de8c67a32"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static <a class="el" href="classvg_1_1GaplessExtender.html#abee2d6bdd5013ab528d7a0cdc6b685f1">seed_type</a> vg::GaplessExtender::to_seed </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td>
+          <td class="paramname"><em>pos</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>read_offset</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Convert (graph position, read offset) to a seed. </p>
+
+</div>
+</div>
+<a class="anchor" id="aaf0419a320a6df71251bc9e8e409cb00"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; vg::GaplessExtender::maximal_extensions </td>
+          <td class="memname">void vg::GaplessExtender::trim </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1GaplessExtender.html#afcd0dcc83012ca927949f243a830a89e">cluster_type</a> &amp;&#160;</td>
-          <td class="paramname"><em>cluster</em>, </td>
+          <td class="paramtype">std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>extensions</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>sequence</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>cluster_is_sorted</em> = <code>false</code>&#160;</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_mismatches</em> = <code><a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -345,11 +408,23 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Find the maximal unambiguous extension for each seed. Returns the set of distinct extensions. A maximal unambiguous extension ends when further extensions either contain mismatches or branch with the same character. </p>
+<p>Try to improve the score of each extension by trimming mismatches from the flanks. Do not trim full-length alignments with &lt;= max_mismatches mismatches. Note that <a class="el" href="classvg_1_1GaplessExtender.html#a314b82cf64480ad15ef3123dd0f59880">extend()</a> already calls this by default. </p>
 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a class="anchor" id="ac041ad7cec145f55b68442ac58aeaeed"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a>* vg::GaplessExtender::aligner</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a class="anchor" id="ae481d2656912186a60094f12a440bedc"></a>
 <div class="memitem">
 <div class="memproto">

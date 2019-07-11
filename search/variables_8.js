@@ -28,7 +28,6 @@ var searchData=
   ['hash',['hash',['../structvg_1_1MinimizerIndex_1_1minimizer__type.html#a11174472b1faa08970c2335336a24c8a',1,'vg::MinimizerIndex::minimizer_type']]],
   ['hash_5ftable',['hash_table',['../classvg_1_1MinimizerIndex.html#af90d350e4d4833ef1ba2485305435a38',1,'vg::MinimizerIndex']]],
   ['head',['head',['../structvg_1_1mi_1_1CircularBuffer.html#a5d239c64bd4a08c24a2f49e84a13c861',1,'vg::mi::CircularBuffer']]],
-  ['head_5fmismatches',['head_mismatches',['../structvg_1_1FlankState.html#abd7d006642e4d1c3deb6ef4c30d07e57',1,'vg::FlankState']]],
   ['head_5ftail_5fnodes',['head_tail_nodes',['../classvg_1_1Paths.html#a3fd42adbd3d58aee08370f043dc1643d',1,'vg::Paths']]],
   ['header',['header',['../classvg_1_1MinimizerIndex.html#a2c3850d887e644838dae6ac13174d9b0',1,'vg::MinimizerIndex']]],
   ['header_5fmutex',['header_mutex',['../classvg_1_1HTSAlignmentEmitter.html#a415bd90d7e4b2da45e534ec1810616fe',1,'vg::HTSAlignmentEmitter']]],

@@ -2,8 +2,6 @@ var searchData=
 [
   ['ultrabubble',['ULTRABUBBLE',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97aea6b4b85aa567a940c7434df2fcb56fb',1,'vg']]],
   ['unaligned_5fbands',['unaligned_bands',['../classvg_1_1AlignmentChainModel.html#a86bcd77b21cc9b8b9c2b9f100fb9ce71',1,'vg::AlignmentChainModel']]],
-  ['unambiguous_5fmatch_5fto_5fextension',['unambiguous_match_to_extension',['../namespacevg.html#ab50e0233c484b770b4ac5baa6061f6ad',1,'vg']]],
-  ['unambiguousmatch',['UnambiguousMatch',['../structvg_1_1UnambiguousMatch.html',1,'vg']]],
   ['unary',['UNARY',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97a0e62c0ff8521d5960a5cc819a7bf7230',1,'vg']]],
   ['unary_5fboundaries',['unary_boundaries',['../classvg_1_1NetGraph.html#ae573871a7c3cd0be507222751f870f72',1,'vg::NetGraph']]],
   ['unchop',['unchop',['../classvg_1_1VG.html#a998cfb17a4433f05a1579f0d704208a6',1,'vg::VG']]],

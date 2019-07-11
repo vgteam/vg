@@ -151,7 +151,6 @@ var searchData=
   ['convert_5fpath_5fhandle_5fgraph',['convert_path_handle_graph',['../namespacevg.html#aa6c0fbf6d65818a2bd2092fec9df48fc',1,'vg']]],
   ['convert_5funpaired',['convert_unpaired',['../classvg_1_1HTSAlignmentEmitter.html#acfa06d770ef465d90006f19119e3c6d6',1,'vg::HTSAlignmentEmitter']]],
   ['copy',['copy',['../classvg_1_1MinimizerIndex.html#a8bbdade3a89d723436f0b92945cf2a07',1,'vg::MinimizerIndex']]],
-  ['core_5flength',['core_length',['../structvg_1_1GaplessExtension.html#a0180c1d64bcc6f6b2d881af4e1b27b5d',1,'vg::GaplessExtension']]],
   ['count',['count',['../classvg_1_1MinimizerIndex.html#a36520ce7c45f20d528ee534592cab206',1,'vg::MinimizerIndex::count()'],['../structvg_1_1XG_1_1ThreadSearchState.html#a784cc63b1b179c48ab2237f14fb50fd7',1,'vg::XG::ThreadSearchState::count()']]],
   ['count_5fhaplotypes',['count_haplotypes',['../classvg_1_1GenomeState.html#a80ffcd90334fd674df62f2faa53f5549',1,'vg::GenomeState::count_haplotypes(const pair&lt; const Snarl *, const Snarl * &gt; &amp;telomere_pair) const '],['../classvg_1_1GenomeState.html#a0a892d78d60bd586ae25a3a472ff0671',1,'vg::GenomeState::count_haplotypes(const Snarl *snarl) const '],['../classvg_1_1XG.html#a30e48e078b1193fc50af0f80c2a9ee03',1,'vg::XG::count_haplotypes()']]],
   ['count_5fmatches',['count_matches',['../classvg_1_1XG.html#a5c08eca0205cccbb94d360d6bee307b9',1,'vg::XG::count_matches(const thread_t &amp;t) const '],['../classvg_1_1XG.html#a7c60b02e6a4068f2654bc4448d2225b6',1,'vg::XG::count_matches(const Path &amp;t) const ']]],

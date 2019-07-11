@@ -15,7 +15,6 @@ var searchData=
   ['fixed_5ffragment_5fmodel',['fixed_fragment_model',['../classvg_1_1FragmentLengthStatistics.html#a8c3c6bfb99c7cef159520adb58be271d',1,'vg::FragmentLengthStatistics']]],
   ['flags',['flags',['../structvg_1_1MinimizerIndex_1_1Header.html#a057627288bb5008172fe61159352be60',1,'vg::MinimizerIndex::Header']]],
   ['flank_5frange',['flank_range',['../classvg_1_1VariantAdder.html#a1761b88c30f6fc8e9e40a99d6f66d9dd',1,'vg::VariantAdder']]],
-  ['flanked_5finterval',['flanked_interval',['../structvg_1_1GaplessExtension.html#a4e665e6600b38bab9fd64d8746424b40',1,'vg::GaplessExtension']]],
   ['flat',['flat',['../classvg_1_1Constructor.html#a2def54af1f72ad07cf84ff26fbbcc398',1,'vg::Constructor']]],
   ['flat_5fnode',['flat_node',['../structhaplo_1_1haplo__DP__rectangle.html#a5c211ab946bf46fc45b1815482fd790a',1,'haplo::haplo_DP_rectangle']]],
   ['flush',['flush',['../structhFILE__backend.html#a05954cb747837c1c6061995ac8a90b0d',1,'hFILE_backend']]],

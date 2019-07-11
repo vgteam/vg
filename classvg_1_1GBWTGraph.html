@@ -167,6 +167,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aca337f2be820777615148386ec40baf9"><td class="memItemLeft" align="right" valign="top">gbwt::BidirectionalState&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#aca337f2be820777615148386ec40baf9">get_bd_state</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
 <tr class="memdesc:aca337f2be820777615148386ec40baf9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert handle_t to gbwt::BidirectionalState.  <a href="#aca337f2be820777615148386ec40baf9">More...</a><br/></td></tr>
 <tr class="separator:aca337f2be820777615148386ec40baf9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a64e748b2dfa7d9a62b49ec2c067eeea7"><td class="memItemLeft" align="right" valign="top">gbwt::SearchState&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#a64e748b2dfa7d9a62b49ec2c067eeea7">find</a> (const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;path) const </td></tr>
+<tr class="memdesc:a64e748b2dfa7d9a62b49ec2c067eeea7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the search state corresponding to the vector of handles.  <a href="#a64e748b2dfa7d9a62b49ec2c067eeea7">More...</a><br/></td></tr>
+<tr class="separator:a64e748b2dfa7d9a62b49ec2c067eeea7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9b329bd82bda8b235df4e4f136e6295e"><td class="memItemLeft" align="right" valign="top">gbwt::BidirectionalState&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#a9b329bd82bda8b235df4e4f136e6295e">bd_find</a> (const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;path) const </td></tr>
+<tr class="memdesc:a9b329bd82bda8b235df4e4f136e6295e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the bidirectional search state corresponding to the vector of handles.  <a href="#a9b329bd82bda8b235df4e4f136e6295e">More...</a><br/></td></tr>
+<tr class="separator:a9b329bd82bda8b235df4e4f136e6295e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae436bdd1f2f49d4b56943fef8c5fa669"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#ae436bdd1f2f49d4b56943fef8c5fa669">follow_paths</a> (gbwt::SearchState state, const std::function&lt; bool(const gbwt::SearchState &amp;)&gt; &amp;iteratee) const </td></tr>
 <tr class="separator:ae436bdd1f2f49d4b56943fef8c5fa669"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aeb6ed7d490890fe84e0d2d1be9758314"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#aeb6ed7d490890fe84e0d2d1be9758314">follow_paths</a> (gbwt::BidirectionalState state, bool backward, const std::function&lt; bool(const gbwt::BidirectionalState &amp;)&gt; &amp;iteratee) const </td></tr>
@@ -304,6 +310,24 @@ Private Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a class="anchor" id="a9b329bd82bda8b235df4e4f136e6295e"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::BidirectionalState vg::GBWTGraph::bd_find </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>path</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the bidirectional search state corresponding to the vector of handles. </p>
+
+</div>
+</div>
 <a class="anchor" id="acaf67171f50ab75c37c3d7b7d109ada4"></a>
 <div class="memitem">
 <div class="memproto">
@@ -329,6 +353,24 @@ Private Member Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Determine if the node sequence ends with the given character. </p>
+
+</div>
+</div>
+<a class="anchor" id="a64e748b2dfa7d9a62b49ec2c067eeea7"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::SearchState vg::GBWTGraph::find </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>path</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the search state corresponding to the vector of handles. </p>
 
 </div>
 </div>

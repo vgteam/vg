@@ -100,12 +100,9 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a0180c1d64bcc6f6b2d881af4e1b27b5d"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a0180c1d64bcc6f6b2d881af4e1b27b5d">core_length</a> () const </td></tr>
-<tr class="memdesc:a0180c1d64bcc6f6b2d881af4e1b27b5d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Length of the core interval.  <a href="#a0180c1d64bcc6f6b2d881af4e1b27b5d">More...</a><br/></td></tr>
-<tr class="separator:a0180c1d64bcc6f6b2d881af4e1b27b5d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9649b46fae6785a996081be67debe34b"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a9649b46fae6785a996081be67debe34b">flanked_length</a> () const </td></tr>
-<tr class="memdesc:a9649b46fae6785a996081be67debe34b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Length of the flanked interval.  <a href="#a9649b46fae6785a996081be67debe34b">More...</a><br/></td></tr>
-<tr class="separator:a9649b46fae6785a996081be67debe34b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a799eb5d19c9967d3dd4e8a55b2937adf"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a799eb5d19c9967d3dd4e8a55b2937adf">length</a> () const </td></tr>
+<tr class="memdesc:a799eb5d19c9967d3dd4e8a55b2937adf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Length of the extension.  <a href="#a799eb5d19c9967d3dd4e8a55b2937adf">More...</a><br/></td></tr>
+<tr class="separator:a799eb5d19c9967d3dd4e8a55b2937adf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab0a6140c84366074904a952ccfffeb68"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#ab0a6140c84366074904a952ccfffeb68">empty</a> () const </td></tr>
 <tr class="memdesc:ab0a6140c84366074904a952ccfffeb68"><td class="mdescLeft">&#160;</td><td class="mdescRight">Is the extension empty?  <a href="#ab0a6140c84366074904a952ccfffeb68">More...</a><br/></td></tr>
 <tr class="separator:ab0a6140c84366074904a952ccfffeb68"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -119,17 +116,20 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:ad7d3a6272f1e8f13527185ce380c7853"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of mismatches in the extension.  <a href="#ad7d3a6272f1e8f13527185ce380c7853">More...</a><br/></td></tr>
 <tr class="separator:ad7d3a6272f1e8f13527185ce380c7853"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:addc8bf29dc4ffcf3b055f4fbed2c5e5c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Position.html">Position</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#addc8bf29dc4ffcf3b055f4fbed2c5e5c">starting_position</a> (const <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> &amp;graph) const </td></tr>
-<tr class="memdesc:addc8bf29dc4ffcf3b055f4fbed2c5e5c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the starting position of the core interval.  <a href="#addc8bf29dc4ffcf3b055f4fbed2c5e5c">More...</a><br/></td></tr>
+<tr class="memdesc:addc8bf29dc4ffcf3b055f4fbed2c5e5c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the starting position of the extension.  <a href="#addc8bf29dc4ffcf3b055f4fbed2c5e5c">More...</a><br/></td></tr>
 <tr class="separator:addc8bf29dc4ffcf3b055f4fbed2c5e5c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7d3bface8359b6b9a22e85ffe672bdca"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Position.html">Position</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a7d3bface8359b6b9a22e85ffe672bdca">tail_position</a> (const <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> &amp;graph) const </td></tr>
-<tr class="memdesc:a7d3bface8359b6b9a22e85ffe672bdca"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the position after the core interval.  <a href="#a7d3bface8359b6b9a22e85ffe672bdca">More...</a><br/></td></tr>
+<tr class="memdesc:a7d3bface8359b6b9a22e85ffe672bdca"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the position after the extension.  <a href="#a7d3bface8359b6b9a22e85ffe672bdca">More...</a><br/></td></tr>
 <tr class="separator:a7d3bface8359b6b9a22e85ffe672bdca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0c955571963013098af600632d4b342c"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a0c955571963013098af600632d4b342c">tail_offset</a> (const <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> &amp;graph) const </td></tr>
-<tr class="memdesc:a0c955571963013098af600632d4b342c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the node offset after the core interval.  <a href="#a0c955571963013098af600632d4b342c">More...</a><br/></td></tr>
+<tr class="memdesc:a0c955571963013098af600632d4b342c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the node offset after the extension.  <a href="#a0c955571963013098af600632d4b342c">More...</a><br/></td></tr>
 <tr class="separator:a0c955571963013098af600632d4b342c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3b28c2afe0e272222e3a1ab4df75ddfc"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a3b28c2afe0e272222e3a1ab4df75ddfc">to_path</a> (const <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> &amp;graph, const std::string &amp;sequence) const </td></tr>
 <tr class="memdesc:a3b28c2afe0e272222e3a1ab4df75ddfc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert the extension into a <a class="el" href="structvg_1_1Path.html">Path</a>.  <a href="#a3b28c2afe0e272222e3a1ab4df75ddfc">More...</a><br/></td></tr>
 <tr class="separator:a3b28c2afe0e272222e3a1ab4df75ddfc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aad644385916b05bb754da2cc0842f875"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#aad644385916b05bb754da2cc0842f875">operator&lt;</a> (const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;another) const </td></tr>
+<tr class="memdesc:aad644385916b05bb754da2cc0842f875"><td class="mdescLeft">&#160;</td><td class="mdescRight">For priority queues.  <a href="#aad644385916b05bb754da2cc0842f875">More...</a><br/></td></tr>
+<tr class="separator:aad644385916b05bb754da2cc0842f875"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -139,51 +139,36 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a713e8ef2aad7aa94ae4ef91fbe83e159"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1b799cab247ae9b2551e902a9f7f2b25"><td class="memItemLeft" align="right" valign="top">gbwt::BidirectionalState&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a1b799cab247ae9b2551e902a9f7f2b25">state</a></td></tr>
 <tr class="separator:a1b799cab247ae9b2551e902a9f7f2b25"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2616a4a161e0fab8f12f54962eb8d048"><td class="memItemLeft" align="right" valign="top">std::pair&lt; size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a2616a4a161e0fab8f12f54962eb8d048">core_interval</a></td></tr>
-<tr class="separator:a2616a4a161e0fab8f12f54962eb8d048"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7e28aab9845a5c190ce1b7b6b0abbb82"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a7e28aab9845a5c190ce1b7b6b0abbb82">is_full_alignment</a></td></tr>
-<tr class="separator:a7e28aab9845a5c190ce1b7b6b0abbb82"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4e665e6600b38bab9fd64d8746424b40"><td class="memItemLeft" align="right" valign="top">std::pair&lt; size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a4e665e6600b38bab9fd64d8746424b40">flanked_interval</a></td></tr>
-<tr class="separator:a4e665e6600b38bab9fd64d8746424b40"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a32b115618388c2254ef91c06ac0c9840"><td class="memItemLeft" align="right" valign="top">std::pair&lt; size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a32b115618388c2254ef91c06ac0c9840">read_interval</a></td></tr>
+<tr class="separator:a32b115618388c2254ef91c06ac0c9840"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a30b340b28d82e7070329e45aaa9e6486"><td class="memItemLeft" align="right" valign="top">std::vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a30b340b28d82e7070329e45aaa9e6486">mismatch_positions</a></td></tr>
 <tr class="separator:a30b340b28d82e7070329e45aaa9e6486"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0989b2a97d4403b381dbf68768757d32"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a0989b2a97d4403b381dbf68768757d32">score</a></td></tr>
+<tr class="separator:a0989b2a97d4403b381dbf68768757d32"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6b4301b3f1f75362d7904402fadde5a6"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a6b4301b3f1f75362d7904402fadde5a6">left_full</a></td></tr>
+<tr class="separator:a6b4301b3f1f75362d7904402fadde5a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae7ca191732330cb5a6db94ee5531f2ed"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#ae7ca191732330cb5a6db94ee5531f2ed">right_full</a></td></tr>
+<tr class="separator:ae7ca191732330cb5a6db94ee5531f2ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3b8b053fc8800c5453b002cbc2aad173"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a3b8b053fc8800c5453b002cbc2aad173">left_maximal</a></td></tr>
+<tr class="separator:a3b8b053fc8800c5453b002cbc2aad173"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8e4d53c78f3c355b5b17bf3e959bbd41"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a8e4d53c78f3c355b5b17bf3e959bbd41">right_maximal</a></td></tr>
+<tr class="separator:a8e4d53c78f3c355b5b17bf3e959bbd41"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0045e76ebc1c911201d6744d6c20e50a"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a0045e76ebc1c911201d6744d6c20e50a">internal_score</a></td></tr>
+<tr class="separator:a0045e76ebc1c911201d6744d6c20e50a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a868af12d5411848f3b8e0e682d053337"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a868af12d5411848f3b8e0e682d053337">old_score</a></td></tr>
+<tr class="separator:a868af12d5411848f3b8e0e682d053337"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>A result of the gapless extension of a seed.</p>
 <ul>
-<li>'path' covers 'core_interval' of the read, starting from 'offset' in the initial node.</li>
-<li>The intervals are semi-open [first, second) intervals.</li>
-<li>'state' is the search state corresponding to 'path'.</li>
-<li>If 'is_full_alignment' is set, the path is a full-length alignment and may contain mismatches. Otherwise it is a maximal unambiguous exact extension of a seed.</li>
-<li>If the path is not a full-length alignment, 'flanked_interval' is a read interval extending 'core_interval'. The extension may contain mismatches, but it starts and ends with a match.</li>
-<li>The mismatching read positions are stored in 'mismatch_positions' in sorted order. </li>
+<li>The extension is a path starting from offset 'offset' of node path.front().</li>
+<li>Search state 'state' corresponds to the path.</li>
+<li>The extension covers semiopen interval 'read_interval' of the read.</li>
+<li>Vector 'mismatch_positions' contains the mismatching read positions in sorted order.</li>
+<li>'score' is an alignment score (bigger is better).</li>
+<li>Flags 'left_full' and 'right_full' indicate whether the extension covers the start/end of the read. </li>
 </ul>
 </div><h2 class="groupheader">Member Function Documentation</h2>
-<a class="anchor" id="a0180c1d64bcc6f6b2d881af4e1b27b5d"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::GaplessExtension::core_length </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Length of the core interval. </p>
-
-</div>
-</div>
 <a class="anchor" id="ab0a6140c84366074904a952ccfffeb68"></a>
 <div class="memitem">
 <div class="memproto">
@@ -234,31 +219,6 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a9649b46fae6785a996081be67debe34b"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::GaplessExtension::flanked_length </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Length of the flanked interval. </p>
-
-</div>
-</div>
 <a class="anchor" id="af7aec72a45e784f7189aaea30ab4f288"></a>
 <div class="memitem">
 <div class="memproto">
@@ -281,6 +241,31 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Is the extension a full-length alignment? </p>
+
+</div>
+</div>
+<a class="anchor" id="a799eb5d19c9967d3dd4e8a55b2937adf"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::GaplessExtension::length </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Length of the extension. </p>
 
 </div>
 </div>
@@ -309,6 +294,32 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="aad644385916b05bb754da2cc0842f875"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::GaplessExtension::operator&lt; </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;&#160;</td>
+          <td class="paramname"><em>another</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>For priority queues. </p>
+
+</div>
+</div>
 <a class="anchor" id="addc8bf29dc4ffcf3b055f4fbed2c5e5c"></a>
 <div class="memitem">
 <div class="memproto">
@@ -323,7 +334,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Return the starting position of the core interval. </p>
+<p>Return the starting position of the extension. </p>
 
 </div>
 </div>
@@ -341,7 +352,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Return the node offset after the core interval. </p>
+<p>Return the node offset after the extension. </p>
 
 </div>
 </div>
@@ -359,7 +370,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Return the position after the core interval. </p>
+<p>Return the position after the extension. </p>
 
 </div>
 </div>
@@ -392,36 +403,36 @@ Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a class="anchor" id="a2616a4a161e0fab8f12f54962eb8d048"></a>
+<a class="anchor" id="a0045e76ebc1c911201d6744d6c20e50a"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::pair&lt;size_t, size_t&gt; vg::GaplessExtension::core_interval</td>
+          <td class="memname">uint32_t vg::GaplessExtension::internal_score</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a class="anchor" id="a4e665e6600b38bab9fd64d8746424b40"></a>
+<a class="anchor" id="a6b4301b3f1f75362d7904402fadde5a6"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::pair&lt;size_t, size_t&gt; vg::GaplessExtension::flanked_interval</td>
+          <td class="memname">bool vg::GaplessExtension::left_full</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a class="anchor" id="a7e28aab9845a5c190ce1b7b6b0abbb82"></a>
+<a class="anchor" id="a3b8b053fc8800c5453b002cbc2aad173"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::GaplessExtension::is_full_alignment</td>
+          <td class="memname">bool vg::GaplessExtension::left_maximal</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -452,12 +463,72 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a868af12d5411848f3b8e0e682d053337"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint32_t vg::GaplessExtension::old_score</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a class="anchor" id="a6d46f3e3d3525ea159b11f6e832a37e0"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">std::vector&lt;<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&gt; vg::GaplessExtension::path</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a32b115618388c2254ef91c06ac0c9840"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::pair&lt;size_t, size_t&gt; vg::GaplessExtension::read_interval</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="ae7ca191732330cb5a6db94ee5531f2ed"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::GaplessExtension::right_full</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a8e4d53c78f3c355b5b17bf3e959bbd41"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::GaplessExtension::right_maximal</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a0989b2a97d4403b381dbf68768757d32"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t vg::GaplessExtension::score</td>
         </tr>
       </table>
 </div><div class="memdoc">

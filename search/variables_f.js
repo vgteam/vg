@@ -1,11 +1,12 @@
 var searchData=
 [
   ['off_5fmask',['OFF_MASK',['../classvg_1_1MinimizerIndex.html#aba6a8d15678c7391be9824cbee18eefd',1,'vg::MinimizerIndex']]],
-  ['offset',['offset',['../structvg_1_1GaplessMatch.html#ab292ae1f8fc20b77bf4240180bc130e5',1,'vg::GaplessMatch::offset()'],['../structvg_1_1GaplessExtension.html#a713e8ef2aad7aa94ae4ef91fbe83e159',1,'vg::GaplessExtension::offset()'],['../structvg_1_1MinimizerIndex_1_1minimizer__type.html#a4f538a05d34ea56a683cdc1cedaf6606',1,'vg::MinimizerIndex::minimizer_type::offset()'],['../structvg_1_1PathBranch.html#ad07bed1fbba0e7c94c218f285c2e51cd',1,'vg::PathBranch::offset()'],['../structvg_1_1Position.html#a1244220d4c8ae90633fd7a7e361d309a',1,'vg::Position::offset()']]],
+  ['offset',['offset',['../structvg_1_1GaplessExtension.html#a713e8ef2aad7aa94ae4ef91fbe83e159',1,'vg::GaplessExtension::offset()'],['../structvg_1_1MinimizerIndex_1_1minimizer__type.html#a4f538a05d34ea56a683cdc1cedaf6606',1,'vg::MinimizerIndex::minimizer_type::offset()'],['../structvg_1_1PathBranch.html#ad07bed1fbba0e7c94c218f285c2e51cd',1,'vg::PathBranch::offset()'],['../structvg_1_1Position.html#a1244220d4c8ae90633fd7a7e361d309a',1,'vg::Position::offset()']]],
   ['offsets',['offsets',['../classvg_1_1GBWTGraph.html#a74d8cfa8cdde319046b070b83b75d196',1,'vg::GBWTGraph::offsets()'],['../classvg_1_1XGPath.html#ab973112ddcd961095d1f60d3265faf48',1,'vg::XGPath::offsets()']]],
   ['offsets_5frank',['offsets_rank',['../classvg_1_1XGPath.html#a25ea004bce7a2775eee5a68891f9b379',1,'vg::XGPath']]],
   ['offsets_5fselect',['offsets_select',['../classvg_1_1XGPath.html#a9ba88989829d0d3f54e0fa229b6938a5',1,'vg::XGPath']]],
   ['old_5fnode',['old_node',['../classhaplo_1_1hDP__graph__accessor.html#a3a4bd5518f48711903c89d784bc815fd',1,'haplo::hDP_graph_accessor::old_node()'],['../classhaplo_1_1hDP__gbwt__graph__accessor.html#ac101c3ba66f96fa569c1de71bf6c51fe',1,'haplo::hDP_gbwt_graph_accessor::old_node()']]],
+  ['old_5fscore',['old_score',['../structvg_1_1GaplessExtension.html#a868af12d5411848f3b8e0e682d053337',1,'vg::GaplessExtension']]],
   ['option_5foffsets',['option_offsets',['../classvg_1_1Configurable.html#a6c5fb72d68761ab4b157c817259164a5',1,'vg::Configurable']]],
   ['options_5fby_5fcode',['options_by_code',['../classvg_1_1ConfigurableParser.html#a8bdfad847167513663ef67839a574e92',1,'vg::ConfigurableParser']]],
   ['order',['order',['../structvg_1_1XdropAligner_1_1OrderedGraph.html#ae3e0b7cb7f5f2cf84acb02557d7863de',1,'vg::XdropAligner::OrderedGraph']]],
