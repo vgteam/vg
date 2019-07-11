@@ -392,16 +392,14 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
         }
 
         // Handle the best match.
-        if (best_match.score > 0) {
-            if (best_match_is_full_length) {
-                result.clear();
-                result.push_back(best_match);
-                if (best_match.internal_score == 0) {
-                    break;
-                }
-            } else if (!full_length_found && !best_match.empty()) {
-                result.push_back(best_match);
+        if (best_match_is_full_length) {
+            result.clear();
+            result.push_back(best_match);
+            if (best_match.internal_score == 0) {
+                break;
             }
+        } else if (!full_length_found && !best_match.empty()) {
+            result.push_back(best_match);
         }
     }
 

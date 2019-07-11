@@ -936,7 +936,7 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
         // And mark it as a start subpath
         mp.add_start(mp.subpath_size() - 1);
     }
-    
+
     // We must have somewhere to start.
     assert(mp.start_size() > 0);
 
