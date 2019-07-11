@@ -97,6 +97,7 @@ var searchData=
   ['paths_5fof_5fnode',['paths_of_node',['../classvg_1_1XG.html#a29a934034803bccbf0907080dbf1c465',1,'vg::XG']]],
   ['paths_5fon_5fsame_5fcomponent',['paths_on_same_component',['../classvg_1_1PathComponentIndex.html#a0821bafbd19611ef98dcd2558be7d29f',1,'vg::PathComponentIndex::paths_on_same_component()'],['../classvg_1_1XG.html#a16fe3c8966fe46e5f647aa8c09f0b4d7',1,'vg::XG::paths_on_same_component()']]],
   ['pathsubgraph',['PathSubgraph',['../classvg_1_1PathSubgraph.html#a861b07c24488c1454b6c04b1f7f01b68',1,'vg::PathSubgraph']]],
+  ['pathtraversalfinder',['PathTraversalFinder',['../classvg_1_1PathTraversalFinder.html#a985a4ad7c4cc4e336b5d823ab2bc326a',1,'vg::PathTraversalFinder']]],
   ['pb2json',['pb2json',['../json2pb_8cpp.html#af6bb66946ffaf36b1fe45881291fee0d',1,'pb2json(const Message &amp;msg):&#160;json2pb.cpp'],['../json2pb_8h.html#a7cc576c6ed1e52ba82cf5f264f8ba21d',1,'pb2json(const google::protobuf::Message &amp;msg):&#160;json2pb.h']]],
   ['peek',['peek',['../classvg_1_1BitString.html#ad73a0db67a146e16fd1de30068159670',1,'vg::BitString']]],
   ['percent_5fidentity_5ffilter',['percent_identity_filter',['../classvg_1_1Filter.html#aba2f93a1c4087075ccf4924fd0e44392',1,'vg::Filter']]],

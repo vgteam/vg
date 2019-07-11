@@ -1,7 +1,7 @@
 var searchData=
 [
   ['tables',['Tables',['../structvg_1_1io_1_1Registry_1_1Tables.html',1,'vg::io::Registry']]],
-  ['tag',['tag',['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a17e22f4ea8e69209b9aff2c00deb9ba4',1,'vg::io::ProtobufEmitter::tag()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()']]],
+  ['tag',['TAG',['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a17e22f4ea8e69209b9aff2c00deb9ba4',1,'vg::io::ProtobufEmitter::tag()']]],
   ['tag_5fcorrect',['tag_correct',['../classvg_1_1Funnel.html#a4e2ab6878393d0d9aaee56127844b06b',1,'vg::Funnel']]],
   ['tag_5fto_5floader',['tag_to_loader',['../structvg_1_1io_1_1Registry_1_1Tables.html#a965e60de0073226a98deef0757d7dfa8',1,'vg::io::Registry::Tables']]],
   ['tag_5fto_5fprotobuf',['tag_to_protobuf',['../structvg_1_1io_1_1Registry_1_1Tables.html#abac3d9be375a86c8f55e5777e97fe323',1,'vg::io::Registry::Tables']]],
@@ -179,8 +179,8 @@ var searchData=
   ['tree',['Tree',['../structvg_1_1Tree.html',1,'vg']]],
   ['tree_5fdepth',['tree_depth',['../classvg_1_1MinimumDistanceIndex.html#a32b89d9850b59f0354be0bfa05774d4b',1,'vg::MinimumDistanceIndex']]],
   ['treenode',['TreeNode',['../structvg_1_1TreeNode.html#a386f7b2ec0948165140022155dda8c04',1,'vg::TreeNode']]],
-  ['treenode',['TreeNode',['../structvg_1_1BitStringTree_1_1TreeNode.html',1,'vg::BitStringTree']]],
   ['treenode',['TreeNode',['../structvg_1_1TreeNode.html',1,'vg']]],
+  ['treenode',['TreeNode',['../structvg_1_1BitStringTree_1_1TreeNode.html',1,'vg::BitStringTree']]],
   ['treestate',['TreeState',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html',1,'vg::SnarlSeedClusterer']]],
   ['treestate',['TreeState',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#ad5039110e9bc3ff86c6d12c5715b291d',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['trim_5falignment',['trim_alignment',['../namespacevg.html#ad83da8607e104967dd51d9230f4b51bb',1,'vg']]],
