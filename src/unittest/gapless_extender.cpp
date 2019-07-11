@@ -677,7 +677,7 @@ TEST_CASE("Trimming mismatches", "[gapless_extender]") {
                     gbwt_graph.get_handle(9, false)
                 },
                 static_cast<size_t>(0), gbwt::BidirectionalState(),
-                std::pair<size_t, size_t>(0, 8), { static_cast<size_t>(0), static_cast<size_t>(5), static_cast<size_t>(6) },
+                std::pair<size_t, size_t>(0, 8), { static_cast<size_t>(0), static_cast<size_t>(6), static_cast<size_t>(7) },
                 static_cast<int32_t>(3), true, true,
                 false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
             }
@@ -687,11 +687,12 @@ TEST_CASE("Trimming mismatches", "[gapless_extender]") {
                 {
                     gbwt_graph.get_handle(2, false),
                     gbwt_graph.get_handle(4, false),
-                    gbwt_graph.get_handle(5, false)
+                    gbwt_graph.get_handle(5, false),
+                    gbwt_graph.get_handle(6, false)
                 },
                 static_cast<size_t>(0), gbwt::BidirectionalState(),
-                std::pair<size_t, size_t>(0, 5), { static_cast<size_t>(0) },
-                static_cast<int32_t>(5), true, false,
+                std::pair<size_t, size_t>(0, 6), { static_cast<size_t>(0) },
+                static_cast<int32_t>(6), true, false,
                 false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
             },
             { // Number of mismatches is below the bound.

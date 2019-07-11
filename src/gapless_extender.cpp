@@ -225,6 +225,10 @@ void find_mismatches(const std::string& seq, const GBWTGraph& graph, std::vector
     }
 }
 
+size_t interval_length(std::pair<size_t, size_t> interval) {
+    return interval.second - interval.first;
+}
+
 //------------------------------------------------------------------------------
 
 std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, const std::string& sequence, size_t max_mismatches, bool trim_extensions) const {
@@ -419,87 +423,112 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
 // extension was trimmed.
 bool trim_mismatches(GaplessExtension& extension, const GBWTGraph& graph, const Aligner& aligner) {
 
-    bool trimmed = false;
-
-    // Trim mismatches from the tail.
-    size_t best_trim = 0;
-    std::pair<size_t, size_t> new_interval = extension.read_interval;
-    int32_t best_score = extension.score;
-    int32_t full_length = (extension.right_full ? aligner.full_length_bonus : 0);
-    for (size_t trim = 1; trim <= extension.mismatches(); trim++) {
-        size_t new_end = extension.mismatch_positions[extension.mismatches() - trim];
-        size_t trim_length = extension.read_interval.second - new_end;
-        int32_t score = extension.score - (trim_length - trim) * aligner.match + trim * aligner.mismatch - full_length;
-        if (score > best_score) {
-            best_trim = trim;
-            new_interval.second = new_end;
-            best_score = score;
-        }
-    }
-    if (best_trim > 0) {
-        extension.mismatch_positions.resize(extension.mismatches() - best_trim);
-        extension.score = best_score;
-        trimmed = true;
+    if (extension.exact()) {
+        return false;
     }
 
-    // Trim mismatches from the head.
-    best_trim = 0;
-    full_length = (extension.left_full ? aligner.full_length_bonus : 0);
-    for (size_t trim = 1; trim <= extension.mismatches(); trim++) {
-        size_t new_begin = extension.mismatch_positions[trim - 1] + 1;
-        size_t trim_length = new_begin - extension.read_interval.first;
-        int32_t score = extension.score - (trim_length - trim) * aligner.match + trim * aligner.mismatch - full_length;
-        if (score > best_score) {
-            best_trim = trim;
-            new_interval.first = new_begin;
-            best_score = score;
-        }
-    }
-    if (best_trim > 0) {
-        in_place_subvector(extension.mismatch_positions, best_trim, extension.mismatches());
-        extension.score = best_score;
-        trimmed = true;
+    // Start with the initial run of matches.
+    auto mismatch = extension.mismatch_positions.begin();
+    std::pair<size_t, size_t> current_interval(extension.read_interval.first, *mismatch);
+    int32_t current_score = interval_length(current_interval) * aligner.match;
+    if (extension.left_full) {
+        current_score += aligner.full_length_bonus;
     }
 
-    // We have already updated the mismatch positions. Update all other fields
-    // if necessary. If the extension became empty, simply clear the path.
-    if (new_interval.first >= new_interval.second) {
-        extension.read_interval = new_interval;
-        extension.left_full = extension.right_full = false;
-        extension.path.clear();
-    } else if (new_interval != extension.read_interval) {
-        if (new_interval.first > extension.read_interval.first) {
-            extension.left_full = false;
+    // Process the alignment and keep track of the best interval we have seen so far.
+    std::pair<size_t, size_t> best_interval = current_interval;
+    int32_t best_score = current_score;
+    while (mismatch != extension.mismatch_positions.end()) {
+        // See if we should start a new interval after the mismatch.
+        if (current_score >= aligner.mismatch) {
+            current_interval.second++;
+            current_score -= aligner.mismatch;
+        } else {
+            current_interval.first = current_interval.second = *mismatch + 1;
+            current_score = 0;
         }
-        if (new_interval.second < extension.read_interval.second) {
-            extension.right_full = false;
-        }
-        size_t node_offset = extension.offset, read_offset = extension.read_interval.first;
-        extension.read_interval = new_interval;
-        size_t path_head = 0;
-        while (path_head < extension.path.size()) {
-            size_t node_length = graph.get_length(extension.path[path_head]);
-            read_offset += node_length - node_offset;
-            node_offset = 0;
-            if (read_offset > new_interval.first) {
-                extension.offset = node_length - (read_offset - new_interval.first);
-                break;
+        ++mismatch;
+
+        // Process the following run of matches.
+        if (mismatch == extension.mismatch_positions.end()) {
+            size_t length = extension.read_interval.second - current_interval.second;
+            current_interval.second = extension.read_interval.second;
+            current_score += length * aligner.match;
+            if (extension.right_full) {
+                current_score += aligner.full_length_bonus;
             }
-            path_head++;
+        } else {
+            size_t length = *mismatch - current_interval.second;
+            current_interval.second = *mismatch;
+            current_score += length * aligner.match;
         }
-        size_t path_tail = path_head + 1;
-        while (read_offset < new_interval.second) {
-            read_offset += graph.get_length(extension.path[path_tail]);
-            path_tail++;
-        }
-        // Adjust the path and determine the new search state.
-        if (path_head > 0 || path_tail < extension.path.size()) {
-            in_place_subvector(extension.path, path_head, path_tail);
-            extension.state = graph.bd_find(extension.path);
+
+        // Update the best interval.
+        if (current_score > best_score || (current_score == best_score && interval_length(current_interval) > interval_length(best_interval))) {
+            best_interval = current_interval;
+            best_score = current_score;
         }
     }
 
-    return trimmed;
+    // Special cases: no trimming or complete trimming.
+    if (best_interval == extension.read_interval) {
+        return false;
+    }
+    if (interval_length(best_interval) == 0) {
+        extension.path.clear();
+        extension.read_interval = best_interval;
+        extension.mismatch_positions.clear();
+        extension.score = 0;
+        extension.left_full = extension.right_full = false;
+        return true;
+    }
+
+    // Update alignment statistics.
+    bool path_changed = false;
+    if (best_interval.first > extension.read_interval.first) {
+        extension.left_full = false;
+    }
+    if (best_interval.second < extension.read_interval.second) {
+        extension.right_full = false;
+    }
+    size_t node_offset = extension.offset, read_offset = extension.read_interval.first;
+    extension.read_interval = best_interval;
+    extension.score = best_score;
+
+    // Trim the path.
+    size_t head = 0;
+    while (head < extension.path.size()) {
+        size_t node_length = graph.get_length(extension.path[head]);
+        read_offset += node_length - node_offset;
+        node_offset = 0;
+        if (read_offset > extension.read_interval.first) {
+            extension.offset = node_length - (read_offset - extension.read_interval.first);
+            break;
+        }
+        head++;
+    }
+    size_t tail = head + 1;
+    while (read_offset < extension.read_interval.second) {
+        read_offset += graph.get_length(extension.path[tail]);
+        tail++;
+    }
+    if (head > 0 || tail < extension.path.size()) {
+        in_place_subvector(extension.path, head, tail);
+        extension.state = graph.bd_find(extension.path);
+    }
+
+    // Trim the mismatches.
+    head = 0;
+    while (head < extension.mismatch_positions.size() && extension.mismatch_positions[head] < extension.read_interval.first) {
+        head++;
+    }
+    tail = head;
+    while (tail < extension.mismatch_positions.size() && extension.mismatch_positions[tail] < extension.read_interval.second) {
+        tail++;
+    }
+    in_place_subvector(extension.mismatch_positions, head, tail);
+
+    return true;
 }
 
 void GaplessExtender::trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches) const {
