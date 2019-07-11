@@ -22,11 +22,44 @@ echo compiling!
 . ./source_me.sh && make -j 8
 echo running!
 
-
 ## run normalize_snarls on subsetted full chromosome 10:
-TEST_DIR=test/robin_tests/chr10
-vg normalize -g $TEST_DIR/hgsvc_chr10_construct.gbwt -s $TEST_DIR/hgsvc_chr10_construct.snarls $TEST_DIR/hgsvc_chr10_construct.hg >$TEST_DIR/$FILE_BASENAME_normalized.hg
-echo "NORMALIZED HG MADE"
+TEST_DIR=test/robin_tests/chr10_subset
+FILE_NAME=chr10_subset
+# To produce .snarls:
+vg snarls $TEST_DIR/$FILE_NAME.vg >$TEST_DIR/$FILE_NAME.snarls 
+echo "SNARLS MADE"
+# To produce .gbwt:
+vg index -G $TEST_DIR/$FILE_NAME.gbwt -v $TEST_DIR/../HGSVC.haps.chr10.vcf.gz $TEST_DIR/$FILE_NAME.vg
+echo "GBWT MADE"
+# Convert .vg to .hg:
+vg convert -v $TEST_DIR/$FILE_NAME.vg -A >$TEST_DIR/$FILE_NAME.hg
+echo "CONVERTED VG TO HG"
+# vg convert -a $TEST_DIR/$FILE_NAME.hg -V >$TEST_DIR/$FILE_NAME.vg
+# echo "CONVERTED HG TO VG"
+# Run normalize algorithm:
+ls $TEST_DIR
+# echo $TEST_DIR/$FILE_NAME.gbwt -s $TEST_DIR/$FILE_NAME.snarls $TEST_DIR/$FILE_NAME.hg $TEST_DIR/chr10_subset_normalized.hg
+vg normalize -g $TEST_DIR/$FILE_NAME.gbwt -s $TEST_DIR/$FILE_NAME.snarls $TEST_DIR/$FILE_NAME.hg >$TEST_DIR/chr10_subset_normalized.hg
+echo "normalized."
+
+
+# ## run normalize_snarls on local machine small test:
+# TEST_DIR=test/robin_tests/test_normalize
+# FILE_NAME=chr10_subgraph_0_new
+# # To produce .snarls:
+# vg snarls $TEST_DIR/$FILE_NAME.vg >$TEST_DIR/$FILE_NAME.snarls 
+# echo "SNARLS MADE"
+# # To produce .gbwt:
+# vg index -G $TEST_DIR/$FILE_NAME.gbwt -v $TEST_DIR/../HGSVC.haps.chr10.vcf.gz $TEST_DIR/$FILE_NAME.vg
+# echo "GBWT MADE"
+# # Convert .vg to .hg:
+# vg convert -v $TEST_DIR/$FILE_NAME.vg -A >$TEST_DIR/$FILE_NAME.hg
+# # vg convert -v $TEST_DIR/chr10_subgraph_0_new.vg -A >$TEST_DIR/$FILE_NAME.hg
+# echo "CONVERTED VG TO HG"
+# # Run normalize algorithm:
+# echo $TEST_DIR/$FILE_NAME.gbwt -s $TEST_DIR/$FILE_NAME.snarls $TEST_DIR/$FILE_NAME.hg $TEST_DIR/chr10_subgraph_0_new_normalized.hg
+# vg normalize -g $TEST_DIR/$FILE_NAME.gbwt -s $TEST_DIR/$FILE_NAME.snarls $TEST_DIR/$FILE_NAME.hg >$TEST_DIR/chr10_subgraph_0_new_normalized.hg
+# echo "normalized."
 
 # ## split off the first few snarls from chromosome ten: (aiming for nodes between 1883 and 12677)
 # VG_DIR=/public/groups/cgl/graph-genomes/jmonlong/hgsvc/haps/chr10
