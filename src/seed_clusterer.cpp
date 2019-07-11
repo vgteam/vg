@@ -18,6 +18,10 @@ namespace vg {
 #ifdef DEBUG
 cerr << endl << "New cluster calculation:" << endl;
 #endif
+        if (fragment_distance_limit != 0 && 
+            fragment_distance_limit < read_distance_limit) {
+            throw std::runtime_error("Fragment distance limit must be greater than read distance limit");
+        }
 
         //For each level of the snarl tree, maps snarls (index into
         //dist_index.snarl_indexes) at that level to 
@@ -467,11 +471,6 @@ cerr << endl << "New cluster calculation:" << endl;
                                                      combined_group);
                     tree_state.read_union_find.union_groups(combined_group, 
                                                                 new_group);
-                    if (tree_state.fragment_distance_limit != 0) {
-                        //If we're keeping track of fragment clusters, union this 
-                        tree_state.fragment_union_find.union_groups(combined_group, 
-                                                                new_group);
-                    }
                     //Find the new distances of the combined groups
                     pair<int64_t, int64_t>& old_dists =
                                            tree_state.read_cluster_dists[combined_group];
@@ -498,8 +497,14 @@ cerr << endl << "New cluster calculation:" << endl;
 #endif
                 }
 
-                fragment_combined_group = fragment_combined_group == -1 ? new_group :
-                                tree_state.fragment_union_find.find_group(new_group);
+                if (tree_state.fragment_distance_limit != 0) { 
+                    if (fragment_combined_group != -1) {
+                    //If we're keeping track of fragment clusters, union this 
+                        tree_state.fragment_union_find.union_groups(fragment_combined_group, 
+                                                            new_group);
+                    }
+                    fragment_combined_group = tree_state.fragment_union_find.find_group(new_group);
+                }
             } else if (tree_state.fragment_distance_limit != 0 && 
                         dist <= tree_state.fragment_distance_limit) {  
                 //If these aren't in the same read cluster but are in 
@@ -593,6 +598,7 @@ cerr << endl << "New cluster calculation:" << endl;
 
  
 #ifdef DEBUG
+            cerr << "Looking at snarl rank " << start_rank << " representing " << snarl_index.id_in_parent << endl;
             cerr << "  Snarl distance limits: " << snarl_clusters.best_left 
                  << " " << snarl_clusters.best_right << endl;
             cerr << "  Snarl clusters to add: " << endl;
@@ -676,7 +682,7 @@ cerr << endl << "New cluster calculation:" << endl;
                     snarl_clusters.best_right =min_positive(snarl_clusters.best_right, 
                                                             new_right);
 #ifdef DEBUG
-cerr << "(Possibly) updating looping distance to right of snarl cluster " << j << ": " 
+cerr << "  (Possibly) updating looping distance to right of snarl cluster " << j << ": " 
      << new_right << " -> " << snarl_dists.second <<  endl;
 #endif
                     
@@ -754,31 +760,17 @@ cerr << "  Combining this cluster from the right" << endl;
                         combined_right = min_positive(combined_right,
                                                            snarl_dists.second);
                     }
-                        
                     if (tree_state.fragment_distance_limit != 0) {
-                        //Also cluster by fragment
-                        if (fragment_combined_cluster == -1 ) {
-                            fragment_combined_cluster = j;
-                        } else {
+                        if (fragment_combined_cluster != -1) {
+                            //Also cluster by fragment
                             tree_state.fragment_union_find.union_groups(fragment_combined_cluster, j);
-                            fragment_combined_cluster = tree_state.fragment_union_find.find_group(j);
                         }
+                        fragment_combined_cluster = tree_state.fragment_union_find.find_group(j);
                     }
                 } else {
                     //If the snarl cluster does not get combined with any of 
                     //the existing chain clusters, then it becomes a new 
                     //chain cluster
-                    //Update its distances to the correct nodes in the chain
-                    to_add.push_back(j);
-                    pair<int64_t, int64_t> d = make_pair(snarl_dists.first == -1
-                                      ? -1 : snarl_dists.first + add_dist_left, 
-                                                snarl_dists.second);
-                    chain_clusters.best_left = min_positive(chain_clusters.best_left, 
-                                                            d.first); 
-                    chain_clusters.best_right = min_positive(chain_clusters.best_right, 
-                                                             d.second);
-
-                    tree_state.read_cluster_dists[j] = std::move(d); 
                     if (tree_state.fragment_distance_limit != 0 &&
                         old_chain_right != -1 && snarl_dists.first != -1 &&
                         snarl_dists.first + old_chain_right - start_length-1 
@@ -791,6 +783,17 @@ cerr << "  Combining this cluster from the right" << endl;
                             fragment_combined_cluster = tree_state.fragment_union_find.find_group(j);
                         }
                     }
+                    to_add.push_back(j);
+                    //Update its distances to the correct nodes in the chain
+                    pair<int64_t, int64_t> d = make_pair(snarl_dists.first == -1
+                                      ? -1 : snarl_dists.first + add_dist_left, 
+                                                snarl_dists.second);
+                    chain_clusters.best_left = min_positive(chain_clusters.best_left, 
+                                                            d.first); 
+                    chain_clusters.best_right = min_positive(chain_clusters.best_right, 
+                                                             d.second);
+
+                    tree_state.read_cluster_dists[j] = std::move(d); 
                 }
             }
 
@@ -825,21 +828,35 @@ cerr << "  Combining this cluster from the right" << endl;
                         combined_right = min_positive(combined_right,
                                              chain_dists.second + dist_to_end);
                     }
-
-                    if (tree_state.fragment_distance_limit != 0) {
-                        //Also cluster by fragment
-                        if (fragment_combined_cluster == -1 ) {
-                            fragment_combined_cluster = i;
-                        } else {
+                    if (tree_state.fragment_distance_limit != 0) { 
+                        if (fragment_combined_cluster != -1) {
                             tree_state.fragment_union_find.union_groups(fragment_combined_cluster, i);
                         }
+                        fragment_combined_cluster = tree_state.fragment_union_find.find_group(i);
                     }
                 } else {
                     //If this chain cluster is on its own, extend its right 
                     //distance to the end of the current snarl
+
+                    if (tree_state.fragment_distance_limit != 0 &&
+                        snarl_clusters.best_left != -1 && chain_dists.second != -1 
+                        && chain_dists.second + snarl_clusters.best_left 
+                                - start_length-1 <= tree_state.fragment_distance_limit) {
+                        //If this is a new read cluster but the same fragment cluster
+                        if (fragment_combined_cluster == -1 ) {
+                            fragment_combined_cluster = i;
+                        } else {
+                            tree_state.fragment_union_find.union_groups(fragment_combined_cluster, i);
+                            fragment_combined_cluster = tree_state.fragment_union_find.find_group(i);
+                        }
+                    }
                     chain_dists.second += dist_to_end;
-                    if (chain_dists.first - 2 >= tree_state.read_distance_limit &&
-                        chain_dists.second - end_length-2 >= tree_state.read_distance_limit) {
+                    if ((tree_state.fragment_distance_limit == 0 &&
+                         chain_dists.first - 2 >= tree_state.read_distance_limit &&
+                         chain_dists.second - end_length-2 >= tree_state.read_distance_limit) ||
+                        (tree_state.fragment_distance_limit != 0 &&
+                         chain_dists.first - 2 >= tree_state.fragment_distance_limit &&
+                         chain_dists.second - end_length-2 >= tree_state.fragment_distance_limit)) {
                         //If the distance from the seeds in this cluster to
                         //either end of the chain is greater than the distance
                         //limit, then it cannot cluster with anything else
@@ -854,19 +871,6 @@ cerr << "  Combining this cluster from the right" << endl;
                         chain_clusters.best_right = 
                                     min_positive(chain_clusters.best_right, 
                                                   chain_dists.second);
-                    }
-
-                    if (tree_state.fragment_distance_limit != 0 &&
-                        snarl_clusters.best_left != -1 && chain_dists.second != -1 
-                        && chain_dists.second + snarl_clusters.best_left 
-                                - start_length-1 <= tree_state.fragment_distance_limit) {
-                        //If this is a new read cluster but the same fragment cluster
-                        if (fragment_combined_cluster == -1 ) {
-                            fragment_combined_cluster = i;
-                        } else {
-                            tree_state.fragment_union_find.union_groups(fragment_combined_cluster, i);
-                            fragment_combined_cluster = tree_state.fragment_union_find.find_group(i);
-                        }
                     }
                 }
             }
@@ -888,7 +892,7 @@ cerr << "  Combining this cluster from the right" << endl;
             }
                   
 #ifdef DEBUG 
-            cerr << "\t at snarl " << snarl_index.id_in_parent 
+            cerr << "\t finished with snarl " << snarl_index.id_in_parent 
                  << "with best distances " << chain_clusters.best_left 
                  << " " << chain_clusters.best_right 
                  << ", clusters:" <<endl;
@@ -953,6 +957,9 @@ cerr << "  Combining this cluster from the right" << endl;
                         combined_cluster = i;
                     } else {
                         tree_state.read_union_find.union_groups(combined_cluster, i);
+                        if (tree_state.fragment_distance_limit != 0) {
+                            tree_state.fragment_union_find.union_groups(fragment_combined_cluster, i);
+                        }
                         size_t new_group = tree_state.read_union_find.find_group(i);
                         if (new_group == i) {
                             to_erase.push_back(combined_cluster);
@@ -963,27 +970,21 @@ cerr << "  Combining this cluster from the right" << endl;
                     }
                         
                     if (tree_state.fragment_distance_limit != 0) {
-                        //Also cluster by fragment
-                        if (fragment_combined_cluster == -1 ) {
-                            fragment_combined_cluster = i;
-                        } else {
-                            tree_state.fragment_union_find.union_groups(fragment_combined_cluster, i);
-                            fragment_combined_cluster = tree_state.fragment_union_find.find_group(i);
-                        }
+                        fragment_combined_cluster = tree_state.fragment_union_find.find_group(i);
                     }
                 } else if (tree_state.fragment_distance_limit != 0 &&
-                   (chain_dists.second != -1 && chain_clusters.best_left != -1 &&
+                   ((chain_dists.second != -1 && chain_clusters.best_left != -1 &&
                      chain_dists.second + chain_clusters.best_left - first_length - 1 
                                                 <= tree_state.fragment_distance_limit) ||
                    (chain_dists.first != -1 && chain_clusters.best_right != -1 && 
                       chain_dists.first + chain_clusters.best_right - first_length - 1 
-                                                <= tree_state.fragment_distance_limit)){
+                                                <= tree_state.fragment_distance_limit))){
                     //If we can cluster by fragment
                     if (fragment_combined_cluster == -1 ) {
                         fragment_combined_cluster = i;
                     } else {
                         tree_state.fragment_union_find.union_groups(fragment_combined_cluster, i);
-                            fragment_combined_cluster = tree_state.fragment_union_find.find_group(i);
+                        fragment_combined_cluster = tree_state.fragment_union_find.find_group(i);
                     }
                 }
             }
@@ -1059,6 +1060,13 @@ cerr << "  Combining this cluster from the right" << endl;
             //Updates the distances stored for the read clusters
             if (dist <= tree_state.read_distance_limit) {
                 //If the clusters are close enough to combine the reads
+                if (tree_state.fragment_distance_limit != 0) {
+                    if (fragment_combined_group != -1) {
+                        //Also combine fragment clusters
+                        tree_state.fragment_union_find.union_groups(new_group, fragment_combined_group);
+                    }
+                    fragment_combined_group = tree_state.fragment_union_find.find_group(new_group);
+                }
                 if (combined_group == -1) {
                     snarl_clusters.cluster_heads.insert(new_group);
                     tree_state.read_cluster_dists[new_group] = dists;
@@ -1069,10 +1077,6 @@ cerr << "  Combining this cluster from the right" << endl;
                     combined_group = tree_state.read_union_find.find_group(combined_group);
                     pair<int64_t, int64_t>old_dists = tree_state.read_cluster_dists[combined_group];
                     tree_state.read_union_find.union_groups(new_group, combined_group);
-                    if (tree_state.fragment_distance_limit != 0 ) {
-                        //Also combine fragment clusters
-                        tree_state.fragment_union_find.union_groups(new_group, combined_group);
-                    }
 
                     //Update distances and cluster head of new cluster
                     size_t new_g = tree_state.read_union_find.find_group(new_group);
@@ -1090,10 +1094,7 @@ cerr << "  Combining this cluster from the right" << endl;
                     new_group = new_g;
                     combined_group = new_g;
                 }
-                if (tree_state.fragment_distance_limit != 0) {
-                    fragment_combined_group = fragment_combined_group == -1 ? new_group :
-                            tree_state.fragment_union_find.find_group(fragment_combined_group);
-                }
+
             } else if (tree_state.fragment_distance_limit != 0 
                   && dist <= tree_state.fragment_distance_limit) {
 
@@ -1102,7 +1103,7 @@ cerr << "  Combining this cluster from the right" << endl;
                     fragment_combined_group = new_group;
                 } else {
                     tree_state.fragment_union_find.union_groups(new_group, fragment_combined_group);
-                    fragment_combined_group = tree_state.fragment_union_find.find_group(fragment_combined_group);
+                    fragment_combined_group = tree_state.fragment_union_find.find_group(new_group);
                 }
             }
             return;
@@ -1251,10 +1252,17 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                 size_t fragment_group_r_r = -1;
 
                 if (max({dist_l_l, dist_l_r, dist_r_l, dist_r_r}) != -1
-                   && MinimumDistanceIndex::minPos({dist_l_l, dist_l_r, 
+                   && ((tree_state.fragment_distance_limit == 0 &&
+                         MinimumDistanceIndex::minPos({dist_l_l, dist_l_r, 
                             dist_r_l, dist_r_r})-2 <= tree_state.read_distance_limit
                    && min_positive(curr_child_clusters.best_left, curr_child_clusters.best_right)-2 
-                                                <= tree_state.read_distance_limit) {
+                                                <= tree_state.read_distance_limit) ||
+                       (tree_state.fragment_distance_limit != 0 &&
+                            MinimumDistanceIndex::minPos({dist_l_l, dist_l_r, 
+                            dist_r_l, dist_r_r})-2 <= tree_state.fragment_distance_limit
+                   && min_positive(curr_child_clusters.best_left, curr_child_clusters.best_right)-2 
+                                                <= tree_state.fragment_distance_limit)
+                                                )) {
                     //If the two nodes are reachable
                     for (size_t c_i = 0 ; c_i < children_i.size() ; c_i ++) {
                         //for each cluster of child node i
