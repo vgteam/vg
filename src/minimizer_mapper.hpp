@@ -14,6 +14,7 @@
 #include "snarls.hpp"
 #include "min_distance.hpp"
 #include "seed_clusterer.hpp"
+#include "algorithms/nearest_offsets_in_paths.hpp"
 
 #include <structures/immutable_list.hpp>
 

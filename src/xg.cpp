@@ -2569,37 +2569,6 @@ bool XG::path_is_circular(size_t rank) const {
     return paths[rank-1]->is_circular;
 }
 
-pair<pos_t, int64_t> XG::next_path_position(pos_t pos, int64_t max_search) const {
-    // We need the closest on-a-path position to the passed in position, and the approximate rightward offset to it.
-    // Offset will be negative if you have to go left instead.
-    
-    // Get a handle to where we start
-    handle_t h_fwd = get_handle(id(pos), is_rev(pos));
-    
-    // Record offsets to its ends
-    int64_t rev_seen = offset(pos);
-    int64_t fwd_seen = node_length(id(pos)) - offset(pos);
-    
-    // Find the closest on-a-path node, accounting for offsets to start/end of this node.
-    vector<tuple<handle_t, size_t, bool>> closest = find_closest_with_paths(h_fwd, max_search, fwd_seen, rev_seen);
-    
-    if (!closest.empty()) {
-        // We found something.
-        // Unpack it.
-        auto& found = get<0>(closest.front());
-        auto& dist = get<1>(closest.front());
-        auto& arrived_at_end = get<2>(closest.front());
-        
-        // Output the position. Make sure to get the offset we end up at in the
-        // node's forward strand for the end of the node we arrive at.
-        return make_pair(make_pos_t(get_id(found), get_is_reverse(found),
-            (arrived_at_end != get_is_reverse(found)) ? (get_length(found) - 1) : 0), dist);
-    } else {
-        // We aren't connected to anything on a path within the requested distance limit
-        return make_pair(make_pos_t(0,false,0), numeric_limits<int64_t>::max());
-    }
-}
-
 pair<int64_t, vector<size_t> > XG::nearest_path_node(int64_t id, int max_steps) const {
     set<int64_t> todo;
     set<int64_t> seen;
@@ -2650,106 +2619,6 @@ int64_t XG::min_approx_path_distance(int64_t id1, int64_t id2) const {
         }
     }
     return min_distance;
-}
-
-vector<tuple<handle_t, size_t, bool>> XG::find_closest_with_paths(handle_t start, size_t max_search_dist,
-    size_t right_extra_dist, size_t left_extra_dist) const {
-    
-    // Holds all the handles with paths, their unsigned distances from the start handle, and whether they were found going left.
-    vector<tuple<handle_t, size_t, bool>> to_return;
-    
-    // a local struct for traversals that are ordered by search distance and keep
-    // track of whether we're searching to the left or right
-    struct Traversal {
-        Traversal() {}
-        Traversal(int64_t dist, handle_t handle, bool search_left) :
-        dist(dist), handle(handle), search_left(search_left) {}
-        handle_t handle;
-        int64_t dist;
-        bool search_left;
-        inline bool operator<(const Traversal& other) const {
-            return dist > other.dist; // opposite order so priority queue selects minimum
-        }
-    };
-    
-    // Check if the node for the given handle occurs on any paths.
-    // Remember we reached it at the given distance, and whether we reached it searching left or not.
-    // Record the handle and its signed distance if it has paths.
-    // Return true if any paths touching the handle were found.
-    function<bool(handle_t,int64_t,bool)> look_for_paths = [&](handle_t handle, int64_t search_dist, bool search_left) {
-        
-        bool found_path = false;
-        
-        int64_t trav_id = get_id(handle);
-        bool trav_is_rev = get_is_reverse(handle);
-        
-#ifdef debug_algorithms
-        cerr << "[XG] checking for paths for " << trav_id << (trav_is_rev ? "-" : "+") << " at search dist "
-            << search_dist << " from searching " << (search_left ? "leftwards" : "rightwards") << endl;
-#endif
-        
-        for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : oriented_paths_of_node(trav_id)) {
-            
-            // For each path this node occurs on
-            
-            const XGPath& path = *paths[oriented_occurrences.first - 1];
-            
-            if (!oriented_occurrences.second.empty()) {
-                // The node has some occurrences on this path. Record that fact.
-                to_return.emplace_back(handle, search_dist, search_left);
-                return true;
-            }
-        }
-        
-        return false;
-    };
-    
-    // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a UpdateablePriorityQueue.
-    priority_queue<Traversal> queue;
-    unordered_set<handle_t> traversed;
-    
-    handle_t handle = start; 
-    
-    // add in the initial traversals in both directions from the start position
-    queue.emplace(left_extra_dist, handle, true);
-    queue.emplace(right_extra_dist, handle, false);
-    
-    // Start by checking the start node
-    traversed.insert(handle);
-    bool found_path = look_for_paths(handle, 0, false);
-    
-    while (!queue.empty() && !found_path) {
-        // get the queue that has the next shortest path
-        
-        Traversal trav = queue.top();
-        queue.pop();
-        
-#ifdef debug_algorithms
-        cerr << "[XG] traversing " << get_id(trav.handle) << (get_is_reverse(trav.handle) ? "-" : "+") << " in " << (trav.search_left ? "leftward" : "rightward") << " direction at distance " << trav.dist << endl;
-#endif
-        
-        function<bool(const handle_t& next)> check_next = [&](const handle_t& next) {
-#ifdef debug_algorithms
-            cerr << "\tfollowing edge to " << get_id(next) << (get_is_reverse(next) ? "-" : "+") << " at dist " << trav.dist << endl;
-#endif
-            
-            if (!traversed.count(next)) {
-                found_path = look_for_paths(next, trav.dist, trav.search_left);
-                
-                int64_t dist_thru = trav.dist + get_length(next);
-                
-                if (dist_thru <= (int64_t) max_search_dist) {
-                    queue.emplace(dist_thru, next, trav.search_left);
-                }
-                traversed.emplace(next);
-            }
-            return !found_path;
-        };
-        
-        follow_edges(trav.handle, trav.search_left, check_next);
-    }
-    
-    return std::move(to_return);
 }
 
 void XG::for_path_range(const string& name, int64_t start, int64_t stop,
@@ -2871,50 +2740,6 @@ map<string, vector<size_t> > XG::position_in_paths(int64_t id, bool is_rev, size
         }
     }
     return positions;
-}
-
-map<string, vector<pair<size_t, bool> > > XG::offsets_in_paths(pos_t pos) const {
-    map<string, vector<pair<size_t, bool> > > positions;
-    id_t node_id = id(pos);
-    for (auto& prank : paths_of_node(node_id)) {
-        auto& path = *paths[prank-1];
-        auto& pos_in_path = positions[path_name(prank)];
-        for (auto i : node_ranks_in_path(node_id, prank)) {
-            // relative direction to this traversal
-            bool dir = path.directions[i] != is_rev(pos);
-            // Make sure to interpret the pos_t offset on the correct strand.
-            // Normalize to a forward strand offset.
-            size_t node_forward_strand_offset = is_rev(pos) ? (node_length(node_id) - offset(pos) - 1) : offset(pos);
-            // Then go forward or backward along the path as appropriate. If
-            // the node is on the path in reverse we have where its end landed
-            // and have to flip the forward strand offset around again.
-            size_t off = path.positions[i] + (path.directions[i] ?
-                (node_length(node_id) - node_forward_strand_offset - 1) :
-                node_forward_strand_offset);
-            
-            pos_in_path.push_back(make_pair(off, dir));
-        }
-    }
-    return positions;
-}
-
-map<string, vector<pair<size_t, bool> > > XG::nearest_offsets_in_paths(pos_t pos, int64_t max_search) const {
-    pair<pos_t, int64_t> pz = next_path_position(pos, max_search);
-    auto& path_pos = pz.first;
-    auto& diff = pz.second;
-    if (id(path_pos)) {
-        // Now apply approximate offset, second in pair returned by next_path_position
-        auto offsets = offsets_in_paths(path_pos);
-        for (auto& o : offsets) {
-            for (auto& p : o.second) {
-                p.first += diff;
-            }
-        }
-        return offsets;
-    } else {
-        map<string, vector<pair<size_t, bool> > > empty;
-        return empty;
-    }
 }
 
 map<string, vector<size_t> > XG::distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,

@@ -1,5 +1,7 @@
 #include "xg_position.hpp"
 
+//#define debug
+
 namespace vg {
 
 Node xg_node(id_t id, const XG* xgidx) {
@@ -249,40 +251,36 @@ map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const XG* xg
             end.push_back(true);
         }
         
+        // Find the position of this end of this mapping
+        pos_t mapping_pos = make_pos_t(mapping.position());
+        
+        // Find the positions for this end of this Mapping
+        auto pos_offs = algorithms::nearest_offsets_in_paths(xgidx, mapping_pos,
+                                                             nearby ? search_limit : -1);
+        
         for (auto look_at_end : end) {
             // For the start and the end of the Mapping, as needed
             
-            if (mapping_width == 1 && look_at_end) {
-                // The end is the same as the start so we don't need to look it
-                // up separately.
-                continue;
-            }
-       
-            // Find the position of this end of this mapping
-            pos_t mapping_pos = make_pos_t(mapping.position());
-            if (look_at_end) {
-                // Look at the end of the mapping instead of the start
-                get_offset(mapping_pos) += mapping_width - 1;
-            }
-       
-            // Find the positions for this end of this Mapping
-            auto pos_offs = (nearby ?
-                             xgidx->nearest_offsets_in_paths(mapping_pos, search_limit)
-                             : xgidx->offsets_in_paths(mapping_pos));
             for (auto& p : pos_offs) {
                 // For each path, splice the list of path positions for this
                 // Mapping onto the end of the list of positions we found in that
                 // path
-                auto& v = offsets[p.first];
-                auto& y = p.second;
-                v.reserve(v.size() + distance(y.begin(),y.end()));
-                v.insert(v.end(),y.begin(),y.end());
+                auto& v = offsets[xgidx->get_path_name(p.first)];
+                
+                for (pair<size_t, bool>& y : p.second) {
+                    v.emplace_back(y.second ? y.first - mapping_width : y.first,
+                                   y.second);
+                }
                 
 #ifdef debug
-                cerr << "\tFound hit on path " << p.first << endl; 
+                cerr << "\tFound hit on path " << xgidx->get_path_name(p.first) << endl;
 #endif
             }
         }
+        
+        
+        
+        
     }
     if (!nearby && offsets.empty()) {
         // find the nearest if we couldn't find any before
