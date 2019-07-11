@@ -129,6 +129,8 @@ public:
  * I'm not sure what PathBasedTraversalFinder (see below) does, but it does not work
  * as a drop-in replacement for this class, so keep the two implementations at least 
  * for now.    
+ *
+ * DEPRECATED: Use PathTraversalFinder instead
  */
 class PathRestrictedTraversalFinder : public TraversalFinder {
 
@@ -169,10 +171,10 @@ public:
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 
-   /**
+    /**
     * Like above, but return the path name corresponding to each traversal
     */
-    virtual pair<vector<SnarlTraversal>, vector<string>> find_named_traversals(const Snarl& site);
+    virtual pair<vector<SnarlTraversal>, vector<string> > find_named_traversals(const Snarl& site);
     
 };
 
@@ -185,6 +187,35 @@ class PathBasedTraversalFinder : public TraversalFinder{
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 
 };
+
+/** This is a Handle Graph replacement for PathRestrictedTraversalFinder
+ * that uses the PathHandleGraph interface instead of the VG-based 
+ * path index.  It returns all traversals through a snarl that are contained
+ * within paths in the graph.  It can also return a mapping from the traversals
+ * to their paths*/
+class PathTraversalFinder : public TraversalFinder {
+    
+protected:
+    // our graph with indexed path positions
+    const PathHandleGraph& graph;
+    
+    SnarlManager& snarl_manager;
+    
+public:
+    PathTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager);
+
+    /**
+     * Return all traversals through the site that are sub-paths of embedded paths in the graph
+     */
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+
+    /**
+    * Like above, but return the path steps for the for the traversal endpoints
+    */
+    virtual pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > find_path_traversals(const Snarl& site);
+
+};    
+    
 
 /**
  * This traversal finder finds one or more traversals through leaf sites with
