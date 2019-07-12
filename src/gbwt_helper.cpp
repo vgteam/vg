@@ -253,6 +253,28 @@ bool GBWTGraph::ends_with(const handle_t& handle, char c) const {
     return (this->sequences[this->offsets[offset + 1] - 1] == c);
 }
 
+gbwt::SearchState GBWTGraph::find(const std::vector<handle_t>& path) const {
+    if (path.empty()) {
+        return gbwt::SearchState();
+    }
+    gbwt::SearchState result = this->get_state(path[0]);
+    for (size_t i = 1; i < path.size() && !result.empty(); i++) {
+        result = this->index.extend(result, handle_to_node(path[i]));
+    }
+    return result;
+}
+
+gbwt::BidirectionalState GBWTGraph::bd_find(const std::vector<handle_t>& path) const {
+    if (path.empty()) {
+        return gbwt::BidirectionalState();
+    }
+    gbwt::BidirectionalState result = this->get_bd_state(path[0]);
+    for (size_t i = 1; i < path.size() && !result.empty(); i++) {
+        result = this->index.bdExtendForward(result, handle_to_node(path[i]));
+    }
+    return result;
+}
+
 // Using undocumented parts of the GBWT interface. --Jouni
 bool GBWTGraph::follow_paths(gbwt::SearchState state, const std::function<bool(const gbwt::SearchState&)>& iteratee) const {
     gbwt::CompressedRecord record = this->index.record(state.node);

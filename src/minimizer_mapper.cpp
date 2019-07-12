@@ -27,7 +27,7 @@ MinimizerMapper::MinimizerMapper(const XG* xg_index, const gbwt::GBWT* gbwt_inde
      MinimumDistanceIndex* distance_index) :
     xg_index(xg_index), gbwt_index(gbwt_index), minimizer_index(minimizer_index),
     distance_index(distance_index), gbwt_graph(*gbwt_index, *xg_index),
-    extender(gbwt_graph), clusterer(*distance_index) {
+    extender(gbwt_graph, *(get_regular_aligner())), clusterer(*distance_index) {
     
     // Nothing to do!
 }
@@ -316,12 +316,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         cerr << "Cluster " << cluster_num << " rank " << i << ": " << endl;
 #endif
          
-        // Pack the seeds into (read position, graph position) pairs.
-        vector<pair<size_t, pos_t>> seed_matchings;
-        seed_matchings.reserve(cluster.size());
+        // Pack the seeds for GaplessExtender.
+        GaplessExtender::cluster_type seed_matchings;
         for (auto& seed_index : cluster) {
-            // For each seed in the cluster, generate its matching pair
-            seed_matchings.emplace_back(minimizers[seed_to_source[seed_index]].offset, seeds[seed_index]);
+            // Insert the (graph position, read offset) pair.
+            seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
 #ifdef debug
             cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
                 << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index->count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
@@ -330,17 +329,17 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         
         // Extend seed hits in the cluster into one or more gapless extensions
         vector<GaplessExtension> extensions = extender.extend(seed_matchings, aln.sequence());
-        //Find the best scoring (best core length) extension
+        // Find the best scoring extension
         vector<GaplessExtension> filtered_extensions;
-        int best_extension_score = 0;
+        int32_t best_extension_score = 0;
         for (GaplessExtension& extension : extensions) {
-            best_extension_score = max(best_extension_score, (int)extension.core_length());
+            best_extension_score = max(best_extension_score, extension.score);
         }
         //Keep only the extensions whose score is within extension_score_threshold
         //of the best scoring extension
         for (GaplessExtension& extension : extensions) {
             if (extension_score_threshold == 0 || 
-                (int)extension.core_length() > best_extension_score - extension_score_threshold) {
+                extension.score > best_extension_score - extension_score_threshold) {
                 filtered_extensions.push_back(std::move(extension));
             }
         }
@@ -359,8 +358,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #ifdef TRACK_PROVENANCE
     funnel.substage("score");
 #endif
-    
-    // Now score all the gapless extensions by max match count accounted for.
+
+    // We now estimate the best possible alignment score for each cluster.
     vector<int> cluster_extension_scores;
     cluster_extension_scores.reserve(cluster_extensions.size());
     for (size_t i = 0; i < cluster_extensions.size(); i++) {
@@ -405,7 +404,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
     
     // Now start the alignment step. Everything has to become an alignment.
-    
+
     // We will fill this with all computed alignments in estimated score order.
     vector<Alignment> alignments;
     alignments.reserve(extension_indexes_in_order.size());
@@ -621,13 +620,8 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
         // TODO: We should never see an empty group of extensions
         return 0;
     } else if (extended_seeds.size() == 1 && extended_seeds.front().full()) {
-        // This is a full length match. Compute exact score.
-        // TODO: Should we use the aligner instead of computing the score here?
-
-        const Aligner* aligner = get_regular_aligner();
-        return (aln.sequence().length() - extended_seeds.front().mismatches()) * aligner->match -
-               extended_seeds.front().mismatches() * aligner->mismatch +
-               2 * aligner->full_length_bonus;
+        // This is a full length match. We already have the score.
+        return extended_seeds.front().score;
     } else {
         // This is a collection of one or more non-full-length extended seeds.
         
@@ -666,7 +660,7 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
             // Find the next seed start
             int64_t next_seed_start = numeric_limits<int64_t>::max();
             if (unentered < extended_seeds.size()) {
-                next_seed_start = extended_seeds[unentered].flanked_interval.first;
+                next_seed_start = extended_seeds[unentered].read_interval.first;
             }
             
             // Find the next mismatch
@@ -710,9 +704,9 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
                 end_heap.pop_back();
             }
             
-            while (unentered < extended_seeds.size() && extended_seeds[unentered].flanked_interval.first == sweep_line) {
+            while (unentered < extended_seeds.size() && extended_seeds[unentered].read_interval.first == sweep_line) {
                 // Bring in anything that starts here
-                end_heap.emplace_back(extended_seeds[unentered].flanked_interval.second, unentered);
+                end_heap.emplace_back(extended_seeds[unentered].read_interval.second, unentered);
                 std::push_heap(end_heap.begin(), end_heap.end());
                 unentered++;
             }
@@ -807,9 +801,9 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
         *s->mutable_path() = extended_seed.to_path(gbwt_graph, out.sequence());
         // Score it
         s->set_score(get_regular_aligner()->score_partial_alignment(aln, gbwt_graph, s->path(),
-            aln.sequence().begin() + extended_seed.core_interval.first));
+            aln.sequence().begin() + extended_seed.read_interval.first));
         // The position in the read it occurs at will be handled by the multipath topology.
-        if (extended_seed.core_interval.first == 0) {
+        if (extended_seed.read_interval.first == 0) {
             // But if it occurs at the very start of the read we need to mark that now.
             mp.add_start(mp.subpath_size() - 1);
         }
@@ -820,7 +814,7 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
         const size_t& source = kv.first;
         
         // Grab the part of the read sequence that comes before it
-        string before_sequence = aln.sequence().substr(0, extended_seeds[source].core_interval.first); 
+        string before_sequence = aln.sequence().substr(0, extended_seeds[source].read_interval.first); 
         
 #ifdef debug
         cerr << "There is a path into source extended seed " << source
@@ -946,7 +940,7 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
         // And mark it as a start subpath
         mp.add_start(mp.subpath_size() - 1);
     }
-    
+
     // We must have somewhere to start.
     assert(mp.start_size() > 0);
 
@@ -958,7 +952,7 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
         // Then for all the other from extended seeds
 
         // Work out where the extended seed ends in the read
-        size_t from_end = extended_seeds[from].core_interval.second;
+        size_t from_end = extended_seeds[from].read_interval.second;
         
         for (auto& to_and_paths : from_and_edges.second) {
             const size_t& to = to_and_paths.first;
@@ -1098,8 +1092,8 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                 // Do alignments between from and to
 
                 // Find the sequence
-                assert(extended_seeds[to].core_interval.first >= from_end);
-                string intervening_sequence = aln.sequence().substr(from_end, extended_seeds[to].core_interval.first - from_end); 
+                assert(extended_seeds[to].read_interval.first >= from_end);
+                string intervening_sequence = aln.sequence().substr(from_end, extended_seeds[to].read_interval.first - from_end); 
 
                 // Find the best path in backing graph space (which may be empty)
                 Path best_path;
@@ -1276,7 +1270,7 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
 #ifdef debug
         cerr << "Extended seed " << i << " starts on node " << pos.node_id() << " " << pos.is_reverse()
             << " at offset " << pos.offset() << " corresponding to read "
-            << extended_seeds[i].core_interval.first << " - " << extended_seeds[i].core_interval.second << endl;
+            << extended_seeds[i].read_interval.first << " - " << extended_seeds[i].read_interval.second << endl;
 #endif
     }
 
@@ -1296,7 +1290,7 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
         handle_t start_handle = extended_seeds[i].path.back();
         Position cut_pos_graph = extended_seeds[i].tail_position(gbwt_graph);
         // And the read?
-        size_t cut_pos_read = extended_seeds[i].core_interval.second;
+        size_t cut_pos_read = extended_seeds[i].read_interval.second;
 
 #ifdef debug
         cerr << "Extended seed " << i << ": cut after on node " << cut_pos_graph.node_id() << " " << cut_pos_graph.is_reverse()
@@ -1318,7 +1312,7 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
                 // Scan them in order.
                 // TODO: Skip to after ourselves.
                 
-                if (extended_seeds[next_offset_and_index.second].core_interval.first >= cut_pos_read &&
+                if (extended_seeds[next_offset_and_index.second].read_interval.first >= cut_pos_read &&
                     next_offset_and_index.first >= cut_pos_graph.offset()) { 
                     
                     // As soon as we find one that starts after we end in both the read and the node
@@ -1371,7 +1365,7 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
                 for (auto& next_offset_and_index : found->second) {
                     // Look at them in order along the node
                     
-                    if (extended_seeds[next_offset_and_index.second].core_interval.first >= cut_pos_read) { 
+                    if (extended_seeds[next_offset_and_index.second].read_interval.first >= cut_pos_read) { 
                         // As soon as we find one that starts in the read after our start extended seed ended
 
                         // Extend the Path to connect to it.
@@ -1443,7 +1437,7 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
         cerr << "Extended seed " << i << " is a source" << endl;
 #endif
         
-        if (extended_seeds[i].core_interval.first > 0) {
+        if (extended_seeds[i].read_interval.first > 0) {
 #ifdef debug
             cerr << "\tIt is not at the start of the read, so there is a left tail" << endl;
 #endif
@@ -1463,8 +1457,8 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
 #endif
 
             // Now the search limit is all the read *before* the seed, plus the detectable gap
-            size_t search_limit = get_regular_aligner()->longest_detectable_gap(read_length, extended_seeds[i].core_interval.first) +
-                extended_seeds[i].core_interval.first;
+            size_t search_limit = get_regular_aligner()->longest_detectable_gap(read_length, extended_seeds[i].read_interval.first) +
+                extended_seeds[i].read_interval.first;
 
             // Start another search, but going left.
             explore_gbwt(start, search_limit, [&](const ImmutablePath& here_path, const handle_t& there_handle) -> bool {
