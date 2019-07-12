@@ -21,9 +21,11 @@ using namespace std;
  *  
  */ 
 class MCMCGenotyper{
-    SnarlManager snarls;    
+    const SnarlManager& snarls;    
 
 public:
+    
+    MCMCGenotyper(const SnarlManager& snarls);
 
     /** 
      * This method takes as input a collection of mapped reads stored as a vector of multipath alignments and uses 

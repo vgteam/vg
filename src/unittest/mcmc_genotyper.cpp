@@ -5,9 +5,9 @@
 
 #include <stdio.h>
 #include <iostream>
-
+#include "../multipath_mapper.hpp"
 #include <gbwt/dynamic_gbwt.h>
-
+#include "../build_index.hpp"
 #include "../haplotypes.hpp"
 #include "../json2pb.h"
 #include <vg/vg.pb.h>
@@ -22,45 +22,61 @@
 
 namespace vg {
     namespace unittest {
+        // We define a child class to expose all the protected stuff for testing
+        class TestMultipathMapper : public MultipathMapper {
+        public:
+            using MultipathMapper::MultipathMapper;
+            using MultipathMapper::multipath_map_internal;
+            using MultipathMapper::attempt_unpaired_multipath_map_of_pair;
+            using MultipathMapper::align_to_cluster_graphs;
+            using MultipathMapper::align_to_cluster_graph_pairs;
+            using MultipathMapper::query_cluster_graphs;
+            using MultipathMapper::multipath_align;
+            using MultipathMapper::strip_full_length_bonuses;
+            using MultipathMapper::sort_and_compute_mapping_quality;
+            using MultipathMapper::read_coverage;
+            using MultipathMapper::read_coverage_z_score;        
+        };
         
-        TEST_CASE( "Test1") {
+        TEST_CASE("Test1" ) {
             
-            SECTION( "An empty Graph and empty multipath alignment") {
+            SECTION("Tests output of run_genotyper() with empty graph and a vector with an empty string (no read)") {
                 VG graph;
 				
 				CactusSnarlFinder bubble_finder(graph);
-                SnarlManager snarl_manager = bubble_finder.find_snarls();
+                SnarlManager snarl_manager = bubble_finder.find_snarls(); // returns empty SnarlManager object because node_count == 0
                 
-                string read = string(""); //empty read 
+                string read = string(""); 
                 MultipathAlignment multipath_aln;
                 multipath_aln.set_sequence(read);
 
                 // no subpaths or mappings on an empty graph and empty alignment                
 				
                 // check requirements 
-                // create MCMC_Genotyper object 
-                // create and instantiate vector of mp alignments
-                // call run_genotyper and use genome object to test if it what I expect 
-                /** (genome.num_haplotREQUIREypes == 0);*/
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager); 
+                vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
 
-            
+                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector);
+
+                auto iter = genome.begin(0);
+               
+                // check requirements
+                /**  REQUIRE(genome.num_haplotypes == 0); //because the graph is empty */
 
             }
  
         }
-        TEST_CASE( "Test2") {
+        TEST_CASE("Test2") {
             
-            SECTION( "A Graph with one node") {
+            SECTION("Tests run_genotyper() that takes a graph with one node and vector of one short read") {
                 VG graph;
 				
                 Node* n1 = graph.create_node("GCA");
                 
-                graph.create_edge(n1, n1); //if the edge cannot be created returns null
-
-				CactusSnarlFinder bubble_finder(graph);
+                //Cactus does not currently support finding snarls in graph of single-node connected components
+				CactusSnarlFinder bubble_finder(graph); 
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
-
-                
+            
                 string read = string("GCA");
                 MultipathAlignment multipath_aln;
                 multipath_aln.set_sequence(read);
@@ -77,19 +93,34 @@ namespace vg {
 
                 subpath0->set_score(1);
 
-                multipath_aln.add_start(0);
+                multipath_aln.add_start(0);        
+
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager);   
+                vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
+                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector);
 
                 // check requirements
-                // TODO: check that my output is what I expect it to be  
-                
-                
-            
+                // here the optimal solution is that both haplotypes match to the read
+                REQUIRE(genome.num_haplotypes() == 2);
+                // haplotype 1 
+                auto iter = genome.begin(0); //Haplotype ID
+                REQUIRE((*iter) == NodeTraversal(n1)); 
+                iter++;
+                REQUIRE(iter == genome.end(0));
+
+                // haplotype 2
+                iter = genome.begin(1);
+                REQUIRE((*iter) == NodeTraversal(n1)); 
+                iter++;
+                REQUIRE(iter == genome.end(1));
+
 
             }
  
         }
         TEST_CASE("Test3"){
-                  SECTION( "A Graph with one snarl") {   
+            
+            SECTION("Tests run_genotyper() with a simple graph containing one snarl and a vector with only one read") {   
                 VG graph;
 				
                 
@@ -185,17 +216,14 @@ namespace vg {
                 REQUIRE((*iter) == NodeTraversal(n4));        
                 iter++;
                 REQUIRE(iter == genome.end(1));
-                
-                
-                
-            }
-        
-        }
+ 
+            } 
+        }                  
         TEST_CASE("Test4"){
-                SECTION( "A Graph with two snarls") {   
+            
+            SECTION( "Tests run_genotyper() with a graph containing two snarls and a vector with one read") {   
                 VG graph;
-				
-                
+
                 Node* n1 = graph.create_node("GCA"); //gets ID # in incremintal order starting at 1, used in mapping
                 Node* n2 = graph.create_node("T");
                 Node* n3 = graph.create_node("G");
@@ -208,7 +236,6 @@ namespace vg {
                 graph.create_edge(n1, n3);
                 graph.create_edge(n2, n4);
                 graph.create_edge(n3, n4);
-                graph.create_edge(n3, n4);
                 graph.create_edge(n4, n5);
                 graph.create_edge(n4, n6);
                 graph.create_edge(n5, n7);
@@ -220,6 +247,7 @@ namespace vg {
                 string read = string("GCATCTGAGCCC");
                 MultipathAlignment multipath_aln;
                 multipath_aln.set_sequence(read);
+
                 
                 // add subpaths with same topology as graph
                 Subpath* subpath0 = multipath_aln.add_subpath();
@@ -294,13 +322,52 @@ namespace vg {
                 edit6->set_from_length(3); //a match 
                 edit6->set_to_length(3);
                 
-                multipath_aln.add_start(0); //integer given is the subpath #
+                multipath_aln.add_start(0); //integer given is the subpath number
+
+
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager);    //object
+                vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
+                //instantiating an empty vector: 
+                //vector<a> v;
+                //v.push_back(multipath_align)
+                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector);
 				
                 //check requirements
+                REQUIRE(genome.num_haplotypes() == 2);
+                // haplotype 1 
+                auto iter = genome.begin(0); //Haplotype ID
+                REQUIRE((*iter) == NodeTraversal(n1)); 
+                iter++;
+                REQUIRE((*iter) == NodeTraversal(n2));
+                iter++;
+                REQUIRE((*iter) == NodeTraversal(n4));        
+                iter++;
+                REQUIRE((*iter) == NodeTraversal(n6));        
+                iter++;
+                REQUIRE((*iter) == NodeTraversal(n7));        
+                iter++;
+                REQUIRE(iter == genome.end(0));
+
+                // haplotype 2
+                iter = genome.begin(1);
+                REQUIRE((*iter) == NodeTraversal(n1)); 
+                iter++;
+                REQUIRE((*iter) == NodeTraversal(n2));
+                iter++;
+                REQUIRE((*iter) == NodeTraversal(n4));        
+                iter++;
+                REQUIRE((*iter) == NodeTraversal(n6));        
+                iter++;
+                REQUIRE((*iter) == NodeTraversal(n7));        
+                iter++;
+                REQUIRE(iter == genome.end(1));
+
+
             }
         }
         TEST_CASE("Test5"){
-            SECTION( "A Graph with nested snarls") {   
+            
+            SECTION( "Tests run_genotyper() using a graph containing nested snarls and a vector with one read") {   
                 VG graph;
 				
                 
@@ -326,7 +393,6 @@ namespace vg {
 				
 				CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
-                PhasedGenome genome = PhasedGenome(snarl_manager);
                 
                 string read = string("GGGCCCAGCTGG");
                 MultipathAlignment multipath_aln;
@@ -423,14 +489,98 @@ namespace vg {
                 edit7b->set_to_length(0); // length in alt sequence is zero because it is a gap
                 edit7b->set_sequence("C");
 
-                multipath_aln.add_start(0); //integer given is the subpath #
+                multipath_aln.add_start(0); //integer given is the subpath number
 				
-                // check requirements
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager);    //object
+                vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
+                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector);
+
+                //check requirements
+                REQUIRE(genome.num_haplotypes() == 2);
+                
+                // haplotype 1 
+                auto iter = genome.begin(0); //Haplotype ID
+                REQUIRE((*iter) == NodeTraversal(n1)); 
+                iter++;
+                REQUIRE((*iter) == NodeTraversal(n2));
+                iter++;
+                REQUIRE((*iter) == NodeTraversal(n3));        
+                iter++;
+                REQUIRE((*iter) == NodeTraversal(n5));        
+                iter++;
+                REQUIRE((*iter) == NodeTraversal(n6));        
+                iter++;
+                REQUIRE(iter == genome.end(0));
+
+                // haplotype 2
+                iter = genome.begin(1);
+                REQUIRE((*iter) == NodeTraversal(n1)); 
+                iter++;
+                REQUIRE((*iter) == NodeTraversal(n2));
+                iter++;
+                REQUIRE((*iter) == NodeTraversal(n3));        
+                iter++;
+                REQUIRE((*iter) == NodeTraversal(n5));        
+                iter++;
+                REQUIRE((*iter) == NodeTraversal(n6));        
+                iter++;
+                REQUIRE(iter == genome.end(1));
                
             }    
 
         }
+        TEST_CASE("Test6"){
+            SECTION("Tests run_genotyper using graph with two snarls and several reads"){
+                VG graph;
+
+                Node* n1 = graph.create_node("GCA"); //gets ID # in incremintal order starting at 1, used in mapping
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("G");
+                Node* n4 = graph.create_node("CTGA"); //this node is part of both snarls
+                Node* n5 = graph.create_node("A");
+                Node* n6 = graph.create_node("G");
+                Node* n7 = graph.create_node("CCC");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n4);
+                graph.create_edge(n3, n4);
+                graph.create_edge(n4, n5);
+                graph.create_edge(n4, n6);
+                graph.create_edge(n5, n7);
+                graph.create_edge(n6, n7);
+				
+				CactusSnarlFinder bubble_finder(graph);
+                SnarlManager snarl_manager = bubble_finder.find_snarls();
+
+                // Configure GCSA temp directory to the system temp directory
+                gcsa::TempFile::setDirectory(temp_file::get_dir());
+                // And make it quiet
+                gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+                
+                // Make pointers to fill in
+                gcsa::GCSA* gcsaidx = nullptr;
+                gcsa::LCPArray* lcpidx = nullptr;
+                
+                // Build the GCSA index
+                build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3); // may need to change the values 
+                
+                
+                // Build the xg index
+                // XG xg_index(graph);
+                
+                // Make a multipath mapper to map against the graph.
+                // MultipathMapper multipath_mapper = MultipathMapper MultipathMapper();
+                
+                //function that takes in a vector of strings and creates vector<MultipathAlignment>& multipath_alns_out for multipath_map()
+
+                
+
+
+            }
+        }
     }
+
 }
 
 
