@@ -1019,51 +1019,6 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                 assert(extended_seeds[to].read_interval.first >= from_end);
                 string intervening_sequence = aln.sequence().substr(from_end, extended_seeds[to].read_interval.first - from_end); 
 
-                // Find the best path in backing graph space (which may be empty)
-                Path best_path;
-                // And its score
-                int64_t best_score = numeric_limits<int64_t>::min();
-
-                // We can align it once per target path
-                for (auto& path : to_and_paths.second) {
-                    // For each path we can take to get to the source
-                    
-                    if (path.mapping_size() == 0) {
-                        // We're aligning against nothing
-                        if (intervening_sequence.empty()) {
-                            // Consider the nothing to nothing alignment, score 0
-                            if (best_score < 0) {
-                                best_score = 0;
-                                best_path.clear_mapping();
-                            }
-                        } else {
-                            // Consider the something to nothing alignment.
-                            // We can't use the normal code path because the BandedGlobalAligner 
-                            // wouldn't be able to generate a position form an empty graph.
-                            
-                            // We know the extended seeds we are between won't start/end with gaps, so we own the gap open.
-                            int64_t score = get_regular_aligner()->score_gap(intervening_sequence.size());
-                            if (score > best_score) {
-                                best_path.clear_mapping();
-                                Mapping* m = best_path.add_mapping();
-                                Edit* e = m->add_edit();
-                                e->set_from_length(0);
-                                e->set_to_length(intervening_sequence.size());
-                                e->set_sequence(intervening_sequence);
-                                // We can copy the position of where we are going to, since we consume no graph.
-                                *m->mutable_position() = extended_seeds[to].starting_position(gbwt_graph);
-                            }
-                        }
-                    } else {
-
-                        // Make a subgraph.
-                        // TODO: don't copy the path
-                        PathSubgraph subgraph(&gbwt_graph, path);
-                        
-                        // Do global alignment to the path subgraph
-                        Alignment between_alignment;
-                        between_alignment.set_sequence(intervening_sequence);
-                        
 #ifdef debug
                 cerr << "Connect " << pb2json(extended_seeds[from].tail_position(gbwt_graph))
                     << " and " << pb2json(extended_seeds[to].starting_position(gbwt_graph)) << endl;
