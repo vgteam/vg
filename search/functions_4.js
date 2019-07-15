@@ -4,7 +4,7 @@ var searchData=
   ['decode',['decode',['../classvg_1_1MinimizerIndex.html#a8289fce8ea5ab8819f7c6095d0f95dfc',1,'vg::MinimizerIndex']]],
   ['decompose',['decompose',['../namespacevg.html#a90fe8f4de1196dd902ac05f7567b9b7b',1,'vg']]],
   ['decompose_5fgenotype_5ffast',['decompose_genotype_fast',['../classvg_1_1WindowedVcfBuffer.html#ae05d4861f68f92b5c11e293f1a34618b',1,'vg::WindowedVcfBuffer']]],
-  ['deconstruct',['deconstruct',['../classvg_1_1Deconstructor.html#a88527f2a8de8dc7e98d4804f365e6fa9',1,'vg::Deconstructor']]],
+  ['deconstruct',['deconstruct',['../classvg_1_1Deconstructor.html#adbaeea8d66b8c1cd7a2694a3fa9a1a28',1,'vg::Deconstructor']]],
   ['deconstruct_5fsite',['deconstruct_site',['../classvg_1_1Deconstructor.html#ab5e1a3e81b21bd428e7457f92c9eb4c4',1,'vg::Deconstructor']]],
   ['deconstructor',['Deconstructor',['../classvg_1_1Deconstructor.html#ac164fa41d5d207dec36a99b891d405be',1,'vg::Deconstructor']]],
   ['decrement_5fnode_5fids',['decrement_node_ids',['../classvg_1_1VG.html#a356612f42ba60fe5895f3abe7501173a',1,'vg::VG']]],

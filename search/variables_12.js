@@ -31,6 +31,7 @@ var searchData=
   ['ref_5foffset',['ref_offset',['../structvg_1_1XdropAligner_1_1graph__pos__s.html#a58967695f761ddd71de4cf15a7aa83f3',1,'vg::XdropAligner::graph_pos_s']]],
   ['ref_5fpath',['ref_path',['../structvg_1_1FlowSort_1_1Growth.html#a34ba660c358c1ec59cd7c70e62780a8c',1,'vg::FlowSort::Growth']]],
   ['ref_5fpath_5fnames',['ref_path_names',['../classvg_1_1SupportCaller.html#a6600a3aeeb8f2bbf19f422d0eb8f841a',1,'vg::SupportCaller']]],
+  ['ref_5fpaths',['ref_paths',['../classvg_1_1Deconstructor.html#a8da74d6fff7d5af6caed96723d0bccd9',1,'vg::Deconstructor']]],
   ['ref_5fpositions',['ref_positions',['../structhaplo_1_1linear__haplo__structure_1_1SNVvector.html#a6065969d77968cd3afc31ca7b8b1a9f0',1,'haplo::linear_haplo_structure::SNVvector']]],
   ['reference_5forigin',['reference_origin',['../structvg_1_1TranscriptPath.html#aef224e3773aaa73878ee91cc5f04cc85',1,'vg::TranscriptPath']]],
   ['reference_5fpaths',['reference_paths',['../classvg_1_1PhaseUnfolder.html#a2bfa46441300e0817643b310aced989b',1,'vg::PhaseUnfolder']]],
