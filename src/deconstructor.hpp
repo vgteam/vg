@@ -42,7 +42,8 @@ private:
     bool deconstruct_site(const Snarl* site);
 
     // convert traversals to strings.  returns mapping of traversal (offset in travs) to allele
-    vector<int> get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx, char prev_char);
+    vector<int> get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx,
+                            char prev_char, bool use_start);
 
     // write traversal path names as genotypes
     void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele);

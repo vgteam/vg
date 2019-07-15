@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 16
+plan tests 18
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > tiny.vg
 vg index tiny.vg -x tiny.xg
@@ -76,7 +76,7 @@ vg deconstruct cyclic_tiny.xg -p y -e > cyclic_tiny_decon.vcf
 grep -v "#" cyclic_tiny_decon.vcf | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' > cyclic_tiny_decon.tsv
 printf "y\t13\tGGAAATTTTCTGGAGTTCTATTATATAAATTTTCTGGAGTTCTATAATATT\tGGAAATTTTCTGGAGTTCTATTATATT\t1\n" > cyclic_tiny_truth.tsv
 diff cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv
-is "$?" 0 "deconstruct correctly handles a cycle in the reference path"
+is "$?" 0 "deconstruct correctly handles a cycle in the reference path when contained inside snarl"
 
 rm -f cyclic_tiny_decon.vcf cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv
 
@@ -86,8 +86,19 @@ printf "x\t13\tGGAAATTTTCTGGAGTTCTATTATATT\tGGAAATTTTCTGGAGTTCTATTATATAAATTTTCTG
 diff cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv
 is "$?" 0 "deconstruct correctly handles a cycle in the alt path"
 
-rm -f cyclic_tiny_decon.vcf cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv cyclic_tiny.gfa cyclic_tiny.vg cyclic_tiny.xg
+vg chunk -x cyclic_tiny.xg -r 10:15 -c 1 > cycle.vg
+vg index cycle.vg -x cycle.xg
+vg deconstruct cycle.xg -p y -e -t 1 > cycle_decon.vcf
+is $(grep -v "#" cycle_decon.vcf | wc -l) 2 "cyclic reference deconstruction has correct number of variants"
+grep -v "#" cycle_decon.vcf | grep 20 | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' > cycle_decon.tsv
+grep -v "#" cycle_decon.vcf | grep 44 | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' >> cycle_decon.tsv
+printf "y\t20\tT\tA\t0\n" > cycle_decon_truth.tsv
+printf "y\t44\tA\tT\t1\n" >> cycle_decon_truth.tsv
+diff cycle_decon.tsv cycle_decon_truth.tsv
+is "$?" 0 "deconstruct correctly handles cycle in the reference path that spans snarl"
 
+rm -f cyclic_tiny_decon.vcf cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv cyclic_tiny.gfa cyclic_tiny.vg cyclic_tiny.xg
+rm -f cycle.vg cycle.xg cycle_decon.vcf cycle_decon.tsv cycle_decon_truth.tsv
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg view -g - > tiny_names.gfa
 printf "P\tref.1\t1+,3+,5+,6+,8+,9+,11+,12+,14+,15+\t8M,1M,1M,3M,1M,19M,1M,4M,1M,11M\n" >> tiny_names.gfa
