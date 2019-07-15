@@ -915,9 +915,8 @@ pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > PathT
     
     return make_pair(out_travs, out_steps);
 }
- 
 
-TrivialTraversalFinder::TrivialTraversalFinder(VG& graph) : graph(graph) {
+TrivialTraversalFinder::TrivialTraversalFinder(const HandleGraph& graph) : graph(graph) {
     // Nothing to do!
 }
 
@@ -931,20 +930,20 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
     // We don't want to be duplicating partial paths, so we store for each
     // NodeTraversal we can reach the previous NodeTraversal we can reach it
     // from.
-    map<NodeTraversal, NodeTraversal> previous;
+    unordered_map<handle_t, handle_t> previous;
     
-    list<NodeTraversal> stack{to_node_traversal(site.start(), graph)};
+    list<handle_t> stack{graph.get_handle(site.start().node_id(), site.start().backward())};
     
     while (!stack.empty()) { 
         // While there's still stuff on the stack
         
         // Grab the first thing
-        NodeTraversal here = stack.front();
+        handle_t here = stack.front();
         stack.pop_front();
         
-        if (here.node->id() == site.end().node_id()) {
+        if (graph.get_id(here) == site.end().node_id()) {
             // Trace back a path
-            list<NodeTraversal> path;
+            list<handle_t> path;
             
             while (true) {
                 // Until we get to the start of the site
@@ -952,7 +951,7 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
                 // Put this traversal on the front of the path
                 path.push_front(here);
                 
-                if (here.node->id() == site.start().node_id()) {
+                if (graph.get_id(here) == site.start().node_id()) {
                     // Stop when we've reached the start of the site
                     break;
                 }
@@ -965,34 +964,30 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
             to_return.emplace_back();
             
             // Translate the path into the traversal
-            for (NodeTraversal node_traversal : path) {
-                *(to_return.back().add_visit()) = to_visit(node_traversal);
+            for (handle_t node_traversal : path) {
+                *(to_return.back().add_visit()) = to_visit(graph, node_traversal);
             }
             
             // Stop early after having found one path
             break;
         } else {
             // We haven't reached the end of the site
-            
-            for (NodeTraversal next : graph.nodes_next(here)) {
-                // Look at all the places we can go from this node
-                if (previous.count(next)) {
-                    // We already know how to get there.
-                    continue;
-                }
-                
-                // Remember how we got there
-                previous[next] = here;
-                // Explore it, depth first
-                stack.push_front(next);
-            }
+
+            graph.follow_edges(here, false, [&] (const handle_t& next) {
+                    // Look at all the places we can go from this node
+                    if (!previous.count(next)) {
+                        // Remember how we got there
+                        previous[next] = here;
+                        // Explore it, depth first
+                        stack.push_front(next);
+                    }
+                });
         }
     }
     
     // When we get here, either we found a path, or there isn't one.
     return to_return;
 }
-
 
 RepresentativeTraversalFinder::RepresentativeTraversalFinder(AugmentedGraph& augmented,
                                                              SnarlManager& snarl_manager,

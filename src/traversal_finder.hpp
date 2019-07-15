@@ -226,10 +226,10 @@ public:
 class TrivialTraversalFinder : public TraversalFinder {
 
     // Holds the vg graph we are looking for traversals in.
-    VG& graph;
+    const HandleGraph& graph;
 
 public:
-    TrivialTraversalFinder(VG& graph);
+    TrivialTraversalFinder(const HandleGraph& graph);
 
     virtual ~TrivialTraversalFinder() = default;
     
