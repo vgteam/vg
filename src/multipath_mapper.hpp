@@ -23,6 +23,8 @@
 #include "min_distance.hpp"
 #include "utility.hpp"
 #include "annotation.hpp"
+#include "path_component_index.hpp"
+#include "memoizing_graph.hpp"
 
 #include "identity_overlay.hpp"
 #include "reverse_graph.hpp"
@@ -41,6 +43,8 @@
 #include "algorithms/dagify.hpp"
 #include "algorithms/reverse_complement.hpp"
 #include "algorithms/extend.hpp"
+#include "algorithms/jump_along_path.hpp"
+
 
 #include "sglib/hash_graph.hpp"
 
@@ -115,7 +119,6 @@ namespace vg {
         size_t band_padding_memo_size = 500;
         double pseudo_length_multiplier = 1.65;
         double max_mapping_p_value = 0.00001;
-        bool unstranded_clustering = true;
         size_t max_single_end_mappings_for_rescue = 64;
         size_t max_rescue_attempts = 32;
         size_t plausible_rescue_cluster_coverage_diff = 5;
@@ -388,9 +391,6 @@ namespace vg {
         /// multipath alignments
         bool share_terminal_positions(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
         
-        /// Generates a distance measurer to be used for a mapping problem
-        unique_ptr<OrientedDistanceMeasurer> create_distance_measurer();
-        
         /// Get a thread_local RRMemo with these parameters
         haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;;
         
@@ -401,6 +401,8 @@ namespace vg {
         
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;
+        
+        PathComponentIndex path_component_index;
         
         /// Memos used by population model
         static thread_local unordered_map<pair<double, size_t>, haploMath::RRMemo> rr_memos;

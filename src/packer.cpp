@@ -133,11 +133,23 @@ void Packer::write_edits(ostream& out, size_t bin) const {
 void Packer::collect_coverage(const Packer& c) {
     // assume the same basis vector
     assert(!is_compacted);
-    for (size_t i = 0; i < c.graph_length(); ++i) {
-        coverage_dynamic.increment(i, c.coverage_at_position(i));
-    }
-    for (size_t i = 0; i < c.edge_vector_size(); ++i){
-        edge_coverage_dynamic.increment(i, c.edge_coverage(i));
+#pragma omp parallel
+    {
+#pragma omp single
+        {
+#pragma omp task
+            {
+                for (size_t i = 0; i < c.graph_length(); ++i) {
+                    coverage_dynamic.increment(i, c.coverage_at_position(i));
+                }
+            }
+#pragma omp task
+            {
+                for (size_t i = 0; i < c.edge_vector_size(); ++i){
+                    edge_coverage_dynamic.increment(i, c.edge_coverage(i));
+                }
+            }
+        }
     }
 }
 

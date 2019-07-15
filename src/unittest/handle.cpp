@@ -10,6 +10,9 @@
 #include "../xg.hpp"
 #include "../json2pb.h"
 
+
+#include "algorithms/are_equivalent.hpp"
+
 #include "sglib/packed_graph.hpp"
 #include "sglib/hash_graph.hpp"
 
@@ -1821,6 +1824,16 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
         check_path_traversal(vg, path1);
         check_path_traversal(vg, path2);
         check_path_traversal(vg, path3);
+        
+        
+        // maintains validity after serialization (had a bug with this after rewrites at
+        // one point)
+        stringstream strm;
+        vg.serialize_to_ostream(strm);
+        strm.seekg(0);
+        VG copy(strm);
+        
+        REQUIRE(algorithms::are_equivalent_with_paths(&vg, &copy));
         
         // TODO: check the replaced segments' handles
     }

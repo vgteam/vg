@@ -132,17 +132,13 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
         if (sample_to_traversals.count(sample_name)) {
             const vector<int>& travs = sample_to_traversals[sample_name];
             assert(!travs.empty());
-            int lowest_trav = 0;
-
-            for (int i = 1; i < travs.size(); ++i) {
-                if (names[travs[i]] < names[travs[lowest_trav]]) {
-                    lowest_trav = i;
-                }
-                if (trav_to_allele[i] != trav_to_allele[0]) {
-                    conflicts.insert(sample_name);
-                }
+            int chosen_trav;
+            bool conflict;
+            std::tie(chosen_trav, conflict) = choose_traversal(travs, trav_to_allele, names);
+            if (conflict) {
+                conflicts.insert(sample_name);
             }
-            v.samples[sample_name]["GT"] = {std::to_string(trav_to_allele[travs[lowest_trav]])};
+            v.samples[sample_name]["GT"] = {std::to_string(trav_to_allele[chosen_trav])};
             if (path_to_sample) {
                 for (auto trav : travs) {
                     v.samples[sample_name]["PI"].push_back(names[trav] + "=" + std::to_string(trav_to_allele[trav]));
@@ -161,6 +157,33 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
     }
 }
 
+pair<int, bool> Deconstructor::choose_traversal(const vector<int>& travs, const vector<int>& trav_to_allele,
+                                                const vector<string>& trav_to_name) {
+    assert(!travs.empty());
+    vector<int> frequencies(trav_to_allele.size(), 0);
+    for (auto trav : travs) {
+        ++frequencies[trav];
+    }
+
+    int most_frequent = -1;
+    bool conflict = false;
+
+    for (auto trav: travs) {
+        if (most_frequent == -1 ||
+            // prefer non-ref when possible
+            (trav_to_allele[most_frequent] == 0 && trav_to_allele[trav] != 0) ||
+            // otherwise use frequency
+            (((trav_to_allele[most_frequent] == 0) == (trav_to_allele[trav] == 0)) &&
+             (frequencies[trav] > frequencies[most_frequent] ||
+              // break frequency tie using lex order on path name
+              (frequencies[trav] == frequencies[most_frequent] && trav_to_name[trav] < trav_to_name[most_frequent])))) {
+            most_frequent = trav;
+        }
+        conflict = conflict || trav_to_allele[trav] != trav_to_allele[travs[0]];
+    }
+
+    return make_pair(most_frequent, conflict);
+}
     
 bool Deconstructor::deconstruct_site(const Snarl* snarl) {
 
@@ -378,10 +401,11 @@ void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph, SnarlMa
 }
 
 bool Deconstructor::check_max_nodes(const Snarl* snarl)  {
-    unordered_set<Node*> nodeset = snarl_manager->deep_contents(snarl, *graph, false).first;
+    unordered_set<id_t> nodeset = snarl_manager->deep_contents(snarl, *graph, false).first;
     int node_count = 0;
-    for (auto node : nodeset) {
-        if (graph->start_degree(node) > 1 || graph->end_degree(node) > 1) {
+    for (auto node_id : nodeset) {
+        handle_t node = graph->get_handle(node_id);
+        if (graph->get_degree(node, true) > 1 || graph->get_degree(node, false) > 1) {
             ++node_count;
             if (node_count > max_nodes_for_exhaustive) {
                 return false;

@@ -203,7 +203,7 @@ void addArbitraryTelomerePair(vector<stCactusEdgeEnd*> ends, stList *telomeres) 
 // Step 2) Make a Cactus Graph. Returns the graph and a list of paired
 // cactusEdgeEnd telomeres, one after the other. Both members of the return
 // value must be destroyed.
-pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, const unordered_set<string>& hint_paths) {
+pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& graph, const unordered_set<string>& hint_paths) {
 
     // in a cactus graph, every node is an adjacency component.
     // every edge is a *vg* node connecting the component

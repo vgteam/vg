@@ -32,10 +32,11 @@ void help_paths(char** argv) {
          << "    -g, --gbwt FILE       use the threads in the GBWT index in FILE" << endl
          << "                          (XG index is required for most output options; -g takes priority over -x)" << endl
          << "  output:" << endl
-         << "    -X, --extract-gam     return (as GAM alignments) the stored paths in the graph" << endl
-         << "    -V, --extract-vg      return (as path-only .vg) the queried paths (requires -x -g and -q or -Q)" << endl
-         << "    -L, --list            return (as a list of names, one per line) the path (or thread) names" << endl
-         << "    -E, --lengths         return list of path names (as with -L) but paired with their lengths" << endl
+         << "    -X, --extract-gam     print (as GAM alignments) the stored paths in the graph" << endl
+         << "    -V, --extract-vg      print (as path-only .vg) the queried paths (requires -x -g and -q or -Q)" << endl
+         << "    -L, --list            print (as a list of names, one per line) the path (or thread) names" << endl
+         << "    -E, --lengths         print a list of path names (as with -L) but paired with their lengths" << endl
+         << "    -F, --extract-fasta   print the paths in FASTA format" << endl
          << "  path selection:" << endl
          << "    -Q, --paths-by STR    select the paths with the given name prefix (XG, GBWT)" << endl
          << "    -S, --sample STR      select the threads for this sample (GBWT)" << endl;
@@ -51,6 +52,7 @@ int main_paths(int argc, char** argv) {
     bool extract_as_gam = false;
     bool extract_as_vg = false;
     bool list_names = false;
+    bool extract_as_fasta = false;
     string xg_file;
     string vg_file;
     string gbwt_file;
@@ -72,6 +74,7 @@ int main_paths(int argc, char** argv) {
             {"extract-vg", no_argument, 0, 'V'},
             {"list", no_argument, 0, 'L'},
             {"lengths", no_argument, 0, 'E'},
+            {"extract-fasta", no_argument, 0, 'F'},
             {"paths-by", required_argument, 0, 'Q'},
             {"sample", required_argument, 0, 'S'},
 
@@ -83,7 +86,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VES:Tq:",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEFS:Tq:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -136,6 +139,11 @@ int main_paths(int argc, char** argv) {
             selection_criteria++;
             break;
 
+        case 'F':
+            extract_as_fasta = true;
+            output_formats++;
+            break;
+
         case 'T':
             std::cerr << "warning: [vg paths] option --threads is obsolete and unnecessary" << std::endl;
             break;
@@ -162,9 +170,9 @@ int main_paths(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
     if (!gbwt_file.empty()) {
-        bool need_xg = (extract_as_gam | extract_as_vg | list_lengths);
+        bool need_xg = (extract_as_gam || extract_as_vg || list_lengths || extract_as_fasta);
         if (need_xg && xg_file.empty()) {
-            std::cerr << "error: [vg paths] an XG index is needed for extracting threads in -X, -V, or -E format" << std::endl;
+            std::cerr << "error: [vg paths] an XG index is needed for extracting threads in -X, -V, -E or -F format" << std::endl;
             std::exit(EXIT_FAILURE);
         }
         if (!need_xg && !xg_file.empty()) {
@@ -300,6 +308,8 @@ int main_paths(int argc, char** argv) {
                 Graph g;
                 *(g.add_path()) = path;
                 graph_emitter->write(std::move(g));
+            } else if (extract_as_fasta) {
+                write_fasta_sequence(name, xg_index->path_string(path), cout);
             }
             if (list_lengths) {
                 cout << path.name() << "\t" << path_to_length(path) << endl;
@@ -344,6 +354,12 @@ int main_paths(int argc, char** argv) {
         } else if (extract_as_vg) {
             cerr << "error: [vg paths] vg extraction is only defined for prefix queries against a XG/GBWT index pair" << endl;
             exit(1);
+        } else if (extract_as_fasta) {
+            graph->paths.for_each([&check_prefix, &graph](const Path& path) {
+                    if (check_prefix(path.name())) {
+                        write_fasta_sequence(path.name(), graph->path_string(path), cout);
+                    }
+                });
         }
     } else if (xg_index.get() != nullptr) {
         // Handle non-thread queries from xg
@@ -371,12 +387,23 @@ int main_paths(int argc, char** argv) {
                     vector<Graph> gb = { g };
                     vg::io::write_buffered(cout, gb, 0);
                 }
-            }            
+            } else if (extract_as_fasta) {
+                for (auto& path : got) {
+                    write_fasta_sequence(path.name(), xg_index->path_string(path), cout);
+                }
+            }
         } else if (extract_as_gam) {
             auto alns = xg_index->paths_as_alignments();
             vg::io::ProtobufEmitter<Alignment> emitter(cout);
             for (auto& aln : alns) {
                 emitter.write(std::move(aln));
+            }
+        } else if (extract_as_fasta) {
+            size_t max_path = xg_index->max_path_rank();
+            for (size_t i = 1; i <= max_path; ++i) {
+                write_fasta_sequence(xg_index->path_name(i),
+                                     xg_index->path_string(xg_index->path(xg_index->path_name(i))),
+                                     cout);
             }
         }
     }

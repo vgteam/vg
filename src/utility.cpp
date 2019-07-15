@@ -177,6 +177,14 @@ string toUppercase(const string& s) {
     return n;
 }
 
+void write_fasta_sequence(const std::string& name, const std::string& sequence, ostream& os, size_t width) {
+    os << ">" << name << "\n";
+    for (size_t written = 0; written < sequence.length(); written += width) {
+        os << sequence.substr(written, min(width, sequence.length() - written)) << "\n";
+    }
+    os << flush;
+}
+
 namespace temp_file {
 
 // We use this to make the API thread-safe

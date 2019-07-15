@@ -52,6 +52,13 @@ private:
     // write traversal path names as genotypes
     void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele);
 
+    // given a set of traversals associated with a particular sample, select one for the VCF
+    // the highest-frequency ALT traversal is chosen
+    // the bool returned is true if multiple traversals map to different alleles.
+    pair<int, bool> choose_traversal(const vector<int>& travs, const vector<int>& trav_to_allele,
+                                     const vector<string>& trav_to_name);
+
+
     // check to see if a snarl is too big to exhaustively traverse
     bool check_max_nodes(const Snarl* snarl);
 

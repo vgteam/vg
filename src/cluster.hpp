@@ -11,6 +11,7 @@
 #include "xg.hpp"
 #include "handle.hpp"
 #include "min_distance.hpp"
+#include "path_component_index.hpp"
 
 #include <functional>
 #include <string>
@@ -368,7 +369,8 @@ public:
     
     /// Construct a distance service to measures distance along paths in this XG. Optionally
     /// measures all distances on the forward strand of the paths.
-    PathOrientedDistanceMeasurer(XG* xgindex, bool unstranded = false);
+    PathOrientedDistanceMeasurer(const PathPositionHandleGraph* graph,
+                                 const PathComponentIndex* path_component_index = nullptr);
     
     /// Default desctructor
     ~PathOrientedDistanceMeasurer() = default;
@@ -392,16 +394,9 @@ public:
     
 private:
     
-    XG* xgindex = nullptr;
-    
-    /// A memo for the results of XG::paths_of_node
-    unordered_map<id_t, vector<size_t>> paths_of_node_memo;
-    /// A memo for the results of XG::oriented_occurrences_on_path
-    unordered_map<pair<id_t, size_t>, vector<pair<size_t, bool>>> oriented_occurences_memo;
-    /// A memo for the results of XG::get_handle
-    unordered_map<pair<int64_t, bool>, handle_t> handle_memo;
-    
-    const bool unstranded;
+    const PathPositionHandleGraph* graph = nullptr;
+    const PathComponentIndex* path_component_index = nullptr;
+
 };
     
 /*
@@ -441,7 +436,6 @@ public:
     
     /// Constructor
     OrientedDistanceClusterer(OrientedDistanceMeasurer& distance_measurer,
-                              bool unstranded,
                               size_t max_expected_dist_approx_error = 8);
     
     /// Concrete implementation of virtual method from MEMClusterer
