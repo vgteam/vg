@@ -164,8 +164,9 @@ var searchData=
   ['attempt_5frescue_5ffor_5fsecondaries',['attempt_rescue_for_secondaries',['../classvg_1_1MultipathMapper.html#a1751c97818eef51d83a0e8f31260822b',1,'vg::MultipathMapper']]],
   ['attempt_5frescue_5fof_5frepeat_5ffrom_5fnon_5frepeat',['attempt_rescue_of_repeat_from_non_repeat',['../classvg_1_1MultipathMapper.html#a17aa98cc9509dd4e9cec05610dc629ea',1,'vg::MultipathMapper']]],
   ['attempt_5funpaired_5fmultipath_5fmap_5fof_5fpair',['attempt_unpaired_multipath_map_of_pair',['../classvg_1_1MultipathMapper.html#a6e6fb4cb7896a6de840b2af5b70a4fed',1,'vg::MultipathMapper']]],
-  ['augment',['augment',['../namespacevg.html#afcc98bfdc055f4e9d3acd91304b66d2e',1,'vg']]],
+  ['augment',['augment',['../namespacevg.html#afcc98bfdc055f4e9d3acd91304b66d2e',1,'vg::augment(MutablePathMutableHandleGraph *graph, istream &amp;gam_stream, vector&lt; Translation &gt; *out_translations, ostream *gam_out_stream, function&lt; void(Path &amp;)&gt; save_path_fn, bool break_at_ends, bool remove_softclips)'],['../namespacevg.html#abc888f95413c265b086df5adf5f4e2b6',1,'vg::augment(MutablePathMutableHandleGraph *graph, vector&lt; Alignment &gt; &amp;gam_vector, vector&lt; Translation &gt; *out_translations, ostream *gam_out_stream, function&lt; void(Path &amp;)&gt; save_path_fn, bool break_at_ends, bool remove_softclips)']]],
   ['augment_5ffrom_5falignment_5fedits',['augment_from_alignment_edits',['../structvg_1_1AugmentedGraph.html#a56ecda832a62dd3a22424bb8720a4601',1,'vg::AugmentedGraph']]],
+  ['augment_5fimpl',['augment_impl',['../namespacevg.html#aeb15401fa0548eda892420039352cd91',1,'vg']]],
   ['average_5fnode_5flength',['average_node_length',['../classvg_1_1Mapper.html#a565a5307c6e665efbc1347ea21fbf19e',1,'vg::Mapper']]],
   ['avg_5fqual_5ffilter',['avg_qual_filter',['../classvg_1_1Filter.html#a3401568683899d1ebe2bcaf971a8374e',1,'vg::Filter']]],
   ['avgsup',['avgSup',['../namespacevg.html#aca4ff62f183c00e91085c2fa24559077',1,'vg']]]
