@@ -22,7 +22,7 @@ using namespace vg;
 using namespace vg::subcommand;
 
 void help_deconstruct(char** argv){
-    cerr << "usage: " << argv[0] << " deconstruct [options] [-p|-P] <PATH> <my_graph>.vg" << endl
+    cerr << "usage: " << argv[0] << " deconstruct [options] [-p|-P] <PATH> <my_graph>.xg" << endl
          << "Outputs VCF records for Snarls present in a graph (relative to a chosen reference path)." << endl
          << "options: " << endl
          << "    -p, --path NAME        A reference path to deconstruct against (comma-separated list accepted)." << endl
@@ -117,15 +117,11 @@ int main_deconstruct(int argc, char** argv){
         cerr << "Error [vg decontruct]: -A can only be used with -e" << endl;
     }
     
-    string graph_file_name = get_input_file_name(optind, argc, argv);
-
-    vg::VG* graph;
-    get_input_file(graph_file_name, [&](istream& in) {
-            if (show_progress) {
-                cerr << "Loading graph" << endl;
-            }
-            graph = new VG(in);
-    });
+    // Read the graph
+    unique_ptr<PathPositionHandleGraph> graph;
+    get_input_file(optind, argc, argv, [&](istream& in) {
+        graph = vg::io::VPKG::load_one<PathPositionHandleGraph>(in);
+        });
 
     // Load or compute the snarls
     unique_ptr<SnarlManager> snarl_manager;    
@@ -188,7 +184,7 @@ int main_deconstruct(int argc, char** argv){
     if (show_progress) {
         cerr << "Decsontructing top-level snarls" << endl;
     }
-    dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals,
+    dd.deconstruct(refpaths, graph.get(), snarl_manager.get(), path_restricted_traversals,
                    !alt_path_to_prefix.empty() ? &alt_path_to_prefix : nullptr);
     return 0;
 }

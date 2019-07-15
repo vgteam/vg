@@ -38,7 +38,7 @@ void augment(MutablePathMutableHandleGraph* graph,
 }
 
 void augment(MutablePathMutableHandleGraph* graph,
-             vector<Alignment>& gam_vector,
+             vector<Path>& path_vector,
              vector<Translation>* out_translations,
              ostream* gam_out_stream,
              function<void(Path&)> save_path_fn,
@@ -46,8 +46,11 @@ void augment(MutablePathMutableHandleGraph* graph,
              bool remove_softclips) {
     
     function<void(function<void(Alignment&)>, bool)> iterate_gam =
-        [&gam_vector] (function<void(Alignment&)> aln_callback, bool reset_stream) {
-        for (Alignment& aln : gam_vector) {
+        [&path_vector] (function<void(Alignment&)> aln_callback, bool reset_stream) {
+        for (Path& path : path_vector) {
+            Alignment aln;
+            *aln.mutable_path() = path;
+            aln.set_name(path.name());
             aln_callback(aln);
         }
     };

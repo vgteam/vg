@@ -42,7 +42,7 @@ void augment(MutablePathMutableHandleGraph* graph,
 /// Like above, but operates on a vector of Alignments, instead of a stream
 /// (Note: It is best to use stream interface for large numbers of alignments to save memory)
 void augment(MutablePathMutableHandleGraph* graph,
-             vector<Alignment>& gam_vector,
+             vector<Path>& path_vector,
              vector<Translation>* out_translation = nullptr,
              ostream* gam_out_stream = nullptr,
              function<void(Path&)> save_path_fn = nullptr,
