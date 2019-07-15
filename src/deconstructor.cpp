@@ -198,21 +198,36 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     }
 
     // find every traversal that runs through a path in the graph
-    pair<vector<SnarlTraversal>, vector<string>> named_travs;
-    named_travs = path_trav_finder->find_named_traversals(*snarl);
+    pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > path_travs;
+    path_travs = path_trav_finder->find_path_traversals(*snarl);
+    vector<string> path_trav_names;
 
     // pick out the traversal corresponding to a reference path, breaking ties consistently
-    int ref_trav_idx = -1;
-    for (int i = 0; i < named_travs.first.size(); ++i) {
-        if (pindexes.count(named_travs.second.at(i)) &&
-            (ref_trav_idx == -1 || named_travs.second[i] < named_travs.second[ref_trav_idx])) {
-            ref_trav_idx = i;
+    string ref_trav_name;
+    for (int i = 0; i < path_travs.first.size(); ++i) {
+        string path_trav_name = graph->get_path_name(graph->get_path_handle_of_step(path_travs.second[i].first));
+        if (ref_paths.count(path_trav_name) &&
+            (ref_trav_name.empty() || path_trav_name < ref_trav_name)) {
+            ref_trav_name = path_trav_name;
+        }
+        path_trav_names.push_back(path_trav_name);
+    }
+
+    // remember all the reference traversals (there can be more than one only in the case of a
+    // cycle in the reference path
+    vector<int> ref_travs;
+    if (!ref_trav_name.empty()) {
+        for (int i = 0; i < path_travs.first.size(); ++i) {
+            string path_trav_name = graph->get_path_name(graph->get_path_handle_of_step(path_travs.second[i].first));
+            if (path_trav_name == ref_trav_name) {
+                ref_travs.push_back(i);
+            }
         }
     }
 
     // there's no reference path through the snarl, so we can't make a variant
     // (todo: should we try to detect this before computing traversals?)
-    if (ref_trav_idx == -1) {
+    if (ref_travs.empty()) {
 #ifdef debug
 #pragma omp critical (cerr)
         cerr << "Skipping site becuase no reference traversal was found " << pb2json(*snarl) << endl;
@@ -236,15 +251,18 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         if (exhaustive_travs.empty()) {
             return false;
         }
-        named_travs.first.insert(named_travs.first.end(), exhaustive_travs.begin(), exhaustive_travs.end());
+        path_travs.first.insert(path_travs.first.end(), exhaustive_travs.begin(), exhaustive_travs.end());
         for (int i = 0; i < exhaustive_travs.size(); ++i) {
             // dummy names so we can use the same code as the named path traversals above
-            named_travs.second.push_back(" >>" + std::to_string(i));
+            path_trav_names.push_back(" >>" + std::to_string(i));
+            // dummy handles so we can use the same code as the named path traversals above
+            path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
+            
         }
     }
     
     // there's not alt path through the snarl, so we can't make an interesting variant
-    if (named_travs.first.size() < 2) {
+    if (path_travs.first.size() < 2) {
 #ifdef debug
 #pragma omp critical (cerr)
         cerr << "Skipping site because to alt traversal was found " << pb2json(*snarl) << endl;
@@ -252,56 +270,64 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         return false;
     }
 
-    vcflib::Variant v;
-    v.setVariantCallFile(outvcf);
-    v.quality = 23;
+    // we write a variant for every reference traversal
+    for (auto ref_trav_idx : ref_travs) {
 
-    // write variant's sequenceName (VCF contig)
-    v.sequenceName = named_travs.second.at(ref_trav_idx);
+        vcflib::Variant v;
+        v.setVariantCallFile(outvcf);
+        v.quality = 23;
 
-    // Set position based on the lowest position in the snarl.
-    pair<size_t, bool> pos_orientation_start = pindexes[v.sequenceName]->by_id[snarl->start().node_id()];
-    pair<size_t, bool> pos_orientation_end = pindexes[v.sequenceName]->by_id[snarl->end().node_id()];
-    bool use_start = pos_orientation_start.first < pos_orientation_end.first;
-    size_t node_pos = (use_start ? pos_orientation_start.first : pos_orientation_end.first);
-    v.position = node_pos + 1; // shift from 0-based to 1-based
-    if (use_start) {
-        v.position += graph->get_node(snarl->start().node_id())->sequence().length();
-    } else {
-        v.position += graph->get_node(snarl->end().node_id())->sequence().length();
-    }
+        // write variant's sequenceName (VCF contig)
+        v.sequenceName = ref_trav_name;
 
-    // We need to shift back a position for indels.  Get the previous base from the graph:
-    const Visit& prev_visit = use_start ? snarl->start() : snarl->end();
-    int offset = 0;
-    if (use_start != prev_visit.backward()) {
-        offset = graph->get_length(graph->get_handle(prev_visit.node_id())) - 1;
-    }
-    char prev_char = ::toupper(graph->get_sequence(graph->get_handle(prev_visit.node_id()))[offset]);
+        // Set position based on the lowest position in the snarl.
+        step_handle_t start_step = path_travs.second[ref_trav_idx].first;
+        step_handle_t end_step = path_travs.second[ref_trav_idx].second;
+        handle_t start_handle = graph->get_handle_of_step(start_step);
+        handle_t end_handle = graph->get_handle_of_step(end_step);
+        
+        pair<size_t, bool> pos_orientation_start = make_pair(graph->get_position_of_step(start_step), graph->get_is_reverse(start_handle));
+        pair<size_t, bool> pos_orientation_end = make_pair(graph->get_position_of_step(end_step), graph->get_is_reverse(end_handle));
+        bool use_start = pos_orientation_start.first < pos_orientation_end.first;
+        size_t node_pos = (use_start ? pos_orientation_start.first : pos_orientation_end.first);
+        v.position = node_pos + 1; // shift from 0-based to 1-based
+        if (use_start) {
+            v.position += graph->get_length(graph->get_handle((snarl->start().node_id())));
+        } else {
+            v.position += graph->get_length(graph->get_handle((snarl->end().node_id())));
+        }
 
-    // Convert the snarl traversals to strings and add them to the variant
-    vector<int> trav_to_allele = get_alleles(v, named_travs.first, ref_trav_idx, prev_char);
+        // We need to shift back a position for indels.  Get the previous base from the graph:
+        const Visit& prev_visit = use_start ? snarl->start() : snarl->end();
+        int offset = 0;
+        if (use_start != prev_visit.backward()) {
+            offset = graph->get_length(graph->get_handle(prev_visit.node_id())) - 1;
+        }
+        char prev_char = ::toupper(graph->get_sequence(graph->get_handle(prev_visit.node_id()))[offset]);
 
-    // Fill in the genotypes
-    if (path_restricted) {
-        get_genotypes(v, named_travs.second, trav_to_allele);
-    }
+        // Convert the snarl traversals to strings and add them to the variant
+        vector<int> trav_to_allele = get_alleles(v, path_travs.first, ref_trav_idx, prev_char);
 
-    // we only bother printing out sites with at least 1 non-reference allele
-    if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return i == 0; })) {
+        // Fill in the genotypes
+        if (path_restricted) {
+            get_genotypes(v, path_trav_names, trav_to_allele);
+        }
+
+        // we only bother printing out sites with at least 1 non-reference allele
+        if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return i == 0; })) {
 #pragma omp critical (cout)
-        {
-        cout << v << endl;
+            {
+                cout << v << endl;
+            }
         }
     }
-
     return true;
 }
 
 /**
  * Convenience wrapper function for deconstruction of multiple paths.
  */
-void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph, SnarlManager* snarl_manager,
+void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
                                 bool path_restricted_traversals,
                                 const unordered_map<string, string>* path_to_sample) {
 
@@ -309,20 +335,14 @@ void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph, SnarlMa
     this->snarl_manager = snarl_manager;
     this->path_restricted = path_restricted_traversals;
     this->path_to_sample = path_to_sample;
+    this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
     assert(path_to_sample == nullptr || path_restricted);
     
-    // Create path index for the contig if we don't have one.
-    for (auto& refpath : ref_paths) {
-        if (pindexes.find(refpath) == pindexes.end()){
-            pindexes[refpath] = new PathIndex(*graph, refpath, false);
-        }
-    }
-
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     sample_names.clear();
     graph->for_each_path_handle([&](const path_handle_t& path_handle) {
             string path_name = graph->get_path_name(path_handle);
-            if (!pindexes.count(path_name)) {
+            if (!this->ref_paths.count(path_name)) {
                 // rely on the given map.  if a path isn't in it, it'll be ignored
                 if (path_to_sample && path_to_sample->count(path_name)) {
                     sample_names.insert(path_to_sample->find(path_name)->second);
@@ -366,12 +386,8 @@ void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph, SnarlMa
 
     // create the traversal finder
     map<string, const Alignment*> reads_by_name;
-    path_trav_finder = unique_ptr<PathRestrictedTraversalFinder>(new PathRestrictedTraversalFinder(*graph,
-                                                                                                   *snarl_manager,
-                                                                                                   reads_by_name,
-                                                                                                   1,
-                                                                                                   100,
-                                                                                                   true));
+    path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*graph,
+                                                                               *snarl_manager));
     
     if (!path_restricted) {
         trav_finder = unique_ptr<TraversalFinder>(new ExhaustiveTraversalFinder(*graph,

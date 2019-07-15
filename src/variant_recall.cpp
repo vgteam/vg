@@ -2,6 +2,7 @@
 #include "variant_recall.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "traversal_finder.hpp"
+#include "augment.hpp"
 
 namespace vg {
 
@@ -66,12 +67,13 @@ void genotype_svs(VG* graph,
     vg::io::for_each_interleaved_pair_parallel(gamstream, readfunc);
     vector<Translation> transls;
     if (refpath != ""){
-        graph->edit(direct_ins, &transls); // TODO could maybe use edit_fast??
-               
+        augment(graph, direct_ins, &transls);
+
+        XG xg_index(graph->graph); // Index the graph so deconstruct can get path positions
         Deconstructor decon;
-        CactusSnarlFinder finder(*graph);
+        CactusSnarlFinder finder(xg_index);
         SnarlManager snarl_manager = finder.find_snarls();
-        decon.deconstruct({refpath}, graph, &snarl_manager, false);
+        decon.deconstruct({refpath}, &xg_index, &snarl_manager, false);
     }
     direct_ins.clear();
 
