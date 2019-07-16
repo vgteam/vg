@@ -2536,7 +2536,7 @@ size_t RepresentativeTraversalFinder::bp_length(const structures::ImmutableList<
 }
 
 
-VCFTraversalFinder::VCFTraversalFinder(VG& graph, SnarlManager& snarl_manager,
+VCFTraversalFinder::VCFTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager,
                                        vcflib::VariantCallFile& vcf,
                                        function<PathIndex*(const Snarl&)> get_index,
                                        FastaReference* ref_fasta,
@@ -3001,16 +3001,14 @@ pair<SnarlTraversal, bool> VCFTraversalFinder::get_alt_path(vcflib::Variant* var
     bool is_deletion = false;
     
     string alt_path_name = "_alt_" + make_variant_id(*var) + "_" + to_string(allele);
-    if (graph.has_path(alt_path_name) && !graph.paths.get_path(alt_path_name).empty()) {
+    if (graph.has_path(alt_path_name) && !graph.is_empty(graph.get_path_handle(alt_path_name))) {
         // if there's an alt path, then we're dealing with a snp or insertion.
         // we take the edges from the path, as well as those back to the reference
-        list<mapping_t>& path = graph.paths.get_path(alt_path_name);
-
-        // fill in the nodes from the path
-        for (auto mapping : path) {
+        for (handle_t handle : graph.scan_path(graph.get_path_handle(alt_path_name))) {
+            // fill in the nodes from the path
             Visit* visit = alt_path.add_visit();
-            visit->set_node_id(mapping.node_id());
-            visit->set_backward(mapping.is_reverse());
+            visit->set_node_id(graph.get_id(handle));
+            visit->set_backward(graph.get_is_reverse(handle));
         }
     }  else {
         // there's no alt path, it must be a deletion (if our input allele != 0)
@@ -3023,13 +3021,16 @@ pair<SnarlTraversal, bool> VCFTraversalFinder::get_alt_path(vcflib::Variant* var
         assert(allele == 0 || graph.has_path(alt_path_name));
 
         if (graph.has_path(alt_path_name)) {
-            list<mapping_t>& path = graph.paths.get_path(alt_path_name);
-            if (!path.empty()) {
+            path_handle_t path_handle = graph.get_path_handle(alt_path_name);            
+            if (!graph.is_empty(path_handle)) {
                 // find where this path begins and ends in the reference path index
+                handle_t first_handle = graph.get_handle_of_step(graph.path_begin(path_handle));
+                handle_t last_handle = graph.get_handle_of_step(graph.path_back(path_handle));
+                
                 PathIndex::iterator first_path_it = path_index->find_in_orientation(
-                    path.begin()->node_id(), path.begin()->is_reverse());
+                    graph.get_id(first_handle), graph.get_is_reverse(first_handle));
                 PathIndex::iterator last_path_it = path_index->find_in_orientation(
-                    path.rbegin()->node_id(), path.rbegin()->is_reverse());
+                    graph.get_id(last_handle), graph.get_is_reverse(last_handle));
 
                 // some sanity checking
                 assert(first_path_it != path_index->end() && first_path_it != path_index->begin());

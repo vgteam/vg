@@ -396,7 +396,7 @@ public:
 class VCFTraversalFinder : public TraversalFinder {
 
 protected:
-    VG& graph;
+    const PathHandleGraph& graph;
     
     /// The SnarlManager managiung the snarls we use
     SnarlManager& snarl_manager;
@@ -440,7 +440,7 @@ public:
      * This is used to, for example, use read support to prune the number of traversals
      * that are enumerated.
      */
-    VCFTraversalFinder(VG& graph, SnarlManager& snarl_manager, vcflib::VariantCallFile& vcf,
+    VCFTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager, vcflib::VariantCallFile& vcf,
                        function<PathIndex*(const Snarl&)> get_index,
                        FastaReference* fasta_ref = nullptr,
                        FastaReference* ins_ref = nullptr,
