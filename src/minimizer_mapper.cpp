@@ -1113,7 +1113,6 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
         }
     }
 
-        
     // Then we take the best linearization of the full MultipathAlignment.
     // Make sure to force source to sink
     topologically_order_subpaths(mp);
@@ -1239,7 +1238,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const ve
                     cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
                 });
             });
-            cerr << "Path: " << pb2json(path) << endl;
+            cerr << "\tPath: " << pb2json(path) << endl;
 #else
             cerr << endl;
 #endif
@@ -1291,39 +1290,35 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const ve
 
 pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees,
     const string& sequence, const Position& default_position, bool pin_left) const {
-    
+   
     // We want the best alignment, to the base graph, done against any target path
     Path best_path;
     // And its score
-    int64_t best_score = numeric_limits<int64_t>::min();
+    int64_t best_score = 0;
+    
+    if (!sequence.empty()) {
+        // We start out with the best alignment being a pure softclip.
+        // If we don't have any trees, or all trees are empty, or there's nothing beter, this is what we return.
+        Mapping* m = best_path.add_mapping();
+        Edit* e = m->add_edit();
+        e->set_from_length(0);
+        e->set_to_length(sequence.size());
+        e->set_sequence(sequence);
+        // Since the softclip consumes no graph, we place it on the node we are going to.
+        *m->mutable_position() = default_position;
+        
+#ifdef debug
+        cerr << "First best alignment: " << pb2json(best_path) << " score " << best_score << endl;
+#endif
+    }
     
     // We can align it once per target tree
     for (auto& subgraph : trees) {
         // For each tree we can map against, map pinning the correct edge of the sequence to the root.
         
-        if (subgraph.get_node_count() == 0) {
-            // There's no graph bases here
-            // We might have extra read outside the graph. Handle leading insertions.
-            // We consider a pure softclip, since all alignment here is pinning.
-            // We don't consider an empty sequence since that would produce no trees.
-            if (best_score < 0) {
-            
-                best_score = 0;
-                best_path.clear_mapping();
-                Mapping* m = best_path.add_mapping();
-                Edit* e = m->add_edit();
-                e->set_from_length(0);
-                e->set_to_length(sequence.size());
-                e->set_sequence(sequence);
-                // Since the softclip consumes no graph, we place it on the node we are going to.
-                *m->mutable_position() = default_position;
-                
-#ifdef debug
-                cerr << "New best alignment: " << pb2json(best_path) << " score " << best_score << endl;
-#endif
-            }
-        } else {
-            // This path has bases in it
+        if (subgraph.get_node_count() != 0) {
+            // This path has bases in it and could potentially be better than
+            // the default full-length softclip
 
             // Do alignment to the subgraph with GSSWAligner.
             Alignment current_alignment;
@@ -1394,9 +1389,6 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
         }
     }
 
-    // We really should have gotten something
-    assert(best_path.mapping_size() != 0);
-    
     return make_pair(best_path, best_score);
 }
 
@@ -1978,6 +1970,10 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
     for (auto& extension_number : tail_havers) {
         // Now for each extension that can have tails, walk the GBWT in the appropriate direction
         
+#ifdef debug
+        cerr << "Look for " << (left_tails ? "left" : "right") << " tails from extension " << extension_number << endl;
+#endif
+
         // TODO: Come up with a better way to do this with more accessors on the extension and less get_handle
         // Get the Position reading out of the extnsion on the appropriate tail
         Position from;
@@ -1995,6 +1991,11 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
             from = extended_seeds[extension_number].tail_position(gbwt_graph);
             
             tail_length = read_length - extended_seeds[extension_number].read_interval.second;
+        }
+        
+        if (tail_length > 0) {
+            // Make sure we at least have an empty forest
+            to_return.emplace(extension_number, vector<TreeSubgraph>());
         }
         
         // This is one tree that we are filling in
@@ -2046,6 +2047,14 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
             to_return[extension_number].emplace_back(&gbwt_graph, std::move(tree), start_included ? from.offset() : 0);
             tree.clear();
         }
+        
+#ifdef debug
+        if (to_return.count(extension_number)) {
+            cerr << "Found " << to_return[extension_number].size() << " trees" << endl;
+        } else {
+            cerr << "Found no trees in no forest" << endl;
+        }
+#endif
     }
     
     // Now we have all the trees!

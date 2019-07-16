@@ -173,8 +173,11 @@ protected:
      * If left_tails is true, the trees read out of the left sides of the
      * gapless extensions. Otherwise they read out of the right sides.
      *
-     * Gapless extensions with no tails off the appropriate end get no map
-     * entries.
+     * Gapless extensions that are not sources or sinks get no map entries.
+     * Gapless extensions with dangling read sequence but no viable paths in
+     * the graph will at least get map entries with empty forests. Sources or
+     * sinks with no dangling sequence don't necessarily get map entries at
+     * all.
      */
     unordered_map<size_t, vector<TreeSubgraph>> get_tail_forests(const vector<GaplessExtension>& extended_seeds,
         size_t read_length, const unordered_map<size_t, unordered_map<size_t, vector<Path>>>& connecting_paths, bool left_tails) const;
@@ -202,7 +205,8 @@ protected:
      * graph. Each tree subgraph is rooted at the left in its own local
      * coordinate space, even if we are pinning on the right.
      *
-     * If no mapping is possible, produce a pure insert at default_position.
+     * If no mapping is possible (for example, because there are no trees),
+     * produce a pure insert at default_position.
      *
      * Alignment is always pinned.
      *
