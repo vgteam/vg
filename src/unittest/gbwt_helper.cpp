@@ -93,6 +93,14 @@ gbwt::GBWT build_gbwt_index() {
 
 TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
 
+    // Test an empty graph first.
+    SECTION("we can build an empty GBWTGraph") {
+        XG empty_xg;
+        gbwt::GBWT empty_gbwt;
+        GBWTGraph empty_graph(empty_gbwt, empty_xg);
+        REQUIRE(empty_graph.get_node_count() == 0);
+    }
+
     // Build an XG index.
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());

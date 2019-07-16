@@ -48,6 +48,12 @@ GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_s
     // Sanity checks for the GBWT index.
     assert(this->index.bidirectional());
 
+    // Add the sentinel to the offset vector of an empty graph just in case.
+    if (this->index.empty()) {
+        this->offsets = sdsl::int_vector<0>(1, 0);
+        return;
+    }
+
     // Determine the real nodes and cache the handles.
     // Node n is real, if real_nodes[node_offset(n) / 2] is true.
     size_t potential_nodes = this->index.sigma() - this->index.firstNode();
