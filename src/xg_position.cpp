@@ -18,11 +18,11 @@ size_t xg_node_length(id_t id, const PathPositionHandleGraph* xgidx) {
 }
 
 int64_t xg_node_start(id_t id, const PathPositionHandleGraph* xgidx) {
-    return xgidx->node_start(id);
+    return ((VectorizableHandleGraph*)xgidx)->node_vector_offset(id);
 }
 
 char xg_pos_char(pos_t pos, const PathPositionHandleGraph* xgidx) {
-    return xgidx->pos_char(id(pos), is_rev(pos), offset(pos));
+    return xgidx->get_base(xgidx->get_handle(id(pos), is_rev(pos)), offset(pos));
 }
 
 map<pos_t, char> xg_next_pos_chars(pos_t pos, const PathPositionHandleGraph* xgidx) {
@@ -142,7 +142,7 @@ set<pos_t> xg_positions_bp_from(pos_t pos, int64_t distance, bool rev, const Pat
     }
 }
 
-map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const PathPositionHandleGraph* xgidx, const Alignment& aln, bool just_min,
+unordered_map<path_handle_t, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const PathPositionHandleGraph* xgidx, const Alignment& aln, bool just_min,
     bool nearby, size_t search_limit) {
     
     if (nearby && search_limit == 0) {
@@ -160,7 +160,7 @@ map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const PathPo
     cerr << endl;
 #endif
     
-    map<string, vector<pair<size_t, bool> > > offsets;
+    unordered_map<path_handle_t, vector<pair<size_t, bool> > > offsets;
     for (auto& mapping : aln.path().mapping()) {
     
         // How many bases does this Mapping cover over?

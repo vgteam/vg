@@ -10,6 +10,7 @@
 #include "path.hpp"
 #include <gcsa/gcsa.h>
 #include <iostream>
+#include "algorithms/nearest_offsets_in_paths.hpp"
 
 /** \file 
  * Functions for working with cached Positions and `pos_t`s.
@@ -51,7 +52,7 @@ vector<Edge> xg_edges_on_end(id_t id, const PathPositionHandleGraph* xgidx);
 ///
 /// During the search for nearby positions, walk up to search_limit bases, or
 /// the length of the Alignment's sequence if search_limit is 0.
-map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const PathPositionHandleGraph* xgidx, const Alignment& aln,
+unordered_map<path_handle_t, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const PathPositionHandleGraph* xgidx, const Alignment& aln,
     bool just_min, bool nearby, size_t search_limit = 0);
 
 /// Annotate the given Alignment in place with the earliest touched positions,

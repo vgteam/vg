@@ -16,7 +16,6 @@
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
-#include "xg_position.hpp"
 #include "lru_cache.h"
 #include "json2pb.h"
 #include "entropy.hpp"
@@ -72,7 +71,7 @@ public:
 class AlignmentChainModel {
 public:
     vector<AlignmentChainModelVertex> model;
-    map<string, map<int64_t, vector<vector<AlignmentChainModelVertex>::iterator> > > positions;
+    unordered_map<path_handle_t, map<int64_t, vector<vector<AlignmentChainModelVertex>::iterator> > > positions;
     set<vector<AlignmentChainModelVertex>::iterator> redundant_vertexes;
     vector<Alignment> unaligned_bands;
     AlignmentChainModel(
@@ -299,31 +298,6 @@ protected:
                             int min_sub_mem_length,
                             vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
     
-    /// finds the nodes of sub MEMs that do not occur inside parent MEMs, each sub MEM should be associated
-    /// with a vector of the indices of the SMEMs that contain it in the parent MEMs vector
-    void fill_nonredundant_sub_mem_nodes(vector<MaximalExactMatch>& parent_mems,
-                                         vector<pair<MaximalExactMatch, vector<size_t> > >::iterator sub_mem_records_begin,
-                                         vector<pair<MaximalExactMatch, vector<size_t> > >::iterator sub_mem_records_end);
-    
-    /// fills a vector where each element contains the set of positions in the graph that the
-    /// MEM touches at that index for the first MEM hit in the GCSA array
-    void first_hit_positions_by_index(MaximalExactMatch& mem,
-                                      vector<set<pos_t>>& positions_by_index_out);
-    
-    /// fills a vector where each element contains the set of positions in the graph that the
-    /// MEM touches at that index starting at a given hit
-    void mem_positions_by_index(MaximalExactMatch& mem, pos_t hit_pos,
-                                vector<set<pos_t>>& positions_by_index_out);
-    
-    // use the xg index to get a character at a particular position (rc or foward)
-    char pos_char(pos_t pos);
-    
-    // the next positions and their characters following the same strand of the graph
-    map<pos_t, char> next_pos_chars(pos_t pos);
-    
-    // get the positions some specific distance from the given position (in the forward direction)
-    set<pos_t> positions_bp_from(pos_t pos, int distance, bool rev);
-    
     // Use the GCSA index to look up the sequence
     set<pos_t> sequence_positions(const string& seq);
     
@@ -368,7 +342,10 @@ public:
     void record_fragment_configuration(const Alignment& aln1, const Alignment& aln2, Mapper* mapper);
 
     string fragment_model_str(void);
-    void save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2, const map<string, int64_t>& approx_frag_lengths, bool is_consistent);
+    void save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2,
+                                const unordered_map<path_handle_t, int64_t>& approx_frag_lengths,
+                                PathPositionHandleGraph* xindex,
+                                bool is_consistent);
     
     // These functions are the authorities on the estimated parameters
     double fragment_length_stdev(void);
@@ -485,14 +462,14 @@ public:
     /// search_limit gives the maximum distance to search for a path if the
     /// alignment does not actually touch any paths. If 0, the alignment's
     /// sequence length is used.
-    void annotate_with_initial_path_positions(Alignment& aln, size_t search_limit = 0) const;
+    void annotate_with_initial_path_positions(Alignment& aln) const;
     /// Use the xg index we hold to annotate Alignments with the first position
     /// they touch on each reference path. Thread safe.
     ///
     /// search_limit gives the maximum distance to search for a path if the
     /// alignment does not actually touch any paths. If 0, the alignment's
     /// sequence length is used.
-    void annotate_with_initial_path_positions(vector<Alignment>& alns, size_t search_limit = 0) const;
+    void annotate_with_initial_path_positions(vector<Alignment>& alns) const;
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise
     bool alignments_consistent(const map<string, double>& pos1,
@@ -600,8 +577,6 @@ public:
     double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs);
     // absolute max possible mq
     double max_possible_mapping_quality(int length);
-    // walks the graph one base at a time from pos1 until we find pos2
-    int64_t graph_distance(pos_t pos1, pos_t pos2, int64_t maximum = 1e3);
     // takes the min of graph_distance, approx_distance, and xindex->min_approx_path_distance()
     int64_t graph_mixed_distance_estimate(pos_t pos1, pos_t pos2, int64_t maximum);
     // use the offset in the sequence array to give an approximate distance
@@ -611,7 +586,7 @@ public:
     // get the approximate position of the alignment or return -1 if it can't be had
     int64_t approx_alignment_position(const Alignment& aln);
     // get the full path offsets for the alignment, considering every mapping if just_first is not set
-    map<string, vector<pair<size_t, bool> > > alignment_path_offsets(const Alignment& aln, bool just_min = true, bool nearby = false) const;
+    unordered_map<path_handle_t, vector<pair<size_t, bool> > > alignment_path_offsets(const Alignment& aln) const;
     // get the end position of the alignment
     Position alignment_end_position(const Alignment& aln);
     // get the approximate distance between the starts of the alignments or return -1 if undefined
@@ -620,7 +595,7 @@ public:
     vector<pos_t> likely_mate_positions(const Alignment& aln, bool is_first);
 
     // fargment length estimation
-    map<string, int64_t> min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
+    unordered_map<path_handle_t, int64_t> min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
     
     // mem mapper parameters
     //

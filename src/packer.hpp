@@ -14,7 +14,6 @@
 #include "json2pb.h"
 #include "graph.hpp"
 #include "gcsa/internal.h"
-#include "xg_position.hpp"
 #include "utility.hpp"
 
 namespace vg {

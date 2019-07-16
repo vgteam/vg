@@ -1351,231 +1351,6 @@ size_t BaseMapper::get_adaptive_min_reseed_length(size_t parent_mem_length) {
     return adaptive_reseed_length_memo[parent_mem_length];
 }
 
-void BaseMapper::first_hit_positions_by_index(MaximalExactMatch& mem,
-                                              vector<set<pos_t>>& positions_by_index_out) {
-    // find the hit to the first index in the parent MEM's range
-    vector<gcsa::node_type> all_first_hits;
-    gcsa->locate(mem.range.first, all_first_hits, true, false);
-    
-    // find where in the graph the first hit of the parent MEM is at each index
-    mem_positions_by_index(mem, make_pos_t(all_first_hits[0]), positions_by_index_out);
-    
-    // in case the first hit occurs in more than one place, accumulate all the hits
-    if (all_first_hits.size() > 1) {
-        for (size_t i = 1; i < all_first_hits.size(); i++) {
-            vector<set<pos_t>> temp_positions_by_index;
-            mem_positions_by_index(mem, make_pos_t(all_first_hits[i]),
-                                   temp_positions_by_index);
-            
-            for (size_t i = 0; i < positions_by_index_out.size(); i++) {
-                for (const pos_t& pos : temp_positions_by_index[i]) {
-                    positions_by_index_out[i].insert(pos);
-                }
-            }
-        }
-    }
-}
-
-void BaseMapper::fill_nonredundant_sub_mem_nodes(vector<MaximalExactMatch>& parent_mems,
-                                                 vector<pair<MaximalExactMatch, vector<size_t> > >::iterator sub_mem_records_begin,
-                                                 vector<pair<MaximalExactMatch, vector<size_t> > >::iterator sub_mem_records_end) {
-    
-    
-    // for each MEM, a vector of the positions that it touches at each index along the MEM
-    vector<vector<set<pos_t>>> positions_by_index(parent_mems.size());
-    
-    for (auto iter = sub_mem_records_begin; iter != sub_mem_records_end; iter++) {
-        
-        pair<MaximalExactMatch, vector<size_t> >& sub_mem_and_parents = *iter;
-        
-        MaximalExactMatch& sub_mem = sub_mem_and_parents.first;
-        vector<size_t>& parent_idxs = sub_mem_and_parents.second;
-        
-        // how many total hits does each parent MEM have?
-        vector<size_t> num_parent_hits;
-        // positions their first hits of the parent MEM takes at the start position of the sub-MEM
-        vector<set<pos_t>*> first_parent_mem_hit_positions;
-        for (size_t parent_idx : parent_idxs) {
-            // get the parent MEM
-            MaximalExactMatch& parent_mem = parent_mems[parent_idx];
-            num_parent_hits.push_back(gcsa->count(parent_mem.range));
-            
-            if (positions_by_index[parent_idx].empty()) {
-                // the parent MEM's positions by index haven't been calculated yet, so do it
-                
-                first_hit_positions_by_index(parent_mem, positions_by_index[parent_idx]);
-                
-            }
-            
-            // the index along the parent MEM that sub MEM starts
-            size_t offset = sub_mem.begin - parent_mem.begin;
-            first_parent_mem_hit_positions.push_back(&(positions_by_index[parent_idx][offset]));
-        }
-        
-        for (gcsa::size_type i = sub_mem.range.first; i <= sub_mem.range.second; i++) {
-            // TODO: what if this range is too big?
-            
-            
-            // add the locations of the hits, but do not remove duplicates yet
-            vector<gcsa::node_type> hits;
-            gcsa->locate(i, hits, true, false);
-            
-            // the number of subsequent hits (including these) that are inside a parent MEM
-            size_t parent_hit_jump = 0;
-            for (gcsa::node_type node : hits) {
-                // look for the hit in each parent MEM
-                for (size_t j = 0; j < first_parent_mem_hit_positions.size(); j++) {
-                    if (first_parent_mem_hit_positions[j]->count(make_pos_t(node))) {
-                        // this hit is also a node on a path of the first occurrence of the parent MEM
-                        // that means that this is the first index of the sub-range that corresponds
-                        // to the parent MEM's hits
-                        
-                        // calculate how many more positions to jump
-                        parent_hit_jump = num_parent_hits[j];
-                        break;
-                    }
-                }
-            }
-            
-            if (parent_hit_jump > 0) {
-                // we're at the start of an interval of parent hits, skip the rest of it
-                i += (parent_hit_jump - 1);
-            }
-            else {
-                // these are nonredundant sub MEM hits, add them
-                for (gcsa::node_type node : hits) {
-                    sub_mem.nodes.push_back(node);
-                }
-            }
-        }
-        
-        // remove duplicates (copied this functionality from the gcsa locate function, but
-        // I don't actually know what it's purpose is)
-        gcsa::removeDuplicates(sub_mem.nodes, false);
-    }
-}
-
-void BaseMapper::mem_positions_by_index(MaximalExactMatch& mem, pos_t hit_pos,
-                                        vector<set<pos_t>>& positions_by_index_out) {
-    
-    // this is a specialized DFS that keeps track of both the distance along the MEM
-    // and the position(s) in the graph in the stack by adding all of the next reachable
-    // positions in a layer (i.e. vector) in the stack at the end of each iteration.
-    // it also keeps track of whether a position in the graph matched to a position along
-    // the MEM can potentially be extended to the full MEM to avoid combinatorially checking
-    // all paths through bubbles
-    
-    size_t mem_length = std::distance(mem.begin, mem.end);
-    
-    // indicates a pairing of this graph position and this MEM index could be extended to a full match
-    positions_by_index_out.clear();
-    positions_by_index_out.resize(mem_length);
-    
-    // indicates a pairing of this graph position and this MEM index could not be extended to a full match
-    vector<set<pos_t>> false_pos_by_mem_index(mem_length);
-    
-    // each record indicates the next edge index to traverse, the number of edges that
-    // cannot reach a MEM end, and the positions along each edge out
-    vector<pair<pair<size_t, size_t>, vector<pos_t> > > pos_stack;
-    pos_stack.push_back(make_pair(make_pair((size_t) 0 , (size_t) 0), vector<pos_t>{hit_pos}));
-    
-    while (!pos_stack.empty()) {
-        size_t mem_idx = pos_stack.size() - 1;
-        
-        // which edge are we going to search out of this node next?
-        size_t next_idx = pos_stack.back().first.first;
-        
-        if (next_idx >= pos_stack.back().second.size()) {
-            // we have traversed all of the edges out of this position
-            
-            size_t num_misses = pos_stack.back().first.second;
-            bool no_full_matches_possible = (num_misses == pos_stack.back().second.size());
-            
-            // backtrack to previous node
-            pos_stack.pop_back();
-            
-            // if necessary, mark the edge into this node as a miss
-            if (no_full_matches_possible && !pos_stack.empty()) {
-                // all of the edges out failed to reach the end of a MEM, this position is a dead end
-                
-                // get the position that traversed into the layer we just popped off
-                pos_t prev_graph_pos = pos_stack.back().second[pos_stack.back().first.first - 1];
-                
-                // unlabel this node as a potential hit and instead mark it as a miss
-                positions_by_index_out[mem_idx].erase(prev_graph_pos);
-                false_pos_by_mem_index[mem_idx].insert(prev_graph_pos);
-                
-                // increase the count of misses in this layer
-                pos_stack.back().first.second++;
-            }
-            
-            // skip the forward search on this iteration
-            continue;
-        }
-        
-        // increment to the next edge
-        pos_stack.back().first.first++;
-        
-        pos_t graph_pos = pos_stack.back().second[next_idx];
-        
-        
-        // did we already find a MEM through this position?
-        if (positions_by_index_out[mem_idx].count(graph_pos)) {
-            // we don't need to check the same MEM suffix again
-            continue;
-        }
-        
-        // did we already determine that you can't reach a MEM through this position?
-        if (false_pos_by_mem_index[mem_idx].count(graph_pos)) {
-            // increase the count of misses in this layer
-            pos_stack.back().first.second++;
-            
-            // we don't need to check the same MEM suffix again
-            continue;
-        }
-        
-        // does this graph position match the MEM?
-        if (*(mem.begin + mem_idx) != xg_pos_char(graph_pos, xindex)) {
-            // mark this node as a miss
-            false_pos_by_mem_index[mem_idx].insert(graph_pos);
-            
-            // increase the count of misses in this layer
-            pos_stack.back().first.second++;
-        }
-        else {
-            // mark this node as a potential hit
-            positions_by_index_out[mem_idx].insert(graph_pos);
-            
-            // are we finished with the MEM?
-            if (mem_idx < mem_length - 1) {
-                
-                // add a layer onto the stack for all of the edges out
-                pos_stack.push_back(make_pair(make_pair((size_t) 0 , (size_t) 0),
-                                              vector<pos_t>()));
-                
-                // fill the layer with the next positions
-                vector<pos_t>& nexts = pos_stack.back().second;
-                for (const pos_t& next_graph_pos : positions_bp_from(graph_pos, 1, false)) {
-                    nexts.push_back(next_graph_pos);
-                }
-            }
-        }
-    }
-}
-    
-    
-set<pos_t> BaseMapper::positions_bp_from(pos_t pos, int distance, bool rev) {
-    return xg_positions_bp_from(pos, distance, rev, xindex);
-}
-    
-char BaseMapper::pos_char(pos_t pos) {
-    return xg_pos_char(pos, xindex);
-}
-
-map<pos_t, char> BaseMapper::next_pos_chars(pos_t pos) {
-    return xg_next_pos_chars(pos, xindex);
-}
-
 bool BaseMapper::has_fixed_fragment_length_distr() {
     return fragment_length_distr.is_finalized();
 }
@@ -1918,8 +1693,24 @@ Alignment Mapper::align(const string& seq, int kmer_size, int stride, int max_me
     return align(aln, kmer_size, stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
 }
 
-map<string, vector<pair<size_t, bool> > > Mapper::alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby) const {
-    return xg_alignment_path_offsets(xindex, aln, just_min, nearby);
+// gives just the first positions we encounter
+unordered_map<path_handle_t, vector<pair<size_t, bool> > > Mapper::alignment_path_offsets(const Alignment& aln) const {
+    unordered_map<path_handle_t, vector<pair<size_t, bool> > > positions;
+    for (auto& mapping : aln.path().mapping()) {
+        if (mapping.has_position()) {
+            xindex->get_handle(mapping.position().node_id());
+            pos_t pos = make_pos_t(mapping.position());
+            auto offsets = algorithms::nearest_offsets_in_paths(xindex, pos, -1);
+            for (auto& path : offsets) {
+                auto& path_positions = positions[path.first];
+                for (auto& pos : path.second) {
+                    path_positions.push_back(pos);
+                }
+            }
+            break;
+        }
+    }
+    return positions;
 }
 
 vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_mate) {
@@ -1927,7 +1718,7 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
     if (xindex->get_path_count() == 0) {
         return { };
     }
-    map<path_handle_t, vector<pair<size_t, bool> > > offsets;
+    unordered_map<path_handle_t, vector<pair<size_t, bool> > > offsets;
     for (auto& mapping : aln.path().mapping()) {
         auto pos_offs = algorithms::nearest_offsets_in_paths(xindex, make_pos_t(mapping.position()), aln.sequence().size());
         for (auto& p : pos_offs) {
@@ -2337,11 +2128,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             // if we have a cached fragment orientation, use it to pick the min distance with the correct path relative orientation
             int64_t approx_dist = (!frag_stats.fragment_size ? min(d.first, d.second)
                                    : (frag_stats.cached_fragment_orientation_same ? d.first : d.second));
-            /*// could be expensive for pairs
-            if (approx_dist < max_length) {
-                approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
-            }
-            */
             if (approx_dist >= max_length) {
                 // too far apart or wrong path/pair relative orientation
                 return -std::numeric_limits<double>::max();
@@ -2592,7 +2378,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             auto& aln1 = p->first;
             auto& aln2 = p->second;
             auto approx_frag_lengths = min_pair_fragment_length(aln1, aln2);
-            frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 1e-6));
+            frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, xindex, pair_consistent(aln1, aln2, 1e-6));
         }
         // sort the aligned pairs by score
         sort_shuffling_ties(aln_ptrs.begin(), aln_ptrs.end(),
@@ -2907,12 +2693,18 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
 }
 
-void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns, size_t search_limit) const {
-    for (auto& aln : alns) annotate_with_initial_path_positions(aln, search_limit);
+void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns) const {
+    for (auto& aln : alns) annotate_with_initial_path_positions(aln);
 }
 
-void Mapper::annotate_with_initial_path_positions(Alignment& aln, size_t search_limit) const {
-    xg_annotate_with_initial_path_positions(xindex, aln, search_limit);
+void Mapper::annotate_with_initial_path_positions(Alignment& aln) const {
+    unordered_map<path_handle_t, vector<pair<size_t, bool> > > positions = alignment_path_offsets(aln);
+    for (auto& path : positions) {
+        Position* refpos = aln.add_refpos();
+        refpos->set_name(xindex->get_path_name(path.first));
+        refpos->set_offset(path.second.front().first);
+        refpos->set_is_reverse(path.second.front().second);
+    }
 }
 
 double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters,
@@ -3429,8 +3221,8 @@ VG Mapper::cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExa
 }
 
 // estimate the fragment length as the difference in mean positions of both alignments
-map<string, int64_t> Mapper::min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
-    map<string, int64_t> lengths;
+unordered_map<path_handle_t, int64_t> Mapper::min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
+    unordered_map<path_handle_t, int64_t> lengths;
     auto pos1 = alignment_path_offsets(aln1);
     auto pos2 = alignment_path_offsets(aln2);
     for (auto& p : pos1) {
@@ -3463,13 +3255,15 @@ string FragmentLengthStatistics::fragment_model_str(void) {
 }
 
 void FragmentLengthStatistics::save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2,
-    const map<string, int64_t>& approx_frag_lengths, bool is_consistent) {
+                                                      const unordered_map<path_handle_t, int64_t>& approx_frag_lengths,
+                                                      PathPositionHandleGraph* xindex,
+                                                      bool is_consistent) {
     double max_score = 0;
     aln1.clear_fragment();
     aln2.clear_fragment();
     for (auto& j : approx_frag_lengths) {
         Path fragment;
-        fragment.set_name(j.first);
+        fragment.set_name(xindex->get_path_name(j.first));
         int length = j.second;
         fragment.set_length(length);
         *aln1.add_fragment() = fragment;
@@ -3487,7 +3281,7 @@ void FragmentLengthStatistics::save_frag_lens_to_alns(Alignment& aln1, Alignment
 void FragmentLengthStatistics::record_fragment_configuration(const Alignment& aln1, const Alignment& aln2, Mapper* mapper) {
     if (fixed_fragment_model) return;
     assert(aln1.path().mapping(0).has_position() && aln2.path().mapping(0).has_position());    
-    map<string, tuple<int64_t, bool, bool> > lengths;
+    unordered_map<path_handle_t, tuple<int64_t, bool, bool> > lengths;
     auto pos1 = mapper->alignment_path_offsets(aln1);
     auto pos2 = mapper->alignment_path_offsets(aln2);
     for (auto& p : pos1) {
@@ -3597,7 +3391,7 @@ bool FragmentLengthStatistics::fragment_direction(void) {
 int64_t Mapper::get_node_length(int64_t node_id) {
     // Grab the node sequence only from the PathPositionHandleGraph index and get its size.
     // Make sure to use the cache
-    return xg_node_length(node_id, xindex);
+    return xindex->get_length(xindex->get_handle(node_id));
 }
 
 bool Mapper::check_alignment(const Alignment& aln) {
@@ -3784,16 +3578,8 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         // consider both the forward and inversion case
         // counter[3]++; bench_t b; bench_init(b); bench_start(b);
         int64_t dist_fwd = distances.first;
-        if (aln1_end == aln2_begin || id(aln1_end) == id(aln2_begin) || dist_fwd < aln2.sequence().size()*2) {
-            int64_t graph_dist_fwd = graph_distance(aln1_end, aln2_begin, aln2.sequence().size());
-            dist_fwd = min(graph_dist_fwd, dist_fwd);
-        }
         dist_fwd -= band_distance;
         int64_t dist_inv = distances.second;
-        if (dist_inv < aln2.sequence().size()*2) {
-            int64_t graph_dist_inv = graph_distance(aln2_begin, aln1_end, aln2.sequence().size());
-            dist_inv = min(graph_dist_inv, dist_inv);
-        }
         dist_inv -= band_distance;
         // bench_end(b);
 
@@ -4111,16 +3897,7 @@ set<pos_t> gcsa_nodes_to_positions(const vector<gcsa::node_type>& nodes) {
     return positions;    
 }
 
-
-int64_t Mapper::graph_distance(pos_t pos1, pos_t pos2, int64_t maximum) {
-    return xg_distance(pos1, pos2, maximum, xindex);
-}
-
 int64_t Mapper::graph_mixed_distance_estimate(pos_t pos1, pos_t pos2, int64_t maximum) {
-    if (maximum) {
-        int64_t graph_dist = graph_distance(pos1, pos2, maximum);
-        if (graph_dist < maximum) return graph_dist;
-    }
     int64_t path_dist = algorithms::min_approx_path_distance(xindex, pos1, pos2, maximum*2);
     int64_t approx_dist = abs(approx_distance(pos1, pos2));
     return min(path_dist, approx_dist);
@@ -4129,9 +3906,9 @@ int64_t Mapper::graph_mixed_distance_estimate(pos_t pos1, pos_t pos2, int64_t ma
 int64_t Mapper::approx_position(pos_t pos) {
     // get nodes on the forward strand
     if (is_rev(pos)) {
-        pos = reverse(pos, xg_node_length(id(pos), xindex));
+        pos = reverse(pos, get_node_length(id(pos)));
     }
-    return (int64_t)xg_node_start(id(pos), xindex) + (int64_t)offset(pos);
+    return ((VectorizableHandleGraph*)xindex)->node_vector_offset(id(pos)) + offset(pos);
 }
 
 int64_t Mapper::approx_distance(pos_t pos1, pos_t pos2) {
@@ -4318,37 +4095,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                             //cerr << "clearing the path" << endl;
                             band.clear_path();
                             // TODO try to align over a bigger chunk after this
-                        }
-                    }
-                    if (band.path().mapping_size() == 0) {
-                        //cerr << "the hack" << endl;
-                        // hack to make merging work when we are unaligned
-                        band.set_score(0);
-                        band.clear_path();
-                        Mapping* m = band.mutable_path()->add_mapping();
-                        Edit* e = m->add_edit();
-                        e->set_sequence(band.sequence());
-                        e->set_to_length(band.sequence().size());
-                        if (!band_ref_pos.empty()) {
-                            *m->mutable_position() = make_position(*band_ref_pos.begin());
-                        } // should we alternatively set ourselves back to the ref_pos?
-                        // walk graph to estimate next position based on assumption we are ~ homologous to the graph
-                        set<pos_t> next_pos;
-                        for (auto& pos : band_ref_pos) {
-                            for (auto& next : positions_bp_from(pos, band.sequence().size(), false)) {
-                                next_pos.insert(next);
-                            }
-                        }
-                        // keep only 4 next positions
-                        band_ref_pos.clear();
-                        if (next_pos.size()) {
-                            int to_keep = 4;
-                            int p = 0;
-                            for (auto& pos : next_pos) {
-                                if (++p <= to_keep) {
-                                    band_ref_pos.insert(pos);
-                                }
-                            }
                         }
                     }
                 }
@@ -4543,7 +4289,7 @@ AlignmentChainModel::AlignmentChainModel(
             v.prev = nullptr;
             v.score = 0;
             v.positions = mapper->alignment_path_offsets(aln);
-            v.positions[""].push_back(make_pair(mapper->approx_alignment_position(aln), false));
+            v.positions[handlegraph::as_path_handle(0)].push_back(make_pair(mapper->approx_alignment_position(aln), false));
             model.push_back(v);
             // mapper->counter[1]++;
         }
@@ -4738,7 +4484,7 @@ void AlignmentChainModel::display_dot(ostream& out, vector<AlignmentChainModelVe
         out << "\npositions: ";
         for (auto& p : vertex.positions) {
             for (auto& q : p.second) {
-                out << p.first << ":" << q.first << (q.second?"-":"+") << " ";
+                out << as_integer(p.first) << ":" << q.first << (q.second?"-":"+") << " ";
             }
         }
         pos_t p_start = make_pos_t(path_start_position(vertex.aln->path()));
