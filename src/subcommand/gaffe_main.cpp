@@ -70,6 +70,8 @@ void help_gaffe(char** argv) {
 
 int main_gaffe(int argc, char** argv) {
 
+    std::chrono::time_point<std::chrono::system_clock> launch = std::chrono::system_clock::now();
+
     if (argc == 2) {
         help_gaffe(argv);
         return 1;
@@ -458,7 +460,14 @@ int main_gaffe(int argc, char** argv) {
 
     minimizer_mapper.sample_name = sample_name;
     minimizer_mapper.read_group = read_group;
-    
+
+    std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
+    std::chrono::duration<double> init_seconds = init - launch;
+    if (progress) {
+        cerr << "Loading and initialization: " << init_seconds.count() << " seconds" << endl;
+    }
+
+
     if (threads_to_run.empty()) {
         // Use 0 to represent the default.
         threads_to_run.push_back(0);
@@ -534,7 +543,9 @@ int main_gaffe(int argc, char** argv) {
                 << elapsed_seconds.count() << " seconds." << endl;
             
             cerr << "Mapping speed: " << ((total_reads_mapped / elapsed_seconds.count()) / thread_count)
-                << " reads per second per thread" << endl;        
+                << " reads per second per thread" << endl;
+
+            cerr << "Memory footprint: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GB" << endl;
         }
         
     }
