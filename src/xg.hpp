@@ -428,9 +428,6 @@ public:
     bool path_is_circular(const string& name) const;
     /// Return true if the path with the given rank is circular, and false if it is not. The path must exist.
     bool path_is_circular(size_t rank) const;
-    // nearest node (in steps) that is in a path, and the paths
-    pair<int64_t, vector<size_t> > nearest_path_node(int64_t id, int max_steps = 16) const;
-    int64_t min_approx_path_distance(int64_t id1, int64_t id2) const;
     
     /// returns true if the paths are on the same connected component of the graph (constant time)
     bool paths_on_same_component(size_t path_rank_1, size_t path_rank_2) const;

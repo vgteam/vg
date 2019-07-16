@@ -2569,58 +2569,6 @@ bool XG::path_is_circular(size_t rank) const {
     return paths[rank-1]->is_circular;
 }
 
-pair<int64_t, vector<size_t> > XG::nearest_path_node(int64_t id, int max_steps) const {
-    set<int64_t> todo;
-    set<int64_t> seen;
-    todo.insert(id);
-    int i = 0;
-    while (!todo.empty() && i++ < max_steps) {
-        set<int64_t> next;
-        for (auto& id : todo) {
-            if (seen.count(id)) continue;
-            seen.insert(id);
-            vector<size_t> path_ids = paths_of_node(id);
-            if (!path_ids.empty()) {
-                // if we found a node on a path, return
-                return make_pair(id, path_ids);
-            } else {
-                for (auto& edge : edges_of(id)) {
-                    next.insert(edge.from());
-                    next.insert(edge.to());
-                }
-            }
-        }
-        todo = next;
-    }
-    return make_pair(id, vector<size_t>());
-}
-
-// like above, but find minumum over list of paths.  if names is empty, do all paths
-// don't actually take strict minumum over all paths.  rather, prefer paths that
-// contain the nodes when possible. 
-int64_t XG::min_approx_path_distance(int64_t id1, int64_t id2) const {
-
-    int64_t min_distance = numeric_limits<int64_t>::max();
-    pair<int64_t, vector<size_t> > near1 = nearest_path_node(id1);
-    pair<int64_t, vector<size_t> > near2 = nearest_path_node(id2);
-    if (near1.second.size() || near2.second.size()) {
-        map<int, size_t> paths;
-        for (auto& i : near1.second) paths[i]++;
-        for (auto& i : near2.second) paths[i]++;
-        for (auto& i : paths) {
-            if (i.second < 2) continue;
-            auto name = path_name(i.first);
-            for (auto& p1 : position_in_path(near1.first, name)) {
-                for (auto& p2 : position_in_path(near2.first, name)) {
-                    int64_t distance = abs((int64_t)p1 - (int64_t)p2);
-                    min_distance = min(distance, min_distance);
-                }
-            }
-        }
-    }
-    return min_distance;
-}
-
 void XG::for_path_range(const string& name, int64_t start, int64_t stop,
                         function<void(int64_t, bool)> lambda, bool is_rev) const {
 

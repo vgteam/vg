@@ -9,6 +9,7 @@
 #include "vg.hpp"
 #include "xg.hpp"
 #include "index.hpp"
+#include "sglib/hash_graph.hpp"
 #include <gcsa/gcsa.h>
 #include <gcsa/lcp.h>
 #include <gbwt/gbwt.h>
@@ -27,7 +28,11 @@
 #include "translator.hpp"
 // TODO: pull out ScoreProvider into its own file
 #include "haplotypes.hpp"
+#include "algorithms/reverse_complement.hpp"
+#include "algorithms/subgraph.hpp"
 #include "algorithms/nearest_offsets_in_paths.hpp"
+#include "algorithms/approx_path_distance.hpp"
+#include "algorithms/path_string.hpp"
 
 // #define BENCH
 // #include "bench.h"
@@ -73,7 +78,7 @@ public:
     AlignmentChainModel(
         vector<vector<Alignment> >& bands,
         Mapper* mapper,
-        const function<double(const Alignment&, const Alignment&, const map<string, vector<pair<size_t, bool> > >&, const map<string, vector<pair<size_t, bool> > >&, int64_t)>& transition_weight,
+        const function<double(const Alignment&, const Alignment&, const unordered_map<path_handle_t, vector<pair<size_t, bool> > >&, const unordered_map<path_handle_t, vector<pair<size_t, bool> > >&, int64_t)>& transition_weight,
         int vertex_band_width = 10,
         int position_depth = 1,
         int max_connections = 30);
@@ -158,13 +163,13 @@ class BaseMapper : public AlignerClient {
     
 public:
     /**
-     * Make a BaseMapper that pulls from an XG succinct graph and a GCSA2 kmer
+     * Make a BaseMapper that pulls from an PathPositionHandleGraph succinct graph and a GCSA2 kmer
      * index + LCP array, and which can score reads against haplotypes using
      * the given ScoreProvider.
      *
      * If the GCSA and LCPArray are null, cannot do search, only alignment.
      */
-    BaseMapper(XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
+    BaseMapper(PathPositionHandleGraph* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
     BaseMapper(void);
     
     /// We need to be able to estimate the GC content from the GCSA index in the constructor.
@@ -197,7 +202,7 @@ public:
     // Designating reseed_length returns minimally-more-frequent sub-MEMs in addition to SMEMs when SMEM is >= reseed_length.
     // Minimally-more-frequent sub-MEMs are MEMs contained in an SMEM that have occurrences outside of the SMEM.
     // SMEMs and sub-MEMs will be automatically filled with the nodes they contain, which the occurrences of the sub-MEMs
-    // that are inside SMEM hits filtered out. (filling sub-MEMs currently requires an XG index)
+    // that are inside SMEM hits filtered out. (filling sub-MEMs currently requires an PathPositionHandleGraph index)
     
     vector<MaximalExactMatch>
     find_mems_deep(string::const_iterator seq_begin,
@@ -251,6 +256,7 @@ public:
     int max_sub_mem_recursion_depth = 2;
     int unpaired_penalty = 17;
     bool precollapse_order_length_hits = true;
+    double avg_node_length = 0;
     
     // The recombination rate (negative log per-base recombination probability) for haplotype-aware mapping
     double recombination_penalty = 20.7; // 9 * 2.3 = 20.7
@@ -335,7 +341,7 @@ protected:
     thread_local static vector<size_t> adaptive_reseed_length_memo;
     
     // xg index
-    XG* xindex = nullptr;
+    PathPositionHandleGraph* xindex = nullptr;
     
     // GCSA index and its LCP array
     gcsa::GCSA* gcsa = nullptr;
@@ -445,20 +451,16 @@ private:
     
 protected:
     Alignment align_to_graph(const Alignment& aln,
-                             Graph& graph,
-                             size_t max_query_graph_ratio,
+                             sglib::HashGraph& graph,
                              bool traceback,
-                             bool acyclic_and_sorted,
                              bool pinned_alignment = false,
                              bool pin_left = false,
                              bool banded_global = false,
                              bool keep_bonuses = true);
     Alignment align_to_graph(const Alignment& aln,
-                             Graph& graph,
+                             sglib::HashGraph& graph,
                              const vector<MaximalExactMatch>& mems,
-                             size_t max_query_graph_ratio,
                              bool traceback,
-                             bool acyclic_and_sorted,
                              bool pinned_alignment = false,
                              bool pin_left = false,
                              bool banded_global = false,
@@ -468,9 +470,9 @@ protected:
     // make the bands used in banded alignment
     vector<Alignment> make_bands(const Alignment& read, int band_width, int band_overlap, vector<pair<int, int>>& to_strip);
 public:
-    // Make a Mapper that pulls from an XG succinct graph, a GCSA2 kmer index +
+    // Make a Mapper that pulls from an PathPositionHandleGraph succinct graph, a GCSA2 kmer index +
     // LCP array, and an optional haplotype score provider.
-    Mapper(XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
+    Mapper(PathPositionHandleGraph* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
     Mapper(void);
     ~Mapper(void);
 
@@ -478,8 +480,6 @@ public:
     
     // a collection of read pairs which we'd like to realign once we have estimated the fragment_size
     vector<pair<Alignment, Alignment> > imperfect_pairs_to_retry;
-
-    double graph_entropy(void);
 
     /// Use the xg index we hold to annotate an Alignment with the first
     /// position it touches on each reference path. Thread safe.
@@ -524,9 +524,9 @@ public:
     Alignment mem_to_alignment(const MaximalExactMatch& mem);
     
     /// Use the scoring provided by the internal aligner to re-score the
-    /// alignment, scoring gaps between nodes using graph distance from the XG
+    /// alignment, scoring gaps between nodes using graph distance from the PathPositionHandleGraph
     /// index. Can use either approximate or exact (with approximate fallback)
-    /// XG-based distance estimation. Will strip out bonuses if the appropriate
+    /// PathPositionHandleGraph-based distance estimation. Will strip out bonuses if the appropriate
     /// Mapper flag is set.
     /// Does not apply a haplotype consistency bonus, as this function is intended for alignments with large gaps.
     int32_t score_alignment(const Alignment& aln, bool use_approx_distance = false);
@@ -543,13 +543,12 @@ public:
     // compute the uniqueness metric based on the MEMs in the cluster
     double compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
-    Alignment align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global = false, bool xdrop_alignment = false);
-    Alignment align_maybe_flip(const Alignment& base, Graph& graph, const vector<MaximalExactMatch>& mems, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global = false, bool xdrop_alignment = false);
+    Alignment align_maybe_flip(const Alignment& base, sglib::HashGraph& graph, bool flip, bool traceback, bool banded_global = false, bool xdrop_alignment = false);
+    Alignment align_maybe_flip(const Alignment& base, sglib::HashGraph& graph, const vector<MaximalExactMatch>& mems, bool flip, bool traceback, bool banded_global = false, bool xdrop_alignment = false);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
     bool check_alignment(const Alignment& aln);
-    VG alignment_subgraph(const Alignment& aln, int context_size = 1);
     
     // Align the given string and return an Alignment.
     Alignment align(const string& seq,
@@ -628,16 +627,9 @@ public:
     vector<pos_t> likely_mate_positions(const Alignment& aln, bool is_first);
     // get the node approximately at the given offset relative to our position (offset may be negative)
     id_t node_approximately_at(int64_t approx_pos);
-    // convert a single MEM hit into an alignment (by definition, a perfect one)
-    Alignment walk_match(const string& seq, pos_t pos);
-    vector<Alignment> walk_match(const Alignment& base, const string& seq, pos_t pos);
-    // convert the set of hits of a MEM into a set of alignments
-    vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
 
     // fargment length estimation
     map<string, int64_t> min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
-    // uses the cached information about the graph in the xg index to get an approximate node length
-    double average_node_length(void);
     
     // mem mapper parameters
     //
@@ -646,8 +638,6 @@ public:
     int max_attempts;  // maximum number of times to try to increase sensitivity or use a lower-hit subgraph
     int thread_extension; // add this many nodes in id space to the end of the thread when building thread into a subgraph
     int max_target_factor; // the maximum multiple of the read length we'll try to align to
-
-    size_t max_query_graph_ratio;
 
     // multimapping
     int max_multimaps;
