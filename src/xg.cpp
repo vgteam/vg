@@ -796,7 +796,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         // now build up the record
         g_bv[g] = 1; // mark record start for later query
         g_iv[g++] = n.id(); // save id
-        g_iv[g++] = node_start(n.id());
+        g_iv[g++] = node_vector_offset(n.id());
         g_iv[g++] = n.sequence().size(); // sequence length
         size_t to_edge_count = 0;
         size_t from_edge_count = 0;
@@ -1959,11 +1959,11 @@ size_t XG::max_node_rank(void) const {
     return s_bv_rank(s_bv.size());
 }
 
-int64_t XG::node_at_seq_pos(size_t pos) const {
+int64_t XG::node_at_vector_offset(const size_t& pos) const {
     return rank_to_id(s_bv_rank(pos));
 }
 
-size_t XG::node_start(int64_t id) const {
+size_t XG::node_vector_offset(const nid_t& id) const {
     return s_bv_select(id_to_rank(id));
 }
 
@@ -1998,6 +1998,15 @@ bool XG::has_edge(const Edge& edge) const {
 
 size_t XG::node_graph_idx(int64_t id) const {
     return g_bv_select(id_to_rank(id));
+}
+
+size_t XG::edge_index(const edge_t& edge) const {
+    Edge e;
+    e.set_from(get_id(edge.first));
+    e.set_from_start(get_is_reverse(edge.first));
+    e.set_to(get_id(edge.second));
+    e.set_to_end(get_is_reverse(edge.second));
+    return edge_graph_idx(e);
 }
 
 size_t XG::edge_graph_idx(const Edge& edge_in) const {

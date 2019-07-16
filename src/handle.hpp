@@ -39,6 +39,7 @@ using MutablePathMutableHandleGraph = handlegraph::MutablePathMutableHandleGraph
 using DeletableHandleGraph = handlegraph::DeletableHandleGraph;
 using MutablePathDeletableHandleGraph = handlegraph::MutablePathDeletableHandleGraph;
 using SerializableHandleGraph = handlegraph::SerializableHandleGraph;
+using VectorizableHandleGraph = handlegraph::VectorizableHandleGraph;
 
 /**
  * Define wang hashes for handles.

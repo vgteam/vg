@@ -57,7 +57,7 @@ public:
     vector<pair<AlignmentChainModelVertex*, double> > prev_cost; // for backward
     double weight;
     double score;
-    map<string, vector<pair<size_t, bool> > > positions;
+    unordered_map<path_handle_t, vector<pair<size_t, bool> > > positions;
     int band_begin;
     int band_idx;
     AlignmentChainModelVertex* prev;
@@ -476,8 +476,6 @@ public:
     Mapper(void);
     ~Mapper(void);
 
-    map<string, vector<size_t> > node_positions_in_paths(gcsa::node_type node);
-    
     // a collection of read pairs which we'd like to realign once we have estimated the fragment_size
     vector<pair<Alignment, Alignment> > imperfect_pairs_to_retry;
 
@@ -508,9 +506,6 @@ public:
 
     /// use the fragment configuration statistics to rescue more precisely
     pair<bool, bool> pair_rescue(Alignment& mate1, Alignment& mate2, bool& tried1, bool& tried2, int match_score, int full_length_bonus, bool traceback, bool xdrop_alignment);
-
-    set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,
-                                                vector<MaximalExactMatch>& mems2);
 
     // uses heuristic clustering based on node id ranges to find alignment targets, and aligns
     vector<Alignment> mems_id_clusters_to_alignments(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps);
@@ -621,12 +616,8 @@ public:
     Position alignment_end_position(const Alignment& aln);
     // get the approximate distance between the starts of the alignments or return -1 if undefined
     int64_t approx_fragment_length(const Alignment& aln1, const Alignment& aln2);
-    // use the cached fragment model to estimate the likely place we'll find the mate
-    pos_t likely_mate_position(const Alignment& aln, bool is_first);
     // get a set of positions that are likely based on the fragment model and the embedded paths
     vector<pos_t> likely_mate_positions(const Alignment& aln, bool is_first);
-    // get the node approximately at the given offset relative to our position (offset may be negative)
-    id_t node_approximately_at(int64_t approx_pos);
 
     // fargment length estimation
     map<string, int64_t> min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);

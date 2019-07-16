@@ -67,7 +67,7 @@ class XGFormatError : public runtime_error {
  * Provides succinct storage for a graph, its positional paths, and a set of
  * embedded threads.
  */
-class XG : public PathPositionHandleGraph, public SerializableHandleGraph {
+class XG : public PathPositionHandleGraph, public SerializableHandleGraph, public VectorizableHandleGraph {
 public:
     
     ////////////////////////////////////////////////////////////////////////////
@@ -153,8 +153,8 @@ public:
     size_t max_node_rank(void) const;
     bool has_node(int64_t id) const;
     /// Get the node ID at the given sequence position. Works in 1-based coordinates.
-    int64_t node_at_seq_pos(size_t pos) const;
-    size_t node_start(int64_t id) const;
+    nid_t node_at_vector_offset(const size_t& pos) const;
+    size_t node_vector_offset(const nid_t& id) const;
     Node node(int64_t id) const; // gets node sequence
     string node_sequence(int64_t id) const;
     size_t node_length(int64_t id) const;
@@ -163,6 +163,7 @@ public:
     // these provide a way to get an index for each node and edge in the g_iv structure and are used by gPBWT
     size_t node_graph_idx(int64_t id) const;
     size_t edge_graph_idx(const Edge& edge) const;
+    size_t edge_index(const edge_t& edge) const;
 
     size_t get_g_iv_size() const;
 
