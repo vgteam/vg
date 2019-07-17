@@ -7,7 +7,6 @@
  */
 
 #include "aligner.hpp"
-#include "xg.hpp"
 #include "minimizer.hpp"
 #include "alignment_emitter.hpp"
 #include "gapless_extender.hpp"

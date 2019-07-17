@@ -7,7 +7,6 @@
 #include <ctime>
 #include "omp.h"
 #include "lru_cache.h"
-#include "xg.hpp"
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
