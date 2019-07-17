@@ -252,7 +252,9 @@ namespace vg {
         iterator(size_t rank, int haplotype_number, HaplotypeNode* haplo_node);
         
     public:
-        
+
+        using value_type = NodeTraversal;   
+
         /// Default constructor
         iterator();
         /// Copy constructor
@@ -546,6 +548,15 @@ namespace vg {
     }
 }
 
+namespace std{
+    template<>
+    struct iterator_traits<vg::PhasedGenome::iterator>{
+        using value_type = vg::NodeTraversal;   
+        using iterator_category = forward_iterator_tag;
+    };
+}
+
+    
 
 
 #endif /* phased_genome_hpp */

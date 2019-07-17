@@ -22,22 +22,18 @@
 
 namespace vg {
     namespace unittest {
-        // We define a child class to expose all the protected stuff for testing
-        class TestMultipathMapper : public MultipathMapper {
-        public:
-            using MultipathMapper::MultipathMapper;
-            using MultipathMapper::multipath_map_internal;
-            using MultipathMapper::attempt_unpaired_multipath_map_of_pair;
-            using MultipathMapper::align_to_cluster_graphs;
-            using MultipathMapper::align_to_cluster_graph_pairs;
-            using MultipathMapper::query_cluster_graphs;
-            using MultipathMapper::multipath_align;
-            using MultipathMapper::strip_full_length_bonuses;
-            using MultipathMapper::sort_and_compute_mapping_quality;
-            using MultipathMapper::read_coverage;
-            using MultipathMapper::read_coverage_z_score;        
-        };
-        
+
+        /**
+         * Moves an object from one vector and pushes it to the target vector
+         * vect is *assumed* to have only one MultipathAlignment object
+         */
+        void accumulate_alns(vector<MultipathAlignment> vect, vector<MultipathAlignment> target){
+            //moves the first object only 
+            move(vect.begin(), vect.end(), back_inserter(target)); 
+            // erase vect because it is not in an indeterminate state 
+            vect.erase(vect.begin(), vect.end()); 
+        }
+
         TEST_CASE("Test1" ) {
             
             SECTION("Tests output of run_genotyper() with empty graph and a vector with an empty string (no read)") {
@@ -61,8 +57,7 @@ namespace vg {
                 auto iter = genome.begin(0);
                
                 // check requirements
-                /**  REQUIRE(genome.num_haplotypes == 0); //because the graph is empty */
-
+                REQUIRE(genome.num_haplotypes() == 0); //because the graph is empty 
             }
  
         }
@@ -564,19 +559,74 @@ namespace vg {
                 
                 // Build the GCSA index
                 build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3); // may need to change the values 
-                
+            
                 
                 // Build the xg index
-                // XG xg_index(graph);
+                //defining an XG and a variable called xg_index and calling the constructor
+                 XG xg_index(graph.graph); //VG uses a Graph as internal structure 
                 
                 // Make a multipath mapper to map against the graph.
-                // MultipathMapper multipath_mapper = MultipathMapper MultipathMapper();
+                MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
+
+                string read1 = string("GCATCTGAGCCC"); 
+                string read2 = string("GCATCTGAGCCC");
+                string read3 = string("GCAGCTGAACCC");
+                string read4 = string("GCAGCTGAACCC");
                 
-                //function that takes in a vector of strings and creates vector<MultipathAlignment>& multipath_alns_out for multipath_map()
+                Alignment aln1, aln2, aln3, aln4;
+                aln1.set_sequence(read1);
+                aln2.set_sequence(read2);
+                aln3.set_sequence(read3);
+                aln4.set_sequence(read4);
 
+                vector<MultipathAlignment> multipath_alns_out1, multipath_alns_out2, multipath_alns_out3, multipath_alns_out4 ;
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager); //create mcmc_genptyper obj
+                vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>(); 
+                
+                // create a function accumulates the reads that have been mapped and it takes a 
+                
+                vector<MultipathAlignment> vector_alns_out;//does this have to be 2D
+
+                // map read in alignment to graph and make multipath alignments  
+                multipath_mapper.multipath_map(aln1, multipath_alns_out1, 1);
+                multipath_mapper.multipath_map(aln2, multipath_alns_out2, 1);
+                multipath_mapper.multipath_map(aln3, multipath_alns_out3, 1);
+                multipath_mapper.multipath_map(aln4, multipath_alns_out4, 1);
                 
 
+                //accumulate MultipathAlignment objects 
+                accumulate_alns(multipath_alns_out1, multipath_aln_vector);
+                accumulate_alns(multipath_alns_out2, multipath_aln_vector);
+                accumulate_alns(multipath_alns_out3, multipath_aln_vector);
+                accumulate_alns(multipath_alns_out4, multipath_aln_vector);
 
+                //pass vector with accumulated MultipathAlignment objects to run_genotype()
+                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector); 
+                
+                // create a set of 2 possible solutions
+                vector<NodeTraversal> soln1, soln2;
+                soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n3)};
+                soln2 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4)};
+
+                set<vector<NodeTraversal>> solns_set;
+                solns_set.insert(soln1);
+                solns_set.insert(soln2);
+
+                // check requirements 
+                REQUIRE(genome.num_haplotypes() == 2);
+
+                // move the genome haplotype into a vector
+                vector<NodeTraversal> haplotype1, haplotype2;
+                copy(genome.begin(0), genome.end(0), back_inserter(haplotype1));
+                copy(genome.begin(1), genome.end(1), back_inserter(haplotype2));
+                
+                // check haplotypes are indeed in optimal solution set   
+                REQUIRE(solns_set.count(haplotype1));
+                REQUIRE(solns_set.count(haplotype2));
+
+                // Clean up the GCSA/LCP index
+                delete gcsaidx;
+                delete lcpidx;
             }
         }
     }
