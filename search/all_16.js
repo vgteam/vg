@@ -43,7 +43,7 @@ var searchData=
   ['vcfrecordconverter',['VcfRecordConverter',['../classvg_1_1VcfRecordConverter.html',1,'vg']]],
   ['vcfrecordfilter',['VcfRecordFilter',['../classvg_1_1VcfRecordFilter.html',1,'vg']]],
   ['vcftraversalfinder',['VCFTraversalFinder',['../classvg_1_1VCFTraversalFinder.html',1,'vg']]],
-  ['vcftraversalfinder',['VCFTraversalFinder',['../classvg_1_1VCFTraversalFinder.html#aa00b18dd3cab789ffa875bc449aeb5b6',1,'vg::VCFTraversalFinder']]],
+  ['vcftraversalfinder',['VCFTraversalFinder',['../classvg_1_1VCFTraversalFinder.html#a0087550753feebd6cac81667799ce647',1,'vg::VCFTraversalFinder']]],
   ['vectorize_5fmain_2ecpp',['vectorize_main.cpp',['../vectorize__main_8cpp.html',1,'']]],
   ['vectorizer',['Vectorizer',['../classVectorizer.html',1,'Vectorizer'],['../classVectorizer.html#a5e9bd2bf950b49e156b31af974bec0a0',1,'Vectorizer::Vectorizer()']]],
   ['vectorizer_2ecpp',['vectorizer.cpp',['../vectorizer_8cpp.html',1,'']]],
