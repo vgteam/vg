@@ -67,6 +67,8 @@ void help_gaffe(char** argv) {
     << "  -T, --max-tails INT           fall back on alignment to haplotypes when there are more than INT tails" << endl
     << "  -l, --linear-tails            align tails as individual linear alignments instead of POA trees" << endl
     << "  -X, --xdrop                   use xdrop alignment for tails" << endl
+    << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
+    << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
 
@@ -76,6 +78,9 @@ int main_gaffe(int argc, char** argv) {
         help_gaffe(argv);
         return 1;
     }
+
+    #define OPT_TRACK_PROVENANCE 1000
+    #define OPT_TRACK_CORRECTNESS 1001
 
     // initialize parameters with their default options
     string xg_name;
@@ -120,6 +125,10 @@ int main_gaffe(int argc, char** argv) {
     string read_group;
     // Should we throw out our alignments instead of outputting them?
     bool discard_alignments = false;
+    // Should we track candidate provenance?
+    bool track_provenance = false;
+    // Should we track candidate correctness?
+    bool track_correctness = false;
     
     vector<size_t> threads_to_run;
     
@@ -153,6 +162,8 @@ int main_gaffe(int argc, char** argv) {
             {"max-tails", required_argument, 0, 'T'},
             {"linear-tails", no_argument, 0, 'l'},
             {"xdrop", no_argument, 0, 'X'},
+            {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
+            {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
@@ -333,6 +344,15 @@ int main_gaffe(int argc, char** argv) {
                 use_xdrop_for_tails = true;
                 break;
                 
+            case OPT_TRACK_PROVENANCE:
+                track_provenance = true;
+                break;
+            
+            case OPT_TRACK_CORRECTNESS:
+                track_provenance = true;
+                track_correctness = true;
+                break;
+                
             case 't':
             {
                 int num_threads = parse<int>(optarg);
@@ -481,6 +501,16 @@ int main_gaffe(int argc, char** argv) {
         cerr << "--xdrop " << use_xdrop_for_tails << endl;
     }
     minimizer_mapper.use_xdrop_for_tails = use_xdrop_for_tails;
+
+    if (progress) {
+        cerr << "--track-provenance " << track_provenance << endl;
+    }
+    minimizer_mapper.track_provenance = track_provenance;
+    
+    if (progress) {
+        cerr << "--track-correctness " << track_correctness << endl;
+    }
+    minimizer_mapper.track_correctness = track_correctness;
 
     minimizer_mapper.sample_name = sample_name;
     minimizer_mapper.read_group = read_group;
