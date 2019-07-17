@@ -383,7 +383,7 @@ var searchData=
   ['sup_5falt1',['sup_alt1',['../structvg_1_1NodeDivider_1_1Entry.html#a238e060bd0f62522a308a3d6f8175f92',1,'vg::NodeDivider::Entry']]],
   ['sup_5falt2',['sup_alt2',['../structvg_1_1NodeDivider_1_1Entry.html#a55b93a0507431254062ec588d889d086',1,'vg::NodeDivider::Entry']]],
   ['sup_5fref',['sup_ref',['../structvg_1_1NodeDivider_1_1Entry.html#ac733ab58c6c902c57fe8d13876c70f45',1,'vg::NodeDivider::Entry']]],
-  ['super',['super',['../classvg_1_1PathSubgraph.html#a223501d50e8c102bbd7bf602d19b9400',1,'vg::PathSubgraph::super()'],['../classvg_1_1SubHandleGraph.html#aa17f9e8ba0b1b374b852390a9bf0c56a',1,'vg::SubHandleGraph::super()']]],
+  ['super',['super',['../classvg_1_1PathSubgraph.html#a223501d50e8c102bbd7bf602d19b9400',1,'vg::PathSubgraph::super()'],['../classvg_1_1SubHandleGraph.html#aa17f9e8ba0b1b374b852390a9bf0c56a',1,'vg::SubHandleGraph::super()'],['../classvg_1_1TreeSubgraph.html#a1096d8426347b21730e2d7d81527ffc0',1,'vg::TreeSubgraph::super()']]],
   ['support',['Support',['../structvg_1_1Support.html',1,'vg']]],
   ['support',['support',['../structvg_1_1Locus.html#a42e45ba2fa1310b9fba6774b24cdd447',1,'vg::Locus::support()'],['../structvg_1_1LocationSupport.html#a479f1a778e85f8d3747c0b7c44ad5760',1,'vg::LocationSupport::support()']]],
   ['support_5fcaller_2ecpp',['support_caller.cpp',['../support__caller_8cpp.html',1,'']]],

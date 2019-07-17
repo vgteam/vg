@@ -17,6 +17,7 @@ var searchData=
   ['treenode',['TreeNode',['../structvg_1_1TreeNode.html',1,'vg']]],
   ['treenode',['TreeNode',['../structvg_1_1BitStringTree_1_1TreeNode.html',1,'vg::BitStringTree']]],
   ['treestate',['TreeState',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html',1,'vg::SnarlSeedClusterer']]],
+  ['treesubgraph',['TreeSubgraph',['../classvg_1_1TreeSubgraph.html',1,'vg']]],
   ['trivialtraversalfinder',['TrivialTraversalFinder',['../classvg_1_1TrivialTraversalFinder.html',1,'vg']]],
   ['tsvalignmentemitter',['TSVAlignmentEmitter',['../classvg_1_1TSVAlignmentEmitter.html',1,'vg']]],
   ['tvsclusterer',['TVSClusterer',['../classvg_1_1TVSClusterer.html',1,'vg']]]

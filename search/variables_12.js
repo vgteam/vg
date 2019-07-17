@@ -61,6 +61,7 @@ var searchData=
   ['robust_5festimation_5ffraction',['robust_estimation_fraction',['../classvg_1_1FragmentLengthDistribution.html#aa5a2f20742b369464d132a751f52aaf3',1,'vg::FragmentLengthDistribution']]],
   ['root',['root',['../classvg_1_1BitStringTree.html#a69741fde7d47ad2f46dd952eb6bd2d66',1,'vg::BitStringTree::root()'],['../structvg_1_1Tree.html#a730cd8796e579d01c66bea46217047d7',1,'vg::Tree::root()']]],
   ['root_5fchains',['root_chains',['../classvg_1_1SnarlManager.html#a2d9758d889f875b1260f49985cf3ef35',1,'vg::SnarlManager']]],
+  ['root_5ftrim',['root_trim',['../classvg_1_1TreeSubgraph.html#a04044896f4bed03dc15a6c0a07df675d',1,'vg::TreeSubgraph']]],
   ['roots',['roots',['../classvg_1_1SnarlManager.html#ab13a661f6abe1feaf2c4ca4471a85a90',1,'vg::SnarlManager']]],
   ['row_5fidx',['row_idx',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html#a2345d3706d3d46b657e205865f4d4122',1,'vg::BandedGlobalAligner::AltTracebackStack::Deflection']]],
   ['rr_5fmemos',['rr_memos',['../classvg_1_1MultipathMapper.html#a5709f5cdf31de90145a1178fa166be44',1,'vg::MultipathMapper']]],

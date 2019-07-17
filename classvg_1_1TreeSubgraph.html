@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.6"/>
-<title>vg: vg::PathSubgraph Class Reference</title>
+<title>vg: vg::TreeSubgraph Class Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -83,27 +83,27 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="namespacevg.html">vg</a></li><li class="navelem"><a class="el" href="classvg_1_1PathSubgraph.html">PathSubgraph</a></li>  </ul>
+<li class="navelem"><a class="el" href="namespacevg.html">vg</a></li><li class="navelem"><a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
-<a href="#pri-attribs">Private Attributes</a> &#124;
-<a href="classvg_1_1PathSubgraph-members.html">List of all members</a>  </div>
+<a href="#pro-attribs">Protected Attributes</a> &#124;
+<a href="classvg_1_1TreeSubgraph-members.html">List of all members</a>  </div>
   <div class="headertitle">
-<div class="title">vg::PathSubgraph Class Reference</div>  </div>
+<div class="title">vg::TreeSubgraph Class Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 
-<p><code>#include &lt;path_subgraph.hpp&gt;</code></p>
+<p><code>#include &lt;tree_subgraph.hpp&gt;</code></p>
 <div class="dynheader">
-Inheritance diagram for vg::PathSubgraph:</div>
+Inheritance diagram for vg::TreeSubgraph:</div>
 <div class="dyncontent">
  <div class="center">
-  <img src="classvg_1_1PathSubgraph.png" usemap="#vg::PathSubgraph_map" alt=""/>
-  <map id="vg::PathSubgraph_map" name="vg::PathSubgraph_map">
+  <img src="classvg_1_1TreeSubgraph.png" usemap="#vg::TreeSubgraph_map" alt=""/>
+  <map id="vg::TreeSubgraph_map" name="vg::TreeSubgraph_map">
 <area href="classhandlegraph_1_1ExpandingOverlayGraph.html" alt="handlegraph::ExpandingOverlayGraph" shape="rect" coords="0,56,229,80"/>
 <area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="0,0,229,24"/>
 </map>
@@ -111,43 +111,46 @@ Inheritance diagram for vg::PathSubgraph:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a861b07c24488c1454b6c04b1f7f01b68"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#a861b07c24488c1454b6c04b1f7f01b68">PathSubgraph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *base, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
-<tr class="separator:a861b07c24488c1454b6c04b1f7f01b68"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad1c1c0577f7ed0a400ce1ace70ab3f6b"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#ad1c1c0577f7ed0a400ce1ace70ab3f6b">get_topological_order</a> () const </td></tr>
-<tr class="memdesc:ad1c1c0577f7ed0a400ce1ace70ab3f6b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a topological order very easily, since the path defines one.  <a href="#ad1c1c0577f7ed0a400ce1ace70ab3f6b">More...</a><br/></td></tr>
-<tr class="separator:ad1c1c0577f7ed0a400ce1ace70ab3f6b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a36c29ecdaf82fa5eb115589bf2c7068d"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#a36c29ecdaf82fa5eb115589bf2c7068d">has_node</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> node_id) const </td></tr>
-<tr class="memdesc:a36c29ecdaf82fa5eb115589bf2c7068d"><td class="mdescLeft">&#160;</td><td class="mdescRight">HandleGraph interface.  <a href="#a36c29ecdaf82fa5eb115589bf2c7068d">More...</a><br/></td></tr>
-<tr class="separator:a36c29ecdaf82fa5eb115589bf2c7068d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad10253e71f75a6b2f3221d9eeb1f668b"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#ad10253e71f75a6b2f3221d9eeb1f668b">get_handle</a> (const <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &amp;node_id, bool is_reverse=false) const </td></tr>
-<tr class="memdesc:ad10253e71f75a6b2f3221d9eeb1f668b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Look up the handle for the node with the given ID in the given orientation.  <a href="#ad10253e71f75a6b2f3221d9eeb1f668b">More...</a><br/></td></tr>
-<tr class="separator:ad10253e71f75a6b2f3221d9eeb1f668b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac299f2b4b9cad866ec436bc7311955cb"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#ac299f2b4b9cad866ec436bc7311955cb">get_id</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
-<tr class="memdesc:ac299f2b4b9cad866ec436bc7311955cb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the ID from a handle.  <a href="#ac299f2b4b9cad866ec436bc7311955cb">More...</a><br/></td></tr>
-<tr class="separator:ac299f2b4b9cad866ec436bc7311955cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac478fe8bf1b294aed8aa55ff23b7fa5e"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#ac478fe8bf1b294aed8aa55ff23b7fa5e">get_is_reverse</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
-<tr class="memdesc:ac478fe8bf1b294aed8aa55ff23b7fa5e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the orientation of a handle.  <a href="#ac478fe8bf1b294aed8aa55ff23b7fa5e">More...</a><br/></td></tr>
-<tr class="separator:ac478fe8bf1b294aed8aa55ff23b7fa5e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afe0143cffaff1a684bc39f7214909923"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#afe0143cffaff1a684bc39f7214909923">flip</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
-<tr class="memdesc:afe0143cffaff1a684bc39f7214909923"><td class="mdescLeft">&#160;</td><td class="mdescRight">Invert the orientation of a handle (potentially without getting its ID)  <a href="#afe0143cffaff1a684bc39f7214909923">More...</a><br/></td></tr>
-<tr class="separator:afe0143cffaff1a684bc39f7214909923"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab1596ed4d97689cb5ce265c90e55a607"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#ab1596ed4d97689cb5ce265c90e55a607">get_length</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
-<tr class="memdesc:ab1596ed4d97689cb5ce265c90e55a607"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the length of a node.  <a href="#ab1596ed4d97689cb5ce265c90e55a607">More...</a><br/></td></tr>
-<tr class="separator:ab1596ed4d97689cb5ce265c90e55a607"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a032c8df96868f9eac7d24a232f183c73"><td class="memItemLeft" align="right" valign="top">virtual string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#a032c8df96868f9eac7d24a232f183c73">get_sequence</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
-<tr class="separator:a032c8df96868f9eac7d24a232f183c73"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad39199f1de2126577eb412798c0fa830"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#ad39199f1de2126577eb412798c0fa830">get_node_count</a> () const </td></tr>
-<tr class="separator:ad39199f1de2126577eb412798c0fa830"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae21ea67194ee0dd3be946bc1621ba638"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#ae21ea67194ee0dd3be946bc1621ba638">min_node_id</a> () const </td></tr>
-<tr class="separator:ae21ea67194ee0dd3be946bc1621ba638"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1323c4cbeb5556be3b7db17f2e45c377"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#a1323c4cbeb5556be3b7db17f2e45c377">max_node_id</a> () const </td></tr>
-<tr class="separator:a1323c4cbeb5556be3b7db17f2e45c377"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afb7d4df4053e902dde99ce538b4025f4"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#afb7d4df4053e902dde99ce538b4025f4">get_underlying_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
-<tr class="memdesc:afb7d4df4053e902dde99ce538b4025f4"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1ExpandingOverlayGraph.html">ExpandingOverlayGraph</a> interface.  <a href="#afb7d4df4053e902dde99ce538b4025f4">More...</a><br/></td></tr>
-<tr class="separator:afb7d4df4053e902dde99ce538b4025f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a30cfbe00ee49243ae14f1f4bb26379ea"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#a30cfbe00ee49243ae14f1f4bb26379ea">translate_down</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path_against_subgraph) const </td></tr>
-<tr class="memdesc:a30cfbe00ee49243ae14f1f4bb26379ea"><td class="mdescLeft">&#160;</td><td class="mdescRight">Additional Interface.  <a href="#a30cfbe00ee49243ae14f1f4bb26379ea">More...</a><br/></td></tr>
-<tr class="separator:a30cfbe00ee49243ae14f1f4bb26379ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa43b054cfbc6f2f96fbc8fcef42887c5"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#aa43b054cfbc6f2f96fbc8fcef42887c5">TreeSubgraph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *<a class="el" href="classvg_1_1TreeSubgraph.html#a1096d8426347b21730e2d7d81527ffc0">super</a>, vector&lt; pair&lt; int64_t, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;&amp;<a class="el" href="classvg_1_1TreeSubgraph.html#a91ef2cd31f18ada628b0990faae105a1">tree</a>, size_t <a class="el" href="classvg_1_1TreeSubgraph.html#a04044896f4bed03dc15a6c0a07df675d">root_trim</a>=0)</td></tr>
+<tr class="separator:aa43b054cfbc6f2f96fbc8fcef42887c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4ea00928f433b13027eb07cdeabf379f"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#a4ea00928f433b13027eb07cdeabf379f">get_topological_order</a> () const </td></tr>
+<tr class="memdesc:a4ea00928f433b13027eb07cdeabf379f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a topological order very easily, since the tree defines one.  <a href="#a4ea00928f433b13027eb07cdeabf379f">More...</a><br/></td></tr>
+<tr class="separator:a4ea00928f433b13027eb07cdeabf379f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7ccaf6650fd2ccf25e7516171ed40526"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#a7ccaf6650fd2ccf25e7516171ed40526">get_root</a> () const </td></tr>
+<tr class="separator:a7ccaf6650fd2ccf25e7516171ed40526"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9cf911849f843f89cb761525163a5c2e"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#a9cf911849f843f89cb761525163a5c2e">has_node</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> node_id) const </td></tr>
+<tr class="memdesc:a9cf911849f843f89cb761525163a5c2e"><td class="mdescLeft">&#160;</td><td class="mdescRight">HandleGraph interface.  <a href="#a9cf911849f843f89cb761525163a5c2e">More...</a><br/></td></tr>
+<tr class="separator:a9cf911849f843f89cb761525163a5c2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a18f9b126333579e265cef89989dd27a5"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#a18f9b126333579e265cef89989dd27a5">get_handle</a> (const <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &amp;node_id, bool is_reverse=false) const </td></tr>
+<tr class="memdesc:a18f9b126333579e265cef89989dd27a5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Look up the handle for the node with the given ID in the given orientation.  <a href="#a18f9b126333579e265cef89989dd27a5">More...</a><br/></td></tr>
+<tr class="separator:a18f9b126333579e265cef89989dd27a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a52d15a1b2e2161e377931a65ce09b8ba"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#a52d15a1b2e2161e377931a65ce09b8ba">get_id</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
+<tr class="memdesc:a52d15a1b2e2161e377931a65ce09b8ba"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the ID from a handle.  <a href="#a52d15a1b2e2161e377931a65ce09b8ba">More...</a><br/></td></tr>
+<tr class="separator:a52d15a1b2e2161e377931a65ce09b8ba"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aee0891a4418beb1a184351cdbdd25105"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#aee0891a4418beb1a184351cdbdd25105">get_is_reverse</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
+<tr class="memdesc:aee0891a4418beb1a184351cdbdd25105"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the orientation of a handle.  <a href="#aee0891a4418beb1a184351cdbdd25105">More...</a><br/></td></tr>
+<tr class="separator:aee0891a4418beb1a184351cdbdd25105"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae4619bd9299765e92d1f183a49db212c"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#ae4619bd9299765e92d1f183a49db212c">flip</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
+<tr class="memdesc:ae4619bd9299765e92d1f183a49db212c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Invert the orientation of a handle (potentially without getting its ID)  <a href="#ae4619bd9299765e92d1f183a49db212c">More...</a><br/></td></tr>
+<tr class="separator:ae4619bd9299765e92d1f183a49db212c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a103f58fa3ca4119d9542fac54d5b9c7e"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#a103f58fa3ca4119d9542fac54d5b9c7e">get_length</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
+<tr class="memdesc:a103f58fa3ca4119d9542fac54d5b9c7e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the length of a node.  <a href="#a103f58fa3ca4119d9542fac54d5b9c7e">More...</a><br/></td></tr>
+<tr class="separator:a103f58fa3ca4119d9542fac54d5b9c7e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aea40e26c208ad4cfa8bffc38c5e2a3d2"><td class="memItemLeft" align="right" valign="top">virtual string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#aea40e26c208ad4cfa8bffc38c5e2a3d2">get_sequence</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
+<tr class="separator:aea40e26c208ad4cfa8bffc38c5e2a3d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7f03702dec354a1f8f65c61e2b0addb6"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#a7f03702dec354a1f8f65c61e2b0addb6">get_node_count</a> () const </td></tr>
+<tr class="memdesc:a7f03702dec354a1f8f65c61e2b0addb6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the number of nodes in the graph.  <a href="#a7f03702dec354a1f8f65c61e2b0addb6">More...</a><br/></td></tr>
+<tr class="separator:a7f03702dec354a1f8f65c61e2b0addb6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a47eba171bd2feb1e53ad927ad13f1df9"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#a47eba171bd2feb1e53ad927ad13f1df9">min_node_id</a> () const </td></tr>
+<tr class="separator:a47eba171bd2feb1e53ad927ad13f1df9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab02c439106b170c4ea1c2745d7ee9a5e"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#ab02c439106b170c4ea1c2745d7ee9a5e">max_node_id</a> () const </td></tr>
+<tr class="separator:ab02c439106b170c4ea1c2745d7ee9a5e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a59a951e53a61388dfa2352fe15d4b0c1"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#a59a951e53a61388dfa2352fe15d4b0c1">get_underlying_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
+<tr class="memdesc:a59a951e53a61388dfa2352fe15d4b0c1"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1ExpandingOverlayGraph.html">ExpandingOverlayGraph</a> interface.  <a href="#a59a951e53a61388dfa2352fe15d4b0c1">More...</a><br/></td></tr>
+<tr class="separator:a59a951e53a61388dfa2352fe15d4b0c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adf6fd4e7922b99473817e1ccc872e085"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#adf6fd4e7922b99473817e1ccc872e085">translate_down</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path_against_subgraph) const </td></tr>
+<tr class="memdesc:adf6fd4e7922b99473817e1ccc872e085"><td class="mdescLeft">&#160;</td><td class="mdescRight">Additional Interface.  <a href="#adf6fd4e7922b99473817e1ccc872e085">More...</a><br/></td></tr>
+<tr class="separator:adf6fd4e7922b99473817e1ccc872e085"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1HandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1HandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1HandleGraph.html">handlegraph::HandleGraph</a></td></tr>
 <tr class="memitem:a5dcea1610fac82460ff304e07b4dd6e0 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
 <tr class="memitem:a5dcea1610fac82460ff304e07b4dd6e0 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a5dcea1610fac82460ff304e07b4dd6e0">follow_edges</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left, const Iteratee &amp;iteratee) const </td></tr>
@@ -179,42 +182,58 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:a349cbb59aadcc3e0a0152670307bfa8e"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#a349cbb59aadcc3e0a0152670307bfa8e">follow_edges_impl</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left, const function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee) const </td></tr>
-<tr class="separator:a349cbb59aadcc3e0a0152670307bfa8e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a26eb77ec5f35105ed1fa020fd1543357"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#a26eb77ec5f35105ed1fa020fd1543357">for_each_handle_impl</a> (const function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee, bool parallel=false) const </td></tr>
-<tr class="separator:a26eb77ec5f35105ed1fa020fd1543357"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab76fdd0aa8b1d6a90e98c35927e0dad5"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#ab76fdd0aa8b1d6a90e98c35927e0dad5">follow_edges_impl</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left, const function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee) const </td></tr>
+<tr class="separator:ab76fdd0aa8b1d6a90e98c35927e0dad5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa83181cf5132e7bd8a97c504f0337143"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#aa83181cf5132e7bd8a97c504f0337143">for_each_handle_impl</a> (const function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee, bool parallel=false) const </td></tr>
+<tr class="separator:aa83181cf5132e7bd8a97c504f0337143"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classhandlegraph_1_1HandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classhandlegraph_1_1HandleGraph')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classhandlegraph_1_1HandleGraph.html">handlegraph::HandleGraph</a></td></tr>
 <tr class="memitem:a89bbc118fe1e8e1acb162c14be33e8b5 inherit pro_methods_classhandlegraph_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a89bbc118fe1e8e1acb162c14be33e8b5">follow_edges_impl</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee) const =0</td></tr>
 <tr class="separator:a89bbc118fe1e8e1acb162c14be33e8b5 inherit pro_methods_classhandlegraph_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af48ba081fcb810267dc50e3a3e7ad391 inherit pro_methods_classhandlegraph_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#af48ba081fcb810267dc50e3a3e7ad391">for_each_handle_impl</a> (const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee, bool parallel=false) const =0</td></tr>
 <tr class="separator:af48ba081fcb810267dc50e3a3e7ad391 inherit pro_methods_classhandlegraph_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
-Private Attributes</h2></td></tr>
-<tr class="memitem:a223501d50e8c102bbd7bf602d19b9400"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#a223501d50e8c102bbd7bf602d19b9400">super</a> = nullptr</td></tr>
-<tr class="separator:a223501d50e8c102bbd7bf602d19b9400"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a907a18a155eace47d2f8a1f9bacf4894"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html#a907a18a155eace47d2f8a1f9bacf4894">defining_path</a></td></tr>
-<tr class="separator:a907a18a155eace47d2f8a1f9bacf4894"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
+Protected Attributes</h2></td></tr>
+<tr class="memitem:a1096d8426347b21730e2d7d81527ffc0"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#a1096d8426347b21730e2d7d81527ffc0">super</a></td></tr>
+<tr class="memdesc:a1096d8426347b21730e2d7d81527ffc0"><td class="mdescLeft">&#160;</td><td class="mdescRight">What graph are we based on?  <a href="#a1096d8426347b21730e2d7d81527ffc0">More...</a><br/></td></tr>
+<tr class="separator:a1096d8426347b21730e2d7d81527ffc0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a91ef2cd31f18ada628b0990faae105a1"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; int64_t, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#a91ef2cd31f18ada628b0990faae105a1">tree</a></td></tr>
+<tr class="separator:a91ef2cd31f18ada628b0990faae105a1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a04044896f4bed03dc15a6c0a07df675d"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#a04044896f4bed03dc15a6c0a07df675d">root_trim</a></td></tr>
+<tr class="memdesc:a04044896f4bed03dc15a6c0a07df675d"><td class="mdescLeft">&#160;</td><td class="mdescRight">How much of the root do we trim off?  <a href="#a04044896f4bed03dc15a6c0a07df675d">More...</a><br/></td></tr>
+<tr class="separator:a04044896f4bed03dc15a6c0a07df675d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a77f31b395c329f4c42d585208e8f9683"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TreeSubgraph.html#a77f31b395c329f4c42d585208e8f9683">children</a></td></tr>
+<tr class="memdesc:a77f31b395c329f4c42d585208e8f9683"><td class="mdescLeft">&#160;</td><td class="mdescRight">For each node, what child indexes does it have?  <a href="#a77f31b395c329f4c42d585208e8f9683">More...</a><br/></td></tr>
+<tr class="separator:a77f31b395c329f4c42d585208e8f9683"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>A HandleGraph implementation that represents a subgraph of another HandleGraph, defined by a <a class="el" href="structvg_1_1Path.html">Path</a>. The leading and trailing nodes are cut according to the <a class="el" href="structvg_1_1Path.html">Path</a>. Supports translation of other <a class="el" href="classvg_1_1Paths.html">Paths</a> from this graph into the base graph.</p>
-<p>Nodes are numbered 1 to n along the path; multiple visits on the path to the same backing node will become distinct. </p>
+<div class="textblock"><p>A HandleGraph implementation that represents a subgraph of another HandleGraph, defined by an internal tree whose nodes and edges are embedded in the nodes and edges of the backing graph.</p>
+<p>Useful for describing the haplotype tree embedded in a graph, radiating from a certain point.</p>
+<p>The tree is always exposed as rooted at the left, with child nodes radiating out on the right. The user has to re-orient the handles fed in to match that topology.</p>
+<p>The root handle can be trimmed on its left side.</p>
+<p>Supports translation of other <a class="el" href="classvg_1_1Paths.html">Paths</a> from this graph into the base graph. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="a861b07c24488c1454b6c04b1f7f01b68"></a>
+<a class="anchor" id="aa43b054cfbc6f2f96fbc8fcef42887c5"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vg::PathSubgraph::PathSubgraph </td>
+          <td class="memname">vg::TreeSubgraph::TreeSubgraph </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>base</em>, </td>
+          <td class="paramname"><em>super</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td>
-          <td class="paramname"><em>path</em>&#160;</td>
+          <td class="paramtype">vector&lt; pair&lt; int64_t, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>tree</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>root_trim</em> = <code>0</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -223,12 +242,15 @@ Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Create a <a class="el" href="classvg_1_1PathSubgraph.html">PathSubgraph</a> describing the subgraph of the given graph defined by the given path. The path must not be empty. The path can take part of the start and end nodes, but all mappings must be perfect matches, and all adjacent mappings must properly cross a real edge. </p>
+<p>Create a <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> describing the subgraph of the given graph defined by the given tree. The tree is stored as a vector of pairs of (previous item number, base graph handle).</p>
+<p>The tree handles must be given reading from the root end of the tree towards the branches.</p>
+<p>The tree must be topologically sorted, with the root at 0. The root must point to -1.</p>
+<p>If given, root_trim specifies a number of bases to cut off of the left side of the root handle. </p>
 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a class="anchor" id="afe0143cffaff1a684bc39f7214909923"></a>
+<a class="anchor" id="ae4619bd9299765e92d1f183a49db212c"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -236,7 +258,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::PathSubgraph::flip </td>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::TreeSubgraph::flip </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
@@ -256,7 +278,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a349cbb59aadcc3e0a0152670307bfa8e"></a>
+<a class="anchor" id="ab76fdd0aa8b1d6a90e98c35927e0dad5"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -264,7 +286,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::PathSubgraph::follow_edges_impl </td>
+          <td class="memname">bool vg::TreeSubgraph::follow_edges_impl </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em>, </td>
@@ -297,7 +319,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a26eb77ec5f35105ed1fa020fd1543357"></a>
+<a class="anchor" id="aa83181cf5132e7bd8a97c504f0337143"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -305,7 +327,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::PathSubgraph::for_each_handle_impl </td>
+          <td class="memname">bool vg::TreeSubgraph::for_each_handle_impl </td>
           <td>(</td>
           <td class="paramtype">const function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;&#160;</td>
           <td class="paramname"><em>iteratee</em>, </td>
@@ -332,7 +354,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ad10253e71f75a6b2f3221d9eeb1f668b"></a>
+<a class="anchor" id="a18f9b126333579e265cef89989dd27a5"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -340,7 +362,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::PathSubgraph::get_handle </td>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::TreeSubgraph::get_handle </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &amp;&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
@@ -370,7 +392,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ac299f2b4b9cad866ec436bc7311955cb"></a>
+<a class="anchor" id="a52d15a1b2e2161e377931a65ce09b8ba"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -378,7 +400,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> vg::PathSubgraph::get_id </td>
+          <td class="memname"><a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> vg::TreeSubgraph::get_id </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
@@ -398,7 +420,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ac478fe8bf1b294aed8aa55ff23b7fa5e"></a>
+<a class="anchor" id="aee0891a4418beb1a184351cdbdd25105"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -406,7 +428,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::PathSubgraph::get_is_reverse </td>
+          <td class="memname">bool vg::TreeSubgraph::get_is_reverse </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
@@ -426,7 +448,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ab1596ed4d97689cb5ce265c90e55a607"></a>
+<a class="anchor" id="a103f58fa3ca4119d9542fac54d5b9c7e"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -434,7 +456,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">size_t vg::PathSubgraph::get_length </td>
+          <td class="memname">size_t vg::TreeSubgraph::get_length </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
@@ -454,7 +476,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ad39199f1de2126577eb412798c0fa830"></a>
+<a class="anchor" id="a7f03702dec354a1f8f65c61e2b0addb6"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -462,7 +484,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">size_t vg::PathSubgraph::get_node_count </td>
+          <td class="memname">size_t vg::TreeSubgraph::get_node_count </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td> const</td>
@@ -474,13 +496,31 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Return the number of nodes in the graph TODO: can't be node_count because <a class="el" href="classvg_1_1XG.html">XG</a> has a field named node_count. </p>
+
+<p>Return the number of nodes in the graph. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a9f95108e6c3f68f404fa93bd3306e4c6">handlegraph::HandleGraph</a>.</p>
 
 </div>
 </div>
-<a class="anchor" id="a032c8df96868f9eac7d24a232f183c73"></a>
+<a class="anchor" id="a7ccaf6650fd2ccf25e7516171ed40526"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::TreeSubgraph::get_root </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get a handle to the root of the tree, oriented towards the side with edges, if any.</p>
+<p>Throws an exception if the tree is empty and there is no root. </p>
+
+</div>
+</div>
+<a class="anchor" id="aea40e26c208ad4cfa8bffc38c5e2a3d2"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -488,7 +528,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">string vg::PathSubgraph::get_sequence </td>
+          <td class="memname">string vg::TreeSubgraph::get_sequence </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
@@ -507,12 +547,12 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ad1c1c0577f7ed0a400ce1ace70ab3f6b"></a>
+<a class="anchor" id="a4ea00928f433b13027eb07cdeabf379f"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; vg::PathSubgraph::get_topological_order </td>
+          <td class="memname">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; vg::TreeSubgraph::get_topological_order </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td> const</td>
@@ -520,11 +560,11 @@ Private Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Get a topological order very easily, since the path defines one. </p>
+<p>Get a topological order very easily, since the tree defines one. </p>
 
 </div>
 </div>
-<a class="anchor" id="afb7d4df4053e902dde99ce538b4025f4"></a>
+<a class="anchor" id="a59a951e53a61388dfa2352fe15d4b0c1"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -532,7 +572,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::PathSubgraph::get_underlying_handle </td>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::TreeSubgraph::get_underlying_handle </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
@@ -553,7 +593,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a36c29ecdaf82fa5eb115589bf2c7068d"></a>
+<a class="anchor" id="a9cf911849f843f89cb761525163a5c2e"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -561,7 +601,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::PathSubgraph::has_node </td>
+          <td class="memname">bool vg::TreeSubgraph::has_node </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em></td><td>)</td>
@@ -582,7 +622,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a1323c4cbeb5556be3b7db17f2e45c377"></a>
+<a class="anchor" id="ab02c439106b170c4ea1c2745d7ee9a5e"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -590,7 +630,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> vg::PathSubgraph::max_node_id </td>
+          <td class="memname"><a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> vg::TreeSubgraph::max_node_id </td>
           <td>(</td>
           <td class="paramtype">void&#160;</td>
           <td class="paramname"></td><td>)</td>
@@ -609,7 +649,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ae21ea67194ee0dd3be946bc1621ba638"></a>
+<a class="anchor" id="a47eba171bd2feb1e53ad927ad13f1df9"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -617,7 +657,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> vg::PathSubgraph::min_node_id </td>
+          <td class="memname"><a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> vg::TreeSubgraph::min_node_id </td>
           <td>(</td>
           <td class="paramtype">void&#160;</td>
           <td class="paramname"></td><td>)</td>
@@ -636,12 +676,12 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a30cfbe00ee49243ae14f1f4bb26379ea"></a>
+<a class="anchor" id="adf6fd4e7922b99473817e1ccc872e085"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structvg_1_1Path.html">Path</a> vg::PathSubgraph::translate_down </td>
+          <td class="memname"><a class="el" href="structvg_1_1Path.html">Path</a> vg::TreeSubgraph::translate_down </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td>
           <td class="paramname"><em>path_against_subgraph</em></td><td>)</td>
@@ -656,7 +696,7 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a class="anchor" id="a907a18a155eace47d2f8a1f9bacf4894"></a>
+<a class="anchor" id="a77f31b395c329f4c42d585208e8f9683"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -664,19 +704,21 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structvg_1_1Path.html">Path</a> vg::PathSubgraph::defining_path</td>
+          <td class="memname">vector&lt;vector&lt;size_t&gt; &gt; vg::TreeSubgraph::children</td>
         </tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
 
+<p>For each node, what child indexes does it have? </p>
+
 </div>
 </div>
-<a class="anchor" id="a223501d50e8c102bbd7bf602d19b9400"></a>
+<a class="anchor" id="a04044896f4bed03dc15a6c0a07df675d"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -684,21 +726,66 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>* vg::PathSubgraph::super = nullptr</td>
+          <td class="memname">size_t vg::TreeSubgraph::root_trim</td>
         </tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
+
+<p>How much of the root do we trim off? </p>
+
+</div>
+</div>
+<a class="anchor" id="a1096d8426347b21730e2d7d81527ffc0"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>* vg::TreeSubgraph::super</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>What graph are we based on? </p>
+
+</div>
+</div>
+<a class="anchor" id="a91ef2cd31f18ada628b0990faae105a1"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt;pair&lt;int64_t, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&gt; &gt; vg::TreeSubgraph::tree</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>What tree are we using in the backing graph? <a class="el" href="classvg_1_1Index.html">Index</a> in this vector corresponds to node ID in the projected graph. </p>
 
 </div>
 </div>
 <hr/>The documentation for this class was generated from the following files:<ul>
-<li>src/<a class="el" href="path__subgraph_8hpp.html">path_subgraph.hpp</a></li>
-<li>src/<a class="el" href="path__subgraph_8cpp.html">path_subgraph.cpp</a></li>
+<li>src/<a class="el" href="tree__subgraph_8hpp.html">tree_subgraph.hpp</a></li>
+<li>src/<a class="el" href="tree__subgraph_8cpp.html">tree_subgraph.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

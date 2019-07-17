@@ -22,6 +22,7 @@ var searchData=
   ['lengths',['lengths',['../classvg_1_1FragmentLengthDistribution.html#a368340de267064b485b898da2331dc97',1,'vg::FragmentLengthDistribution']]],
   ['likelihood',['likelihood',['../structvg_1_1Genotype.html#afac9953bdbfbc0e3991e1b8a6e7e8c36',1,'vg::Genotype']]],
   ['likelihood_5fln',['likelihood_ln',['../structvg_1_1Genotyper_1_1Affinity.html#ad1c0431bc83746580740d35e43fd2a46',1,'vg::Genotyper::Affinity']]],
+  ['linear_5ftails',['linear_tails',['../classvg_1_1MinimizerMapper.html#a88d44e02a4cbbad030a22355239db61d',1,'vg::MinimizerMapper']]],
   ['locked_5fnodes',['locked_nodes',['../classvg_1_1GraphSynchronizer_1_1Lock.html#acfb5bf6caa6040ec1028250324296355',1,'vg::GraphSynchronizer::Lock::locked_nodes()'],['../classvg_1_1GraphSynchronizer.html#a275e3112ec47229a197e3ecc118771c4',1,'vg::GraphSynchronizer::locked_nodes()']]],
   ['locus',['locus',['../structvg_1_1Alignment.html#afe47b70cd7b78e97a9cf18e9c60ef4f0',1,'vg::Alignment']]],
   ['locus_5fbuffer_5fsize',['locus_buffer_size',['../classvg_1_1SupportCaller.html#ae6584c21b8d57196db570a3642e23a27',1,'vg::SupportCaller']]],
