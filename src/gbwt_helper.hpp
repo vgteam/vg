@@ -59,8 +59,8 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i);
 //------------------------------------------------------------------------------
 
 /**
- * A runtime-only HandleGraph implementation that uses GBWT for graph topology and
- * extracts sequences from another HandleGraph. Faster sequence access but slower
+ * A HandleGraph implementation that uses GBWT for graph topology and extracts
+ * sequences from another HandleGraph. Faster sequence access but slower
  * graph navigation than in XG. Also supports a version of follow_edges() that
  * takes only paths supported by the indexed haplotypes.
  */
@@ -69,6 +69,10 @@ public:
     /// Create a graph backed by the GBWT index and extract the sequences from the
     /// given HandleGraph.
     GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_source);
+
+    /// Create a graph backed by the GBWT index. The graph is in an invalid state
+    /// until the sequences are loaded with a load() call.
+    explicit GBWTGraph(const gbwt::GBWT& gbwt_index);
 
     /// Copy constructor.
     GBWTGraph(const GBWTGraph& source);
@@ -83,6 +87,7 @@ public:
     size_t              total_nodes;
 
     constexpr static size_t CHUNK_SIZE = 1024; // For parallel for_each_handle().
+    constexpr static size_t BLOCK_SIZE = 64 * gbwt::MEGABYTE; // For serialization.
 
 //------------------------------------------------------------------------------
 
@@ -145,6 +150,18 @@ protected:
     /// order is not defined. Returns true if we finished and false if we 
     /// stopped early.
     virtual bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
+
+//------------------------------------------------------------------------------
+
+public:
+
+    // Serialization interface.
+
+    /// Serialize the sequences to the ostream. Returns the number of bytes written.
+    size_t serialize(std::ostream& out) const;
+
+    /// Load the sequences from the istream and return true if successful.
+    void load(std::istream& in);
 
 //------------------------------------------------------------------------------
 

@@ -14,6 +14,7 @@ namespace vg {
 // Numerical class constants.
 
 constexpr size_t GBWTGraph::CHUNK_SIZE;
+constexpr size_t GBWTGraph::BLOCK_SIZE;
 
 //------------------------------------------------------------------------------
 
@@ -107,6 +108,13 @@ GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_s
         this->sequences.insert(this->sequences.end(), seq.begin(), seq.end());
         this->offsets[offset + 2] = this->sequences.size();
     }
+}
+
+GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index) :
+    index(gbwt_index), total_nodes(0) {
+
+    // Sanity checks for the GBWT index.
+    assert(this->index.bidirectional());
 }
 
 GBWTGraph::GBWTGraph(const GBWTGraph& source) :
@@ -234,6 +242,45 @@ bool GBWTGraph::for_each_handle_impl(const std::function<bool(const handle_t&)>&
     }
 
     return true;
+}
+
+//------------------------------------------------------------------------------
+
+size_t GBWTGraph::serialize(std::ostream& out) const {
+    size_t written_bytes = 0;
+
+    // Serialize the sequences manually.
+    size_t sequence_size = this->sequences.size();
+    written_bytes += sdsl::write_member(sequence_size, out);
+    for (size_t offset = 0; offset < this->sequences.size(); offset += BLOCK_SIZE) {
+        size_t bytes = std::min(BLOCK_SIZE, this->sequences.size() - offset);
+        out.write(this->sequences.data() + offset, bytes);
+        written_bytes += bytes;
+    }
+
+    // Serialize the rest.
+    written_bytes += this->offsets.serialize(out);
+    written_bytes += this->real_nodes.serialize(out);
+    written_bytes += sdsl::write_member(this->total_nodes, out);
+
+    return written_bytes;
+}
+
+void GBWTGraph::load(std::istream& in) {
+
+    // Load the sequences manually.
+    size_t sequence_size = 0;
+    sdsl::read_member(sequence_size, in);
+    this->sequences = std::vector<char>(sequence_size, 0);
+    for (size_t offset = 0; offset < this->sequences.size(); offset += BLOCK_SIZE) {
+        size_t bytes = std::min(BLOCK_SIZE, this->sequences.size() - offset);
+        in.read(this->sequences.data() + offset, bytes);
+    }
+
+    // Load the rest.
+    this->offsets.load(in);
+    this->real_nodes.load(in);
+    sdsl::read_member(this->total_nodes, in);
 }
 
 //------------------------------------------------------------------------------
