@@ -407,6 +407,10 @@ int main_gaffe(int argc, char** argv) {
     GBWTGraph gbwt_graph = (graph_name.empty() ? GBWTGraph(*gbwt_index, *xg_index) : GBWTGraph(*gbwt_index));
     if (!graph_name.empty()) {
         ifstream in(graph_name, std::ios_base::binary);
+        if (!in) {
+            cerr << "error:[vg gaffe] cannot load GBWTGraph from " << graph_name << endl;
+            exit(1);
+        }
         gbwt_graph.load(in);
         in.close();
     }
