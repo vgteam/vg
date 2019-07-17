@@ -196,6 +196,14 @@ using namespace std;
     id_t PathSubgraph::max_node_id() const {
         return defining_path.mapping_size();
     }
+    
+    handle_t PathSubgraph::get_underlying_handle(const handle_t& handle) const {
+        // Look up the defining Mapping we are visiting
+        auto& defining_mapping = defining_path.mapping(get_id(handle) - 1);
+        
+        // Get the handle corresponding to this mapping in our path.
+        return super->get_handle(defining_mapping.position().node_id(), defining_mapping.position().is_reverse());
+    }
 
     Path PathSubgraph::translate_down(const Path& path_against_subgraph) const {
         Path translated;
