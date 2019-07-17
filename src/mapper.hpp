@@ -32,6 +32,7 @@
 #include "algorithms/nearest_offsets_in_paths.hpp"
 #include "algorithms/approx_path_distance.hpp"
 #include "algorithms/path_string.hpp"
+#include "algorithms/alignment_path_offsets.hpp"
 
 // #define BENCH
 // #include "bench.h"
@@ -275,7 +276,6 @@ public:
     /// Set to enable debugging messages to cerr from the mapper, so a user can understand why a read maps the way it does.
     bool debug = false;
     
-protected:
     /// Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
     /// before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
     /// that contain it
@@ -457,21 +457,6 @@ public:
     // a collection of read pairs which we'd like to realign once we have estimated the fragment_size
     vector<pair<Alignment, Alignment> > imperfect_pairs_to_retry;
 
-    /// Use the xg index we hold to annotate an Alignment with the first
-    /// position it touches on each reference path. Thread safe.
-    ///
-    /// search_limit gives the maximum distance to search for a path if the
-    /// alignment does not actually touch any paths. If 0, the alignment's
-    /// sequence length is used.
-    void annotate_with_initial_path_positions(Alignment& aln) const;
-    /// Use the xg index we hold to annotate Alignments with the first position
-    /// they touch on each reference path. Thread safe.
-    ///
-    /// search_limit gives the maximum distance to search for a path if the
-    /// alignment does not actually touch any paths. If 0, the alignment's
-    /// sequence length is used.
-    void annotate_with_initial_path_positions(vector<Alignment>& alns) const;
-
     // Return true of the two alignments are consistent for paired reads, and false otherwise
     bool alignments_consistent(const map<string, double>& pos1,
                                const map<string, double>& pos2,
@@ -586,8 +571,6 @@ public:
     int64_t approx_position(pos_t pos);
     // get the approximate position of the alignment or return -1 if it can't be had
     int64_t approx_alignment_position(const Alignment& aln);
-    // get the full path offsets for the alignment, considering every mapping if just_first is not set
-    unordered_map<path_handle_t, vector<pair<size_t, bool> > > alignment_path_offsets(const Alignment& aln) const;
     // get the end position of the alignment
     Position alignment_end_position(const Alignment& aln);
     // get the approximate distance between the starts of the alignments or return -1 if undefined

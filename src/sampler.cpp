@@ -36,12 +36,13 @@ void Sampler::set_source_paths(const vector<string>& source_paths,
 
 /// We have a helper function to convert path positions and orientations to
 /// pos_t values.
-pos_t position_at(xg::XG* xgidx, const string& path_name, const size_t& path_offset, bool is_reverse) {
+pos_t position_at(PathPositionHandleGraph* xgidx, const string& path_name, const size_t& path_offset, bool is_reverse) {
     path_handle_t path_handle = xgidx->get_path_handle(path_name);
-    handle_t handle = xgidx->handle_at_path_position(path_handle, path_offset);
+    step_handle_t step = xgidx->get_step_at_position(path_handle, path_offset);
+    handle_t handle = xgidx->get_handle_of_step(step);
     
     // Work out where in that mapping we should be.
-    size_t node_offset = path_offset - (xgidx->node_start_at_path_position(path_handle, path_offset));
+    size_t node_offset = path_offset - xgidx->get_position_of_step(step);
 
     if (is_reverse) {
         // Flip the node offset around to be from the end and not the start
@@ -56,13 +57,13 @@ pos_t position_at(xg::XG* xgidx, const string& path_name, const size_t& path_off
 
 pos_t Sampler::position(void) {
     // We sample from the entire graph sequence, 1-based.
-    vg::uniform_int_distribution<size_t> xdist(1, xgidx->seq_length);
+    vg::uniform_int_distribution<size_t> xdist(1, total_seq_length);
     size_t offset = xdist(rng);
-    id_t id = xgidx->node_at_seq_pos(offset);
+    id_t id = dynamic_cast<VectorizableHandleGraph*>(xgidx)->node_at_vector_offset(offset);
     vg::uniform_int_distribution<size_t> flip(0, 1);
     bool rev = forward_only ? false : flip(rng);
     // 1-0 base conversion
-    size_t node_offset = offset - xgidx->node_start(id) - 1;
+    size_t node_offset = offset - dynamic_cast<VectorizableHandleGraph*>(xgidx)->node_vector_offset(id) - 1;
     // Ignore flipping the node offset because we're uniform over both strands
     return make_pos_t(id, rev, node_offset);
 }
@@ -296,7 +297,7 @@ Alignment Sampler::mutate(const Alignment& aln,
     mutaln.set_sequence(alignment_seq(mutaln));
     mutaln.set_name(aln.name());
     mutaln.clear_refpos();
-    xg_annotate_with_initial_path_positions(xgidx, mutaln);
+    algorithms::annotate_with_initial_path_positions(*xgidx, mutaln);
     return mutaln;
 }
 
@@ -422,7 +423,7 @@ Alignment Sampler::alignment_to_path(const string& source_path, size_t length) {
     // And set its identity
     aln.set_identity(identity(aln.path()));
     aln.clear_refpos();
-    xg_annotate_with_initial_path_positions(xgidx, aln);
+    algorithms::annotate_with_initial_path_positions(*xgidx, aln);
     return aln;
 }
 
@@ -474,7 +475,7 @@ Alignment Sampler::alignment_to_graph(size_t length) {
     }
     // And set its identity
     aln.set_identity(identity(aln.path()));
-    xg_annotate_with_initial_path_positions(xgidx, aln);
+    algorithms::annotate_with_initial_path_positions(*xgidx, aln);
     return aln;
 }
 
@@ -517,7 +518,7 @@ Alignment Sampler::alignment_with_error(size_t length,
     
     // Check the alignment to make sure we didn't mess it up
     assert(is_valid(aln));
-    xg_annotate_with_initial_path_positions(xgidx, aln);
+    algorithms::annotate_with_initial_path_positions(*xgidx, aln);
     return aln;
 }
 
@@ -530,7 +531,7 @@ char Sampler::pos_char(pos_t pos) {
 }
 
 map<pos_t, char> Sampler::next_pos_chars(pos_t pos) {
-    return xg_next_pos_chars(pos, xgidx);
+    return algorithms::next_pos_chars(*xgidx, pos);
 }
 
 bool Sampler::is_valid(const Alignment& aln) {
@@ -565,7 +566,7 @@ bool Sampler::is_valid(const Alignment& aln) {
 
 const string NGSSimulator::alphabet = "ACGT";
 
-NGSSimulator::NGSSimulator(xg::XG& xg_index,
+NGSSimulator::NGSSimulator(PathPositionHandleGraph& xg_index,
                            const string& ngs_fastq_file,
                            bool interleaved_fastq,
                            const vector<string>& source_paths_input,
@@ -597,6 +598,10 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
     , source_paths(source_paths_input)
     , joint_initial_distr(seed - 1)
 {
+    xg_index.for_each_handle([&](const handle_t& handle) {
+            total_seq_length += xg_index.get_length(handle);
+        });
+    
     if (!source_paths.empty() && !transcript_expressions.empty()) {
         cerr << "error:[NGSSimulator] cannot simultaneously limit sampling to paths and match an expresssion profile" << endl;
         exit(1);
@@ -630,7 +635,7 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
     }
     
     if (source_paths.empty() && transcript_expressions.empty()) {
-        start_pos_samplers.emplace_back(1, xg_index.seq_length);
+        start_pos_samplers.emplace_back(1, total_seq_length);
     }
     else if (!source_paths.empty()) {
         vector<size_t> path_sizes;
@@ -768,7 +773,7 @@ Alignment NGSSimulator::sample_read() {
     apply_N_mask(*aln.mutable_sequence(), qual_and_masks.second);
     
     aln.set_name(get_read_name());
-    xg_annotate_with_initial_path_positions(&xg_index, aln);
+    algorithms::annotate_with_initial_path_positions(xg_index, aln);
     return aln;
 }
 
@@ -874,8 +879,8 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     string name = get_read_name();
     aln_pair.first.set_name(name + "_1");
     aln_pair.second.set_name(name + "_2");
-    xg_annotate_with_initial_path_positions(&xg_index, aln_pair.first);
-    xg_annotate_with_initial_path_positions(&xg_index, aln_pair.second);
+    algorithms::annotate_with_initial_path_positions(xg_index, aln_pair.first);
+    algorithms::annotate_with_initial_path_positions(xg_index, aln_pair.second);
     return aln_pair;
 }
 
@@ -1001,8 +1006,7 @@ bool NGSSimulator::advance(size_t& offset, bool& is_reverse, pos_t& pos, char& g
 bool NGSSimulator::advance_on_graph(pos_t& pos, char& graph_char) {
     
     // choose a next position at random
-    map<pos_t, char> next_pos_chars = xg_next_pos_chars(pos,
-                                                        &xg_index);
+    map<pos_t, char> next_pos_chars = algorithms::next_pos_chars(xg_index, pos);
     if (next_pos_chars.empty()) {
         return true;
     }
@@ -1343,9 +1347,9 @@ pos_t NGSSimulator::sample_start_graph_pos() {
     assert(start_pos_samplers.size() == 1);
     size_t idx = start_pos_samplers[0](prng);
     
-    id_t id = xg_index.node_at_seq_pos(idx);
+    id_t id = dynamic_cast<VectorizableHandleGraph&>(xg_index).node_at_vector_offset(idx);
     bool rev = strand_sampler(prng);
-    size_t node_offset = idx - xg_index.node_start(id) - 1;
+    size_t node_offset = idx - dynamic_cast<VectorizableHandleGraph&>(xg_index).node_vector_offset(id) - 1;
     
     return make_pos_t(id, rev, node_offset);
 }

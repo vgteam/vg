@@ -1692,26 +1692,6 @@ Alignment Mapper::align(const string& seq, int kmer_size, int stride, int max_me
     return align(aln, kmer_size, stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
 }
 
-// gives just the first positions we encounter
-unordered_map<path_handle_t, vector<pair<size_t, bool> > > Mapper::alignment_path_offsets(const Alignment& aln) const {
-    unordered_map<path_handle_t, vector<pair<size_t, bool> > > positions;
-    for (auto& mapping : aln.path().mapping()) {
-        if (mapping.has_position()) {
-            xindex->get_handle(mapping.position().node_id());
-            pos_t pos = make_pos_t(mapping.position());
-            auto offsets = algorithms::nearest_offsets_in_paths(xindex, pos, -1);
-            for (auto& path : offsets) {
-                auto& path_positions = positions[path.first];
-                for (auto& pos : path.second) {
-                    path_positions.push_back(pos);
-                }
-            }
-            break;
-        }
-    }
-    return positions;
-}
-
 vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_mate) {
     // when we don't have paths we can't properly estimate the mate position
     if (xindex->get_path_count() == 0) {
@@ -1953,8 +1933,8 @@ bool Mapper::pair_consistent(Alignment& aln1,
     } else {
         // use the distance induced by the graph paths
         // won't recompute if we already have refpos
-        annotate_with_initial_path_positions(aln1);
-        annotate_with_initial_path_positions(aln2);
+        algorithms::annotate_with_initial_path_positions(*xindex, aln1);
+        algorithms::annotate_with_initial_path_positions(*xindex, aln2);
         map<string, vector<pair<size_t, bool> > > offsets1 = alignment_refpos_to_path_offsets(aln1);
         map<string, vector<pair<size_t, bool> > > offsets2 = alignment_refpos_to_path_offsets(aln2);
         auto pos_consistent =
@@ -2679,8 +2659,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     if (!results.first.empty() && !results.second.empty()) {
         // if we have references, annotate the alignments with their reference positions
-        annotate_with_initial_path_positions(results.first);
-        annotate_with_initial_path_positions(results.second);
+        algorithms::annotate_with_initial_path_positions(*xindex, results.first);
+        algorithms::annotate_with_initial_path_positions(*xindex, results.second);
 
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
         auto used_time = chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
@@ -2690,20 +2670,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     return results;
 
-}
-
-void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns) const {
-    for (auto& aln : alns) annotate_with_initial_path_positions(aln);
-}
-
-void Mapper::annotate_with_initial_path_positions(Alignment& aln) const {
-    unordered_map<path_handle_t, vector<pair<size_t, bool> > > positions = alignment_path_offsets(aln);
-    for (auto& path : positions) {
-        Position* refpos = aln.add_refpos();
-        refpos->set_name(xindex->get_path_name(path.first));
-        refpos->set_offset(path.second.front().first);
-        refpos->set_is_reverse(path.second.front().second);
-    }
 }
 
 double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters,
@@ -3222,8 +3188,8 @@ VG Mapper::cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExa
 // estimate the fragment length as the difference in mean positions of both alignments
 unordered_map<path_handle_t, int64_t> Mapper::min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
     unordered_map<path_handle_t, int64_t> lengths;
-    auto pos1 = alignment_path_offsets(aln1);
-    auto pos2 = alignment_path_offsets(aln2);
+    auto pos1 = algorithms::alignment_path_offsets(*xindex, aln1);
+    auto pos2 = algorithms::alignment_path_offsets(*xindex, aln2);
     for (auto& p : pos1) {
         auto x = pos2.find(p.first);
         if (x != pos2.end()) {
@@ -3281,8 +3247,8 @@ void FragmentLengthStatistics::record_fragment_configuration(const Alignment& al
     if (fixed_fragment_model) return;
     assert(aln1.path().mapping(0).has_position() && aln2.path().mapping(0).has_position());    
     unordered_map<path_handle_t, tuple<int64_t, bool, bool> > lengths;
-    auto pos1 = mapper->alignment_path_offsets(aln1);
-    auto pos2 = mapper->alignment_path_offsets(aln2);
+    auto pos1 = algorithms::alignment_path_offsets(*mapper->xindex, aln1);
+    auto pos2 = algorithms::alignment_path_offsets(*mapper->xindex, aln2);
     for (auto& p : pos1) {
         auto x = pos2.find(p.first);
         if (x != pos2.end()) {
@@ -3863,7 +3829,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
     }
 #endif
     
-    annotate_with_initial_path_positions(alignments);
+    algorithms::annotate_with_initial_path_positions(*xindex, alignments);
     chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
     // set time for alignment
     alignments.front().set_time_used(chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count());
@@ -4287,7 +4253,7 @@ AlignmentChainModel::AlignmentChainModel(
             v.weight = aln.score();
             v.prev = nullptr;
             v.score = 0;
-            v.positions = mapper->alignment_path_offsets(aln);
+            v.positions = algorithms::alignment_path_offsets(*mapper->xindex, aln);
             v.positions[handlegraph::as_path_handle(0)].push_back(make_pair(mapper->approx_alignment_position(aln), false));
             model.push_back(v);
             // mapper->counter[1]++;
