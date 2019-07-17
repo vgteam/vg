@@ -256,6 +256,7 @@ public:
     int unpaired_penalty = 17;
     bool precollapse_order_length_hits = true;
     double avg_node_length = 0;
+    size_t total_seq_length = 0;
     
     // The recombination rate (negative log per-base recombination probability) for haplotype-aware mapping
     double recombination_penalty = 20.7; // 9 * 2.3 = 20.7

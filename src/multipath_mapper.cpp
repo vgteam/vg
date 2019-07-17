@@ -23,7 +23,7 @@ namespace vg {
     //size_t MultipathMapper::SECONDARY_RESCUE_ATTEMPT = 0;
     //size_t MultipathMapper::SECONDARY_RESCUE_TOTAL = 0;
     
-    MultipathMapper::MultipathMapper(XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
+    MultipathMapper::MultipathMapper(PathPositionHandleGraph* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                                      haplo::ScoreProvider* haplo_score_provider, SnarlManager* snarl_manager,
                                      MinimumDistanceIndex* distance_index) :
         BaseMapper(xg_index, gcsa_index, lcp_array, haplo_score_provider),
@@ -617,7 +617,7 @@ namespace vg {
             return iter->second;
         }
         else {
-            double p_value = 1.0 - pow(1.0 - exp(-(match_length * pseudo_length_multiplier)), xindex->seq_length * read_length);
+            double p_value = 1.0 - pow(1.0 - exp(-(match_length * pseudo_length_multiplier)), total_seq_length * read_length);
             if (p_value_memo.size() < max_p_value_memo_size) {
                 p_value_memo[make_pair(match_length, read_length)] = p_value;
             }
@@ -678,7 +678,7 @@ namespace vg {
                 double length = lengths[i];
                 accumulator = add_log(accumulator, log(length) - scale * length - log(1.0 - exp(-scale * length)));
             }
-            accumulator += log(xindex->seq_length * simulated_read_length - 1.0);
+            accumulator += log(total_seq_length * simulated_read_length - 1.0);
             return add_log(accumulator, log(num_simulations / scale));
         };
         
@@ -688,7 +688,7 @@ namespace vg {
                 double length = lengths[i];
                 accumulator = add_log(accumulator, 2.0 * log(length) - scale * length - 2.0 * log(1.0 - exp(-scale * length)));
             }
-            accumulator += log(xindex->seq_length * simulated_read_length - 1.0);
+            accumulator += log(total_seq_length * simulated_read_length - 1.0);
             return add_log(accumulator, log(num_simulations / (scale * scale)));
         };
         
@@ -3251,7 +3251,8 @@ namespace vg {
                 
                 if (haplotype_count == 0 || haplotype_count == -1) {
                     // The score provider doesn't ahve a haplotype count. Fall back to the count in the XG.
-                    haplotype_count = xindex->get_haplotype_count();
+                    // No longer available!
+                    //haplotype_count = xindex->get_haplotype_count();
                 }
                 
                 if (haplotype_count == 0 || haplotype_count == -1) {
@@ -3574,7 +3575,7 @@ namespace vg {
                 
                 if (haplotype_count == 0 || haplotype_count == -1) {
                     // The score provider doesn't ahve a haplotype count. Fall back to the count in the XG.
-                    haplotype_count = xindex->get_haplotype_count();
+                    //haplotype_count = xindex->get_haplotype_count();
                 }
                 
                 if (haplotype_count == 0 || haplotype_count == -1) {
@@ -3873,7 +3874,7 @@ namespace vg {
     }
     
     void MultipathMapper::set_automatic_min_clustering_length(double random_mem_probability) {
-        min_clustering_mem_length = max<int>(log(1.0 - pow(random_mem_probability, 1.0 / xindex->seq_length)) / log(0.25), 1);
+        min_clustering_mem_length = max<int>(log(1.0 - pow(random_mem_probability, 1.0 / total_seq_length)) / log(0.25), 1);
     }
             
     // make the memos live in this .o file

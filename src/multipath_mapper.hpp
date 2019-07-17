@@ -12,7 +12,6 @@
 #include "aligner.hpp"
 #include "types.hpp"
 #include "multipath_alignment.hpp"
-#include "xg.hpp"
 #include <vg/vg.pb.h>
 #include "position.hpp"
 #include "nodeside.hpp"
@@ -64,7 +63,7 @@ namespace vg {
         // Interface
         ////////////////////////////////////////////////////////////////////////
     
-        MultipathMapper(XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
+        MultipathMapper(PathPositionHandleGraph* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                         haplo::ScoreProvider* haplo_score_provider = nullptr, SnarlManager* snarl_manager = nullptr,
                         MinimumDistanceIndex* distance_index = nullptr);
         ~MultipathMapper();
