@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../handle.hpp"
+#include "../position.hpp"
 #include <vg/vg.pb.h>
 #include <functional>
 #include "nearest_offsets_in_paths.hpp"

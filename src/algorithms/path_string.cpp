@@ -5,7 +5,7 @@ namespace algorithms {
 
 using namespace std;
 
-void append_mapping_sequence(const Mapping& mp, const string& node_seq, string& seq) {
+void append_mapping_sequence(const Mapping& m, const string& node_seq, string& seq) {
     size_t t = 0;
     size_t f = m.position().offset();
     for (size_t i = 0; i < m.edit_size(); ++i) {
@@ -31,7 +31,7 @@ string path_string(const HandleGraph& graph, const Path& path) {
         append_mapping_sequence(m,
                                 graph.get_sequence(
                                     graph.get_handle(m.position().node_id(),
-                                                     m.position.is_reverse())),
+                                                     m.position().is_reverse())),
                                 seq);
     }
     return seq;
