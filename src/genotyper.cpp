@@ -472,9 +472,15 @@ vector<SnarlTraversal> Genotyper::get_snarl_traversals(AugmentedGraph& augmented
         // representative search from vg call.  only current implementation that works for big sites
         // Now start looking for traversals of the sites.
         auto* finder = new RepresentativeTraversalFinder(
-            augmented_graph, manager, 1000, 1000,
+            augmented_graph.graph, manager, 1000, 1000,
             100, 1, 1, [&] (const Snarl& site) -> PathIndex* {
                 return ref_path_index;
+            },
+            [&] (id_t node) -> Support {
+                return augmented_graph.get_support(node);
+            },
+            [&] (edge_t edge) -> Support {
+                return augmented_graph.get_support(edge);
             });
 
         // Since we can't sensibly handle any children, glom trivial children in.

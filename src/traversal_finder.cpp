@@ -915,9 +915,8 @@ pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > PathT
     
     return make_pair(out_travs, out_steps);
 }
- 
 
-TrivialTraversalFinder::TrivialTraversalFinder(VG& graph) : graph(graph) {
+TrivialTraversalFinder::TrivialTraversalFinder(const HandleGraph& graph) : graph(graph) {
     // Nothing to do!
 }
 
@@ -931,20 +930,20 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
     // We don't want to be duplicating partial paths, so we store for each
     // NodeTraversal we can reach the previous NodeTraversal we can reach it
     // from.
-    map<NodeTraversal, NodeTraversal> previous;
+    unordered_map<handle_t, handle_t> previous;
     
-    list<NodeTraversal> stack{to_node_traversal(site.start(), graph)};
+    list<handle_t> stack{graph.get_handle(site.start().node_id(), site.start().backward())};
     
     while (!stack.empty()) { 
         // While there's still stuff on the stack
         
         // Grab the first thing
-        NodeTraversal here = stack.front();
+        handle_t here = stack.front();
         stack.pop_front();
         
-        if (here.node->id() == site.end().node_id()) {
+        if (graph.get_id(here) == site.end().node_id()) {
             // Trace back a path
-            list<NodeTraversal> path;
+            list<handle_t> path;
             
             while (true) {
                 // Until we get to the start of the site
@@ -952,7 +951,7 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
                 // Put this traversal on the front of the path
                 path.push_front(here);
                 
-                if (here.node->id() == site.start().node_id()) {
+                if (graph.get_id(here) == site.start().node_id()) {
                     // Stop when we've reached the start of the site
                     break;
                 }
@@ -965,27 +964,24 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
             to_return.emplace_back();
             
             // Translate the path into the traversal
-            for (NodeTraversal node_traversal : path) {
-                *(to_return.back().add_visit()) = to_visit(node_traversal);
+            for (handle_t node_traversal : path) {
+                *(to_return.back().add_visit()) = to_visit(graph, node_traversal);
             }
             
             // Stop early after having found one path
             break;
         } else {
             // We haven't reached the end of the site
-            
-            for (NodeTraversal next : graph.nodes_next(here)) {
-                // Look at all the places we can go from this node
-                if (previous.count(next)) {
-                    // We already know how to get there.
-                    continue;
-                }
-                
-                // Remember how we got there
-                previous[next] = here;
-                // Explore it, depth first
-                stack.push_front(next);
-            }
+
+            graph.follow_edges(here, false, [&] (const handle_t& next) {
+                    // Look at all the places we can go from this node
+                    if (!previous.count(next)) {
+                        // Remember how we got there
+                        previous[next] = here;
+                        // Explore it, depth first
+                        stack.push_front(next);
+                    }
+                });
         }
     }
     
@@ -993,18 +989,20 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
     return to_return;
 }
 
-
-RepresentativeTraversalFinder::RepresentativeTraversalFinder(AugmentedGraph& augmented,
+RepresentativeTraversalFinder::RepresentativeTraversalFinder(const PathHandleGraph& graph,
                                                              SnarlManager& snarl_manager,
                                                              size_t max_depth,
                                                              size_t max_width,
                                                              size_t max_bubble_paths,
                                                              size_t min_node_support,
                                                              size_t min_edge_support,
-                                                             function<PathIndex*(const Snarl&)> get_index) :
-  augmented(augmented), snarl_manager(snarl_manager), max_depth(max_depth), max_width(max_width),
+                                                             function<PathIndex*(const Snarl&)> get_index,
+                                                             function<Support(id_t)> get_node_support,
+                                                             function<Support(edge_t)> get_edge_support) :
+  graph(graph), snarl_manager(snarl_manager), max_depth(max_depth), max_width(max_width),
   max_bubble_paths(max_bubble_paths), min_node_support(min_node_support), min_edge_support(min_edge_support),
-  get_index(get_index) {
+  get_index(get_index), get_node_support(get_node_support), get_edge_support(get_edge_support) {
+    has_supports = this->get_node_support != nullptr && this->get_edge_support != nullptr;
     
     // Nothing to do!
 
@@ -1017,7 +1015,7 @@ Path RepresentativeTraversalFinder::find_backbone(const Snarl& site) {
 
     // Find a traversal, ignoring the fact that child sites ought to own their
     // nodes.
-    TrivialTraversalFinder finder(augmented.graph);
+    TrivialTraversalFinder finder(graph);
     auto traversals = finder.find_traversals(site);
     assert(!traversals.empty());
     auto& traversal = traversals.front();
@@ -1025,7 +1023,7 @@ Path RepresentativeTraversalFinder::find_backbone(const Snarl& site) {
     // Convert it into a path that includes the boundary nodes
     Path to_return;
     for (size_t i = 0; i < traversal.visit_size(); i++) {
-        *to_return.add_mapping() = to_mapping(traversal.visit(i), augmented.graph);
+        *to_return.add_mapping() = to_mapping(traversal.visit(i), graph);
     }
     
     return to_return;
@@ -1072,12 +1070,12 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     
     // Get the site's nodes and edges, including our outer boundary nodes, not used inside children.
     // TODO: can we not include the child boundaries? Would that make things easier?
-    pair<unordered_set<id_t>, unordered_set<edge_t>> contents = snarl_manager.shallow_contents(&site, augmented.graph, true);
+    pair<unordered_set<id_t>, unordered_set<edge_t>> contents = snarl_manager.shallow_contents(&site, graph, true);
     
     // Copy its node set
-    unordered_set<Node*> nodes_left;
+    unordered_set<id_t> nodes_left;
     for (id_t node_id : contents.first) {
-        nodes_left.insert(augmented.graph.get_node(node_id));
+        nodes_left.insert(node_id);
     }
 
     // Trace the ref path through the site.
@@ -1088,13 +1086,13 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     size_t site_end = index.by_id.at(site.end().node_id()).first;
     
 #ifdef debug
-    cerr << "Site starts with " << to_node_traversal(site.start(), augmented.graph)
+    cerr << "Site starts with " << to_node_traversal(site.start(), graph)
          << " at " << site_start
-         << " and ends with " << to_node_traversal(site.end(), augmented.graph)
+         << " and ends with " << to_node_traversal(site.end(), graph)
          << " at " << site_end << endl;
         
-    for (Node* node : nodes_left) {
-        cerr << "\tContains node " << node->id() << endl;
+    for (id_t node : nodes_left) {
+        cerr << "\tContains node " << node << endl;
     }
 #endif
 
@@ -1128,12 +1126,12 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         Visit found_visit = found->second.to_visit();
         
         // What node did we hit?
-        Node* visited_node = augmented.graph.get_node(found_visit.node_id());
+        id_t visited_node = found_visit.node_id();
         
         const Snarl* child = snarl_manager.into_which_snarl(found_visit);
         if (child != nullptr && child != managed_site &&
             snarl_manager.into_which_snarl(reverse(found_visit)) != managed_site &&
-            !(eat_trivial_children && snarl_manager.is_trivial(child, augmented.graph))) {
+            !(eat_trivial_children && snarl_manager.is_trivial(child, graph))) {
             // If the node in this orientation enters a child, and it's not a
             // trivial child we are taking care of ourselves
         
@@ -1153,34 +1151,34 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         
             // And skip to its other end.
             // TODO: the path is not allowed to end inside the snarl.
-            Node* here = visited_node;
+            id_t here = visited_node;
             do {
 #ifdef debug
                 cerr << "at node " << pb2json(*here) << endl;
 #endif
                 // Advance
-                ref_node_start = found->first + here->sequence().size();
+                ref_node_start = found->first + graph.get_length(graph.get_handle(here));
                 // And look at what we get
                 found = index.by_start.lower_bound(ref_node_start);
                 assert(found != index.by_start.end());
                 // And grab out the node
                 found_visit = found->second.to_visit();
-                here = augmented.graph.get_node(found_visit.node_id());
+                here = found_visit.node_id();
                 // Until we find something in this parent again that isn't the
                 // closing visit of a child snarl. We'll look at what we find
                 // next.
-            } while (!contents.first.count(here->id()));
+            } while (!contents.first.count(here));
             
             if (snarl_manager.into_which_snarl(reverse(found_visit)) != nullptr) {
                 // We hit the end node of the child snarl.
                 
                 if (snarl_manager.into_which_snarl(found_visit) == nullptr) {
                     // We don't have another child snarl immediately. Look at the node after this one.
-                    ref_node_start = found->first + here->sequence().size();
+                    ref_node_start = found->first + graph.get_length(graph.get_handle(here));
                     found = index.by_start.lower_bound(ref_node_start);
                     assert(found != index.by_start.end());
                     found_visit = found->second.to_visit();
-                    here = augmented.graph.get_node(found_visit.node_id());
+                    here = found_visit.node_id();
                 } else {
                     // It's also the start node of another child snarl, so loop
                     // on it again. Do nothing here.
@@ -1192,7 +1190,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             
             // Make sure we actually found something meeting those criteria.
             // TODO: the path is not allowed to end inside the snarl.
-            assert(contents.first.count(here->id()));
+            assert(contents.first.count(here));
         } else {
             // Otherwise, visit this node
             
@@ -1207,7 +1205,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             
             
             // Next iteration look where this node ends.
-            ref_node_start = found->first + visited_node->sequence().size();
+            ref_node_start = found->first + graph.get_length(graph.get_handle(visited_node));
         }
         
 #ifdef debug
@@ -1223,16 +1221,15 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         // Make sure none of the nodes in the site that we didn't visit
         // while tracing along the ref path are on the ref path.
         
-        if (snarl_manager.into_which_snarl(node->id(), true) || snarl_manager.into_which_snarl(node->id(), false)) {
+        if (snarl_manager.into_which_snarl(node, true) || snarl_manager.into_which_snarl(node, false)) {
             // Skip child boundary nodes.
             continue;
         }
         
-        if(index.by_id.count(node->id())) {
-            cerr << "error[RepresentativeTraversalFinder]: Node " << node->id() << " is on backbone path at "
-                 << index.by_id.at(node->id()).first << " but not traced in site "
-                 << to_node_traversal(site.start(), augmented.graph) << " to " 
-                 << to_node_traversal(site.end(), augmented.graph) << " that contains it." << endl;
+        if(index.by_id.count(node)) {
+            cerr << "error[RepresentativeTraversalFinder]: Node " << node << " is on backbone path at "
+                 << index.by_id.at(node).first << " but not traced in site "
+                 << pb2json(site) << endl;
             cerr << "error[RepresentativeTraversalFinder]: This can happen when the path you are calling "
                  << "against traverses the same part of your graph twice." << endl;
             throw runtime_error("Extra ref node found");
@@ -1532,30 +1529,29 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
 #endif
 
     for (id_t node_id : contents.first) {
-        Node* node = augmented.graph.get_node(node_id);
         // Find the bubble for each node
         
-        if (snarl_manager.into_which_snarl(node->id(), true) || snarl_manager.into_which_snarl(node->id(), false)) {
+        if (snarl_manager.into_which_snarl(node_id, true) || snarl_manager.into_which_snarl(node_id, false)) {
             // Don't start from nodes that are child boundaries
             continue;
         }
         
-        if (augmented.has_supports() && total(augmented.get_support(node)) < min_node_support) {
+        if (has_supports && total(get_node_support(node_id)) < min_node_support) {
             // Don't bother with unsupported nodes
             continue;
         }
         
-        if (index.by_id.count(node->id())) {
+        if (index.by_id.count(node_id)) {
             // Don't try to pathfind to the backbone for backbone nodes.
             continue;
         }
         
 #ifdef debug
-        cerr << "Base path on " << node->id() << endl;
+        cerr << "Base path on " << node_id << endl;
 #endif
         
         // Find bubbles that backend into the backbone path
-        pair<Support, vector<Visit>> sup_path = find_bubble(node, nullptr, nullptr, index, site);
+        pair<Support, vector<Visit>> sup_path = find_bubble(node_id, nullptr, nullptr, index, site);
 
         vector<Visit>& path = sup_path.second;
         
@@ -1563,7 +1559,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             // We couldn't find a path back to the primary path. Discard
             // this material.
             if (verbose) {
-                cerr << "Warning: No path found for node " << node->id() << endl;
+                cerr << "Warning: No path found for node " << node_id << endl;
             }
             // TODO: record the node's bases as lost.
             
@@ -1581,44 +1577,42 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     cerr << "Explore " << contents.second.size() << " edges" << endl;
 #endif
 
-    for(const edge_t edge_handle : contents.second) {
-        Edge* edge = augmented.graph.get_edge(
-            NodeTraversal(augmented.graph.get_node(augmented.graph.get_id(edge_handle.first)),
-                          augmented.graph.get_is_reverse(edge_handle.first)),
-            NodeTraversal(augmented.graph.get_node(augmented.graph.get_id(edge_handle.second)),
-                          augmented.graph.get_is_reverse(edge_handle.second)));
+    for(const edge_t edge : contents.second) {
         // Go through all the edges
         
-        if(augmented.has_supports() && total(augmented.get_support(edge)) < min_edge_support) {
+        if(has_supports && total(get_edge_support(edge)) < min_edge_support) {
             // Don't bother with unsupported edges
 #ifdef debug
-            cerr << "Skip unsupported edge " << edge->from() << " -> " << edge->to() << endl;
+            cerr << "Skip unsupported edge " << graph.get_id(edge.first) << ":" << graph.get_is_reverse(edge.first)
+                 << " -> " << graph.get_id(edge.second) << ":" << graph.get_is_reverse(edge.second) << endl;
 #endif
             continue;
         }
         
-        if(!index.by_id.count(edge->from()) || !index.by_id.count(edge->to())) {
+        if(!index.by_id.count(graph.get_id(edge.first)) || !index.by_id.count(graph.get_id(edge.second))) {
             // Edge doesn't touch backbone at both ends. Don't use it
             // because for some reason it makes performance worse
             // overall.
 #ifdef debug
-            cerr << "Skip off-backbone edge " << edge->from() << " -> " << edge->to() << endl;
+            cerr << "Skip off-backbone edge " << graph.get_id(edge.first) << ":" << graph.get_is_reverse(edge.first)
+                 << " -> " << graph.get_id(edge.second) << ":" << graph.get_is_reverse(edge.second) << endl;
 #endif
             continue;
         }
         
 #ifdef debug
-        cerr << "Base path on " << edge->from() << " " << edge->from_start()
-            << " -> " << edge->to() << " " << edge->to_end() << endl;
+        cerr << "Base path on " << graph.get_id(edge.first) << ":" << graph.get_is_reverse(edge.first)
+             << " -> " << graph.get_id(edge.second) << ":" << graph.get_is_reverse(edge.second) << endl;
 #endif
         
         // Find a path based around this edge
-        pair<Support, vector<Visit>> sup_path = find_bubble(nullptr, edge, nullptr, index, site);
+        pair<Support, vector<Visit>> sup_path = find_bubble(0, &edge, nullptr, index, site);
         vector<Visit>& path = sup_path.second;
         
 #ifdef debug
-        cerr << "Edge " << edge->from() << " " << edge->from_start() << " to "
-            << edge->to() << " " << edge->to_end() << " yields:" << endl;
+        cerr << "Edge " << graph.get_id(edge.first) << ":" << graph.get_is_reverse(edge.first)
+             << " -> " << graph.get_id(edge.second) << ":" << graph.get_is_reverse(edge.second)
+            << " yields:" << endl;
         for(auto& visit : path) {
             cerr << "\t" << visit << endl;
         }
@@ -1628,7 +1622,8 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             // We couldn't find a path back to the primary path. Discard
             // this material.
             if (verbose) {
-                cerr << "Warning: No path found for edge " << edge->from() << "," << edge->to() << endl;
+                cerr << "Warning: No path found for edge " << graph.get_id(edge.first) << ":" << graph.get_is_reverse(edge.first)
+                     << " -> " << graph.get_id(edge.second) << ":" << graph.get_is_reverse(edge.second) << endl;
             }
             // TODO: bases lost
             continue;
@@ -1647,7 +1642,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     for (const Snarl* child : children) {
         // Go through all the child snarls
 
-        if (eat_trivial_children && snarl_manager.is_trivial(child, augmented.graph)) {
+        if (eat_trivial_children && snarl_manager.is_trivial(child, graph)) {
             // Skip trivial children
             continue;
         }
@@ -1657,7 +1652,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
 #endif
         
         // Find a path based around this child snarl
-        pair<Support, vector<Visit>> sup_path = find_bubble(nullptr, nullptr, child, index, site);
+        pair<Support, vector<Visit>> sup_path = find_bubble(0, nullptr, child, index, site);
         vector<Visit>& path = sup_path.second;
         
         if(path.empty()) {
@@ -1738,7 +1733,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     return unique_traversals;
 }
 
-pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* node, Edge* edge,
+pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(id_t node, const edge_t* edge,
                                                                         const Snarl* snarl, PathIndex& index, const Snarl& site) {
 
     // What are we going to find our left and right path halves based on?
@@ -1752,8 +1747,8 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
         
         // Find the nodes at the ends of the edges. Look at them traversed in the
         // edge's local orientation.
-        left_visit = to_visit(edge->from(), edge->from_start());
-        right_visit = to_visit(edge->to(), edge->to_end());
+        left_visit = to_visit(graph, edge->first);
+        right_visit = to_visit(graph, edge->second);
         
         // Find any child snarls looking out form the edge
         const Snarl* right_child = snarl_manager.into_which_snarl(right_visit);
@@ -1802,10 +1797,10 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
         cerr << "Edge becomes " << left_visit << " -> " << right_visit << endl;
 #endif
         
-    } else if (node != nullptr) {
+    } else if (node != 0) {
         // Be node-based. TODO: we trust the caller not to feed us nodes that
         // are part of/boundaries of child snarls.
-        left_visit = right_visit = to_visit(node->id(), false);
+        left_visit = right_visit = to_visit(node, false);
     } else {
         // Be snarl-based
         assert(snarl != nullptr);
@@ -2097,7 +2092,7 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
 
 Support RepresentativeTraversalFinder::min_support_in_path(const list<Visit>& path) {
     
-    if (path.empty()) {
+    if (path.empty() || !has_supports) {
         // No support if we visit nothing!
         return Support();
     }
@@ -2115,7 +2110,7 @@ Support RepresentativeTraversalFinder::min_support_in_path(const list<Visit>& pa
     
     if (cur->node_id() != 0) {
         // We're at a node visit, so we have a support to start with
-        minSupport = augmented.get_support(augmented.graph.get_node(cur->node_id()));
+        minSupport = get_node_support(cur->node_id());
         if (cur->backward()) {
             // Put the support in the path forward direction
             minSupport = flip(minSupport);
@@ -2128,7 +2123,7 @@ Support RepresentativeTraversalFinder::min_support_in_path(const list<Visit>& pa
     
         if (next->node_id() != 0) {
             // The next visit is to a node, so get its support
-            Support nextSupport = augmented.get_support(augmented.graph.get_node(next->node_id()));
+            Support nextSupport = get_node_support(next->node_id());
             
             if (next->backward()) {
                 // This occurs backward on the path, so flip its support
@@ -2148,11 +2143,14 @@ Support RepresentativeTraversalFinder::min_support_in_path(const list<Visit>& pa
         // TODO: Support for child snarls!
     
         // check the edge support
-        Edge* edge = augmented.graph.get_edge(to_right_side(*cur), to_left_side(*next));
-        
-        if (edge != nullptr) {
+        NodeSide from_side = to_right_side(*cur);
+        NodeSide to_side = to_left_side(*next);
+        edge_t edge = graph.edge_handle(graph.get_handle(from_side.node, !from_side.is_end),
+                                        graph.get_handle(to_side.node, to_side.is_end));
+                          
+        if (graph.has_edge(edge.first, edge.second)) {
             // The edge exists (because we aren't back-to-back child snarls)
-            Support edgeSupport = augmented.get_support(edge);
+            Support edgeSupport = get_edge_support(edge);
             
             if (cur->node_id() > next->node_id() || (cur->node_id() == next->node_id() && cur->backward())) {
                 // We are taking the edge backward, so flip its support
@@ -2387,7 +2385,7 @@ RepresentativeTraversalFinder::bfs_left(Visit visit,
             // with all the possible extensions.
             
             // Look left, possibly entering child snarls
-            vector<Visit> prevVisits = snarl_manager.visits_left(path.front(), augmented.graph, in_snarl);
+            vector<Visit> prevVisits = snarl_manager.visits_left(path.front(), graph, in_snarl);
             
 #ifdef debug
             cerr << "Consider " << prevVisits.size() << " prev visits" << endl;
@@ -2401,23 +2399,27 @@ RepresentativeTraversalFinder::bfs_left(Visit visit,
                 
                 if (prevVisit.node_id() != 0) {
                     // This is a visit to a node
-                    
+
+                    NodeSide from_side = to_right_side(prevVisit);
+                    NodeSide to_side = to_left_side(path.front());
+                    edge_t edge = graph.edge_handle(graph.get_handle(from_side.node, !from_side.is_end),
+                                        graph.get_handle(to_side.node, to_side.is_end));
+
                     // Make sure the edge is real, since it can't be a back-to-
                     // back site
-                    Edge* edge = augmented.graph.get_edge(to_right_side(prevVisit), to_left_side(path.front()));
-                    assert(edge != NULL);
+                    assert(graph.has_edge(edge.first, edge.second));
                 
                     // Fetch the actual node
-                    Node* prevNode = augmented.graph.get_node(prevVisit.node_id());
+                    id_t prevNode = prevVisit.node_id();
                     
-                    if (augmented.has_supports() && 
-                        (total(augmented.get_support(prevNode)) < min_node_support ||
-                         total(augmented.get_support(edge)) < min_edge_support)) {
+                    if (has_supports &&
+                        (total(get_node_support(prevNode)) < min_node_support ||
+                         total(get_edge_support(edge)) < min_edge_support)) {
                         // We have no support at all for visiting this node by this
                         // edge (but we do have some read support data)
                         
 #ifdef debug
-                        cerr << "Reject " << prevNode->id() << " with no support" << endl;
+                        cerr << "Reject " << prevNode << " with no support" << endl;
 #endif
                         
                         continue;
@@ -2427,9 +2429,9 @@ RepresentativeTraversalFinder::bfs_left(Visit visit,
                     
                     // Look at the node we would leave the child snarl on
                     // That node can't be shared with a snarl we are already at.
-                    Node* prevNode = augmented.graph.get_node(to_left_side(prevVisit).node);
+                    id_t prevNode = to_left_side(prevVisit).node;
                     
-                    if (augmented.has_supports() && total(augmented.get_support(prevNode)) < min_node_support) {
+                    if (has_supports && total(get_node_support(prevNode)) < min_node_support) {
                         // We have no support at all for visiting the far node of this snarl
                         
 #ifdef debug
@@ -2526,7 +2528,7 @@ size_t RepresentativeTraversalFinder::bp_length(const structures::ImmutableList<
     for(auto& visit : path) {
         // Sum up length of each node's sequence
         if (visit.node_id() != 0) {
-            length += augmented.graph.get_node(visit.node_id())->sequence().size();
+            length += graph.get_length(graph.get_handle(visit.node_id()));
         }
         // TODO: handle nested sites
     }

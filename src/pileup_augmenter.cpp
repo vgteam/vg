@@ -899,9 +899,9 @@ void PileupAugmenter::create_node_calls(const NodePileup& np) {
 
 void PileupAugmenter::annotate_augmented_node(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset)
 {
-    _augmented_graph.node_supports[node].set_forward(support.fs);
-    _augmented_graph.node_supports[node].set_reverse(support.rs);
-    _augmented_graph.node_supports[node].set_quality(support.qual);
+    _augmented_graph.node_supports[node->id()].set_forward(support.fs);
+    _augmented_graph.node_supports[node->id()].set_reverse(support.rs);
+    _augmented_graph.node_supports[node->id()].set_quality(support.qual);
     
     if (orig_id != 0 && call != 'S' && call != 'I') {
         // Add translations for preserved parts
@@ -924,9 +924,11 @@ void PileupAugmenter::annotate_augmented_node(Node* node, char call, StrandSuppo
 
 void PileupAugmenter::annotate_augmented_edge(Edge* edge, char call, StrandSupport support)
 {
-    _augmented_graph.edge_supports[edge].set_forward(support.fs);
-    _augmented_graph.edge_supports[edge].set_reverse(support.rs);
-    _augmented_graph.edge_supports[edge].set_quality(support.qual);
+    edge_t edge_handle = _graph->edge_handle(_graph->get_handle(edge->from(), edge->from_start()),
+                                             _graph->get_handle(edge->to(), edge->to_end()));
+    _augmented_graph.edge_supports[edge_handle].set_forward(support.fs);
+    _augmented_graph.edge_supports[edge_handle].set_reverse(support.rs);
+    _augmented_graph.edge_supports[edge_handle].set_quality(support.qual);
 }
 
 void PileupAugmenter::annotate_augmented_nodes()

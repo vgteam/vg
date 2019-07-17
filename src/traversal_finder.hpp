@@ -226,10 +226,10 @@ public:
 class TrivialTraversalFinder : public TraversalFinder {
 
     // Holds the vg graph we are looking for traversals in.
-    VG& graph;
+    const HandleGraph& graph;
 
 public:
-    TrivialTraversalFinder(VG& graph);
+    TrivialTraversalFinder(const HandleGraph& graph);
 
     virtual ~TrivialTraversalFinder() = default;
     
@@ -249,7 +249,8 @@ class RepresentativeTraversalFinder : public TraversalFinder {
 
 protected:
     /// The annotated, augmented graph we're finding traversals in
-    AugmentedGraph& augmented;
+    const PathHandleGraph& graph;
+
     /// The SnarlManager managiung the snarls we use
     SnarlManager& snarl_manager;
     
@@ -293,7 +294,7 @@ protected:
      * (including the reference node endpoints and their edges which aren't
      * stored in the path).
      */
-    pair<Support, vector<Visit>> find_bubble(Node* node, Edge* edge, const Snarl* snarl, PathIndex& index,
+    pair<Support, vector<Visit>> find_bubble(id_t node, const edge_t* edge, const Snarl* snarl, PathIndex& index,
                                              const Snarl& site);
         
     /**
@@ -338,6 +339,13 @@ protected:
      */
     size_t bp_length(const  structures::ImmutableList<Visit>& path);
 
+    /** 
+     * Get support
+     */
+    bool has_supports = false;
+    function<Support(id_t)> get_node_support;
+    function<Support(edge_t)> get_edge_support;
+
 public:
 
     /**
@@ -352,10 +360,12 @@ public:
      * Uses the given get_index function to try and find a PathIndex for a
      * reference path traversing a child snarl.
      */
-    RepresentativeTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager,
-        size_t max_depth, size_t max_width, size_t max_bubble_paths,
-        size_t min_node_support = 1, size_t min_edge_support = 1,
-        function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; });
+    RepresentativeTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager,
+                                  size_t max_depth, size_t max_width, size_t max_bubble_paths,
+                                  size_t min_node_support = 1, size_t min_edge_support = 1,
+                                  function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; },
+                                  function<Support(id_t)> get_node_support = nullptr,
+                                  function<Support(edge_t)> get_edge_support = nullptr);
     
     /// Should we emit verbose debugging info?
     bool verbose = false;
