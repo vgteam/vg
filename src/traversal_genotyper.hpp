@@ -69,12 +69,19 @@ public:
 
     /// Get the support of a traversal
     /// Child snarls are handled as in the old call code: their maximum support is used
-    virtual Support get_traversal_support(const SnarlTraversal& traversal);
+    virtual Support get_traversal_support(const SnarlTraversal& traversal) const;
 
-    /// Get the support of a set of traversals (desribed by trav_indexes), assuming even split between overlaps
+    /// Get the support of a set of traversals.  Any support overlapping traversals in shared_travs
+    /// will have their support split.  If exclusive_only is true, then any split support gets
+    /// rounded down to 0
     virtual vector<Support> get_traversal_set_support(const vector<SnarlTraversal>& traversals,
-                                                      const vector<int>& trav_indxes,
-                                                      bool exclusive_only);
+                                                      const vector<int>& shared_travs,
+                                                      bool exclusive_only) const;
+
+protected:
+
+    /// Get the best support out of a list of supports, ignoring skips
+    static int get_best_support(const vector<Support>& supports, const vector<int>& skips);
 
 protected:
 
