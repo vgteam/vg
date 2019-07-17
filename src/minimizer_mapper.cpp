@@ -16,6 +16,7 @@
 // Set this to track provenance of intermediate results
 //#define TRACK_PROVENANCE
 // With TRACK_PROVENANCE on, set this to track correctness, which requires some expensive XG queries
+// Note that TRACK_CORRECTNESS requires an XG index, which is otherwise unnecessary.
 //#define TRACK_CORRECTNESS
 
 namespace vg {
@@ -23,10 +24,10 @@ namespace vg {
 using namespace std;
 
 
-MinimizerMapper::MinimizerMapper(const XG* xg_index, const gbwt::GBWT* gbwt_index, const MinimizerIndex* minimizer_index,
-     MinimumDistanceIndex* distance_index) :
-    xg_index(xg_index), gbwt_index(gbwt_index), minimizer_index(minimizer_index),
-    distance_index(distance_index), gbwt_graph(*gbwt_index, *xg_index),
+MinimizerMapper::MinimizerMapper(const GBWTGraph& graph, const MinimizerIndex* minimizer_index,
+     MinimumDistanceIndex* distance_index, const XG* xg_index) :
+    xg_index(xg_index), minimizer_index(minimizer_index),
+    distance_index(distance_index), gbwt_graph(graph),
     extender(gbwt_graph, *(get_regular_aligner())), clusterer(*distance_index) {
     
     // Nothing to do!

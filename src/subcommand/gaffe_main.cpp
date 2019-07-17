@@ -40,7 +40,8 @@ void help_gaffe(char** argv) {
     << "Map unpaired reads using minimizers and gapless extension." << endl
     << endl
     << "basic options:" << endl
-    << "  -x, --xg-name FILE            use this xg index (required)" << endl
+    << "  -x, --xg-name FILE            use this xg index (required if -g not specified)" << endl
+    << "  -g, --graph-name FILE         use this GBWTGraph (required if -x not specified)"
     << "  -H, --gbwt-name FILE          use this GBWT index (required)" << endl
     << "  -m, --minimizer-name FILE     use this minimizer index (required)" << endl
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
@@ -79,6 +80,7 @@ int main_gaffe(int argc, char** argv) {
 
     // initialize parameters with their default options
     string xg_name;
+    string graph_name;
     string gbwt_name;
     string minimizer_name;
     string distance_name;
@@ -126,6 +128,7 @@ int main_gaffe(int argc, char** argv) {
         {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
+            {"graph-name", required_argument, 0, 'g'},
             {"gbwt-name", required_argument, 0, 'H'},
             {"minimizer-name", required_argument, 0, 'm'},
             {"dist-name", required_argument, 0, 'd'},
@@ -152,7 +155,7 @@ int main_gaffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:w:OXt:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:w:OXt:",
                          long_options, &option_index);
 
 
@@ -169,7 +172,15 @@ int main_gaffe(int argc, char** argv) {
                     exit(1);
                 }
                 break;
-                
+
+            case 'g':
+                graph_name = optarg;
+                if (graph_name.empty()) {
+                    cerr << "error:[vg gaffe] Must provide GBGTGraph file with -g." << endl;
+                    exit(1);
+                }
+                break;
+
             case 'H':
                 gbwt_name = optarg;
                 if (gbwt_name.empty()) {
@@ -340,8 +351,8 @@ int main_gaffe(int argc, char** argv) {
     }
     
     
-    if (xg_name.empty()) {
-        cerr << "error:[vg gaffe] Mapping requires an XG index (-x)" << endl;
+    if (xg_name.empty() && graph_name.empty()) {
+        cerr << "error:[vg gaffe] Mapping requires an XG index (-x) or a GBWTGraph (-g)" << endl;
         exit(1);
     }
     
@@ -362,10 +373,10 @@ int main_gaffe(int argc, char** argv) {
     }
     
     // create in-memory objects
-    if (progress) {
+    if (progress && !xg_name.empty()) {
         cerr << "Loading XG index " << xg_name << endl;
     }
-    unique_ptr<XG> xg_index = vg::io::VPKG::load_one<XG>(xg_name);
+    unique_ptr<XG> xg_index = (xg_name.empty() ? nullptr : vg::io::VPKG::load_one<XG>(xg_name));
 
     if (progress) {
         cerr << "Loading GBWT index " << gbwt_name << endl;
@@ -385,12 +396,26 @@ int main_gaffe(int argc, char** argv) {
     distance_index.load(dist_in);
     //unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     
+    // Build the GBWTGraph.
+    if (progress) {
+        if (graph_name.empty()) {
+            cerr << "Building GBWTGraph" << endl;
+        } else {
+            cerr << "Loading GBWTGraph " << graph_name << endl;
+        }
+    }
+    GBWTGraph gbwt_graph = (graph_name.empty() ? GBWTGraph(*gbwt_index, *xg_index) : GBWTGraph(*gbwt_index));
+    if (!graph_name.empty()) {
+        ifstream in(graph_name, std::ios_base::binary);
+        gbwt_graph.load(in);
+        in.close();
+    }
 
     // Set up the mapper
     if (progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(xg_index.get(), gbwt_index.get(), minimizer_index.get(), &distance_index);
+    MinimizerMapper minimizer_mapper(gbwt_graph, minimizer_index.get(), &distance_index, xg_index.get());
 
 
     if (progress) {
