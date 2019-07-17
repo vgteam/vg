@@ -19,7 +19,7 @@ var searchData=
   ['edge_5fmax',['edge_max',['../classvg_1_1VariantAdder.html#aa17185d06cdf8969bf249fb316dbf07d',1,'vg::VariantAdder::edge_max()'],['../structPruningParameters.html#a3dbdbc8714fab9d6f2bcb282d9fa7c59',1,'PruningParameters::edge_max()']]],
   ['edge_5fpileups',['edge_pileups',['../structvg_1_1Pileup.html#af21485035738e0f7c01912f4416138b7',1,'vg::Pileup']]],
   ['edge_5fsize',['edge_size',['../classvg_1_1ProtoHandleGraph.html#a6d9e42219833d679934a9efd0e37e6c9',1,'vg::ProtoHandleGraph']]],
-  ['edge_5fsupports',['edge_supports',['../structvg_1_1SupportAugmentedGraph.html#a24dadf651f02dc783640fbfa5a0616d0',1,'vg::SupportAugmentedGraph']]],
+  ['edge_5fsupports',['edge_supports',['../structvg_1_1SupportAugmentedGraph.html#a8ad39feeefa25e87a09571524f0467ef',1,'vg::SupportAugmentedGraph']]],
   ['edge_5ft',['edge_t',['../namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963',1,'vg::edge_t()'],['../namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b',1,'handlegraph::edge_t()']]],
   ['edge_5ftype',['edge_type',['../classvg_1_1XG.html#a40f0d4a571402c0c74db3bb80157b883',1,'vg::XG::edge_type(bool from_start, bool to_end) const '],['../classvg_1_1XG.html#a392e7561b306bd3f4d5e8107cdbccb46',1,'vg::XG::edge_type(const Edge &amp;edge) const ']]],
   ['edge_5fvector_5fsize',['edge_vector_size',['../classvg_1_1Packer.html#a6950a9a519266c8620f994061a418041',1,'vg::Packer']]],

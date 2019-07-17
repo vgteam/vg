@@ -147,7 +147,7 @@ var searchData=
   ['report_5fsnarl_5ftraversal',['report_snarl_traversal',['../classvg_1_1Genotyper.html#a1a141641a0939e35dc6ee19281001628',1,'vg::Genotyper']]],
   ['representative',['Representative',['../classvg_1_1Genotyper.html#a6e4dce6cd9cc24ab6857ceeaed6db3b4aca000fa2f53ba37764dedd204e1fd27e',1,'vg::Genotyper']]],
   ['representativetraversalfinder',['RepresentativeTraversalFinder',['../classvg_1_1RepresentativeTraversalFinder.html',1,'vg']]],
-  ['representativetraversalfinder',['RepresentativeTraversalFinder',['../classvg_1_1RepresentativeTraversalFinder.html#a6df8e1db4c31949a3530ff386815c9b7',1,'vg::RepresentativeTraversalFinder']]],
+  ['representativetraversalfinder',['RepresentativeTraversalFinder',['../classvg_1_1RepresentativeTraversalFinder.html#adcde6bcffe02b3745f18b7bf160e0b7a',1,'vg::RepresentativeTraversalFinder']]],
   ['rescore',['rescore',['../classvg_1_1ReadFilter.html#ab3b47fbeff165aa3fb4fdff25d2cb6fb',1,'vg::ReadFilter']]],
   ['rescue_5fhigh_5fcount_5forder_5flength_5fmems',['rescue_high_count_order_length_mems',['../classvg_1_1BaseMapper.html#aa7a71951ec7acdbf2c31ae9318ceb035',1,'vg::BaseMapper']]],
   ['rescue_5fonly_5fanchor_5fmax',['rescue_only_anchor_max',['../classvg_1_1MultipathMapper.html#acd7c1016549d1f96af13b9c317f239f3',1,'vg::MultipathMapper']]],

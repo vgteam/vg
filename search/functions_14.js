@@ -103,7 +103,7 @@ var searchData=
   ['trim_5fmismatches',['trim_mismatches',['../namespacevg.html#a9fd9a1067b7a859b67503943416512c9',1,'vg']]],
   ['trim_5fto_5fbranch_5fpoints',['trim_to_branch_points',['../classvg_1_1MultipathAlignmentGraph.html#ac3199fb5e097873e2635e3fb34a8eafe',1,'vg::MultipathAlignmentGraph']]],
   ['trim_5fto_5fvariable',['trim_to_variable',['../classvg_1_1Constructor.html#a428cf1b27e402a304c18e40f87e9dc02',1,'vg::Constructor']]],
-  ['trivialtraversalfinder',['TrivialTraversalFinder',['../classvg_1_1TrivialTraversalFinder.html#a7a3ad443fda205c48013fc246bea552e',1,'vg::TrivialTraversalFinder']]],
+  ['trivialtraversalfinder',['TrivialTraversalFinder',['../classvg_1_1TrivialTraversalFinder.html#a46403401b7efaec8d99b63b2013f7e60',1,'vg::TrivialTraversalFinder']]],
   ['try_5fload_5fone',['try_load_one',['../classvg_1_1io_1_1VPKG.html#aeeac79f6760560223f9ffdc34da527e2',1,'vg::io::VPKG::try_load_one(istream &amp;in)'],['../classvg_1_1io_1_1VPKG.html#ab3a2026ac79ee1539271ba1791108c66',1,'vg::io::VPKG::try_load_one(const string &amp;filename)']]],
   ['tsvalignmentemitter',['TSVAlignmentEmitter',['../classvg_1_1TSVAlignmentEmitter.html#a3631c22962c1db75338c65549553302a',1,'vg::TSVAlignmentEmitter']]],
   ['tv_5fpath',['tv_path',['../classvg_1_1TargetValueSearch.html#a9ab66a82967803031203885c18291c6f',1,'vg::TargetValueSearch']]],

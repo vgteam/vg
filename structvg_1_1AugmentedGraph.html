@@ -125,10 +125,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:afa46e91f308ce430f18efc7313c37c46"><td class="memItemLeft" align="right" valign="top">vector&lt; const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1AugmentedGraph.html#afa46e91f308ce430f18efc7313c37c46">get_alignments</a> () const </td></tr>
 <tr class="memdesc:afa46e91f308ce430f18efc7313c37c46"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get all the embedded alignments.  <a href="#afa46e91f308ce430f18efc7313c37c46">More...</a><br/></td></tr>
 <tr class="separator:afa46e91f308ce430f18efc7313c37c46"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab865de7275395648f8a2a5441b682d0d"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1Support.html">Support</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1AugmentedGraph.html#ab865de7275395648f8a2a5441b682d0d">get_support</a> (<a class="el" href="structvg_1_1Node.html">Node</a> *node)</td></tr>
-<tr class="separator:ab865de7275395648f8a2a5441b682d0d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa5fe578b247d55538f2c3e300d5589ae"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1Support.html">Support</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1AugmentedGraph.html#aa5fe578b247d55538f2c3e300d5589ae">get_support</a> (<a class="el" href="structvg_1_1Edge.html">Edge</a> *edge)</td></tr>
-<tr class="separator:aa5fe578b247d55538f2c3e300d5589ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad239a8516427304ef304e944f7d20c00"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1Support.html">Support</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1AugmentedGraph.html#ad239a8516427304ef304e944f7d20c00">get_support</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> node)</td></tr>
+<tr class="separator:ad239a8516427304ef304e944f7d20c00"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a87c6ed55516068757be3b1ad54a6cfd0"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1Support.html">Support</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1AugmentedGraph.html#a87c6ed55516068757be3b1ad54a6cfd0">get_support</a> (<a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> edge)</td></tr>
+<tr class="separator:a87c6ed55516068757be3b1ad54a6cfd0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4a4020e330e831fab73c004803ec341c"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1AugmentedGraph.html#a4a4020e330e831fab73c004803ec341c">has_supports</a> () const </td></tr>
 <tr class="separator:a4a4020e330e831fab73c004803ec341c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad394712ba7a2480a7c811e8bde56253b"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1AugmentedGraph.html#ad394712ba7a2480a7c811e8bde56253b">clear</a> ()</td></tr>
@@ -295,7 +295,7 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ab865de7275395648f8a2a5441b682d0d"></a>
+<a class="anchor" id="ad239a8516427304ef304e944f7d20c00"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -305,7 +305,7 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="memname"><a class="el" href="structvg_1_1Support.html">Support</a> vg::AugmentedGraph::get_support </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Node.html">Node</a> *&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td>
           <td class="paramname"><em>node</em></td><td>)</td>
           <td></td>
         </tr>
@@ -318,11 +318,11 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 <p>Get the <a class="el" href="structvg_1_1Support.html" title="Aggregates information about the reads supporting an allele. ">Support</a> for a given <a class="el" href="structvg_1_1Node.html" title="Nodes store sequence data. ">Node</a>, or 0 if it has no recorded support. (only forward strand) </p>
 
-<p>Reimplemented in <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a6d78fc6dd1b13dbb241dd8e0b3a9c467">vg::SupportAugmentedGraph</a>.</p>
+<p>Reimplemented in <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a0ffa85683b46b7f8d6b64da42ba19fbb">vg::SupportAugmentedGraph</a>.</p>
 
 </div>
 </div>
-<a class="anchor" id="aa5fe578b247d55538f2c3e300d5589ae"></a>
+<a class="anchor" id="a87c6ed55516068757be3b1ad54a6cfd0"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -332,7 +332,7 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="memname"><a class="el" href="structvg_1_1Support.html">Support</a> vg::AugmentedGraph::get_support </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Edge.html">Edge</a> *&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a>&#160;</td>
           <td class="paramname"><em>edge</em></td><td>)</td>
           <td></td>
         </tr>
@@ -345,7 +345,7 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 <p>Get the <a class="el" href="structvg_1_1Support.html" title="Aggregates information about the reads supporting an allele. ">Support</a> for a given <a class="el" href="structvg_1_1Edge.html">Edge</a>, or 0 if it has no recorded support. (only forward strand) </p>
 
-<p>Reimplemented in <a class="el" href="structvg_1_1SupportAugmentedGraph.html#ac871ac5c421284a12062abbcfc2c76ac">vg::SupportAugmentedGraph</a>.</p>
+<p>Reimplemented in <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a4c86be41ce8680c5473080c704ddcc10">vg::SupportAugmentedGraph</a>.</p>
 
 </div>
 </div>

@@ -42,7 +42,7 @@ var searchData=
   ['atomic_5fheader',['atomic_header',['../classvg_1_1HTSAlignmentEmitter.html#a9c8421e34401bc0eab7cd36d656e7acf',1,'vg::HTSAlignmentEmitter']]],
   ['attributes',['attributes',['../structvg_1_1GFFRecord.html#af888958f0541209b1e6c0f50285d0d92',1,'vg::GFFRecord']]],
   ['aug',['aug',['../classvg_1_1SupportRestrictedTraversalFinder.html#a567e6115385fa235eb1a761c9051dca0',1,'vg::SupportRestrictedTraversalFinder::aug()'],['../classvg_1_1ReadRestrictedTraversalFinder.html#ae15a9cd1b2a92b7375784b7c0be3d9c4',1,'vg::ReadRestrictedTraversalFinder::aug()']]],
-  ['augmented',['augmented',['../classvg_1_1NestedTraversalFinder.html#a313111e30533ab2a685d7c9e112a6b22',1,'vg::NestedTraversalFinder::augmented()'],['../classvg_1_1RepresentativeTraversalFinder.html#ae96f8e70cb927e527bd333eacb379c3d',1,'vg::RepresentativeTraversalFinder::augmented()']]],
+  ['augmented',['augmented',['../classvg_1_1NestedTraversalFinder.html#a313111e30533ab2a685d7c9e112a6b22',1,'vg::NestedTraversalFinder']]],
   ['available_5fshort_5foptions',['available_short_options',['../classvg_1_1ConfigurableParser.html#a529443bfe60e0ab272166ccc15991ce2',1,'vg::ConfigurableParser']]],
   ['average_5fsupport_5fswitch_5fthreshold',['average_support_switch_threshold',['../classvg_1_1SupportCaller.html#ad3826a4f33deff50ad7d35c0b121e95c',1,'vg::SupportCaller']]]
 ];

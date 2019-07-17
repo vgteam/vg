@@ -230,7 +230,7 @@ var searchData=
   ['augment_5ffrom_5falignment_5fedits',['augment_from_alignment_edits',['../structvg_1_1AugmentedGraph.html#a56ecda832a62dd3a22424bb8720a4601',1,'vg::AugmentedGraph']]],
   ['augment_5fimpl',['augment_impl',['../namespacevg.html#aeb15401fa0548eda892420039352cd91',1,'vg']]],
   ['augment_5fmain_2ecpp',['augment_main.cpp',['../augment__main_8cpp.html',1,'']]],
-  ['augmented',['augmented',['../classvg_1_1NestedTraversalFinder.html#a313111e30533ab2a685d7c9e112a6b22',1,'vg::NestedTraversalFinder::augmented()'],['../classvg_1_1RepresentativeTraversalFinder.html#ae96f8e70cb927e527bd333eacb379c3d',1,'vg::RepresentativeTraversalFinder::augmented()']]],
+  ['augmented',['augmented',['../classvg_1_1NestedTraversalFinder.html#a313111e30533ab2a685d7c9e112a6b22',1,'vg::NestedTraversalFinder']]],
   ['augmentedgraph',['AugmentedGraph',['../structvg_1_1AugmentedGraph.html',1,'vg']]],
   ['available_5fshort_5foptions',['available_short_options',['../classvg_1_1ConfigurableParser.html#a529443bfe60e0ab272166ccc15991ce2',1,'vg::ConfigurableParser']]],
   ['average_5fnode_5flength',['average_node_length',['../classvg_1_1Mapper.html#a565a5307c6e665efbc1347ea21fbf19e',1,'vg::Mapper']]],

@@ -109,8 +109,8 @@ Inheritance diagram for vg::TrivialTraversalFinder:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a7a3ad443fda205c48013fc246bea552e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TrivialTraversalFinder.html#a7a3ad443fda205c48013fc246bea552e">TrivialTraversalFinder</a> (<a class="el" href="classvg_1_1VG.html">VG</a> &amp;<a class="el" href="classvg_1_1TrivialTraversalFinder.html#a799d4fdb96b077d07705eadb92869b2c">graph</a>)</td></tr>
-<tr class="separator:a7a3ad443fda205c48013fc246bea552e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a46403401b7efaec8d99b63b2013f7e60"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TrivialTraversalFinder.html#a46403401b7efaec8d99b63b2013f7e60">TrivialTraversalFinder</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1TrivialTraversalFinder.html#aeb55a5539b54fd0bf8b4e59db2d4ffca">graph</a>)</td></tr>
+<tr class="separator:a46403401b7efaec8d99b63b2013f7e60"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a95f1dc0e83e536f4ded43f35982420f3"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TrivialTraversalFinder.html#a95f1dc0e83e536f4ded43f35982420f3">~TrivialTraversalFinder</a> ()=default</td></tr>
 <tr class="separator:a95f1dc0e83e536f4ded43f35982420f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae1b3ebce09b8641fe713cc9628909bfe"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TrivialTraversalFinder.html#ae1b3ebce09b8641fe713cc9628909bfe">find_traversals</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site)</td></tr>
@@ -121,20 +121,20 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
-<tr class="memitem:a799d4fdb96b077d07705eadb92869b2c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TrivialTraversalFinder.html#a799d4fdb96b077d07705eadb92869b2c">graph</a></td></tr>
-<tr class="separator:a799d4fdb96b077d07705eadb92869b2c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeb55a5539b54fd0bf8b4e59db2d4ffca"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TrivialTraversalFinder.html#aeb55a5539b54fd0bf8b4e59db2d4ffca">graph</a></td></tr>
+<tr class="separator:aeb55a5539b54fd0bf8b4e59db2d4ffca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>This traversal finder finds one or more traversals through leaf sites with no children. It uses a depth-first search. It doesn't work on non-leaf sites, and is not guaranteed to find all traversals. Only works on acyclic sites that are start-end-reachable. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="a7a3ad443fda205c48013fc246bea552e"></a>
+<a class="anchor" id="a46403401b7efaec8d99b63b2013f7e60"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">vg::TrivialTraversalFinder::TrivialTraversalFinder </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em></td><td>)</td>
           <td></td>
         </tr>
@@ -195,7 +195,7 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a class="anchor" id="a799d4fdb96b077d07705eadb92869b2c"></a>
+<a class="anchor" id="aeb55a5539b54fd0bf8b4e59db2d4ffca"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -203,7 +203,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classvg_1_1VG.html">VG</a>&amp; vg::TrivialTraversalFinder::graph</td>
+          <td class="memname">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>&amp; vg::TrivialTraversalFinder::graph</td>
         </tr>
       </table>
   </td>

@@ -36,7 +36,7 @@ var searchData=
   ['node_5foccurrences',['node_occurrences',['../structvg_1_1PathIndex.html#a057c79ab3b7c3d4a2827af2e7698b1f1',1,'vg::PathIndex']]],
   ['node_5fpileups',['node_pileups',['../structvg_1_1Pileup.html#aa70628ddc77e14378831220ea88480c6',1,'vg::Pileup']]],
   ['node_5fpos',['node_pos',['../classvg_1_1DepthMap.html#a917e2d1b80a2d02b97faa65b20ea3bed',1,'vg::DepthMap']]],
-  ['node_5fsupports',['node_supports',['../structvg_1_1SupportAugmentedGraph.html#a41f7683206c6d0556385ec50f9fdcc69',1,'vg::SupportAugmentedGraph']]],
+  ['node_5fsupports',['node_supports',['../structvg_1_1SupportAugmentedGraph.html#ad904715950e1e9ffcb6ed6676868debe',1,'vg::SupportAugmentedGraph']]],
   ['node_5fto_5fposition',['node_to_position',['../classvg_1_1Filter.html#aa3a0cf6a83085d33f0983e681c078625',1,'vg::Filter']]],
   ['node_5fto_5fseeds',['node_to_seeds',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#ab636bdfeba9282fe72f105492b7554cb',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['node_5fto_5fvariant',['node_to_variant',['../classvg_1_1VCFTraversalFinder.html#a133068b1a172eb5f5490ff7c47fd567f',1,'vg::VCFTraversalFinder']]],

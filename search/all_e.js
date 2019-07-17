@@ -89,7 +89,7 @@ var searchData=
   ['node_5fstarts_5fin_5fpath',['node_starts_in_path',['../classvg_1_1VG.html#a093f4e4dffe0d03806df32edc33cdb9a',1,'vg::VG::node_starts_in_path(const list&lt; NodeTraversal &gt; &amp;path, map&lt; Node *, int &gt; &amp;node_start)'],['../classvg_1_1VG.html#ac27c591957478a17605c2453749f7d20',1,'vg::VG::node_starts_in_path(list&lt; NodeTraversal &gt; &amp;path, map&lt; NodeTraversal *, int &gt; &amp;node_start)']]],
   ['node_5fsubgraph_5fg',['node_subgraph_g',['../classvg_1_1XG.html#ad9709a80ab0d8045210066bb7a05e5db',1,'vg::XG']]],
   ['node_5fsubgraph_5fid',['node_subgraph_id',['../classvg_1_1XG.html#a78a5fa8d66017fbc3fbee8ea2c11e362',1,'vg::XG']]],
-  ['node_5fsupports',['node_supports',['../structvg_1_1SupportAugmentedGraph.html#a41f7683206c6d0556385ec50f9fdcc69',1,'vg::SupportAugmentedGraph']]],
+  ['node_5fsupports',['node_supports',['../structvg_1_1SupportAugmentedGraph.html#ad904715950e1e9ffcb6ed6676868debe',1,'vg::SupportAugmentedGraph']]],
   ['node_5fto_5fhandle',['node_to_handle',['../classvg_1_1GBWTGraph.html#acce12a662b1e9ae97b2911b4133755e7',1,'vg::GBWTGraph']]],
   ['node_5fto_5fposition',['node_to_position',['../classvg_1_1Filter.html#aa3a0cf6a83085d33f0983e681c078625',1,'vg::Filter']]],
   ['node_5fto_5fseeds',['node_to_seeds',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#ab636bdfeba9282fe72f105492b7554cb',1,'vg::SnarlSeedClusterer::TreeState']]],

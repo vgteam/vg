@@ -25,6 +25,7 @@ var searchData=
   ['has_5freachability_5fedges',['has_reachability_edges',['../classvg_1_1MultipathAlignmentGraph.html#a77a113d4c5b6b5ca1d7748c1b812e8d3',1,'vg::MultipathAlignmentGraph']]],
   ['has_5fsecondary_5fsnarl',['has_secondary_snarl',['../classvg_1_1MinimumDistanceIndex.html#a7db4f5f0238a0202edf02937e8a2b74a',1,'vg::MinimumDistanceIndex']]],
   ['has_5fsecondary_5fsnarl_5fbv',['has_secondary_snarl_bv',['../classvg_1_1MinimumDistanceIndex.html#a0b8ffd08eca807be53541640586b9ee0',1,'vg::MinimumDistanceIndex']]],
+  ['has_5fsupports',['has_supports',['../classvg_1_1RepresentativeTraversalFinder.html#a7010e7fc85d3b2454bc5e09a504aee23',1,'vg::RepresentativeTraversalFinder']]],
   ['hash',['hash',['../structvg_1_1MinimizerIndex_1_1minimizer__type.html#a11174472b1faa08970c2335336a24c8a',1,'vg::MinimizerIndex::minimizer_type']]],
   ['hash_5ftable',['hash_table',['../classvg_1_1MinimizerIndex.html#af90d350e4d4833ef1ba2485305435a38',1,'vg::MinimizerIndex']]],
   ['head',['head',['../structvg_1_1mi_1_1CircularBuffer.html#a5d239c64bd4a08c24a2f49e84a13c861',1,'vg::mi::CircularBuffer']]],
