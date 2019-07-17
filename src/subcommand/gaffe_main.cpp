@@ -472,8 +472,8 @@ int main_gaffe(int argc, char** argv) {
     }
     minimizer_mapper.extension_set_score_threshold = extension_set;
 
-    if (progress) {
-        cerr << "--no-chaining " << (!do_chaining) << endl;
+    if (progress && !do_chaining) {
+        cerr << "--no-chaining " << endl;
     }
     minimizer_mapper.do_chaining = do_chaining;
 
@@ -492,23 +492,23 @@ int main_gaffe(int argc, char** argv) {
     }
     minimizer_mapper.max_tails = max_tails;
     
-    if (progress) {
-        cerr << "--linear-tails " << linear_tails << endl;
+    if (progress && linear_tails) {
+        cerr << "--linear-tails " << endl;
     }
     minimizer_mapper.linear_tails = linear_tails;
     
-    if (progress) {
-        cerr << "--xdrop " << use_xdrop_for_tails << endl;
+    if (progress && use_xdrop_for_tails) {
+        cerr << "--xdrop " << endl;
     }
     minimizer_mapper.use_xdrop_for_tails = use_xdrop_for_tails;
 
-    if (progress) {
-        cerr << "--track-provenance " << track_provenance << endl;
+    if (progress && track_provenance) {
+        cerr << "--track-provenance " << endl;
     }
     minimizer_mapper.track_provenance = track_provenance;
     
-    if (progress) {
-        cerr << "--track-correctness " << track_correctness << endl;
+    if (progress && track_correctness) {
+        cerr << "--track-correctness " << endl;
     }
     minimizer_mapper.track_correctness = track_correctness;
 
