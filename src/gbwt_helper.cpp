@@ -130,7 +130,7 @@ GBWTGraph::GBWTGraph(GBWTGraph&& source) :
     this->sequences = std::move(source.sequences);
     this->offsets = std::move(source.offsets);
     this->real_nodes = std::move(source.real_nodes);
-    this->total_nodes = std::move(total_nodes);
+    this->total_nodes = std::move(source.total_nodes);
 }
 
 //------------------------------------------------------------------------------
