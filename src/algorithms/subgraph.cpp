@@ -3,7 +3,7 @@
 namespace vg {
 namespace algorithms {
 
-void expand_subgraph_by_steps(const HandleGraph& source, MutableHandleGraph& subgraph, uint64_t steps, bool forward_only) {
+void expand_subgraph_by_steps(const HandleGraph& source, MutableHandleGraph& subgraph, const uint64_t& steps, bool forward_only) {
     std::vector<handle_t> curr_handles;
     subgraph.for_each_handle([&](const handle_t& h) {
             curr_handles.push_back(h);
@@ -183,11 +183,13 @@ void extract_context(const HandleGraph& source, MutableHandleGraph& subgraph, co
     if (!subgraph.has_node(source.get_id(handle))) {
         subgraph.create_handle(source.get_sequence(handle), source.get_id(handle));
     }
-    while (total_length_fwd < get_fwd || total_length_rev < get_rev) {
+    bool extended = true;
+    while (extended && (total_length_fwd < get_fwd || total_length_rev < get_rev)) {
         std::vector<handle_t> curr_handles;
         subgraph.for_each_handle([&](const handle_t& h) {
                 curr_handles.push_back(h);
             });
+        extended = false;
         for (auto& h : curr_handles) {
             handle_t old_h = source.get_handle(subgraph.get_id(h));
             source.follow_edges(old_h, false, [&](const handle_t& c) {
@@ -195,6 +197,7 @@ void extract_context(const HandleGraph& source, MutableHandleGraph& subgraph, co
                     if (!subgraph.has_node(source.get_id(c))) {
                         x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
                         total_length_fwd += subgraph.get_length(x);
+                        extended = true;
                     } else {
                         x = subgraph.get_handle(source.get_id(c));
                     }
@@ -207,6 +210,7 @@ void extract_context(const HandleGraph& source, MutableHandleGraph& subgraph, co
                     if (!subgraph.has_node(source.get_id(c))) {
                         x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
                         total_length_rev += subgraph.get_length(x);
+                        extended = true;
                     } else {
                         x = subgraph.get_handle(source.get_id(c));
                     }

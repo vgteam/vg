@@ -3085,14 +3085,9 @@ double Mapper::compute_uniqueness(const Alignment& aln, const vector<MaximalExac
 }
 
 Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems, bool traceback, bool xdrop_alignment) {
-    // check if we can just fill out the alignment with exact matches
-    /*
-    if (cluster_coverage(mems) == aln.sequence().size()) {
-        Alignment walked = mems_to_alignment(aln, mems);
-        assert(walked.identity() == 1);
-        return walked;
-    }
-    */
+    // TODO check if we can just fill out the alignment with exact matches
+    // ...
+    //
     // poll the mems to see if we should flip
     int count_fwd = 0, count_rev = 0;
     for (auto& mem : mems) {
@@ -4156,58 +4151,6 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
         }, strip_bonuses);
     }
     
-}
-
-// make a perfect-match alignment out of a vector of MEMs which each have only one recorded hit
-// use the base alignment sequence (which the SMEMs relate to) to fill in the gaps
-Alignment Mapper::mems_to_alignment(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
-    // base case--- empty alignment
-    if (mems.empty()) {
-        Alignment aln; return aln;
-    }
-    vector<Alignment> alns;
-    // get reference to the start and end of the sequences
-    string::const_iterator seq_begin = aln.sequence().begin();
-    string::const_iterator seq_end = aln.sequence().end();
-    // we use this to track where we need to add sequence
-    string::const_iterator last_end = seq_begin;
-    for (int i = 0; i < mems.size(); ++i) {
-        auto& mem = mems.at(i);
-        //cerr << "looking at " << mem.sequence() << endl;
-        // this mem is contained in the last
-        if (mem.end <= last_end) {
-            continue;
-        }
-        // handle unaligned portion between here and the last SMEM or start of read
-        if (mem.begin > last_end) {
-            alns.emplace_back();
-            alns.back().set_sequence(aln.sequence().substr(last_end - seq_begin, mem.begin - last_end));
-        }
-        Alignment aln = mem_to_alignment(mem);
-        // find and trim overlap with previous
-        if (i > 0) {
-            // use the end of the last mem we touched (we may have skipped several)
-            int overlap = last_end - mem.begin;
-            if (overlap > 0) {
-                aln = strip_from_start(aln, overlap);
-            }
-        }
-        alns.push_back(aln);
-        last_end = mem.end;
-    }
-    // handle unaligned portion at end of read
-    int start = last_end - seq_begin;
-    int length = seq_end - (seq_begin + start);
-    
-    alns.emplace_back();
-    alns.back().set_sequence(aln.sequence().substr(start, length));
-
-    auto alnm = simplify(merge_alignments(alns));
-    *alnm.mutable_quality() = aln.quality();
-    alnm.set_name(aln.name());
-    alnm.set_score(score_alignment(alnm));
-    alnm.set_identity(identity(alnm.path()));
-    return alnm;
 }
 
 const int balanced_stride(int read_length, int kmer_size, int stride) {

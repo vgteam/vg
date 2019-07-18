@@ -475,11 +475,6 @@ public:
     // use mapper parameters to determine which clusters we should drop
     set<const vector<MaximalExactMatch>* > clusters_to_drop(const vector<vector<MaximalExactMatch> >& clusters);
 
-    // takes the input alignment (with seq, etc) so we have reference to the base sequence
-    // for reconstruction the alignments from the SMEMs
-    Alignment mems_to_alignment(const Alignment& aln, const vector<MaximalExactMatch>& mems);
-    Alignment mem_to_alignment(const MaximalExactMatch& mem);
-    
     /// Use the scoring provided by the internal aligner to re-score the
     /// alignment, scoring gaps between nodes using graph distance from the PathPositionHandleGraph
     /// index. Can use either approximate or exact (with approximate fallback)
