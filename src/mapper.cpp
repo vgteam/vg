@@ -3528,7 +3528,6 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         compute_mapping_qualities(alignments, 0, max_mapping_quality, max_mapping_quality);
         filter_and_process_multimaps(alignments, max_multimaps);
     }
-    //cerr << "got alignment " << pb2json(alignments.front()) << endl;
     chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
     // set time for alignment
     alignments.front().set_time_used(chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count());
@@ -3985,7 +3984,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                             && from_length >= min_cluster_length
                             && band.identity() > min_identity) {
                             band_ref_pos.clear();
-                            //cerr << "thing worked " << pb2json(band) << endl;
                             // todo... step our position back just a little to match the banding
                             // right now we're relying on the chunkiness of the graph to get this for us
                             // strip back a little
@@ -4006,14 +4004,20 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         } else {
                             //cerr << "clearing the path" << endl;
                             band.clear_path();
+                            Edit* e = band.mutable_path()->add_mapping()->add_edit();
+                            e->set_to_length(band.sequence().size());
+                            band.clear_score();
+                            band.clear_identity();
                             // TODO try to align over a bigger chunk after this
                         }
                     }
                 }
                 /*
-                cerr << "done bands" << endl;
-                for (auto& band : bands) {
-                    cerr << "band: " << pb2json(band) << endl;
+                if (debug) {
+                    cerr << "done bands" << endl;
+                    for (auto& band : bands) {
+                        cerr << "band: " << pb2json(band) << endl;
+                    }
                 }
                 */
                 patch = simplify(merge_alignments(bands));
@@ -4029,9 +4033,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                     assert(false);
                 }
 #endif
-                //cerr << "adding " << pb2json(patch) << endl;
                 if (patched.path().mapping_size()) {
-                    extend_alignment(patched, patch);
+                    extend_alignment(patched, patch, true);
                 } else {
                     patched = patch;
                 }
