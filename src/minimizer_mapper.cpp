@@ -581,7 +581,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
 
     size_t winning_index;
-    double mapq = get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index);
+    double mapq = get_regular_aligner()->compute_mapping_quality(scores, false);
     
 #ifdef debug
     cerr << "MAPQ is " << mapq << endl;
