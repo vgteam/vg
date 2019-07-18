@@ -15,7 +15,8 @@ void expand_subgraph_by_steps(const HandleGraph& source, MutableHandleGraph& sub
             source.follow_edges(old_h, false, [&](const handle_t& c) {
                     handle_t x;
                     if (!subgraph.has_node(source.get_id(c))) {
-                        x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
+                        x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
+                        if (source.get_is_reverse(c)) x = subgraph.flip(x);
                         next_handles.push_back(x);
                     } else {
                         x = subgraph.get_handle(source.get_id(c));
@@ -28,7 +29,8 @@ void expand_subgraph_by_steps(const HandleGraph& source, MutableHandleGraph& sub
                 source.follow_edges(old_h, true, [&](const handle_t& c) {
                         handle_t x;
                         if (!subgraph.has_node(source.get_id(c))) {
-                            x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
+                            x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
+                            if (source.get_is_reverse(c)) x = subgraph.flip(x);
                             next_handles.push_back(x);
                         } else {
                             x = subgraph.get_handle(source.get_id(c));
@@ -44,7 +46,7 @@ void expand_subgraph_by_steps(const HandleGraph& source, MutableHandleGraph& sub
     add_connecting_edges_to_subgraph(source, subgraph);
 }
 
-void expand_subgraph_to_node_count(const HandleGraph& source, MutableHandleGraph& subgraph, uint64_t node_count, bool forward_only) {
+void expand_subgraph_to_node_count(const HandleGraph& source, MutableHandleGraph& subgraph, const uint64_t& node_count, bool forward_only) {
     std::vector<handle_t> curr_handles;
     subgraph.for_each_handle([&](const handle_t& h) {
             curr_handles.push_back(h);
@@ -56,7 +58,8 @@ void expand_subgraph_to_node_count(const HandleGraph& source, MutableHandleGraph
             source.follow_edges(old_h, false, [&](const handle_t& c) {
                     handle_t x;
                     if (!subgraph.has_node(source.get_id(c))) {
-                        x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
+                        x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
+                        if (source.get_is_reverse(c)) x = subgraph.flip(x);
                         next_handles.push_back(x);
                     } else {
                         x = subgraph.get_handle(source.get_id(c));
@@ -69,7 +72,8 @@ void expand_subgraph_to_node_count(const HandleGraph& source, MutableHandleGraph
                 source.follow_edges(old_h, true, [&](const handle_t& c) {
                         handle_t x;
                         if (!subgraph.has_node(source.get_id(c))) {
-                            x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
+                            x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
+                            if (source.get_is_reverse(c)) x = subgraph.flip(x);
                             next_handles.push_back(x);
                         } else {
                             x = subgraph.get_handle(source.get_id(c));
@@ -85,7 +89,7 @@ void expand_subgraph_to_node_count(const HandleGraph& source, MutableHandleGraph
     add_connecting_edges_to_subgraph(source, subgraph);
 }
 
-void expand_subgraph_by_length(const HandleGraph& source, MutableHandleGraph& subgraph, uint64_t length, bool forward_only) {
+void expand_subgraph_by_length(const HandleGraph& source, MutableHandleGraph& subgraph, const uint64_t& length, bool forward_only) {
     uint64_t accumulated_length = 0;
     std::vector<handle_t> curr_handles;
     subgraph.for_each_handle([&](const handle_t& h) {
@@ -98,7 +102,8 @@ void expand_subgraph_by_length(const HandleGraph& source, MutableHandleGraph& su
             source.follow_edges(old_h, false, [&](const handle_t& c) {
                     handle_t x;
                     if (!subgraph.has_node(source.get_id(c))) {
-                        x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
+                        x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
+                        if (source.get_is_reverse(c)) x = subgraph.flip(x);
                         next_handles.push_back(x);
                         accumulated_length += subgraph.get_length(x);
                     } else {
@@ -112,7 +117,8 @@ void expand_subgraph_by_length(const HandleGraph& source, MutableHandleGraph& su
                 source.follow_edges(old_h, true, [&](const handle_t& c) {
                         handle_t x;
                         if (!subgraph.has_node(source.get_id(c))) {
-                            x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
+                            x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
+                            if (source.get_is_reverse(c)) x = subgraph.flip(x);
                             next_handles.push_back(x);
                             accumulated_length += subgraph.get_length(x);
                         } else {
@@ -129,7 +135,7 @@ void expand_subgraph_by_length(const HandleGraph& source, MutableHandleGraph& su
     add_connecting_edges_to_subgraph(source, subgraph);
 }
 
-void expand_subgraph_to_length(const HandleGraph& source, MutableHandleGraph& subgraph, uint64_t length, bool forward_only) {
+void expand_subgraph_to_length(const HandleGraph& source, MutableHandleGraph& subgraph, const uint64_t& length, bool forward_only) {
     uint64_t total_length = 0;
     std::vector<handle_t> curr_handles;
     subgraph.for_each_handle([&](const handle_t& h) {
@@ -143,7 +149,8 @@ void expand_subgraph_to_length(const HandleGraph& source, MutableHandleGraph& su
             source.follow_edges(old_h, false, [&](const handle_t& c) {
                     handle_t x;
                     if (!subgraph.has_node(source.get_id(c))) {
-                        x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
+                        x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
+                        if (source.get_is_reverse(c)) x = subgraph.flip(x);
                         next_handles.push_back(x);
                         total_length += subgraph.get_length(x);
                     } else {
@@ -157,7 +164,8 @@ void expand_subgraph_to_length(const HandleGraph& source, MutableHandleGraph& su
                 source.follow_edges(old_h, true, [&](const handle_t& c) {
                         handle_t x;
                         if (!subgraph.has_node(source.get_id(c))) {
-                            x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
+                            x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
+                            if (source.get_is_reverse(c)) x = subgraph.flip(x);
                             next_handles.push_back(x);
                             total_length += subgraph.get_length(x);
                         } else {
@@ -181,7 +189,7 @@ void extract_context(const HandleGraph& source, MutableHandleGraph& subgraph, co
     uint64_t get_fwd = fwd && !rev ? length : length/2;
     uint64_t get_rev = !fwd && rev ? length : length/2;
     if (!subgraph.has_node(source.get_id(handle))) {
-        subgraph.create_handle(source.get_sequence(handle), source.get_id(handle));
+        subgraph.create_handle(source.get_sequence(source.get_is_reverse(handle)?source.flip(handle):handle), source.get_id(handle));
     }
     bool extended = true;
     while (extended && (total_length_fwd < get_fwd || total_length_rev < get_rev)) {
@@ -195,7 +203,8 @@ void extract_context(const HandleGraph& source, MutableHandleGraph& subgraph, co
             source.follow_edges(old_h, false, [&](const handle_t& c) {
                     handle_t x;
                     if (!subgraph.has_node(source.get_id(c))) {
-                        x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
+                        x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
+                        if (source.get_is_reverse(c)) x = subgraph.flip(x);
                         total_length_fwd += subgraph.get_length(x);
                         extended = true;
                     } else {
@@ -208,7 +217,8 @@ void extract_context(const HandleGraph& source, MutableHandleGraph& subgraph, co
             source.follow_edges(old_h, true, [&](const handle_t& c) {
                     handle_t x;
                     if (!subgraph.has_node(source.get_id(c))) {
-                        x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
+                        x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
+                        if (source.get_is_reverse(c)) x = subgraph.flip(x);
                         total_length_rev += subgraph.get_length(x);
                         extended = true;
                     } else {

@@ -1578,7 +1578,7 @@ Mapper::~Mapper(void) {
 
 // todo add options for aligned global and pinned
 Alignment Mapper::align_to_graph(const Alignment& aln,
-                                 sglib::HashGraph& graph,
+                                 HandleGraph& graph,
                                  bool traceback,
                                  bool pinned_alignment,
                                  bool pin_left,
@@ -1590,7 +1590,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
 }
 
 Alignment Mapper::align_to_graph(const Alignment& aln,
-                                 sglib::HashGraph& graph,
+                                 HandleGraph& graph,
                                  const vector<MaximalExactMatch>& mems,
                                  bool traceback,
                                  bool pinned_alignment,
@@ -1619,7 +1619,6 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
             }
         }
     }
-        
     if (use_single_stranded) {
         if (mem_strand) {
             node_trans = algorithms::reverse_complement_graph(&graph, &align_graph);
@@ -1628,11 +1627,16 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
             // if we are using only the forward strand of the current graph, a make trivial node translation so
             // the later code's expectations are met
             // TODO: can we do this without the copy constructor?
-            align_graph = graph;
+            //align_graph = graph;
             node_trans.reserve(graph.get_node_count());
             graph.for_each_handle([&](const handle_t& handle) {
+                    align_graph.create_handle(graph.get_sequence(handle), graph.get_id(handle));
                     node_trans[graph.get_id(handle)] = make_pair(graph.get_id(handle), false);
                     return true;
+                });
+            graph.for_each_edge([&](const edge_t& edge) {
+                    align_graph.create_edge(align_graph.get_handle(graph.get_id(edge.first), graph.get_is_reverse(edge.first)),
+                                            align_graph.get_handle(graph.get_id(edge.second), graph.get_is_reverse(edge.second)));
                 });
         }
     }
@@ -1642,7 +1646,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
 
     // if necessary, convert from cyclic to acylic
     if (!algorithms::is_directed_acyclic(&align_graph)) {
-
+        cerr << "not directed acyclic" << endl;
         // make a dagified graph and translation
         sglib::HashGraph dagified;
         unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
@@ -1654,6 +1658,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
 
     // copy our alignment, which we'll then modify
     Alignment aligned = aln;
+    auto order = algorithms::topological_order(&align_graph);
 
     if (banded_global) {
         // the banded global alignment no longer constructs an internal representation of the graph
@@ -1665,23 +1670,17 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         size_t band_padding = permissive_banding ? max(max_span, (size_t) 1) : band_padding_override;
         get_aligner(!aln.quality().empty())->align_global_banded(aligned, align_graph, band_padding, false);
     } else if (pinned_alignment) {
-        get_aligner(!aln.quality().empty())->align_pinned(aligned, align_graph, pin_left);
+        get_aligner(!aln.quality().empty())->align_pinned(aligned, align_graph, order, pin_left);
     } else if (xdrop_alignment) {
-        // we'll still use the Protobuf graph for the X-drop aligner, which hasn't been transitioned
-        // to HandleGraphs yet
-        // directly call alignment function without node translation
-        Graph graph;
-        align_graph.for_each_handle([&](const handle_t& handle) {
-                Node* node = graph.add_node();
-                node->set_id(align_graph.get_id(handle));
-                node->set_sequence(align_graph.get_sequence(handle));
-            });
-        get_aligner(!aln.quality().empty())->align_xdrop(aligned, graph, mems, (xdrop_alignment == 1) ? false : true);
+        get_aligner(!aln.quality().empty())->get_xdrop()->align(aligned, {align_graph, order}, mems, (xdrop_alignment == 1) ? false : true);
     } else {
-        get_aligner(!aln.quality().empty())->align(aligned, align_graph, traceback, false);
+        get_aligner(!aln.quality().empty())->align(aligned, align_graph, order, traceback, false);
     }
     if (traceback && !keep_bonuses && aligned.score()) {
         remove_full_length_bonuses(aligned);
+    }
+    if (node_trans.size()) {
+        translate_oriented_node_ids(*aligned.mutable_path(), node_trans);
     }
     return aligned;
 }
@@ -3017,31 +3016,21 @@ Mapper::align_mem_multi(const Alignment& aln,
     return alns;
 }
 
-Alignment Mapper::align_maybe_flip(const Alignment& base, sglib::HashGraph& graph, bool flip, bool traceback, bool banded_global, bool xdrop_alignment) {
+Alignment Mapper::align_maybe_flip(const Alignment& base, HandleGraph& graph, bool flip, bool traceback, bool banded_global, bool xdrop_alignment) {
     // do not use X-drop alignment when seed position is not available
     vector<MaximalExactMatch> mems;
     return(align_maybe_flip(base, graph, mems, flip, traceback, banded_global, xdrop_alignment));
 }
 
-Alignment Mapper::align_maybe_flip(const Alignment& base, sglib::HashGraph& graph, const vector<MaximalExactMatch>& mems, bool flip, bool traceback, bool banded_global, bool xdrop_alignment) {
+Alignment Mapper::align_maybe_flip(const Alignment& base, HandleGraph& graph, const vector<MaximalExactMatch>& mems, bool flip, bool traceback, bool banded_global, bool xdrop_alignment) {
     Alignment aln = base;
     // do not modify aln.sequence() in X-drop alignment so that seed position is calculated by mem.begin - aln.sequence().begin()
-    if (flip) {
-        aln.set_sequence(reverse_complement(base.sequence()));
-        if (!base.quality().empty()) {
-            aln.set_quality(base.quality());
-            reverse(aln.mutable_quality()->begin(),
-                    aln.mutable_quality()->end());
-        }
-    } else {
-        aln.set_sequence(base.sequence());
-        if (!base.quality().empty()) {
-            aln.set_quality(base.quality());
-        }
+    aln.set_sequence(base.sequence());
+    if (!base.quality().empty()) {
+        aln.set_quality(base.quality());
     }
     bool pinned_alignment = false;
     bool pinned_reverse = false;
-
     aln = align_to_graph(aln,
                          graph,
                          mems,
@@ -3049,19 +3038,11 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, sglib::HashGraph& grap
                          pinned_alignment,
                          pinned_reverse,
                          banded_global,
-                         xdrop_alignment ? (flip ? 2 : 1) : 0,
+                         xdrop_alignment ? 1 : 0,
                          include_full_length_bonuses);
-
     if (strip_bonuses && !banded_global && traceback) {
         // We want to remove the bonuses
         aln.set_score(get_aligner()->remove_bonuses(aln));
-    }
-    if (flip) {
-        aln = reverse_complement_alignment(
-            aln,
-            (function<int64_t(int64_t)>) ([&](int64_t id) {
-                    return graph.get_length(graph.get_handle(id));
-                }));
     }
     return aln;
 }
@@ -3099,8 +3080,8 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
         }
     }
     // get the graph with cluster.hpp's cluster_subgraph
-    sglib::HashGraph graph = cluster_subgraph_walk(*xindex, aln, mems, 1);
-    //bool acyclic_and_sorted = is_id_sortable(graph) && !has_inversion(graph);
+    //sglib::HashGraph graph = cluster_subgraph_walk(*xindex, aln, mems, 1);
+    sglib::HashGraph graph = cluster_subgraph_containing(*xindex, aln, mems, get_aligner());
     // and test each direction for which we have MEM hits
     Alignment aln_fwd;
     Alignment aln_rev;

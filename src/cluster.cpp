@@ -3505,6 +3505,27 @@ vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const HandleGrap
     return positions;
 }
 
+sglib::HashGraph cluster_subgraph_containing(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& cluster, const GSSWAligner* aligner) {
+    vector<pos_t> positions;
+    vector<size_t> forward_max_dist;
+    vector<size_t> backward_max_dist;
+    positions.reserve(cluster.size());
+    forward_max_dist.reserve(cluster.size());
+    backward_max_dist.reserve(cluster.size());
+    for (auto& mem : cluster) {
+        // get the start position of the MEM
+        positions.push_back(make_pos_t(mem.nodes.front()));
+        // search far enough away to get any hit detectable without soft clipping
+        forward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.end)
+                                   + (aln.sequence().end() - mem.begin));
+        backward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.begin)
+                                    + (mem.begin - aln.sequence().begin()));
+    }
+    auto cluster_graph = new sglib::HashGraph();
+    algorithms::extract_containing_graph(&base, cluster_graph, positions, forward_max_dist, backward_max_dist);
+    return *cluster_graph;
+}
+
 sglib::HashGraph cluster_subgraph_walk(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
     assert(mems.size());
     auto& start_mem = mems.front();
@@ -3518,7 +3539,7 @@ sglib::HashGraph cluster_subgraph_walk(const HandleGraph& base, const Alignment&
     int end_padding = max(8, (int)aln.sequence().size()/8);
     int get_before = end_padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     if (get_before) {
-        algorithms::extract_context(base, graph, base.get_handle(id(rev_start_pos), is_rev(rev_start_pos)), offset(rev_start_pos), get_before, false, true);
+        //algorithms::extract_context(base, graph, base.get_handle(id(rev_start_pos), is_rev(rev_start_pos)), offset(rev_start_pos), get_before, false, true);
     }
     //cerr << "======================================================" << endl;
     for (int i = 0; i < mems.size(); ++i) {
@@ -3531,7 +3552,7 @@ sglib::HashGraph cluster_subgraph_walk(const HandleGraph& base, const Alignment&
         }
         for (auto& p : match_positions) {
             handle_t h = base.get_handle(gcsa::Node::id(p.first), gcsa::Node::rc(p.first));
-            algorithms::extract_context(base, graph, h, gcsa::Node::offset(p.first), base.get_length(h));
+            algorithms::extract_context(base, graph, h, gcsa::Node::offset(p.first), 0);
         }
         // extend after the last match node with the expansion
         auto& p = match_positions.back();
@@ -3539,8 +3560,8 @@ sglib::HashGraph cluster_subgraph_walk(const HandleGraph& base, const Alignment&
         int mem_remainder = p.second;
         //cerr << p.first << " " << p.second << endl;
         handle_t h = base.get_handle(gcsa::Node::id(pos));
-        int get_after = base.get_length(h);
-            + (i+1 == mems.size() ?
+        int get_after = //base.get_length(h);
+            (i+1 == mems.size() ?
                end_padding +
                expansion * ((int)(aln.sequence().end() - mem.end) + mem_remainder)
                :
@@ -3550,7 +3571,8 @@ sglib::HashGraph cluster_subgraph_walk(const HandleGraph& base, const Alignment&
             algorithms::extract_context(base, graph, h, gcsa::Node::offset(pos), get_after, true, false);
         }
     }
-    algorithms::expand_subgraph_by_steps(base, graph, 0);
+    //algorithms::expand_subgraph_by_steps(base, graph, 0);
+    algorithms::expand_subgraph_to_length(base, graph, aln.sequence().size() * expansion, false);
     return graph;
 }
 

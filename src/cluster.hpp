@@ -13,6 +13,7 @@
 #include "path_component_index.hpp"
 #include "sglib/hash_graph.hpp"
 #include "algorithms/subgraph.hpp"
+#include "algorithms/extract_containing_graph.hpp"
 
 #include <functional>
 #include <string>
@@ -672,6 +673,8 @@ private:
 
 /// get the handles that a mem covers
 vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const HandleGraph& graph, const vg::MaximalExactMatch& mem);
+/// return a containing subgraph connecting the mems
+sglib::HashGraph cluster_subgraph_containing(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& cluster, const GSSWAligner* aligner);
 /// return a subgraph form an xg for a cluster of MEMs from the given alignment
 /// use walking to get the hits
 sglib::HashGraph cluster_subgraph_walk(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion);

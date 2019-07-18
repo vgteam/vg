@@ -32,6 +32,7 @@
 #include "algorithms/approx_path_distance.hpp"
 #include "algorithms/path_string.hpp"
 #include "algorithms/alignment_path_offsets.hpp"
+#include "algorithms/to_gfa.hpp"
 
 // #define BENCH
 // #include "bench.h"
@@ -428,14 +429,14 @@ private:
     
 protected:
     Alignment align_to_graph(const Alignment& aln,
-                             sglib::HashGraph& graph,
+                             HandleGraph& graph,
                              bool traceback,
                              bool pinned_alignment = false,
                              bool pin_left = false,
                              bool banded_global = false,
                              bool keep_bonuses = true);
     Alignment align_to_graph(const Alignment& aln,
-                             sglib::HashGraph& graph,
+                             HandleGraph& graph,
                              const vector<MaximalExactMatch>& mems,
                              bool traceback,
                              bool pinned_alignment = false,
@@ -495,8 +496,8 @@ public:
     // compute the uniqueness metric based on the MEMs in the cluster
     double compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
-    Alignment align_maybe_flip(const Alignment& base, sglib::HashGraph& graph, bool flip, bool traceback, bool banded_global = false, bool xdrop_alignment = false);
-    Alignment align_maybe_flip(const Alignment& base, sglib::HashGraph& graph, const vector<MaximalExactMatch>& mems, bool flip, bool traceback, bool banded_global = false, bool xdrop_alignment = false);
+    Alignment align_maybe_flip(const Alignment& base, HandleGraph& graph, bool flip, bool traceback, bool banded_global = false, bool xdrop_alignment = false);
+    Alignment align_maybe_flip(const Alignment& base, HandleGraph& graph, const vector<MaximalExactMatch>& mems, bool flip, bool traceback, bool banded_global = false, bool xdrop_alignment = false);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
