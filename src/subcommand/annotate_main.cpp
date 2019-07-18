@@ -8,6 +8,7 @@
 #include "../annotation.hpp"
 #include "../gff_reader.hpp"
 #include "../region_expander.hpp"
+#include "../algorithms/alignment_path_offsets.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -308,7 +309,7 @@ int main_annotate(int argc, char** argv) {
                     if (add_positions) {
                         // Annotate it with its initial position on each path it touches
                         aln.clear_refpos();
-                        mapper.annotate_with_initial_path_positions(aln, search_limit);
+                        algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln);
                     }
                     
                     if (!features_on_node.empty()) {
