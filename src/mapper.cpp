@@ -1579,6 +1579,7 @@ Mapper::~Mapper(void) {
 // todo add options for aligned global and pinned
 Alignment Mapper::align_to_graph(const Alignment& aln,
                                  HandleGraph& graph,
+                                 bool do_flip,
                                  bool traceback,
                                  bool pinned_alignment,
                                  bool pin_left,
@@ -1586,12 +1587,13 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                  bool keep_bonuses) {
     // do not use X-drop alignment when MEMs is not available
     vector<MaximalExactMatch> mems;
-    return align_to_graph(aln, graph, mems, traceback, pinned_alignment, pin_left, banded_global, false, keep_bonuses);
+    return align_to_graph(aln, graph, mems, do_flip, traceback, pinned_alignment, pin_left, banded_global, false, keep_bonuses);
 }
 
 Alignment Mapper::align_to_graph(const Alignment& aln,
                                  HandleGraph& graph,
                                  const vector<MaximalExactMatch>& mems,
+                                 bool do_flip,
                                  bool traceback,
                                  bool pinned_alignment,
                                  bool pin_left,
@@ -1611,12 +1613,16 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
     bool use_single_stranded = algorithms::is_single_stranded(&graph);
     bool mem_strand = false;
     if (use_single_stranded) {
-        mem_strand = gcsa::Node::rc(mems[0].nodes.front());
-        for (size_t i = 1; i < mems.size(); i++) {
-            if (gcsa::Node::rc(mems[0].nodes.front()) != mem_strand) {
-                use_single_stranded = false;
-                break;
+        if (mems.size()) {
+            mem_strand = gcsa::Node::rc(mems[0].nodes.front());
+            for (size_t i = 1; i < mems.size(); i++) {
+                if (gcsa::Node::rc(mems[0].nodes.front()) != mem_strand) {
+                    use_single_stranded = false;
+                    break;
+                }
             }
+        } else if (do_flip) {
+            mem_strand = true;
         }
     }
     if (use_single_stranded) {
@@ -3031,9 +3037,11 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, HandleGraph& graph, co
     }
     bool pinned_alignment = false;
     bool pinned_reverse = false;
+    //algorithms::to_gfa(*dynamic_cast<PathHandleGraph*>(&graph), cerr);
     aln = align_to_graph(aln,
                          graph,
                          mems,
+                         flip,
                          traceback,
                          pinned_alignment,
                          pinned_reverse,
@@ -3066,46 +3074,9 @@ double Mapper::compute_uniqueness(const Alignment& aln, const vector<MaximalExac
 }
 
 Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems, bool traceback, bool xdrop_alignment) {
-    // TODO check if we can just fill out the alignment with exact matches
-    // ...
-    //
-    // poll the mems to see if we should flip
-    int count_fwd = 0, count_rev = 0;
-    for (auto& mem : mems) {
-        bool is_rev = gcsa::Node::rc(mem.nodes.front());
-        if (is_rev) {
-            ++count_rev;
-        } else {
-            ++count_fwd;
-        }
-    }
-    // get the graph with cluster.hpp's cluster_subgraph
-    //sglib::HashGraph graph = cluster_subgraph_walk(*xindex, aln, mems, 1);
     sglib::HashGraph graph = cluster_subgraph_containing(*xindex, aln, mems, get_aligner());
-    // and test each direction for which we have MEM hits
-    Alignment aln_fwd;
-    Alignment aln_rev;
-    // try both ways if we're not sure if we are acyclic
-    if (count_fwd) {
-        aln_fwd = align_maybe_flip(aln, graph, mems, false, traceback, false, xdrop_alignment);
-    }
-    if (count_rev) {
-        aln_rev = align_maybe_flip(aln, graph, mems, true, traceback, false, xdrop_alignment);
-    }
-    // TODO check if we have soft clipping on the end of the graph and if so try to expand the context
-    if (aln_fwd.score() + aln_rev.score() == 0) {
-        // abject failure, nothing aligned with score > 0
-        Alignment result = aln;
-        result.clear_path();
-        result.clear_score();
-        return result;
-    } else if (aln_rev.score() > aln_fwd.score()) {
-        // reverse won
-        return aln_rev;
-    } else {
-        // forward won
-        return aln_fwd;
-    }
+    Alignment aligned = align_maybe_flip(aln, graph, mems, false, traceback, false, xdrop_alignment);
+    return aligned;
 }
 
 VG Mapper::cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems) {

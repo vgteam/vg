@@ -200,34 +200,42 @@ void extract_context(const HandleGraph& source, MutableHandleGraph& subgraph, co
         extended = false;
         for (auto& h : curr_handles) {
             handle_t old_h = source.get_handle(subgraph.get_id(h));
-            source.follow_edges(old_h, false, [&](const handle_t& c) {
-                    handle_t x;
-                    if (!subgraph.has_node(source.get_id(c))) {
-                        x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
-                        if (source.get_is_reverse(c)) x = subgraph.flip(x);
-                        total_length_fwd += subgraph.get_length(x);
-                        extended = true;
-                    } else {
-                        x = subgraph.get_handle(source.get_id(c));
-                    }
-                    if (!subgraph.has_edge(h, x)) {
-                        subgraph.create_edge(h, x);
-                    }
-                });
-            source.follow_edges(old_h, true, [&](const handle_t& c) {
-                    handle_t x;
-                    if (!subgraph.has_node(source.get_id(c))) {
-                        x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
-                        if (source.get_is_reverse(c)) x = subgraph.flip(x);
-                        total_length_rev += subgraph.get_length(x);
-                        extended = true;
-                    } else {
-                        x = subgraph.get_handle(source.get_id(c));
-                    }
-                    if (!subgraph.has_edge(x, h)) {
-                        subgraph.create_edge(x, h);
-                    }
-                });
+            if (total_length_fwd < get_fwd) {
+                source.follow_edges(old_h, false, [&](const handle_t& c) {
+                        if (total_length_fwd >= get_fwd) {
+                            handle_t x;
+                            if (!subgraph.has_node(source.get_id(c))) {
+                                x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
+                                if (source.get_is_reverse(c)) x = subgraph.flip(x);
+                                total_length_fwd += subgraph.get_length(x);
+                                extended = true;
+                            } else {
+                                x = subgraph.get_handle(source.get_id(c));
+                            }
+                            if (!subgraph.has_edge(h, x)) {
+                                subgraph.create_edge(h, x);
+                            }
+                        }
+                    });
+            }
+            if (total_length_rev < get_rev) {
+                source.follow_edges(old_h, true, [&](const handle_t& c) {
+                        if (total_length_rev < get_rev) {
+                            handle_t x;
+                            if (!subgraph.has_node(source.get_id(c))) {
+                                x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
+                                if (source.get_is_reverse(c)) x = subgraph.flip(x);
+                                total_length_rev += subgraph.get_length(x);
+                                extended = true;
+                            } else {
+                                x = subgraph.get_handle(source.get_id(c));
+                            }
+                            if (!subgraph.has_edge(x, h)) {
+                                subgraph.create_edge(x, h);
+                            }
+                        }
+                    });
+            }
         }
     }
     add_connecting_edges_to_subgraph(source, subgraph);

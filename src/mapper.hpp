@@ -430,6 +430,7 @@ private:
 protected:
     Alignment align_to_graph(const Alignment& aln,
                              HandleGraph& graph,
+                             bool do_flip,
                              bool traceback,
                              bool pinned_alignment = false,
                              bool pin_left = false,
@@ -438,6 +439,7 @@ protected:
     Alignment align_to_graph(const Alignment& aln,
                              HandleGraph& graph,
                              const vector<MaximalExactMatch>& mems,
+                             bool do_flip,
                              bool traceback,
                              bool pinned_alignment = false,
                              bool pin_left = false,
