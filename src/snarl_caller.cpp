@@ -6,8 +6,8 @@
 namespace vg {
 
 SupportBasedSnarlCaller::SupportBasedSnarlCaller(const PathHandleGraph& graph,
-                                                               bool use_avg_node_support,
-                                                               bool use_avg_trav_support) :
+                                                 bool use_avg_node_support,
+                                                 bool use_avg_trav_support) :
     graph(graph), use_avg_node_support(use_avg_node_support), use_avg_trav_support(use_avg_trav_support) {
     if (use_avg_node_support) {
         get_node_support = [&] (id_t node) { return get_avg_node_support(node); };
@@ -22,9 +22,9 @@ SupportBasedSnarlCaller::~SupportBasedSnarlCaller() {
 
 
 vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
-                                                     const vector<SnarlTraversal>& traversals,
-                                                     int ref_trav_idx,
-                                                     int ploidy) {
+                                              const vector<SnarlTraversal>& traversals,
+                                              int ref_trav_idx,
+                                              int ploidy) {
 
     assert(ploidy == 2);
 
@@ -193,8 +193,8 @@ Support SupportBasedSnarlCaller::get_traversal_support(const SnarlTraversal& tra
 }
 
 vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<SnarlTraversal>& traversals,
-                                                                          const vector<int>& shared_travs,
-                                                                          bool exclusive_only) const {
+                                                                   const vector<int>& shared_travs,
+                                                                   bool exclusive_only) const {
 
     // pass 1: how many times have we seen a node or edge
     unordered_map<id_t, int> node_counts;

@@ -3,7 +3,7 @@
 namespace vg {
 
 GraphCaller::GraphCaller(SnarlCaller& snarl_caller,
-                         SnarlManager& graph_manager,
+                         SnarlManager& snarl_manager,
                          ostream& out_stream) :
     snarl_caller(snarl_caller), snarl_manager(snarl_manager), out_stream(out_stream) {
 }
@@ -39,8 +39,35 @@ void GraphCaller::call_top_level_snarls(bool recurse_on_fail) {
             process_snarl(cur_queue[i]);
         }
     }
+  
+}
+
+VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
+                           function<PathIndex*(const Snarl&)> get_index,                           
+                           SnarlCaller& snarl_caller,
+                           SnarlManager& snarl_manager,
+                           ostream& out_stream,
+                           vcflib::VariantCallFile& variant_file) :
+    GraphCaller(snarl_caller, snarl_manager, out_stream),
+    graph(graph),
+    input_vcf(variant_file),
+    traversal_finder(graph, snarl_manager, variant_file, get_index) {
+    
+}
+
+VCFGenotyper::~VCFGenotyper() {
 
 }
+
+bool VCFGenotyper::call_snarl(const Snarl& snarl) {
+
+    return true;
+    
+}
+
+void VCFGenotyper::header() {
+}
+
 
 }
 

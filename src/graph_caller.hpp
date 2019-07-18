@@ -58,7 +58,9 @@ protected:
  */
 class VCFGenotyper : public GraphCaller {
 public:
-    VCFGenotyper(SnarlCaller& snarl_caller,
+    VCFGenotyper(const PathHandleGraph& graph,
+                 function<PathIndex*(const Snarl&)> get_index,
+                 SnarlCaller& snarl_caller,
                  SnarlManager& snarl_manager,
                  ostream& out_stream,
                  vcflib::VariantCallFile& variant_file);
@@ -73,11 +75,11 @@ protected:
 
 protected:
 
+    /// the graph
+    const PathHandleGraph& graph;
+
     /// input VCF to genotype, must have been loaded etc elsewhere
     vcflib::VariantCallFile& input_vcf;
-
-    /// object that will take care of choosing our best traversals
-    SnarlCaller& snarl_caller;
 
     /// output vcf
     vcflib::VariantCallFile output_vcf;
