@@ -1,8 +1,8 @@
-#ifndef VG_PATH_SUBGRAPH_HPP_INCLUDED
-#define VG_PATH_SUBGRAPH_HPP_INCLUDED
+#ifndef VG_TREE_SUBGRAPH_HPP_INCLUDED
+#define VG_TREE_SUBGRAPH_HPP_INCLUDED
 
-/** \file
- * path_subgraph.hpp: represents a subgraph defined by a path in another graph.
+/** \file tree_subgraph.hpp
+ * Represents a subgraph of another graph with an internal tree topology.
  */
 
 #include "handle.hpp"
@@ -15,24 +15,46 @@ namespace vg {
 using namespace std;
 
     /**
-     * A HandleGraph implementation that represents a subgraph of another HandleGraph, defined by a Path.
-     * The leading and trailing nodes are cut according to the Path.
-     * Supports translation of other Paths from this graph into the base graph.
+     * A HandleGraph implementation that represents a subgraph of another
+     * HandleGraph, defined by an internal tree whose nodes and edges are
+     * embedded in the nodes and edges of the backing graph.
      *
-     * Nodes are numbered 1 to n along the path; multiple visits on the path to the same backing node will become distinct.
+     * Useful for describing the haplotype tree embedded in a graph, radiating
+     * from a certain point.
+     *
+     * The tree is always exposed as rooted at the left, with child nodes
+     * radiating out on the right. The user has to re-orient the handles fed in
+     * to match that topology.
+     *
+     * The root handle can be trimmed on its left side.
+     *
+     * Supports translation of other Paths from this graph into the base graph.
      */
-    class PathSubgraph : public handlegraph::ExpandingOverlayGraph {
+    class TreeSubgraph : public handlegraph::ExpandingOverlayGraph {
     public:
         
-        /// Create a PathSubgraph describing the subgraph of the given graph
-        /// defined by the given path. The path must not be empty. The path
-        /// can take part of the start and end nodes, but all mappings must be
-        /// perfect matches, and all adjacent mappings must properly cross a real
-        /// edge.
-        PathSubgraph(const HandleGraph* base, const Path& path);
+        /// Create a TreeSubgraph describing the subgraph of the given graph
+        /// defined by the given tree. The tree is stored as a vector of pairs
+        /// of (previous item number, base graph handle).
+        ///
+        /// The tree handles must be given reading from the root end of the
+        /// tree towards the branches.
+        ///
+        /// The tree must be topologically sorted, with the root at 0. The root
+        /// must point to -1.
+        ///
+        /// If given, root_trim specifies a number of bases to cut off of the
+        /// left side of the root handle.
+        ///
+        TreeSubgraph(const HandleGraph* super, vector<pair<int64_t, handle_t>>&& tree, size_t root_trim = 0);
         
-        /// Get a topological order very easily, since the path defines one.
+        /// Get a topological order very easily, since the tree defines one.
         vector<handle_t> get_topological_order() const;
+        
+        /// Get a handle to the root of the tree, oriented towards the side with edges, if any.
+        ///
+        /// Throws an exception if the tree is empty and there is no root.
+        handle_t get_root() const;
         
         //////////////////////////
         /// HandleGraph interface
@@ -75,7 +97,6 @@ using namespace std;
         
     public:
         /// Return the number of nodes in the graph
-        /// TODO: can't be node_count because XG has a field named node_count.
         virtual size_t get_node_count() const;
         
         /// Return the smallest ID in the graph, or some smaller number if the
@@ -100,9 +121,19 @@ using namespace std;
         /// Translate a Path against us to a Path against the base graph
         Path translate_down(const Path& path_against_subgraph) const;
         
-    private:
-        const HandleGraph* super = nullptr;
-        Path defining_path;
+    protected:
+        /// What graph are we based on?
+        const HandleGraph* super;
+        
+        /// What tree are we using in the backing graph?
+        /// Index in this vector corresponds to node ID in the projected graph.
+        vector<pair<int64_t, handle_t>> tree;
+        
+        /// How much of the root do we trim off?
+        size_t root_trim;
+        
+        /// For each node, what child indexes does it have?
+        vector<vector<size_t>> children;
     };
 }
 

@@ -49,7 +49,7 @@ void help_gaffe(char** argv) {
     << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE (may repeat)" << endl
     << "  -f, --fastq-in FILE           read and align FASTQ-format reads from FILE (may repeat)" << endl
     << "output options:" << endl
-    << "  -M, --max-multimaps INT       produce up to INT alignments for each read [1]"
+    << "  -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
     << "  -n, --discard                 discard all output alignments (for profiling)" << endl
@@ -64,6 +64,8 @@ void help_gaffe(char** argv) {
     << "  -v, --extension-score INT     only align extensions if their score is within extension-score of the best score" << endl
     << "  -w, --extension-set INT     only align extension sets if their score is within extension-set of the best score" << endl
     << "  -O, --no-chaining             disable seed chaining and all gapped alignment" << endl
+    << "  -T, --max-tails INT           fall back on alignment to haplotypes when there are more than INT tails" << endl
+    << "  -l, --linear-tails            align tails as individual linear alignments instead of POA trees" << endl
     << "  -X, --xdrop                   use xdrop alignment for tails" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
@@ -87,6 +89,10 @@ int main_gaffe(int argc, char** argv) {
     bool progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_chaining = true;
+    // How many tails should we tolerate
+    size_t max_tails = numeric_limits<size_t>::max();
+    // Should we do individual linear tail alignments instead of tree-shaped ones?
+    bool linear_tails = false;
     // Whould we use the xdrop aligner for aligning tails?
     bool use_xdrop_for_tails = false;
     // What GAMs should we realign?
@@ -144,13 +150,15 @@ int main_gaffe(int argc, char** argv) {
             {"extension-set", required_argument, 0, 'w'},
             {"score-fraction", required_argument, 0, 'F'},
             {"no-chaining", no_argument, 0, 'O'},
+            {"max-tails", required_argument, 0, 'T'},
+            {"linear-tails", no_argument, 0, 'l'},
             {"xdrop", no_argument, 0, 'X'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:w:OXt:",
+        c = getopt_long (argc, argv, "hx:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:w:OT:lXt:",
                          long_options, &option_index);
 
 
@@ -313,6 +321,14 @@ int main_gaffe(int argc, char** argv) {
                 do_chaining = false;
                 break;
                 
+            case 'T':
+                max_tails = parse<size_t>(optarg);
+                break;
+                
+            case 'l':
+                linear_tails = true;
+                break;
+                
             case 'X':
                 use_xdrop_for_tails = true;
                 break;
@@ -442,7 +458,7 @@ int main_gaffe(int argc, char** argv) {
     minimizer_mapper.do_chaining = do_chaining;
 
     if (progress) {
-        cerr << "--max-multipmaps " << max_multimaps << endl;
+        cerr << "--max-multimaps " << max_multimaps << endl;
     }
     minimizer_mapper.max_multimaps = max_multimaps;
 
@@ -450,7 +466,17 @@ int main_gaffe(int argc, char** argv) {
         cerr << "--distance-limit " << distance_limit << endl;
     }
     minimizer_mapper.distance_limit = distance_limit;
-
+    
+    if (progress) {
+        cerr << "--max-tails " << max_tails << endl;
+    }
+    minimizer_mapper.max_tails = max_tails;
+    
+    if (progress) {
+        cerr << "--linear-tails " << linear_tails << endl;
+    }
+    minimizer_mapper.linear_tails = linear_tails;
+    
     if (progress) {
         cerr << "--xdrop " << use_xdrop_for_tails << endl;
     }

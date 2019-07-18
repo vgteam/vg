@@ -13,6 +13,7 @@
 #include "catch.hpp"
 #include "snarls.hpp"
 #include "genotypekit.hpp"
+#include "traversal_finder.hpp"
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/vpkg.hpp>
 
@@ -3600,5 +3601,278 @@ namespace vg {
             }
             
         }
+
+    TEST_CASE( "PathTraversalFinder works correctly",
+               "[sites][snarls]" ) {
+
+
+        // Build a toy graph
+        const string graph_json = R"(
+        
+            {
+                "node": [
+                    {"id": 1, "sequence": "G"},
+                    {"id": 2, "sequence": "A"},
+                    {"id": 3, "sequence": "G"},
+                    {"id": 4, "sequence": "A"},
+                    {"id": 5, "sequence": "G"},
+                    {"id": 6, "sequence": "A"},
+                    {"id": 7, "sequence": "G"},
+                    {"id": 8, "sequence": "A"},
+                    {"id": 9, "sequence": "A"},
+                    {"id": 10, "sequence": "G"},
+                    {"id": 11, "sequence": "A"}
+                ],
+                "edge": [
+                    {"from": 1, "to": 2},
+                    {"from": 2, "to": 3},
+                    {"from": 2, "to": 4},
+                    {"from": 3, "to": 5},
+                    {"from": 3, "to": 6},
+                    {"from": 4, "to": 5},
+                    {"from": 4, "to": 6},
+                    {"from": 5, "to": 7},
+                    {"from": 6, "to": 7},
+                    {"from": 7, "to": 8},
+                    {"from": 8, "to": 9},
+                    {"from": 8, "to": 10, "to_end": "true"},
+                    {"from": 9, "to": 10},
+                    {"from": 9, "to": 10, "from_start": "true"},
+                    {"from": 9, "to": 11, "to_end": "true"},
+                    {"from": 9, "to": 11, "from_start": "true", "to_end": "true"},
+                    {"from": 10, "to": 11, "to_end": "true"}
+                ],
+                "path": [
+                    {"name": "ref", "mapping": [
+                        {"position": {"node_id": 1}, "rank" : 1 },
+                        {"position": {"node_id": 2}, "rank" : 2 },
+                        {"position": {"node_id": 4}, "rank" : 3 },
+                        {"position": {"node_id": 6}, "rank" : 4 },
+                        {"position": {"node_id": 7}, "rank" : 5 },
+                        {"position": {"node_id": 8}, "rank" : 6 },
+                        {"position": {"node_id": 9}, "rank" : 7 },
+                        {"position": {"node_id": 10}, "rank" : 8 },
+                        {"position": {"node_id": 11, "is_reverse" : "true"}, "rank" : 9 }
+                    ]},
+                    {"name": "alt1", "mapping": [
+                        {"position": {"node_id": 1}, "rank" : 1 },
+                        {"position": {"node_id": 2}, "rank" : 2 },
+                        {"position": {"node_id": 3}, "rank" : 3 },
+                        {"position": {"node_id": 5}, "rank" : 4 },
+                        {"position": {"node_id": 7}, "rank" : 5 },
+                        {"position": {"node_id": 8}, "rank" : 6 },
+                        {"position": {"node_id": 10, "is_reverse" : "true"}, "rank" : 7 },
+                        {"position": {"node_id": 9}, "rank" : 8 },
+                        {"position": {"node_id": 11, "is_reverse" : "true"}, "rank" : 9 }
+                    ]},
+                    {"name": "alt1a", "mapping": [
+                        {"position": {"node_id": 2}, "rank" : 2 },
+                        {"position": {"node_id": 3}, "rank" : 3 },
+                        {"position": {"node_id": 5}, "rank" : 4 },
+                        {"position": {"node_id": 7}, "rank" : 5 }
+                    ]},
+                    {"name": "alt2", "mapping": [
+                        {"position": {"node_id": 8, "is_reverse" : "true"}, "rank" : 1 },
+                        {"position": {"node_id": 7, "is_reverse" : "true"}, "rank" : 2 },
+                        {"position": {"node_id": 6, "is_reverse" : "true"}, "rank" : 3 },
+                        {"position": {"node_id": 3, "is_reverse" : "true"}, "rank" : 4 },
+                        {"position": {"node_id": 2, "is_reverse" : "true"}, "rank" : 5 },
+                        {"position": {"node_id": 1, "is_reverse" : "true"}, "rank" : 6 }
+                    ]},
+                    {"name": "shorty", "mapping": [
+                        {"position": {"node_id": 1}, "rank" : 1 },
+                        {"position": {"node_id": 2}, "rank" : 2 },
+                        {"position": {"node_id": 3}, "rank" : 3 },
+                        {"position": {"node_id": 6}, "rank" : 4 }
+                    ]},
+                    {"name": "alt3", "mapping": [
+                        {"position": {"node_id": 11}, "rank" : 1 },
+                        {"position": {"node_id": 9}, "rank" : 2 },
+                        {"position": {"node_id": 10}, "rank" : 3 },
+                        {"position": {"node_id": 8, "is_reverse" : "true"}, "rank" : 4 },
+                        {"position": {"node_id": 7, "is_reverse" : "true"}, "rank" : 5 }
+                    ]},
+                    {"name": "alt4", "mapping": [
+                        {"position": {"node_id": 11}, "rank" : 1 },
+                        {"position": {"node_id": 10, "is_reverse" : "true"}, "rank" : 2 },
+                        {"position": {"node_id": 9, "is_reverse" : "true"}, "rank" : 3 },
+                        {"position": {"node_id": 8, "is_reverse" : "true"}, "rank" : 4 },
+                        {"position": {"node_id": 7, "is_reverse" : "true"}, "rank" : 5 }
+                    ]}
+                ]
+            }            
+            )";
+            
+        // Make an actual graph
+        VG graph;
+        Graph chunk;
+        json2pb(chunk, graph_json.c_str(), graph_json.size());
+        graph.extend(chunk);
+        assert(graph.is_valid());
+        
+        SECTION( "PathTraversalFinder can find simple forward traversals") {
+
+            CactusSnarlFinder snarl_finder(graph);
+            SnarlManager snarl_manager = snarl_finder.find_snarls();
+            PathTraversalFinder trav_finder(graph, snarl_manager);
+
+            Snarl snarl;
+            snarl.mutable_start()->set_node_id(2);
+            snarl.mutable_end()->set_node_id(7);
+
+            auto trav_results = trav_finder.find_path_traversals(snarl);
+
+            // get a path for ref, atl1, alt1a and alt2
+            REQUIRE(trav_results.first.size() == 4);
+
+            set<string> correct_names = {"ref", "alt1", "alt1a", "alt2"};
+            for (auto step_pair : trav_results.second) {
+                string name1 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.first));
+                string name2 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.second));
+                REQUIRE(name1 == name2);
+                REQUIRE(correct_names.count(name1));
+            }
+            
+            map<string, string> true_trav_strings = {
+                {"ref", R"({"visit":[{"node_id":"2"},{"node_id":"4"},{"node_id":"6"},{"node_id":"7"}]})"},
+                {"alt1", R"({"visit":[{"node_id":"2"},{"node_id":"3"},{"node_id":"5"},{"node_id":"7"}]})"},
+                {"alt1a", R"({"visit":[{"node_id":"2"},{"node_id":"3"},{"node_id":"5"},{"node_id":"7"}]})"},
+                {"alt2", R"({"visit":[{"node_id":"2"},{"node_id":"3"},{"node_id":"6"},{"node_id":"7"}]})"}
+            };
+            for (int i = 0; i < trav_results.first.size(); ++i) {
+                string name = graph.get_path_name(graph.get_path_handle_of_step(trav_results.second[i].first));
+                REQUIRE(true_trav_strings.count(name));
+                SnarlTraversal true_trav;
+                json2pb(true_trav, true_trav_strings[name]);
+                bool trav_is_correct = trav_results.first[i] == true_trav;
+                REQUIRE(trav_is_correct);
+            }
+        }
+
+        SECTION( "PathTraversalFinder can find simple traversals when snarl is backward") {
+
+            CactusSnarlFinder snarl_finder(graph);
+            SnarlManager snarl_manager = snarl_finder.find_snarls();
+            PathTraversalFinder trav_finder(graph, snarl_manager);
+
+            Snarl snarl;
+            snarl.mutable_start()->set_node_id(7);
+            snarl.mutable_start()->set_backward(true);
+            snarl.mutable_end()->set_node_id(2);
+            snarl.mutable_end()->set_backward(true);
+            
+            auto trav_results = trav_finder.find_path_traversals(snarl);
+
+            // get a path for ref, atl1, alt1a and alt2
+            REQUIRE(trav_results.first.size() == 4);
+
+            set<string> correct_names = {"ref", "alt1", "alt1a", "alt2"};
+            for (auto step_pair : trav_results.second) {
+                string name1 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.first));
+                string name2 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.second));
+                REQUIRE(name1 == name2);
+                REQUIRE(correct_names.count(name1));
+            }
+
+            map<string, string> true_trav_strings = {
+                {"ref", R"({"visit":[{"node_id":"7","backward":true},{"node_id":"6","backward":true},{"node_id":"4","backward":true},{"node_id":"2","backward":true}]})"},
+                {"alt1", R"({"visit":[{"node_id":"7","backward":true},{"node_id":"5","backward":true},{"node_id":"3","backward":true},{"node_id":"2","backward":true}]})"},
+                {"alt1a", R"({"visit":[{"node_id":"7","backward":true},{"node_id":"5","backward":true},{"node_id":"3","backward":true},{"node_id":"2","backward":true}]})"},
+                {"alt2", R"({"visit":[{"node_id":"7","backward":true},{"node_id":"6","backward":true},{"node_id":"3","backward":true},{"node_id":"2","backward":true}]})"}
+            };
+            for (int i = 0; i < trav_results.first.size(); ++i) {
+                string name = graph.get_path_name(graph.get_path_handle_of_step(trav_results.second[i].first));                
+                REQUIRE(true_trav_strings.count(name));
+                SnarlTraversal true_trav;
+                json2pb(true_trav, true_trav_strings[name]);
+                bool trav_is_correct = trav_results.first[i] == true_trav;
+                REQUIRE(trav_is_correct);
+            }
+        }
+
+        SECTION( "PathTraversalFinder can find forward traversals in snarl with inversion") {
+
+            CactusSnarlFinder snarl_finder(graph);
+            SnarlManager snarl_manager = snarl_finder.find_snarls();
+            PathTraversalFinder trav_finder(graph, snarl_manager);
+
+            Snarl snarl;
+            snarl.mutable_start()->set_node_id(8);
+            snarl.mutable_end()->set_node_id(11);
+            snarl.mutable_end()->set_backward(true);
+            
+            auto trav_results = trav_finder.find_path_traversals(snarl);
+
+            // get a path for ref, atl1, alt1a and alt2
+            REQUIRE(trav_results.first.size() == 4);
+
+            set<string> correct_names = {"ref", "alt1", "alt3", "alt4"};
+            for (auto step_pair : trav_results.second) {
+                string name1 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.first));
+                string name2 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.second));
+                REQUIRE(name1 == name2);
+                REQUIRE(correct_names.count(name1));
+            }
+
+            map<string, string> true_trav_strings = {
+                {"ref", R"({"visit":[{"node_id":"8"},{"node_id":"9"},{"node_id":"10"},{"node_id":"11","backward":true}]})"},
+                {"alt1", R"({"visit":[{"node_id":"8"},{"node_id":"10","backward":true},{"node_id":"9"},{"node_id":"11","backward":true}]})"},
+                {"alt3", R"({"visit":[{"node_id":"8"},{"node_id":"10","backward":true},{"node_id":"9","backward":true},{"node_id":"11","backward":true}]})"},
+                {"alt4", R"({"visit":[{"node_id":"8"},{"node_id":"9"},{"node_id":"10"},{"node_id":"11","backward":true}]})"}
+            };
+            for (int i = 0; i < trav_results.first.size(); ++i) {
+                string name = graph.get_path_name(graph.get_path_handle_of_step(trav_results.second[i].first));                
+                REQUIRE(true_trav_strings.count(name));
+                SnarlTraversal true_trav;
+                json2pb(true_trav, true_trav_strings[name]);
+                bool trav_is_correct = trav_results.first[i] == true_trav;
+                REQUIRE(trav_is_correct);
+            }
+        }
+
+        SECTION( "PathTraversalFinder can find traversals in backward snarl with inversion") {
+
+            CactusSnarlFinder snarl_finder(graph);
+            SnarlManager snarl_manager = snarl_finder.find_snarls();
+            PathTraversalFinder trav_finder(graph, snarl_manager);
+
+            Snarl snarl;
+            snarl.mutable_start()->set_node_id(11);
+            snarl.mutable_end()->set_node_id(8);
+            snarl.mutable_end()->set_backward(true);
+            
+            auto trav_results = trav_finder.find_path_traversals(snarl);
+
+            // get a path for ref, atl1, alt1a and alt2
+            REQUIRE(trav_results.first.size() == 4);
+
+            set<string> correct_names = {"ref", "alt1", "alt3", "alt4"};
+            for (auto step_pair : trav_results.second) {
+                string name1 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.first));
+                string name2 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.second));
+                REQUIRE(name1 == name2);
+                REQUIRE(correct_names.count(name1));
+            }
+                
+            map<string, string> true_trav_strings = {
+                {"ref", R"({"visit":[{"node_id":"11"},{"node_id":"10","backward":true},{"node_id":"9","backward":true},{"node_id":"8","backward":true}]})"},
+                {"alt1", R"({"visit":[{"node_id":"11"},{"node_id":"9","backward":true},{"node_id":"10"},{"node_id":"8","backward":true}]})"},
+                {"alt3", R"({"visit":[{"node_id":"11"},{"node_id":"9"},{"node_id":"10"},{"node_id":"8","backward":true}]})"},
+                {"alt4", R"({"visit":[{"node_id":"11"},{"node_id":"10","backward":true},{"node_id":"9","backward":true},{"node_id":"8","backward":true}]})"}
+            };
+            for (int i = 0; i < trav_results.first.size(); ++i) {
+                string name = graph.get_path_name(graph.get_path_handle_of_step(trav_results.second[i].first));                                
+                REQUIRE(true_trav_strings.count(name));
+                SnarlTraversal true_trav;
+                json2pb(true_trav, true_trav_strings[name]);
+                bool trav_is_correct = trav_results.first[i] == true_trav;
+                REQUIRE(trav_is_correct);
+            }
+        }
+
+        
+            
+    }
+
    }
 }

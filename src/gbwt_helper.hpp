@@ -173,6 +173,12 @@ public:
     /// Convert handle_t to gbwt::BidirectionalState.
     gbwt::BidirectionalState get_bd_state(const handle_t& handle) const { return this->index.bdFind(handle_to_node(handle)); }
 
+    /// Get the search state corresponding to the vector of handles.
+    gbwt::SearchState find(const std::vector<handle_t>& path) const;
+
+    /// Get the bidirectional search state corresponding to the vector of handles.
+    gbwt::BidirectionalState bd_find(const std::vector<handle_t>& path) const;
+
     /// Visit all successor states of this state and call iteratee for the state.
     /// Stop and return false if the iteratee returns false.
     /// Note that the state may be empty if no path continues to that node.
