@@ -91,6 +91,7 @@ int main_gamcompare(int argc, char** argv) {
         }
     }
 
+    // We need to read the second argument first, so we can't use get_input_file with its free error checking.
     string test_file_name = get_input_file_name(optind, argc, argv);
     string truth_file_name = get_input_file_name(optind, argc, argv);
 
@@ -101,11 +102,25 @@ int main_gamcompare(int argc, char** argv) {
 #pragma omp critical (truth_table)
         true_positions[aln.name()] = val;
     };
+    
     if (truth_file_name == "-") {
-        assert(test_file_name != "-");
+        // Read truth fropm standard input, if it looks good.
+        if (test_file_name == "-") {
+            cerr << "error[vg gamcompare]: Standard input can only be used for truth or test file, not both" << endl;
+            exit(1);
+        }
+        if (!std::cin) {
+            cerr << "error[vg gamcompare]: Unable to read standard input when looking for true reads" << endl;
+            exit(1);
+        }
         vg::io::for_each_parallel(std::cin, record_truth);
     } else {
+        // Read truth from this file, if it looks good.
         ifstream truth_file_in(truth_file_name);
+        if (!truth_file_in) {
+            cerr << "error[vg gamcompare]: Unable to read " << truth_file_name << " when looking for true reads" << endl;
+            exit(1);
+        }
         vg::io::for_each_parallel(truth_file_in, record_truth);
     }
 
@@ -167,10 +182,17 @@ int main_gamcompare(int argc, char** argv) {
     };
 
     if (test_file_name == "-") {
-        assert(truth_file_name != "-");
+        if (!std::cin) {
+            cerr << "error[vg gamcompare]: Unable to read standard input when looking for reads under test" << endl;
+            exit(1);
+        }
         vg::io::for_each_parallel(std::cin, annotate_test);
     } else {
         ifstream test_file_in(test_file_name);
+        if (!test_file_in) {
+            cerr << "error[vg gamcompare]: Unable to read " << test_file_name << " when looking for reads under test" << endl;
+            exit(1);
+        }
         vg::io::for_each_parallel(test_file_in, annotate_test);
     }
 
