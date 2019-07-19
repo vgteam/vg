@@ -243,27 +243,23 @@ bool GBWTGraph::for_each_handle_impl(const std::function<bool(const handle_t&)>&
 
 //------------------------------------------------------------------------------
 
-size_t GBWTGraph::serialize(std::ostream& out) const {
-    size_t written_bytes = 0;
+void GBWTGraph::serialize(std::ostream& out) const {
 
     // Serialize the sequences manually.
     size_t sequence_size = this->sequences.size();
-    written_bytes += sdsl::write_member(sequence_size, out);
+    sdsl::write_member(sequence_size, out);
     for (size_t offset = 0; offset < this->sequences.size(); offset += BLOCK_SIZE) {
         size_t bytes = std::min(BLOCK_SIZE, this->sequences.size() - offset);
         out.write(this->sequences.data() + offset, bytes);
-        written_bytes += bytes;
     }
 
     // Serialize the rest.
-    written_bytes += this->offsets.serialize(out);
-    written_bytes += this->real_nodes.serialize(out);
-    written_bytes += sdsl::write_member(this->total_nodes, out);
-
-    return written_bytes;
+    this->offsets.serialize(out);
+    this->real_nodes.serialize(out);
+    sdsl::write_member(this->total_nodes, out);
 }
 
-void GBWTGraph::load(std::istream& in) {
+void GBWTGraph::deserialize(std::istream& in) {
 
     // Load the sequences manually.
     size_t sequence_size = 0;

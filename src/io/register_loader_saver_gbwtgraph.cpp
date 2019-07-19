@@ -18,7 +18,7 @@ using namespace vg::io;
 void register_loader_saver_gbwtgraph() {
     Registry::register_bare_loader_saver<GBWTGraph>("GBWTGraph", [](istream& input) -> void* {
         GBWTGraph* graph = new GBWTGraph();
-        graph->load(input);
+        graph->deserialize(input);
         
         // Return the graph so the caller owns it.
         return static_cast<void*>(graph);

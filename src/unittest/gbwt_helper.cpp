@@ -367,7 +367,7 @@ TEST_CASE("GBWTGraph serialization", "[gbwt_helper]") {
 
         GBWTGraph duplicate_graph;
         std::ifstream in(filename, std::ios_base::binary);
-        duplicate_graph.load(in);
+        duplicate_graph.deserialize(in);
         in.close();
         temp_file::remove(filename);
         REQUIRE(duplicate_graph.get_node_count() == 0);
@@ -393,7 +393,7 @@ TEST_CASE("GBWTGraph serialization", "[gbwt_helper]") {
 
         GBWTGraph duplicate_graph;
         std::ifstream in(filename, std::ios_base::binary);
-        duplicate_graph.load(in);
+        duplicate_graph.deserialize(in);
         duplicate_graph.set_gbwt(gbwt_index);
         in.close();
         temp_file::remove(filename);

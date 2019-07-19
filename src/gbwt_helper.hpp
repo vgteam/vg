@@ -64,10 +64,10 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i);
  * graph navigation than in XG. Also supports a version of follow_edges() that
  * takes only paths supported by the indexed haplotypes.
  */
-class GBWTGraph : public HandleGraph {
+class GBWTGraph : public HandleGraph, public SerializableHandleGraph {
 public:
 
-    /// Default constructor. Call load() and set_gbwt() before using the graph.
+    /// Default constructor. Call deserialize() and set_gbwt() before using the graph.
     GBWTGraph();
 
     /// Create a graph backed by the GBWT index and extract the sequences from the
@@ -155,17 +155,17 @@ protected:
 
 public:
 
-    // Serialization interface.
+    // SerializableHandleGraph interface.
 
-    /// Serialize the sequences to the ostream. Returns the number of bytes written.
-    size_t serialize(std::ostream& out) const;
+    /// Serialize the sequences to the ostream.
+    virtual void serialize(std::ostream& out) const;
 
-    /// Load the sequences from the istream and return true if successful.
+    /// Load the sequences from the istream.
     /// Call set_gbwt() before using the graph.
-    void load(std::istream& in);
+    virtual void deserialize(std::istream& in);
 
     /// Set the GBWT index used for graph topology.
-    /// Call load() before using the graph.
+    /// Call deserialize() before using the graph.
     void set_gbwt(const gbwt::GBWT& gbwt_index);
 
 //------------------------------------------------------------------------------
