@@ -165,6 +165,10 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a2f47382b14baf0482c43034e6484d086"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aee3e4b7c4e777da6c09f70218481e3d6"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aee3e4b7c4e777da6c09f70218481e3d6">read_group</a></td></tr>
 <tr class="separator:aee3e4b7c4e777da6c09f70218481e3d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeabec85347521c1f42ef51e0453c4e5f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aeabec85347521c1f42ef51e0453c4e5f">track_provenance</a> = false</td></tr>
+<tr class="separator:aeabec85347521c1f42ef51e0453c4e5f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7896c6cccfa011c4fbad1b916d30052e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a7896c6cccfa011c4fbad1b916d30052e">track_correctness</a> = false</td></tr>
+<tr class="separator:a7896c6cccfa011c4fbad1b916d30052e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_attribs_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a25db3953c246e94a7e08ef59fc31b82f">adjust_alignments_for_base_quality</a> = false</td></tr>
 <tr class="separator:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1249,6 +1253,32 @@ Protected Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a7896c6cccfa011c4fbad1b916d30052e"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MinimizerMapper::track_correctness = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Guess which seed hits are correct by location in the linear reference and track if/when their descendants make it through stages of the algorithm. Only works if track_provenance is true. </p>
+
+</div>
+</div>
+<a class="anchor" id="aeabec85347521c1f42ef51e0453c4e5f"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MinimizerMapper::track_provenance = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Track which internal work items came from which others during each stage of the mapping algorithm. </p>
 
 </div>
 </div>
