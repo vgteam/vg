@@ -398,10 +398,10 @@ TEST_CASE("GBWTGraph serialization", "[gbwt_helper]") {
         in.close();
         temp_file::remove(filename);
 
+        REQUIRE(duplicate_graph.header == gbwt_graph.header);
         REQUIRE(duplicate_graph.sequences == gbwt_graph.sequences);
         REQUIRE(duplicate_graph.offsets == gbwt_graph.offsets);
         REQUIRE(duplicate_graph.real_nodes == gbwt_graph.real_nodes);
-        REQUIRE(duplicate_graph.total_nodes == gbwt_graph.total_nodes);
     }
 }
 

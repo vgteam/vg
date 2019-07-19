@@ -63,6 +63,10 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i);
  * sequences from another HandleGraph. Faster sequence access but slower
  * graph navigation than in XG. Also supports a version of follow_edges() that
  * takes only paths supported by the indexed haplotypes.
+ *
+ * Graph file format versions:
+ *
+ *   1  The initial version.
  */
 class GBWTGraph : public HandleGraph, public SerializableHandleGraph {
 public:
@@ -80,11 +84,29 @@ public:
     /// Move constructor.
     GBWTGraph(GBWTGraph&& source);
 
+    struct Header {
+        std::uint32_t tag, version;
+        std::uint64_t nodes;
+        std::uint64_t flags;
+
+        constexpr static std::uint32_t TAG = 0x6B3764AF;
+        constexpr static std::uint32_t VERSION = 1;
+        constexpr static std::uint32_t MIN_VERSION = 1;
+
+        Header();
+        void sanitize();
+        bool check() const;
+
+        bool operator==(const Header& another) const;
+        bool operator!=(const Header& another) const { return !(this->operator==(another)); }
+    };
+
     const gbwt::GBWT*   index;
+
+    Header              header;
     std::vector<char>   sequences;
     sdsl::int_vector<0> offsets;
     sdsl::bit_vector    real_nodes;
-    size_t              total_nodes;
 
     constexpr static size_t CHUNK_SIZE = 1024; // For parallel for_each_handle().
     constexpr static size_t BLOCK_SIZE = 64 * gbwt::MEGABYTE; // For serialization.

@@ -16,6 +16,10 @@ namespace vg {
 constexpr size_t GBWTGraph::CHUNK_SIZE;
 constexpr size_t GBWTGraph::BLOCK_SIZE;
 
+constexpr std::uint32_t GBWTGraph::Header::TAG;
+constexpr std::uint32_t GBWTGraph::Header::VERSION;
+constexpr std::uint32_t GBWTGraph::Header::MIN_VERSION;
+
 //------------------------------------------------------------------------------
 
 std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i) {
@@ -43,12 +47,31 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i) {
 
 //------------------------------------------------------------------------------
 
+GBWTGraph::Header::Header() :
+    tag(TAG), version(VERSION),
+    nodes(0),
+    flags(0)
+{
+}
+
+bool GBWTGraph::Header::check() const {
+    return (this->tag == TAG && this->version >= MIN_VERSION && this->version <= VERSION && this->flags == 0);
+}
+
+bool GBWTGraph::Header::operator==(const Header& another) const {
+    return (this->tag == another.tag && this->version == another.version &&
+            this->nodes == another.nodes &&
+            this->flags == another.flags);
+}
+
+//------------------------------------------------------------------------------
+
 GBWTGraph::GBWTGraph() :
-    index(nullptr), total_nodes(0) {
+    index(nullptr), header() {
 }
 
 GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_source) :
-    index(nullptr), total_nodes(0) {
+    index(nullptr), header() {
 
     // Set GBWT and do sanity checks.
     this->set_gbwt(gbwt_index);
@@ -73,7 +96,7 @@ GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_s
                 for (gbwt::node_type node = this->index->firstNode(); node < this->index->sigma(); node += 2) {
                     if (!(this->index->empty(node))) {
                         this->real_nodes[this->node_offset(node) / 2] = 1;
-                        this->total_nodes++;
+                        this->header.nodes++;
                     }
                 }
             }
@@ -116,18 +139,18 @@ GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_s
 
 GBWTGraph::GBWTGraph(const GBWTGraph& source) :
     index(source.index) {
+    this->header = source.header;
     this->sequences = source.sequences;
     this->offsets = source.offsets;
     this->real_nodes = source.real_nodes;
-    this->total_nodes = source.total_nodes;
 }
 
 GBWTGraph::GBWTGraph(GBWTGraph&& source) :
     index(source.index) {
+    this->header = std::move(source.header);
     this->sequences = std::move(source.sequences);
     this->offsets = std::move(source.offsets);
     this->real_nodes = std::move(source.real_nodes);
-    this->total_nodes = std::move(source.total_nodes);
 }
 
 //------------------------------------------------------------------------------
@@ -176,7 +199,7 @@ std::string GBWTGraph::get_subsequence(const handle_t& handle, size_t index, siz
 }
 
 size_t GBWTGraph::get_node_count() const {
-    return total_nodes;
+    return this->header.nodes;
 }
 
 id_t GBWTGraph::min_node_id() const {
@@ -245,6 +268,9 @@ bool GBWTGraph::for_each_handle_impl(const std::function<bool(const handle_t&)>&
 
 void GBWTGraph::serialize(std::ostream& out) const {
 
+    // Serialize the header.
+    out.write(reinterpret_cast<const char*>(&(this->header)), sizeof(Header));
+
     // Serialize the sequences manually.
     size_t sequence_size = this->sequences.size();
     sdsl::write_member(sequence_size, out);
@@ -256,10 +282,17 @@ void GBWTGraph::serialize(std::ostream& out) const {
     // Serialize the rest.
     this->offsets.serialize(out);
     this->real_nodes.serialize(out);
-    sdsl::write_member(this->total_nodes, out);
 }
 
 void GBWTGraph::deserialize(std::istream& in) {
+
+    // Load the header.
+    in.read(reinterpret_cast<char*>(&(this->header)), sizeof(Header));
+    if (!(this->header.check())) {
+        std::cerr << "error: [GBWTGraph] invalid or old graph file" << std::endl;
+        std::cerr << "error: [GBWTGraph] graph version is " << this->header.version << "; expected " << Header::VERSION << std::endl;
+        return;
+    }
 
     // Load the sequences manually.
     size_t sequence_size = 0;
@@ -273,7 +306,6 @@ void GBWTGraph::deserialize(std::istream& in) {
     // Load the rest.
     this->offsets.load(in);
     this->real_nodes.load(in);
-    sdsl::read_member(this->total_nodes, in);
 }
 
 void GBWTGraph::set_gbwt(const gbwt::GBWT& gbwt_index) {
