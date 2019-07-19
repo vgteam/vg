@@ -392,6 +392,11 @@ int main_gaffe(int argc, char** argv) {
         exit(1);
     }
     
+    if (track_correctness && xg_name.empty()) {
+        cerr << "error:[vg gaffe] Tracking correctness requires and XG index (-x)" << endl;
+        exit(1);
+    }
+    
     if (gbwt_name.empty()) {
         cerr << "error:[vg gaffe] Mapping requires a GBWT index (-H)" << endl;
         exit(1);
