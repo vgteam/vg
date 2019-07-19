@@ -43,21 +43,25 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i) {
 
 //------------------------------------------------------------------------------
 
-GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_source) :
-    index(gbwt_index), total_nodes(0) {
+GBWTGraph::GBWTGraph() :
+    index(nullptr), total_nodes(0) {
+}
 
-    // Sanity checks for the GBWT index.
-    assert(this->index.bidirectional());
+GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_source) :
+    index(nullptr), total_nodes(0) {
+
+    // Set GBWT and do sanity checks.
+    this->set_gbwt(gbwt_index);
 
     // Add the sentinel to the offset vector of an empty graph just in case.
-    if (this->index.empty()) {
+    if (this->index->empty()) {
         this->offsets = sdsl::int_vector<0>(1, 0);
         return;
     }
 
     // Determine the real nodes and cache the handles.
     // Node n is real, if real_nodes[node_offset(n) / 2] is true.
-    size_t potential_nodes = this->index.sigma() - this->index.firstNode();
+    size_t potential_nodes = this->index->sigma() - this->index->firstNode();
     this->real_nodes = sdsl::bit_vector(potential_nodes / 2, 0);
     std::vector<handle_t> handle_cache(potential_nodes / 2); // Getting handles from XG is slow.
     #pragma omp parallel
@@ -66,8 +70,8 @@ GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_s
         {
             #pragma omp task
             {
-                for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
-                    if (!(this->index.empty(node))) {
+                for (gbwt::node_type node = this->index->firstNode(); node < this->index->sigma(); node += 2) {
+                    if (!(this->index->empty(node))) {
                         this->real_nodes[this->node_offset(node) / 2] = 1;
                         this->total_nodes++;
                     }
@@ -75,7 +79,7 @@ GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_s
             }
             #pragma omp task
             {
-                for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
+                for (gbwt::node_type node = this->index->firstNode(); node < this->index->sigma(); node += 2) {
                     handle_t source_handle = sequence_source.get_handle(gbwt::Node::id(node), false);
                     handle_cache[this->node_offset(node) / 2] = source_handle;
                 }
@@ -85,7 +89,7 @@ GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_s
 
     // Determine the total length of the sequences.
     size_t total_length = 0;
-    for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
+    for (gbwt::node_type node = this->index->firstNode(); node < this->index->sigma(); node += 2) {
         size_t offset = this->node_offset(node) / 2;
         if (this->real_nodes[offset]) {
             total_length += sequence_source.get_length(handle_cache[offset]);
@@ -96,7 +100,7 @@ GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_s
 
     // Store the concatenated sequences and their offset ranges for both orientations of all nodes.
     // Given GBWT node n, the sequence is sequences[node_offset(n)] to sequences[node_offset(n + 1) - 1].
-    for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
+    for (gbwt::node_type node = this->index->firstNode(); node < this->index->sigma(); node += 2) {
         std::string seq;
         size_t offset = this->node_offset(node);
         if (this->real_nodes[offset / 2]) {
@@ -108,13 +112,6 @@ GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_s
         this->sequences.insert(this->sequences.end(), seq.begin(), seq.end());
         this->offsets[offset + 2] = this->sequences.size();
     }
-}
-
-GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index) :
-    index(gbwt_index), total_nodes(0) {
-
-    // Sanity checks for the GBWT index.
-    assert(this->index.bidirectional());
 }
 
 GBWTGraph::GBWTGraph(const GBWTGraph& source) :
@@ -183,11 +180,11 @@ size_t GBWTGraph::get_node_count() const {
 }
 
 id_t GBWTGraph::min_node_id() const {
-    return gbwt::Node::id(this->index.firstNode());
+    return gbwt::Node::id(this->index->firstNode());
 }
 
 id_t GBWTGraph::max_node_id() const {
-    id_t next_id = gbwt::Node::id(this->index.sigma());
+    id_t next_id = gbwt::Node::id(this->index->sigma());
     return next_id - 1;
 }
 
@@ -200,7 +197,7 @@ bool GBWTGraph::follow_edges_impl(const handle_t& handle, bool go_left, const st
         curr = gbwt::Node::reverse(curr);
     }
 
-    gbwt::CompressedRecord record = this->index.record(curr);
+    gbwt::CompressedRecord record = this->index->record(curr);
     for (gbwt::rank_type outrank = 0; outrank < record.outdegree(); outrank++) {
         gbwt::node_type next = record.successor(outrank);
         if (next == gbwt::ENDMARKER) {
@@ -222,7 +219,7 @@ bool GBWTGraph::follow_edges_impl(const handle_t& handle, bool go_left, const st
 bool GBWTGraph::for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel) const {
     if (parallel) {
         #pragma omp parallel for schedule(dynamic, CHUNK_SIZE)
-        for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
+        for (gbwt::node_type node = this->index->firstNode(); node < this->index->sigma(); node += 2) {
             if (!(this->real_nodes[this->node_offset(node) / 2])) {
                 continue;
             }
@@ -231,7 +228,7 @@ bool GBWTGraph::for_each_handle_impl(const std::function<bool(const handle_t&)>&
             }
         }
     } else {
-        for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
+        for (gbwt::node_type node = this->index->firstNode(); node < this->index->sigma(); node += 2) {
             if (!(this->real_nodes[this->node_offset(node) / 2])) {
                 continue;
             }
@@ -283,6 +280,14 @@ void GBWTGraph::load(std::istream& in) {
     sdsl::read_member(this->total_nodes, in);
 }
 
+void GBWTGraph::set_gbwt(const gbwt::GBWT& gbwt_index) {
+
+    this->index = &gbwt_index;
+
+    // Sanity checks for the GBWT index.
+    assert(this->index->bidirectional());
+}
+
 //------------------------------------------------------------------------------
 
 std::pair<const char*, size_t> GBWTGraph::get_sequence_view(const handle_t& handle) const {
@@ -312,7 +317,7 @@ gbwt::SearchState GBWTGraph::find(const std::vector<handle_t>& path) const {
     }
     gbwt::SearchState result = this->get_state(path[0]);
     for (size_t i = 1; i < path.size() && !result.empty(); i++) {
-        result = this->index.extend(result, handle_to_node(path[i]));
+        result = this->index->extend(result, handle_to_node(path[i]));
     }
     return result;
 }
@@ -323,14 +328,14 @@ gbwt::BidirectionalState GBWTGraph::bd_find(const std::vector<handle_t>& path) c
     }
     gbwt::BidirectionalState result = this->get_bd_state(path[0]);
     for (size_t i = 1; i < path.size() && !result.empty(); i++) {
-        result = this->index.bdExtendForward(result, handle_to_node(path[i]));
+        result = this->index->bdExtendForward(result, handle_to_node(path[i]));
     }
     return result;
 }
 
 // Using undocumented parts of the GBWT interface. --Jouni
 bool GBWTGraph::follow_paths(gbwt::SearchState state, const std::function<bool(const gbwt::SearchState&)>& iteratee) const {
-    gbwt::CompressedRecord record = this->index.record(state.node);
+    gbwt::CompressedRecord record = this->index->record(state.node);
     for (gbwt::rank_type outrank = 0; outrank < record.outdegree(); outrank++) {
         gbwt::node_type next_node = record.successor(outrank);
         if (next_node == gbwt::ENDMARKER) {
@@ -351,7 +356,7 @@ bool GBWTGraph::follow_paths(gbwt::BidirectionalState state, bool backward, cons
         state.flip();
     }
 
-    gbwt::CompressedRecord record = this->index.record(state.forward.node);
+    gbwt::CompressedRecord record = this->index->record(state.forward.node);
     for (gbwt::rank_type outrank = 0; outrank < record.outdegree(); outrank++) {
         gbwt::node_type next_node = record.successor(outrank);
         if (next_node == gbwt::ENDMARKER) {
@@ -436,7 +441,7 @@ void for_each_haplotype_window(const GBWTGraph& graph, size_t window_size,
             // Try to extend the window to all successor nodes.
             // We are using undocumented parts of the GBWT interface. --Jouni
             bool extend_success = false;
-            gbwt::CompressedRecord record = graph.index.record(window.state.node);
+            gbwt::CompressedRecord record = graph.index->record(window.state.node);
             for (gbwt::rank_type outrank = 0; outrank < record.outdegree(); outrank++) {
                 gbwt::node_type next_node = record.successor(outrank);
                 if (next_node == gbwt::ENDMARKER) {

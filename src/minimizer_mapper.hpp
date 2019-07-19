@@ -30,8 +30,8 @@ public:
      * as we only use it for correctness tracking.
      */
 
-    MinimizerMapper(const GBWTGraph& graph, const MinimizerIndex* minimizer_index,
-         MinimumDistanceIndex* distance_index, const XG* xg_index = nullptr);
+    MinimizerMapper(const GBWTGraph& graph, const MinimizerIndex& minimizer_index,
+         MinimumDistanceIndex& distance_index, const XG* xg_index = nullptr);
 
     /**
      * Map the given read, and send output to the given AlignmentEmitter. May be run from any thread.
@@ -85,8 +85,8 @@ public:
 protected:
     // These are our indexes
     const XG* xg_index; // Can be nullptr; only needed for correctness tracking.
-    const MinimizerIndex* minimizer_index;
-    MinimumDistanceIndex* distance_index;
+    const MinimizerIndex& minimizer_index;
+    MinimumDistanceIndex& distance_index;
 
     /// This is our primary graph.
     const GBWTGraph& gbwt_graph;

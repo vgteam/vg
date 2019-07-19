@@ -359,15 +359,13 @@ TEST_CASE("GBWTGraph serialization", "[gbwt_helper]") {
 
     // Serialize and load an empty graph.
     SECTION("empty graph can be serialized") {
-        XG empty_xg;
-        gbwt::GBWT empty_gbwt;
-        GBWTGraph empty_graph(empty_gbwt, empty_xg);
+        GBWTGraph empty_graph;
         std::string filename = temp_file::create("gbwtgraph");
         std::ofstream out(filename, std::ios_base::binary);
         empty_graph.serialize(out);
         out.close();
 
-        GBWTGraph duplicate_graph(empty_gbwt);
+        GBWTGraph duplicate_graph;
         std::ifstream in(filename, std::ios_base::binary);
         duplicate_graph.load(in);
         in.close();
@@ -393,9 +391,10 @@ TEST_CASE("GBWTGraph serialization", "[gbwt_helper]") {
         gbwt_graph.serialize(out);
         out.close();
 
-        GBWTGraph duplicate_graph(gbwt_index);
+        GBWTGraph duplicate_graph;
         std::ifstream in(filename, std::ios_base::binary);
         duplicate_graph.load(in);
+        duplicate_graph.set_gbwt(gbwt_index);
         in.close();
         temp_file::remove(filename);
 

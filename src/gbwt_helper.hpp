@@ -66,13 +66,13 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i);
  */
 class GBWTGraph : public HandleGraph {
 public:
+
+    /// Default constructor. Call load() and set_gbwt() before using the graph.
+    GBWTGraph();
+
     /// Create a graph backed by the GBWT index and extract the sequences from the
     /// given HandleGraph.
     GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_source);
-
-    /// Create a graph backed by the GBWT index. The graph is in an invalid state
-    /// until the sequences are loaded with a load() call.
-    explicit GBWTGraph(const gbwt::GBWT& gbwt_index);
 
     /// Copy constructor.
     GBWTGraph(const GBWTGraph& source);
@@ -80,7 +80,7 @@ public:
     /// Move constructor.
     GBWTGraph(GBWTGraph&& source);
 
-    const gbwt::GBWT&   index;
+    const gbwt::GBWT*   index;
     std::vector<char>   sequences;
     sdsl::int_vector<0> offsets;
     sdsl::bit_vector    real_nodes;
@@ -161,7 +161,12 @@ public:
     size_t serialize(std::ostream& out) const;
 
     /// Load the sequences from the istream and return true if successful.
+    /// Call set_gbwt() before using the graph.
     void load(std::istream& in);
+
+    /// Set the GBWT index used for graph topology.
+    /// Call load() before using the graph.
+    void set_gbwt(const gbwt::GBWT& gbwt_index);
 
 //------------------------------------------------------------------------------
 
@@ -185,10 +190,10 @@ public:
     bool ends_with(const handle_t& handle, char c) const;
 
     /// Convert handle_t to gbwt::SearchState.
-    gbwt::SearchState get_state(const handle_t& handle) const { return this->index.find(handle_to_node(handle)); }
+    gbwt::SearchState get_state(const handle_t& handle) const { return this->index->find(handle_to_node(handle)); }
 
     /// Convert handle_t to gbwt::BidirectionalState.
-    gbwt::BidirectionalState get_bd_state(const handle_t& handle) const { return this->index.bdFind(handle_to_node(handle)); }
+    gbwt::BidirectionalState get_bd_state(const handle_t& handle) const { return this->index->bdFind(handle_to_node(handle)); }
 
     /// Get the search state corresponding to the vector of handles.
     gbwt::SearchState find(const std::vector<handle_t>& path) const;
@@ -210,7 +215,7 @@ public:
                       const std::function<bool(const gbwt::BidirectionalState&)>& iteratee) const;
 
 private:
-    size_t node_offset(gbwt::node_type node) const { return node - this->index.firstNode(); }
+    size_t node_offset(gbwt::node_type node) const { return node - this->index->firstNode(); }
     size_t node_offset(const handle_t& handle) const { return this->node_offset(handle_to_node(handle)); }
 };
 

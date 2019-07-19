@@ -396,22 +396,25 @@ int main_gaffe(int argc, char** argv) {
     distance_index.load(dist_in);
     //unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     
-    // Build the GBWTGraph.
-    if (progress) {
-        if (graph_name.empty()) {
+    // Build or load the GBWTGraph.
+    unique_ptr<GBWTGraph> gbwt_graph = nullptr;
+    if (graph_name.empty()) {
+        if (progress) {
             cerr << "Building GBWTGraph" << endl;
-        } else {
+        }
+        gbwt_graph.reset(new GBWTGraph(*gbwt_index, *xg_index));
+    } else {
+        if (progress) {
             cerr << "Loading GBWTGraph " << graph_name << endl;
         }
-    }
-    GBWTGraph gbwt_graph = (graph_name.empty() ? GBWTGraph(*gbwt_index, *xg_index) : GBWTGraph(*gbwt_index));
-    if (!graph_name.empty()) {
+        gbwt_graph.reset(new GBWTGraph());
+        gbwt_graph->set_gbwt(*gbwt_index);
         ifstream in(graph_name, std::ios_base::binary);
         if (!in) {
             cerr << "error:[vg gaffe] cannot load GBWTGraph from " << graph_name << endl;
             exit(1);
         }
-        gbwt_graph.load(in);
+        gbwt_graph->load(in);
         in.close();
     }
 
@@ -419,7 +422,7 @@ int main_gaffe(int argc, char** argv) {
     if (progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(gbwt_graph, minimizer_index.get(), &distance_index, xg_index.get());
+    MinimizerMapper minimizer_mapper(*gbwt_graph, *minimizer_index, distance_index, xg_index.get());
 
 
     if (progress) {
