@@ -14,6 +14,7 @@
 #include "snarls.hpp"
 #include "min_distance.hpp"
 #include "seed_clusterer.hpp"
+#include "tree_subgraph.hpp"
 #include "algorithms/nearest_offsets_in_paths.hpp"
 
 #include <structures/immutable_list.hpp>
@@ -77,7 +78,9 @@ public:
     size_t max_multimaps = 1;
     size_t distance_limit = 1000;
     bool do_chaining = true;
+    size_t max_tails = numeric_limits<size_t>::max();
     bool use_xdrop_for_tails = false;
+    bool linear_tails = false;
     string sample_name;
     string read_group;
 
@@ -115,8 +118,18 @@ protected:
      * Operating on the given input alignment, chain together the given
      * extended perfect-match seeds and produce an alignment into the given
      * output Alignment object.
+     *
+     * Returns true if successful, or false if too much DP work would be
+     * involved and a fallback approach should be used.
      */
-    void chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const; 
+    bool chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const; 
+    
+    /**
+     * Operating on the given input alignment, extract the haplotypes around
+     * the given extended perfect-match seeds and produce the best
+     * haplotype-consistent alignment into the given output Alignment object.
+     */
+    void align_to_local_haplotypes(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const;
     
     /**
      * Find for each pair of extended seeds all the haplotype-consistent graph
@@ -133,9 +146,77 @@ protected:
      * ending before sources (which cannot be reached from other extended
      * seeds) and starting after sinks (which cannot reach any other extended
      * seeds). Only sources and sinks have these "tail" paths.
+     *
+     * Tail paths are only calculated if the MinimizerMapper has linear_tails
+     * set to true.
      */
     unordered_map<size_t, unordered_map<size_t, vector<Path>>> find_connecting_paths(const vector<GaplessExtension>& extended_seeds,
         size_t read_length) const;
+        
+        
+    /**
+     * For gapless extensions that can't reach/be reached by anything in
+     * connecting_paths, get all the trees defining tails off the specified
+     * side of the gapless extension. Assumes that connecting_paths contains no
+     * tail entries itself (i.e. that linear_tails was false on the
+     * MinimizerMapper when find_connecting_paths computed it), but uses it to
+     * identify the source or sink extensions.
+     *
+     * If the gapless extension starts or ends at a node boundary, there may be
+     * multiple trees produced, each with a distinct root.
+     *
+     * If the gapless extension abuts the edge of the read, no forests will be
+     * produced for it.
+     *
+     * Each tree is represented as a TreeSubgraph over our gbwt_graph.
+     *
+     * If left_tails is true, the trees read out of the left sides of the
+     * gapless extensions. Otherwise they read out of the right sides.
+     *
+     * Gapless extensions that are not sources or sinks get no map entries.
+     * Gapless extensions with dangling read sequence but no viable paths in
+     * the graph will at least get map entries with empty forests. Sources or
+     * sinks with no dangling sequence don't necessarily get map entries at
+     * all.
+     */
+    unordered_map<size_t, vector<TreeSubgraph>> get_tail_forests(const vector<GaplessExtension>& extended_seeds,
+        size_t read_length, const unordered_map<size_t, unordered_map<size_t, vector<Path>>>& connecting_paths, bool left_tails) const;
+        
+    /**
+     * Find the best alignment of the given sequence against any of the paths
+     * defined in paths.
+     *
+     * If no mapping is possible, produce a pure insert at default_position.
+     *
+     * If pinned is true, pin the alignment on one end to the start or end of
+     * each path.
+     *
+     * When pinning, if pin_left is true, pin it on the left to the start of
+     * each path. Otherwise pin it on the right to the end.
+     *
+     * Returns alingments in gbwt_graph space.
+     */
+    pair<Path, size_t> get_best_alignment_against_any_path(const vector<Path>& paths, const string& sequence,
+        const Position& default_position, bool pinned, bool pin_left) const;
+    
+    /**
+     * Find the best alignment of the given sequence against any of the trees
+     * provided in trees, where each tree is a TreeSubgraph over the GBWT
+     * graph. Each tree subgraph is rooted at the left in its own local
+     * coordinate space, even if we are pinning on the right.
+     *
+     * If no mapping is possible (for example, because there are no trees),
+     * produce a pure insert at default_position.
+     *
+     * Alignment is always pinned.
+     *
+     * If pin_left is true, pin the alignment on the left to the root of each
+     * tree. Otherwise pin it on the right to the root of each tree.
+     *
+     * Returns alingments in gbwt_graph space.
+     */
+    pair<Path, size_t> get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees, const string& sequence,
+        const Position& default_position, bool pin_left) const;
         
     /// We define a type for shared-tail lists of Mappings, to avoid constantly
     /// copying Path objects.
@@ -172,8 +253,40 @@ protected:
      * hit, calls the limit callback with the list of Mappings (in reverse
      * order) that passed the limit or hit the dead end.
      */
-    void explore_gbwt(const Position& from, size_t walk_distance, const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
+    void explore_gbwt(const Position& from, size_t walk_distance, 
+        const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
         const function<void(const ImmutablePath&)>& limit_callback) const;
+        
+    /**
+     * The same as explore_gbwt on a Position, but takes a handle in the
+     * backing gbwt_graph and an offset from the start of the handle instead.
+     */
+    void explore_gbwt(handle_t from_handle, size_t from_offset, size_t walk_distance,
+        const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
+        const function<void(const ImmutablePath&)>& limit_callback) const;
+    
+    /**
+     * Run a DFS on valid haplotypes in the GBWT starting from the given
+     * Position, and continuing up to the given number of bases.
+     *
+     * Calls enter_handle when the DFS enters a haplotype visit to a particular
+     * handle, and exit_handle when it exits a visit. These let the caller
+     * maintain a stack and track the traversals.
+     *
+     * The starting node is only entered if its offset isn't equal to its
+     * length (i.e. bases remain to be visited).
+     *
+     * Stopping early is not permitted.
+     */
+    void dfs_gbwt(const Position& from, size_t walk_distance,
+        const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const;
+     
+    /**
+     * The same as dfs_gbwt on a Position, but takes a handle in the
+     * backing gbwt_graph and an offset from the start of the handle instead.
+     */ 
+    void dfs_gbwt(handle_t from_handle, size_t from_offset, size_t walk_distance,
+        const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const;
      
 };
 

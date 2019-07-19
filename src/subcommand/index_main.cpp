@@ -507,7 +507,8 @@ int main_index(int argc, char** argv) {
         return 1;
     }
     
-    if (file_names.size() != 1 && build_dist) {
+    if (file_names.size() > 1 && build_dist) {
+        // Allow zero filenames for the index-from-xg mode
         cerr << "error: [vg index] can only create one distance index at a time" << endl;
         return 1;
     }

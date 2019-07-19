@@ -89,7 +89,7 @@ rm -f x.gbwt x.bin x.extract
 vg index -x x.xg -G x.gbwt -v small/xy2.vcf.gz x.vg
 vg gbwt -g x.gg -x x.xg x.gbwt
 is $? 0 "GBWTGraph construction was successful"
-is $(md5sum x.gg | cut -f 1 -d\ ) 99cc41f18d18dd0314cdbc64092191ae "GBWTGraph was correctly serialized"
+is $(md5sum x.gg | cut -f 1 -d\ ) 952f87b5a3ed32c3e05a447cc1ecabb5 "GBWTGraph was correctly serialized"
 
 rm -f x.xg x.gbwt x.gg
 
