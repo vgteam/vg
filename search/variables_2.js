@@ -35,6 +35,7 @@ var searchData=
   ['bins_5fby_5fid_5fprefix',['bins_by_id_prefix',['../classvg_1_1StreamIndexBase.html#a19b9a91061212bfd558a384fa19d4854',1,'vg::StreamIndexBase']]],
   ['bit_5flength',['bit_length',['../classvg_1_1BitString.html#afa7b98ed5fc1b88e1a0fa99fd23ab991',1,'vg::BitString']]],
   ['bits',['bits',['../classvg_1_1BitString.html#a42e6375ac0a96473ebe1884625732419',1,'vg::BitString']]],
+  ['block_5fsize',['BLOCK_SIZE',['../classvg_1_1GBWTGraph.html#a6d400d980f1db024736a14019eb52d2b',1,'vg::GBWTGraph']]],
   ['block_5fto_5fid',['block_to_id',['../classvg_1_1PinchToVGTranslator.html#a7ebe9af7065f42f4afeb2665c44b9450',1,'vg::PinchToVGTranslator']]],
   ['border',['border',['../classvg_1_1PhaseUnfolder.html#a29ec1d4e6557b27c4f92c0280c80b90a',1,'vg::PhaseUnfolder']]],
   ['bottom',['bottom',['../structhaplo_1_1int__itvl__t.html#a9124b7f6c7e637788d1a72b54ac1b7dc',1,'haplo::int_itvl_t']]],

@@ -79,7 +79,7 @@ var searchData=
   ['char_5fto_5fpack',['CHAR_TO_PACK',['../classvg_1_1MinimizerIndex.html#a6bc1c1a9a1570b1bd4d4978e6a93ca74',1,'vg::MinimizerIndex']]],
   ['char_5fto_5fstring',['char_to_string',['../namespacevg.html#ab4c908e97c97825b3025f8aefc59f025',1,'vg']]],
   ['chars',['chars',['../classvg_1_1Pictographs.html#a322a2d02ca384f0c182944bf8eebcb09',1,'vg::Pictographs']]],
-  ['check',['check',['../structvg_1_1MinimizerIndex_1_1Header.html#a941497f8a2a46d59191275e21780a4fb',1,'vg::MinimizerIndex::Header']]],
+  ['check',['check',['../structvg_1_1GBWTGraph_1_1Header.html#a4db39341ffef3bfcc09bf5d41bdefa48',1,'vg::GBWTGraph::Header::check()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a941497f8a2a46d59191275e21780a4fb',1,'vg::MinimizerIndex::Header::check()']]],
   ['check_5falignment',['check_alignment',['../classvg_1_1Mapper.html#a0750e1ca5a4eff47c148b176081c5333',1,'vg::Mapper']]],
   ['check_5fin',['check_in',['../classvg_1_1Watchdog.html#a73fff63eede4aaf60f04ca41f2373cdc',1,'vg::Watchdog']]],
   ['check_5fmax_5fnodes',['check_max_nodes',['../classvg_1_1Deconstructor.html#a6a04c1d7c7ab976a12a8137ad7496fa3',1,'vg::Deconstructor']]],

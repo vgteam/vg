@@ -100,7 +100,7 @@ var searchData=
   ['fit_5fzipf',['fit_zipf',['../namespacevg.html#a9fa3b08acc22f29ea5d940317f6948ab',1,'vg']]],
   ['fixed_5ffragment_5fmodel',['fixed_fragment_model',['../classvg_1_1FragmentLengthStatistics.html#a8c3c6bfb99c7cef159520adb58be271d',1,'vg::FragmentLengthStatistics']]],
   ['fixedgenotypepriorcalculator',['FixedGenotypePriorCalculator',['../classvg_1_1FixedGenotypePriorCalculator.html',1,'vg']]],
-  ['flags',['flags',['../structvg_1_1MinimizerIndex_1_1Header.html#a057627288bb5008172fe61159352be60',1,'vg::MinimizerIndex::Header']]],
+  ['flags',['flags',['../structvg_1_1GBWTGraph_1_1Header.html#a71266f791e8894c9159dd146081d4c29',1,'vg::GBWTGraph::Header::flags()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a057627288bb5008172fe61159352be60',1,'vg::MinimizerIndex::Header::flags()']]],
   ['flank_5frange',['flank_range',['../classvg_1_1VariantAdder.html#a1761b88c30f6fc8e9e40a99d6f66d9dd',1,'vg::VariantAdder']]],
   ['flat',['flat',['../classvg_1_1Constructor.html#a2def54af1f72ad07cf84ff26fbbcc398',1,'vg::Constructor']]],
   ['flat_5fnode',['flat_node',['../structhaplo_1_1haplo__DP__rectangle.html#a5c211ab946bf46fc45b1815482fd790a',1,'haplo::haplo_DP_rectangle']]],

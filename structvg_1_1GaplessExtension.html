@@ -163,7 +163,7 @@ Public Attributes</h2></td></tr>
 <ul>
 <li>The extension is a path starting from offset 'offset' of node path.front().</li>
 <li>Search state 'state' corresponds to the path.</li>
-<li>The extension covers semiopen interval 'read_interval' of the read.</li>
+<li>The extension covers semiopen interval [read_interval.first, read_interval.second) of the read.</li>
 <li>Vector 'mismatch_positions' contains the mismatching read positions in sorted order.</li>
 <li>'score' is an alignment score (bigger is better).</li>
 <li>Flags 'left_full' and 'right_full' indicate whether the extension covers the start/end of the read. </li>

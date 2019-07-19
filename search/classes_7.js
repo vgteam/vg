@@ -39,6 +39,7 @@ var searchData=
   ['hdp_5fgbwt_5fgraph_5faccessor',['hDP_gbwt_graph_accessor',['../classhaplo_1_1hDP__gbwt__graph__accessor.html',1,'haplo']]],
   ['hdp_5fgraph_5faccessor',['hDP_graph_accessor',['../classhaplo_1_1hDP__graph__accessor.html',1,'haplo']]],
   ['header',['Header',['../structvg_1_1MinimizerIndex_1_1Header.html',1,'vg::MinimizerIndex']]],
+  ['header',['Header',['../structvg_1_1GBWTGraph_1_1Header.html',1,'vg::GBWTGraph']]],
   ['hfile_5fbackend',['hFILE_backend',['../structhFILE__backend.html',1,'']]],
   ['hfile_5fcppstream',['hFILE_cppstream',['../structvg_1_1io_1_1hFILE__cppstream.html',1,'vg::io']]],
   ['hitedge',['HitEdge',['../classvg_1_1MEMClusterer_1_1HitEdge.html',1,'vg::MEMClusterer']]],
