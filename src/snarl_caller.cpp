@@ -341,7 +341,7 @@ Support PackedSupportSnarlCaller::get_edge_support(const edge_t& edge) const {
     proto_edge.set_from(graph.get_id(edge.first));
     proto_edge.set_from_start(graph.get_is_reverse(edge.first));
     proto_edge.set_to(graph.get_id(edge.second));
-    proto_edge.set_to(graph.get_is_reverse(edge.second));
+    proto_edge.set_to_end(graph.get_is_reverse(edge.second));
     Support support;
     support.set_forward(packer.edge_coverage(proto_edge));
     return support;

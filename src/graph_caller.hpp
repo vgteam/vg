@@ -89,7 +89,7 @@ protected:
     VCFTraversalFinder traversal_finder;
 
     /// The regions to consider (any snarl not contained in a region is skipped)
-    vector<Region> regions;
+    vector<string> regions;
 };
 
 
