@@ -51,6 +51,20 @@ THREAD_COUNT=32
 # TODO: this requires GNU mptemp
 WORK="$(mktemp -d)"
 
+if which perf 2>/dev/null ; then
+    # Record profile.
+    # Do this first because perf is likely to be misconfigured and we want to fail fast.
+    
+    # If we don't strip bin/vg to make it small, the addr2line calls that perf
+    # script makes take forever because the binary is huge
+    strip bin/vg
+    
+    perf record -F 100 --call-graph dwarf -o "${WORK}/perf.data"  vg gaffe -x "${XG_INDEX}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -f "${REAL_FASTQ}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/perf.gam"
+    perf script -i "${WORK}/perf.data" >"${WORK}/out.perf"
+    deps/FlameGraph/stackcollapse-perf.pl "${WORK}/out.perf" >"${WORK}/out.folded"
+    deps/FlameGraph/flamegraph.pl "${WORK}/out.folded" > "${WORK}/profile.svg"
+fi
+
 # Run simulated reads
 vg gaffe -x "${XG_INDEX}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -G "${SIM_GAM}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/mapped.gam"
 
@@ -86,15 +100,11 @@ BWA_DOUBLE_TIME="$(cat "${WORK}/bwa-log-double.txt" | grep "Real time:" | sed 's
 BWA_RPS="$(echo "${REAL_READ_COUNT} / (${BWA_DOUBLE_TIME} - ${BWA_TIME})" | bc -l)"
 
 if which perf 2>/dev/null ; then
-    # Record profile
-    perf record -F 100 --call-graph dwarf -o "${WORK}/perf.data"  vg gaffe -x "${XG_INDEX}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -f "${REAL_FASTQ}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/perf.gam"
-    perf script -i "${WORK}/perf.data" >"${WORK}/out.perf"
-    deps/FlameGraph/stackcollapse-perf.pl "${WORK}/out.perf" >"${WORK}/out.folded"
-    deps/FlameGraph/flamegraph.pl "${WORK}/out.folded" > "${WORK}/profile.svg"
+    # Output perf stuff
     mv "${WORK}/perf.data" ./pref.data
     mv "${WORK}/profile.svg" ./profile.svg
     echo "Profiling information saved as ./perf.data"
-    echo "Interactive flame graph saved as ./profile.svg"
+    echo "Interactive flame graph (for browsers) saved as ./profile.svg"
 fi
 
 # Print the report
