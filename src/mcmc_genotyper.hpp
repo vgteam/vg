@@ -21,11 +21,12 @@ using namespace std;
  *  
  */ 
 class MCMCGenotyper{
-    const SnarlManager& snarls;    
+    const SnarlManager& snarls; 
+    VG& graph;   
 
 public:
     
-    MCMCGenotyper(const SnarlManager& snarls);
+    MCMCGenotyper(const SnarlManager& snarls, VG& graph); 
 
     /** 
      * This method takes as input a collection of mapped reads stored as a vector of multipath alignments and uses 
@@ -34,8 +35,30 @@ public:
      */    
     PhasedGenome run_genotype(const vector<MultipathAlignment>& reads) const;
     
-     
+    /**
+     * This method represents the poseterior distribution function 
+     * returns the posterir probability
+     */ 
+     double target(const PhasedGenome& phased_genome, const vector<MultipathAlignment>& reads) const;  
 
+    /**
+     * This method generates a proposal sample over the desired distrubution
+     * returns a sample from the proposal distribution
+     */
+     PhasedGenome proposal_sample(const PhasedGenome& current) const;
+    
+    /**
+     * Given a range [a,b] will return a random number uniformly distributed within that range 
+     */
+     double runif(const double a, const double b) const;
+
+     /**
+      * Generate a PhasedGenome to use as an initial value in M-H
+      * Uses the two non-alt paths from the linear reference as haplotypes
+      */
+     PhasedGenome generate_initial_guess(void) const{ 
+
+     }
 };
 
 }

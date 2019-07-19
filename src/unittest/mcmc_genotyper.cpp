@@ -49,7 +49,7 @@ namespace vg {
                 // no subpaths or mappings on an empty graph and empty alignment                
 				
                 // check requirements 
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager); 
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph); 
                 vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
 
                 PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector);
@@ -90,7 +90,7 @@ namespace vg {
 
                 multipath_aln.add_start(0);        
 
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager);   
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph);   
                 vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
                 PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector);
 
@@ -183,7 +183,7 @@ namespace vg {
                 multipath_aln.add_start(0);
 
             
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager);    //object
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph);    //object
                 vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
                 //instantiating an empty vector: 
                 //vector<a> v;
@@ -320,7 +320,7 @@ namespace vg {
                 multipath_aln.add_start(0); //integer given is the subpath number
 
 
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager);    //object
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph);    //object
                 vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
                 //instantiating an empty vector: 
                 //vector<a> v;
@@ -486,7 +486,7 @@ namespace vg {
 
                 multipath_aln.add_start(0); //integer given is the subpath number
 				
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager);    //object
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph);    //object
                 vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
                 PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector);
 
@@ -580,7 +580,7 @@ namespace vg {
                 aln4.set_sequence(read4);
 
                 vector<MultipathAlignment> multipath_alns_out1, multipath_alns_out2, multipath_alns_out3, multipath_alns_out4 ;
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager); //create mcmc_genptyper obj
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph); //create mcmc_genptyper obj
                 vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>(); 
                 
                 // create a function accumulates the reads that have been mapped and it takes a 
@@ -605,8 +605,8 @@ namespace vg {
                 
                 // create a set of 2 possible solutions
                 vector<NodeTraversal> soln1, soln2;
-                soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n3)};
-                soln2 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4)};
+                soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n5), NodeTraversal(n7)};
+                soln2 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4), NodeTraversal(n6), NodeTraversal(n7)};
 
                 set<vector<NodeTraversal>> solns_set;
                 solns_set.insert(soln1);
