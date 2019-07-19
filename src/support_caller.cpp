@@ -2195,8 +2195,12 @@ void SupportCaller::call(
         };
         
         // we are genotyping a VCF.  load it and make sure we only traverse its alleles
+        vector<string> ref_path_names;
+        for (const auto& primary_path : primary_paths) {
+            ref_path_names.push_back(primary_path.first);
+        }
         traversal_finder = unique_ptr<TraversalFinder>(new VCFTraversalFinder(augmented.graph, site_manager,
-                                                                              variant_file, get_path_index,
+                                                                              variant_file, ref_path_names,
                                                                               ref_fasta.get(),
                                                                               ins_fasta.get(),
                                                                               skip_alt));
