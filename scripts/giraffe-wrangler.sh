@@ -88,8 +88,13 @@ BWA_RPS="$(echo "${REAL_READ_COUNT} / (${BWA_DOUBLE_TIME} - ${BWA_TIME})" | bc -
 if which perf 2>/dev/null ; then
     # Record profile
     perf record -F 100 --call-graph dwarf -o "${WORK}/perf.data"  vg gaffe -x "${XG_INDEX}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -f "${REAL_FASTQ}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/perf.gam"
+    perf script -i "${WORK}/perf.data" >"${WORK}/out.perf"
+    deps/FlameGraph/stackcollapse-perf.pl "${WORK}/out.perf" >"${WORK}/out.folded"
+    deps/FlameGraph/flamegraph.pl "${WORK}/out.folded" > "${WORK}/profile.svg"
     mv "${WORK}/perf.data" ./pref.data
+    mv "${WORK}/profile.svg" ./profile.svg
     echo "Profiling information saved as ./perf.data"
+    echo "Interactive flame graph saved as ./profile.svg"
 fi
 
 # Print the report
