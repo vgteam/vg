@@ -81,7 +81,7 @@ public:
     bool use_xdrop_for_tails = true;
     bool linear_tails = false;
     /// Use GBWT states from extensions to seed connectivity and tail searches.
-    bool reuse_gbwt_states = false;
+    bool reuse_gbwt_states = true;
     string sample_name;
     string read_group;
     

@@ -67,7 +67,7 @@ void help_gaffe(char** argv) {
     << "  -O, --no-chaining             disable seed chaining and all gapped alignment" << endl
     << "  -l, --linear-tails            align tails as individual linear alignments instead of POA trees" << endl
     << "  -S, --gssw                    use GSSW alignment for tails instead of xdrop" << endl
-    << "  --reuse-gbwt-states           use GBWT search states from gapless extensions to seed conenctivity and tail searches" << endl
+    << "  --discard-gbwt-states         rebuild fresh GBWT search states for conenctivity and tail searches" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
@@ -82,7 +82,7 @@ int main_gaffe(int argc, char** argv) {
         return 1;
     }
 
-    #define OPT_REUSE_GBWT_STATES 1000
+    #define OPT_DISCARD_GBWT_STATES 1000
     #define OPT_TRACK_PROVENANCE 1001
     #define OPT_TRACK_CORRECTNESS 1002
 
@@ -103,8 +103,8 @@ int main_gaffe(int argc, char** argv) {
     bool linear_tails = false;
     // Should we use the xdrop aligner for aligning tails?
     bool use_xdrop_for_tails = true;
-    // Should we re-use GBWT search states?
-    bool reuse_gbwt_states = false;
+    // Should we discard GBWT search states?
+    bool discard_gbwt_states = false;
     // What GAMs should we realign?
     vector<string> gam_filenames;
     // What FASTQs should we align.
@@ -167,7 +167,7 @@ int main_gaffe(int argc, char** argv) {
             {"no-chaining", no_argument, 0, 'O'},
             {"linear-tails", no_argument, 0, 'l'},
             {"gssw", no_argument, 0, 'S'},
-            {"reuse-gbwt-states", no_argument, 0, OPT_REUSE_GBWT_STATES},
+            {"discard-gbwt-states", no_argument, 0, OPT_DISCARD_GBWT_STATES},
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
             {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
             {"threads", required_argument, 0, 't'},
@@ -354,8 +354,8 @@ int main_gaffe(int argc, char** argv) {
                 use_xdrop_for_tails = false;
                 break;
                 
-            case OPT_REUSE_GBWT_STATES:
-                reuse_gbwt_states = true;
+            case OPT_DISCARD_GBWT_STATES:
+                discard_gbwt_states = true;
                 break;
                 
             case OPT_TRACK_PROVENANCE:
@@ -530,10 +530,10 @@ int main_gaffe(int argc, char** argv) {
     }
     minimizer_mapper.use_xdrop_for_tails = use_xdrop_for_tails;
     
-    if (progress && reuse_gbwt_states) {
-        cerr << "--reuse-gbwt-states" << endl;
+    if (progress && discard_gbwt_states) {
+        cerr << "--discard-gbwt-states" << endl;
     }
-    minimizer_mapper.reuse_gbwt_states = reuse_gbwt_states;
+    minimizer_mapper.reuse_gbwt_states = !discard_gbwt_states;
 
     if (progress && track_provenance) {
         cerr << "--track-provenance " << endl;
