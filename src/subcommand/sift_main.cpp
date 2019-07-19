@@ -234,23 +234,23 @@ int main_sift(int argc, char** argv){
 
 
     if (do_all){
-    do_orientation = true;
-    do_oea = true;
-    do_insert_size = true;
-    do_softclip = true;
-    do_reversing = true;
-    do_interchromosomal = true;
-    do_split_read = true;
-    do_depth = true;
-    do_percent_id = true;
-    do_quality = true;
-    do_unmapped = true;
+        do_orientation = true;
+        do_oea = true;
+        do_insert_size = true;
+        do_softclip = true;
+        do_reversing = true;
+        do_interchromosomal = true;
+        do_split_read = true;
+        do_depth = true;
+        do_percent_id = true;
+        do_quality = true;
+        do_unmapped = true;
 
     }
 
     vector<Alignment> buffer;
-    
-    
+
+
 
     //vector<Alignment> orphaned_selected;
     vector<Alignment> clean;
@@ -341,74 +341,74 @@ int main_sift(int argc, char** argv){
         if (do_unmapped && !flagged){
             if (ff.unmapped_filter(alns_first) && ff.unmapped_filter(alns_second)){
 
-                    #pragma omp critical (unmapped_selected)
-                    {
-                        flagged = true;
-                        alns_first.set_read_mapped(false);
-                        alns_first.set_mate_unmapped(true);
-                        alns_second.set_read_mapped(false);
-                        alns_second.set_mate_unmapped(false);
-                        unmapped_selected.push_back(alns_first);
-                        unmapped_selected.push_back(alns_second);
-                        
-                    }
+#pragma omp critical (unmapped_selected)
+                {
+                    flagged = true;
+                    alns_first.set_read_mapped(false);
+                    alns_first.set_mate_unmapped(true);
+                    alns_second.set_read_mapped(false);
+                    alns_second.set_mate_unmapped(false);
+                    unmapped_selected.push_back(alns_first);
+                    unmapped_selected.push_back(alns_second);
+
                 }
+            }
         }
 
         if (do_orientation && !flagged){
-            
+
             ret = ff.pair_orientation_filter(alns_first, alns_second);
             if (ret){
-                #pragma omp critical (discordant_selected)
-            {
-                flagged = true;
-                discordant_selected.push_back(alns_first);
-                discordant_selected.push_back(alns_second);
+#pragma omp critical (discordant_selected)
+                {
+                    flagged = true;
+                    discordant_selected.push_back(alns_first);
+                    discordant_selected.push_back(alns_second);
+                }
             }
-            }
-            
+
 
         }
         if (do_oea && !flagged){
             ret = ff.one_end_anchored_filter(alns_first, alns_second);
             if (ret){
-                #pragma omp critical (oea_selected)
+#pragma omp critical (oea_selected)
                 {
                     one_end_anchored.push_back(alns_first);
                     one_end_anchored.push_back(alns_second);
                 }
             }
-            
+
 
         }
         if (do_insert_size && !flagged){
-            
+
             ret = ff.insert_size_filter(alns_first, alns_second);
             if (ret){
-                #pragma omp critical (insert_selected)
+#pragma omp critical (insert_selected)
                 {
                     insert_selected.push_back(alns_first);
                     insert_selected.push_back(alns_second);
                 }
             }
-            
+
 
 
         }
         if (do_split_read && !flagged){
 
             if (ff.split_read_filter(alns_first)){
-                #pragma omp critical (split_selected)
+#pragma omp critical (split_selected)
                 {
                     split_selected.push_back(alns_first);
                     split_selected.push_back(alns_second);
                     flagged = true;
 
                 }
-                
+
             }
             if (ff.split_read_filter(alns_second)){
-                #pragma omp critical (split_selected)
+#pragma omp critical (split_selected)
                 {
                     split_selected.push_back(alns_first);
                     split_selected.push_back(alns_second);
@@ -416,20 +416,20 @@ int main_sift(int argc, char** argv){
 
                 }
             }
-            
+
 
         }
         if (do_reversing && !flagged){
             Alignment x = ff.reversing_filter(alns_first);
             Alignment y = ff.reversing_filter(alns_second);
             if (x.name() != "" || y.name() != ""){
-               #pragma omp critical (reversing_selected)
-               {
-                   reversing_selected.push_back(alns_first);
-                   reversing_selected.push_back(alns_second);
-               }
+#pragma omp critical (reversing_selected)
+                {
+                    reversing_selected.push_back(alns_first);
+                    reversing_selected.push_back(alns_second);
+                }
             }
-       
+
 
 
         }
@@ -438,14 +438,14 @@ int main_sift(int argc, char** argv){
             bool x = ff.soft_clip_filter(alns_first);
             bool y = ff.soft_clip_filter(alns_second);
             if (x){
-                #pragma omp critical (clipped_selected)
+#pragma omp critical (clipped_selected)
                 {
                     clipped_selected.push_back(alns_first);
                     flagged = true;
                 }
             } 
             if (y){
-                #pragma omp critical (clipped_selected)
+#pragma omp critical (clipped_selected)
                 {
                     flagged = true;
                     clipped_selected.push_back(alns_second);
@@ -455,7 +455,7 @@ int main_sift(int argc, char** argv){
         }
         if (do_quality && !flagged){
 
-            #pragma omp critical (quality_selected)
+#pragma omp critical (quality_selected)
             {
                 quality_selected.push_back(alns_first);
                 quality_selected.push_back(alns_second);
@@ -464,12 +464,12 @@ int main_sift(int argc, char** argv){
         }
         if (do_depth && !flagged){
 
-            #pragma omp critical (depth_selected)
+#pragma omp critical (depth_selected)
             {
                 depth_selected.push_back(alns_first);
                 depth_selected.push_back(alns_second);
             }
-            
+
         }
         if (!flagged){
             // Check if read is perfect
@@ -479,15 +479,15 @@ int main_sift(int argc, char** argv){
             }
             else{
                 // otherwise, it's pretty clean, so place it in the clean pile.
-                #pragma omp critical (clean)
+#pragma omp critical (clean)
                 {
                     clean.push_back(alns_first);
                     clean.push_back(alns_second);
                 }
             }
-            
+
         }
-        
+
 
         vg::io::write_buffered(unmapped_stream, unmapped_selected, 100);
         vg::io::write_buffered(discordant_stream, discordant_selected, 100);
@@ -508,10 +508,10 @@ int main_sift(int argc, char** argv){
             reversing_selected.push_back(aln);
         }
         if (do_softclip){
-           if (ff.soft_clip_filter(aln)){
+            if (ff.soft_clip_filter(aln)){
                 clipped_selected.push_back(aln);
-           }
-           //vg::io::write_buffered(clipped_stream, clipped_selected, 1000);
+            }
+            //vg::io::write_buffered(clipped_stream, clipped_selected, 1000);
 
         }
         if (do_quality){
@@ -541,33 +541,33 @@ int main_sift(int argc, char** argv){
 
 
 
-if (alignment_file == "-"){
-    vg::io::for_each_interleaved_pair_parallel(cin, pair_filters);
-}
-else{
-    ifstream in;
-    in.open(alignment_file);
-    if (in.good()){
-
-        // if (just_calc_insert){
-        //     vg::io::for_each_interleaved_pair_parallel(in, calc_insert);
-        //     exit(0);
-        // }
-
-        if (is_paired){
-            cerr << "Processing..." << endl;
-            vg::io::for_each_interleaved_pair_parallel(in, pair_filters);
-        }
-        else{
-            vg::io::for_each_parallel(in, single_filters);
-
-        }
+    if (alignment_file == "-"){
+        vg::io::for_each_interleaved_pair_parallel(cin, pair_filters);
     }
     else{
-        cerr << "Could not open " << alignment_file << endl;
-        help_sift(argv);
+        ifstream in;
+        in.open(alignment_file);
+        if (in.good()){
+
+            // if (just_calc_insert){
+            //     vg::io::for_each_interleaved_pair_parallel(in, calc_insert);
+            //     exit(0);
+            // }
+
+            if (is_paired){
+                cerr << "Processing..." << endl;
+                vg::io::for_each_interleaved_pair_parallel(in, pair_filters);
+            }
+            else{
+                vg::io::for_each_parallel(in, single_filters);
+
+            }
+        }
+        else{
+            cerr << "Could not open " << alignment_file << endl;
+            help_sift(argv);
+        }
     }
-}
     vg::io::write_buffered(unmapped_stream, unmapped_selected, 0);
     vg::io::write_buffered(discordant_stream, discordant_selected, 0);
     vg::io::write_buffered(oea_stream, one_end_anchored, 0);

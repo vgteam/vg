@@ -1791,7 +1791,12 @@ namespace vg {
                         
                         // Canonicalize the variant and see if that disqualifies it.
                         // This also takes care of setting the variant's alt sequences.
-                        variant_acceptable = vvar->canonicalize(reference, insertions, true);
+                        if (vvar->canonicalizable()){
+                            variant_acceptable = vvar->canonicalize(reference, insertions, true);
+                        }
+                        else{
+                            variant_acceptable = false;
+                        }
          
                         if (variant_acceptable) {
                             // Worth checking for multiple alts.
