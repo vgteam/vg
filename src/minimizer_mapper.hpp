@@ -78,7 +78,7 @@ public:
     size_t max_multimaps = 1;
     size_t distance_limit = 1000;
     bool do_chaining = true;
-    bool use_xdrop_for_tails = false;
+    bool use_xdrop_for_tails = true;
     bool linear_tails = false;
     /// Use GBWT states from extensions to seed connectivity and tail searches.
     bool reuse_gbwt_states = false;

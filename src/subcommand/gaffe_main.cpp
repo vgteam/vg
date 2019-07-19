@@ -63,10 +63,10 @@ void help_gaffe(char** argv) {
     << "  -s, --cluster-score INT       only extend clusters if they are within cluster-score of the best score" << endl
     << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within cluster-coverage of the best read coverage" << endl
     << "  -v, --extension-score INT     only align extensions if their score is within extension-score of the best score" << endl
-    << "  -w, --extension-set INT     only align extension sets if their score is within extension-set of the best score" << endl
+    << "  -w, --extension-set INT       only align extension sets if their score is within extension-set of the best score" << endl
     << "  -O, --no-chaining             disable seed chaining and all gapped alignment" << endl
     << "  -l, --linear-tails            align tails as individual linear alignments instead of POA trees" << endl
-    << "  -X, --xdrop                   use xdrop alignment for tails" << endl
+    << "  -S, --gssw                    use GSSW alignment for tails instead of xdrop" << endl
     << "  --reuse-gbwt-states           use GBWT search states from gapless extensions to seed conenctivity and tail searches" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
@@ -102,7 +102,7 @@ int main_gaffe(int argc, char** argv) {
     // Should we do individual linear tail alignments instead of tree-shaped ones?
     bool linear_tails = false;
     // Should we use the xdrop aligner for aligning tails?
-    bool use_xdrop_for_tails = false;
+    bool use_xdrop_for_tails = true;
     // Should we re-use GBWT search states?
     bool reuse_gbwt_states = false;
     // What GAMs should we realign?
@@ -166,7 +166,7 @@ int main_gaffe(int argc, char** argv) {
             {"score-fraction", required_argument, 0, 'F'},
             {"no-chaining", no_argument, 0, 'O'},
             {"linear-tails", no_argument, 0, 'l'},
-            {"xdrop", no_argument, 0, 'X'},
+            {"gssw", no_argument, 0, 'S'},
             {"reuse-gbwt-states", no_argument, 0, OPT_REUSE_GBWT_STATES},
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
             {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
@@ -175,7 +175,7 @@ int main_gaffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:w:OlXt:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:w:OlSt:",
                          long_options, &option_index);
 
 
@@ -350,8 +350,8 @@ int main_gaffe(int argc, char** argv) {
                 linear_tails = true;
                 break;
                 
-            case 'X':
-                use_xdrop_for_tails = true;
+            case 'S':
+                use_xdrop_for_tails = false;
                 break;
                 
             case OPT_REUSE_GBWT_STATES:
@@ -525,8 +525,8 @@ int main_gaffe(int argc, char** argv) {
     }
     minimizer_mapper.linear_tails = linear_tails;
     
-    if (progress && use_xdrop_for_tails) {
-        cerr << "--xdrop " << endl;
+    if (progress && !use_xdrop_for_tails) {
+        cerr << "--gssw " << endl;
     }
     minimizer_mapper.use_xdrop_for_tails = use_xdrop_for_tails;
     
