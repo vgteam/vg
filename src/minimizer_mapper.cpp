@@ -1514,7 +1514,7 @@ void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vect
         // Explore the GBWT forward until we hit a right boundary.
         // We want to go until we hit the opposing boundary or run out of paths.
         Position boundary_start = make_position(gbwt_graph.get_id(left_boundary), gbwt_graph.get_is_reverse(left_boundary), 0);
-        explore_gbwt(boundary_start, numeric_limits<size_t>::max(), [&](const ImmutablePath& path_to, const handle_t& here) -> bool {
+        explore_gbwt(boundary_start, nullptr, numeric_limits<size_t>::max(), [&](const ImmutablePath& path_to, const handle_t& here) -> bool {
             // When we actually touch something
             
 #ifdef debug
@@ -1758,11 +1758,17 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
         // How long should we search? It should be the longest detectable gap plus the remaining sequence.
         size_t search_limit = get_regular_aligner()->longest_detectable_gap(cut_pos_read, read_length) + (read_length - cut_pos_read);
 
+        // What GBWT search state can we re-use from the extension?
+        // Each extension holds a bidirectional search state, and since we
+        // always extend right from the extension we want the forward
+        // single-direction state.
+        const gbwt::SearchState* right_state = reuse_gbwt_states ? &extended_seeds[i].state.forward : nullptr;
+
         // Have we found a way to get to any other extended seeds yet?
         bool reachable_extended_seeds = false;
 
         // Search everything in the GBWT graph right from the end of the start extended seed, up to the limit.
-        explore_gbwt(cut_pos_graph, search_limit, [&](const ImmutablePath& here_path, const handle_t& there_handle) -> bool {
+        explore_gbwt(cut_pos_graph, right_state, search_limit, [&](const ImmutablePath& here_path, const handle_t& there_handle) -> bool {
             // When we encounter a new handle visited by haplotypes extending off of the last node in a Path
 
             // See if we hit any other extensions on this next node
@@ -1877,9 +1883,12 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
             // Now the search limit is all the read *before* the seed, plus the detectable gap
             size_t search_limit = get_regular_aligner()->longest_detectable_gap(read_length, extended_seeds[i].read_interval.first) +
                 extended_seeds[i].read_interval.first;
+                
+            // And we need the GBWT state looking left
+            const gbwt::SearchState* left_state = reuse_gbwt_states ? &extended_seeds[i].state.backward : nullptr;
 
             // Start another search, but going left.
-            explore_gbwt(start, search_limit, [&](const ImmutablePath& here_path, const handle_t& there_handle) -> bool {
+            explore_gbwt(start, left_state, search_limit, [&](const ImmutablePath& here_path, const handle_t& there_handle) -> bool {
                 // If we weren't reachable from anyone, nobody should be reachable from us going the other way.
                 // So always keep going.
                 return true;
@@ -2081,7 +2090,8 @@ Path MinimizerMapper::to_path(const ImmutablePath& path) {
     return to_return;
 }
 
-void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
+void MinimizerMapper::explore_gbwt(const Position& from, const gbwt::SearchState* from_state,
+    size_t walk_distance,
     const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
     const function<void(const ImmutablePath&)>& limit_callback) const {
    
@@ -2089,11 +2099,12 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
     handle_t start_handle = gbwt_graph.get_handle(from.node_id(), from.is_reverse());
     
     // Delegate to the handle-based version
-    explore_gbwt(start_handle, from.offset(), walk_distance, visit_callback, limit_callback);
+    explore_gbwt(start_handle, from.offset(), from_state, walk_distance, visit_callback, limit_callback);
     
 }
 
-void MinimizerMapper::explore_gbwt(handle_t from_handle, size_t from_offset, size_t walk_distance,
+void MinimizerMapper::explore_gbwt(handle_t from_handle, size_t from_offset, const gbwt::SearchState* from_state,
+    size_t walk_distance,
     const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
     const function<void(const ImmutablePath&)>& limit_callback) const {
     
@@ -2108,8 +2119,8 @@ void MinimizerMapper::explore_gbwt(handle_t from_handle, size_t from_offset, siz
     // limit.
     using traversal_state_t = pair<gbwt::SearchState, ImmutablePath>;
 
-    // Turn it into a SearchState
-    gbwt::SearchState start_state = gbwt_graph.get_state(from_handle);
+    // Copy or construct a starting set of haplotypes
+    gbwt::SearchState start_state = from_state ? *from_state : gbwt_graph.get_state(from_handle);
     
     if (start_state.empty()) {
         // No haplotypes even visit the first node. Have a 0-mapping dead end.
