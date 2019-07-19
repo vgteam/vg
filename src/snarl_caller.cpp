@@ -5,6 +5,9 @@
 
 namespace vg {
 
+SnarlCaller::~SnarlCaller() {
+}
+
 SupportBasedSnarlCaller::SupportBasedSnarlCaller(const PathHandleGraph& graph,
                                                  bool use_avg_node_support,
                                                  bool use_avg_trav_support) :

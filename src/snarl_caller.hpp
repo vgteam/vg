@@ -24,7 +24,7 @@ using namespace std;
  */ 
 class SnarlCaller {
 public:
-    virtual ~SnarlCaller() = 0;
+    virtual ~SnarlCaller();
 
     /// Get the genotype of a site
     virtual vector<int> genotype(const Snarl& snarl,

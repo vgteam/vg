@@ -12,6 +12,7 @@
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
 #include "snarl_caller.hpp"
+#include "region.hpp"
 
 namespace vg {
 
@@ -24,7 +25,7 @@ class GraphCaller {
 public:
     GraphCaller(SnarlCaller& snarl_caller,
                 SnarlManager& snarl_manager,
-                ostream& out_stream);
+                ostream& out_stream = cout);
 
     virtual ~GraphCaller();
 
@@ -38,8 +39,8 @@ public:
 
 protected:
 
-    /// Write the vcf header
-    virtual void header() = 0;
+    /// Write the vcf header (version and contigs and basic info)
+    virtual void vcf_header(const PathHandleGraph& graph, const vector<path_handle_t>& contigs) const;
    
 protected:
 
@@ -59,19 +60,18 @@ protected:
 class VCFGenotyper : public GraphCaller {
 public:
     VCFGenotyper(const PathHandleGraph& graph,
-                 function<PathIndex*(const Snarl&)> get_index,
                  SnarlCaller& snarl_caller,
                  SnarlManager& snarl_manager,
-                 ostream& out_stream,
-                 vcflib::VariantCallFile& variant_file);
+                 vcflib::VariantCallFile& variant_file,
+                 const vector<string>& ref_paths = {},
+                 ostream& out_stream = cout);
 
     virtual ~VCFGenotyper();
 
     virtual bool call_snarl(const Snarl& snarl);
 
 protected:
-    
-    virtual void header();
+
 
 protected:
 
@@ -87,6 +87,9 @@ protected:
     /// traversal finder uses alt paths to map VCF alleles from input_vcf
     /// back to traversals in the snarl
     VCFTraversalFinder traversal_finder;
+
+    /// The regions to consider (any snarl not contained in a region is skipped)
+    vector<Region> regions;
 };
 
 
