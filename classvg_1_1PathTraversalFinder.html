@@ -109,8 +109,8 @@ Inheritance diagram for vg::PathTraversalFinder:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a985a4ad7c4cc4e336b5d823ab2bc326a"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathTraversalFinder.html#a985a4ad7c4cc4e336b5d823ab2bc326a">PathTraversalFinder</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;<a class="el" href="classvg_1_1PathTraversalFinder.html#a7ae6d1d377192e4fab7a9074b83bddbd">graph</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1PathTraversalFinder.html#a92d5dcd4fe3b870deee24549efa6b1bf">snarl_manager</a>)</td></tr>
-<tr class="separator:a985a4ad7c4cc4e336b5d823ab2bc326a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a46f573e29e1815413054550705d97d21"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathTraversalFinder.html#a46f573e29e1815413054550705d97d21">PathTraversalFinder</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;<a class="el" href="classvg_1_1PathTraversalFinder.html#a7ae6d1d377192e4fab7a9074b83bddbd">graph</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1PathTraversalFinder.html#a92d5dcd4fe3b870deee24549efa6b1bf">snarl_manager</a>, const vector&lt; string &gt; &amp;path_names={})</td></tr>
+<tr class="separator:a46f573e29e1815413054550705d97d21"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3da29145d1ed82d950bdeb895d3b3bf4"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathTraversalFinder.html#a3da29145d1ed82d950bdeb895d3b3bf4">find_traversals</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site)</td></tr>
 <tr class="separator:a3da29145d1ed82d950bdeb895d3b3bf4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a47716598ddfa8044c42f4b9a55d51d01"><td class="memItemLeft" align="right" valign="top">virtual pair&lt; vector<br class="typebreak"/>
@@ -128,11 +128,13 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:a7ae6d1d377192e4fab7a9074b83bddbd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a92d5dcd4fe3b870deee24549efa6b1bf"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathTraversalFinder.html#a92d5dcd4fe3b870deee24549efa6b1bf">snarl_manager</a></td></tr>
 <tr class="separator:a92d5dcd4fe3b870deee24549efa6b1bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5a931da9269d7834dcc04e5fb578ff45"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathTraversalFinder.html#a5a931da9269d7834dcc04e5fb578ff45">paths</a></td></tr>
+<tr class="separator:a5a931da9269d7834dcc04e5fb578ff45"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>This is a Handle <a class="el" href="structvg_1_1Graph.html">Graph</a> replacement for <a class="el" href="classvg_1_1PathRestrictedTraversalFinder.html">PathRestrictedTraversalFinder</a> that uses the PathHandleGraph interface instead of the VG-based path index. It returns all traversals through a snarl that are contained within paths in the graph. It can also return a mapping from the traversals to their paths </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="a985a4ad7c4cc4e336b5d823ab2bc326a"></a>
+<a class="anchor" id="a46f573e29e1815413054550705d97d21"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -146,7 +148,13 @@ Protected Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;&#160;</td>
-          <td class="paramname"><em>snarl_manager</em>&#160;</td>
+          <td class="paramname"><em>snarl_manager</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>path_names</em> = <code>{}</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -221,6 +229,26 @@ Protected Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a>&amp; vg::PathTraversalFinder::graph</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a5a931da9269d7834dcc04e5fb578ff45"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_set&lt;<a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&gt; vg::PathTraversalFinder::paths</td>
         </tr>
       </table>
   </td>

@@ -11,7 +11,7 @@ var searchData=
   ['variantadder',['VariantAdder',['../classvg_1_1VariantAdder.html#a267056ae90838d3aef2ddfe992a045ff',1,'vg::VariantAdder']]],
   ['vcf_5fto_5ffasta',['vcf_to_fasta',['../classvg_1_1NameMapper.html#a4d7e1bab054326c0eb30f96b0ac285ce',1,'vg::NameMapper']]],
   ['vcfbuffer',['VcfBuffer',['../classvg_1_1VcfBuffer.html#a402d5cadd95f5725876b22b8c9bd830b',1,'vg::VcfBuffer::VcfBuffer(vcflib::VariantCallFile *file=nullptr)'],['../classvg_1_1VcfBuffer.html#ad388f47df62ebab69ab9188efd37be1e',1,'vg::VcfBuffer::VcfBuffer(const VcfBuffer &amp;other)=delete']]],
-  ['vcftraversalfinder',['VCFTraversalFinder',['../classvg_1_1VCFTraversalFinder.html#a0087550753feebd6cac81667799ce647',1,'vg::VCFTraversalFinder']]],
+  ['vcftraversalfinder',['VCFTraversalFinder',['../classvg_1_1VCFTraversalFinder.html#a95dd05b374a57b57b7d0534bb74a8765',1,'vg::VCFTraversalFinder']]],
   ['vectorizer',['Vectorizer',['../classVectorizer.html#a5e9bd2bf950b49e156b31af974bec0a0',1,'Vectorizer']]],
   ['verify_5fpath',['verify_path',['../classvg_1_1PileupAugmenter.html#ace7499e03014dd63c79d71af48168240',1,'vg::PileupAugmenter::verify_path()'],['../namespacevg.html#a8fa0776e6865e98b3f7a2e8c6722cfb1',1,'vg::verify_path()']]],
   ['verify_5fpaths',['verify_paths',['../classvg_1_1PhaseUnfolder.html#a3aab2694e14dac4f3520932588711388',1,'vg::PhaseUnfolder']]],

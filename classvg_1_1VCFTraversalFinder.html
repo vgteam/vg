@@ -110,8 +110,8 @@ Inheritance diagram for vg::VCFTraversalFinder:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a0087550753feebd6cac81667799ce647"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a0087550753feebd6cac81667799ce647">VCFTraversalFinder</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;<a class="el" href="classvg_1_1VCFTraversalFinder.html#ac8e35bbc2e0c34475f13f8d6989fa5b6">graph</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1VCFTraversalFinder.html#ae2fac6aac1b86163b495ef183e3340d9">snarl_manager</a>, vcflib::VariantCallFile &amp;vcf, function&lt; <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *(const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;)&gt; <a class="el" href="classvg_1_1VCFTraversalFinder.html#a7fde860843a3804e89ff08b01a3e2212">get_index</a>, FastaReference *fasta_ref=nullptr, FastaReference *ins_ref=nullptr, function&lt; bool(const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;)&gt; <a class="el" href="classvg_1_1VCFTraversalFinder.html#a84e59fb19522583376ea7ca292a5a155">skip_alt</a>=nullptr, size_t <a class="el" href="classvg_1_1VCFTraversalFinder.html#a2ece2a9a96c909c7859bd88d54daa559">max_traversal_cutoff</a>=500000)</td></tr>
-<tr class="separator:a0087550753feebd6cac81667799ce647"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a95dd05b374a57b57b7d0534bb74a8765"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a95dd05b374a57b57b7d0534bb74a8765">VCFTraversalFinder</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;<a class="el" href="classvg_1_1VCFTraversalFinder.html#ac8e35bbc2e0c34475f13f8d6989fa5b6">graph</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1VCFTraversalFinder.html#ae2fac6aac1b86163b495ef183e3340d9">snarl_manager</a>, vcflib::VariantCallFile &amp;vcf, const vector&lt; string &gt; &amp;ref_path_names={}, FastaReference *fasta_ref=nullptr, FastaReference *ins_ref=nullptr, function&lt; bool(const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;)&gt; <a class="el" href="classvg_1_1VCFTraversalFinder.html#a84e59fb19522583376ea7ca292a5a155">skip_alt</a>=nullptr, size_t <a class="el" href="classvg_1_1VCFTraversalFinder.html#a2ece2a9a96c909c7859bd88d54daa559">max_traversal_cutoff</a>=500000)</td></tr>
+<tr class="separator:a95dd05b374a57b57b7d0534bb74a8765"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a574fb1c2bdcf2752e75626f4c21bc90c"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a574fb1c2bdcf2752e75626f4c21bc90c">~VCFTraversalFinder</a> ()</td></tr>
 <tr class="separator:a574fb1c2bdcf2752e75626f4c21bc90c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad660814265b5989408dace8da768edfe"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; pair<br class="typebreak"/>
@@ -132,33 +132,34 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a130dc99a1c006ef64569279631f97d60"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a45b91ad0f95daad0ce2610953873f867"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a45b91ad0f95daad0ce2610953873f867">delete_variant_index</a> ()</td></tr>
 <tr class="separator:a45b91ad0f95daad0ce2610953873f867"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af0a89437709e586adc420bbddd9945fd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#af0a89437709e586adc420bbddd9945fd">brute_force_alt_traversals</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, const vector&lt; vcflib::Variant * &gt; &amp;site_variants, <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *path_index, <a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a> start_it, <a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a> end_it, vector&lt; pair&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>, vector&lt; int &gt; &gt; &gt; &amp;output_traversals)</td></tr>
-<tr class="separator:af0a89437709e586adc420bbddd9945fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a01489966775acc9f1cfd6866348dfb1b"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a01489966775acc9f1cfd6866348dfb1b">get_alt_traversal</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, const vector&lt; vcflib::Variant * &gt; &amp;site_variants, <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *path_index, <a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a> start_it, <a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a> end_it, const vector&lt; int &gt; &amp;haplotype)</td></tr>
-<tr class="separator:a01489966775acc9f1cfd6866348dfb1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af526339695ddc14088e2a626370c606d"><td class="memItemLeft" align="right" valign="top">pair&lt; unordered_set&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;<br class="typebreak"/>
+<tr class="memitem:a31598f482dd2d5dbdc06e273ffc18204"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a31598f482dd2d5dbdc06e273ffc18204">brute_force_alt_traversals</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, const vector&lt; vcflib::Variant * &gt; &amp;site_variants, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> ref_path, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> start_step, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> end_step, vector&lt; pair&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>, vector&lt; int &gt; &gt; &gt; &amp;output_traversals)</td></tr>
+<tr class="separator:a31598f482dd2d5dbdc06e273ffc18204"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afd039c87e92906ac02479d8d2df43f13"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#afd039c87e92906ac02479d8d2df43f13">get_alt_traversal</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, const vector&lt; vcflib::Variant * &gt; &amp;site_variants, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> ref_path, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> start_step, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> end_step, const vector&lt; int &gt; &amp;haplotype)</td></tr>
+<tr class="separator:afd039c87e92906ac02479d8d2df43f13"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3ce22629a99aae20002c43c7e581c2fb"><td class="memItemLeft" align="right" valign="top">pair&lt; unordered_set&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;<br class="typebreak"/>
 , unordered_set&lt; pair<br class="typebreak"/>
-&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#af526339695ddc14088e2a626370c606d">get_haplotype_alt_contents</a> (const vector&lt; vcflib::Variant * &gt; &amp;site_variants, const vector&lt; int &gt; &amp;haplotype, <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *path_index)</td></tr>
-<tr class="separator:af526339695ddc14088e2a626370c606d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a471f23626431914a19c0a2f00be6da38"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a471f23626431914a19c0a2f00be6da38">get_alt_path</a> (vcflib::Variant *site_variant, int allele, <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *path_index)</td></tr>
-<tr class="separator:a471f23626431914a19c0a2f00be6da38"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7f67e573016ebfe3bd1fd2daa7611d9f"><td class="memItemLeft" align="right" valign="top">pair&lt; int, int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a7f67e573016ebfe3bd1fd2daa7611d9f">scan_for_deletion</a> (vcflib::Variant *<a class="el" href="namespacevg.html#afe7fae89b379b5411189ac0ac74b2dd4">var</a>, int allele, <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *path_index, <a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a> &amp;first_path_it, <a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a> &amp;last_path_it)</td></tr>
-<tr class="separator:a7f67e573016ebfe3bd1fd2daa7611d9f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a39daebd66e37b87d5fdd90174c3f2d71"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a39daebd66e37b87d5fdd90174c3f2d71">get_pruned_alt_alleles</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, const vector&lt; vcflib::Variant * &gt; &amp;site_variants, <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *path_index)</td></tr>
-<tr class="separator:a39daebd66e37b87d5fdd90174c3f2d71"><td class="memSeparator" colspan="2">&#160;</td></tr>
+&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a3ce22629a99aae20002c43c7e581c2fb">get_haplotype_alt_contents</a> (const vector&lt; vcflib::Variant * &gt; &amp;site_variants, const vector&lt; int &gt; &amp;haplotype, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> ref_path)</td></tr>
+<tr class="separator:a3ce22629a99aae20002c43c7e581c2fb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9277686aeb8cf0145927af22641aae32"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a9277686aeb8cf0145927af22641aae32">get_alt_path</a> (vcflib::Variant *site_variant, int allele, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> ref_path)</td></tr>
+<tr class="separator:a9277686aeb8cf0145927af22641aae32"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9217b7414bb2b484f44d357ed0ab22ef"><td class="memItemLeft" align="right" valign="top">pair&lt; int, int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a9217b7414bb2b484f44d357ed0ab22ef">scan_for_deletion</a> (vcflib::Variant *<a class="el" href="namespacevg.html#afe7fae89b379b5411189ac0ac74b2dd4">var</a>, int allele, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> ref_path, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;first_path_step, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;last_path_step)</td></tr>
+<tr class="separator:a9217b7414bb2b484f44d357ed0ab22ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a116466101f77d992e54bb3328a42c90b"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a116466101f77d992e54bb3328a42c90b">get_pruned_alt_alleles</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, const vector&lt; vcflib::Variant * &gt; &amp;site_variants, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> ref_path)</td></tr>
+<tr class="separator:a116466101f77d992e54bb3328a42c90b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aab82f66226266e3adcfc7076f158ff23"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#aab82f66226266e3adcfc7076f158ff23">check_max_trav_cutoff</a> (const vector&lt; vector&lt; int &gt; &gt; &amp;alleles)</td></tr>
 <tr class="separator:aab82f66226266e3adcfc7076f158ff23"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3d747c21b0c028a37f561c9e034ea13a"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a3d747c21b0c028a37f561c9e034ea13a">step_in_path</a> (<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> handle, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> path_handle) const </td></tr>
+<tr class="separator:a3d747c21b0c028a37f561c9e034ea13a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
 <tr class="memitem:ac8e35bbc2e0c34475f13f8d6989fa5b6"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#ac8e35bbc2e0c34475f13f8d6989fa5b6">graph</a></td></tr>
 <tr class="separator:ac8e35bbc2e0c34475f13f8d6989fa5b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7f529cb408098ee45d3e4868ed9fe2b8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1PathTraversalFinder.html">PathTraversalFinder</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a7f529cb408098ee45d3e4868ed9fe2b8">path_finder</a></td></tr>
+<tr class="separator:a7f529cb408098ee45d3e4868ed9fe2b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae2fac6aac1b86163b495ef183e3340d9"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#ae2fac6aac1b86163b495ef183e3340d9">snarl_manager</a></td></tr>
 <tr class="memdesc:ae2fac6aac1b86163b495ef183e3340d9"><td class="mdescLeft">&#160;</td><td class="mdescRight">The <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> managiung the snarls we use.  <a href="#ae2fac6aac1b86163b495ef183e3340d9">More...</a><br/></td></tr>
 <tr class="separator:ae2fac6aac1b86163b495ef183e3340d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7fde860843a3804e89ff08b01a3e2212"><td class="memItemLeft" align="right" valign="top">function&lt; <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *(const <br class="typebreak"/>
-<a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a7fde860843a3804e89ff08b01a3e2212">get_index</a></td></tr>
-<tr class="separator:a7fde860843a3804e89ff08b01a3e2212"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a133068b1a172eb5f5490ff7c47fd567f"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, list<br class="typebreak"/>
 &lt; vcflib::Variant * &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a133068b1a172eb5f5490ff7c47fd567f">node_to_variant</a></td></tr>
 <tr class="separator:a133068b1a172eb5f5490ff7c47fd567f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -177,7 +178,7 @@ Protected Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>This <a class="el" href="classvg_1_1TraversalFinder.html">TraversalFinder</a> returns a traversals and their corresponding genotypes from an input vcf. It relies on alt-paths in the graph (via construct -a) to map between the vcf and the graph. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="a0087550753feebd6cac81667799ce647"></a>
+<a class="anchor" id="a95dd05b374a57b57b7d0534bb74a8765"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -202,8 +203,8 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">function&lt; <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *(const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;)&gt;&#160;</td>
-          <td class="paramname"><em>get_index</em>, </td>
+          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>ref_path_names</em> = <code>{}</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -265,7 +266,7 @@ Protected Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a class="anchor" id="af0a89437709e586adc420bbddd9945fd"></a>
+<a class="anchor" id="a31598f482dd2d5dbdc06e273ffc18204"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -287,20 +288,20 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *&#160;</td>
-          <td class="paramname"><em>path_index</em>, </td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td>
+          <td class="paramname"><em>ref_path</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a>&#160;</td>
-          <td class="paramname"><em>start_it</em>, </td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td>
+          <td class="paramname"><em>start_step</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a>&#160;</td>
-          <td class="paramname"><em>end_it</em>, </td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td>
+          <td class="paramname"><em>end_step</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -457,7 +458,7 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a471f23626431914a19c0a2f00be6da38"></a>
+<a class="anchor" id="a9277686aeb8cf0145927af22641aae32"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -479,8 +480,8 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *&#160;</td>
-          <td class="paramname"><em>path_index</em>&#160;</td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td>
+          <td class="paramname"><em>ref_path</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -498,7 +499,7 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a01489966775acc9f1cfd6866348dfb1b"></a>
+<a class="anchor" id="afd039c87e92906ac02479d8d2df43f13"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -520,20 +521,20 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *&#160;</td>
-          <td class="paramname"><em>path_index</em>, </td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td>
+          <td class="paramname"><em>ref_path</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a>&#160;</td>
-          <td class="paramname"><em>start_it</em>, </td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td>
+          <td class="paramname"><em>start_step</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a>&#160;</td>
-          <td class="paramname"><em>end_it</em>, </td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td>
+          <td class="paramname"><em>end_step</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -557,7 +558,7 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="af526339695ddc14088e2a626370c606d"></a>
+<a class="anchor" id="a3ce22629a99aae20002c43c7e581c2fb"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -579,8 +580,8 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *&#160;</td>
-          <td class="paramname"><em>path_index</em>&#160;</td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td>
+          <td class="paramname"><em>ref_path</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -598,7 +599,7 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a39daebd66e37b87d5fdd90174c3f2d71"></a>
+<a class="anchor" id="a116466101f77d992e54bb3328a42c90b"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -620,8 +621,8 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *&#160;</td>
-          <td class="paramname"><em>path_index</em>&#160;</td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td>
+          <td class="paramname"><em>ref_path</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -657,7 +658,7 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a7f67e573016ebfe3bd1fd2daa7611d9f"></a>
+<a class="anchor" id="a9217b7414bb2b484f44d357ed0ab22ef"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -679,20 +680,20 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *&#160;</td>
-          <td class="paramname"><em>path_index</em>, </td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td>
+          <td class="paramname"><em>ref_path</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a> &amp;&#160;</td>
-          <td class="paramname"><em>first_path_it</em>, </td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>first_path_step</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a> &amp;&#160;</td>
-          <td class="paramname"><em>last_path_it</em>&#160;</td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>last_path_step</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -710,8 +711,7 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<h2 class="groupheader">Member Data Documentation</h2>
-<a class="anchor" id="a7fde860843a3804e89ff08b01a3e2212"></a>
+<a class="anchor" id="a3d747c21b0c028a37f561c9e034ea13a"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -719,7 +719,21 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">function&lt;<a class="el" href="structvg_1_1PathIndex.html">PathIndex</a>*(const <a class="el" href="structvg_1_1Snarl.html">Snarl</a>&amp;)&gt; vg::VCFTraversalFinder::get_index</td>
+          <td class="memname">pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, bool &gt; vg::VCFTraversalFinder::step_in_path </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td>
+          <td class="paramname"><em>handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td>
+          <td class="paramname"><em>path_handle</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
         </tr>
       </table>
   </td>
@@ -728,10 +742,11 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>We keep this around from the <a class="el" href="classvg_1_1RepresentativeTraversalFinder.html">RepresentativeTraversalFinder</a> for now: We use a path index for accessing the reference path We keep around a function that can be used to get an index for the appropriate path to use to scaffold a given site, or null if no appropriate index exists. </p>
+<p>Lookup a node in the reference path (mimics old <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a>) </p>
 
 </div>
 </div>
+<h2 class="groupheader">Member Data Documentation</h2>
 <a class="anchor" id="ac8e35bbc2e0c34475f13f8d6989fa5b6"></a>
 <div class="memitem">
 <div class="memproto">
@@ -835,6 +850,27 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Store variants indexed by an arbitrary node in one of their associated alt paths. We can then use this to find all variants in a top-level snarl </p>
+
+</div>
+</div>
+<a class="anchor" id="a7f529cb408098ee45d3e4868ed9fe2b8"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1PathTraversalFinder.html">PathTraversalFinder</a> vg::VCFTraversalFinder::path_finder</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Use this to check if our snarl runs through a reference path (may be overkill, but can be used for sanity checking) </p>
 
 </div>
 </div>
