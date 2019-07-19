@@ -85,9 +85,18 @@ BWA_DOUBLE_TIME="$(cat "${WORK}/bwa-log-double.txt" | grep "Real time:" | sed 's
 
 BWA_RPS="$(echo "${REAL_READ_COUNT} / (${BWA_DOUBLE_TIME} - ${BWA_TIME})" | bc -l)"
 
+if which perf 2>/dev/null ; then
+    # Record profile
+    perf record -F 100 --call-graph dwarf -o "${WORK}/perf.data"  vg gaffe -x "${XG_INDEX}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -f "${REAL_FASTQ}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/perf.gam"
+    mv "${WORK}/perf.data" ./pref.data
+    echo "Profiling information saved as ./perf.data"
+fi
+
 # Print the report
 echo "Giraffe got ${CORRECT_COUNT} simulated reads correct with ${MEAN_IDENTITY} average identity"
 echo "Giraffe aligned real reads at ${GIRAFFE_RPS} reads/second vs. bwa-mem's ${BWA_RPS} reads/second"
+
+
 
 rm -Rf "${WORK}"
 
