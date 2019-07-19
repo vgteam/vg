@@ -40,7 +40,8 @@ void help_gaffe(char** argv) {
     << "Map unpaired reads using minimizers and gapless extension." << endl
     << endl
     << "basic options:" << endl
-    << "  -x, --xg-name FILE            use this xg index (required)" << endl
+    << "  -x, --xg-name FILE            use this xg index (required if -g not specified)" << endl
+    << "  -g, --graph-name FILE         use this GBWTGraph (required if -x not specified)"
     << "  -H, --gbwt-name FILE          use this GBWT index (required)" << endl
     << "  -m, --minimizer-name FILE     use this minimizer index (required)" << endl
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
@@ -72,6 +73,8 @@ void help_gaffe(char** argv) {
 
 int main_gaffe(int argc, char** argv) {
 
+    std::chrono::time_point<std::chrono::system_clock> launch = std::chrono::system_clock::now();
+
     if (argc == 2) {
         help_gaffe(argv);
         return 1;
@@ -79,6 +82,7 @@ int main_gaffe(int argc, char** argv) {
 
     // initialize parameters with their default options
     string xg_name;
+    string graph_name;
     string gbwt_name;
     string minimizer_name;
     string distance_name;
@@ -130,6 +134,7 @@ int main_gaffe(int argc, char** argv) {
         {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
+            {"graph-name", required_argument, 0, 'g'},
             {"gbwt-name", required_argument, 0, 'H'},
             {"minimizer-name", required_argument, 0, 'm'},
             {"dist-name", required_argument, 0, 'd'},
@@ -158,7 +163,7 @@ int main_gaffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:w:OT:lXt:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:w:OT:lXt:",
                          long_options, &option_index);
 
 
@@ -175,7 +180,15 @@ int main_gaffe(int argc, char** argv) {
                     exit(1);
                 }
                 break;
-                
+
+            case 'g':
+                graph_name = optarg;
+                if (graph_name.empty()) {
+                    cerr << "error:[vg gaffe] Must provide GBGTGraph file with -g." << endl;
+                    exit(1);
+                }
+                break;
+
             case 'H':
                 gbwt_name = optarg;
                 if (gbwt_name.empty()) {
@@ -354,8 +367,8 @@ int main_gaffe(int argc, char** argv) {
     }
     
     
-    if (xg_name.empty()) {
-        cerr << "error:[vg gaffe] Mapping requires an XG index (-x)" << endl;
+    if (xg_name.empty() && graph_name.empty()) {
+        cerr << "error:[vg gaffe] Mapping requires an XG index (-x) or a GBWTGraph (-g)" << endl;
         exit(1);
     }
     
@@ -376,10 +389,10 @@ int main_gaffe(int argc, char** argv) {
     }
     
     // create in-memory objects
-    if (progress) {
+    if (progress && !xg_name.empty()) {
         cerr << "Loading XG index " << xg_name << endl;
     }
-    unique_ptr<XG> xg_index = vg::io::VPKG::load_one<XG>(xg_name);
+    unique_ptr<XG> xg_index = (xg_name.empty() ? nullptr : vg::io::VPKG::load_one<XG>(xg_name));
 
     if (progress) {
         cerr << "Loading GBWT index " << gbwt_name << endl;
@@ -399,12 +412,26 @@ int main_gaffe(int argc, char** argv) {
     distance_index.load(dist_in);
     //unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     
+    // Build or load the GBWTGraph.
+    unique_ptr<GBWTGraph> gbwt_graph = nullptr;
+    if (graph_name.empty()) {
+        if (progress) {
+            cerr << "Building GBWTGraph" << endl;
+        }
+        gbwt_graph.reset(new GBWTGraph(*gbwt_index, *xg_index));
+    } else {
+        if (progress) {
+            cerr << "Loading GBWTGraph " << graph_name << endl;
+        }
+        gbwt_graph = vg::io::VPKG::load_one<GBWTGraph>(graph_name);
+        gbwt_graph->set_gbwt(*gbwt_index);
+    }
 
     // Set up the mapper
     if (progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(xg_index.get(), gbwt_index.get(), minimizer_index.get(), &distance_index);
+    MinimizerMapper minimizer_mapper(*gbwt_graph, *minimizer_index, distance_index, xg_index.get());
 
 
     if (progress) {
@@ -484,7 +511,14 @@ int main_gaffe(int argc, char** argv) {
 
     minimizer_mapper.sample_name = sample_name;
     minimizer_mapper.read_group = read_group;
-    
+
+    std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
+    std::chrono::duration<double> init_seconds = init - launch;
+    if (progress) {
+        cerr << "Loading and initialization: " << init_seconds.count() << " seconds" << endl;
+    }
+
+
     if (threads_to_run.empty()) {
         // Use 0 to represent the default.
         threads_to_run.push_back(0);
@@ -560,7 +594,9 @@ int main_gaffe(int argc, char** argv) {
                 << elapsed_seconds.count() << " seconds." << endl;
             
             cerr << "Mapping speed: " << ((total_reads_mapped / elapsed_seconds.count()) / thread_count)
-                << " reads per second per thread" << endl;        
+                << " reads per second per thread" << endl;
+
+            cerr << "Memory footprint: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GB" << endl;
         }
         
     }

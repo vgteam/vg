@@ -18,17 +18,18 @@
 // Set this to track provenance of intermediate results
 //#define TRACK_PROVENANCE
 // With TRACK_PROVENANCE on, set this to track correctness, which requires some expensive XG queries
+// Note that TRACK_CORRECTNESS requires an XG index, which is otherwise unnecessary.
 //#define TRACK_CORRECTNESS
 
 namespace vg {
 
 using namespace std;
 
-MinimizerMapper::MinimizerMapper(const XG* xg_index, const gbwt::GBWT* gbwt_index, const MinimizerIndex* minimizer_index,
-     MinimumDistanceIndex* distance_index) :
-    xg_index(xg_index), gbwt_index(gbwt_index), minimizer_index(minimizer_index),
-    distance_index(distance_index), gbwt_graph(*gbwt_index, *xg_index),
-    extender(gbwt_graph, *(get_regular_aligner())), clusterer(*distance_index) {
+MinimizerMapper::MinimizerMapper(const GBWTGraph& graph, const MinimizerIndex& minimizer_index,
+     MinimumDistanceIndex& distance_index, const XG* xg_index) :
+    xg_index(xg_index), minimizer_index(minimizer_index),
+    distance_index(distance_index), gbwt_graph(graph),
+    extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index) {
     
     // Nothing to do!
 }
@@ -63,7 +64,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     vector<size_t> seed_to_source;
     
     // Find minimizers in the query
-    minimizers = minimizer_index->minimizers(aln.sequence());
+    minimizers = minimizer_index.minimizers(aln.sequence());
     
 #ifdef TRACK_PROVENANCE
     // Record how many we found, as new lines.
@@ -77,7 +78,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     std::vector<double> minimizer_score(minimizers.size(), 0.0);
     double target_score = 0.0;
     for (size_t i = 0; i < minimizers.size(); i++) {
-        size_t hits = minimizer_index->count(minimizers[i]);
+        size_t hits = minimizer_index.count(minimizers[i]);
         if (hits > 0) {
             if (hits <= hard_hit_cap) {
                 minimizer_score[i] = 1.0 + std::log(hard_hit_cap) - std::log(hits);
@@ -111,11 +112,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
         // Select the minimizer if it is informative enough or if the total score
         // of the selected minimizers is not high enough.
-        size_t hits = minimizer_index->count(minimizers[minimizer_num]);
+        size_t hits = minimizer_index.count(minimizers[minimizer_num]);
         if (hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
 
             // Locate the hits.
-            for (auto& hit : minimizer_index->find(minimizers[minimizer_num])) {
+            for (auto& hit : minimizer_index.find(minimizers[minimizer_num])) {
                 // Reverse the hits for a reverse minimizer
                 if (minimizers[minimizer_num].is_reverse) {
                     size_t node_length = gbwt_graph.get_length(gbwt_graph.get_handle(id(hit)));
@@ -229,7 +230,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         //Get the cluster coverage
         // We set bits in here to true when query anchors cover them
         sdsl::bit_vector covered(aln.sequence().size(), 0);
-        std::uint64_t k_bit_mask = sdsl::bits::lo_set[minimizer_index->k()];
+        std::uint64_t k_bit_mask = sdsl::bits::lo_set[minimizer_index.k()];
 
         for (auto hit_index : cluster) {
             // For each hit in the cluster, work out what anchor sequence it is from.
@@ -238,11 +239,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             // The offset of a reverse minimizer is the endpoint of the kmer
             size_t start_offset = minimizers[source_index].offset;
             if (minimizers[source_index].is_reverse) {
-                start_offset = start_offset + 1 - minimizer_index->k();
+                start_offset = start_offset + 1 - minimizer_index.k();
             }
 
             // Set the k bits starting at start_offset.
-            covered.set_int(start_offset, k_bit_mask, minimizer_index->k());
+            covered.set_int(start_offset, k_bit_mask, minimizer_index.k());
         }
 
         // Count up the covered positions
@@ -317,7 +318,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
 #ifdef debug
             cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
-                << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index->count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
+                << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index.count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
 #endif
         }
         
