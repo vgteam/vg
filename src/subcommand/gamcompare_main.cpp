@@ -138,7 +138,10 @@ int main_gamcompare(int argc, char** argv) {
         }
         text_buffer.clear();
     };
-    
+   
+    // We want to count correct reads
+    vector<size_t> correct_counts(get_thread_count(), 0);
+   
     // This function annotates every read with distance and correctness, and batch-outputs them.
     function<void(Alignment&)> annotate_test = [&](Alignment& aln) {
         auto f = true_positions.find(aln.name());
@@ -149,7 +152,14 @@ int main_gamcompare(int argc, char** argv) {
             if (range != -1) {
                 // We are flagging reads correct/incorrect.
                 // It is correct if there is a path for its minimum distance and it is in range on that path.
-                aln.set_correctly_mapped(aln.to_correct().name() != "" && aln.to_correct().offset() <= range);
+                bool correctly_mapped = (aln.to_correct().name() != "" && aln.to_correct().offset() <= range);
+                
+                // Annotate it as such
+                aln.set_correctly_mapped(correctly_mapped);
+                
+                if (correctly_mapped) {
+                    correct_counts.at(omp_get_thread_num()) += 1;
+                }
             }
             
         }
@@ -177,6 +187,16 @@ int main_gamcompare(int argc, char** argv) {
     if (output_tsv) {
         // Save whatever's in the buffer at the end.
         flush_text_buffer();
+    }
+    
+    if (range != -1) {
+        // We are flagging reads correct/incorrect. So report the total correct.
+        size_t total_correct = 0;
+        for (auto& count : correct_counts) {
+            total_correct += count;
+        }
+        
+        cerr << total_correct << " reads correct" << endl;
     }
     
     return 0;
