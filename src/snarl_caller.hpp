@@ -144,5 +144,13 @@ protected:
     const Packer& packer;
 };
 
+// debug helpers
+inline string to_string(const HandleGraph& graph, handle_t handle) {
+    return std::to_string(graph.get_id(handle)) + ":" + std::to_string(graph.get_is_reverse(handle));
+}
+inline string to_string(const HandleGraph& graph, edge_t edge) {
+    return to_string(graph, edge.first) + " -> " + to_string(graph, edge.second);
+}
+
 }
 #endif
