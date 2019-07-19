@@ -173,27 +173,14 @@ int main_snarl(int argc, char** argv) {
     unique_ptr<FastaReference> ref_fasta;
     unique_ptr<FastaReference> ins_fasta;
 
-    // vcftraversal finder is dependent on this relic of the support_caller (for now)
-    map<string, PathIndex*> path_index;
     
     if (!vcf_filename.empty()) {
-        if (vg_graph == nullptr) {
-            cerr << "error: [vg snarls] -v requires .vg graph input" << endl;
-            return 1;
-        }
         variant_file.parseSamples = false;
         variant_file.open(vcf_filename);
         if (!variant_file.is_open()) {
             cerr << "error: [vg snarls] could not open " << vcf_filename << endl;
             return 1;
         }
-
-        // load every reference path into the index
-        vg_graph->paths.for_each_name([&] (const string& path_name) {
-                if (!Paths::is_alt(path_name)) {
-                    path_index[path_name] = new PathIndex(*vg_graph, path_name);
-                }
-            });
 
         // load up the fasta
         if (!ref_fasta_filename.empty()) {
@@ -205,20 +192,6 @@ int main_snarl(int argc, char** argv) {
             ins_fasta->open(ins_fasta_filename);
         }
     }
-    auto delete_path_index = [&] () {
-        for (auto name_index : path_index) {
-            delete name_index.second;
-        }
-    };
-    auto get_path_index = [&] (const Snarl& site) -> PathIndex* {
-        for(auto name_index : path_index) { 
-            if (name_index.second->by_id.count(site.start().node_id()) &&
-                name_index.second->by_id.count(site.end().node_id())) {
-                return name_index.second;
-            }
-        }
-        return nullptr;
-    };
     
     // Load up all the snarls
     SnarlManager snarl_manager = snarl_finder->find_snarls();
@@ -243,7 +216,6 @@ int main_snarl(int argc, char** argv) {
 
         delete trav_finder;
         delete snarl_finder;
-        delete_path_index();
 
         exit(0);
     }
@@ -255,7 +227,7 @@ int main_snarl(int argc, char** argv) {
         // for testing purposes.  The VCFTraversalFinder differs from Exhaustive in that
         // it's easier to limit traversals using read support, and it takes care of
         // mapping back to the VCF via the alt paths. 
-        trav_finder = new VCFTraversalFinder(*vg_graph, snarl_manager, variant_file, get_path_index,
+      trav_finder = new VCFTraversalFinder(*vg_graph, snarl_manager, variant_file, {},
                                              ref_fasta.get(), ins_fasta.get());
     }
     
@@ -370,7 +342,6 @@ int main_snarl(int argc, char** argv) {
     
     delete snarl_finder;
     delete trav_finder;
-    delete_path_index();
 
     return 0;
 }
