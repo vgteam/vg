@@ -407,15 +407,8 @@ int main_gaffe(int argc, char** argv) {
         if (progress) {
             cerr << "Loading GBWTGraph " << graph_name << endl;
         }
-        gbwt_graph.reset(new GBWTGraph());
+        gbwt_graph = vg::io::VPKG::load_one<GBWTGraph>(graph_name);
         gbwt_graph->set_gbwt(*gbwt_index);
-        ifstream in(graph_name, std::ios_base::binary);
-        if (!in) {
-            cerr << "error:[vg gaffe] cannot load GBWTGraph from " << graph_name << endl;
-            exit(1);
-        }
-        gbwt_graph->load(in);
-        in.close();
     }
 
     // Set up the mapper

@@ -376,13 +376,7 @@ int main_gbwt(int argc, char** argv)
                 exit(1);
             }
             GBWTGraph graph(*index, *xg_index);
-            ofstream out(graph_output, std::ios_base::binary);
-            graph.serialize(out);
-            if (out.fail()) {
-                cerr << "error: [vg gbwt] GBWTGraph serialization to " << gbwt_output << " failed" << endl;
-                exit(1);
-            }
-            out.close();
+            vg::io::VPKG::save(graph, graph_output);
         }
 
         if (metadata) {
