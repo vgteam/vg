@@ -78,7 +78,6 @@ public:
     size_t max_multimaps = 1;
     size_t distance_limit = 1000;
     bool do_chaining = true;
-    size_t max_tails = numeric_limits<size_t>::max();
     bool use_xdrop_for_tails = false;
     bool linear_tails = false;
     /// Use GBWT states from extensions to seed connectivity and tail searches.
@@ -128,18 +127,8 @@ protected:
      * Operating on the given input alignment, chain together the given
      * extended perfect-match seeds and produce an alignment into the given
      * output Alignment object.
-     *
-     * Returns true if successful, or false if too much DP work would be
-     * involved and a fallback approach should be used.
      */
-    bool chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const; 
-    
-    /**
-     * Operating on the given input alignment, extract the haplotypes around
-     * the given extended perfect-match seeds and produce the best
-     * haplotype-consistent alignment into the given output Alignment object.
-     */
-    void align_to_local_haplotypes(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const;
+    void chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const; 
     
     /**
      * Find for each pair of extended seeds all the haplotype-consistent graph

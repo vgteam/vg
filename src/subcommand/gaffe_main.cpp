@@ -65,7 +65,6 @@ void help_gaffe(char** argv) {
     << "  -v, --extension-score INT     only align extensions if their score is within extension-score of the best score" << endl
     << "  -w, --extension-set INT     only align extension sets if their score is within extension-set of the best score" << endl
     << "  -O, --no-chaining             disable seed chaining and all gapped alignment" << endl
-    << "  -T, --max-tails INT           fall back on alignment to haplotypes when there are more than INT tails" << endl
     << "  -l, --linear-tails            align tails as individual linear alignments instead of POA trees" << endl
     << "  -X, --xdrop                   use xdrop alignment for tails" << endl
     << "  --reuse-gbwt-states           use GBWT search states from gapless extensions to seed conenctivity and tail searches" << endl
@@ -100,8 +99,6 @@ int main_gaffe(int argc, char** argv) {
     bool progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_chaining = true;
-    // How many tails should we tolerate
-    size_t max_tails = numeric_limits<size_t>::max();
     // Should we do individual linear tail alignments instead of tree-shaped ones?
     bool linear_tails = false;
     // Should we use the xdrop aligner for aligning tails?
@@ -168,7 +165,6 @@ int main_gaffe(int argc, char** argv) {
             {"extension-set", required_argument, 0, 'w'},
             {"score-fraction", required_argument, 0, 'F'},
             {"no-chaining", no_argument, 0, 'O'},
-            {"max-tails", required_argument, 0, 'T'},
             {"linear-tails", no_argument, 0, 'l'},
             {"xdrop", no_argument, 0, 'X'},
             {"reuse-gbwt-states", no_argument, 0, OPT_REUSE_GBWT_STATES},
@@ -179,7 +175,7 @@ int main_gaffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:w:OT:lXt:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:w:OlXt:",
                          long_options, &option_index);
 
 
@@ -348,10 +344,6 @@ int main_gaffe(int argc, char** argv) {
                 break;
             case 'O':
                 do_chaining = false;
-                break;
-                
-            case 'T':
-                max_tails = parse<size_t>(optarg);
                 break;
                 
             case 'l':
@@ -527,11 +519,6 @@ int main_gaffe(int argc, char** argv) {
         cerr << "--distance-limit " << distance_limit << endl;
     }
     minimizer_mapper.distance_limit = distance_limit;
-    
-    if (progress) {
-        cerr << "--max-tails " << max_tails << endl;
-    }
-    minimizer_mapper.max_tails = max_tails;
     
     if (progress && linear_tails) {
         cerr << "--linear-tails " << endl;
