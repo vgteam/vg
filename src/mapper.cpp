@@ -3939,14 +3939,48 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         } else {
                             //cerr << "clearing the path" << endl;
                             band.clear_path();
+                            /*
                             Edit* e = band.mutable_path()->add_mapping()->add_edit();
                             e->set_to_length(band.sequence().size());
                             band.clear_score();
                             band.clear_identity();
+                            */
                             // TODO try to align over a bigger chunk after this
                         }
                     }
+                    if (band.path().mapping_size() == 0) {
+                        //cerr << "the hack" << endl;
+                        // hack to make merging work when we are unaligned
+                        band.set_score(0);
+                        band.clear_path();
+                        Mapping* m = band.mutable_path()->add_mapping();
+                        Edit* e = m->add_edit();
+                        e->set_sequence(band.sequence());
+                        e->set_to_length(band.sequence().size());
+                        if (!band_ref_pos.empty()) {
+                            *m->mutable_position() = make_position(*band_ref_pos.begin());
+                        } // should we alternatively set ourselves back to the ref_pos?
+                        // walk graph to estimate next position based on assumption we are ~ homologous to the graph
+                        set<pos_t> next_pos;
+                        for (auto& pos : band_ref_pos) {
+                            for (auto& next : algorithms::jump_along_closest_path(xindex, pos, band.sequence().size(), band.sequence().size())) {
+                                next_pos.insert(next);
+                            }
+                        }
+                        // keep only 4 next positions
+                        band_ref_pos.clear();
+                        if (next_pos.size()) {
+                            int to_keep = 4;
+                            int p = 0;
+                            for (auto& pos : next_pos) {
+                                if (++p <= to_keep) {
+                                    band_ref_pos.insert(pos);
+                                }
+                            }
+                        }
+                    }
                 }
+
                 /*
                 if (debug) {
                     cerr << "done bands" << endl;
