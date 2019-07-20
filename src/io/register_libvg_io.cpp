@@ -7,6 +7,7 @@
 
 #include "register_loader_saver_distance_index.hpp"
 #include "register_loader_saver_gbwt.hpp"
+#include "register_loader_saver_gbwtgraph.hpp"
 #include "register_loader_saver_gcsa.hpp"
 #include "register_loader_saver_lcp.hpp"
 #include "register_loader_saver_minimizer.hpp"
@@ -26,6 +27,7 @@ using namespace std;
 bool register_libvg_io() {
     register_loader_saver_distance_index();
     register_loader_saver_gbwt();
+    register_loader_saver_gbwtgraph();
     register_loader_saver_gcsa();
     register_loader_saver_lcp();
     register_loader_saver_minimizer();

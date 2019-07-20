@@ -200,9 +200,14 @@ protected:
     const PathHandleGraph& graph;
     
     SnarlManager& snarl_manager;
+
+    // restrict to these paths
+    unordered_set<path_handle_t> paths;
     
 public:
-    PathTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager);
+    // if path_names not empty, only those paths will be considered
+    PathTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager,
+                        const vector<string>& path_names = {});
 
     /**
      * Return all traversals through the site that are sub-paths of embedded paths in the graph
@@ -397,16 +402,13 @@ class VCFTraversalFinder : public TraversalFinder {
 
 protected:
     const PathHandleGraph& graph;
+
+    /// Use this to check if our snarl runs through a reference path
+    /// (may be overkill, but can be used for sanity checking)
+    PathTraversalFinder path_finder;
     
     /// The SnarlManager managiung the snarls we use
     SnarlManager& snarl_manager;
-
-    /// We keep this around from the RepresentativeTraversalFinder for now:
-    /// We use a path index for accessing the reference path
-    /// We keep around a function that can be used to get an index for the
-    /// appropriate path to use to scaffold a given site, or null if no
-    /// appropriate index exists.
-    function<PathIndex*(const Snarl&)> get_index;
 
     /// Store variants indexed by an arbitrary node in one of their associated
     /// alt paths. We can then use this to find all variants in a top-level snarl
@@ -441,7 +443,7 @@ public:
      * that are enumerated.
      */
     VCFTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager, vcflib::VariantCallFile& vcf,
-                       function<PathIndex*(const Snarl&)> get_index,
+                       const vector<string>& ref_path_names = {},
                        FastaReference* fasta_ref = nullptr,
                        FastaReference* ins_ref = nullptr,
                        function<bool(const SnarlTraversal&)> skip_alt = nullptr,
@@ -481,9 +483,9 @@ protected:
      */
     void brute_force_alt_traversals(const Snarl& site,
                                     const vector<vcflib::Variant*>& site_variants,
-                                    PathIndex* path_index,
-                                    PathIndex::iterator start_it,
-                                    PathIndex::iterator end_it,
+                                    path_handle_t ref_path,
+                                    step_handle_t start_step,
+                                    step_handle_t end_step,
                                     vector<pair<SnarlTraversal, vector<int> > >& output_traversals);
 
     /** Get a traversal for a given haplotype.  It gets all the nodes and edges from the alt 
@@ -492,9 +494,9 @@ protected:
      */
     pair<SnarlTraversal, bool> get_alt_traversal(const Snarl& site,
                                                  const vector<vcflib::Variant*>& site_variants,
-                                                 PathIndex* path_index,
-                                                 PathIndex::iterator start_it,
-                                                 PathIndex::iterator end_it,
+                                                 path_handle_t ref_path,
+                                                 step_handle_t start_step,
+                                                 step_handle_t end_step,
                                                  const vector<int>& haplotype);
 
     /** Get a set of all alt path nodes and deletion edges for a halptype.
@@ -502,13 +504,13 @@ protected:
     pair<unordered_set<handle_t>, unordered_set<pair<handle_t, handle_t> >>
          get_haplotype_alt_contents(const vector<vcflib::Variant*>& site_variants,
                                     const vector<int>& haplotype,
-                                    PathIndex* path_index);
+                                    path_handle_t ref_path);
 
     /** Get one alt-path out of the graph in the form of a snarl traversal.  bool value
      *  returned is true if allele is a deletion, and returned traversal will be a pair of nodes
      *  representing the deletion edge.
      */
-    pair<SnarlTraversal, bool> get_alt_path(vcflib::Variant* site_variant, int allele, PathIndex* path_index);
+    pair<SnarlTraversal, bool> get_alt_path(vcflib::Variant* site_variant, int allele, path_handle_t ref_path);
 
     /**
      * An alt path for a deletion is the deleted reference path.  But sometimes vg construct doesn't
@@ -522,8 +524,8 @@ protected:
      * Returns: <size delta between returned deletion and vcf allele,
      *           position delta between returned deletion and alt path>
      */
-    pair<int, int> scan_for_deletion(vcflib::Variant* var, int allele, PathIndex* path_index,
-                                     PathIndex::iterator& first_path_it, PathIndex::iterator& last_path_it);
+    pair<int, int> scan_for_deletion(vcflib::Variant* var, int allele, path_handle_t ref_path,
+                                     step_handle_t& first_path_step, step_handle_t& last_path_step);
 
     /**
      * Prune our search space using the skip_alt method.  Will return a list of pruned VCF alleles/
@@ -536,12 +538,17 @@ protected:
      */
     vector<vector<int>> get_pruned_alt_alleles(const Snarl& site,
                                                const vector<vcflib::Variant*>& site_variants,
-                                               PathIndex* path_index);
+                                               path_handle_t ref_path);
 
     /**
      * Count the possible traversal paths.  Return false if we ever get beyond our cutoff
      */
     bool check_max_trav_cutoff(const vector<vector<int> >& alleles);
+
+    /**
+     * Lookup a node in the reference path (mimics old PathIndex)
+     */
+    pair<step_handle_t, bool> step_in_path(handle_t handle, path_handle_t path_handle) const;
                                 
 };
 

@@ -26,11 +26,12 @@ class MinimizerMapper : public AlignerClient {
 public:
 
     /**
-     * Construct a new MinimizerMapper using the given indexes.
+     * Construct a new MinimizerMapper using the given indexes. The XG index can be nullptr,
+     * as we only use it for correctness tracking.
      */
 
-    MinimizerMapper(const XG* xg_index, const gbwt::GBWT* gbwt_index, const MinimizerIndex* minimizer_index,
-         MinimumDistanceIndex* distance_index);
+    MinimizerMapper(const GBWTGraph& graph, const MinimizerIndex& minimizer_index,
+         MinimumDistanceIndex& distance_index, const XG* xg_index = nullptr);
 
     /**
      * Map the given read, and send output to the given AlignmentEmitter. May be run from any thread.
@@ -81,17 +82,25 @@ public:
     bool linear_tails = false;
     string sample_name;
     string read_group;
+    
+    /// Track which internal work items came from which others during each
+    /// stage of the mapping algorithm.
+    bool track_provenance = false;
 
+
+    /// Guess which seed hits are correct by location in the linear reference
+    /// and track if/when their descendants make it through stages of the
+    /// algorithm. Only works if track_provenance is true.
+    bool track_correctness = false;
 
 protected:
     // These are our indexes
-    const XG* xg_index;
-    const gbwt::GBWT* gbwt_index;
-    const MinimizerIndex* minimizer_index;
-    MinimumDistanceIndex* distance_index;
+    const XG* xg_index; // Can be nullptr; only needed for correctness tracking.
+    const MinimizerIndex& minimizer_index;
+    MinimumDistanceIndex& distance_index;
 
-    /// We have a GBWTGraph over the GBWT and the XG
-    GBWTGraph gbwt_graph;
+    /// This is our primary graph.
+    const GBWTGraph& gbwt_graph;
     
     /// We have a gapless extender to extend seed hits in haplotype space.
     GaplessExtender extender;
