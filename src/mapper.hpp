@@ -491,8 +491,6 @@ public:
     
     // run through the alignment and attempt to align unaligned parts of the alignment to the graph in the region where they are anchored
     Alignment patch_alignment(const Alignment& aln, int max_patch_length, bool trim_internal_deletions = true, bool xdrop_alignment = false);
-    // Get the graph context of a particular cluster, not expanding beyond the middles of MEMs.
-    VG cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // for aligning to a particular MEM cluster
     Alignment align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems, bool traceback, bool xdrop_alignment = false);
     // compute the uniqueness metric based on the MEMs in the cluster

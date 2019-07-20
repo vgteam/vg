@@ -33,6 +33,8 @@ unordered_map<path_handle_t, vector<pair<size_t, bool>>> nearest_offsets_in_path
 /// that directly touch the position, and returns the paths by name.
 map<string, vector<pair<size_t, bool>>> offsets_in_paths(const PathPositionHandleGraph* graph, const pos_t& pos);
 
+/// A "simple" model for path position getting for debugging
+unordered_map<path_handle_t, vector<pair<size_t, bool>>> simple_offsets_in_paths(const PathPositionHandleGraph* graph, pos_t pos);
     
 
 }

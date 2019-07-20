@@ -11,7 +11,7 @@ unordered_map<path_handle_t, vector<pair<size_t, bool> > > alignment_path_offset
         if (mapping.has_position()) {
             graph.get_handle(mapping.position().node_id());
             pos_t pos = make_pos_t(mapping.position());
-            auto offsets = algorithms::nearest_offsets_in_paths(&graph, pos, -1);
+            auto offsets = algorithms::nearest_offsets_in_paths(&graph, pos, aln.sequence().size());
             for (auto& path : offsets) {
                 auto& path_positions = positions[path.first];
                 for (auto& pos : path.second) {

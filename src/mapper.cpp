@@ -1652,11 +1652,9 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
 
     // if necessary, convert from cyclic to acylic
     if (!algorithms::is_directed_acyclic(&align_graph)) {
-        cerr << "not directed acyclic" << endl;
         // make a dagified graph and translation
         sglib::HashGraph dagified;
         unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
-            
         // replace the original with the dagified ones
         align_graph = move(dagified);
         node_trans = overlay_node_translations(dagify_trans, node_trans);
@@ -1754,9 +1752,10 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
                     }
                 }
             }
-            mate_pos = max((int64_t)0, mate_pos);
+            path_handle_t path_handle = xindex->get_path_handle(seq_name);
+            mate_pos = min(max((int64_t)0, mate_pos), (int64_t)xindex->get_path_length(path_handle)-1);
             //pos_t target = xindex->graph_pos_at_path_position(seq_name, mate_pos);
-            step_handle_t step = xindex->get_step_at_position(xindex->get_path_handle(seq_name), mate_pos);
+            step_handle_t step = xindex->get_step_at_position(path_handle, mate_pos);
             size_t pos_of_step = xindex->get_position_of_step(step);
             handle_t handle = xindex->get_handle_of_step(step);
             pos_t target = make_pos_t(xindex->get_id(handle), xindex->get_is_reverse(handle), mate_pos-pos_of_step);
@@ -1832,13 +1831,12 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
                             : min(frag_stats.fragment_max/2,
                                   (int64_t)max((double)frag_stats.cached_fragment_length_stdev * 10.0,
                                                mate1.sequence().size() * 3.0)));
-        //cerr << "Getting at least " << get_at_least << endl;
+        cerr << "Getting at least " << get_at_least << endl;
+        // TODO it may be possible to make this sugraph smaller with little penalty in terms of accuracy
         algorithms::extract_context(*xindex, graph, xindex->get_handle(id(mate_pos), is_rev(mate_pos)), offset(mate_pos), get_at_least);
         // if we're reversed, align the reverse sequence and flip it back
         // align against it
     }
-    //VG g; g.extend(graph);string h = g.hash();
-    //g.serialize_to_file("rescue-" + h + ".vg");
     int max_mate1_score = mate1.score();
     int max_mate2_score = mate2.score();
     for (auto& orientation : orientations) {
@@ -2169,13 +2167,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                   return approx_position(n);
                               },
                               [&](pos_t n) -> unordered_map<path_handle_t, vector<pair<size_t, bool> > > {
-                                  handle_t handle = xindex->get_handle(id(n), is_rev(n));
-                                  unordered_map<path_handle_t, vector<pair<size_t, bool> > > positions;
-                                  xindex->for_each_step_position_on_handle(handle, [&](const step_handle_t& step, const bool& rev, const size_t& offset) {
-                                          positions[xindex->get_path_handle_of_step(step)].push_back(make_pair(offset, rev));
-                                          return true;
-                                      });
-                                  return positions;
+                                  return algorithms::nearest_offsets_in_paths(xindex, n, -1);
                               },
                               transition_weight,
                               band_width);
@@ -2849,17 +2841,11 @@ Mapper::align_mem_multi(const Alignment& aln,
     vector<vector<MaximalExactMatch> > clusters;
     if (total_multimaps) {
         MEMChainModel chainer({ aln.sequence().size() }, { mems },
-                              [&](pos_t n) {
+                              [&](pos_t n) -> int64_t {
                                   return approx_position(n);
                               },
                               [&](pos_t n) -> unordered_map<path_handle_t, vector<pair<size_t, bool> > > {
-                                  handle_t handle = xindex->get_handle(id(n), is_rev(n));
-                                  unordered_map<path_handle_t, vector<pair<size_t, bool> > > positions;
-                                  xindex->for_each_step_position_on_handle(handle, [&](const step_handle_t& step, const bool& rev, const size_t& offset) {
-                                          positions[xindex->get_path_handle_of_step(step)].push_back(make_pair(offset, rev));
-                                          return true;
-                                      });
-                                  return positions;
+                                  return algorithms::nearest_offsets_in_paths(xindex, n, -1);
                               },
                               transition_weight,
                               aln.sequence().size());
@@ -3077,59 +3063,6 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
     sglib::HashGraph graph = cluster_subgraph_containing(*xindex, aln, mems, get_aligner());
     Alignment aligned = align_maybe_flip(aln, graph, mems, false, traceback, false, xdrop_alignment);
     return aligned;
-}
-
-VG Mapper::cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
-#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) {
-            cerr << "Getting a cluster graph for " << mems.size() << " MEMs" << endl;
-        }
-    }
-#endif
-
-    // As in the multipath aligner, we work out how far we can get from a MEM
-    // with gaps and use that for how much graph to grab.
-    vector<pos_t> positions;
-    vector<size_t> forward_max_dist;
-    vector<size_t> backward_max_dist;
-    
-    positions.reserve(mems.size());
-    forward_max_dist.reserve(mems.size());
-    backward_max_dist.reserve(mems.size());
-    
-    // What aligner are we using?
-    const GSSWAligner* aligner = get_aligner();
-    
-    for (const auto& mem : mems) {
-        // get the start position of the MEM
-        assert(!mem.nodes.empty());
-        positions.push_back(make_pos_t(mem.nodes.front()));
-        
-        // search far enough away to get any hit detectable without soft clipping
-        forward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.end)
-                                   + (aln.sequence().end() - mem.begin));
-        backward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.begin)
-                                    + (mem.begin - aln.sequence().begin()));
-    }
-    
-    // Extract the graph
-    VG graph;
-    algorithms::extract_containing_graph(xindex, &graph, positions, forward_max_dist, backward_max_dist);
-    
-    graph.remove_orphan_edges();
-    
-#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) {
-            cerr << "\tFound " << graph.node_count() << " nodes " << graph.min_node_id() << " - " << graph.max_node_id()
-                << " and " << graph.edge_count() << " edges" << endl;
-        }
-    }
-#endif
-    return graph;
 }
 
 // estimate the fragment length as the difference in mean positions of both alignments
@@ -3819,7 +3752,7 @@ int64_t Mapper::approx_position(pos_t pos) {
     if (is_rev(pos)) {
         pos = reverse(pos, get_node_length(id(pos)));
     }
-    return ((VectorizableHandleGraph*)xindex)->node_vector_offset(id(pos)) + offset(pos);
+    return dynamic_cast<VectorizableHandleGraph*>(xindex)->node_vector_offset((nid_t)id(pos)) + offset(pos);
 }
 
 int64_t Mapper::approx_distance(pos_t pos1, pos_t pos2) {
