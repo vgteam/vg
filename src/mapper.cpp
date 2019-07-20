@@ -1676,7 +1676,9 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
     } else if (pinned_alignment) {
         get_aligner(!aln.quality().empty())->align_pinned(aligned, align_graph, order, pin_left);
     } else if (xdrop_alignment) {
-        get_aligner(!aln.quality().empty())->get_xdrop()->align(aligned, {align_graph, order}, mems, (xdrop_alignment == 1) ? false : true);
+        get_aligner(!aln.quality().empty())->get_xdrop()->align(aligned, {align_graph, order},
+                                                                translate_mems(mems, node_trans),
+                                                                (xdrop_alignment == 1) ? false : true);
     } else {
         get_aligner(!aln.quality().empty())->align(aligned, align_graph, order, traceback, false);
     }
@@ -1831,7 +1833,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
                             : min(frag_stats.fragment_max/2,
                                   (int64_t)max((double)frag_stats.cached_fragment_length_stdev * 10.0,
                                                mate1.sequence().size() * 3.0)));
-        cerr << "Getting at least " << get_at_least << endl;
+        //cerr << "Getting at least " << get_at_least << endl;
         // TODO it may be possible to make this sugraph smaller with little penalty in terms of accuracy
         algorithms::extract_context(*xindex, graph, xindex->get_handle(id(mate_pos), is_rev(mate_pos)), offset(mate_pos), get_at_least);
         // if we're reversed, align the reverse sequence and flip it back
