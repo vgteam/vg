@@ -97,7 +97,7 @@ bwa mem -t "${THREAD_COUNT}" "${FASTA}" "${WORK}/double.fq" >"${WORK}/mapped-dou
 BWA_TIME="$(cat "${WORK}/bwa-log.txt" | grep "Real time:" | sed 's/[^0-9.]*\([0-9.]*\).*/\1/')"
 BWA_DOUBLE_TIME="$(cat "${WORK}/bwa-log-double.txt" | grep "Real time:" | sed 's/[^0-9.]*\([0-9.]*\).*/\1/')"
 
-BWA_RPS="$(echo "${REAL_READ_COUNT} / (${BWA_DOUBLE_TIME} - ${BWA_TIME})" | bc -l)"
+BWA_RPS="$(echo "${REAL_READ_COUNT} / (${BWA_DOUBLE_TIME} - ${BWA_TIME}) / ${THREAD_COUNT}" | bc -l)"
 
 if which perf 2>/dev/null ; then
     # Output perf stuff
