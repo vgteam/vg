@@ -102,7 +102,7 @@ BWA_RPS="$(echo "${REAL_READ_COUNT} / (${BWA_DOUBLE_TIME} - ${BWA_TIME}) / ${THR
 
 if which perf 2>/dev/null ; then
     # Output perf stuff
-    mv "${WORK}/perf.data" ./pref.data
+    mv "${WORK}/perf.data" ./perf.data
     mv "${WORK}/profile.svg" ./profile.svg
     echo "Profiling information saved as ./perf.data"
     echo "Interactive flame graph (for browsers) saved as ./profile.svg"
