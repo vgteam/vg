@@ -41,7 +41,7 @@ void help_gaffe(char** argv) {
     << endl
     << "basic options:" << endl
     << "  -x, --xg-name FILE            use this xg index (required if -g not specified)" << endl
-    << "  -g, --graph-name FILE         use this GBWTGraph (required if -x not specified)"
+    << "  -g, --graph-name FILE         use this GBWTGraph (required if -x not specified)" << endl
     << "  -H, --gbwt-name FILE          use this GBWT index (required)" << endl
     << "  -m, --minimizer-name FILE     use this minimizer index (required)" << endl
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
