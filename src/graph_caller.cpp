@@ -21,6 +21,7 @@ void GraphCaller::call_top_level_snarls(bool recurse_on_fail) {
         bool was_called = call_snarl(*snarl);
         if (!was_called && recurse_on_fail) {
             const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
+            cerr << "recursing on " << children.size() << " children of " << pb2json(*snarl) << endl;
             snarl_queue.insert(snarl_queue.end(), children.begin(), children.end());
         }
     };
@@ -40,27 +41,30 @@ void GraphCaller::call_top_level_snarls(bool recurse_on_fail) {
   
 }
 
-void GraphCaller::vcf_header(const PathHandleGraph& graph, const vector<path_handle_t>& contigs) const {
-    out_stream << "##fileformat=VCFv4.2" << endl;
+string GraphCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs) const {
+    stringstream ss;
+    ss << "##fileformat=VCFv4.2" << endl;
     for (auto contig : contigs) {
         size_t length = 0;
-        for (handle_t handle : graph.scan_path(contig)) {
+        for (handle_t handle : graph.scan_path(graph.get_path_handle(contig))) {
             length += graph.get_length(handle);
         }
-        out_stream << "##contig=<ID=" << graph.get_path_name(contig) << ",length=" << length << ">" << endl;
+        ss << "##contig=<ID=" << contig << ",length=" << length << ">" << endl;
     }
+    return ss.str();
 }
 
 VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
                            SnarlCaller& snarl_caller,
                            SnarlManager& snarl_manager,
                            vcflib::VariantCallFile& variant_file,
+                           const string& sample_name,
                            const vector<string>& ref_paths,
                            ostream& out_stream) :
     GraphCaller(snarl_caller, snarl_manager, out_stream),
     graph(graph),
-    regions(regions),
     input_vcf(variant_file),
+    sample_name(sample_name),
     traversal_finder(graph, snarl_manager, variant_file, ref_paths) {
     
 }
@@ -103,7 +107,7 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
         for (int i = 0; i < variants.size(); ++i) {
             string vcf_genotype;;
             if (trav_genotype.empty()) {
-                vcf_genotype = ".";
+                vcf_genotype = "./.";
             } else {
                 // map our traversal genotype to a vcf variant genotype
                 // using the information out of the traversal finder
@@ -115,19 +119,45 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
                         vcf_genotype += "/";
                     }
                 }
-
-                // testing
-                out_stream << *variants[i] << " ==> " << vcf_genotype << endl;
             }
+            // create an output variant from the input one
+            vcflib::Variant out_variant;
+            out_variant.sequenceName = variants[i]->sequenceName;
+            out_variant.quality = 23;
+            out_variant.position = variants[i]->position;
+            out_variant.id = variants[i]->id;
+            out_variant.ref = variants[i]->ref;
+            out_variant.alt = variants[i]->alt;
+            out_variant.alleles = variants[i]->alleles;
+            out_variant.setVariantCallFile(output_vcf);
+            out_variant.filter = "PASS";
+            out_variant.updateAlleleIndexes();
+
+            // add the genotype
+            out_variant.format.push_back("GT");
+            auto& genotype_vector = out_variant.samples[sample_name]["GT"];
+            genotype_vector.push_back(vcf_genotype);
+
+            // print the variant
+            out_stream << out_variant << endl;
         }
         return true;
     }
-
+    
     return false;
 
 }
 
-
+string VCFGenotyper::vcf_header(const PathHandleGraph& graph, const vector<string>& ref_paths) const {
+    string header = GraphCaller::vcf_header(graph, ref_paths);
+    header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
+    header += "##FILTER=<ID=PASS,Description=\"All filters passed\">";
+    header += "##SAMPLE=<ID=" + sample_name + ">\n";
+    header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name;
+    assert(output_vcf.openForOutput(header));
+    header += "\n";
+    return header;
+}
 
 }
 

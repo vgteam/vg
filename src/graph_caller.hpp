@@ -37,12 +37,13 @@ public:
     /// Call a given snarl, and print the output to out_stream
     virtual bool call_snarl(const Snarl& snarl) = 0;
 
-protected:
-
     /// Write the vcf header (version and contigs and basic info)
-    virtual void vcf_header(const PathHandleGraph& graph, const vector<path_handle_t>& contigs) const;
+    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs) const;
    
 protected:
+
+    /// Our Genotyper
+    SnarlCaller& snarl_caller;
 
     /// Our snarls
     SnarlManager& snarl_manager;
@@ -50,8 +51,6 @@ protected:
     /// Where all output written
     ostream& out_stream;
 
-    /// Our Genotyper
-    SnarlCaller& snarl_caller;
 };
 
 /**
@@ -63,12 +62,15 @@ public:
                  SnarlCaller& snarl_caller,
                  SnarlManager& snarl_manager,
                  vcflib::VariantCallFile& variant_file,
+                 const string& sample_name,
                  const vector<string>& ref_paths = {},
                  ostream& out_stream = cout);
 
     virtual ~VCFGenotyper();
 
     virtual bool call_snarl(const Snarl& snarl);
+
+    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs) const;
 
 protected:
 
@@ -82,14 +84,15 @@ protected:
     vcflib::VariantCallFile& input_vcf;
 
     /// output vcf
-    vcflib::VariantCallFile output_vcf;
+    mutable vcflib::VariantCallFile output_vcf;
+
+    /// Sample name
+    string sample_name;    
 
     /// traversal finder uses alt paths to map VCF alleles from input_vcf
     /// back to traversals in the snarl
     VCFTraversalFinder traversal_finder;
 
-    /// The regions to consider (any snarl not contained in a region is skipped)
-    vector<string> regions;
 };
 
 

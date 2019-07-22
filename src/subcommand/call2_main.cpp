@@ -11,6 +11,7 @@
 #include <fstream>
 
 #include "subcommand.hpp"
+#include "../path.hpp"
 #include "../graph_caller.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
@@ -24,10 +25,12 @@ void help_call2(char** argv) {
        << "Call variants or genotype known variants" << endl
        << endl
        << "support calling options:" << endl
-       << "    -p, --pack FILE         Supports created from vg pack (input graph must be xg)" << endl
+       << "    -k, --pack FILE         Supports created from vg pack (input graph must be xg)" << endl
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
+       << "    -s, --sample NAME       Sample name [default=SAMPLE]" << endl
        << "    -r, --snarls FILE       Snarls (from vg snarls) to avoid recomputing." << endl
+       << "    -p, --ref-path NAME     Reference path to call on (multipile allowed.  defaults to all paths)" << endl
        << "    -t, --threads N         number of threads to use" << endl;
 }    
 
@@ -35,19 +38,22 @@ int main_call2(int argc, char** argv) {
 
     string pack_filename;
     string vcf_filename;
+    string sample_name = "SAMPLE";
     string snarl_filename;
     string ref_fasta_filename;
     string ins_fasta_filename;
-
+    vector<string> ref_paths;
 
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
 
         static const struct option long_options[] = {
-            {"pack", required_argument, 0, 'p'},
+            {"pack", required_argument, 0, 'k'},
             {"vcf", required_argument, 0, 'v'},
+            {"sample", required_argument, 0, 's'},            
             {"snarls", required_argument, 0, 'r'},
+            {"ref-path", required_argument, 0, 'p'},
             {"threads", required_argument, 0, 't'},
             {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
@@ -55,7 +61,7 @@ int main_call2(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "p:v:r:t:h",
+        c = getopt_long (argc, argv, "k:v:s:r:p:t:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -64,15 +70,21 @@ int main_call2(int argc, char** argv) {
 
         switch (c)
         {
-        case 'p':
+        case 'k':
             pack_filename = optarg;
             break;
         case 'v':
             vcf_filename = optarg;
             break;
+        case 's':
+            sample_name = optarg;
+            break;
         case 'r':
             snarl_filename = optarg;
-            break;            
+            break;
+        case 'p':
+            ref_paths.push_back(optarg);
+            break;
         case 't':
         {
             int num_threads = parse<int>(optarg);
@@ -104,6 +116,23 @@ int main_call2(int argc, char** argv) {
     get_input_file(optind, argc, argv, [&](istream& in) {
             graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
         });
+
+    // Check our paths
+    for (const string& ref_path : ref_paths) {
+        if (!graph->has_path(ref_path)) {
+            cerr << "error [vg call]: Reference path \"" << ref_path << "\" not found in graph" << endl;
+            return 1;
+        }
+    }
+    // No paths specified: use them all
+    if (ref_paths.empty()) {
+        graph->for_each_path_handle([&](path_handle_t path_handle) {
+                const string& name = graph->get_path_name(path_handle);
+                if (!Paths::is_alt(name)) {
+                    ref_paths.push_back(name);
+                }
+            });
+    }
 
     unique_ptr<GraphCaller> graph_caller;
     unique_ptr<SnarlCaller> snarl_caller;
@@ -164,13 +193,20 @@ int main_call2(int argc, char** argv) {
         }
         
         VCFGenotyper* vcf_genotyper = new VCFGenotyper(*graph, *snarl_caller,
-                                                       *snarl_manager, variant_file);
+                                                       *snarl_manager, variant_file,
+                                                       sample_name, ref_paths);
         graph_caller = unique_ptr<GraphCaller>(vcf_genotyper);
     }
 
+    if (!graph_caller) {
+        cerr << "error [vg call]: vcf file (-v) is required" << endl;
+        return 1;
+    }
+
     // Call the graph
+    cout << graph_caller->vcf_header(*graph, ref_paths) << flush;
     graph_caller->call_top_level_snarls();
-    
+        
     return 0;
 }
 

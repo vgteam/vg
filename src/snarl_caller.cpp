@@ -31,6 +31,10 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
 
     assert(ploidy == 2);
 
+#ifdef debug
+    cerr << "Support calling site " << pb2json(snarl) << endl;
+#endif
+
     // get the traversal sizes
     vector<int> traversal_sizes = get_traversal_sizes(traversals);
 
@@ -38,19 +42,31 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
     vector<Support> supports = get_traversal_set_support(traversals, {}, false);
     int best_allele = get_best_support(supports, {});
 
+#ifdef debug
+    for (int i = 0; i < traversals.size(); ++i) {
+        cerr << "trav " << i << " size = " << traversal_sizes[i] << " support = " << support_val(supports[i]);
+        if (i == ref_trav_idx) {
+            cerr << " [Reference traversal]";
+        }
+        cerr << endl;
+    }
+#endif
+
     // we prune out traversals whose exclusive support (structure that is not shared with best traversal)
     // doesn't meet a certain cutoff
-    vector<Support> secondary_exclusive_supports = get_traversal_set_support(traversals, {best_allele}, true);
+    vector<Support> secondary_exclusive_supports = get_traversal_set_support(traversals, {best_allele}, true);    
     vector<int> skips = {best_allele};
     for (int i = 0; i < secondary_exclusive_supports.size(); ++i) {
         double bias = get_bias(traversal_sizes, i, best_allele, ref_trav_idx);
-        if (support_val(secondary_exclusive_supports[i]) * bias <= support_val(supports[best_allele])) {
+        if (support_val(secondary_exclusive_supports[i]) * bias * 2.0 <= support_val(supports[best_allele])) {
             skips.push_back(i);
         }
     }
     // get the supports of each traversal in light of best
     vector<Support> secondary_supports = get_traversal_set_support(traversals, {best_allele}, false);
     int second_best_allele = get_best_support(secondary_supports, {skips});
+#endif
+
 
     // get the supports of each traversal in light of second best
     // for special case where we may call two alts, with each having less support than ref
@@ -62,7 +78,7 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
         skips = {best_allele, second_best_allele};
         for (int i = 0; i < tertiary_exclusive_supports.size(); ++i) {
             double bias = get_bias(traversal_sizes, i, second_best_allele, ref_trav_idx);
-            if (support_val(tertiary_exclusive_supports[i]) * bias <= support_val(supports[second_best_allele])) {
+            if (support_val(tertiary_exclusive_supports[i]) * bias * 2.0 <= support_val(supports[second_best_allele])) {
                 skips.push_back(i);
             }
         }
@@ -257,14 +273,29 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
 
     // pass 2: get the supports
     vector<Support> min_supports;
-    vector<Support> tot_supports; // weighted by lengths
-    vector<int> tot_sizes; // to compute average from to_supports;
+    vector<Support> tot_supports(traversals.size()); // weighted by lengths
+    vector<int> tot_sizes(traversals.size(), 0); // to compute average from to_supports;
 
-    int trav_offset = 1; // change to 0 to consider snarl endpoints
+    bool count_end_nodes = false; // toggle to include snarl ends
+
+    auto update_support = [&] (int trav_idx, const Support& support, int length, int share_count) {
+        // apply the scaling
+        double scale_factor = (exclusive_only && share_count > 0) ? 0. : 1. / (1. + share_count);
+        Support scaled_support = support * scale_factor;
+        tot_supports[trav_idx] += scaled_support;
+        tot_sizes[trav_idx] += length;
+        if (min_supports.size() <= trav_idx) {
+            assert(min_supports.size() == trav_idx);
+            min_supports.push_back(scaled_support);
+        } else {
+            min_supports[trav_idx] = support_min(min_supports[trav_idx], scaled_support);
+        }
+    };
     
-    for (const SnarlTraversal& trav : traversals) {
-        for (int i = trav_offset; i < trav.visit_size() - trav_offset; ++i) {
-            const Visit& visit = trav.visit(i);
+    for (int trav_idx = 0; trav_idx < traversals.size(); ++trav_idx) {
+        const SnarlTraversal& trav = traversals[trav_idx];
+        for (int visit_idx = 0; visit_idx < trav.visit_size(); ++visit_idx) {
+            const Visit& visit = trav.visit(visit_idx);
             Support support;
             int64_t length;
             int share_count = 0;
@@ -282,31 +313,23 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
                 if (child_counts.count(visit.snarl())) {
                     share_count = child_counts[visit.snarl()];
                 }
-            }            
-            if (i > 0) {
+            }
+            if (count_end_nodes || (trav_idx > 0 && trav_idx < traversals.size() - 1)) {
+                update_support(trav_idx, support, length, share_count);
+            }
+            share_count = 0;
+            
+            if (visit_idx > 0) {
                 // get the edge support
-                edge_t edge = to_edge(graph, trav.visit(i - 1), visit);
+                edge_t edge = to_edge(graph, trav.visit(visit_idx - 1), visit);
                 support = get_edge_support(edge);
                 length = get_edge_length(edge);
                 if (edge_counts.count(edge)) {
                     share_count = edge_counts[edge];
                 }
+                update_support(trav_idx, support, length, share_count);
             }
 
-            // apply the scaling
-            double scale_factor = (exclusive_only && share_count > 0) ? 0. : 1. / (1. + share_count);
-            support = support * scale_factor;
-
-            // update our support values for the traversal
-            if (i == trav_offset) {
-                min_supports.push_back(support);
-                tot_supports.push_back(support);
-                tot_sizes.push_back(length);
-            } else {
-                min_supports.back() = support_min(min_supports.back(), support);
-                tot_supports.back() += support;
-                tot_sizes.back() += length;
-            }
         }
     }
 
