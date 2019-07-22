@@ -78,13 +78,22 @@ public:
     size_t max_multimaps = 1;
     size_t distance_limit = 1000;
     bool do_chaining = true;
-    size_t max_tails = numeric_limits<size_t>::max();
-    bool use_xdrop_for_tails = false;
+    bool use_xdrop_for_tails = true;
     bool linear_tails = false;
+    /// Use GBWT states from extensions to seed connectivity and tail searches.
+    bool reuse_gbwt_states = true;
     string sample_name;
     string read_group;
+    
+    /// Track which internal work items came from which others during each
+    /// stage of the mapping algorithm.
+    bool track_provenance = false;
 
-
+    /// Guess which seed hits are correct by location in the linear reference
+    /// and track if/when their descendants make it through stages of the
+    /// algorithm. Only works if track_provenance is true.
+    bool track_correctness = false;
+    
 protected:
     // These are our indexes
     const XG* xg_index; // Can be nullptr; only needed for correctness tracking.
@@ -118,18 +127,8 @@ protected:
      * Operating on the given input alignment, chain together the given
      * extended perfect-match seeds and produce an alignment into the given
      * output Alignment object.
-     *
-     * Returns true if successful, or false if too much DP work would be
-     * involved and a fallback approach should be used.
      */
-    bool chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const; 
-    
-    /**
-     * Operating on the given input alignment, extract the haplotypes around
-     * the given extended perfect-match seeds and produce the best
-     * haplotype-consistent alignment into the given output Alignment object.
-     */
-    void align_to_local_haplotypes(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const;
+    void chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const; 
     
     /**
      * Find for each pair of extended seeds all the haplotype-consistent graph
@@ -239,6 +238,10 @@ protected:
      * Given a Position, explore the GBWT graph out to the given maximum walk
      * distance.
      *
+     * If from_state is not null, uses that starting GBWT search state, which
+     * must be on the node that from is on and facking in the same orientation
+     * as from.
+     *
      * Calls the visit callback with the list of Mappings being extended (in
      * reverse order) and the handle it is being extended with.
      *
@@ -253,7 +256,8 @@ protected:
      * hit, calls the limit callback with the list of Mappings (in reverse
      * order) that passed the limit or hit the dead end.
      */
-    void explore_gbwt(const Position& from, size_t walk_distance, 
+    void explore_gbwt(const Position& from, const gbwt::SearchState* from_state, 
+        size_t walk_distance, 
         const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
         const function<void(const ImmutablePath&)>& limit_callback) const;
         
@@ -261,7 +265,8 @@ protected:
      * The same as explore_gbwt on a Position, but takes a handle in the
      * backing gbwt_graph and an offset from the start of the handle instead.
      */
-    void explore_gbwt(handle_t from_handle, size_t from_offset, size_t walk_distance,
+    void explore_gbwt(handle_t from_handle, size_t from_offset, const gbwt::SearchState* from_state,
+        size_t walk_distance,
         const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
         const function<void(const ImmutablePath&)>& limit_callback) const;
     

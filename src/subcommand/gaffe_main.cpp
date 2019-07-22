@@ -63,11 +63,13 @@ void help_gaffe(char** argv) {
     << "  -s, --cluster-score INT       only extend clusters if they are within cluster-score of the best score" << endl
     << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within cluster-coverage of the best read coverage" << endl
     << "  -v, --extension-score INT     only align extensions if their score is within extension-score of the best score" << endl
-    << "  -w, --extension-set INT     only align extension sets if their score is within extension-set of the best score" << endl
+    << "  -w, --extension-set INT       only align extension sets if their score is within extension-set of the best score" << endl
     << "  -O, --no-chaining             disable seed chaining and all gapped alignment" << endl
-    << "  -T, --max-tails INT           fall back on alignment to haplotypes when there are more than INT tails" << endl
     << "  -l, --linear-tails            align tails as individual linear alignments instead of POA trees" << endl
-    << "  -X, --xdrop                   use xdrop alignment for tails" << endl
+    << "  -S, --gssw                    use GSSW alignment for tails instead of xdrop" << endl
+    << "  --discard-gbwt-states         rebuild fresh GBWT search states for conenctivity and tail searches" << endl
+    << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
+    << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
 
@@ -79,6 +81,10 @@ int main_gaffe(int argc, char** argv) {
         help_gaffe(argv);
         return 1;
     }
+
+    #define OPT_DISCARD_GBWT_STATES 1000
+    #define OPT_TRACK_PROVENANCE 1001
+    #define OPT_TRACK_CORRECTNESS 1002
 
     // initialize parameters with their default options
     string xg_name;
@@ -93,12 +99,12 @@ int main_gaffe(int argc, char** argv) {
     bool progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_chaining = true;
-    // How many tails should we tolerate
-    size_t max_tails = numeric_limits<size_t>::max();
     // Should we do individual linear tail alignments instead of tree-shaped ones?
     bool linear_tails = false;
-    // Whould we use the xdrop aligner for aligning tails?
-    bool use_xdrop_for_tails = false;
+    // Should we use the xdrop aligner for aligning tails?
+    bool use_xdrop_for_tails = true;
+    // Should we discard GBWT search states?
+    bool discard_gbwt_states = false;
     // What GAMs should we realign?
     vector<string> gam_filenames;
     // What FASTQs should we align.
@@ -124,6 +130,10 @@ int main_gaffe(int argc, char** argv) {
     string read_group;
     // Should we throw out our alignments instead of outputting them?
     bool discard_alignments = false;
+    // Should we track candidate provenance?
+    bool track_provenance = false;
+    // Should we track candidate correctness?
+    bool track_correctness = false;
     
     vector<size_t> threads_to_run;
     
@@ -155,15 +165,17 @@ int main_gaffe(int argc, char** argv) {
             {"extension-set", required_argument, 0, 'w'},
             {"score-fraction", required_argument, 0, 'F'},
             {"no-chaining", no_argument, 0, 'O'},
-            {"max-tails", required_argument, 0, 'T'},
             {"linear-tails", no_argument, 0, 'l'},
-            {"xdrop", no_argument, 0, 'X'},
+            {"gssw", no_argument, 0, 'S'},
+            {"discard-gbwt-states", no_argument, 0, OPT_DISCARD_GBWT_STATES},
+            {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
+            {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:w:OT:lXt:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:w:OlSt:",
                          long_options, &option_index);
 
 
@@ -334,16 +346,25 @@ int main_gaffe(int argc, char** argv) {
                 do_chaining = false;
                 break;
                 
-            case 'T':
-                max_tails = parse<size_t>(optarg);
-                break;
-                
             case 'l':
                 linear_tails = true;
                 break;
                 
-            case 'X':
-                use_xdrop_for_tails = true;
+            case 'S':
+                use_xdrop_for_tails = false;
+                break;
+                
+            case OPT_DISCARD_GBWT_STATES:
+                discard_gbwt_states = true;
+                break;
+                
+            case OPT_TRACK_PROVENANCE:
+                track_provenance = true;
+                break;
+            
+            case OPT_TRACK_CORRECTNESS:
+                track_provenance = true;
+                track_correctness = true;
                 break;
                 
             case 't':
@@ -369,6 +390,11 @@ int main_gaffe(int argc, char** argv) {
     
     if (xg_name.empty() && graph_name.empty()) {
         cerr << "error:[vg gaffe] Mapping requires an XG index (-x) or a GBWTGraph (-g)" << endl;
+        exit(1);
+    }
+    
+    if (track_correctness && xg_name.empty()) {
+        cerr << "error:[vg gaffe] Tracking correctness requires and XG index (-x)" << endl;
         exit(1);
     }
     
@@ -479,8 +505,8 @@ int main_gaffe(int argc, char** argv) {
     }
     minimizer_mapper.extension_set_score_threshold = extension_set;
 
-    if (progress) {
-        cerr << "--no-chaining " << (!do_chaining) << endl;
+    if (progress && !do_chaining) {
+        cerr << "--no-chaining " << endl;
     }
     minimizer_mapper.do_chaining = do_chaining;
 
@@ -494,20 +520,30 @@ int main_gaffe(int argc, char** argv) {
     }
     minimizer_mapper.distance_limit = distance_limit;
     
-    if (progress) {
-        cerr << "--max-tails " << max_tails << endl;
-    }
-    minimizer_mapper.max_tails = max_tails;
-    
-    if (progress) {
-        cerr << "--linear-tails " << linear_tails << endl;
+    if (progress && linear_tails) {
+        cerr << "--linear-tails " << endl;
     }
     minimizer_mapper.linear_tails = linear_tails;
     
-    if (progress) {
-        cerr << "--xdrop " << use_xdrop_for_tails << endl;
+    if (progress && !use_xdrop_for_tails) {
+        cerr << "--gssw " << endl;
     }
     minimizer_mapper.use_xdrop_for_tails = use_xdrop_for_tails;
+    
+    if (progress && discard_gbwt_states) {
+        cerr << "--discard-gbwt-states" << endl;
+    }
+    minimizer_mapper.reuse_gbwt_states = !discard_gbwt_states;
+
+    if (progress && track_provenance) {
+        cerr << "--track-provenance " << endl;
+    }
+    minimizer_mapper.track_provenance = track_provenance;
+    
+    if (progress && track_correctness) {
+        cerr << "--track-correctness " << endl;
+    }
+    minimizer_mapper.track_correctness = track_correctness;
 
     minimizer_mapper.sample_name = sample_name;
     minimizer_mapper.read_group = read_group;

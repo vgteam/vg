@@ -15,11 +15,6 @@
 #include <algorithm>
 #include <cmath>
 
-// Set this to track provenance of intermediate results
-//#define TRACK_PROVENANCE
-// With TRACK_PROVENANCE on, set this to track correctness, which requires some expensive XG queries
-// Note that TRACK_CORRECTNESS requires an XG index, which is otherwise unnecessary.
-//#define TRACK_CORRECTNESS
 
 namespace vg {
 
@@ -50,10 +45,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         aln.set_read_group(read_group);
     }
    
-#ifdef TRACK_PROVENANCE
-    // Start the minimizer finding stage
-    funnel.stage("minimizer");
-#endif
+    if (track_provenance) {
+        // Start the minimizer finding stage
+        funnel.stage("minimizer");
+    }
     
     // We will find all the seed hits
     vector<pos_t> seeds;
@@ -66,13 +61,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Find minimizers in the query
     minimizers = minimizer_index.minimizers(aln.sequence());
     
-#ifdef TRACK_PROVENANCE
-    // Record how many we found, as new lines.
-    funnel.introduce(minimizers.size());
-    
-    // Start the minimizer locating stage
-    funnel.stage("seed");
-#endif
+    if (track_provenance) {
+        // Record how many we found, as new lines.
+        funnel.introduce(minimizers.size());
+        
+        // Start the minimizer locating stage
+        funnel.stage("seed");
+    }
 
     // Compute minimizer scores for all minimizers as 1 + ln(hard_hit_cap) - ln(hits).
     std::vector<double> minimizer_score(minimizers.size(), 0.0);
@@ -105,10 +100,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     for (size_t i = 0; i < minimizers.size(); i++) {
         size_t minimizer_num = minimizers_in_order[i];
 
-#ifdef TRACK_PROVENANCE
-        // Say we're working on it
-        funnel.processing_input(minimizer_num);
-#endif
+        if (track_provenance) {
+            // Say we're working on it
+            funnel.processing_input(minimizer_num);
+        }
 
         // Select the minimizer if it is informative enough or if the total score
         // of the selected minimizers is not high enough.
@@ -128,66 +123,69 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
             selected_score += minimizer_score[minimizer_num];
             
-#ifdef TRACK_PROVENANCE
-            // Record in the funnel that this minimizer gave rise to these seeds.
-            funnel.expand(minimizer_num, hits);
-#endif
+            if (track_provenance) {
+                // Record in the funnel that this minimizer gave rise to these seeds.
+                funnel.expand(minimizer_num, hits);
+            }
         } else {
             rejected_count++;
             
-#ifdef TRACK_PROVENANCE
-            // Record in the funnel thast we rejected it
-            funnel.kill(minimizer_num);
-#endif
+            if (track_provenance) {
+                // Record in the funnel thast we rejected it
+                funnel.kill(minimizer_num);
+            }
         }
         
-#ifdef TRACK_PROVENANCE
-        // Say we're done with this input item
-        funnel.processed_input();
-#endif
+        if (track_provenance) {
+            // Say we're done with this input item
+            funnel.processed_input();
+        }
     }
 
 
-#ifdef TRACK_PROVENANCE
-#ifdef TRACK_CORRECTNESS
-    // Tag seeds with correctness based on proximity along paths to the input read's refpos
-    funnel.substage("correct");
-    
-    if (aln.refpos_size() != 0) {
-        // Take the first refpos as the true position.
-        auto& true_pos = aln.refpos(0);
+    if (track_provenance && track_correctness) {
+        // Tag seeds with correctness based on proximity along paths to the input read's refpos
+        funnel.substage("correct");
+      
+        if (xg_index == nullptr) {
+            cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
+            exit(1);
+        }
         
-        for (size_t i = 0; i < seeds.size(); i++) {
-            // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
-            auto offsets = algorithms::nearest_offsets_in_paths(xg_index, seeds[i], 100);
-            for (auto& hit_pos : offsets[true_pos.name()]) {
-                // Look at all the ones on the path the read's true position is on.
-                if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
-                    // Call this seed hit close enough to be correct
-                    funnel.tag_correct(i);
+        if (aln.refpos_size() != 0) {
+            // Take the first refpos as the true position.
+            auto& true_pos = aln.refpos(0);
+            
+            for (size_t i = 0; i < seeds.size(); i++) {
+                // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
+                auto offsets = algorithms::nearest_offsets_in_paths(xg_index, seeds[i], 100);
+                for (auto& hit_pos : offsets[xg_index->get_path_handle(true_pos.name())]) {
+                    // Look at all the ones on the path the read's true position is on.
+                    if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
+                        // Call this seed hit close enough to be correct
+                        funnel.tag_correct(i);
+                    }
                 }
             }
         }
     }
-#endif
-#endif
         
 #ifdef debug
     cerr << "Read " << aln.name() << ": " << aln.sequence() << endl;
     cerr << "Found " << seeds.size() << " seeds from " << (minimizers.size() - rejected_count) << " minimizers, rejected " << rejected_count << endl;
 #endif
 
-#ifdef TRACK_PROVENANCE
-    // Begin the clustering stage
-    funnel.stage("cluster");
-#endif
+    if (track_provenance) {
+        // Begin the clustering stage
+        funnel.stage("cluster");
+    }
         
     // Cluster the seeds. Get sets of input seed indexes that go together.
     vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit);
     
-#ifdef TRACK_PROVENANCE
-    funnel.substage("score");
-#endif
+    if (track_provenance) {
+        funnel.substage("score");
+    }
 
     // Cluster score is the sum of minimizer scores.
     std::vector<double> cluster_score(clusters.size(), 0.0);
@@ -198,10 +196,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // For each cluster
         auto& cluster = clusters[i];
         
-#ifdef TRACK_PROVENANCE
-        // Say we're making it
-        funnel.producing_output(i);
-#endif
+        if (track_provenance) {
+            // Say we're making it
+            funnel.producing_output(i);
+        }
 
         // Which minimizers are present in the cluster.
         vector<bool> present(minimizers.size(), false);
@@ -216,15 +214,14 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
         }
         
-#ifdef TRACK_PROVENANCE
-        // Record the cluster in the funnel as a group of the size of the number of items.
-        funnel.merge_group(cluster.begin(), cluster.end());
-        funnel.score(funnel.latest(), cluster_score[i]);
-        
-        // Say we made it.
-        funnel.produced_output();
-#endif
-
+        if (track_provenance) {
+            // Record the cluster in the funnel as a group of the size of the number of items.
+            funnel.merge_group(cluster.begin(), cluster.end());
+            funnel.score(funnel.latest(), cluster_score[i]);
+            
+            // Say we made it.
+            funnel.produced_output();
+        }
 
         //TODO:
         //Get the cluster coverage
@@ -281,10 +278,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     double cluster_score_cutoff = cluster_score.size() == 0 ? 0 :
                     *std::max_element(cluster_score.begin(), cluster_score.end()) - cluster_score_threshold;
     
-#ifdef TRACK_PROVENANCE
-    // Now we go from clusters to gapless extensions
-    funnel.stage("extend");
-#endif
+    if (track_provenance) {
+        // Now we go from clusters to gapless extensions
+        funnel.stage("extend");
+    }
     
     // These are the GaplessExtensions for all the clusters, in cluster_indexes_in_order order.
     vector<vector<GaplessExtension>> cluster_extensions;
@@ -301,9 +298,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         }
         num_extensions ++;
         
-#ifdef TRACK_PROVENANCE
-        funnel.processing_input(cluster_num);
-#endif
+        if (track_provenance) {
+            funnel.processing_input(cluster_num);
+        }
 
         vector<size_t>& cluster = clusters[cluster_num];
 
@@ -340,19 +337,19 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         }
         cluster_extensions.emplace_back(std::move(filtered_extensions));
         
-#ifdef TRACK_PROVENANCE
-        // Record with the funnel that the previous group became a group of this size.
-        // Don't bother recording the seed to extension matching...
-        funnel.project_group(cluster_num, cluster_extensions.back().size());
-        
-        // Say we finished with this cluster, for now.
-        funnel.processed_input();
-#endif
+        if (track_provenance) {
+            // Record with the funnel that the previous group became a group of this size.
+            // Don't bother recording the seed to extension matching...
+            funnel.project_group(cluster_num, cluster_extensions.back().size());
+            
+            // Say we finished with this cluster, for now.
+            funnel.processed_input();
+        }
     }
     
-#ifdef TRACK_PROVENANCE
-    funnel.substage("score");
-#endif
+    if (track_provenance) {
+        funnel.substage("score");
+    }
 
     // We now estimate the best possible alignment score for each cluster.
     vector<int> cluster_extension_scores;
@@ -360,19 +357,19 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     for (size_t i = 0; i < cluster_extensions.size(); i++) {
         // For each group of GaplessExtensions
         
-#ifdef TRACK_PROVENANCE
-        funnel.producing_output(i);
-#endif
+        if (track_provenance) {
+            funnel.producing_output(i);
+        }
         
         auto& extensions = cluster_extensions[i];
         // Count the matches suggested by the group and use that as a score.
         cluster_extension_scores.push_back(estimate_extension_group_score(aln, extensions));
         
-#ifdef TRACK_PROVENANCE
-        // Record the score with the funnel
-        funnel.score(i, cluster_extension_scores.back());
-        funnel.produced_output();
-#endif
+        if (track_provenance) {
+            // Record the score with the funnel
+            funnel.score(i, cluster_extension_scores.back());
+            funnel.produced_output();
+        }
     }
     
     // Now sort them by score
@@ -394,9 +391,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                               cluster_extension_scores[extension_indexes_in_order[0]]
                                     - extension_set_score_threshold;
     
-#ifdef TRACK_PROVENANCE
-    funnel.stage("align");
-#endif
+    if (track_provenance) {
+        funnel.stage("align");
+    }
     
     // Now start the alignment step. Everything has to become an alignment.
 
@@ -419,9 +416,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Find the extension group we are talking about
         size_t& extension_num = extension_indexes_in_order[i];
         
-#ifdef TRACK_PROVENANCE
-        funnel.processing_input(extension_num);
-#endif
+        if (track_provenance) {
+            funnel.processing_input(extension_num);
+        }
 
         auto& extensions = cluster_extensions[extension_num];
         
@@ -436,9 +433,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             if (extensions.size() == 1 && extensions[0].full()) {
                 // We got a full-length extension, so directly convert to an Alignment.
                 
-#ifdef TRACK_PROVENANCE
-                funnel.substage("direct");
-#endif
+                if (track_provenance) {
+                    funnel.substage("direct");
+                }
 
                 *out.mutable_path() = extensions.front().to_path(gbwt_graph, out.sequence());
                 
@@ -453,38 +450,23 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 out.set_score(alignment_score);
                 out.set_identity(identity);
                 
-#ifdef TRACK_PROVENANCE
-                // Stop the current substage
-                funnel.substage_stop();
-#endif
+                if (track_provenance) {
+                    // Stop the current substage
+                    funnel.substage_stop();
+                }
             } else if (do_chaining) {
                 // We need to do chaining.
                 
-#ifdef TRACK_PROVENANCE
-                funnel.substage("chain");
-#endif
+                if (track_provenance) {
+                    funnel.substage("chain");
+                }
                 
                 // Do the chaining and compute an alignment into out.
-                bool chain_success = chain_extended_seeds(aln, extensions, out);
+                chain_extended_seeds(aln, extensions, out);
                 
-#ifdef TRACK_PROVENANCE
-                // We're done chaining. Next alignment may not go through this substage.
-                funnel.substage_stop();
-#endif
-
-                if (!chain_success) {
-                    // We thought chaining would be too hard. Fall back on context extraction
-                    
-#ifdef TRACK_PROVENANCE
-                    funnel.substage("context");
-#endif
-
-                    align_to_local_haplotypes(aln, extensions, out);
-                 
-#ifdef TRACK_PROVENANCE
+                if (track_provenance) {
+                    // We're done chaining. Next alignment may not go through this substage.
                     funnel.substage_stop();
-#endif
-                
                 }
             } else {
                 // We would do chaining but it is disabled.
@@ -492,22 +474,22 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
             
             
-#ifdef TRACK_PROVENANCE
-            // Record the Alignment and its score with the funnel
-            funnel.project(extension_num);
-            funnel.score(i, out.score());
-            
-            // We're done with this input item
-            funnel.processed_input();
-#endif
+            if (track_provenance) {
+                // Record the Alignment and its score with the funnel
+                funnel.project(extension_num);
+                funnel.score(i, out.score());
+                
+                // We're done with this input item
+                funnel.processed_input();
+            }
         } else {
             // If this score is insignificant, nothing past here is significant.
             // Don't do any more.
             
-#ifdef TRACK_PROVENANCE
-            funnel.kill_all(extension_indexes_in_order.begin() + i, extension_indexes_in_order.end());
-            funnel.processed_input();
-#endif
+            if (track_provenance) {
+                funnel.kill_all(extension_indexes_in_order.begin() + i, extension_indexes_in_order.end());
+                funnel.processed_input();
+            }
             
             break;
         }
@@ -517,10 +499,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Produce an unaligned Alignment
         alignments.emplace_back(aln);
         
-#ifdef TRACK_PROVENANCE
-        // Say it came from nowhere
-        funnel.introduce();
-#endif
+        if (track_provenance) {
+            // Say it came from nowhere
+            funnel.introduce();
+        }
     }
     
     // Order the Alignments by score
@@ -536,10 +518,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         return alignments[a].score() > alignments[b].score();
     });
     
-#ifdef TRACK_PROVENANCE
-    // Now say we are finding the winner(s)
-    funnel.stage("winner");
-#endif
+    if (track_provenance) {
+        // Now say we are finding the winner(s)
+        funnel.stage("winner");
+    }
     
     vector<Alignment> mappings;
     mappings.reserve(min(alignments_in_order.size(), max_multimaps));
@@ -548,21 +530,21 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         size_t& alignment_num = alignments_in_order[i];
         mappings.emplace_back(std::move(alignments[alignment_num]));
         
-#ifdef TRACK_PROVENANCE
-        // Tell the funnel
-        funnel.project(alignment_num);
-        funnel.score(alignment_num, mappings.back().score());
-#endif
+        if (track_provenance) {
+            // Tell the funnel
+            funnel.project(alignment_num);
+            funnel.score(alignment_num, mappings.back().score());
+        }
     }
 
-#ifdef TRACK_PROVENANCE
-    if (max_multimaps < alignments_in_order.size()) {
-        // Some things stop here
-        funnel.kill_all(alignments_in_order.begin() + max_multimaps, alignments_in_order.end());
+    if (track_provenance) {
+        if (max_multimaps < alignments_in_order.size()) {
+            // Some things stop here
+            funnel.kill_all(alignments_in_order.begin() + max_multimaps, alignments_in_order.end());
+        }
+        
+        funnel.substage("mapq");
     }
-    
-    funnel.substage("mapq");
-#endif
     
     // Grab all the scores for MAPQ computation.
     vector<double> scores;
@@ -591,9 +573,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Make sure to clamp 0-60.
     mappings.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
     
-#ifdef TRACK_PROVENANCE
-    funnel.substage_stop();
-#endif
+    if (track_provenance) {
+        funnel.substage_stop();
+    }
     
     for (size_t i = 0; i < mappings.size(); i++) {
         // For each output alignment in score order
@@ -606,18 +588,18 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Stop this alignment
     funnel.stop();
     
-#ifdef TRACK_PROVENANCE
+    if (track_provenance) {
     
-    // And with the number of results in play at each stage
-    funnel.for_each_stage([&](const string& stage, size_t result_count) {
-        set_annotation(mappings[0], "stage_" + stage + "_results", (double)result_count);
-    });
+        // And with the number of results in play at each stage
+        funnel.for_each_stage([&](const string& stage, size_t result_count) {
+            set_annotation(mappings[0], "stage_" + stage + "_results", (double)result_count);
+        });
 
-#ifdef TRACK_CORRECTNESS
-    // And with the last stage at which we had any descendants of the correct seed hit locations
-    set_annotation(mappings[0], "last_correct_stage", funnel.last_correct_stage());
-#endif
-#endif
+        if (track_correctness) {
+            // And with the last stage at which we had any descendants of the correct seed hit locations
+            set_annotation(mappings[0], "last_correct_stage", funnel.last_correct_stage());
+        }
+    }
     
     // Ship out all the aligned alignments
     alignment_emitter.emit_mapped_single(std::move(mappings));
@@ -782,7 +764,7 @@ bool MinimizerMapper::score_is_significant(int score_estimate, int best_score, i
     return false;
 }
 
-bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
+void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
 
 #ifdef debug
     cerr << "Trying again to chain " << extended_seeds.size() << " extended seeds" << endl;
@@ -837,10 +819,6 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
     
     assert(!source_extensions.empty());
     assert(!sink_extensions.empty());
-   
-    if (source_extensions.size() + sink_extensions.size() > max_tails) {
-        return false;
-    }
    
     // We're going to record source and sink path count distributions, for debugging
     vector<double> tail_path_counts;
@@ -1132,8 +1110,6 @@ bool MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
     // Save all the tail alignment debugging statistics
     set_annotation(out, "tail_path_counts", tail_path_counts);
     set_annotation(out, "tail_lengths", tail_lengths);
-    
-    return true;
 }
 
 pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const vector<Path>& paths,
@@ -1393,263 +1369,6 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
     return make_pair(best_path, best_score);
 }
 
-void MinimizerMapper::align_to_local_haplotypes(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
-    
-#ifdef debug
-    cerr << "Aligning to haplotypes" << endl;
-#endif
-    
-    // Find all the handles/nodes that are relevant.
-    // This holds handles on the strand visited by each relevant extension.
-    unordered_set<handle_t> start_points;
-    for (auto& extension : extended_seeds) {
-        for (auto& core_handle : extension.path) {
-            // Collect together all the handles that extensions touch
-            start_points.insert(core_handle);
-        }
-    }
-    
-    // Walk a stranded Dijkstra traversal the appropriate distance from all the starting points, both upstream and downstream. 
-    size_t distance_limit = aln.sequence().size() * 2;
-    
-#ifdef debug
-    cerr << "Search out " << distance_limit << " bp from " << start_points.size() << " handles" << endl;
-    for (auto& start : start_points) {
-        cerr << "\t" << gbwt_graph.get_id(start) << " " << gbwt_graph.get_is_reverse(start) << endl;
-    }
-#endif
-    
-    // We track the handles we get from the search.
-    unordered_set<handle_t> context;
-    
-    // When we reach something going left or right, mark it in the
-    // single-direction context and its ID in the total context.
-    auto reached_callback = [&](const handle_t& reached, size_t distance) -> bool {
-        if (distance > distance_limit) {
-            // We hit the limit, so stop the search.
-            return false;
-        }
-#ifdef debug
-        cerr << "\tAdd " << gbwt_graph.get_id(reached) << " " << gbwt_graph.get_is_reverse(reached) << " to context" << endl;
-#endif
-        context.insert(reached);
-        return true;
-    };
-    
-    // Do the right pass
-    algorithms::dijkstra(&gbwt_graph, start_points, reached_callback, false);
-    
-#ifdef debug
-    cerr << "Got right context of " << context.size() << endl;
-#endif
-    
-    // Pull out all the boundary nodes of the right-walking context graph that
-    // have contact with the outside world, or that have no edges.
-    // When looking for haplotypes, we have to walk left from them.
-    unordered_set<handle_t> right_boundaries;
-    for (auto& handle : context) {
-        // See if each handle has anything to its right that is not the context.
-        // If so, we stop early, and the handle is a boundary in the context graph.
-        bool is_enterable = false;
-        bool is_tip = true;
-        gbwt_graph.follow_edges(handle, false, [&](const handle_t& neighbor) {
-            is_tip = false;
-            if (!context.count(neighbor)) {
-                is_enterable = true;
-                return false;
-            }
-            return true;
-        });
-        
-        if (is_tip || is_enterable) {
-            right_boundaries.insert(handle);
-        }
-    }
-    context.clear();
-    
-#ifdef debug
-    cerr << "Got " << right_boundaries.size() << " right boundaries" << endl;
-    for (auto& boundary : right_boundaries) {
-        cerr << "\t" << gbwt_graph.get_id(boundary) << " " << gbwt_graph.get_is_reverse(boundary) << endl;
-    }
-#endif
-    
-    // And the left pass
-    algorithms::dijkstra(&gbwt_graph, start_points, reached_callback, true);
-
-#ifdef debug
-    cerr << "Got left context of " << context.size() << endl;
-#endif
-    
-    // Pull out all the boundary nodes of the left-walking context graph.
-    // When looking for haplotypes, we have to walk right from them.
-    unordered_set<handle_t> left_boundaries;
-    for (auto& handle : context) {
-        bool is_enterable = false;
-        bool is_tip = true;
-        gbwt_graph.follow_edges(handle, true, [&](const handle_t& neighbor) {
-            is_tip = false;
-            if (!context.count(neighbor)) {
-                is_enterable = true;
-                return false;
-            }
-            return true;
-        });
-        
-        if (is_tip || is_enterable) {
-            left_boundaries.insert(handle);
-        }
-    }
-    context.clear();
-    
-#ifdef debug
-    cerr << "Got " << left_boundaries.size() << " left boundaries" << endl;
-    for (auto& boundary : left_boundaries) {
-        cerr << "\t" << gbwt_graph.get_id(boundary) << " " << gbwt_graph.get_is_reverse(boundary) << endl;
-    }
-#endif
-    
-    // Now we have the left and right boundaries, so we can find the haplotypes.
-    vector<Path> haplotypes;
-    
-    for (auto& left_boundary : left_boundaries) {
-        // For each left boundary
-        
-        // Explore the GBWT forward until we hit a right boundary.
-        // We want to go until we hit the opposing boundary or run out of paths.
-        Position boundary_start = make_position(gbwt_graph.get_id(left_boundary), gbwt_graph.get_is_reverse(left_boundary), 0);
-        explore_gbwt(boundary_start, numeric_limits<size_t>::max(), [&](const ImmutablePath& path_to, const handle_t& here) -> bool {
-            // When we actually touch something
-            
-#ifdef debug
-            cerr << "Visit " << gbwt_graph.get_id(here) << " " << gbwt_graph.get_is_reverse(here) << endl;
-#endif
-            
-            if (right_boundaries.count(here)) {
-                // This is a right boundary.
-                
-#ifdef debug
-                cerr << "\tReached right boundary" << endl;
-#endif
-                
-                // Complete the path
-                Mapping m;
-                m.mutable_position()->set_node_id(gbwt_graph.get_id(here));
-                m.mutable_position()->set_is_reverse(gbwt_graph.get_is_reverse(here));
-                Edit* e = m.add_edit();
-                e->set_from_length(gbwt_graph.get_length(here));
-                e->set_to_length(gbwt_graph.get_length(here));
-                
-                ImmutablePath path_through = path_to.push_front(m);
-                
-                // Convert to a Path and save
-                haplotypes.emplace_back(to_path(path_through));
-                
-                // Don't go past here
-                return false;
-                
-            } else {
-                // Keep going
-                return true;
-            }
-        }, [&](const ImmutablePath&) {
-            // When we hit the length limit or a dead end, do nothing.
-            
-#ifdef debug
-            cerr << "Ran out of distance or hit a dead end" << endl;
-#endif
-            
-        });
-        
-        // If we actually reach a boundary, that's a Path, so keep it
-    }
-    
-#ifdef debug
-    cerr << "Got " << haplotypes.size() << " haplotypes" << endl;
-#endif
-        
-    // Then if there are any remaining right boundaries, we don't actually care, because they aren't in haplotypes with any left boundaries.
-    // Nor do we care about left boundaries that couldn't get anywhere.
-    // Because they are boundaries, boundaries must be on some haplotype that exits the local graph region through them.
-    
-    // Align to each haplotype path we found
-    
-    // Track how much DP is done when operating on haplotypes
-    vector<double> haplotype_dp_areas;
-    
-    // Now look for the best alignment to any path.
-    // We set thid to ~-inf because we even want results with 0 score.
-    int64_t best_score = numeric_limits<int64_t>::min();
-    // we will store the winner in out's path, so set the rest of out's parameters.
-
-    for (auto& path : haplotypes) {
-        // For each path, make sure it isn't empty.
-        assert(path.mapping_size() > 0);
-
-        // Make a subgraph.
-        // TODO: don't copy the path
-        PathSubgraph subgraph(&gbwt_graph, path);
-        
-        // Do global alignment to the path subgraph
-        Alignment path_alignment;
-        path_alignment.set_sequence(aln.sequence());
-
-#ifdef debug
-        cerr << "Align " << pb2json(path_alignment) << " local";
-
-#ifdef debug_dump_graph
-        cerr << " vs:" << endl;
-        cerr << "Defining path: " << pb2json(path) << endl;
-        subgraph.for_each_handle([&](const handle_t& here) {
-            cerr << subgraph.get_id(here) << " len " << subgraph.get_length(here)
-                << " (" << subgraph.get_sequence(here) << "): " << endl;
-            subgraph.follow_edges(here, true, [&](const handle_t& there) {
-                cerr << "\t" << subgraph.get_id(there) << " len " << subgraph.get_length(there)
-                    << " (" << subgraph.get_sequence(there) << ") ->" << endl;
-            });
-            subgraph.follow_edges(here, false, [&](const handle_t& there) {
-                cerr << "\t-> " << subgraph.get_id(there) << " len " << subgraph.get_length(there)
-                    << " (" << subgraph.get_sequence(there) << ")" << endl;
-            });
-        });
-#else
-        cerr << endl;
-#endif
-#endif
-
-        // Do a local alignment with traceback but no score matrix printing.
-        get_regular_aligner()->align(path_alignment, subgraph, true, false);
-        
-#ifdef debug
-        cerr << "\tScore: " << path_alignment.score() << endl;
-#endif
-
-        if (path_alignment.score() > best_score) {
-            // This is a new best alignment. Translate from subgraph into base graph and keep it
-            *out.mutable_path() = subgraph.translate_down(path_alignment.path());
-            
-            // Preserve the identity and score too.
-            out.set_identity(path_alignment.identity());
-            out.set_score(path_alignment.score());
-#ifdef debug
-            cerr << "\tNew best: " << pb2json(path_alignment) << endl;
-#endif
-            
-            best_score = path_alignment.score();
-        }
-        
-        // Record how much DP we did.
-        haplotype_dp_areas.push_back(path_alignment.sequence().size() * path_from_length(path));
-    }
-    
-    // Now the best alignment from any path is in out.
-    
-    // Annotate it with how many paths we had to align it against.
-    set_annotation(out, "haplotype_alignment_paths", (double)haplotypes.size());
-    // And how much area we did
-    set_annotation(out, "haplotype_dp_areas", haplotype_dp_areas);
-}
-
 unordered_map<size_t, unordered_map<size_t, vector<Path>>>
 MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_seeds, size_t read_length) const {
 
@@ -1762,11 +1481,17 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
         // How long should we search? It should be the longest detectable gap plus the remaining sequence.
         size_t search_limit = get_regular_aligner()->longest_detectable_gap(cut_pos_read, read_length) + (read_length - cut_pos_read);
 
+        // What GBWT search state can we re-use from the extension?
+        // Each extension holds a bidirectional search state, and since we
+        // always extend right from the extension we want the forward
+        // single-direction state.
+        const gbwt::SearchState* right_state = reuse_gbwt_states ? &extended_seeds[i].state.forward : nullptr;
+
         // Have we found a way to get to any other extended seeds yet?
         bool reachable_extended_seeds = false;
 
         // Search everything in the GBWT graph right from the end of the start extended seed, up to the limit.
-        explore_gbwt(cut_pos_graph, search_limit, [&](const ImmutablePath& here_path, const handle_t& there_handle) -> bool {
+        explore_gbwt(cut_pos_graph, right_state, search_limit, [&](const ImmutablePath& here_path, const handle_t& there_handle) -> bool {
             // When we encounter a new handle visited by haplotypes extending off of the last node in a Path
 
             // See if we hit any other extensions on this next node
@@ -1881,9 +1606,12 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
             // Now the search limit is all the read *before* the seed, plus the detectable gap
             size_t search_limit = get_regular_aligner()->longest_detectable_gap(read_length, extended_seeds[i].read_interval.first) +
                 extended_seeds[i].read_interval.first;
+                
+            // And we need the GBWT state looking left
+            const gbwt::SearchState* left_state = reuse_gbwt_states ? &extended_seeds[i].state.backward : nullptr;
 
             // Start another search, but going left.
-            explore_gbwt(start, search_limit, [&](const ImmutablePath& here_path, const handle_t& there_handle) -> bool {
+            explore_gbwt(start, left_state, search_limit, [&](const ImmutablePath& here_path, const handle_t& there_handle) -> bool {
                 // If we weren't reachable from anyone, nobody should be reachable from us going the other way.
                 // So always keep going.
                 return true;
@@ -2085,7 +1813,8 @@ Path MinimizerMapper::to_path(const ImmutablePath& path) {
     return to_return;
 }
 
-void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
+void MinimizerMapper::explore_gbwt(const Position& from, const gbwt::SearchState* from_state,
+    size_t walk_distance,
     const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
     const function<void(const ImmutablePath&)>& limit_callback) const {
    
@@ -2093,11 +1822,12 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
     handle_t start_handle = gbwt_graph.get_handle(from.node_id(), from.is_reverse());
     
     // Delegate to the handle-based version
-    explore_gbwt(start_handle, from.offset(), walk_distance, visit_callback, limit_callback);
+    explore_gbwt(start_handle, from.offset(), from_state, walk_distance, visit_callback, limit_callback);
     
 }
 
-void MinimizerMapper::explore_gbwt(handle_t from_handle, size_t from_offset, size_t walk_distance,
+void MinimizerMapper::explore_gbwt(handle_t from_handle, size_t from_offset, const gbwt::SearchState* from_state,
+    size_t walk_distance,
     const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
     const function<void(const ImmutablePath&)>& limit_callback) const {
     
@@ -2112,8 +1842,8 @@ void MinimizerMapper::explore_gbwt(handle_t from_handle, size_t from_offset, siz
     // limit.
     using traversal_state_t = pair<gbwt::SearchState, ImmutablePath>;
 
-    // Turn it into a SearchState
-    gbwt::SearchState start_state = gbwt_graph.get_state(from_handle);
+    // Copy or construct a starting set of haplotypes
+    gbwt::SearchState start_state = from_state ? *from_state : gbwt_graph.get_state(from_handle);
     
     if (start_state.empty()) {
         // No haplotypes even visit the first node. Have a 0-mapping dead end.
