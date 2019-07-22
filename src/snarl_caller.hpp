@@ -91,6 +91,10 @@ protected:
     /// Relic from old code
     static double support_val(const Support& support) { return total(support); };
 
+    /// Get the bias used to for comparing two traversals
+    /// (It differrs heuristically depending whether they are alt/ref/het/hom/snp/indel
+    ///  see tuning parameters below)
+    double get_bias(const vector<int>& traversal_sizes, int trav_idx1, int trav_idx2, int ref_trav_idx) const;
 
     /// Tuning
 

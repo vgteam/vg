@@ -31,25 +31,45 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
 
     assert(ploidy == 2);
 
+    // get the traversal sizes
+    vector<int> traversal_sizes = get_traversal_sizes(traversals);
+
     // get the supports of each traversal independently
     vector<Support> supports = get_traversal_set_support(traversals, {}, false);
     int best_allele = get_best_support(supports, {});
 
+    // we prune out traversals whose exclusive support (structure that is not shared with best traversal)
+    // doesn't meet a certain cutoff
+    vector<Support> secondary_exclusive_supports = get_traversal_set_support(traversals, {best_allele}, true);
+    vector<int> skips = {best_allele};
+    for (int i = 0; i < secondary_exclusive_supports.size(); ++i) {
+        double bias = get_bias(traversal_sizes, i, best_allele, ref_trav_idx);
+        if (support_val(secondary_exclusive_supports[i]) * bias <= support_val(supports[best_allele])) {
+            skips.push_back(i);
+        }
+    }
     // get the supports of each traversal in light of best
     vector<Support> secondary_supports = get_traversal_set_support(traversals, {best_allele}, false);
-    int second_best_allele = get_best_support(secondary_supports, {best_allele});
+    int second_best_allele = get_best_support(secondary_supports, {skips});
 
     // get the supports of each traversal in light of second best
     // for special case where we may call two alts, with each having less support than ref
     vector<Support> tertiary_supports;
     int third_best_allele = -1;
     if (second_best_allele != -1) {
+        // prune out traversals whose exclusive support relative to second best doesn't pass cut
+        vector<Support> tertiary_exclusive_supports = get_traversal_set_support(traversals, {second_best_allele}, true);
+        skips = {best_allele, second_best_allele};
+        for (int i = 0; i < tertiary_exclusive_supports.size(); ++i) {
+            double bias = get_bias(traversal_sizes, i, second_best_allele, ref_trav_idx);
+            if (support_val(tertiary_exclusive_supports[i]) * bias <= support_val(supports[second_best_allele])) {
+                skips.push_back(i);
+            }
+        }
         tertiary_supports = get_traversal_set_support(traversals, {second_best_allele}, false);
-        third_best_allele = get_best_support(tertiary_supports, {best_allele, second_best_allele});
+        third_best_allele = get_best_support(tertiary_supports, skips);
     }
 
-    // get the traversal sizes
-    vector<int> traversal_sizes = get_traversal_sizes(traversals);
 
     // Decide if we're an indel by looking at the traversal sizes
     bool is_indel = traversal_sizes[best_allele] != traversal_sizes[ref_trav_idx] ||
@@ -239,9 +259,11 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
     vector<Support> min_supports;
     vector<Support> tot_supports; // weighted by lengths
     vector<int> tot_sizes; // to compute average from to_supports;
+
+    int trav_offset = 1; // change to 0 to consider snarl endpoints
     
     for (const SnarlTraversal& trav : traversals) {
-        for (int i = 0; i < trav.visit_size(); ++i) {
+        for (int i = trav_offset; i < trav.visit_size() - trav_offset; ++i) {
             const Visit& visit = trav.visit(i);
             Support support;
             int64_t length;
@@ -276,7 +298,7 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
             support = support * scale_factor;
 
             // update our support values for the traversal
-            if (i == 0) {
+            if (i == trav_offset) {
                 min_supports.push_back(support);
                 tot_supports.push_back(support);
                 tot_sizes.push_back(length);
@@ -324,6 +346,13 @@ vector<int> SupportBasedSnarlCaller::get_traversal_sizes(const vector<SnarlTrave
         }
     }
     return sizes;
+    
+}
+
+double SupportBasedSnarlCaller::get_bias(const vector<int>& traversal_sizes, int trav_idx1, int trav_idx2, int ref_trav_idx) const {
+    assert(trav_idx1 >= 0 && trav_idx2 >=0);
+
+    return 2;
     
 }
 
