@@ -78,7 +78,7 @@ CORRECT_COUNT="$(vg gamcompare -r 100 "${WORK}/annotated.gam" "${SIM_GAM}" 2>&1 
 MEAN_IDENTITY="$(vg view -aj "${WORK}/mapped.gam" | jq -c '.identity' | awk '{x+=$1} END {print x/NR}')"
 
 # Compute loss stages
-vg view -aj "${WORK}/mapped.gam" | scripts/giraffe-facts.py "${WORK}/facts" >"${WORK}/facts.txt" 2>"${WORK}/facts.txt"
+vg view -aj "${WORK}/mapped.gam" | scripts/giraffe-facts.py "${WORK}/facts" >"${WORK}/facts.txt" 2>&1
 
 # Now do the real reads
 
