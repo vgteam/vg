@@ -34,11 +34,12 @@ BaseMapper::BaseMapper(PathPositionHandleGraph* xidex,
       , exclude_unaligned(false)
 {
 
-    xindex->for_each_handle([&](const handle_t& handle) {
-            total_seq_length += xindex->get_length(handle);
-        });
-    avg_node_length = total_seq_length / xindex->get_node_count();
-    
+    if (xindex != nullptr) {
+        xindex->for_each_handle([&](const handle_t& handle) {
+                total_seq_length += xindex->get_length(handle);
+            });
+        avg_node_length = total_seq_length / xindex->get_node_count();
+    }
     // TODO: removing these consistency checks because we seem to have violated them pretty wontonly in
     // the code base already by changing the members directly when they were still public
     
