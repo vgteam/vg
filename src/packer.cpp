@@ -17,7 +17,7 @@ Packer::Packer(HandleGraph* xidx, size_t binsz, bool qual_adjust) : xgidx(xidx),
             max_edge_index = std::max(max_edge_index,
                                       dynamic_cast<VectorizableHandleGraph*>(xgidx)->edge_index(edge));
         });
-    edge_coverage_dynamic = gcsa::CounterArray(max_edge_index, qual_adjust ? 16 : 8);
+    edge_coverage_dynamic = gcsa::CounterArray(max_edge_index+1, qual_adjust ? 16 : 8);
     if (binsz) n_bins = seq_length / bin_size + 1;
     quality_cache = qual_adjust ? new LRUCache<pair<int, int>, int>(lru_cache_size) : nullptr;
 }
