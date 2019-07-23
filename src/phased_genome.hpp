@@ -80,6 +80,10 @@ namespace vg {
         /// Iterator representing the past-the-last position of the given haplotype, with the last
         /// position being the right telomere node.
         iterator end(int which_haplotype);
+
+        /// Check which haplotypes a snarl is found in 
+        // Returns a list of haplotype IDs 
+        vector<int> get_haplotypes_with_snarl(const Snarl* snarl_to_find);
         
         /*
          *  HAPLOTYPE EDITING METHODS
