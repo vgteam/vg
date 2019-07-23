@@ -788,6 +788,29 @@ void SnarlManager::for_each_chain_parallel(const function<void(const Chain*)>& l
     });
 }
 
+const Snarl* SnarlManager::discrete_uniform_sample(minstd_rand0& random_engine)const{
+    // have to set the seed to the random engine in the unit tests , pass the random engine 
+    // use the deque<SnarlRecord> internally do not pass it in - a member of SnarlRecors subclass of Snarl
+
+    int number_of_snarls = num_snarls();
+    
+    // we choose a snarl from the master list of snarls in the graph at random uniformly
+    uniform_int_distribution<int> distribution(0, number_of_snarls);  
+    int random_num = distribution(random_engine);
+
+    const Snarl* random_snarl = unrecord(&snarls[random_num]);
+
+    return random_snarl;
+
+} 
+
+int SnarlManager::num_snarls()const{
+    // get size of snarls in the master list deque<SnarlRecord> snarls 
+    int num_snarls = this->snarls.size();
+    return num_snarls;
+
+}
+
     
 void SnarlManager::flip(const Snarl* snarl) {
         
