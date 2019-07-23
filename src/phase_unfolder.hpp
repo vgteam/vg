@@ -41,7 +41,7 @@ public:
      * These indexes must represent the same original graph. 'next_node' should
      * usually be max_node_id() + 1 in the original graph.
      */
-    PhaseUnfolder(const xg::XG& xg_index, const gbwt::GBWT& gbwt_index, vg::id_t next_node);
+    PhaseUnfolder(const XG& xg_index, const gbwt::GBWT& gbwt_index, vg::id_t next_node);
 
     /**
      * Unfold the pruned regions in the input graph:
@@ -95,7 +95,7 @@ public:
      * Create an edge between two node orientations.
      */
     static Edge make_edge(gbwt::node_type from, gbwt::node_type to) {
-        return xg::make_edge(gbwt::Node::id(from), gbwt::Node::is_reverse(from),
+        return vg::make_edge(gbwt::Node::id(from), gbwt::Node::is_reverse(from),
                              gbwt::Node::id(to), gbwt::Node::is_reverse(to));
     }
 
@@ -157,7 +157,7 @@ private:
     gbwt::node_type get_suffix(gbwt::node_type node, gbwt::node_type to);
 
     /// XG and GBWT indexes for the original graph.
-    const xg::XG&     xg_index;
+    const XG&     xg_index;
     const gbwt::GBWT& gbwt_index;
 
     /// Mapping from duplicated nodes to original ids.

@@ -393,7 +393,7 @@ bool MinimizerIndex::load(std::istream& in) {
     ok &= mi::load(in, this->header);
     if (!(this->header.check())) {
         std::cerr << "error: [MinimizerIndex] invalid or old index file" << std::endl;
-        std::cerr << "error: [MinimizerIndex] index version is " << this->header.version << "; required >= " << Header::VERSION << std::endl;
+        std::cerr << "error: [MinimizerIndex] index version is " << this->header.version << "; expected " << Header::VERSION << std::endl;
         return false;
     }
 

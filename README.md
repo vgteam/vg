@@ -46,7 +46,7 @@ On other distros, you will need to perform the equivalent of:
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libjansson-dev automake libtool \
                          jq bc rs curl unzip redland-utils librdf-dev bison flex gawk \
-                         lzma-dev liblzma-dev liblz4-dev libffi-dev
+                         lzma-dev liblzma-dev liblz4-dev libffi-dev libcairo-dev
 
 At present, you will need GCC version 4.9 or greater to compile vg. (Check your version with `gcc --version`.)
 
@@ -107,15 +107,15 @@ While Apple's `clang` can build VG, the C++ standard library it uses doesn't sup
 
 With **MacPorts**, you can install GNU GCC like this:
 
-    sudo port install gcc7 clang-3.8
+    sudo port install gcc9 clang-8.0
 
-To make GCC 7 the default compiler, run (use `none` instead of `mp-gcc7` to revert back):
+To make GCC 9 the default compiler, run (use `none` instead of `mp-gcc7` to revert back):
 
-    sudo port select gcc mp-gcc7
+    sudo port select gcc mp-gcc9
 
-Some OSX users also need to have the MacPorts Clang assembler for building VG's dependencies (use `none` instead of `mp-clang-3.8` to revert back):
+Some OSX users also need to have the MacPorts Clang assembler for building VG's dependencies (use `none` instead of `mp-clang-8.0` to revert back):
 
-    sudo port select clang mp-clang-3.8
+    sudo port select clang mp-clang-8.0
 
 With **Homebrew**, you can install GNU GCC for VG like this:
 

@@ -64,9 +64,6 @@
 [submodule "deps/rocksdb"]
     path = deps/rocksdb
     url = https://github.com/facebook/rocksdb.git
-[submodule "deps/gperftools"]
-	path = deps/gperftools
-	url = https://github.com/gperftools/gperftools.git
 [submodule "deps/gbwt"]
 	path = deps/gbwt
 	url = https://github.com/jltsiren/gbwt.git
@@ -103,3 +100,13 @@
 [submodule "deps/libvgio"]
 	path = deps/libvgio
 	url = https://github.com/vgteam/libvgio.git
+[submodule "deps/jemalloc"]
+	path = deps/jemalloc
+	url = https://github.com/jemalloc/jemalloc.git
+[submodule "deps/sglib"]
+	path = deps/sglib
+	url = https://github.com/vgteam/sglib.git
+	branch = master
+[submodule "deps/FlameGraph"]
+	path = deps/FlameGraph
+	url = https://github.com/brendangregg/FlameGraph

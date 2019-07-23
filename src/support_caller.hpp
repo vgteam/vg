@@ -139,7 +139,7 @@ public:
      * pileup_filename is provided, the pileup is loaded again and used to add
      * comments describing variants
      */
-    void call(SupportAugmentedGraph& augmented, string pileup_filename = "");
+    void call(SupportAugmentedGraph& augmented, SnarlManager& site_manager, string pileup_filename = "");
 
     /** 
      * Get the support and size for each traversal in a list. Discount support
@@ -422,6 +422,13 @@ public:
 
     Option<string> recall_ins_fasta_filename{this, "insertion-fasta", "Z", "",
             "Insertion FASTA required for --recall-vcf in the presence of symbolic insertions"};
+
+    /// Path of pack file generated from vg pack
+    Option<string> pack_file_name{this, "pack-file", "P", {}, 
+            "path of pack file from vg pack"};
+
+    Option<string> xg_file_name{this, "xg-file", "x", {},
+            "path of xg file (required to read pack file with -P)"};
 
     /// structures to hold the recall vcf and fastas
     vcflib::VariantCallFile variant_file;

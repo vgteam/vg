@@ -19,7 +19,7 @@ using namespace std;
     class NullMaskingGraph : public HandleGraph {
     public:
         
-        /// Initialize as the backwards version of another graph
+        /// Initialize with the graph we want to mask null nodes in
         NullMaskingGraph(const HandleGraph* graph);
         
         /// Default constructor -- not actually functional
@@ -67,8 +67,6 @@ using namespace std;
         virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
         
         /// Return the number of nodes in the graph.
-        /// *WARNING* This method's implementation is O(N) in the size of the graph, unlike
-        /// for most HandleGraphs.
         virtual size_t get_node_count() const;
         
         /// Return the smallest ID in the graph, or some smaller number if the

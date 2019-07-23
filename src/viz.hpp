@@ -23,8 +23,8 @@ class Viz {
 public:
     Viz(void) { }
     ~Viz(void) { close(); }
-    Viz(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t);
-    void init(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t);
+    Viz(XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t);
+    void init(XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t);
     void draw(void);
     void draw_graph(void);
     void close(void);
@@ -33,7 +33,7 @@ private:
     double nodes_before_offset(size_t pos);
     void set_hash_color(const string& str);
     void compute_borders_and_dimensions(void);
-    xg::XG* xgidx = nullptr;
+    XG* xgidx = nullptr;
     vector<Packer>* packs = nullptr;
     vector<string> pack_names;
     string outfile;

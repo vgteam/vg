@@ -5,13 +5,19 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 5
+plan tests 7
 
 vg view -J -v snarls/snarls.json > snarls.vg
 is $(vg snarls snarls.vg -r st.pb | vg view -R - | wc -l) 3 "vg snarls made right number of protobuf Snarls"
 is $(vg view -E st.pb | wc -l) 6 "vg snarls made right number of protobuf SnarlTraversals"
 
-rm -f snarls.vg st.pb 
+rm -f st.pb
+
+vg index snarls.vg -x snarls.xg
+is $(vg snarls snarls.xg -r st.pb | vg view -R - | wc -l) 3 "vg snarls on xg made right number of protobuf Snarls"
+is $(vg view -E st.pb | wc -l) 6 "vg snarls on xg made right number of protobuf SnarlTraversals"
+
+rm -f snarls.vg snarls.xg st.pb
 
 # vcf alt traversals in tiny graph
 vg construct -Saf -v tiny/tiny.vcf.gz -r tiny/tiny.fa > tiny.vg

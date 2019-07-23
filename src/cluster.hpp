@@ -10,7 +10,8 @@
 #include "mem.hpp"
 #include "xg.hpp"
 #include "handle.hpp"
-#include "distance.hpp"
+#include "min_distance.hpp"
+#include "path_component_index.hpp"
 
 #include <functional>
 #include <string>
@@ -368,7 +369,8 @@ public:
     
     /// Construct a distance service to measures distance along paths in this XG. Optionally
     /// measures all distances on the forward strand of the paths.
-    PathOrientedDistanceMeasurer(xg::XG* xgindex, bool unstranded = false);
+    PathOrientedDistanceMeasurer(const PathPositionHandleGraph* graph,
+                                 const PathComponentIndex* path_component_index = nullptr);
     
     /// Default desctructor
     ~PathOrientedDistanceMeasurer() = default;
@@ -392,16 +394,9 @@ public:
     
 private:
     
-    xg::XG* xgindex = nullptr;
-    
-    /// A memo for the results of XG::paths_of_node
-    unordered_map<id_t, vector<size_t>> paths_of_node_memo;
-    /// A memo for the results of XG::oriented_occurrences_on_path
-    unordered_map<pair<id_t, size_t>, vector<pair<size_t, bool>>> oriented_occurences_memo;
-    /// A memo for the results of XG::get_handle
-    unordered_map<pair<int64_t, bool>, handle_t> handle_memo;
-    
-    const bool unstranded;
+    const PathPositionHandleGraph* graph = nullptr;
+    const PathComponentIndex* path_component_index = nullptr;
+
 };
     
 /*
@@ -412,7 +407,7 @@ class SnarlOrientedDistanceMeasurer : public OrientedDistanceMeasurer {
 
 public:
     // Construct a distance service to measures distance as the minimum distance in the graph
-    SnarlOrientedDistanceMeasurer(DistanceIndex* distance_index);
+    SnarlOrientedDistanceMeasurer(MinimumDistanceIndex* distance_index);
     
     /// Default desctructor
     ~SnarlOrientedDistanceMeasurer() = default;
@@ -433,7 +428,7 @@ public:
     
 private:
     
-    DistanceIndex* distance_index = nullptr;
+    MinimumDistanceIndex* distance_index = nullptr;
 };
     
 class OrientedDistanceClusterer : public MEMClusterer {
@@ -441,7 +436,6 @@ public:
     
     /// Constructor
     OrientedDistanceClusterer(OrientedDistanceMeasurer& distance_measurer,
-                              bool unstranded,
                               size_t max_expected_dist_approx_error = 8);
     
     /// Concrete implementation of virtual method from MEMClusterer
@@ -566,12 +560,12 @@ public:
 class SnarlMinDistance : public DistanceHeuristic {
 public:
     SnarlMinDistance() = default;
-    SnarlMinDistance(DistanceIndex& distance_index);
+    SnarlMinDistance(MinimumDistanceIndex& distance_index);
     ~SnarlMinDistance() = default;
     
     int64_t operator()(const pos_t& pos_1, const pos_t& pos_2);
 private:
-    DistanceIndex& distance_index;
+    MinimumDistanceIndex& distance_index;
 };
 
 /*
@@ -582,12 +576,12 @@ private:
 class TipAnchoredMaxDistance : public DistanceHeuristic {
 public:
     TipAnchoredMaxDistance() = default;
-    TipAnchoredMaxDistance(DistanceIndex& distance_index);
+    TipAnchoredMaxDistance(MinimumDistanceIndex& distance_index);
     ~TipAnchoredMaxDistance() = default;
     
     int64_t operator()(const pos_t& pos_1, const pos_t& pos_2);
 private:
-    DistanceIndex& distance_index;
+    MinimumDistanceIndex& distance_index;
 };
 
 /*
@@ -627,7 +621,7 @@ private:
  */
 class TVSClusterer : public MEMClusterer {
 public:
-    TVSClusterer(const HandleGraph* handle_graph, DistanceIndex* distance_index);
+    TVSClusterer(const HandleGraph* handle_graph, MinimumDistanceIndex* distance_index);
     ~TVSClusterer() = default;
     
     /// Concrete implementation of virtual method from MEMClusterer
@@ -651,7 +645,7 @@ private:
     
 class MinDistanceClusterer : public MEMClusterer {
 public:
-    MinDistanceClusterer(DistanceIndex* distance_index);
+    MinDistanceClusterer(MinimumDistanceIndex* distance_index);
     ~MinDistanceClusterer() = default;
     
     /// Concrete implementation of virtual method from MEMClusterer
@@ -671,16 +665,16 @@ private:
                             size_t min_mem_length);
     
     const HandleGraph* handle_graph;
-    DistanceIndex* distance_index;
+    MinimumDistanceIndex* distance_index;
 };
     
 
 /// get the handles that a mem covers
-vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg, const vg::MaximalExactMatch& mem);
+vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const XG& xg, const vg::MaximalExactMatch& mem);
 /// use walking to get the hits
-Graph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion);
+Graph cluster_subgraph_walk(const XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion);
 /// return a subgraph form an xg for a cluster of MEMs from the given alignment
-Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion);
+Graph cluster_subgraph(const XG& xg, const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion);
 
 }
 

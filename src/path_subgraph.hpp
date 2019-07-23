@@ -6,6 +6,7 @@
  */
 
 #include "handle.hpp"
+#include <handlegraph/expanding_overlay_graph.hpp>
 #include <unordered_set>
 #include <vector>
 
@@ -20,7 +21,7 @@ using namespace std;
      *
      * Nodes are numbered 1 to n along the path; multiple visits on the path to the same backing node will become distinct.
      */
-    class PathSubgraph : public HandleGraph {
+    class PathSubgraph : public handlegraph::ExpandingOverlayGraph {
     public:
         
         /// Create a PathSubgraph describing the subgraph of the given graph
@@ -84,6 +85,13 @@ using namespace std;
         /// Return the largest ID in the graph, or some larger number if the
         /// largest ID is unavailable. Return value is unspecified if the graph is empty.
         virtual id_t max_node_id() const;
+        
+        //////////////////////////
+        /// ExpandingOverlayGraph interface
+        //////////////////////////
+        
+        /// Get the handle in the backing graph that the given handle in this graph represents.
+        virtual handle_t get_underlying_handle(const handle_t& handle) const;
 
         //////////////////////////
         /// Additional Interface

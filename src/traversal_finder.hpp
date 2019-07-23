@@ -47,12 +47,12 @@ public:
 
 class ExhaustiveTraversalFinder : public TraversalFinder {
     
-    VG& graph;
+    const HandleGraph& graph;
     SnarlManager& snarl_manager;
     bool include_reversing_traversals;
     
 public:
-    ExhaustiveTraversalFinder(VG& graph, SnarlManager& snarl_manager,
+    ExhaustiveTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
                               bool include_reversing_traversals = false);
     
     virtual ~ExhaustiveTraversalFinder();
@@ -64,10 +64,10 @@ public:
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
     
 protected:
-    void stack_up_valid_walks(NodeTraversal walk_head, vector<NodeTraversal>& stack);
-    virtual bool visit_next_node(const Node*, const Edge*) { return true; }
-    void add_traversals(vector<SnarlTraversal>& traversals, NodeTraversal traversal_start,
-                        set<NodeTraversal>& stop_at, set<NodeTraversal>& yield_at);
+    void stack_up_valid_walks(handle_t walk_head, vector<Visit>& stack);
+    virtual bool visit_next_node(handle_t handle) { return true; }
+    void add_traversals(vector<SnarlTraversal>& traversals, handle_t traversal_start,
+                        unordered_set<handle_t>& stop_at, unordered_set<handle_t>& yield_at);
 };
 
 /** Does exhaustive traversal, but restricting to nodes and edges that meet 
@@ -129,6 +129,8 @@ public:
  * I'm not sure what PathBasedTraversalFinder (see below) does, but it does not work
  * as a drop-in replacement for this class, so keep the two implementations at least 
  * for now.    
+ *
+ * DEPRECATED: Use PathTraversalFinder instead
  */
 class PathRestrictedTraversalFinder : public TraversalFinder {
 
@@ -147,12 +149,16 @@ class PathRestrictedTraversalFinder : public TraversalFinder {
     
     // How many nodes max should we walk when checking if a path runs through a superbubble/site
     int max_path_search_steps;
+
+    // Allow multiple traversals with the same sequence
+    bool allow_duplicates;
     
 public:
     PathRestrictedTraversalFinder(VG& graph, SnarlManager& snarl_manager,
                                   map<string, const Alignment*>& reads_by_name,
                                   int min_recurrence = 2,
-                                  int max_path_search_steps = 100);
+                                  int max_path_search_steps = 100,
+                                  bool allow_duplicates = false);
     
     virtual ~PathRestrictedTraversalFinder();
 
@@ -164,6 +170,11 @@ public:
      * while those supported by actual embedded named paths are not.
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+
+    /**
+    * Like above, but return the path name corresponding to each traversal
+    */
+    virtual pair<vector<SnarlTraversal>, vector<string> > find_named_traversals(const Snarl& site);
     
 };
 
@@ -177,6 +188,40 @@ class PathBasedTraversalFinder : public TraversalFinder{
 
 };
 
+/** This is a Handle Graph replacement for PathRestrictedTraversalFinder
+ * that uses the PathHandleGraph interface instead of the VG-based 
+ * path index.  It returns all traversals through a snarl that are contained
+ * within paths in the graph.  It can also return a mapping from the traversals
+ * to their paths*/
+class PathTraversalFinder : public TraversalFinder {
+    
+protected:
+    // our graph with indexed path positions
+    const PathHandleGraph& graph;
+    
+    SnarlManager& snarl_manager;
+
+    // restrict to these paths
+    unordered_set<path_handle_t> paths;
+    
+public:
+    // if path_names not empty, only those paths will be considered
+    PathTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager,
+                        const vector<string>& path_names = {});
+
+    /**
+     * Return all traversals through the site that are sub-paths of embedded paths in the graph
+     */
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+
+    /**
+    * Like above, but return the path steps for the for the traversal endpoints
+    */
+    virtual pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > find_path_traversals(const Snarl& site);
+
+};    
+    
+
 /**
  * This traversal finder finds one or more traversals through leaf sites with
  * no children. It uses a depth-first search. It doesn't work on non-leaf
@@ -186,10 +231,10 @@ class PathBasedTraversalFinder : public TraversalFinder{
 class TrivialTraversalFinder : public TraversalFinder {
 
     // Holds the vg graph we are looking for traversals in.
-    VG& graph;
+    const HandleGraph& graph;
 
 public:
-    TrivialTraversalFinder(VG& graph);
+    TrivialTraversalFinder(const HandleGraph& graph);
 
     virtual ~TrivialTraversalFinder() = default;
     
@@ -209,7 +254,8 @@ class RepresentativeTraversalFinder : public TraversalFinder {
 
 protected:
     /// The annotated, augmented graph we're finding traversals in
-    AugmentedGraph& augmented;
+    const PathHandleGraph& graph;
+
     /// The SnarlManager managiung the snarls we use
     SnarlManager& snarl_manager;
     
@@ -253,7 +299,7 @@ protected:
      * (including the reference node endpoints and their edges which aren't
      * stored in the path).
      */
-    pair<Support, vector<Visit>> find_bubble(Node* node, Edge* edge, const Snarl* snarl, PathIndex& index,
+    pair<Support, vector<Visit>> find_bubble(id_t node, const edge_t* edge, const Snarl* snarl, PathIndex& index,
                                              const Snarl& site);
         
     /**
@@ -298,6 +344,13 @@ protected:
      */
     size_t bp_length(const  structures::ImmutableList<Visit>& path);
 
+    /** 
+     * Get support
+     */
+    bool has_supports = false;
+    function<Support(id_t)> get_node_support;
+    function<Support(edge_t)> get_edge_support;
+
 public:
 
     /**
@@ -312,10 +365,12 @@ public:
      * Uses the given get_index function to try and find a PathIndex for a
      * reference path traversing a child snarl.
      */
-    RepresentativeTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager,
-        size_t max_depth, size_t max_width, size_t max_bubble_paths,
-        size_t min_node_support = 1, size_t min_edge_support = 1,
-        function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; });
+    RepresentativeTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager,
+                                  size_t max_depth, size_t max_width, size_t max_bubble_paths,
+                                  size_t min_node_support = 1, size_t min_edge_support = 1,
+                                  function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; },
+                                  function<Support(id_t)> get_node_support = nullptr,
+                                  function<Support(edge_t)> get_edge_support = nullptr);
     
     /// Should we emit verbose debugging info?
     bool verbose = false;
@@ -346,17 +401,14 @@ public:
 class VCFTraversalFinder : public TraversalFinder {
 
 protected:
-    VG& graph;
+    const PathHandleGraph& graph;
+
+    /// Use this to check if our snarl runs through a reference path
+    /// (may be overkill, but can be used for sanity checking)
+    PathTraversalFinder path_finder;
     
     /// The SnarlManager managiung the snarls we use
     SnarlManager& snarl_manager;
-
-    /// We keep this around from the RepresentativeTraversalFinder for now:
-    /// We use a path index for accessing the reference path
-    /// We keep around a function that can be used to get an index for the
-    /// appropriate path to use to scaffold a given site, or null if no
-    /// appropriate index exists.
-    function<PathIndex*(const Snarl&)> get_index;
 
     /// Store variants indexed by an arbitrary node in one of their associated
     /// alt paths. We can then use this to find all variants in a top-level snarl
@@ -390,8 +442,8 @@ public:
      * This is used to, for example, use read support to prune the number of traversals
      * that are enumerated.
      */
-    VCFTraversalFinder(VG& graph, SnarlManager& snarl_manager, vcflib::VariantCallFile& vcf,
-                       function<PathIndex*(const Snarl&)> get_index,
+    VCFTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager, vcflib::VariantCallFile& vcf,
+                       const vector<string>& ref_path_names = {},
                        FastaReference* fasta_ref = nullptr,
                        FastaReference* ins_ref = nullptr,
                        function<bool(const SnarlTraversal&)> skip_alt = nullptr,
@@ -431,9 +483,9 @@ protected:
      */
     void brute_force_alt_traversals(const Snarl& site,
                                     const vector<vcflib::Variant*>& site_variants,
-                                    PathIndex* path_index,
-                                    PathIndex::iterator start_it,
-                                    PathIndex::iterator end_it,
+                                    path_handle_t ref_path,
+                                    step_handle_t start_step,
+                                    step_handle_t end_step,
                                     vector<pair<SnarlTraversal, vector<int> > >& output_traversals);
 
     /** Get a traversal for a given haplotype.  It gets all the nodes and edges from the alt 
@@ -442,9 +494,9 @@ protected:
      */
     pair<SnarlTraversal, bool> get_alt_traversal(const Snarl& site,
                                                  const vector<vcflib::Variant*>& site_variants,
-                                                 PathIndex* path_index,
-                                                 PathIndex::iterator start_it,
-                                                 PathIndex::iterator end_it,
+                                                 path_handle_t ref_path,
+                                                 step_handle_t start_step,
+                                                 step_handle_t end_step,
                                                  const vector<int>& haplotype);
 
     /** Get a set of all alt path nodes and deletion edges for a halptype.
@@ -452,13 +504,13 @@ protected:
     pair<unordered_set<handle_t>, unordered_set<pair<handle_t, handle_t> >>
          get_haplotype_alt_contents(const vector<vcflib::Variant*>& site_variants,
                                     const vector<int>& haplotype,
-                                    PathIndex* path_index);
+                                    path_handle_t ref_path);
 
     /** Get one alt-path out of the graph in the form of a snarl traversal.  bool value
      *  returned is true if allele is a deletion, and returned traversal will be a pair of nodes
      *  representing the deletion edge.
      */
-    pair<SnarlTraversal, bool> get_alt_path(vcflib::Variant* site_variant, int allele, PathIndex* path_index);
+    pair<SnarlTraversal, bool> get_alt_path(vcflib::Variant* site_variant, int allele, path_handle_t ref_path);
 
     /**
      * An alt path for a deletion is the deleted reference path.  But sometimes vg construct doesn't
@@ -472,8 +524,8 @@ protected:
      * Returns: <size delta between returned deletion and vcf allele,
      *           position delta between returned deletion and alt path>
      */
-    pair<int, int> scan_for_deletion(vcflib::Variant* var, int allele, PathIndex* path_index,
-                                     PathIndex::iterator& first_path_it, PathIndex::iterator& last_path_it);
+    pair<int, int> scan_for_deletion(vcflib::Variant* var, int allele, path_handle_t ref_path,
+                                     step_handle_t& first_path_step, step_handle_t& last_path_step);
 
     /**
      * Prune our search space using the skip_alt method.  Will return a list of pruned VCF alleles/
@@ -486,12 +538,17 @@ protected:
      */
     vector<vector<int>> get_pruned_alt_alleles(const Snarl& site,
                                                const vector<vcflib::Variant*>& site_variants,
-                                               PathIndex* path_index);
+                                               path_handle_t ref_path);
 
     /**
      * Count the possible traversal paths.  Return false if we ever get beyond our cutoff
      */
     bool check_max_trav_cutoff(const vector<vector<int> >& alleles);
+
+    /**
+     * Lookup a node in the reference path (mimics old PathIndex)
+     */
+    pair<step_handle_t, bool> step_in_path(handle_t handle, path_handle_t path_handle) const;
                                 
 };
 

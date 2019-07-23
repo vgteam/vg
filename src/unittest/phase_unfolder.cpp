@@ -20,7 +20,7 @@ namespace vg {
 namespace unittest {
 
 void check_unfolded_nodes(VG& vg_graph,
-                          const xg::XG& xg_index,
+                          const XG& xg_index,
                           const PhaseUnfolder& unfolder,
                           const std::set<vg::id_t>& expected_nodes,
                           const std::multiset<vg::id_t>& corresponding_nodes) {
@@ -201,7 +201,7 @@ TEST_CASE("PhaseUnfolder can unfold XG paths", "[phaseunfolder][indexing]") {
     // Build an XG index with a path.
     Graph graph_with_path;
     json2pb(graph_with_path, unfolder_graph_path.c_str(), unfolder_graph_path.size());
-    xg::XG xg_index(graph_with_path);
+    XG xg_index(graph_with_path);
 
     // Build an empty GBWT index.
     gbwt::GBWT gbwt_index;
@@ -245,7 +245,7 @@ TEST_CASE("PhaseUnfolder can restore XG paths", "[phaseunfolder][indexing]") {
     // Build an XG index with a path.
     Graph graph_with_path;
     json2pb(graph_with_path, unfolder_graph_path.c_str(), unfolder_graph_path.size());
-    xg::XG xg_index(graph_with_path);
+    XG xg_index(graph_with_path);
 
     // Build an empty GBWT index.
     gbwt::GBWT gbwt_index;
@@ -288,7 +288,7 @@ TEST_CASE("PhaseUnfolder can unfold GBWT threads", "[phaseunfolder][indexing]") 
     // Build an XG index without a path.
     Graph graph_without_path;
     json2pb(graph_without_path, unfolder_graph.c_str(), unfolder_graph.size());
-    xg::XG xg_index(graph_without_path);
+    XG xg_index(graph_without_path);
 
     // Build a GBWT with three threads including a duplicate. We want to have
     // only one instance of short_path unfolded, but we want separate copies
@@ -354,7 +354,7 @@ TEST_CASE("PhaseUnfolder can unfold both XG paths and GBWT threads", "[phaseunfo
     // Build an XG index with a path.
     Graph graph_with_path;
     json2pb(graph_with_path, unfolder_graph_path.c_str(), unfolder_graph_path.size());
-    xg::XG xg_index(graph_with_path);
+    XG xg_index(graph_with_path);
 
     // Build a GBWT with three threads including a duplicate. We want to have
     // only one instance of short_path unfolded, but we want separate copies
@@ -488,7 +488,7 @@ TEST_CASE("PhaseUnfolder can merge shared prefixes and suffixes", "[phaseunfolde
     // Build an XG index.
     Graph simple_graph;
     json2pb(simple_graph, unfolder_graph_simple.c_str(), unfolder_graph_simple.size());
-    xg::XG xg_index(simple_graph);
+    XG xg_index(simple_graph);
 
     // Build a GBWT with both possible threads.
     gbwt::vector_type upper_path {
@@ -552,7 +552,7 @@ TEST_CASE("PhaseUnfolder can extend short threads", "[phaseunfolder][indexing]")
     // Build an XG index.
     Graph simple_graph_with_path;
     json2pb(simple_graph_with_path, unfolder_graph_simple_path.c_str(), unfolder_graph_simple_path.size());
-    xg::XG xg_index(simple_graph_with_path);
+    XG xg_index(simple_graph_with_path);
 
     // Build a GBWT for the fragment that is different from the reference.
     gbwt::vector_type short_fragment {

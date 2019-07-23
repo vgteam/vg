@@ -10,6 +10,7 @@
 #include <vector>
 #include <unordered_set>
 #include <chrono>
+#include <mutex>
 
 #include "subcommand.hpp"
 
@@ -39,42 +40,57 @@ void help_gaffe(char** argv) {
     << "Map unpaired reads using minimizers and gapless extension." << endl
     << endl
     << "basic options:" << endl
-    << "  -x, --xg-name FILE            use this xg index (required)" << endl
+    << "  -x, --xg-name FILE            use this xg index (required if -g not specified)" << endl
+    << "  -g, --graph-name FILE         use this GBWTGraph (required if -x not specified)" << endl
     << "  -H, --gbwt-name FILE          use this GBWT index (required)" << endl
     << "  -m, --minimizer-name FILE     use this minimizer index (required)" << endl
-    << "  -s, --snarls FILE             cluster using these snarls (required)" << endl
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
     << "  -p, --progress                show progress" << endl
     << "input options:" << endl
     << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE (may repeat)" << endl
     << "  -f, --fastq-in FILE           read and align FASTQ-format reads from FILE (may repeat)" << endl
     << "output options:" << endl
-    << "  -M, --max-multimaps INT       produce up to INT alignments for each read [1]"
+    << "  -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
+    << "  -n, --discard                 discard all output alignments (for profiling)" << endl
     << "computational parameters:" << endl
     << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
     << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [300]" << endl
     << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.6]" << endl
     << "  -e, --max-extensions INT      extend up to INT clusters [48]" << endl
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
+    << "  -s, --cluster-score INT       only extend clusters if they are within cluster-score of the best score" << endl
+    << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within cluster-coverage of the best read coverage" << endl
+    << "  -v, --extension-score INT     only align extensions if their score is within extension-score of the best score" << endl
+    << "  -w, --extension-set INT       only align extension sets if their score is within extension-set of the best score" << endl
     << "  -O, --no-chaining             disable seed chaining and all gapped alignment" << endl
-    << "  -X, --xdrop                   use xdrop alignment for tails" << endl
+    << "  -l, --linear-tails            align tails as individual linear alignments instead of POA trees" << endl
+    << "  -S, --gssw                    use GSSW alignment for tails instead of xdrop" << endl
+    << "  --discard-gbwt-states         rebuild fresh GBWT search states for conenctivity and tail searches" << endl
+    << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
+    << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
 
 int main_gaffe(int argc, char** argv) {
+
+    std::chrono::time_point<std::chrono::system_clock> launch = std::chrono::system_clock::now();
 
     if (argc == 2) {
         help_gaffe(argv);
         return 1;
     }
 
+    #define OPT_DISCARD_GBWT_STATES 1000
+    #define OPT_TRACK_PROVENANCE 1001
+    #define OPT_TRACK_CORRECTNESS 1002
+
     // initialize parameters with their default options
     string xg_name;
+    string graph_name;
     string gbwt_name;
     string minimizer_name;
-    string snarls_name;
     string distance_name;
     // How close should two hits be to be in the same cluster?
     size_t distance_limit = 1000;
@@ -83,8 +99,12 @@ int main_gaffe(int argc, char** argv) {
     bool progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_chaining = true;
-    // Whould we use the xdrop aligner for aligning tails?
-    bool use_xdrop_for_tails = false;
+    // Should we do individual linear tail alignments instead of tree-shaped ones?
+    bool linear_tails = false;
+    // Should we use the xdrop aligner for aligning tails?
+    bool use_xdrop_for_tails = true;
+    // Should we discard GBWT search states?
+    bool discard_gbwt_states = false;
     // What GAMs should we realign?
     vector<string> gam_filenames;
     // What FASTQs should we align.
@@ -96,10 +116,26 @@ int main_gaffe(int argc, char** argv) {
     size_t max_extensions = 48;
     // How many extended clusters should we align, max?
     size_t max_alignments = 8;
+    //Throw away cluster with scores that are this amount below the best
+    double cluster_score = 0;
+    //Throw away clusters with coverage this amount below the best 
+    double cluster_coverage = 0;
+    //Throw away extension sets with scores that are this amount below the best
+    double extension_set = 0;
+    //Throw away extensions with scores that are this amount below the best
+    int extension_score = 0;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
     string read_group;
+    // Should we throw out our alignments instead of outputting them?
+    bool discard_alignments = false;
+    // Should we track candidate provenance?
+    bool track_provenance = false;
+    // Should we track candidate correctness?
+    bool track_correctness = false;
+    
+    vector<size_t> threads_to_run;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -108,9 +144,9 @@ int main_gaffe(int argc, char** argv) {
         {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
+            {"graph-name", required_argument, 0, 'g'},
             {"gbwt-name", required_argument, 0, 'H'},
             {"minimizer-name", required_argument, 0, 'm'},
-            {"snarls", required_argument, 0, 's'},
             {"dist-name", required_argument, 0, 'd'},
             {"progress", no_argument, 0, 'p'},
             {"gam-in", required_argument, 0, 'G'},
@@ -118,19 +154,28 @@ int main_gaffe(int argc, char** argv) {
             {"max-multimaps", required_argument, 0, 'M'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
+            {"discard", no_argument, 0, 'n'},
             {"hit-cap", required_argument, 0, 'c'},
             {"hard-hit-cap", required_argument, 0, 'C'},
             {"max-extensions", required_argument, 0, 'e'},
             {"max-alignments", required_argument, 0, 'a'},
+            {"cluster-score", required_argument, 0, 's'},
+            {"cluster-coverage", required_argument, 0, 'u'},
+            {"extension-score", required_argument, 0, 'v'},
+            {"extension-set", required_argument, 0, 'w'},
             {"score-fraction", required_argument, 0, 'F'},
             {"no-chaining", no_argument, 0, 'O'},
-            {"xdrop", no_argument, 0, 'X'},
+            {"linear-tails", no_argument, 0, 'l'},
+            {"gssw", no_argument, 0, 'S'},
+            {"discard-gbwt-states", no_argument, 0, OPT_DISCARD_GBWT_STATES},
+            {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
+            {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:H:m:s:d:pG:f:M:c:C:F:e:a:OXt:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:w:OlSt:",
                          long_options, &option_index);
 
 
@@ -147,7 +192,15 @@ int main_gaffe(int argc, char** argv) {
                     exit(1);
                 }
                 break;
-                
+
+            case 'g':
+                graph_name = optarg;
+                if (graph_name.empty()) {
+                    cerr << "error:[vg gaffe] Must provide GBGTGraph file with -g." << endl;
+                    exit(1);
+                }
+                break;
+
             case 'H':
                 gbwt_name = optarg;
                 if (gbwt_name.empty()) {
@@ -160,14 +213,6 @@ int main_gaffe(int argc, char** argv) {
                 minimizer_name = optarg;
                 if (minimizer_name.empty()) {
                     cerr << "error:[vg gaffe] Must provide minimizer file with -m." << endl;
-                    exit(1);
-                }
-                break;
-                
-            case 's':
-                snarls_name = optarg;
-                if (snarls_name.empty()) {
-                    cerr << "error:[vg gaffe] Must provide snarl file with -s." << endl;
                     exit(1);
                 }
                 break;
@@ -202,6 +247,10 @@ int main_gaffe(int argc, char** argv) {
                 
             case 'R':
                 read_group = optarg;
+                break;
+                
+            case 'n':
+                discard_alignments = true;
                 break;
 
             case 'c':
@@ -252,12 +301,70 @@ int main_gaffe(int argc, char** argv) {
                 }
                 break;
 
+            case 's':
+                {
+                    double score = parse<double>(optarg);
+                    if (score < 0) {
+                        cerr << "error: [vg gaffe] Cluster score threshold (" << score << ") must be positive" << endl;
+                        exit(1);
+                    }
+                    cluster_score = score;
+                }
+                break;
+
+            case 'u':
+                {
+                    double score = parse<double>(optarg);
+                    if (score < 0) {
+                        cerr << "error: [vg gaffe] Cluster coverage threshold (" << score << ") must be positive" << endl;
+                        exit(1);
+                    }
+                    cluster_coverage = score;
+                }
+                break;
+            case 'v':
+                {
+                    double score = parse<double>(optarg);
+                    if (score < 0) {
+                        cerr << "error: [vg gaffe] Extension score threshold (" << score << ") must be positive" << endl;
+                        exit(1);
+                    }
+                    extension_score = score;
+                }
+                break;
+            case 'w':
+                {
+                    int score = parse<int>(optarg);
+                    if (score < 0) {
+                        cerr << "error: [vg gaffe] Extension set score threshold (" << score << ") must be positive" << endl;
+                        exit(1);
+                    }
+                    extension_set = score;
+                }
+                break;
             case 'O':
                 do_chaining = false;
                 break;
                 
-            case 'X':
-                use_xdrop_for_tails = true;
+            case 'l':
+                linear_tails = true;
+                break;
+                
+            case 'S':
+                use_xdrop_for_tails = false;
+                break;
+                
+            case OPT_DISCARD_GBWT_STATES:
+                discard_gbwt_states = true;
+                break;
+                
+            case OPT_TRACK_PROVENANCE:
+                track_provenance = true;
+                break;
+            
+            case OPT_TRACK_CORRECTNESS:
+                track_provenance = true;
+                track_correctness = true;
                 break;
                 
             case 't':
@@ -267,7 +374,7 @@ int main_gaffe(int argc, char** argv) {
                     cerr << "error:[vg gaffe] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
                     exit(1);
                 }
-                omp_set_num_threads(num_threads);
+                threads_to_run.push_back(num_threads);
             }
                 break;
                 
@@ -281,8 +388,13 @@ int main_gaffe(int argc, char** argv) {
     }
     
     
-    if (xg_name.empty()) {
-        cerr << "error:[vg gaffe] Mapping requires an XG index (-x)" << endl;
+    if (xg_name.empty() && graph_name.empty()) {
+        cerr << "error:[vg gaffe] Mapping requires an XG index (-x) or a GBWTGraph (-g)" << endl;
+        exit(1);
+    }
+    
+    if (track_correctness && xg_name.empty()) {
+        cerr << "error:[vg gaffe] Tracking correctness requires and XG index (-x)" << endl;
         exit(1);
     }
     
@@ -296,10 +408,6 @@ int main_gaffe(int argc, char** argv) {
         exit(1);
     }
     
-    if (snarls_name.empty()) {
-        cerr << "error:[vg gaffe] Mapping requires snarls (-s)" << endl;
-        exit(1);
-    }
     
     if (distance_name.empty()) {
         cerr << "error:[vg gaffe] Mapping requires a distance index (-d)" << endl;
@@ -307,10 +415,10 @@ int main_gaffe(int argc, char** argv) {
     }
     
     // create in-memory objects
-    if (progress) {
+    if (progress && !xg_name.empty()) {
         cerr << "Loading XG index " << xg_name << endl;
     }
-    unique_ptr<xg::XG> xg_index = vg::io::VPKG::load_one<xg::XG>(xg_name);
+    unique_ptr<XG> xg_index = (xg_name.empty() ? nullptr : vg::io::VPKG::load_one<XG>(xg_name));
 
     if (progress) {
         cerr << "Loading GBWT index " << gbwt_name << endl;
@@ -323,24 +431,33 @@ int main_gaffe(int argc, char** argv) {
     unique_ptr<MinimizerIndex> minimizer_index = vg::io::VPKG::load_one<MinimizerIndex>(minimizer_name);
 
     if (progress) {
-        cerr << "Loading snarls from " << snarls_name << endl;
-    }
-    unique_ptr<SnarlManager> snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarls_name);
-
-    if (progress) {
         cerr << "Loading distance index " << distance_name << endl;
     }
-    unique_ptr<DistanceIndex> distance_index = vg::io::VPKG::load_one<DistanceIndex>(distance_name);
+    MinimumDistanceIndex distance_index;
+    ifstream dist_in (distance_name);
+    distance_index.load(dist_in);
+    //unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     
-    // Connect the DistanceIndex to the other things it needs to work.
-    distance_index->setGraph(xg_index.get());
-    distance_index->setSnarlManager(snarl_manager.get());
+    // Build or load the GBWTGraph.
+    unique_ptr<GBWTGraph> gbwt_graph = nullptr;
+    if (graph_name.empty()) {
+        if (progress) {
+            cerr << "Building GBWTGraph" << endl;
+        }
+        gbwt_graph.reset(new GBWTGraph(*gbwt_index, *xg_index));
+    } else {
+        if (progress) {
+            cerr << "Loading GBWTGraph " << graph_name << endl;
+        }
+        gbwt_graph = vg::io::VPKG::load_one<GBWTGraph>(graph_name);
+        gbwt_graph->set_gbwt(*gbwt_index);
+    }
 
     // Set up the mapper
     if (progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(xg_index.get(), gbwt_index.get(), minimizer_index.get(), snarl_manager.get(), distance_index.get());
+    MinimizerMapper minimizer_mapper(*gbwt_graph, *minimizer_index, distance_index, xg_index.get());
 
 
     if (progress) {
@@ -369,12 +486,32 @@ int main_gaffe(int argc, char** argv) {
     minimizer_mapper.max_alignments = max_alignments;
 
     if (progress) {
-        cerr << "--no-chaining " << (!do_chaining) << endl;
+        cerr << "--cluster-score-threshold " << cluster_score << endl;
+    }
+    minimizer_mapper.cluster_score_threshold = cluster_score;
+
+    if (progress) {
+        cerr << "--cluster-coverage-threshold " << cluster_coverage << endl;
+    }
+    minimizer_mapper.cluster_coverage_threshold = cluster_coverage;
+
+    if (progress) {
+        cerr << "--extension-score-threshold " << extension_score << endl;
+    }
+    minimizer_mapper.extension_score_threshold = extension_score;
+
+    if (progress) {
+        cerr << "--extension-set-threshold " << extension_set << endl;
+    }
+    minimizer_mapper.extension_set_score_threshold = extension_set;
+
+    if (progress && !do_chaining) {
+        cerr << "--no-chaining " << endl;
     }
     minimizer_mapper.do_chaining = do_chaining;
 
     if (progress) {
-        cerr << "--max-multipmaps " << max_multimaps << endl;
+        cerr << "--max-multimaps " << max_multimaps << endl;
     }
     minimizer_mapper.max_multimaps = max_multimaps;
 
@@ -382,77 +519,122 @@ int main_gaffe(int argc, char** argv) {
         cerr << "--distance-limit " << distance_limit << endl;
     }
     minimizer_mapper.distance_limit = distance_limit;
-
-    if (progress) {
-        cerr << "--xdrop " << use_xdrop_for_tails << endl;
+    
+    if (progress && linear_tails) {
+        cerr << "--linear-tails " << endl;
+    }
+    minimizer_mapper.linear_tails = linear_tails;
+    
+    if (progress && !use_xdrop_for_tails) {
+        cerr << "--gssw " << endl;
     }
     minimizer_mapper.use_xdrop_for_tails = use_xdrop_for_tails;
+    
+    if (progress && discard_gbwt_states) {
+        cerr << "--discard-gbwt-states" << endl;
+    }
+    minimizer_mapper.reuse_gbwt_states = !discard_gbwt_states;
+
+    if (progress && track_provenance) {
+        cerr << "--track-provenance " << endl;
+    }
+    minimizer_mapper.track_provenance = track_provenance;
+    
+    if (progress && track_correctness) {
+        cerr << "--track-correctness " << endl;
+    }
+    minimizer_mapper.track_correctness = track_correctness;
 
     minimizer_mapper.sample_name = sample_name;
     minimizer_mapper.read_group = read_group;
-    
-    // Work out the number of threads we will have
-    size_t thread_count = omp_get_max_threads();
 
-    // Set up counters per-thread for total reads mapped
-    vector<size_t> reads_mapped_by_thread(thread_count, 0);
-    
-    // Have a place to log start time
-    std::chrono::time_point<std::chrono::system_clock> start;
-    
-    {
-        // Set up output to an emitter that will handle serialization
-        unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", "GAM", {}, thread_count);
+    std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
+    std::chrono::duration<double> init_seconds = init - launch;
+    if (progress) {
+        cerr << "Loading and initialization: " << init_seconds.count() << " seconds" << endl;
+    }
 
-#ifdef USE_CALLGRIND
-        // We want to profile the alignment, not the loading.
-        CALLGRIND_START_INSTRUMENTATION;
-#endif
 
-        // Start timing overall mapping time now that indexes are loaded.
-        start = std::chrono::system_clock::now();
-        
-        // Define how to align and output a read, in a thread.
-        auto map_read = [&](Alignment& aln) {
-            // Map the read with the MinimizerMapper.
-            minimizer_mapper.map(aln, *alignment_emitter);
-            // Record that we mapped a read.
-            reads_mapped_by_thread.at(omp_get_thread_num())++;
-        };
-            
-        for (auto& gam_name : gam_filenames) {
-            // For every GAM file to remap
-            get_input_file(gam_name, [&](istream& in) {
-                // Open it and map all the reads in parallel.
-                vg::io::for_each_parallel<Alignment>(in, map_read);
-            });
-        }
-        
-        for (auto& fastq_name : fastq_filenames) {
-            // For every FASTQ file to map, map all its reads in parallel.
-            fastq_unpaired_for_each_parallel(fastq_name, map_read);
-        }
-    
-    } // Make sure alignment emitter is destroyed and all alignments are on disk.
-    
-    // Now mapping is done
-    std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
-    
-    // How many reads did we map?
-    size_t total_reads_mapped = 0;
-    for (auto& reads_mapped : reads_mapped_by_thread) {
-        total_reads_mapped += reads_mapped;
+    if (threads_to_run.empty()) {
+        // Use 0 to represent the default.
+        threads_to_run.push_back(0);
     }
     
-    // Produce a report
-    if (progress) {
-        cerr << "Mapped " << total_reads_mapped << " reads across "
-            << thread_count << " threads in "
-            << elapsed_seconds.count() << " seconds." << endl;
+    for (size_t thread_count_current : threads_to_run) {
+    
+        if (thread_count_current != 0) {
+            omp_set_num_threads(thread_count_current);
+        }
         
-        cerr << "Mapping speed: " << ((total_reads_mapped / elapsed_seconds.count()) / thread_count)
-            << " reads per second per thread" << endl;        
+        // Work out the number of threads we will have
+        size_t thread_count = omp_get_max_threads();
+
+        // Set up counters per-thread for total reads mapped
+        vector<size_t> reads_mapped_by_thread(thread_count, 0);
+        
+        // Have a place to log start time
+        std::chrono::time_point<std::chrono::system_clock> start;
+        
+        {
+            // Set up output to an emitter that will handle serialization
+            // Discard alignments if asked to. Otherwise spit them out in GAM format.
+            unique_ptr<AlignmentEmitter> alignment_emitter = discard_alignments ?
+                make_unique<NullAlignmentEmitter>() :
+                get_alignment_emitter("-", "GAM", {}, thread_count);
+
+#ifdef USE_CALLGRIND
+            // We want to profile the alignment, not the loading.
+            CALLGRIND_START_INSTRUMENTATION;
+#endif
+
+            // Start timing overall mapping time now that indexes are loaded.
+            start = std::chrono::system_clock::now();
+            
+            // Define how to align and output a read, in a thread.
+            auto map_read = [&](Alignment& aln) {
+                // Map the read with the MinimizerMapper.
+                minimizer_mapper.map(aln, *alignment_emitter);
+                // Record that we mapped a read.
+                reads_mapped_by_thread.at(omp_get_thread_num())++;
+            };
+                
+            for (auto& gam_name : gam_filenames) {
+                // For every GAM file to remap
+                get_input_file(gam_name, [&](istream& in) {
+                    // Open it and map all the reads in parallel.
+                    vg::io::for_each_parallel<Alignment>(in, map_read);
+                });
+            }
+            
+            for (auto& fastq_name : fastq_filenames) {
+                // For every FASTQ file to map, map all its reads in parallel.
+                fastq_unpaired_for_each_parallel(fastq_name, map_read);
+            }
+        
+        } // Make sure alignment emitter is destroyed and all alignments are on disk.
+        
+        // Now mapping is done
+        std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+        
+        // How many reads did we map?
+        size_t total_reads_mapped = 0;
+        for (auto& reads_mapped : reads_mapped_by_thread) {
+            total_reads_mapped += reads_mapped;
+        }
+        
+        // Produce a report
+        if (progress) {
+            cerr << "Mapped " << total_reads_mapped << " reads across "
+                << thread_count << " threads in "
+                << elapsed_seconds.count() << " seconds." << endl;
+            
+            cerr << "Mapping speed: " << ((total_reads_mapped / elapsed_seconds.count()) / thread_count)
+                << " reads per second per thread" << endl;
+
+            cerr << "Memory footprint: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GB" << endl;
+        }
+        
     }
         
     return 0;
