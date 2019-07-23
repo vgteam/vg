@@ -2,7 +2,6 @@
 #include "mapper.hpp"
 #include "haplotypes.hpp"
 #include "annotation.hpp"
-#include "algorithms/extract_containing_graph.hpp"
 
 //#define debug_mapper
 
