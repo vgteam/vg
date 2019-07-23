@@ -21,31 +21,33 @@ using namespace std;
  *  
  */ 
 class MCMCGenotyper{
-    const SnarlManager& snarls; 
-    VG& graph;   
+    SnarlManager& snarls; 
+    VG& graph;
+    const int n_iterations = 1000;
+    mutable minstd_rand0 random_engine;
 
 public:
     
-    MCMCGenotyper(const SnarlManager& snarls, VG& graph); 
+    MCMCGenotyper(SnarlManager& snarls, VG& graph, const int n_iterations); 
 
     /** 
      * This method takes as input a collection of mapped reads stored as a vector of multipath alignments and uses 
      * MCMC to find two optimal paths through the graph.
      * Output: phased genome 
      */    
-    PhasedGenome run_genotype(const vector<MultipathAlignment>& reads) const;
+    PhasedGenome run_genotype(const vector<MultipathAlignment>& reads, const double log_base) const;
     
     /**
      * This method represents the poseterior distribution function 
      * returns the posterir probability
      */ 
-     double target(const PhasedGenome& phased_genome, const vector<MultipathAlignment>& reads) const;  
+     double log_target(PhasedGenome& phased_genome, const vector<MultipathAlignment>& reads) const;  
 
     /**
      * This method generates a proposal sample over the desired distrubution
      * returns a sample from the proposal distribution
      */
-     PhasedGenome proposal_sample(const PhasedGenome& current) const;
+     PhasedGenome proposal_sample(PhasedGenome& current) const;
     
     /**
      * Given a range [a,b] will return a random number uniformly distributed within that range 
@@ -56,9 +58,7 @@ public:
       * Generate a PhasedGenome to use as an initial value in M-H
       * Uses the two non-alt paths from the linear reference as haplotypes
       */
-     PhasedGenome generate_initial_guess(void) const{ 
-
-     }
+     PhasedGenome generate_initial_guess(void) const;
 };
 
 }
