@@ -583,7 +583,7 @@ int main_find(int argc, char** argv) {
                 cerr << "[vg find] error, exactly 2 nodes (-n) required with -D" << endl;
                 exit(1);
             }
-            cout << algorithms::min_approx_path_distance(((PathPositionHandleGraph*)&xindex), make_pos_t(node_ids[0], false, 0), make_pos_t(node_ids[1], false, 0), 1000) << endl;
+            cout << algorithms::min_approx_path_distance(dynamic_cast<PathPositionHandleGraph*>(&*xindex), make_pos_t(node_ids[0], false, 0), make_pos_t(node_ids[1], false, 0), 1000) << endl;
             return 0;
         }
         if (approx_id != 0) {
