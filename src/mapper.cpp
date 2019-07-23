@@ -3070,8 +3070,8 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
 // estimate the fragment length as the difference in mean positions of both alignments
 unordered_map<path_handle_t, int64_t> Mapper::min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
     unordered_map<path_handle_t, int64_t> lengths;
-    auto pos1 = algorithms::alignment_path_offsets(*xindex, aln1);
-    auto pos2 = algorithms::alignment_path_offsets(*xindex, aln2);
+    auto pos1 = algorithms::alignment_path_offsets(*xindex, aln1, true, false);
+    auto pos2 = algorithms::alignment_path_offsets(*xindex, aln2, true, false);
     for (auto& p : pos1) {
         auto x = pos2.find(p.first);
         if (x != pos2.end()) {
@@ -3129,8 +3129,8 @@ void FragmentLengthStatistics::record_fragment_configuration(const Alignment& al
     if (fixed_fragment_model) return;
     assert(aln1.path().mapping(0).has_position() && aln2.path().mapping(0).has_position());    
     unordered_map<path_handle_t, tuple<int64_t, bool, bool> > lengths;
-    auto pos1 = algorithms::alignment_path_offsets(*mapper->xindex, aln1);
-    auto pos2 = algorithms::alignment_path_offsets(*mapper->xindex, aln2);
+    auto pos1 = algorithms::alignment_path_offsets(*mapper->xindex, aln1, true, false);
+    auto pos2 = algorithms::alignment_path_offsets(*mapper->xindex, aln2, true, false);
     for (auto& p : pos1) {
         auto x = pos2.find(p.first);
         if (x != pos2.end()) {
@@ -4120,7 +4120,7 @@ AlignmentChainModel::AlignmentChainModel(
             v.weight = aln.score();
             v.prev = nullptr;
             v.score = 0;
-            v.positions = algorithms::alignment_path_offsets(*mapper->xindex, aln);
+            v.positions = algorithms::alignment_path_offsets(*mapper->xindex, aln, true, false);
             v.positions[handlegraph::as_path_handle(0)].push_back(make_pair(mapper->approx_alignment_position(aln), false));
             model.push_back(v);
             // mapper->counter[1]++;
