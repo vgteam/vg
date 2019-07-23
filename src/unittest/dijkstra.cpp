@@ -13,14 +13,14 @@
 
 #include <vg/vg.pb.h>
 
-#include <sglib/hash_graph.hpp>
+#include <bdsg/hash_graph.hpp>
 
 
 namespace vg {
 namespace unittest {
 using namespace std;
 
-using sglib::HashGraph;
+using bdsg::HashGraph;
 
 TEST_CASE("Dijkstra search handles early stopping correctly", "[dijkstra][algorithms]") {
     
