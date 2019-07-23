@@ -107,3 +107,6 @@
 	path = deps/sglib
 	url = https://github.com/vgteam/sglib.git
 	branch = master
+[submodule "deps/FlameGraph"]
+	path = deps/FlameGraph
+	url = https://github.com/brendangregg/FlameGraph
