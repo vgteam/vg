@@ -1604,7 +1604,9 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
 
     // the longest path we could possibly align to (full gap and a full sequence)
     size_t target_length = aln.sequence().size() + get_aligner()->longest_detectable_gap(aln);
-    // TODO... should we still apply the max query graph ratio?
+
+    // copy our alignment, which we'll then modify
+    Alignment aligned = aln;
 
     // convert from bidirected to directed
     unordered_map<id_t, pair<id_t, bool> > node_trans;
@@ -1628,24 +1630,28 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
     }
     if (use_single_stranded) {
         if (mem_strand) {
-            node_trans = algorithms::reverse_complement_graph(&graph, &align_graph);
+            //node_trans = algorithms::reverse_complement_graph(&graph, &align_graph);
+            aligned.set_sequence(reverse_complement(aligned.sequence()));
+            if (!aligned.quality().empty()) {
+                reverse(aligned.mutable_quality()->begin(),
+                        aligned.mutable_quality()->end());
+            }
         }
-        else {
-            // if we are using only the forward strand of the current graph, a make trivial node translation so
-            // the later code's expectations are met
-            // TODO: can we do this without the copy constructor?
-            //align_graph = graph;
-            node_trans.reserve(graph.get_node_count());
-            graph.for_each_handle([&](const handle_t& handle) {
-                    align_graph.create_handle(graph.get_sequence(handle), graph.get_id(handle));
-                    node_trans[graph.get_id(handle)] = make_pair(graph.get_id(handle), false);
-                    return true;
-                });
-            graph.for_each_edge([&](const edge_t& edge) {
-                    align_graph.create_edge(align_graph.get_handle(graph.get_id(edge.first), graph.get_is_reverse(edge.first)),
-                                            align_graph.get_handle(graph.get_id(edge.second), graph.get_is_reverse(edge.second)));
-                });
-        }
+        // if we are using only the forward strand of the current graph, a make trivial node translation so
+        // the later code's expectations are met
+        // TODO: can we do this without the copy constructor?
+        //align_graph = graph;
+        node_trans.reserve(graph.get_node_count());
+        graph.for_each_handle([&](const handle_t& handle) {
+                handle_t x = align_graph.create_handle(graph.get_sequence(handle), graph.get_id(handle));
+                assert(align_graph.get_id(x) == graph.get_id(handle));
+                node_trans[graph.get_id(handle)] = make_pair(graph.get_id(handle), false);
+                return true;
+            });
+        graph.for_each_edge([&](const edge_t& edge) {
+                align_graph.create_edge(align_graph.get_handle(graph.get_id(edge.first), graph.get_is_reverse(edge.first)),
+                                        align_graph.get_handle(graph.get_id(edge.second), graph.get_is_reverse(edge.second)));
+            });
     }
     else {
         node_trans = algorithms::split_strands(&graph, &align_graph);
@@ -1661,8 +1667,6 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         node_trans = overlay_node_translations(dagify_trans, node_trans);
     }
 
-    // copy our alignment, which we'll then modify
-    Alignment aligned = aln;
     auto order = algorithms::topological_order(&align_graph);
 
     if (banded_global) {
@@ -1685,6 +1689,14 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
     }
     if (traceback && !keep_bonuses && aligned.score()) {
         remove_full_length_bonuses(aligned);
+    }
+    // un-reverse complement the alignment
+    if (use_single_stranded && mem_strand) {
+        aligned = reverse_complement_alignment(
+            aligned,
+            (function<int64_t(int64_t)>) ([&](int64_t id) {
+                    return align_graph.get_length(align_graph.get_handle(id));
+                }));
     }
     if (node_trans.size()) {
         translate_oriented_node_ids(*aligned.mutable_path(), node_trans);

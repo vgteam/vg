@@ -888,6 +888,7 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
                                         const string& source_path) {
    
     // Make sure we are starting inside the node
+    // XXX this is broken
     auto first_node_length = xg_index.get_length(xg_index.get_handle(id(curr_pos)));
     assert(vg::offset(curr_pos) < first_node_length);
    

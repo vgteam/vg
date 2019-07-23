@@ -10,7 +10,6 @@
 #include <chrono>
 #include <ctime>
 #include "vg.hpp"
-#include "xg.hpp"
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
