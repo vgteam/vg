@@ -68,11 +68,16 @@ alignment_path_offsets(const PathPositionHandleGraph& graph,
 void annotate_with_initial_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, size_t search_limit) {
     if (!aln.refpos_size()) {
         unordered_map<path_handle_t, vector<pair<size_t, bool> > > positions = alignment_path_offsets(graph, aln, true, false, search_limit);
-        for (auto& path : positions) {
+        // emit them in order of the path handle
+        vector<path_handle_t> ordered;
+        for (auto& path : positions) { ordered.push_back(path.first); }
+        std::sort(ordered.begin(), ordered.end(), [](const path_handle_t& a, const path_handle_t& b) { return as_integer(a) < as_integer(b); });
+        for (auto& path : ordered) {
+            auto& p = positions[path];
             Position* refpos = aln.add_refpos();
-            refpos->set_name(graph.get_path_name(path.first));
-            refpos->set_offset(path.second.front().first);
-            refpos->set_is_reverse(path.second.front().second);
+            refpos->set_name(graph.get_path_name(path));
+            refpos->set_offset(p.front().first);
+            refpos->set_is_reverse(p.front().second);
         }
     }
 }
