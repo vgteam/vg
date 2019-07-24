@@ -6,6 +6,7 @@ var searchData=
   ['vcfrecordconverter',['VcfRecordConverter',['../classvg_1_1VcfRecordConverter.html',1,'vg']]],
   ['vcfrecordfilter',['VcfRecordFilter',['../classvg_1_1VcfRecordFilter.html',1,'vg']]],
   ['vcftraversalfinder',['VCFTraversalFinder',['../classvg_1_1VCFTraversalFinder.html',1,'vg']]],
+  ['vectorizablehandlegraph',['VectorizableHandleGraph',['../classhandlegraph_1_1VectorizableHandleGraph.html',1,'handlegraph']]],
   ['vectorizer',['Vectorizer',['../classVectorizer.html',1,'']]],
   ['version',['Version',['../classvg_1_1Version.html',1,'vg']]],
   ['vg',['VG',['../classvg_1_1VG.html',1,'vg']]],

@@ -108,8 +108,8 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a657231a3f30e8694daf983b6caf771d7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a657231a3f30e8694daf983b6caf771d7">NGSSimulator</a> (<a class="el" href="classvg_1_1XG.html">XG</a> &amp;<a class="el" href="classvg_1_1NGSSimulator.html#a7cb876f826b176dfbac978c70f3e7df9">xg_index</a>, const string &amp;ngs_fastq_file, bool interleaved_fastq=false, const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1NGSSimulator.html#ac377f66a4c6d84f5cb660950d56022ff">source_paths</a>={}, const vector&lt; pair&lt; string, double &gt;&gt; &amp;transcript_expressions={}, double substition_polymorphism_rate=0.001, double indel_polymorphism_rate=0.0002, double indel_error_proportion=0.01, double insert_length_mean=1000.0, double insert_length_stdev=75.0, double error_multiplier=1.0, bool <a class="el" href="classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd">retry_on_Ns</a>=true, size_t <a class="el" href="classvg_1_1NGSSimulator.html#ae24dec0a78bc0166a7f27356632f135a">seed</a>=0)</td></tr>
-<tr class="separator:a657231a3f30e8694daf983b6caf771d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab820f97dbc7f904b87e9b99bcbf4ea87"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ab820f97dbc7f904b87e9b99bcbf4ea87">NGSSimulator</a> (<a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;<a class="el" href="classvg_1_1NGSSimulator.html#a5504b59cd1ac34069c7521130a0bd9ab">xg_index</a>, const string &amp;ngs_fastq_file, bool interleaved_fastq=false, const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1NGSSimulator.html#ac377f66a4c6d84f5cb660950d56022ff">source_paths</a>={}, const vector&lt; pair&lt; string, double &gt;&gt; &amp;transcript_expressions={}, double substition_polymorphism_rate=0.001, double indel_polymorphism_rate=0.0002, double indel_error_proportion=0.01, double insert_length_mean=1000.0, double insert_length_stdev=75.0, double error_multiplier=1.0, bool <a class="el" href="classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd">retry_on_Ns</a>=true, size_t <a class="el" href="classvg_1_1NGSSimulator.html#ae24dec0a78bc0166a7f27356632f135a">seed</a>=0)</td></tr>
+<tr class="separator:ab820f97dbc7f904b87e9b99bcbf4ea87"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a50a20af9dd3edd86233edf1de13a5cda"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a50a20af9dd3edd86233edf1de13a5cda">sample_read</a> ()</td></tr>
 <tr class="memdesc:a50a20af9dd3edd86233edf1de13a5cda"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sample an individual read and alignment.  <a href="#a50a20af9dd3edd86233edf1de13a5cda">More...</a><br/></td></tr>
 <tr class="separator:a50a20af9dd3edd86233edf1de13a5cda"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -189,6 +189,9 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:a4a8eacfde748b35453a54ab40c195680"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; char, string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a4a8eacfde748b35453a54ab40c195680">mutation_alphabets</a></td></tr>
 <tr class="memdesc:a4a8eacfde748b35453a54ab40c195680"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remainder of the alphabet after removing a given character.  <a href="#a4a8eacfde748b35453a54ab40c195680">More...</a><br/></td></tr>
 <tr class="separator:a4a8eacfde748b35453a54ab40c195680"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac83d417596d2d157ddc5903d41be1fef"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ac83d417596d2d157ddc5903d41be1fef">total_seq_length</a> = 0</td></tr>
+<tr class="memdesc:ac83d417596d2d157ddc5903d41be1fef"><td class="mdescLeft">&#160;</td><td class="mdescRight">The total sequence length in our graph.  <a href="#ac83d417596d2d157ddc5903d41be1fef">More...</a><br/></td></tr>
+<tr class="separator:ac83d417596d2d157ddc5903d41be1fef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab8ace60ed77440820944dbdaee5bb123"><td class="memItemLeft" align="right" valign="top">vector&lt; double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ab8ace60ed77440820944dbdaee5bb123">phred_prob</a></td></tr>
 <tr class="memdesc:ab8ace60ed77440820944dbdaee5bb123"><td class="mdescLeft">&#160;</td><td class="mdescRight">Memo for Phred -&gt; probability conversion.  <a href="#ab8ace60ed77440820944dbdaee5bb123">More...</a><br/></td></tr>
 <tr class="separator:ab8ace60ed77440820944dbdaee5bb123"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -208,8 +211,8 @@ Private Attributes</h2></td></tr>
 &lt; uint8_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a147d596d664076c94b468230d78290c4">joint_initial_distr</a></td></tr>
 <tr class="memdesc:a147d596d664076c94b468230d78290c4"><td class="mdescLeft">&#160;</td><td class="mdescRight">A distribution for the joint initial qualities of a read pair.  <a href="#a147d596d664076c94b468230d78290c4">More...</a><br/></td></tr>
 <tr class="separator:a147d596d664076c94b468230d78290c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7cb876f826b176dfbac978c70f3e7df9"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1XG.html">XG</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a7cb876f826b176dfbac978c70f3e7df9">xg_index</a></td></tr>
-<tr class="separator:a7cb876f826b176dfbac978c70f3e7df9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5504b59cd1ac34069c7521130a0bd9ab"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a5504b59cd1ac34069c7521130a0bd9ab">xg_index</a></td></tr>
+<tr class="separator:a5504b59cd1ac34069c7521130a0bd9ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a04b75f1f9595a7b43f4f4ae0e94f3ed1"><td class="memItemLeft" align="right" valign="top">LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, <a class="el" href="structvg_1_1Node.html">Node</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a04b75f1f9595a7b43f4f4ae0e94f3ed1">node_cache</a></td></tr>
 <tr class="separator:a04b75f1f9595a7b43f4f4ae0e94f3ed1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5cfca82fd89f697b066b958aaa4d01ff"><td class="memItemLeft" align="right" valign="top">LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a5cfca82fd89f697b066b958aaa4d01ff">edge_cache</a></td></tr>
@@ -265,14 +268,14 @@ Static Private Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Class that simulates reads with alignments to a graph that mimic the error profile of NGS sequencing data. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="a657231a3f30e8694daf983b6caf771d7"></a>
+<a class="anchor" id="ab820f97dbc7f904b87e9b99bcbf4ea87"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">vg::NGSSimulator::NGSSimulator </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1XG.html">XG</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>xg_index</em>, </td>
         </tr>
         <tr>
@@ -1721,6 +1724,28 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="ac83d417596d2d157ddc5903d41be1fef"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::NGSSimulator::total_seq_length = 0</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>The total sequence length in our graph. </p>
+
+</div>
+</div>
 <a class="anchor" id="a571f3ff879e38077e8d7dad879157d55"></a>
 <div class="memitem">
 <div class="memproto">
@@ -1765,7 +1790,7 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a7cb876f826b176dfbac978c70f3e7df9"></a>
+<a class="anchor" id="a5504b59cd1ac34069c7521130a0bd9ab"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -1773,7 +1798,7 @@ Static Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classvg_1_1XG.html">XG</a>&amp; vg::NGSSimulator::xg_index</td>
+          <td class="memname"><a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a>&amp; vg::NGSSimulator::xg_index</td>
         </tr>
       </table>
   </td>

@@ -1,7 +1,5 @@
 var searchData=
 [
-  ['cached_5fposition_2ecpp',['cached_position.cpp',['../cached__position_8cpp.html',1,'']]],
-  ['cached_5fposition_2ehpp',['cached_position.hpp',['../cached__position_8hpp.html',1,'']]],
   ['cactus_2ecpp',['cactus.cpp',['../cactus_8cpp.html',1,'']]],
   ['cactus_2ehpp',['cactus.hpp',['../cactus_8hpp.html',1,'']]],
   ['call_5fmain_2ecpp',['call_main.cpp',['../call__main_8cpp.html',1,'']]],

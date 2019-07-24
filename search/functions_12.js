@@ -88,7 +88,6 @@ var searchData=
   ['reset',['reset',['../classvg_1_1uniform__real__distribution.html#ad9ba8ac53f8a0af213db9d4f8da12617',1,'vg::uniform_real_distribution::reset()'],['../classvg_1_1normal__distribution.html#a7bae578d38533043f42f09413c7c1e32',1,'vg::normal_distribution::reset()'],['../classvg_1_1uniform__int__distribution.html#a38594c45008dfc36cfbb4f9b9e4193dd',1,'vg::uniform_int_distribution::reset()'],['../classvg_1_1discrete__distribution.html#a5a3ca0751a139bef583b819118188780',1,'vg::discrete_distribution::reset()'],['../structvg_1_1ReadFilter_1_1Counts.html#a82d73a9715f7de040c00dfc9329fd88c',1,'vg::ReadFilter::Counts::reset()']]],
   ['reset_5foptions',['reset_options',['../classvg_1_1Index.html#a954c5b01a69b1e3d7dcce1338b361008',1,'vg::Index']]],
   ['resize_5findexes',['resize_indexes',['../classvg_1_1VG.html#af8879b1e6aab38b9a246deba0f05ccfe',1,'vg::VG']]],
-  ['resolve_5fpaired_5fmems',['resolve_paired_mems',['../classvg_1_1Mapper.html#a2510da1920174a3a4ccadfe0eb1e8bbd',1,'vg::Mapper']]],
   ['restore_5fpaths',['restore_paths',['../classvg_1_1PhaseUnfolder.html#ae98e5c7496de1812a297eb95af4be6b0',1,'vg::PhaseUnfolder']]],
   ['rev_5fcomp_5fmultipath_5falignment',['rev_comp_multipath_alignment',['../namespacevg.html#a40132bfddc17b143e18279d1e176652d',1,'vg']]],
   ['rev_5fcomp_5fmultipath_5falignment_5fin_5fplace',['rev_comp_multipath_alignment_in_place',['../namespacevg.html#afd751a7942664d45206cc1754755a1d9',1,'vg']]],

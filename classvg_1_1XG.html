@@ -110,10 +110,11 @@ Inheritance diagram for vg::XG:</div>
  <div class="center">
   <img src="classvg_1_1XG.png" usemap="#vg::XG_map" alt=""/>
   <map id="vg::XG_map" name="vg::XG_map">
-<area href="classhandlegraph_1_1PathPositionHandleGraph.html" alt="handlegraph::PathPositionHandleGraph" shape="rect" coords="0,112,233,136"/>
-<area href="classhandlegraph_1_1SerializableHandleGraph.html" alt="handlegraph::SerializableHandleGraph" shape="rect" coords="243,112,476,136"/>
-<area href="classhandlegraph_1_1PathHandleGraph.html" alt="handlegraph::PathHandleGraph" shape="rect" coords="0,56,233,80"/>
-<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="0,0,233,24"/>
+<area href="classhandlegraph_1_1PathPositionHandleGraph.html" alt="handlegraph::PathPositionHandleGraph" shape="rect" coords="0,112,235,136"/>
+<area href="classhandlegraph_1_1SerializableHandleGraph.html" alt="handlegraph::SerializableHandleGraph" shape="rect" coords="245,112,480,136"/>
+<area href="classhandlegraph_1_1VectorizableHandleGraph.html" alt="handlegraph::VectorizableHandleGraph" shape="rect" coords="490,112,725,136"/>
+<area href="classhandlegraph_1_1PathHandleGraph.html" alt="handlegraph::PathHandleGraph" shape="rect" coords="0,56,235,80"/>
+<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="0,0,235,24"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -181,11 +182,11 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ab02ef3a1e3c231a8575306e64da07c52"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#ab02ef3a1e3c231a8575306e64da07c52">has_node</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>) const </td></tr>
 <tr class="memdesc:ab02ef3a1e3c231a8575306e64da07c52"><td class="mdescLeft">&#160;</td><td class="mdescRight">Method to check if a node exists by ID.  <a href="#ab02ef3a1e3c231a8575306e64da07c52">More...</a><br/></td></tr>
 <tr class="separator:ab02ef3a1e3c231a8575306e64da07c52"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaed9cbfb3b1854b115bbe16a3d478cdc"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#aaed9cbfb3b1854b115bbe16a3d478cdc">node_at_seq_pos</a> (size_t pos) const </td></tr>
-<tr class="memdesc:aaed9cbfb3b1854b115bbe16a3d478cdc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the node ID at the given sequence position. Works in 1-based coordinates.  <a href="#aaed9cbfb3b1854b115bbe16a3d478cdc">More...</a><br/></td></tr>
-<tr class="separator:aaed9cbfb3b1854b115bbe16a3d478cdc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8abebac5e22ec179a61aba39ba810829"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a8abebac5e22ec179a61aba39ba810829">node_start</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>) const </td></tr>
-<tr class="separator:a8abebac5e22ec179a61aba39ba810829"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a724e4bf54a573f0956bd3b05fa8304c7"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a724e4bf54a573f0956bd3b05fa8304c7">node_at_vector_offset</a> (const size_t &amp;pos) const </td></tr>
+<tr class="memdesc:a724e4bf54a573f0956bd3b05fa8304c7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the node ID at the given sequence position. Works in 1-based coordinates.  <a href="#a724e4bf54a573f0956bd3b05fa8304c7">More...</a><br/></td></tr>
+<tr class="separator:a724e4bf54a573f0956bd3b05fa8304c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af32f712a07a2b8f97c71541af07f600e"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#af32f712a07a2b8f97c71541af07f600e">node_vector_offset</a> (const <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;<a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>) const </td></tr>
+<tr class="separator:af32f712a07a2b8f97c71541af07f600e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6d9e9b330aed19620673370c6e2b1308"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Node.html">Node</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a6d9e9b330aed19620673370c6e2b1308">node</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>) const </td></tr>
 <tr class="separator:a6d9e9b330aed19620673370c6e2b1308"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0aea5a3221bcc35abee2e3ac507b6084"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a0aea5a3221bcc35abee2e3ac507b6084">node_sequence</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>) const </td></tr>
@@ -200,6 +201,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ae90f5b0d07717917ebe6fa3a3cd00706"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aee7a0e33f99b45aac043fc081c5206cf"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#aee7a0e33f99b45aac043fc081c5206cf">edge_graph_idx</a> (const <a class="el" href="structvg_1_1Edge.html">Edge</a> &amp;edge) const </td></tr>
 <tr class="separator:aee7a0e33f99b45aac043fc081c5206cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa1ac975d16302a2482e19462a131481b"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#aa1ac975d16302a2482e19462a131481b">edge_index</a> (const <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &amp;edge) const </td></tr>
+<tr class="memdesc:aa1ac975d16302a2482e19462a131481b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return a unique index among edges in the graph.  <a href="#aa1ac975d16302a2482e19462a131481b">More...</a><br/></td></tr>
+<tr class="separator:aa1ac975d16302a2482e19462a131481b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5306c70f17de5a0dbd1c881ed0440cff"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a5306c70f17de5a0dbd1c881ed0440cff">get_g_iv_size</a> () const </td></tr>
 <tr class="separator:a5306c70f17de5a0dbd1c881ed0440cff"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9879cdd3afc3b420ce9599b591c1e636"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a9879cdd3afc3b420ce9599b591c1e636">has_edge</a> (int64_t id1, bool is_start, int64_t id2, bool is_end) const </td></tr>
@@ -441,10 +445,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a63d5d7788009b975af880f51a63f9004"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a63d5d7788009b975af880f51a63f9004">path_is_circular</a> (size_t rank) const </td></tr>
 <tr class="memdesc:a63d5d7788009b975af880f51a63f9004"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return true if the path with the given rank is circular, and false if it is not. The path must exist.  <a href="#a63d5d7788009b975af880f51a63f9004">More...</a><br/></td></tr>
 <tr class="separator:a63d5d7788009b975af880f51a63f9004"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac136d38e6b23f8dfe725e77016cff68e"><td class="memItemLeft" align="right" valign="top">pair&lt; int64_t, vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#ac136d38e6b23f8dfe725e77016cff68e">nearest_path_node</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, int max_steps=16) const </td></tr>
-<tr class="separator:ac136d38e6b23f8dfe725e77016cff68e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae9a13d5a7a6a15e402cc5d09dc130330"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#ae9a13d5a7a6a15e402cc5d09dc130330">min_approx_path_distance</a> (int64_t id1, int64_t id2) const </td></tr>
-<tr class="separator:ae9a13d5a7a6a15e402cc5d09dc130330"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a16fe3c8966fe46e5f647aa8c09f0b4d7"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a16fe3c8966fe46e5f647aa8c09f0b4d7">paths_on_same_component</a> (size_t path_rank_1, size_t path_rank_2) const </td></tr>
 <tr class="memdesc:a16fe3c8966fe46e5f647aa8c09f0b4d7"><td class="mdescLeft">&#160;</td><td class="mdescRight">returns true if the paths are on the same connected component of the graph (constant time)  <a href="#a16fe3c8966fe46e5f647aa8c09f0b4d7">More...</a><br/></td></tr>
 <tr class="separator:a16fe3c8966fe46e5f647aa8c09f0b4d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1519,6 +1519,34 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="aa1ac975d16302a2482e19462a131481b"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::XG::edge_index </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>edge</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Return a unique index among edges in the graph. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html#a5aa85bce7358af90d1e63d2060a50a39">handlegraph::VectorizableHandleGraph</a>.</p>
 
 </div>
 </div>
@@ -3523,32 +3551,6 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ae9a13d5a7a6a15e402cc5d09dc130330"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int64_t vg::XG::min_approx_path_distance </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id2</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a class="anchor" id="a6f2261ba9af6ac6a1ec7531033a72409"></a>
 <div class="memitem">
 <div class="memproto">
@@ -3624,32 +3626,6 @@ Additional Inherited Members</h2></td></tr>
 <p>Get the minimum node ID used in the graph, if any are used. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a85c52fe4b5f483504ed142d0ad94a969">handlegraph::HandleGraph</a>.</p>
-
-</div>
-</div>
-<a class="anchor" id="ac136d38e6b23f8dfe725e77016cff68e"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">pair&lt; int64_t, vector&lt; size_t &gt; &gt; vg::XG::nearest_path_node </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>max_steps</em> = <code>16</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
 
 </div>
 </div>
@@ -3735,21 +3711,31 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="aaed9cbfb3b1854b115bbe16a3d478cdc"></a>
+<a class="anchor" id="a724e4bf54a573f0956bd3b05fa8304c7"></a>
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int64_t vg::XG::node_at_seq_pos </td>
+          <td class="memname">int64_t vg::XG::node_at_vector_offset </td>
           <td>(</td>
-          <td class="paramtype">size_t&#160;</td>
+          <td class="paramtype">const size_t &amp;&#160;</td>
           <td class="paramname"><em>pos</em></td><td>)</td>
           <td> const</td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 <p>Get the node ID at the given sequence position. Works in 1-based coordinates. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html#a3095e541eee436a9f49ef0846539ef44">handlegraph::VectorizableHandleGraph</a>.</p>
 
 </div>
 </div>
@@ -3937,22 +3923,6 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a8abebac5e22ec179a61aba39ba810829"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::XG::node_start </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a class="anchor" id="ad6173c74d9ea1c9b648bffec00594001"></a>
 <div class="memitem">
 <div class="memproto">
@@ -4014,6 +3984,33 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>use the unified graph storage to return a node subgraph </p>
+
+</div>
+</div>
+<a class="anchor" id="af32f712a07a2b8f97c71541af07f600e"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::XG::node_vector_offset </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>node_id</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Return the start position of the node in a (possibly implict) sorted array constructed from the concatenation of the node sequences </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html#a8666da4a9f55361893544fbb4eff76ce">handlegraph::VectorizableHandleGraph</a>.</p>
 
 </div>
 </div>

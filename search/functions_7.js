@@ -242,8 +242,6 @@ var searchData=
   ['graph_5fcigar',['graph_cigar',['../classvg_1_1GSSWAligner.html#a21bc6add532890776634abd0550f989b',1,'vg::GSSWAligner']]],
   ['graph_5fcontext_5fg',['graph_context_g',['../classvg_1_1XG.html#a71287c44853bee0739d5b1f06b3f8fd7',1,'vg::XG']]],
   ['graph_5fcontext_5fid',['graph_context_id',['../classvg_1_1XG.html#a0b40649456373418019adb82289240a3',1,'vg::XG']]],
-  ['graph_5fdistance',['graph_distance',['../classvg_1_1Mapper.html#a61cf3e7220f18b59d327a57451079925',1,'vg::Mapper']]],
-  ['graph_5fentropy',['graph_entropy',['../classvg_1_1Mapper.html#a60adc48409d0bc8797f64fcd7d35a927',1,'vg::Mapper']]],
   ['graph_5fentry_5fto_5fstring',['graph_entry_to_string',['../classvg_1_1Index.html#a6ab0b0b94f6b7d10ff344982414e7b76',1,'vg::Index']]],
   ['graph_5fkey_5ftype',['graph_key_type',['../classvg_1_1Index.html#a0383b3f571eea1b2189fa3b49b324878',1,'vg::Index']]],
   ['graph_5flength',['graph_length',['../classvg_1_1Packer.html#a5476c955f8639a0b9da0250fa4e3a7bd',1,'vg::Packer']]],

@@ -45,7 +45,7 @@ var searchData=
   ['base_5fgraph',['base_graph',['../structvg_1_1AugmentedGraph.html#a0022757311c1ac569ebfa42e651637af',1,'vg::AugmentedGraph']]],
   ['base_5fpileup',['base_pileup',['../structvg_1_1NodePileup.html#a7ce88a430f079f1d72f96659edeb02de',1,'vg::NodePileup']]],
   ['basealigner',['BaseAligner',['../classvg_1_1BaseAligner.html',1,'vg']]],
-  ['basemapper',['BaseMapper',['../classvg_1_1BaseMapper.html#a2c78a00c087aad130ea850ee94839022',1,'vg::BaseMapper::BaseMapper(XG *xidex, gcsa::GCSA *g, gcsa::LCPArray *a, haplo::ScoreProvider *haplo_score_provider=nullptr)'],['../classvg_1_1BaseMapper.html#a895c239d974f084e7a0a83025e104fd8',1,'vg::BaseMapper::BaseMapper(void)']]],
+  ['basemapper',['BaseMapper',['../classvg_1_1BaseMapper.html#a9a924463193888114237a20617f9485e',1,'vg::BaseMapper::BaseMapper(PathPositionHandleGraph *xidex, gcsa::GCSA *g, gcsa::LCPArray *a, haplo::ScoreProvider *haplo_score_provider=nullptr)'],['../classvg_1_1BaseMapper.html#a895c239d974f084e7a0a83025e104fd8',1,'vg::BaseMapper::BaseMapper(void)']]],
   ['basemapper',['BaseMapper',['../classvg_1_1BaseMapper.html',1,'vg']]],
   ['baseoption',['BaseOption',['../classvg_1_1BaseOption.html#a368247286ff1adae58018b7d16598d17',1,'vg::BaseOption::BaseOption()=delete'],['../classvg_1_1BaseOption.html#a2cad5b14f958dd4e71a4f21debe2c0a0',1,'vg::BaseOption::BaseOption(Configurable *owner, const string &amp;long_opt, const string &amp;short_opts, const Value &amp;default_value, const string &amp;description)']]],
   ['baseoption',['BaseOption',['../classvg_1_1BaseOption.html',1,'vg']]],

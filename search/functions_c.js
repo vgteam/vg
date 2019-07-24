@@ -7,7 +7,6 @@ var searchData=
   ['length',['length',['../structvg_1_1GaplessExtension.html#a799eb5d19c9967d3dd4e8a55b2937adf',1,'vg::GaplessExtension::length()'],['../classvg_1_1MaximalExactMatch.html#a337debd9fc7219234fc98d2d2462c5fc',1,'vg::MaximalExactMatch::length()'],['../classvg_1_1BitString.html#ab4a80eb1f2c9dc963ee13ad640a92611',1,'vg::BitString::length()'],['../classvg_1_1VG.html#a23641dedefa2b6d573939515fcf5974c',1,'vg::VG::length()']]],
   ['less_5fthan',['less_than',['../classvg_1_1StreamSorter.html#a7430c2e7c5191f314a241067d13aa3ea',1,'vg::StreamSorter::less_than(const Message &amp;a, const Message &amp;b) const '],['../classvg_1_1StreamSorter.html#a92260948d55c244f28803053ab52e992',1,'vg::StreamSorter::less_than(const Position &amp;a, const Position &amp;b) const ']]],
   ['likelihoods',['likelihoods',['../classvg_1_1VG.html#ada5821862279a350885f5368a54a5cba',1,'vg::VG']]],
-  ['likely_5fmate_5fposition',['likely_mate_position',['../classvg_1_1Mapper.html#a6477a8dc5a03ce6a4fc638f70524f3cb',1,'vg::Mapper']]],
   ['likely_5fmate_5fpositions',['likely_mate_positions',['../classvg_1_1Mapper.html#a77e11337e9d2aed7a7ffdbb01e1ddd01',1,'vg::Mapper']]],
   ['likely_5fmismapping',['likely_mismapping',['../classvg_1_1MultipathMapper.html#a8a431478a23ced7402ef5bacc5414d21',1,'vg::MultipathMapper']]],
   ['linear_5fhaplo_5fstructure',['linear_haplo_structure',['../structhaplo_1_1linear__haplo__structure.html#a290f0f790f12fd30ecffe5eba5aa7280',1,'haplo::linear_haplo_structure']]],

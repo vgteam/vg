@@ -25,6 +25,6 @@ var searchData=
   ['visit_5fnext_5fnode',['visit_next_node',['../classvg_1_1ExhaustiveTraversalFinder.html#a2cec9de94838e3575a20271db01a1a4f',1,'vg::ExhaustiveTraversalFinder::visit_next_node()'],['../classvg_1_1SupportRestrictedTraversalFinder.html#a9cdb3b8f554e58cba6fea9c2ccb40e14',1,'vg::SupportRestrictedTraversalFinder::visit_next_node()']]],
   ['visits_5fleft',['visits_left',['../classvg_1_1SnarlManager.html#ad139450efd81ac297e0b760173993890',1,'vg::SnarlManager']]],
   ['visits_5fright',['visits_right',['../classvg_1_1SnarlManager.html#a4c690878e0a0415057d92034b51a81fd',1,'vg::SnarlManager']]],
-  ['viz',['Viz',['../classvg_1_1Viz.html#a8e9440d6c67fde7f10fe9c0366759041',1,'vg::Viz::Viz(void)'],['../classvg_1_1Viz.html#ac1eaf1b802672f6fc569855fe30cc9f8',1,'vg::Viz::Viz(XG *x, vector&lt; Packer &gt; *p, const vector&lt; string &gt; &amp;n, const string &amp;o, int w, int h, bool c, bool d, bool t)']]],
+  ['viz',['Viz',['../classvg_1_1Viz.html#a8e9440d6c67fde7f10fe9c0366759041',1,'vg::Viz::Viz(void)'],['../classvg_1_1Viz.html#a5d343eb2d20b2db1eb66def4b8d3081c',1,'vg::Viz::Viz(PathHandleGraph *x, vector&lt; Packer &gt; *p, const vector&lt; string &gt; &amp;n, const string &amp;o, int w, int h, bool c, bool d, bool t)']]],
   ['vpmax',['vpmax',['../namespacevg.html#aec4813274fc2af3d83679e128fdeb32f',1,'vg']]]
 ];

@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['tag',['tag',['../structvg_1_1GBWTGraph_1_1Header.html#a6dcdbb53b34ef37f421f9a2df1c2bb7d',1,'vg::GBWTGraph::Header::tag()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a17e22f4ea8e69209b9aff2c00deb9ba4',1,'vg::io::ProtobufEmitter::tag()'],['../structvg_1_1GBWTGraph_1_1Header.html#a245b739ef1fccad2fb24364a20f5a903',1,'vg::GBWTGraph::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()']]],
+  ['tag',['TAG',['../structvg_1_1GBWTGraph_1_1Header.html#a245b739ef1fccad2fb24364a20f5a903',1,'vg::GBWTGraph::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()'],['../structvg_1_1GBWTGraph_1_1Header.html#a6dcdbb53b34ef37f421f9a2df1c2bb7d',1,'vg::GBWTGraph::Header::tag()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a17e22f4ea8e69209b9aff2c00deb9ba4',1,'vg::io::ProtobufEmitter::tag()']]],
   ['tag_5fto_5floader',['tag_to_loader',['../structvg_1_1io_1_1Registry_1_1Tables.html#a965e60de0073226a98deef0757d7dfa8',1,'vg::io::Registry::Tables']]],
   ['tag_5fto_5fprotobuf',['tag_to_protobuf',['../structvg_1_1io_1_1Registry_1_1Tables.html#abac3d9be375a86c8f55e5777e97fe323',1,'vg::io::Registry::Tables']]],
   ['tail',['tail',['../structvg_1_1mi_1_1CircularBuffer.html#ac7232c53ef7237c4c6ea202df32bc938',1,'vg::mi::CircularBuffer']]],
@@ -44,6 +44,7 @@ var searchData=
   ['top_5ftracebacks',['top_tracebacks',['../classvg_1_1MultipathMapper.html#a122b1eaa39c84e9b18a971ebe6566030',1,'vg::MultipathMapper']]],
   ['topological_5forder',['topological_order',['../classvg_1_1BandedGlobalAligner.html#a45b4ad348f9232013df241afece68afc',1,'vg::BandedGlobalAligner']]],
   ['total_5fbits',['TOTAL_BITS',['../classvg_1_1BitString.html#a754714ef7b6c7a1951ae46b8e2594562',1,'vg::BitString']]],
+  ['total_5fseq_5flength',['total_seq_length',['../classvg_1_1BaseMapper.html#a45439a16e3d38573e5cc59cb95462878',1,'vg::BaseMapper::total_seq_length()'],['../classvg_1_1Sampler.html#a1e14636749c41aa2d525177bf1a68cf5',1,'vg::Sampler::total_seq_length()'],['../classvg_1_1NGSSimulator.html#ac83d417596d2d157ddc5903d41be1fef',1,'vg::NGSSimulator::total_seq_length()']]],
   ['total_5fsupport',['total_support',['../classvg_1_1SupportCaller_1_1PrimaryPath.html#af7917163fa9a4e17ef5e61c345f758cf',1,'vg::SupportCaller::PrimaryPath']]],
   ['track_5fcomponents',['track_components',['../classvg_1_1MEMClusterer_1_1HitGraph.html#a6bc63fbe77aee54235636bbc228a9e96',1,'vg::MEMClusterer::HitGraph']]],
   ['track_5fcorrectness',['track_correctness',['../classvg_1_1MinimizerMapper.html#a7896c6cccfa011c4fbad1b916d30052e',1,'vg::MinimizerMapper']]],

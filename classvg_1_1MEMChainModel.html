@@ -100,8 +100,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a0c2b8b0e0833101e794f3e3a8913e4bf"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMChainModel.html#a0c2b8b0e0833101e794f3e3a8913e4bf">MEMChainModel</a> (const vector&lt; size_t &gt; &amp;aln_lengths, const vector&lt; vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &gt; &amp;matches, const function&lt; int64_t(<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>)&gt; &amp;approx_position, const function&lt; map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;(<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>)&gt; &amp;path_position, const function&lt; double(const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &amp;, const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &amp;)&gt; &amp;transition_weight, int band_width=10, int position_depth=1, int max_connections=20)</td></tr>
-<tr class="separator:a0c2b8b0e0833101e794f3e3a8913e4bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae612545bdf38bad27b4fc18e19d38eff"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMChainModel.html#ae612545bdf38bad27b4fc18e19d38eff">MEMChainModel</a> (const vector&lt; size_t &gt; &amp;aln_lengths, const vector&lt; vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &gt; &amp;matches, const function&lt; int64_t(<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>)&gt; &amp;approx_position, const function&lt; unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;(<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>)&gt; &amp;path_position, const function&lt; double(const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &amp;, const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &amp;)&gt; &amp;transition_weight, int band_width=10, int position_depth=1, int max_connections=20)</td></tr>
+<tr class="separator:ae612545bdf38bad27b4fc18e19d38eff"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aca053d2a91e4ea7ac440edd670893a84"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMChainModel.html#aca053d2a91e4ea7ac440edd670893a84">score</a> (const unordered_set&lt; <a class="el" href="classvg_1_1MEMChainModelVertex.html">MEMChainModelVertex</a> * &gt; &amp;exclude)</td></tr>
 <tr class="separator:aca053d2a91e4ea7ac440edd670893a84"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abc9cf4a87ae1b38488bcf96c0a09b853"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1MEMChainModelVertex.html">MEMChainModelVertex</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMChainModel.html#abc9cf4a87ae1b38488bcf96c0a09b853">max_vertex</a> (void)</td></tr>
@@ -120,18 +120,18 @@ Public Member Functions</h2></td></tr>
 Public Attributes</h2></td></tr>
 <tr class="memitem:a5f0fbf6a027827aa3a2ee1344588e7b7"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MEMChainModelVertex.html">MEMChainModelVertex</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMChainModel.html#a5f0fbf6a027827aa3a2ee1344588e7b7">model</a></td></tr>
 <tr class="separator:a5f0fbf6a027827aa3a2ee1344588e7b7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3ddb4f8ff55ce2210632537416c70180"><td class="memItemLeft" align="right" valign="top">map&lt; string, map&lt; int64_t, <br class="typebreak"/>
-vector&lt; vector<br class="typebreak"/>
+<tr class="memitem:ab273ba5c21fc25422f873dd5d4fd37c3"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, <br class="typebreak"/>
+map&lt; int64_t, vector&lt; vector<br class="typebreak"/>
 &lt; <a class="el" href="classvg_1_1MEMChainModelVertex.html">MEMChainModelVertex</a> &gt;<br class="typebreak"/>
-::iterator &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMChainModel.html#a3ddb4f8ff55ce2210632537416c70180">positions</a></td></tr>
-<tr class="separator:a3ddb4f8ff55ce2210632537416c70180"><td class="memSeparator" colspan="2">&#160;</td></tr>
+::iterator &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMChainModel.html#ab273ba5c21fc25422f873dd5d4fd37c3">positions</a></td></tr>
+<tr class="separator:ab273ba5c21fc25422f873dd5d4fd37c3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6a4132f34b8c9636e02c186ffa75a333"><td class="memItemLeft" align="right" valign="top">set&lt; vector<br class="typebreak"/>
 &lt; <a class="el" href="classvg_1_1MEMChainModelVertex.html">MEMChainModelVertex</a> &gt;<br class="typebreak"/>
 ::iterator &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMChainModel.html#a6a4132f34b8c9636e02c186ffa75a333">redundant_vertexes</a></td></tr>
 <tr class="separator:a6a4132f34b8c9636e02c186ffa75a333"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="a0c2b8b0e0833101e794f3e3a8913e4bf"></a>
+<a class="anchor" id="ae612545bdf38bad27b4fc18e19d38eff"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -156,7 +156,7 @@ vector&lt; vector<br class="typebreak"/>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const function&lt; map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;(<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>)&gt; &amp;&#160;</td>
+          <td class="paramtype">const function&lt; unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;(<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>)&gt; &amp;&#160;</td>
           <td class="paramname"><em>path_position</em>, </td>
         </tr>
         <tr>
@@ -329,12 +329,12 @@ vector&lt; vector<br class="typebreak"/>
 
 </div>
 </div>
-<a class="anchor" id="a3ddb4f8ff55ce2210632537416c70180"></a>
+<a class="anchor" id="ab273ba5c21fc25422f873dd5d4fd37c3"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">map&lt;string, map&lt;int64_t, vector&lt;vector&lt;<a class="el" href="classvg_1_1MEMChainModelVertex.html">MEMChainModelVertex</a>&gt;::iterator&gt; &gt; &gt; vg::MEMChainModel::positions</td>
+          <td class="memname">unordered_map&lt;<a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, map&lt;int64_t, vector&lt;vector&lt;<a class="el" href="classvg_1_1MEMChainModelVertex.html">MEMChainModelVertex</a>&gt;::iterator&gt; &gt; &gt; vg::MEMChainModel::positions</td>
         </tr>
       </table>
 </div><div class="memdoc">

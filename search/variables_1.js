@@ -44,5 +44,6 @@ var searchData=
   ['aug',['aug',['../classvg_1_1SupportRestrictedTraversalFinder.html#a567e6115385fa235eb1a761c9051dca0',1,'vg::SupportRestrictedTraversalFinder::aug()'],['../classvg_1_1ReadRestrictedTraversalFinder.html#ae15a9cd1b2a92b7375784b7c0be3d9c4',1,'vg::ReadRestrictedTraversalFinder::aug()']]],
   ['augmented',['augmented',['../classvg_1_1NestedTraversalFinder.html#a313111e30533ab2a685d7c9e112a6b22',1,'vg::NestedTraversalFinder']]],
   ['available_5fshort_5foptions',['available_short_options',['../classvg_1_1ConfigurableParser.html#a529443bfe60e0ab272166ccc15991ce2',1,'vg::ConfigurableParser']]],
-  ['average_5fsupport_5fswitch_5fthreshold',['average_support_switch_threshold',['../classvg_1_1SupportCaller.html#ad3826a4f33deff50ad7d35c0b121e95c',1,'vg::SupportCaller']]]
+  ['average_5fsupport_5fswitch_5fthreshold',['average_support_switch_threshold',['../classvg_1_1SupportCaller.html#ad3826a4f33deff50ad7d35c0b121e95c',1,'vg::SupportCaller']]],
+  ['avg_5fnode_5flength',['avg_node_length',['../classvg_1_1BaseMapper.html#ad77c0e853fcfc715a15b8852b8b4f388',1,'vg::BaseMapper']]]
 ];

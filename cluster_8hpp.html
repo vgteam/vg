@@ -100,10 +100,12 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <code>#include &quot;<a class="el" href="aligner_8hpp.html">aligner.hpp</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="utility_8hpp.html">utility.hpp</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="mem_8hpp.html">mem.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="xg_8hpp.html">xg.hpp</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="min__distance_8hpp.html">min_distance.hpp</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="path__component__index_8hpp.html">path_component_index.hpp</a>&quot;</code><br/>
+<code>#include &quot;sglib/hash_graph.hpp&quot;</code><br/>
+<code>#include &quot;algorithms/subgraph.hpp&quot;</code><br/>
+<code>#include &quot;algorithms/extract_containing_graph.hpp&quot;</code><br/>
 <code>#include &lt;functional&gt;</code><br/>
 <code>#include &lt;string&gt;</code><br/>
 <code>#include &lt;vector&gt;</code><br/>
@@ -157,16 +159,15 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a18fae3d8be8b58c7e2c4a994a76d4571"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; gcsa::node_type, <br class="typebreak"/>
-size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a18fae3d8be8b58c7e2c4a994a76d4571">vg::mem_node_start_positions</a> (const XG &amp;xg, const <a class="el" href="classvg_1_1MaximalExactMatch.html">vg::MaximalExactMatch</a> &amp;mem)</td></tr>
-<tr class="memdesc:a18fae3d8be8b58c7e2c4a994a76d4571"><td class="mdescLeft">&#160;</td><td class="mdescRight">get the handles that a mem covers  <a href="#a18fae3d8be8b58c7e2c4a994a76d4571">More...</a><br/></td></tr>
-<tr class="separator:a18fae3d8be8b58c7e2c4a994a76d4571"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab62576f1bc1e10f927262105065bad23"><td class="memItemLeft" align="right" valign="top">Graph&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab62576f1bc1e10f927262105065bad23">vg::cluster_subgraph_walk</a> (const XG &amp;xg, const Alignment &amp;aln, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">vg::MaximalExactMatch</a> &gt; &amp;mems, double expansion)</td></tr>
-<tr class="memdesc:ab62576f1bc1e10f927262105065bad23"><td class="mdescLeft">&#160;</td><td class="mdescRight">use walking to get the hits  <a href="#ab62576f1bc1e10f927262105065bad23">More...</a><br/></td></tr>
-<tr class="separator:ab62576f1bc1e10f927262105065bad23"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2e531e39ffe125c6a9ec6158ddfd09d6"><td class="memItemLeft" align="right" valign="top">Graph&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2e531e39ffe125c6a9ec6158ddfd09d6">vg::cluster_subgraph</a> (const XG &amp;xg, const Alignment &amp;aln, const vector&lt; MaximalExactMatch &gt; &amp;mems, double expansion)</td></tr>
-<tr class="memdesc:a2e531e39ffe125c6a9ec6158ddfd09d6"><td class="mdescLeft">&#160;</td><td class="mdescRight">return a subgraph form an xg for a cluster of MEMs from the given alignment  <a href="#a2e531e39ffe125c6a9ec6158ddfd09d6">More...</a><br/></td></tr>
-<tr class="separator:a2e531e39ffe125c6a9ec6158ddfd09d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa65ea58e40ea30264407f9fdbce2a83d"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; gcsa::node_type, <br class="typebreak"/>
+size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa65ea58e40ea30264407f9fdbce2a83d">vg::mem_node_start_positions</a> (const HandleGraph &amp;graph, const <a class="el" href="classvg_1_1MaximalExactMatch.html">vg::MaximalExactMatch</a> &amp;mem)</td></tr>
+<tr class="memdesc:aa65ea58e40ea30264407f9fdbce2a83d"><td class="mdescLeft">&#160;</td><td class="mdescRight">get the handles that a mem covers  <a href="#aa65ea58e40ea30264407f9fdbce2a83d">More...</a><br/></td></tr>
+<tr class="separator:aa65ea58e40ea30264407f9fdbce2a83d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7ee0baa56ef51d7b7d0f9e32d10c0da1"><td class="memItemLeft" align="right" valign="top">sglib::HashGraph&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7ee0baa56ef51d7b7d0f9e32d10c0da1">vg::cluster_subgraph_containing</a> (const HandleGraph &amp;base, const Alignment &amp;aln, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">vg::MaximalExactMatch</a> &gt; &amp;cluster, const GSSWAligner *aligner)</td></tr>
+<tr class="memdesc:a7ee0baa56ef51d7b7d0f9e32d10c0da1"><td class="mdescLeft">&#160;</td><td class="mdescRight">return a containing subgraph connecting the mems  <a href="#a7ee0baa56ef51d7b7d0f9e32d10c0da1">More...</a><br/></td></tr>
+<tr class="separator:a7ee0baa56ef51d7b7d0f9e32d10c0da1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab89c555d5190140f2603c4930b02d4d9"><td class="memItemLeft" align="right" valign="top">sglib::HashGraph&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab89c555d5190140f2603c4930b02d4d9">vg::cluster_subgraph_walk</a> (const HandleGraph &amp;base, const Alignment &amp;aln, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">vg::MaximalExactMatch</a> &gt; &amp;mems, double expansion)</td></tr>
+<tr class="separator:ab89c555d5190140f2603c4930b02d4d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Chaining and clustering tools to work with maximal exact matches. </p>

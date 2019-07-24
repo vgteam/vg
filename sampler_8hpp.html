@@ -102,15 +102,15 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <code>#include &lt;chrono&gt;</code><br/>
 <code>#include &lt;ctime&gt;</code><br/>
 <code>#include &quot;<a class="el" href="vg_8hpp.html">vg.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="xg_8hpp.html">xg.hpp</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="alignment_8hpp.html">alignment.hpp</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="path_8hpp.html">path.hpp</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="position_8hpp.html">position.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="cached__position_8hpp.html">cached_position.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="xg__position_8hpp.html">xg_position.hpp</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="distributions_8hpp.html">distributions.hpp</a>&quot;</code><br/>
 <code>#include &quot;lru_cache.h&quot;</code><br/>
 <code>#include &quot;<a class="el" href="json2pb_8h.html">json2pb.h</a>&quot;</code><br/>
+<code>#include &quot;algorithms/subgraph.hpp&quot;</code><br/>
+<code>#include &quot;algorithms/alignment_path_offsets.hpp&quot;</code><br/>
+<code>#include &quot;algorithms/next_pos_chars.hpp&quot;</code><br/>
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
@@ -128,8 +128,8 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:ab1953756b7236f63975efdba98a9a2e8"><td class="memItemLeft" align="right" valign="top">pos_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab1953756b7236f63975efdba98a9a2e8">vg::position_at</a> (XG *xgidx, const string &amp;path_name, const size_t &amp;path_offset, bool is_reverse)</td></tr>
-<tr class="separator:ab1953756b7236f63975efdba98a9a2e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a01364976e4f0203bfe70b7e89686d242"><td class="memItemLeft" align="right" valign="top">pos_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a01364976e4f0203bfe70b7e89686d242">vg::position_at</a> (PathPositionHandleGraph *xgidx, const string &amp;path_name, const size_t &amp;path_offset, bool is_reverse)</td></tr>
+<tr class="separator:a01364976e4f0203bfe70b7e89686d242"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

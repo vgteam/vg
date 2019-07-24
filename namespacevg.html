@@ -604,6 +604,8 @@ std::vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> * &gt; &gt;&
 <tr class="separator:a7a29090bbc6b842c2362f9da44a4a57c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaed4a2b7bc668cf2e076733ee26e036a"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaed4a2b7bc668cf2e076733ee26e036a">handle_t</a> = <a class="el" href="structhandlegraph_1_1handle__t.html">handlegraph::handle_t</a></td></tr>
 <tr class="separator:aaed4a2b7bc668cf2e076733ee26e036a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a26f660292f00451f15d1c95d9b8c6ffb"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> = <a class="el" href="namespacehandlegraph.html#acfee0df419f087fab4a5cbf2cabff734">handlegraph::nid_t</a></td></tr>
+<tr class="separator:a26f660292f00451f15d1c95d9b8c6ffb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaf7aeec04909c1aac0ad991764d48e24"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaf7aeec04909c1aac0ad991764d48e24">path_handle_t</a> = <a class="el" href="structhandlegraph_1_1path__handle__t.html">handlegraph::path_handle_t</a></td></tr>
 <tr class="separator:aaf7aeec04909c1aac0ad991764d48e24"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a40b137bbd07d198ca2b77962eeeaf7c8"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a40b137bbd07d198ca2b77962eeeaf7c8">step_handle_t</a> = <a class="el" href="structhandlegraph_1_1step__handle__t.html">handlegraph::step_handle_t</a></td></tr>
@@ -628,6 +630,8 @@ std::vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> * &gt; &gt;&
 <tr class="separator:a2f0cc7bac7a4f92b2b523357f8940aa5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7378a177b4ed2e7be87e02a9bfcb7d4e"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7378a177b4ed2e7be87e02a9bfcb7d4e">SerializableHandleGraph</a> = <a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html">handlegraph::SerializableHandleGraph</a></td></tr>
 <tr class="separator:a7378a177b4ed2e7be87e02a9bfcb7d4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a449aa64ac606119e59f71cecb8a3b218"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a449aa64ac606119e59f71cecb8a3b218">VectorizableHandleGraph</a> = <a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html">handlegraph::VectorizableHandleGraph</a></td></tr>
+<tr class="separator:a449aa64ac606119e59f71cecb8a3b218"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9c9577785d47a752c704a282a02ed2ca"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9c9577785d47a752c704a282a02ed2ca">thread_t</a> = vector&lt; <a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">vg::XG::ThreadMapping</a> &gt;</td></tr>
 <tr class="separator:a9c9577785d47a752c704a282a02ed2ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa9d8b2ece3ab50a38656273662553f2d"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa9d8b2ece3ab50a38656273662553f2d">Chain</a> = vector&lt; pair&lt; const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *, bool &gt;&gt;</td></tr>
@@ -940,34 +944,6 @@ Functions</h2></td></tr>
 <tr class="separator:added44ff3bb1c0ce606563a40923c513"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a34b89433618346e971606020965b10ed"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a34b89433618346e971606020965b10ed">build_gcsa_lcp</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, gcsa::GCSA *&amp;gcsa, gcsa::LCPArray *&amp;lcp, int kmer_size, size_t doubling_steps, size_t size_limit, const string &amp;base_file_name)</td></tr>
 <tr class="separator:a34b89433618346e971606020965b10ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4efe1dc7e992646d51ffea7cc63d5eaf"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Node.html">Node</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4efe1dc7e992646d51ffea7cc63d5eaf">xg_cached_node</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx, LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, <a class="el" href="structvg_1_1Node.html">Node</a> &gt; &amp;node_cache)</td></tr>
-<tr class="separator:a4efe1dc7e992646d51ffea7cc63d5eaf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a86559dcd62af9696a3ac9691eab89dfe"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a86559dcd62af9696a3ac9691eab89dfe">xg_cached_edges_of</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx, LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &gt; &amp;edge_cache)</td></tr>
-<tr class="separator:a86559dcd62af9696a3ac9691eab89dfe"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab86a1c6bb8dc9fd9e1d492063a9ffd1c"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab86a1c6bb8dc9fd9e1d492063a9ffd1c">xg_cached_edges_on_start</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx, LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &gt; &amp;edge_cache)</td></tr>
-<tr class="separator:ab86a1c6bb8dc9fd9e1d492063a9ffd1c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7bdb66314b2ed82ed2ae4bf18f37e4ff"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7bdb66314b2ed82ed2ae4bf18f37e4ff">xg_cached_edges_on_end</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx, LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &gt; &amp;edge_cache)</td></tr>
-<tr class="separator:a7bdb66314b2ed82ed2ae4bf18f37e4ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae4cb89e842ec89d382ad2ed8892197e0"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae4cb89e842ec89d382ad2ed8892197e0">xg_cached_node_sequence</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx, LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, <a class="el" href="structvg_1_1Node.html">Node</a> &gt; &amp;node_cache)</td></tr>
-<tr class="separator:ae4cb89e842ec89d382ad2ed8892197e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a491e97427d42041872eb475eba431296"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a491e97427d42041872eb475eba431296">xg_cached_node_length</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx, LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, <a class="el" href="structvg_1_1Node.html">Node</a> &gt; &amp;node_cache)</td></tr>
-<tr class="memdesc:a491e97427d42041872eb475eba431296"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the length of a <a class="el" href="structvg_1_1Node.html" title="Nodes store sequence data. ">Node</a> from an <a class="el" href="classvg_1_1XG.html">XG</a> index, with cacheing of deserialized nodes.  <a href="#a491e97427d42041872eb475eba431296">More...</a><br/></td></tr>
-<tr class="separator:a491e97427d42041872eb475eba431296"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a47b2f798891429d87c493ea83aea9f83"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a47b2f798891429d87c493ea83aea9f83">xg_cached_node_start</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx, LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, int64_t &gt; &amp;node_start_cache)</td></tr>
-<tr class="memdesc:a47b2f798891429d87c493ea83aea9f83"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the node start position in the sequence vector.  <a href="#a47b2f798891429d87c493ea83aea9f83">More...</a><br/></td></tr>
-<tr class="separator:a47b2f798891429d87c493ea83aea9f83"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abb23bc66135d56a301b73143b4199a0d"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abb23bc66135d56a301b73143b4199a0d">xg_cached_pos_char</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos, <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx, LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, <a class="el" href="structvg_1_1Node.html">Node</a> &gt; &amp;node_cache)</td></tr>
-<tr class="memdesc:abb23bc66135d56a301b73143b4199a0d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the character at a position in an <a class="el" href="classvg_1_1XG.html">XG</a> index, with cacheing of deserialized nodes.  <a href="#abb23bc66135d56a301b73143b4199a0d">More...</a><br/></td></tr>
-<tr class="separator:abb23bc66135d56a301b73143b4199a0d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a82d03b17f84bb67bf870b2ec36ba9210"><td class="memItemLeft" align="right" valign="top">map&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, char &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a82d03b17f84bb67bf870b2ec36ba9210">xg_cached_next_pos_chars</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos, <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx, LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, <a class="el" href="structvg_1_1Node.html">Node</a> &gt; &amp;node_cache, LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &gt; &amp;edge_cache)</td></tr>
-<tr class="memdesc:a82d03b17f84bb67bf870b2ec36ba9210"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the characters at positions after the given position from an <a class="el" href="classvg_1_1XG.html">XG</a> index, with cacheing of deserialized nodes.  <a href="#a82d03b17f84bb67bf870b2ec36ba9210">More...</a><br/></td></tr>
-<tr class="separator:a82d03b17f84bb67bf870b2ec36ba9210"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0e721006271c405ac82aa1c8bbce2edb"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0e721006271c405ac82aa1c8bbce2edb">xg_cached_next_pos</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos, bool whole_node, <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx, LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, <a class="el" href="structvg_1_1Node.html">Node</a> &gt; &amp;node_cache, LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &gt; &amp;edge_cache)</td></tr>
-<tr class="separator:a0e721006271c405ac82aa1c8bbce2edb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a24b0d66404109dbab492ae85608d8a4a"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a24b0d66404109dbab492ae85608d8a4a">xg_cached_distance</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos1, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos2, int64_t maximum, <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx, LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, <a class="el" href="structvg_1_1Node.html">Node</a> &gt; &amp;node_cache, LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &gt; &amp;edge_cache)</td></tr>
-<tr class="separator:a24b0d66404109dbab492ae85608d8a4a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac44594932ff0a442d9ea5048517e7524"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac44594932ff0a442d9ea5048517e7524">xg_cached_positions_bp_from</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos, int64_t distance, bool rev, <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx, LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, <a class="el" href="structvg_1_1Node.html">Node</a> &gt; &amp;node_cache, LRUCache&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &gt; &amp;edge_cache)</td></tr>
-<tr class="separator:ac44594932ff0a442d9ea5048517e7524"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa539af4f481d4e955ede26ee85c320c5"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa539af4f481d4e955ede26ee85c320c5">mergeNodeObjects</a> (void *a, void *b)</td></tr>
 <tr class="separator:aa539af4f481d4e955ede26ee85c320c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2dc613a63afb3f23851c96494006630d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2dc613a63afb3f23851c96494006630d">getReachableBridges2</a> (stCactusEdgeEnd *edgeEnd1, stHash *bridgeEndsToBridgeNodes, stList *bridgeEnds)</td></tr>
@@ -982,19 +958,15 @@ Functions</h2></td></tr>
 <tr class="separator:adf53e86632a6d1d4b54370e6d948d08c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa4d05bc207717708d48e1da09f83eec6"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1VG.html">VG</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa4d05bc207717708d48e1da09f83eec6">cactusify</a> (<a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph)</td></tr>
 <tr class="separator:aa4d05bc207717708d48e1da09f83eec6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a18fae3d8be8b58c7e2c4a994a76d4571"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; gcsa::node_type, <br class="typebreak"/>
-size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a18fae3d8be8b58c7e2c4a994a76d4571">mem_node_start_positions</a> (const <a class="el" href="classvg_1_1XG.html">XG</a> &amp;xg, const <a class="el" href="classvg_1_1MaximalExactMatch.html">vg::MaximalExactMatch</a> &amp;mem)</td></tr>
-<tr class="memdesc:a18fae3d8be8b58c7e2c4a994a76d4571"><td class="mdescLeft">&#160;</td><td class="mdescRight">get the handles that a mem covers  <a href="#a18fae3d8be8b58c7e2c4a994a76d4571">More...</a><br/></td></tr>
-<tr class="separator:a18fae3d8be8b58c7e2c4a994a76d4571"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab62576f1bc1e10f927262105065bad23"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Graph.html">Graph</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab62576f1bc1e10f927262105065bad23">cluster_subgraph_walk</a> (const <a class="el" href="classvg_1_1XG.html">XG</a> &amp;xg, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">vg::MaximalExactMatch</a> &gt; &amp;mems, double expansion)</td></tr>
-<tr class="memdesc:ab62576f1bc1e10f927262105065bad23"><td class="mdescLeft">&#160;</td><td class="mdescRight">use walking to get the hits  <a href="#ab62576f1bc1e10f927262105065bad23">More...</a><br/></td></tr>
-<tr class="separator:ab62576f1bc1e10f927262105065bad23"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1d16e2ff72f5c89d010cf34453992909"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Graph.html">Graph</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1d16e2ff72f5c89d010cf34453992909">cluster_subgraph</a> (const <a class="el" href="classvg_1_1XG.html">XG</a> &amp;xg, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">vg::MaximalExactMatch</a> &gt; &amp;mems, double expansion)</td></tr>
-<tr class="memdesc:a1d16e2ff72f5c89d010cf34453992909"><td class="mdescLeft">&#160;</td><td class="mdescRight">return a subgraph form an xg for a cluster of MEMs from the given alignment  <a href="#a1d16e2ff72f5c89d010cf34453992909">More...</a><br/></td></tr>
-<tr class="separator:a1d16e2ff72f5c89d010cf34453992909"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2e531e39ffe125c6a9ec6158ddfd09d6"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Graph.html">Graph</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2e531e39ffe125c6a9ec6158ddfd09d6">cluster_subgraph</a> (const <a class="el" href="classvg_1_1XG.html">XG</a> &amp;xg, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, double expansion)</td></tr>
-<tr class="memdesc:a2e531e39ffe125c6a9ec6158ddfd09d6"><td class="mdescLeft">&#160;</td><td class="mdescRight">return a subgraph form an xg for a cluster of MEMs from the given alignment  <a href="#a2e531e39ffe125c6a9ec6158ddfd09d6">More...</a><br/></td></tr>
-<tr class="separator:a2e531e39ffe125c6a9ec6158ddfd09d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa65ea58e40ea30264407f9fdbce2a83d"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; gcsa::node_type, <br class="typebreak"/>
+size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa65ea58e40ea30264407f9fdbce2a83d">mem_node_start_positions</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="classvg_1_1MaximalExactMatch.html">vg::MaximalExactMatch</a> &amp;mem)</td></tr>
+<tr class="memdesc:aa65ea58e40ea30264407f9fdbce2a83d"><td class="mdescLeft">&#160;</td><td class="mdescRight">get the handles that a mem covers  <a href="#aa65ea58e40ea30264407f9fdbce2a83d">More...</a><br/></td></tr>
+<tr class="separator:aa65ea58e40ea30264407f9fdbce2a83d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7ee0baa56ef51d7b7d0f9e32d10c0da1"><td class="memItemLeft" align="right" valign="top">sglib::HashGraph&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7ee0baa56ef51d7b7d0f9e32d10c0da1">cluster_subgraph_containing</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;base, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">vg::MaximalExactMatch</a> &gt; &amp;cluster, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner)</td></tr>
+<tr class="memdesc:a7ee0baa56ef51d7b7d0f9e32d10c0da1"><td class="mdescLeft">&#160;</td><td class="mdescRight">return a containing subgraph connecting the mems  <a href="#a7ee0baa56ef51d7b7d0f9e32d10c0da1">More...</a><br/></td></tr>
+<tr class="separator:a7ee0baa56ef51d7b7d0f9e32d10c0da1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab89c555d5190140f2603c4930b02d4d9"><td class="memItemLeft" align="right" valign="top">sglib::HashGraph&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab89c555d5190140f2603c4930b02d4d9">cluster_subgraph_walk</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;base, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">vg::MaximalExactMatch</a> &gt; &amp;mems, double expansion)</td></tr>
+<tr class="separator:ab89c555d5190140f2603c4930b02d4d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5674e45f23020370046d49c674fd691f"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:a5674e45f23020370046d49c674fd691f"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5674e45f23020370046d49c674fd691f">convert</a> (const std::string &amp;s, T &amp;r)</td></tr>
 <tr class="separator:a5674e45f23020370046d49c674fd691f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1528,9 +1500,9 @@ int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a clas
 <tr class="separator:a4cdd9b08b7b6d6e15d00536554f3ca56"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a91adfc6327b5709dc73fcc7edbe5da57"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Position.html">Position</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a91adfc6327b5709dc73fcc7edbe5da57">reverse</a> (const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;pos, size_t node_length)</td></tr>
 <tr class="separator:a91adfc6327b5709dc73fcc7edbe5da57"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a95de8f8ed7a5768c89ac738ca6afc692"><td class="memItemLeft" align="right" valign="top">pair&lt; int64_t, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a95de8f8ed7a5768c89ac738ca6afc692">min_oriented_distances</a> (const map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;path_offsets1, const map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;path_offsets2)</td></tr>
-<tr class="memdesc:a95de8f8ed7a5768c89ac738ca6afc692"><td class="mdescLeft">&#160;</td><td class="mdescRight">Find the min distance in the path offsets where the path orientation is the same and different.  <a href="#a95de8f8ed7a5768c89ac738ca6afc692">More...</a><br/></td></tr>
-<tr class="separator:a95de8f8ed7a5768c89ac738ca6afc692"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a973bf2647d54324bc63c323a0aa29a35"><td class="memItemLeft" align="right" valign="top">pair&lt; int64_t, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a973bf2647d54324bc63c323a0aa29a35">min_oriented_distances</a> (const unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;path_offsets1, const unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;path_offsets2)</td></tr>
+<tr class="memdesc:a973bf2647d54324bc63c323a0aa29a35"><td class="mdescLeft">&#160;</td><td class="mdescRight">Find the min distance in the path offsets where the path orientation is the same and different.  <a href="#a973bf2647d54324bc63c323a0aa29a35">More...</a><br/></td></tr>
+<tr class="separator:a973bf2647d54324bc63c323a0aa29a35"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a65ac31e5878660a97207b6ade1418c81"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a65ac31e5878660a97207b6ade1418c81">preflight_check</a> ()</td></tr>
 <tr class="separator:a65ac31e5878660a97207b6ade1418c81"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9e892bf26f768618a2b8c2abea6a6a60"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9e892bf26f768618a2b8c2abea6a6a60">find_edges_to_prune</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t k, size_t edge_max)</td></tr>
@@ -1547,8 +1519,8 @@ int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a clas
 <tr class="separator:a8fd1e3436d98304996aaecece048cb45"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af0a3beb8908adf7a6e4d641243937830"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af0a3beb8908adf7a6e4d641243937830">parse_region</a> (string &amp;region, <a class="el" href="structvg_1_1Region.html">Region</a> &amp;out_region)</td></tr>
 <tr class="separator:af0a3beb8908adf7a6e4d641243937830"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab1953756b7236f63975efdba98a9a2e8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab1953756b7236f63975efdba98a9a2e8">position_at</a> (<a class="el" href="classvg_1_1XG.html">XG</a> *xgidx, const string &amp;path_name, const size_t &amp;path_offset, bool is_reverse)</td></tr>
-<tr class="separator:ab1953756b7236f63975efdba98a9a2e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a01364976e4f0203bfe70b7e89686d242"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a01364976e4f0203bfe70b7e89686d242">position_at</a> (<a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *xgidx, const string &amp;path_name, const size_t &amp;path_offset, bool is_reverse)</td></tr>
+<tr class="separator:a01364976e4f0203bfe70b7e89686d242"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a60712f32af56f292334adcb76e0786f4"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a60712f32af56f292334adcb76e0786f4">min_positive</a> (int64_t n1, int64_t n2)</td></tr>
 <tr class="separator:a60712f32af56f292334adcb76e0786f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a43f061abac718e0386965aa537398e74"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a43f061abac718e0386965aa537398e74">start_backward</a> (const <a class="el" href="namespacevg.html#aa9d8b2ece3ab50a38656273662553f2d">Chain</a> &amp;chain)</td></tr>
@@ -1938,37 +1910,6 @@ int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a clas
 <tr class="separator:abe5c942ac3e30f361884cbe1f53427f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a636e6349888b2e49b17a01247eb4946f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a636e6349888b2e49b17a01247eb4946f">extract_pos_substr</a> (const string &amp;pos_str, int64_t &amp;<a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, bool &amp;<a class="el" href="namespacevg.html#aac725dd44bc5a8f540554d4b1882c1fe">is_rev</a>, size_t &amp;off, size_t &amp;len)</td></tr>
 <tr class="separator:a636e6349888b2e49b17a01247eb4946f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0de56d7cb4f05843305a9d0497f19e2d"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Node.html">Node</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0de56d7cb4f05843305a9d0497f19e2d">xg_node</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, const <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx)</td></tr>
-<tr class="separator:a0de56d7cb4f05843305a9d0497f19e2d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad80f555b35eb3f9485e3f68f75aa6296"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad80f555b35eb3f9485e3f68f75aa6296">xg_edges_on_start</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, const <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx)</td></tr>
-<tr class="separator:ad80f555b35eb3f9485e3f68f75aa6296"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aae3262d37191e637f290825aa7b17267"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aae3262d37191e637f290825aa7b17267">xg_edges_on_end</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, const <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx)</td></tr>
-<tr class="separator:aae3262d37191e637f290825aa7b17267"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae3647d190d049d537f01b104864534e9"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae3647d190d049d537f01b104864534e9">xg_node_sequence</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, const <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx)</td></tr>
-<tr class="separator:ae3647d190d049d537f01b104864534e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a525497037c8fa9fcf3caac2846c45e01"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a525497037c8fa9fcf3caac2846c45e01">xg_node_length</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, const <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx)</td></tr>
-<tr class="memdesc:a525497037c8fa9fcf3caac2846c45e01"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the length of a <a class="el" href="structvg_1_1Node.html" title="Nodes store sequence data. ">Node</a> from an <a class="el" href="classvg_1_1XG.html">XG</a> index, with cacheing of deserialized nodes.  <a href="#a525497037c8fa9fcf3caac2846c45e01">More...</a><br/></td></tr>
-<tr class="separator:a525497037c8fa9fcf3caac2846c45e01"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aff0962e8ac400ad33c8652974e876cb6"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aff0962e8ac400ad33c8652974e876cb6">xg_node_start</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, const <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx)</td></tr>
-<tr class="memdesc:aff0962e8ac400ad33c8652974e876cb6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the node start position in the sequence vector.  <a href="#aff0962e8ac400ad33c8652974e876cb6">More...</a><br/></td></tr>
-<tr class="separator:aff0962e8ac400ad33c8652974e876cb6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af34b39b4b0ebd892455506d13982e5d4"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af34b39b4b0ebd892455506d13982e5d4">xg_pos_char</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos, const <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx)</td></tr>
-<tr class="memdesc:af34b39b4b0ebd892455506d13982e5d4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the character at a position in an <a class="el" href="classvg_1_1XG.html">XG</a> index, with cacheing of deserialized nodes.  <a href="#af34b39b4b0ebd892455506d13982e5d4">More...</a><br/></td></tr>
-<tr class="separator:af34b39b4b0ebd892455506d13982e5d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0588030d0f01747d0536ad9fc9329a26"><td class="memItemLeft" align="right" valign="top">map&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, char &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0588030d0f01747d0536ad9fc9329a26">xg_next_pos_chars</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos, const <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx)</td></tr>
-<tr class="memdesc:a0588030d0f01747d0536ad9fc9329a26"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the characters at positions after the given position from an <a class="el" href="classvg_1_1XG.html">XG</a> index, with cacheing of deserialized nodes.  <a href="#a0588030d0f01747d0536ad9fc9329a26">More...</a><br/></td></tr>
-<tr class="separator:a0588030d0f01747d0536ad9fc9329a26"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8ca9118cea7a5ef59454726fddfb93a0"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8ca9118cea7a5ef59454726fddfb93a0">xg_next_pos</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos, bool whole_node, const <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx)</td></tr>
-<tr class="separator:a8ca9118cea7a5ef59454726fddfb93a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a06435fe5d4d6ec33a7422e55bc3126a6"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a06435fe5d4d6ec33a7422e55bc3126a6">xg_distance</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos1, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos2, int64_t maximum, const <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx)</td></tr>
-<tr class="separator:a06435fe5d4d6ec33a7422e55bc3126a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6c6b81d45fb8f5abb5f3f50fd772160e"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6c6b81d45fb8f5abb5f3f50fd772160e">xg_positions_bp_from</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos, int64_t distance, bool rev, const <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx)</td></tr>
-<tr class="separator:a6c6b81d45fb8f5abb5f3f50fd772160e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afbea2fc616296b74b00cbfdd3fedcb1d"><td class="memItemLeft" align="right" valign="top">map&lt; string, vector&lt; pair<br class="typebreak"/>
-&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afbea2fc616296b74b00cbfdd3fedcb1d">xg_alignment_path_offsets</a> (const <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool just_min, bool nearby, size_t search_limit)</td></tr>
-<tr class="separator:afbea2fc616296b74b00cbfdd3fedcb1d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad7727396a5d72e82ac30a8c376413566"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad7727396a5d72e82ac30a8c376413566">xg_annotate_with_initial_path_positions</a> (const <a class="el" href="classvg_1_1XG.html">XG</a> *xgidx, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, size_t search_limit)</td></tr>
-<tr class="separator:ad7727396a5d72e82ac30a8c376413566"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
 Variables</h2></td></tr>
@@ -2195,6 +2136,18 @@ Variables</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a26f660292f00451f15d1c95d9b8c6ffb"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">vg::nid_t</a> = typedef <a class="el" href="namespacehandlegraph.html#acfee0df419f087fab4a5cbf2cabff734">handlegraph::nid_t</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a class="anchor" id="a9cdb6d0305bd8cbf46efed9b2799877a"></a>
 <div class="memitem">
 <div class="memproto">
@@ -2335,6 +2288,18 @@ Variables</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">typedef pair&lt;int64_t, int32_t&gt; <a class="el" href="namespacevg.html#ab4a38bfa82e060b258aa53d0cc4ed695">vg::trav_t</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a449aa64ac606119e59f71cecb8a3b218"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html">vg::VectorizableHandleGraph</a> = typedef <a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html">handlegraph::VectorizableHandleGraph</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -4509,15 +4474,15 @@ template&lt;typename Annotated &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a2e531e39ffe125c6a9ec6158ddfd09d6"></a>
+<a class="anchor" id="a7ee0baa56ef51d7b7d0f9e32d10c0da1"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structvg_1_1Graph.html">Graph</a> vg::cluster_subgraph </td>
+          <td class="memname">sglib::HashGraph vg::cluster_subgraph_containing </td>
           <td>(</td>
-          <td class="paramtype">const XG &amp;&#160;</td>
-          <td class="paramname"><em>xg</em>, </td>
+          <td class="paramtype">const HandleGraph &amp;&#160;</td>
+          <td class="paramname"><em>base</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -4528,14 +4493,14 @@ template&lt;typename Annotated &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const vector&lt; MaximalExactMatch &gt; &amp;&#160;</td>
-          <td class="paramname"><em>mems</em>, </td>
+          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">vg::MaximalExactMatch</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>cluster</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">double&#160;</td>
-          <td class="paramname"><em>expansion</em>&#160;</td>
+          <td class="paramtype">const GSSWAligner *&#160;</td>
+          <td class="paramname"><em>aligner</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -4545,19 +4510,19 @@ template&lt;typename Annotated &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>return a subgraph form an xg for a cluster of MEMs from the given alignment </p>
+<p>return a containing subgraph connecting the mems </p>
 
 </div>
 </div>
-<a class="anchor" id="a1d16e2ff72f5c89d010cf34453992909"></a>
+<a class="anchor" id="ab89c555d5190140f2603c4930b02d4d9"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structvg_1_1Graph.html">Graph</a> vg::cluster_subgraph </td>
+          <td class="memname">sglib::HashGraph vg::cluster_subgraph_walk </td>
           <td>(</td>
-          <td class="paramtype">const XG &amp;&#160;</td>
-          <td class="paramname"><em>xg</em>, </td>
+          <td class="paramtype">const HandleGraph &amp;&#160;</td>
+          <td class="paramname"><em>base</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -4584,48 +4549,7 @@ template&lt;typename Annotated &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>return a subgraph form an xg for a cluster of MEMs from the given alignment </p>
-
-</div>
-</div>
-<a class="anchor" id="ab62576f1bc1e10f927262105065bad23"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structvg_1_1Graph.html">Graph</a> vg::cluster_subgraph_walk </td>
-          <td>(</td>
-          <td class="paramtype">const XG &amp;&#160;</td>
-          <td class="paramname"><em>xg</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const Alignment &amp;&#160;</td>
-          <td class="paramname"><em>aln</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">vg::MaximalExactMatch</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>mems</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">double&#160;</td>
-          <td class="paramname"><em>expansion</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>use walking to get the hits </p>
+<p>return a subgraph form an xg for a cluster of MEMs from the given alignment use walking to get the hits </p>
 
 </div>
 </div>
@@ -9779,15 +9703,15 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
 
 </div>
 </div>
-<a class="anchor" id="a18fae3d8be8b58c7e2c4a994a76d4571"></a>
+<a class="anchor" id="aa65ea58e40ea30264407f9fdbce2a83d"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">vector&lt; pair&lt; gcsa::node_type, size_t &gt; &gt; vg::mem_node_start_positions </td>
           <td>(</td>
-          <td class="paramtype">const XG &amp;&#160;</td>
-          <td class="paramname"><em>xg</em>, </td>
+          <td class="paramtype">const HandleGraph &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -10061,20 +9985,20 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
 
 </div>
 </div>
-<a class="anchor" id="a95de8f8ed7a5768c89ac738ca6afc692"></a>
+<a class="anchor" id="a973bf2647d54324bc63c323a0aa29a35"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">pair&lt; int64_t, int64_t &gt; vg::min_oriented_distances </td>
           <td>(</td>
-          <td class="paramtype">const map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;&#160;</td>
+          <td class="paramtype">const unordered_map&lt; path_handle_t, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;&#160;</td>
           <td class="paramname"><em>path_offsets1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;&#160;</td>
+          <td class="paramtype">const unordered_map&lt; path_handle_t, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;&#160;</td>
           <td class="paramname"><em>path_offsets2</em>&#160;</td>
         </tr>
         <tr>
@@ -12937,14 +12861,14 @@ template&lt;typename TracebackIterator &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="ab1953756b7236f63975efdba98a9a2e8"></a>
+<a class="anchor" id="a01364976e4f0203bfe70b7e89686d242"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> vg::position_at </td>
           <td>(</td>
-          <td class="paramtype">XG *&#160;</td>
+          <td class="paramtype">PathPositionHandleGraph *&#160;</td>
           <td class="paramname"><em>xgidx</em>, </td>
         </tr>
         <tr>
@@ -17060,789 +16984,6 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="afbea2fc616296b74b00cbfdd3fedcb1d"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; vg::xg_alignment_path_offsets </td>
-          <td>(</td>
-          <td class="paramtype">const XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const Alignment &amp;&#160;</td>
-          <td class="paramname"><em>aln</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>just_min</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>nearby</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>search_limit</em> = <code>0</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Get a map from path name to a list of positions on that path touched by or near to the given <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. If nearby is set, search off the part of the graph actually covered by the alignment, to try and find nearby positions along nearby paths. Otherwise, we only search off the actually touched part of the graph if we can't find any paths on it. If just_min is set, produce only one position per path, which will be the lowest graph position <em>touched</em> by the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> (could be a <a class="el" href="structvg_1_1Mapping.html">Mapping</a> start <em>or</em> end). Otherwise, produces one position per occurrence on the path of the position of each <a class="el" href="structvg_1_1Mapping.html">Mapping</a> in the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, which will be the position at which the <a class="el" href="structvg_1_1Mapping.html">Mapping</a> <em>starts</em>.</p>
-<p>During the search for nearby positions, walk up to search_limit bases, or the length of the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>'s sequence if search_limit is 0. </p>
-
-</div>
-</div>
-<a class="anchor" id="ad7727396a5d72e82ac30a8c376413566"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::xg_annotate_with_initial_path_positions </td>
-          <td>(</td>
-          <td class="paramtype">const XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">Alignment &amp;&#160;</td>
-          <td class="paramname"><em>aln</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>search_limit</em> = <code>0</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Annotate the given <a class="el" href="structvg_1_1Alignment.html">Alignment</a> in place with the earliest touched positions, as produced by xg_alignment_path_offsets, as refpos values. Always uses min positions. Only resorts to nearby positions if no positions on a path are touched. During the search for nearby positions, walk up to search_limit bases, or the length of the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>'s sequence if search_limit is 0. </p>
-
-</div>
-</div>
-<a class="anchor" id="a24b0d66404109dbab492ae85608d8a4a"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int64_t vg::xg_cached_distance </td>
-          <td>(</td>
-          <td class="paramtype">pos_t&#160;</td>
-          <td class="paramname"><em>pos1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">pos_t&#160;</td>
-          <td class="paramname"><em>pos2</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>maximum</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LRUCache&lt; id_t, Node &gt; &amp;&#160;</td>
-          <td class="paramname"><em>node_cache</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LRUCache&lt; id_t, vector&lt; Edge &gt; &gt; &amp;&#160;</td>
-          <td class="paramname"><em>edge_cache</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a86559dcd62af9696a3ac9691eab89dfe"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; vg::xg_cached_edges_of </td>
-          <td>(</td>
-          <td class="paramtype">id_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LRUCache&lt; id_t, vector&lt; Edge &gt; &gt; &amp;&#160;</td>
-          <td class="paramname"><em>edge_cache</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a7bdb66314b2ed82ed2ae4bf18f37e4ff"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; vg::xg_cached_edges_on_end </td>
-          <td>(</td>
-          <td class="paramtype">id_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LRUCache&lt; id_t, vector&lt; Edge &gt; &gt; &amp;&#160;</td>
-          <td class="paramname"><em>edge_cache</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="ab86a1c6bb8dc9fd9e1d492063a9ffd1c"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; vg::xg_cached_edges_on_start </td>
-          <td>(</td>
-          <td class="paramtype">id_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LRUCache&lt; id_t, vector&lt; Edge &gt; &gt; &amp;&#160;</td>
-          <td class="paramname"><em>edge_cache</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a0e721006271c405ac82aa1c8bbce2edb"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; vg::xg_cached_next_pos </td>
-          <td>(</td>
-          <td class="paramtype">pos_t&#160;</td>
-          <td class="paramname"><em>pos</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>whole_node</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LRUCache&lt; id_t, Node &gt; &amp;&#160;</td>
-          <td class="paramname"><em>node_cache</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LRUCache&lt; id_t, vector&lt; Edge &gt; &gt; &amp;&#160;</td>
-          <td class="paramname"><em>edge_cache</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a82d03b17f84bb67bf870b2ec36ba9210"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">map&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, char &gt; vg::xg_cached_next_pos_chars </td>
-          <td>(</td>
-          <td class="paramtype">pos_t&#160;</td>
-          <td class="paramname"><em>pos</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LRUCache&lt; id_t, Node &gt; &amp;&#160;</td>
-          <td class="paramname"><em>node_cache</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LRUCache&lt; id_t, vector&lt; Edge &gt; &gt; &amp;&#160;</td>
-          <td class="paramname"><em>edge_cache</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Get the characters at positions after the given position from an <a class="el" href="classvg_1_1XG.html">XG</a> index, with cacheing of deserialized nodes. </p>
-
-</div>
-</div>
-<a class="anchor" id="a4efe1dc7e992646d51ffea7cc63d5eaf"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structvg_1_1Node.html">Node</a> vg::xg_cached_node </td>
-          <td>(</td>
-          <td class="paramtype">id_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LRUCache&lt; id_t, Node &gt; &amp;&#160;</td>
-          <td class="paramname"><em>node_cache</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a491e97427d42041872eb475eba431296"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::xg_cached_node_length </td>
-          <td>(</td>
-          <td class="paramtype">id_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LRUCache&lt; id_t, Node &gt; &amp;&#160;</td>
-          <td class="paramname"><em>node_cache</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Get the length of a <a class="el" href="structvg_1_1Node.html" title="Nodes store sequence data. ">Node</a> from an <a class="el" href="classvg_1_1XG.html">XG</a> index, with cacheing of deserialized nodes. </p>
-
-</div>
-</div>
-<a class="anchor" id="ae4cb89e842ec89d382ad2ed8892197e0"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">string vg::xg_cached_node_sequence </td>
-          <td>(</td>
-          <td class="paramtype">id_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LRUCache&lt; id_t, Node &gt; &amp;&#160;</td>
-          <td class="paramname"><em>node_cache</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a47b2f798891429d87c493ea83aea9f83"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int64_t vg::xg_cached_node_start </td>
-          <td>(</td>
-          <td class="paramtype">id_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LRUCache&lt; id_t, int64_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>node_start_cache</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Get the node start position in the sequence vector. </p>
-
-</div>
-</div>
-<a class="anchor" id="abb23bc66135d56a301b73143b4199a0d"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">char vg::xg_cached_pos_char </td>
-          <td>(</td>
-          <td class="paramtype">pos_t&#160;</td>
-          <td class="paramname"><em>pos</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LRUCache&lt; id_t, Node &gt; &amp;&#160;</td>
-          <td class="paramname"><em>node_cache</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Get the character at a position in an <a class="el" href="classvg_1_1XG.html">XG</a> index, with cacheing of deserialized nodes. </p>
-
-</div>
-</div>
-<a class="anchor" id="ac44594932ff0a442d9ea5048517e7524"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; vg::xg_cached_positions_bp_from </td>
-          <td>(</td>
-          <td class="paramtype">pos_t&#160;</td>
-          <td class="paramname"><em>pos</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>distance</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>rev</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LRUCache&lt; id_t, Node &gt; &amp;&#160;</td>
-          <td class="paramname"><em>node_cache</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LRUCache&lt; id_t, vector&lt; Edge &gt; &gt; &amp;&#160;</td>
-          <td class="paramname"><em>edge_cache</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a06435fe5d4d6ec33a7422e55bc3126a6"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int64_t vg::xg_distance </td>
-          <td>(</td>
-          <td class="paramtype">pos_t&#160;</td>
-          <td class="paramname"><em>pos1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">pos_t&#160;</td>
-          <td class="paramname"><em>pos2</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>maximum</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="aae3262d37191e637f290825aa7b17267"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; vg::xg_edges_on_end </td>
-          <td>(</td>
-          <td class="paramtype">id_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="ad80f555b35eb3f9485e3f68f75aa6296"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; vg::xg_edges_on_start </td>
-          <td>(</td>
-          <td class="paramtype">id_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a8ca9118cea7a5ef59454726fddfb93a0"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; vg::xg_next_pos </td>
-          <td>(</td>
-          <td class="paramtype">pos_t&#160;</td>
-          <td class="paramname"><em>pos</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>whole_node</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a0588030d0f01747d0536ad9fc9329a26"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">map&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, char &gt; vg::xg_next_pos_chars </td>
-          <td>(</td>
-          <td class="paramtype">pos_t&#160;</td>
-          <td class="paramname"><em>pos</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Get the characters at positions after the given position from an <a class="el" href="classvg_1_1XG.html">XG</a> index, with cacheing of deserialized nodes. </p>
-
-</div>
-</div>
-<a class="anchor" id="a0de56d7cb4f05843305a9d0497f19e2d"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structvg_1_1Node.html">Node</a> vg::xg_node </td>
-          <td>(</td>
-          <td class="paramtype">id_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a525497037c8fa9fcf3caac2846c45e01"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::xg_node_length </td>
-          <td>(</td>
-          <td class="paramtype">id_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Get the length of a <a class="el" href="structvg_1_1Node.html" title="Nodes store sequence data. ">Node</a> from an <a class="el" href="classvg_1_1XG.html">XG</a> index, with cacheing of deserialized nodes. </p>
-
-</div>
-</div>
-<a class="anchor" id="ae3647d190d049d537f01b104864534e9"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">string vg::xg_node_sequence </td>
-          <td>(</td>
-          <td class="paramtype">id_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="aff0962e8ac400ad33c8652974e876cb6"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int64_t vg::xg_node_start </td>
-          <td>(</td>
-          <td class="paramtype">id_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Get the node start position in the sequence vector. </p>
-
-</div>
-</div>
 <a class="anchor" id="a4f66f9c598efc54292c0f59103ff3d81"></a>
 <div class="memitem">
 <div class="memproto">
@@ -17876,72 +17017,6 @@ template&lt;typename T &gt; </div>
 </div><div class="memdoc">
 
 <p>Convert a node on <a class="el" href="classvg_1_1XGPath.html">XGPath</a> to gbwt::node_type. </p>
-
-</div>
-</div>
-<a class="anchor" id="af34b39b4b0ebd892455506d13982e5d4"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">char vg::xg_pos_char </td>
-          <td>(</td>
-          <td class="paramtype">pos_t&#160;</td>
-          <td class="paramname"><em>pos</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Get the character at a position in an <a class="el" href="classvg_1_1XG.html">XG</a> index, with cacheing of deserialized nodes. </p>
-
-</div>
-</div>
-<a class="anchor" id="a6c6b81d45fb8f5abb5f3f50fd772160e"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; vg::xg_positions_bp_from </td>
-          <td>(</td>
-          <td class="paramtype">pos_t&#160;</td>
-          <td class="paramname"><em>pos</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>distance</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>rev</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const XG *&#160;</td>
-          <td class="paramname"><em>xgidx</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
 
 </div>
 </div>

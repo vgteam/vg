@@ -97,6 +97,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <code>#include &quot;<a class="el" href="utility_8hpp.html">utility.hpp</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="json2pb_8h.html">json2pb.h</a>&quot;</code><br/>
 <code>#include &lt;gcsa/gcsa.h&gt;</code><br/>
+<code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br/>
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -122,9 +123,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a4cdd9b08b7b6d6e15d00536554f3ca56"><td class="memItemLeft" align="right" valign="top">Position&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4cdd9b08b7b6d6e15d00536554f3ca56">vg::make_position</a> (gcsa::node_type node)</td></tr>
 <tr class="memdesc:a4cdd9b08b7b6d6e15d00536554f3ca56"><td class="mdescLeft">&#160;</td><td class="mdescRight">Make a <a class="el" href="structvg_1_1Position.html">Position</a> from a gcsa node.  <a href="#a4cdd9b08b7b6d6e15d00536554f3ca56">More...</a><br/></td></tr>
 <tr class="separator:a4cdd9b08b7b6d6e15d00536554f3ca56"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a95de8f8ed7a5768c89ac738ca6afc692"><td class="memItemLeft" align="right" valign="top">pair&lt; int64_t, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a95de8f8ed7a5768c89ac738ca6afc692">vg::min_oriented_distances</a> (const map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;path_offsets1, const map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;path_offsets2)</td></tr>
-<tr class="memdesc:a95de8f8ed7a5768c89ac738ca6afc692"><td class="mdescLeft">&#160;</td><td class="mdescRight">Find the min distance in the path offsets where the path orientation is the same and different.  <a href="#a95de8f8ed7a5768c89ac738ca6afc692">More...</a><br/></td></tr>
-<tr class="separator:a95de8f8ed7a5768c89ac738ca6afc692"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a973bf2647d54324bc63c323a0aa29a35"><td class="memItemLeft" align="right" valign="top">pair&lt; int64_t, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a973bf2647d54324bc63c323a0aa29a35">vg::min_oriented_distances</a> (const unordered_map&lt; path_handle_t, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;path_offsets1, const unordered_map&lt; path_handle_t, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;path_offsets2)</td></tr>
+<tr class="memdesc:a973bf2647d54324bc63c323a0aa29a35"><td class="mdescLeft">&#160;</td><td class="mdescRight">Find the min distance in the path offsets where the path orientation is the same and different.  <a href="#a973bf2647d54324bc63c323a0aa29a35">More...</a><br/></td></tr>
+<tr class="separator:a973bf2647d54324bc63c323a0aa29a35"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Functions for working with Positions and <code>pos_t</code>s. </p>

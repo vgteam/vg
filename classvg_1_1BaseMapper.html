@@ -91,9 +91,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-static-methods">Static Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
-<a href="#pro-methods">Protected Member Functions</a> &#124;
-<a href="#pro-attribs">Protected Attributes</a> &#124;
-<a href="#pro-static-attribs">Static Protected Attributes</a> &#124;
+<a href="#pub-static-attribs">Static Public Attributes</a> &#124;
 <a href="classvg_1_1BaseMapper-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::BaseMapper Class Reference</div>  </div>
@@ -115,8 +113,8 @@ Inheritance diagram for vg::BaseMapper:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a2c78a00c087aad130ea850ee94839022"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a2c78a00c087aad130ea850ee94839022">BaseMapper</a> (<a class="el" href="classvg_1_1XG.html">XG</a> *xidex, gcsa::GCSA *g, gcsa::LCPArray *a, <a class="el" href="classhaplo_1_1ScoreProvider.html">haplo::ScoreProvider</a> *<a class="el" href="classvg_1_1BaseMapper.html#af69ce88df203124121b71bdfdc6f3694">haplo_score_provider</a>=nullptr)</td></tr>
-<tr class="separator:a2c78a00c087aad130ea850ee94839022"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9a924463193888114237a20617f9485e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a9a924463193888114237a20617f9485e">BaseMapper</a> (<a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *xidex, gcsa::GCSA *g, gcsa::LCPArray *a, <a class="el" href="classhaplo_1_1ScoreProvider.html">haplo::ScoreProvider</a> *<a class="el" href="classvg_1_1BaseMapper.html#af69ce88df203124121b71bdfdc6f3694">haplo_score_provider</a>=nullptr)</td></tr>
+<tr class="separator:a9a924463193888114237a20617f9485e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a895c239d974f084e7a0a83025e104fd8"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a895c239d974f084e7a0a83025e104fd8">BaseMapper</a> (void)</td></tr>
 <tr class="separator:a895c239d974f084e7a0a83025e104fd8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2884c6722e6bd9c9aab6671a85a6c3c0"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a2884c6722e6bd9c9aab6671a85a6c3c0">random_match_length</a> (double chance_random)</td></tr>
@@ -143,6 +141,16 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:af4372862ebd4f21da3e9ed105249a5af"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae3103b73da0ef6137ad1d1bd16e35d56"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#ae3103b73da0ef6137ad1d1bd16e35d56">prefilter_redundant_sub_mems</a> (vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, vector&lt; pair&lt; int, vector&lt; size_t &gt;&gt;&gt; &amp;sub_mem_containment_graph)</td></tr>
 <tr class="separator:ae3103b73da0ef6137ad1d1bd16e35d56"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a77079f609cab775e59ff0750ef9e84d9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a77079f609cab775e59ff0750ef9e84d9">find_sub_mems</a> (const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, int parent_layer_begin, int parent_layer_end, int mem_idx, string::const_iterator next_mem_end, int <a class="el" href="classvg_1_1BaseMapper.html#a6de91c39c73a95b014b1773495985a09">min_mem_length</a>, vector&lt; pair&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a>, vector&lt; size_t &gt;&gt;&gt; &amp;sub_mems_out)</td></tr>
+<tr class="separator:a77079f609cab775e59ff0750ef9e84d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a81fa3eae0321720511b1f54fa28968bb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a81fa3eae0321720511b1f54fa28968bb">find_sub_mems_fast</a> (const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, int parent_layer_begin, int parent_layer_end, int mem_idx, string::const_iterator leftmost_guaranteed_disjoint_bound, string::const_iterator leftmost_seeding_bound, int min_sub_mem_length, vector&lt; pair&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a>, vector&lt; size_t &gt;&gt;&gt; &amp;sub_mems_out)</td></tr>
+<tr class="separator:a81fa3eae0321720511b1f54fa28968bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1fc5077e5ea4a236ddf8edcf93288eb9"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a1fc5077e5ea4a236ddf8edcf93288eb9">sequence_positions</a> (const string &amp;seq)</td></tr>
+<tr class="separator:a1fc5077e5ea4a236ddf8edcf93288eb9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7f693887391ddeaebf4a4a609e2ab9b3"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a7f693887391ddeaebf4a4a609e2ab9b3">get_adaptive_min_reseed_length</a> (size_t parent_mem_length)</td></tr>
+<tr class="separator:a7f693887391ddeaebf4a4a609e2ab9b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a778c534cca5d7580584bba4131b65adc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a778c534cca5d7580584bba4131b65adc">apply_haplotype_consistency_scores</a> (const vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> * &gt; &amp;alns)</td></tr>
+<tr class="separator:a778c534cca5d7580584bba4131b65adc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:a0ea937755e15062c023d1b97d61814d4 inherit pub_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a0ea937755e15062c023d1b97d61814d4">set_alignment_scores</a> (int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus, uint32_t xdrop_max_gap_length=default_xdrop_max_gap_length)</td></tr>
 <tr class="memdesc:a0ea937755e15062c023d1b97d61814d4 inherit pub_methods_classvg_1_1AlignerClient"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set all the aligner scoring parameters and create the stored aligner instances.  <a href="#a0ea937755e15062c023d1b97d61814d4">More...</a><br/></td></tr>
@@ -186,6 +194,10 @@ Public Attributes</h2></td></tr>
 <tr class="separator:ad20ea9a68bcaca157350595f03b4601c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaf81156cb8c76c2e961b767a782dda59"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#aaf81156cb8c76c2e961b767a782dda59">precollapse_order_length_hits</a> = true</td></tr>
 <tr class="separator:aaf81156cb8c76c2e961b767a782dda59"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad77c0e853fcfc715a15b8852b8b4f388"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#ad77c0e853fcfc715a15b8852b8b4f388">avg_node_length</a> = 0</td></tr>
+<tr class="separator:ad77c0e853fcfc715a15b8852b8b4f388"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a45439a16e3d38573e5cc59cb95462878"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a45439a16e3d38573e5cc59cb95462878">total_seq_length</a> = 0</td></tr>
+<tr class="separator:a45439a16e3d38573e5cc59cb95462878"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af0e6c250a81dc74df57136242174aa54"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#af0e6c250a81dc74df57136242174aa54">recombination_penalty</a> = 20.7</td></tr>
 <tr class="separator:af0e6c250a81dc74df57136242174aa54"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a34ab4a12d44f5b17b5b6caa03ea4cd79"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a34ab4a12d44f5b17b5b6caa03ea4cd79">strip_bonuses</a></td></tr>
@@ -201,48 +213,8 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a5ce344e730fbb7cdc6b6d57b4ca76cf2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a5ce344e730fbb7cdc6b6d57b4ca76cf2">debug</a> = false</td></tr>
 <tr class="memdesc:a5ce344e730fbb7cdc6b6d57b4ca76cf2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set to enable debugging messages to cerr from the mapper, so a user can understand why a read maps the way it does.  <a href="#a5ce344e730fbb7cdc6b6d57b4ca76cf2">More...</a><br/></td></tr>
 <tr class="separator:a5ce344e730fbb7cdc6b6d57b4ca76cf2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="inherit_header pub_attribs_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
-<tr class="memitem:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a25db3953c246e94a7e08ef59fc31b82f">adjust_alignments_for_base_quality</a> = false</td></tr>
-<tr class="separator:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
-Protected Member Functions</h2></td></tr>
-<tr class="memitem:a77079f609cab775e59ff0750ef9e84d9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a77079f609cab775e59ff0750ef9e84d9">find_sub_mems</a> (const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, int parent_layer_begin, int parent_layer_end, int mem_idx, string::const_iterator next_mem_end, int <a class="el" href="classvg_1_1BaseMapper.html#a6de91c39c73a95b014b1773495985a09">min_mem_length</a>, vector&lt; pair&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a>, vector&lt; size_t &gt;&gt;&gt; &amp;sub_mems_out)</td></tr>
-<tr class="separator:a77079f609cab775e59ff0750ef9e84d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a81fa3eae0321720511b1f54fa28968bb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a81fa3eae0321720511b1f54fa28968bb">find_sub_mems_fast</a> (const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, int parent_layer_begin, int parent_layer_end, int mem_idx, string::const_iterator leftmost_guaranteed_disjoint_bound, string::const_iterator leftmost_seeding_bound, int min_sub_mem_length, vector&lt; pair&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a>, vector&lt; size_t &gt;&gt;&gt; &amp;sub_mems_out)</td></tr>
-<tr class="separator:a81fa3eae0321720511b1f54fa28968bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3d3cdacd0ec3e6b27ced793aeb9b561a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a3d3cdacd0ec3e6b27ced793aeb9b561a">fill_nonredundant_sub_mem_nodes</a> (vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;parent_mems, vector&lt; pair&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a>, vector&lt; size_t &gt; &gt; &gt;::iterator sub_mem_records_begin, vector&lt; pair&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a>, vector&lt; size_t &gt; &gt; &gt;::iterator sub_mem_records_end)</td></tr>
-<tr class="separator:a3d3cdacd0ec3e6b27ced793aeb9b561a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a26dfca3a19af4caf8746f1e28eacf646"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a26dfca3a19af4caf8746f1e28eacf646">first_hit_positions_by_index</a> (<a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &amp;mem, vector&lt; set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&gt; &amp;positions_by_index_out)</td></tr>
-<tr class="separator:a26dfca3a19af4caf8746f1e28eacf646"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a064f32d036db4774ba8802f0ade9b056"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a064f32d036db4774ba8802f0ade9b056">mem_positions_by_index</a> (<a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &amp;mem, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> hit_pos, vector&lt; set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&gt; &amp;positions_by_index_out)</td></tr>
-<tr class="separator:a064f32d036db4774ba8802f0ade9b056"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a301ccfdf585635471e03efde26ff162a"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a301ccfdf585635471e03efde26ff162a">pos_char</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos)</td></tr>
-<tr class="separator:a301ccfdf585635471e03efde26ff162a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9b162009930636565dbb15614d76619f"><td class="memItemLeft" align="right" valign="top">map&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, char &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a9b162009930636565dbb15614d76619f">next_pos_chars</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos)</td></tr>
-<tr class="separator:a9b162009930636565dbb15614d76619f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a819df281232ae4d5f689ce8e2981b2a0"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a819df281232ae4d5f689ce8e2981b2a0">positions_bp_from</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos, int distance, bool rev)</td></tr>
-<tr class="separator:a819df281232ae4d5f689ce8e2981b2a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1fc5077e5ea4a236ddf8edcf93288eb9"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a1fc5077e5ea4a236ddf8edcf93288eb9">sequence_positions</a> (const string &amp;seq)</td></tr>
-<tr class="separator:a1fc5077e5ea4a236ddf8edcf93288eb9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7f693887391ddeaebf4a4a609e2ab9b3"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a7f693887391ddeaebf4a4a609e2ab9b3">get_adaptive_min_reseed_length</a> (size_t parent_mem_length)</td></tr>
-<tr class="separator:a7f693887391ddeaebf4a4a609e2ab9b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a778c534cca5d7580584bba4131b65adc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a778c534cca5d7580584bba4131b65adc">apply_haplotype_consistency_scores</a> (const vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> * &gt; &amp;alns)</td></tr>
-<tr class="separator:a778c534cca5d7580584bba4131b65adc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="inherit_header pro_methods_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
-<tr class="memitem:ab180631766b1e787e29dd202ad455d90 inherit pro_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#ab180631766b1e787e29dd202ad455d90">AlignerClient</a> (double <a class="el" href="classvg_1_1AlignerClient.html#a65428f092aaa5d894b709e247cf0121a">gc_content_estimate</a>=vg::default_gc_content)</td></tr>
-<tr class="separator:ab180631766b1e787e29dd202ad455d90 inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a74e0c82ed9c61de1dfa7c45d62ac1af3 inherit pro_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a74e0c82ed9c61de1dfa7c45d62ac1af3">get_aligner</a> (bool have_qualities=true) const </td></tr>
-<tr class="separator:a74e0c82ed9c61de1dfa7c45d62ac1af3 inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac39bc1b46f1ee4eb34fea4a207b5649e inherit pro_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1QualAdjAligner.html">QualAdjAligner</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#ac39bc1b46f1ee4eb34fea4a207b5649e">get_qual_adj_aligner</a> () const </td></tr>
-<tr class="separator:ac39bc1b46f1ee4eb34fea4a207b5649e inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af2fe6d0c3f92c5f69baed5790675725f inherit pro_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#af2fe6d0c3f92c5f69baed5790675725f">get_regular_aligner</a> () const </td></tr>
-<tr class="separator:af2fe6d0c3f92c5f69baed5790675725f inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
-Protected Attributes</h2></td></tr>
-<tr class="memitem:ab5e61d76c005066c43311b5edc5ba473"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1XG.html">XG</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#ab5e61d76c005066c43311b5edc5ba473">xindex</a> = nullptr</td></tr>
-<tr class="separator:ab5e61d76c005066c43311b5edc5ba473"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0afffd854c5bcf69e8bd1125de4c7267"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a0afffd854c5bcf69e8bd1125de4c7267">xindex</a> = nullptr</td></tr>
+<tr class="separator:a0afffd854c5bcf69e8bd1125de4c7267"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa41db0eca93c379087c90b602a6ce751"><td class="memItemLeft" align="right" valign="top">gcsa::GCSA *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#aa41db0eca93c379087c90b602a6ce751">gcsa</a> = nullptr</td></tr>
 <tr class="separator:aa41db0eca93c379087c90b602a6ce751"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4046b98185c00ff397089435d5b2b8d8"><td class="memItemLeft" align="right" valign="top">gcsa::LCPArray *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a4046b98185c00ff397089435d5b2b8d8">lcp</a> = nullptr</td></tr>
@@ -253,24 +225,39 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:a33465e76a17e2580a6e095f3373239c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8e37826ea32c98f5ce0f6f4dd2206fd5"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1FragmentLengthDistribution.html">FragmentLengthDistribution</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a8e37826ea32c98f5ce0f6f4dd2206fd5">fragment_length_distr</a></td></tr>
 <tr class="separator:a8e37826ea32c98f5ce0f6f4dd2206fd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_attribs_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
+<tr class="memitem:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a25db3953c246e94a7e08ef59fc31b82f">adjust_alignments_for_base_quality</a> = false</td></tr>
+<tr class="separator:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-static-attribs"></a>
-Static Protected Attributes</h2></td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
+Static Public Attributes</h2></td></tr>
 <tr class="memitem:a279b5883907a56ada69b41796230b209"><td class="memItemLeft" align="right" valign="top">static thread_local vector<br class="typebreak"/>
 &lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a279b5883907a56ada69b41796230b209">adaptive_reseed_length_memo</a></td></tr>
 <tr class="separator:a279b5883907a56ada69b41796230b209"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
+Additional Inherited Members</h2></td></tr>
+<tr class="inherit_header pro_methods_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
+<tr class="memitem:ab180631766b1e787e29dd202ad455d90 inherit pro_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#ab180631766b1e787e29dd202ad455d90">AlignerClient</a> (double <a class="el" href="classvg_1_1AlignerClient.html#a65428f092aaa5d894b709e247cf0121a">gc_content_estimate</a>=vg::default_gc_content)</td></tr>
+<tr class="separator:ab180631766b1e787e29dd202ad455d90 inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a74e0c82ed9c61de1dfa7c45d62ac1af3 inherit pro_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a74e0c82ed9c61de1dfa7c45d62ac1af3">get_aligner</a> (bool have_qualities=true) const </td></tr>
+<tr class="separator:a74e0c82ed9c61de1dfa7c45d62ac1af3 inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac39bc1b46f1ee4eb34fea4a207b5649e inherit pro_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1QualAdjAligner.html">QualAdjAligner</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#ac39bc1b46f1ee4eb34fea4a207b5649e">get_qual_adj_aligner</a> () const </td></tr>
+<tr class="separator:ac39bc1b46f1ee4eb34fea4a207b5649e inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af2fe6d0c3f92c5f69baed5790675725f inherit pro_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#af2fe6d0c3f92c5f69baed5790675725f">get_regular_aligner</a> () const </td></tr>
+<tr class="separator:af2fe6d0c3f92c5f69baed5790675725f inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Base class for basic mapping functionality shared between the <a class="el" href="classvg_1_1Mapper.html">Mapper</a>, <a class="el" href="classvg_1_1MultipathMapper.html">MultipathMapper</a>, etc. Handles holding on to the random access and text indexes needed for mapping operations. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="a2c78a00c087aad130ea850ee94839022"></a>
+<a class="anchor" id="a9a924463193888114237a20617f9485e"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">vg::BaseMapper::BaseMapper </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1XG.html">XG</a> *&#160;</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td>
           <td class="paramname"><em>xidex</em>, </td>
         </tr>
         <tr>
@@ -298,7 +285,7 @@ Static Protected Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Make a <a class="el" href="classvg_1_1BaseMapper.html">BaseMapper</a> that pulls from an <a class="el" href="classvg_1_1XG.html">XG</a> succinct graph and a GCSA2 kmer index + LCP array, and which can score reads against haplotypes using the given ScoreProvider.</p>
+<p>Make a <a class="el" href="classvg_1_1BaseMapper.html">BaseMapper</a> that pulls from an PathPositionHandleGraph succinct graph and a GCSA2 kmer index + LCP array, and which can score reads against haplotypes using the given ScoreProvider.</p>
 <p>If the GCSA and LCPArray are null, cannot do search, only alignment. </p>
 
 </div>
@@ -323,9 +310,6 @@ Static Protected Attributes</h2></td></tr>
 <a class="anchor" id="a778c534cca5d7580584bba4131b65adc"></a>
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">void vg::BaseMapper::apply_haplotype_consistency_scores </td>
@@ -335,11 +319,6 @@ Static Protected Attributes</h2></td></tr>
           <td></td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 <p>Score all of the alignments in the vector for haplotype consistency. If all of them can be scored (i.e. none of them visit nodes/edges with no haplotypes), adjust all of their scores to reflect haplotype consistency. If one or more cannot be scored for haplotype consistency, leave the alignment scores alone. </p>
 
@@ -367,47 +346,6 @@ Static Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>We need to be able to estimate the GC content from the GCSA index in the constructor. The given index may be null. </p>
-
-</div>
-</div>
-<a class="anchor" id="a3d3cdacd0ec3e6b27ced793aeb9b561a"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::BaseMapper::fill_nonredundant_sub_mem_nodes </td>
-          <td>(</td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>parent_mems</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a>, vector&lt; size_t &gt; &gt; &gt;::iterator&#160;</td>
-          <td class="paramname"><em>sub_mem_records_begin</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a>, vector&lt; size_t &gt; &gt; &gt;::iterator&#160;</td>
-          <td class="paramname"><em>sub_mem_records_end</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>finds the nodes of sub MEMs that do not occur inside parent MEMs, each sub MEM should be associated with a vector of the indices of the SMEMs that contain it in the parent MEMs vector </p>
 
 </div>
 </div>
@@ -544,9 +482,6 @@ Static Protected Attributes</h2></td></tr>
 <a class="anchor" id="a77079f609cab775e59ff0750ef9e84d9"></a>
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">void vg::BaseMapper::find_sub_mems </td>
@@ -596,11 +531,6 @@ Static Protected Attributes</h2></td></tr>
           <td></td><td></td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 <p>Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs that contain it </p>
 
@@ -609,9 +539,6 @@ Static Protected Attributes</h2></td></tr>
 <a class="anchor" id="a81fa3eae0321720511b1f54fa28968bb"></a>
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">void vg::BaseMapper::find_sub_mems_fast </td>
@@ -667,48 +594,8 @@ Static Protected Attributes</h2></td></tr>
           <td></td><td></td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 <p>Provides same semantics as find_sub_mems but with a different algorithm. This algorithm uses the min_mem_length as a pruning tool instead of the LCP index. It can be expected to be faster when both the min_mem_length reasonably large relative to the reseed_length (e.g. 1/2 of SMEM size or similar). </p>
-
-</div>
-</div>
-<a class="anchor" id="a26dfca3a19af4caf8746f1e28eacf646"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::BaseMapper::first_hit_positions_by_index </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &amp;&#160;</td>
-          <td class="paramname"><em>mem</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">vector&lt; set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>positions_by_index_out</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>fills a vector where each element contains the set of positions in the graph that the MEM touches at that index for the first MEM hit in the GCSA array </p>
 
 </div>
 </div>
@@ -742,9 +629,6 @@ Static Protected Attributes</h2></td></tr>
 <a class="anchor" id="a7f693887391ddeaebf4a4a609e2ab9b3"></a>
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">size_t vg::BaseMapper::get_adaptive_min_reseed_length </td>
@@ -754,11 +638,6 @@ Static Protected Attributes</h2></td></tr>
           <td></td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
@@ -777,135 +656,6 @@ Static Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Returns true if fragment length distribution has been fixed. </p>
-
-</div>
-</div>
-<a class="anchor" id="a064f32d036db4774ba8802f0ade9b056"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::BaseMapper::mem_positions_by_index </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &amp;&#160;</td>
-          <td class="paramname"><em>mem</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td>
-          <td class="paramname"><em>hit_pos</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">vector&lt; set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>positions_by_index_out</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>fills a vector where each element contains the set of positions in the graph that the MEM touches at that index starting at a given hit </p>
-
-</div>
-</div>
-<a class="anchor" id="a9b162009930636565dbb15614d76619f"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">map&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, char &gt; vg::BaseMapper::next_pos_chars </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td>
-          <td class="paramname"><em>pos</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a301ccfdf585635471e03efde26ff162a"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">char vg::BaseMapper::pos_char </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td>
-          <td class="paramname"><em>pos</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a819df281232ae4d5f689ce8e2981b2a0"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; vg::BaseMapper::positions_bp_from </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td>
-          <td class="paramname"><em>pos</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>distance</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>rev</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
 
 </div>
 </div>
@@ -1009,9 +759,6 @@ Static Protected Attributes</h2></td></tr>
 <a class="anchor" id="a1fc5077e5ea4a236ddf8edcf93288eb9"></a>
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">set&lt;<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&gt; vg::BaseMapper::sequence_positions </td>
@@ -1021,11 +768,6 @@ Static Protected Attributes</h2></td></tr>
           <td></td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
@@ -1174,7 +916,7 @@ Static Protected Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -1187,6 +929,18 @@ Static Protected Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">bool vg::BaseMapper::assume_acyclic</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="ad77c0e853fcfc715a15b8852b8b4f388"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::BaseMapper::avg_node_length = 0</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -1246,19 +1000,11 @@ Static Protected Attributes</h2></td></tr>
 <a class="anchor" id="a8e37826ea32c98f5ce0f6f4dd2206fd5"></a>
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname"><a class="el" href="classvg_1_1FragmentLengthDistribution.html">FragmentLengthDistribution</a> vg::BaseMapper::fragment_length_distr</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
@@ -1266,19 +1012,11 @@ Static Protected Attributes</h2></td></tr>
 <a class="anchor" id="aa41db0eca93c379087c90b602a6ce751"></a>
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">gcsa::GCSA* vg::BaseMapper::gcsa = nullptr</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
@@ -1286,19 +1024,11 @@ Static Protected Attributes</h2></td></tr>
 <a class="anchor" id="af69ce88df203124121b71bdfdc6f3694"></a>
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname"><a class="el" href="classhaplo_1_1ScoreProvider.html">haplo::ScoreProvider</a>* vg::BaseMapper::haplo_score_provider = nullptr</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
@@ -1306,19 +1036,11 @@ Static Protected Attributes</h2></td></tr>
 <a class="anchor" id="a33465e76a17e2580a6e095f3373239c5"></a>
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">double vg::BaseMapper::haplotype_consistency_exponent = 1</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
@@ -1338,19 +1060,11 @@ Static Protected Attributes</h2></td></tr>
 <a class="anchor" id="a4046b98185c00ff397089435d5b2b8d8"></a>
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">gcsa::LCPArray* vg::BaseMapper::lcp = nullptr</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
@@ -1487,6 +1201,18 @@ Static Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a45439a16e3d38573e5cc59cb95462878"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::BaseMapper::total_seq_length = 0</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a class="anchor" id="ad20ea9a68bcaca157350595f03b4601c"></a>
 <div class="memitem">
 <div class="memproto">
@@ -1511,22 +1237,14 @@ Static Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ab5e61d76c005066c43311b5edc5ba473"></a>
+<a class="anchor" id="a0afffd854c5bcf69e8bd1125de4c7267"></a>
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classvg_1_1XG.html">XG</a>* vg::BaseMapper::xindex = nullptr</td>
+          <td class="memname"><a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a>* vg::BaseMapper::xindex = nullptr</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
