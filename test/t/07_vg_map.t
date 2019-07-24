@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 53
+plan tests 54
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -183,3 +183,9 @@ EOF
 is $(vg map -d tiny -F t.fa -j | jq -r .identity) 1 "mapper can read multiline FASTA input"
 
 rm -f tiny.vg tiny.xg tiny.gcsa tiny.gcsa.lcp t.fa t.fa.fai
+
+vg view -Fv graphs/revdrop.gfa >x.vg
+vg index -x x.xg -g x.gcsa x.vg
+is $(vg map -s GGTAGGGAACATTAAGGGTATGGAATTGGCAGGACAAGGCACCTGACTGGATTGGGAGAGATAAAGAGGAAAAGCGTCGAGAATGAGCTTGGTGCACTTTGGGCACAGGTGAGTATGCAGAGCGCAACAGGAGGCCTTGGGAACTCATAA -d x -j --xdrop | jq .score) 130 "xdrop works on a reversed read"
+
+rm -f x.vg x.xg x.gcsa x.gcsa.lcp

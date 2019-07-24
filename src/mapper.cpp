@@ -1637,26 +1637,28 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                         aligned.mutable_quality()->end());
             }
             flipped_alignment = true;
-        } else if (xdrop_alignment) {
+        }
+        if (mem_strand && xdrop_alignment) {
             // TODO -- investigate if reversing the mems is cheaper
             // xdrop requires that we reverse complement the mems or the graph
             node_trans = algorithms::reverse_complement_graph(&graph, &align_graph);
+        } else {
+            // if we are using only the forward strand of the current graph, a make trivial node translation so
+            // the later code's expectations are met
+            // TODO: can we do this without the copy constructor?
+            //align_graph = graph;
+            node_trans.reserve(graph.get_node_count());
+            graph.for_each_handle([&](const handle_t& handle) {
+                    handle_t x = align_graph.create_handle(graph.get_sequence(handle), graph.get_id(handle));
+                    assert(align_graph.get_id(x) == graph.get_id(handle));
+                    node_trans[graph.get_id(handle)] = make_pair(graph.get_id(handle), false);
+                    return true;
+                });
+            graph.for_each_edge([&](const edge_t& edge) {
+                    align_graph.create_edge(graph.get_handle(graph.get_id(edge.first), graph.get_is_reverse(edge.first)),
+                                            graph.get_handle(graph.get_id(edge.second), graph.get_is_reverse(edge.second)));
+                });
         }
-        // if we are using only the forward strand of the current graph, a make trivial node translation so
-        // the later code's expectations are met
-        // TODO: can we do this without the copy constructor?
-        //align_graph = graph;
-        node_trans.reserve(graph.get_node_count());
-        graph.for_each_handle([&](const handle_t& handle) {
-                handle_t x = align_graph.create_handle(graph.get_sequence(handle), graph.get_id(handle));
-                assert(align_graph.get_id(x) == graph.get_id(handle));
-                node_trans[graph.get_id(handle)] = make_pair(graph.get_id(handle), false);
-                return true;
-            });
-        graph.for_each_edge([&](const edge_t& edge) {
-                align_graph.create_edge(align_graph.get_handle(graph.get_id(edge.first), graph.get_is_reverse(edge.first)),
-                                        align_graph.get_handle(graph.get_id(edge.second), graph.get_is_reverse(edge.second)));
-            });
     }
     else {
         node_trans = algorithms::split_strands(&graph, &align_graph);
