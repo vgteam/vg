@@ -855,7 +855,11 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
             // mode), the result won't be used either.
             offset += is_reverse ? -remaining_length : remaining_length;
         }
-        
+        // guard against running off the end of nodes
+        // XXX this should not be happening
+        // it seems to occur in some graphs due to the behavior of advance_by_distance
+        if (vg::offset(pos) >= xg_index.get_length(xg_index.get_handle(id(pos)))) continue;
+
         // align the second end starting at the walked position
         sample_read_internal(aln_pair.second, offset, is_reverse, pos, source_path); 
         
@@ -890,6 +894,10 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
     // Make sure we are starting inside the node
     // XXX this is broken
     auto first_node_length = xg_index.get_length(xg_index.get_handle(id(curr_pos)));
+    if (vg::offset(curr_pos) >= first_node_length) {
+        cerr << "somithgn wrong << " << vg::offset(curr_pos) << " " << first_node_length << endl;
+        cerr << vg::id(curr_pos) << ":" << vg::is_rev(curr_pos) << ":" << vg::offset(curr_pos) << endl;
+    }
     assert(vg::offset(curr_pos) < first_node_length);
    
     aln.clear_path();
