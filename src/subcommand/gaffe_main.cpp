@@ -67,6 +67,7 @@ void help_gaffe(char** argv) {
     << "  -O, --no-chaining             disable seed chaining and all gapped alignment" << endl
     << "  -l, --linear-tails            align tails as individual linear alignments instead of POA trees" << endl
     << "  -S, --gssw                    use GSSW alignment for tails instead of xdrop" << endl
+    << "  --skip-connectivity           treat all extensions as disconnected and do their tails separately (illegal with -l)" << endl
     << "  --discard-gbwt-states         rebuild fresh GBWT search states for conenctivity and tail searches" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
@@ -82,9 +83,10 @@ int main_gaffe(int argc, char** argv) {
         return 1;
     }
 
-    #define OPT_DISCARD_GBWT_STATES 1000
-    #define OPT_TRACK_PROVENANCE 1001
-    #define OPT_TRACK_CORRECTNESS 1002
+    #define OPT_SKIP_CONNECTIVITY 1000
+    #define OPT_DISCARD_GBWT_STATES 1001
+    #define OPT_TRACK_PROVENANCE 1002
+    #define OPT_TRACK_CORRECTNESS 1003
 
     // initialize parameters with their default options
     string xg_name;
@@ -105,6 +107,8 @@ int main_gaffe(int argc, char** argv) {
     bool use_xdrop_for_tails = true;
     // Should we discard GBWT search states?
     bool discard_gbwt_states = false;
+    // Whould we skip doing connectivity searches?
+    bool skip_connectivity = false;
     // What GAMs should we realign?
     vector<string> gam_filenames;
     // What FASTQs should we align.
@@ -167,6 +171,7 @@ int main_gaffe(int argc, char** argv) {
             {"no-chaining", no_argument, 0, 'O'},
             {"linear-tails", no_argument, 0, 'l'},
             {"gssw", no_argument, 0, 'S'},
+            {"skip-connectivity", no_argument, 0, OPT_SKIP_CONNECTIVITY},
             {"discard-gbwt-states", no_argument, 0, OPT_DISCARD_GBWT_STATES},
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
             {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
@@ -354,6 +359,10 @@ int main_gaffe(int argc, char** argv) {
                 use_xdrop_for_tails = false;
                 break;
                 
+            case OPT_SKIP_CONNECTIVITY:
+                skip_connectivity = true;
+                break;
+                
             case OPT_DISCARD_GBWT_STATES:
                 discard_gbwt_states = true;
                 break;
@@ -398,6 +407,11 @@ int main_gaffe(int argc, char** argv) {
         exit(1);
     }
     
+    if (skip_connectivity && linear_tails) {
+        cerr << "error:[vg gaffe] Cannot skip connectivity search when using linear tail alignment" << endl;
+        exit(1);
+    }
+    
     if (gbwt_name.empty()) {
         cerr << "error:[vg gaffe] Mapping requires a GBWT index (-H)" << endl;
         exit(1);
@@ -407,7 +421,6 @@ int main_gaffe(int argc, char** argv) {
         cerr << "error:[vg gaffe] Mapping requires a minimizer index (-m)" << endl;
         exit(1);
     }
-    
     
     if (distance_name.empty()) {
         cerr << "error:[vg gaffe] Mapping requires a distance index (-d)" << endl;
@@ -534,6 +547,11 @@ int main_gaffe(int argc, char** argv) {
         cerr << "--discard-gbwt-states" << endl;
     }
     minimizer_mapper.reuse_gbwt_states = !discard_gbwt_states;
+    
+    if (progress && skip_connectivity) {
+        cerr << "--skip-connectivity" << endl;
+    }
+    minimizer_mapper.skip_connectivity = skip_connectivity;
 
     if (progress && track_provenance) {
         cerr << "--track-provenance " << endl;
