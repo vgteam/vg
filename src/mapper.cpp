@@ -1628,14 +1628,19 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
             mem_strand = true;
         }
     }
+    bool flipped_alignment = false;
     if (use_single_stranded) {
-        if (mem_strand) {
-            //node_trans = algorithms::reverse_complement_graph(&graph, &align_graph);
+        if (mem_strand && !xdrop_alignment) {
             aligned.set_sequence(reverse_complement(aligned.sequence()));
             if (!aligned.quality().empty()) {
                 reverse(aligned.mutable_quality()->begin(),
                         aligned.mutable_quality()->end());
             }
+            flipped_alignment = true;
+        } else if (xdrop_alignment) {
+            // TODO -- investigate if reversing the mems is cheaper
+            // xdrop requires that we reverse complement the mems or the graph
+            node_trans = algorithms::reverse_complement_graph(&graph, &align_graph);
         }
         // if we are using only the forward strand of the current graph, a make trivial node translation so
         // the later code's expectations are met
@@ -1691,7 +1696,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         remove_full_length_bonuses(aligned);
     }
     // un-reverse complement the alignment
-    if (use_single_stranded && mem_strand) {
+    if (flipped_alignment) {
         aligned = reverse_complement_alignment(
             aligned,
             (function<int64_t(int64_t)>) ([&](int64_t id) {
