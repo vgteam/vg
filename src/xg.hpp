@@ -67,7 +67,7 @@ class XGFormatError : public runtime_error {
  * Provides succinct storage for a graph, its positional paths, and a set of
  * embedded threads.
  */
-class XG : public PathPositionHandleGraph, public SerializableHandleGraph {
+class XG : public PathPositionHandleGraph, public SerializableHandleGraph, public VectorizableHandleGraph {
 public:
     
     ////////////////////////////////////////////////////////////////////////////
@@ -153,8 +153,8 @@ public:
     size_t max_node_rank(void) const;
     bool has_node(int64_t id) const;
     /// Get the node ID at the given sequence position. Works in 1-based coordinates.
-    int64_t node_at_seq_pos(size_t pos) const;
-    size_t node_start(int64_t id) const;
+    nid_t node_at_vector_offset(const size_t& pos) const;
+    size_t node_vector_offset(const nid_t& id) const;
     Node node(int64_t id) const; // gets node sequence
     string node_sequence(int64_t id) const;
     size_t node_length(int64_t id) const;
@@ -163,6 +163,7 @@ public:
     // these provide a way to get an index for each node and edge in the g_iv structure and are used by gPBWT
     size_t node_graph_idx(int64_t id) const;
     size_t edge_graph_idx(const Edge& edge) const;
+    size_t edge_index(const edge_t& edge) const;
 
     size_t get_g_iv_size() const;
 
@@ -428,9 +429,6 @@ public:
     bool path_is_circular(const string& name) const;
     /// Return true if the path with the given rank is circular, and false if it is not. The path must exist.
     bool path_is_circular(size_t rank) const;
-    // nearest node (in steps) that is in a path, and the paths
-    pair<int64_t, vector<size_t> > nearest_path_node(int64_t id, int max_steps = 16) const;
-    int64_t min_approx_path_distance(int64_t id1, int64_t id2) const;
     
     /// returns true if the paths are on the same connected component of the graph (constant time)
     bool paths_on_same_component(size_t path_rank_1, size_t path_rank_2) const;

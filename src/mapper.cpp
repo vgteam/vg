@@ -2,7 +2,6 @@
 #include "mapper.hpp"
 #include "haplotypes.hpp"
 #include "annotation.hpp"
-#include "algorithms/extract_containing_graph.hpp"
 
 //#define debug_mapper
 
@@ -11,7 +10,7 @@ namespace vg {
 // init the static memo
 thread_local vector<size_t> BaseMapper::adaptive_reseed_length_memo;
 
-BaseMapper::BaseMapper(XG* xidex,
+BaseMapper::BaseMapper(PathPositionHandleGraph* xidex,
                        gcsa::GCSA* g,
                        gcsa::LCPArray* a,
                        haplo::ScoreProvider* haplo_score_provider) :
@@ -33,6 +32,13 @@ BaseMapper::BaseMapper(XG* xidex,
       , assume_acyclic(false)
       , exclude_unaligned(false)
 {
+
+    if (xindex != nullptr) {
+        xindex->for_each_handle([&](const handle_t& handle) {
+                total_seq_length += xindex->get_length(handle);
+            });
+        avg_node_length = total_seq_length / xindex->get_node_count();
+    }
     
     // TODO: removing these consistency checks because we seem to have violated them pretty wontonly in
     // the code base already by changing the members directly when they were still public
@@ -40,7 +46,7 @@ BaseMapper::BaseMapper(XG* xidex,
 //    // allow a default constructor with no indexes
 //    if (xidex || g || a) {
 //        if(xidex == nullptr) {
-//            // We need an XG graph.
+//            // We need an PathPositionHandleGraph graph.
 //            cerr << "error:[vg::Mapper] cannot create an xg-based Mapper with null xg index" << endl;
 //            exit(1);
 //        }
@@ -1345,231 +1351,6 @@ size_t BaseMapper::get_adaptive_min_reseed_length(size_t parent_mem_length) {
     return adaptive_reseed_length_memo[parent_mem_length];
 }
 
-void BaseMapper::first_hit_positions_by_index(MaximalExactMatch& mem,
-                                              vector<set<pos_t>>& positions_by_index_out) {
-    // find the hit to the first index in the parent MEM's range
-    vector<gcsa::node_type> all_first_hits;
-    gcsa->locate(mem.range.first, all_first_hits, true, false);
-    
-    // find where in the graph the first hit of the parent MEM is at each index
-    mem_positions_by_index(mem, make_pos_t(all_first_hits[0]), positions_by_index_out);
-    
-    // in case the first hit occurs in more than one place, accumulate all the hits
-    if (all_first_hits.size() > 1) {
-        for (size_t i = 1; i < all_first_hits.size(); i++) {
-            vector<set<pos_t>> temp_positions_by_index;
-            mem_positions_by_index(mem, make_pos_t(all_first_hits[i]),
-                                   temp_positions_by_index);
-            
-            for (size_t i = 0; i < positions_by_index_out.size(); i++) {
-                for (const pos_t& pos : temp_positions_by_index[i]) {
-                    positions_by_index_out[i].insert(pos);
-                }
-            }
-        }
-    }
-}
-
-void BaseMapper::fill_nonredundant_sub_mem_nodes(vector<MaximalExactMatch>& parent_mems,
-                                                 vector<pair<MaximalExactMatch, vector<size_t> > >::iterator sub_mem_records_begin,
-                                                 vector<pair<MaximalExactMatch, vector<size_t> > >::iterator sub_mem_records_end) {
-    
-    
-    // for each MEM, a vector of the positions that it touches at each index along the MEM
-    vector<vector<set<pos_t>>> positions_by_index(parent_mems.size());
-    
-    for (auto iter = sub_mem_records_begin; iter != sub_mem_records_end; iter++) {
-        
-        pair<MaximalExactMatch, vector<size_t> >& sub_mem_and_parents = *iter;
-        
-        MaximalExactMatch& sub_mem = sub_mem_and_parents.first;
-        vector<size_t>& parent_idxs = sub_mem_and_parents.second;
-        
-        // how many total hits does each parent MEM have?
-        vector<size_t> num_parent_hits;
-        // positions their first hits of the parent MEM takes at the start position of the sub-MEM
-        vector<set<pos_t>*> first_parent_mem_hit_positions;
-        for (size_t parent_idx : parent_idxs) {
-            // get the parent MEM
-            MaximalExactMatch& parent_mem = parent_mems[parent_idx];
-            num_parent_hits.push_back(gcsa->count(parent_mem.range));
-            
-            if (positions_by_index[parent_idx].empty()) {
-                // the parent MEM's positions by index haven't been calculated yet, so do it
-                
-                first_hit_positions_by_index(parent_mem, positions_by_index[parent_idx]);
-                
-            }
-            
-            // the index along the parent MEM that sub MEM starts
-            size_t offset = sub_mem.begin - parent_mem.begin;
-            first_parent_mem_hit_positions.push_back(&(positions_by_index[parent_idx][offset]));
-        }
-        
-        for (gcsa::size_type i = sub_mem.range.first; i <= sub_mem.range.second; i++) {
-            // TODO: what if this range is too big?
-            
-            
-            // add the locations of the hits, but do not remove duplicates yet
-            vector<gcsa::node_type> hits;
-            gcsa->locate(i, hits, true, false);
-            
-            // the number of subsequent hits (including these) that are inside a parent MEM
-            size_t parent_hit_jump = 0;
-            for (gcsa::node_type node : hits) {
-                // look for the hit in each parent MEM
-                for (size_t j = 0; j < first_parent_mem_hit_positions.size(); j++) {
-                    if (first_parent_mem_hit_positions[j]->count(make_pos_t(node))) {
-                        // this hit is also a node on a path of the first occurrence of the parent MEM
-                        // that means that this is the first index of the sub-range that corresponds
-                        // to the parent MEM's hits
-                        
-                        // calculate how many more positions to jump
-                        parent_hit_jump = num_parent_hits[j];
-                        break;
-                    }
-                }
-            }
-            
-            if (parent_hit_jump > 0) {
-                // we're at the start of an interval of parent hits, skip the rest of it
-                i += (parent_hit_jump - 1);
-            }
-            else {
-                // these are nonredundant sub MEM hits, add them
-                for (gcsa::node_type node : hits) {
-                    sub_mem.nodes.push_back(node);
-                }
-            }
-        }
-        
-        // remove duplicates (copied this functionality from the gcsa locate function, but
-        // I don't actually know what it's purpose is)
-        gcsa::removeDuplicates(sub_mem.nodes, false);
-    }
-}
-
-void BaseMapper::mem_positions_by_index(MaximalExactMatch& mem, pos_t hit_pos,
-                                        vector<set<pos_t>>& positions_by_index_out) {
-    
-    // this is a specialized DFS that keeps track of both the distance along the MEM
-    // and the position(s) in the graph in the stack by adding all of the next reachable
-    // positions in a layer (i.e. vector) in the stack at the end of each iteration.
-    // it also keeps track of whether a position in the graph matched to a position along
-    // the MEM can potentially be extended to the full MEM to avoid combinatorially checking
-    // all paths through bubbles
-    
-    size_t mem_length = std::distance(mem.begin, mem.end);
-    
-    // indicates a pairing of this graph position and this MEM index could be extended to a full match
-    positions_by_index_out.clear();
-    positions_by_index_out.resize(mem_length);
-    
-    // indicates a pairing of this graph position and this MEM index could not be extended to a full match
-    vector<set<pos_t>> false_pos_by_mem_index(mem_length);
-    
-    // each record indicates the next edge index to traverse, the number of edges that
-    // cannot reach a MEM end, and the positions along each edge out
-    vector<pair<pair<size_t, size_t>, vector<pos_t> > > pos_stack;
-    pos_stack.push_back(make_pair(make_pair((size_t) 0 , (size_t) 0), vector<pos_t>{hit_pos}));
-    
-    while (!pos_stack.empty()) {
-        size_t mem_idx = pos_stack.size() - 1;
-        
-        // which edge are we going to search out of this node next?
-        size_t next_idx = pos_stack.back().first.first;
-        
-        if (next_idx >= pos_stack.back().second.size()) {
-            // we have traversed all of the edges out of this position
-            
-            size_t num_misses = pos_stack.back().first.second;
-            bool no_full_matches_possible = (num_misses == pos_stack.back().second.size());
-            
-            // backtrack to previous node
-            pos_stack.pop_back();
-            
-            // if necessary, mark the edge into this node as a miss
-            if (no_full_matches_possible && !pos_stack.empty()) {
-                // all of the edges out failed to reach the end of a MEM, this position is a dead end
-                
-                // get the position that traversed into the layer we just popped off
-                pos_t prev_graph_pos = pos_stack.back().second[pos_stack.back().first.first - 1];
-                
-                // unlabel this node as a potential hit and instead mark it as a miss
-                positions_by_index_out[mem_idx].erase(prev_graph_pos);
-                false_pos_by_mem_index[mem_idx].insert(prev_graph_pos);
-                
-                // increase the count of misses in this layer
-                pos_stack.back().first.second++;
-            }
-            
-            // skip the forward search on this iteration
-            continue;
-        }
-        
-        // increment to the next edge
-        pos_stack.back().first.first++;
-        
-        pos_t graph_pos = pos_stack.back().second[next_idx];
-        
-        
-        // did we already find a MEM through this position?
-        if (positions_by_index_out[mem_idx].count(graph_pos)) {
-            // we don't need to check the same MEM suffix again
-            continue;
-        }
-        
-        // did we already determine that you can't reach a MEM through this position?
-        if (false_pos_by_mem_index[mem_idx].count(graph_pos)) {
-            // increase the count of misses in this layer
-            pos_stack.back().first.second++;
-            
-            // we don't need to check the same MEM suffix again
-            continue;
-        }
-        
-        // does this graph position match the MEM?
-        if (*(mem.begin + mem_idx) != xg_pos_char(graph_pos, xindex)) {
-            // mark this node as a miss
-            false_pos_by_mem_index[mem_idx].insert(graph_pos);
-            
-            // increase the count of misses in this layer
-            pos_stack.back().first.second++;
-        }
-        else {
-            // mark this node as a potential hit
-            positions_by_index_out[mem_idx].insert(graph_pos);
-            
-            // are we finished with the MEM?
-            if (mem_idx < mem_length - 1) {
-                
-                // add a layer onto the stack for all of the edges out
-                pos_stack.push_back(make_pair(make_pair((size_t) 0 , (size_t) 0),
-                                              vector<pos_t>()));
-                
-                // fill the layer with the next positions
-                vector<pos_t>& nexts = pos_stack.back().second;
-                for (const pos_t& next_graph_pos : positions_bp_from(graph_pos, 1, false)) {
-                    nexts.push_back(next_graph_pos);
-                }
-            }
-        }
-    }
-}
-    
-    
-set<pos_t> BaseMapper::positions_bp_from(pos_t pos, int distance, bool rev) {
-    return xg_positions_bp_from(pos, distance, rev, xindex);
-}
-    
-char BaseMapper::pos_char(pos_t pos) {
-    return xg_pos_char(pos, xindex);
-}
-
-map<pos_t, char> BaseMapper::next_pos_chars(pos_t pos) {
-    return xg_next_pos_chars(pos, xindex);
-}
-
 bool BaseMapper::has_fixed_fragment_length_distr() {
     return fragment_length_distr.is_finalized();
 }
@@ -1598,8 +1379,8 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
     // Work out the population size. Try the score provider and then fall back to the xg.
     auto haplotype_count = haplo_score_provider->get_haplotype_count();
     if (haplotype_count == -1) {
-        // The score provider doesn't ahve a haplotype count. Fall back to the count in the XG.
-        haplotype_count = xindex->get_haplotype_count();
+        // The score provider doesn't have a haplotype count.
+        haplotype_count = 0;
     }
    
     if (haplotype_count == 0 || haplotype_count == -1) {
@@ -1611,7 +1392,7 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
     // always in order to choose between alignments.
     
     // Build Yohei's recombination probability calculator. Feed it the haplotype
-    // count from the XG index that was generated alongside the GBWT.
+    // count from the PathPositionHandleGraph index that was generated alongside the GBWT.
     haplo::haploMath::RRMemo haplo_memo(recombination_penalty, haplotype_count);
     
     // This holds all the computed haplotype logprobs
@@ -1712,7 +1493,11 @@ double BaseMapper::estimate_gc_content(const gcsa::GCSA* gcsa) {
 
 int BaseMapper::random_match_length(double chance_random) {
     if (xindex) {
-        size_t length = xindex->seq_length;
+        // sum up the sequence length
+        size_t length = 0;
+        xindex->for_each_handle([&](const handle_t& handle) {
+                length += xindex->get_length(handle);
+            });
         return ceil(- (log(1.0 - pow(pow(1.0-chance_random, -1), (-1.0/length))) / log(4.0)));
     } else {
         return 0;
@@ -1739,7 +1524,7 @@ void BaseMapper::set_fragment_length_distr_params(size_t maximum_sample_size, si
                                                        robust_estimation_fraction);
 }
     
-Mapper::Mapper(XG* xidex,
+Mapper::Mapper(PathPositionHandleGraph* xidex,
                gcsa::GCSA* g,
                gcsa::LCPArray* a,
                haplo::ScoreProvider* haplo_score_provider) :
@@ -1753,7 +1538,6 @@ Mapper::Mapper(XG* xidex,
     , max_softclip_iterations(10)
     , min_identity(0)
     , max_target_factor(128)
-    , max_query_graph_ratio(128)
     , extra_multimaps(512)
     , band_multimaps(4)
     , always_rescue(false)
@@ -1792,127 +1576,137 @@ Mapper::~Mapper(void) {
     */
 }
 
-double Mapper::graph_entropy(void) {
-    const size_t seq_bytes = xindex->sequence_bit_size() / 8;
-    char* seq = (char*) xindex->sequence_data();
-    return entropy(seq, seq_bytes);
-}
 
 // todo add options for aligned global and pinned
 Alignment Mapper::align_to_graph(const Alignment& aln,
-                                 Graph& graph,
-                                 size_t max_query_graph_ratio,
+                                 HandleGraph& graph,
+                                 bool do_flip,
                                  bool traceback,
-                                 bool acyclic_and_sorted,
                                  bool pinned_alignment,
                                  bool pin_left,
                                  bool banded_global,
                                  bool keep_bonuses) {
     // do not use X-drop alignment when MEMs is not available
     vector<MaximalExactMatch> mems;
-    return align_to_graph(aln, graph, mems, max_query_graph_ratio, traceback, acyclic_and_sorted, pinned_alignment, pin_left, banded_global, false, keep_bonuses);
+    return align_to_graph(aln, graph, mems, do_flip, traceback, pinned_alignment, pin_left, banded_global, false, keep_bonuses);
 }
+
 Alignment Mapper::align_to_graph(const Alignment& aln,
-                                 Graph& graph,
+                                 HandleGraph& graph,
                                  const vector<MaximalExactMatch>& mems,
-                                 size_t max_query_graph_ratio,
+                                 bool do_flip,
                                  bool traceback,
-                                 bool acyclic_and_sorted,
                                  bool pinned_alignment,
                                  bool pin_left,
                                  bool banded_global,
                                  int xdrop_alignment,
                                  bool keep_bonuses) {
-    // check if we need to make a vg graph to handle this graph
-    Alignment aligned;
-    if (!acyclic_and_sorted) { //!is_id_sortable(graph) || has_inversion(graph)) {
-        VG vg;
-        vg.extend(graph);
-        if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
-            aligned = vg.align(aln,
-                               get_regular_aligner(),
-                               mems,
-                               traceback,
-                               acyclic_and_sorted,
-                               max_query_graph_ratio,
-                               pinned_alignment,
-                               pin_left,
-                               banded_global,
-                               0, // band padding override
-                               aln.sequence().size(),
-                               0, // unroll_length
-                               xdrop_alignment);
-        } else {
-            aligned = vg.align_qual_adjusted(aln,
-                                             get_qual_adj_aligner(),
-                                             mems,
-                                             traceback,
-                                             acyclic_and_sorted,
-                                             max_query_graph_ratio,
-                                             pinned_alignment,
-                                             pin_left,
-                                             banded_global,
-                                             0, // band padding override
-                                             aln.sequence().size());
-                                             // 0, // unroll_length
-                                             // xdrop_alignment*/);
-        }
-    } else {
-        // we've got an id-sortable graph so we can avoid recomputing the topological order
-        // later because we know that we called sort_by_id_dedup_and_clean, which put it in
-        // topological order by ID
+
+    // the longest path we could possibly align to (full gap and a full sequence)
+    size_t target_length = aln.sequence().size() + get_aligner()->longest_detectable_gap(aln);
+
+    // copy our alignment, which we'll then modify
+    Alignment aligned = aln;
+
+    // convert from bidirected to directed
+    unordered_map<id_t, pair<id_t, bool> > node_trans;
+    sglib::HashGraph align_graph;
         
-        aligned = aln;
-        if (banded_global) {
-            // the banded global alignment no longer constructs an internal representation of the graph
-            // for topological sorting, etc., instead counting on the HandleGraph to do that itself. accordingly
-            // we need a more serious/performant implementation of a graph here
-            VG align_graph(graph);
-            
-            size_t max_span = aln.sequence().size();
-            size_t band_padding_override = 0;
-            bool permissive_banding = (band_padding_override == 0);
-            size_t band_padding = permissive_banding ? max(max_span, (size_t) 1) : band_padding_override;
-            get_aligner(!aln.quality().empty())->align_global_banded(aligned, align_graph, band_padding, false);
-        } else if (pinned_alignment) {
-            // pinned alignment is based on gssw, which takes a HandleGraph, but only uses it for sorting and
-            // for constructing its own graph representation. we can improve efficiency by taking advantage of
-            // the internal sort order and a thin shim into the HandleGraph interface
-            ProtoHandleGraph proto_handle_graph(&graph);
-            // construct a topological order manually using the internal sort order
-            vector<handle_t> topological_order(graph.node_size());
-            for (size_t i = 0; i < graph.node_size(); i++) {
-                if (pin_left) {
-                    // The graph has already been sorted backward, so sort it forward
-                    topological_order[i] = proto_handle_graph.flip(proto_handle_graph.get_handle_by_index(graph.node_size() - i - 1));
-                } else {
-                    // The graph is already sorted forward, so keep it sorted forward.
-                    topological_order[i] = proto_handle_graph.get_handle_by_index(i);
+    // check if we can get away with using only one strand of the graph
+    bool use_single_stranded = algorithms::is_single_stranded(&graph);
+    bool mem_strand = false;
+    if (use_single_stranded) {
+        if (mems.size()) {
+            mem_strand = gcsa::Node::rc(mems[0].nodes.front());
+            for (size_t i = 1; i < mems.size(); i++) {
+                if (gcsa::Node::rc(mems[0].nodes.front()) != mem_strand) {
+                    use_single_stranded = false;
+                    break;
                 }
             }
-            get_aligner(!aln.quality().empty())->align_pinned(aligned, proto_handle_graph, topological_order, pin_left);
-        } else if (xdrop_alignment) {
-            // we'll still use the Protobuf graph for the X-drop aligner, which hasn't been transitioned
-            // to HandleGraphs yet
-            
-            // directly call alignment function without node translation
-            // cerr << "X-drop alignment, (" << xdrop_alignment << "), rev(" << ((xdrop_alignment == 1) ? false : true) << ")" << endl;
-            get_aligner(!aln.quality().empty())->align_xdrop(aligned, graph, mems, (xdrop_alignment == 1) ? false : true);
-        } else {
-            // local alignment is based on gssw, which takes a HandleGraph, but only uses it for sorting and
-            // for constructing its own graph representation. we can improve efficiency by taking advantage of
-            // the internal sort order and a thin shim into the HandleGraph interface
-            ProtoHandleGraph proto_handle_graph(&graph);
-            // construct a topological order manually using the internal sort order
-            vector<handle_t> topological_order(graph.node_size());
-            for (size_t i = 0; i < graph.node_size(); i++) {
-                topological_order[i] = proto_handle_graph.get_handle_by_index(i);
-            }
-            get_aligner(!aln.quality().empty())->align(aligned, proto_handle_graph, topological_order, traceback, false);
+        } else if (do_flip) {
+            mem_strand = true;
         }
+    }
+    bool flipped_alignment = false;
+    if (use_single_stranded) {
+        if (mem_strand && !xdrop_alignment) {
+            aligned.set_sequence(reverse_complement(aligned.sequence()));
+            if (!aligned.quality().empty()) {
+                reverse(aligned.mutable_quality()->begin(),
+                        aligned.mutable_quality()->end());
+            }
+            flipped_alignment = true;
+        }
+        if (mem_strand && xdrop_alignment) {
+            // TODO -- investigate if reversing the mems is cheaper
+            // xdrop requires that we reverse complement the mems or the graph
+            node_trans = algorithms::reverse_complement_graph(&graph, &align_graph);
+        } else {
+            // if we are using only the forward strand of the current graph, a make trivial node translation so
+            // the later code's expectations are met
+            // TODO: can we do this without the copy constructor?
+            //align_graph = graph;
+            node_trans.reserve(graph.get_node_count());
+            graph.for_each_handle([&](const handle_t& handle) {
+                    handle_t x = align_graph.create_handle(graph.get_sequence(handle), graph.get_id(handle));
+                    assert(align_graph.get_id(x) == graph.get_id(handle));
+                    node_trans[graph.get_id(handle)] = make_pair(graph.get_id(handle), false);
+                    return true;
+                });
+            graph.for_each_edge([&](const edge_t& edge) {
+                    align_graph.create_edge(graph.get_handle(graph.get_id(edge.first), graph.get_is_reverse(edge.first)),
+                                            graph.get_handle(graph.get_id(edge.second), graph.get_is_reverse(edge.second)));
+                });
+        }
+    }
+    else {
+        node_trans = algorithms::split_strands(&graph, &align_graph);
+    }
+
+    // if necessary, convert from cyclic to acylic
+    if (!algorithms::is_directed_acyclic(&align_graph)) {
+        // make a dagified graph and translation
+        sglib::HashGraph dagified;
+        unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
+        // replace the original with the dagified ones
+        align_graph = move(dagified);
+        node_trans = overlay_node_translations(dagify_trans, node_trans);
+    }
+
+    auto order = algorithms::topological_order(&align_graph);
+
+    if (banded_global) {
+        // the banded global alignment no longer constructs an internal representation of the graph
+        // for topological sorting, etc., instead counting on the HandleGraph to do that itself. accordingly
+        // we need a more serious/performant implementation of a graph here
+        size_t max_span = aln.sequence().size();
+        size_t band_padding_override = 0;
+        bool permissive_banding = (band_padding_override == 0);
+        size_t band_padding = permissive_banding ? max(max_span, (size_t) 1) : band_padding_override;
+        get_aligner(!aln.quality().empty())->align_global_banded(aligned, align_graph, band_padding, false);
+    } else if (pinned_alignment) {
+        get_aligner(!aln.quality().empty())->align_pinned(aligned, align_graph, order, pin_left);
+    } else if (xdrop_alignment) {
+        get_aligner(!aln.quality().empty())->get_xdrop()->align(aligned, {align_graph, order},
+                                                                translate_mems(mems, node_trans),
+                                                                (xdrop_alignment == 1) ? false : true);
+    } else {
+        get_aligner(!aln.quality().empty())->align(aligned, align_graph, order, traceback, false);
     }
     if (traceback && !keep_bonuses && aligned.score()) {
         remove_full_length_bonuses(aligned);
+    }
+    // un-reverse complement the alignment
+    if (flipped_alignment) {
+        aligned = reverse_complement_alignment(
+            aligned,
+            (function<int64_t(int64_t)>) ([&](int64_t id) {
+                    return align_graph.get_length(align_graph.get_handle(id));
+                }));
+    }
+    if (node_trans.size()) {
+        translate_oriented_node_ids(*aligned.mutable_path(), node_trans);
     }
     return aligned;
 }
@@ -1923,70 +1717,17 @@ Alignment Mapper::align(const string& seq, int kmer_size, int stride, int max_me
     return align(aln, kmer_size, stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
 }
 
-pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
-    bool aln_is_rev = aln.path().mapping(0).position().is_reverse();
-    int64_t aln_pos = approx_alignment_position(aln);
-    //if (debug) cerr << "aln pos " << aln_pos << endl;
-    // can't find the alignment position
-    if (aln_pos < 0) return make_pos_t(0, false, 0);
-    bool same_orientation = frag_stats.cached_fragment_orientation_same;
-    bool forward_direction = frag_stats.cached_fragment_direction;
-    int64_t delta = frag_stats.cached_fragment_length_mean;
-    // which way is our delta?
-    // we are on the forward strand
-    id_t target;
-    if (forward_direction) {
-        if (is_first_mate) {
-            if (!aln_is_rev) {
-                target = node_approximately_at(aln_pos + delta);
-            } else {
-                target = node_approximately_at(aln_pos - delta);
-            }
-        } else {
-            if (!aln_is_rev) {
-                target = node_approximately_at(aln_pos + delta);
-            } else {
-                target = node_approximately_at(aln_pos - delta);
-            }
-        }
-    } else {
-        if (is_first_mate) {
-            if (!aln_is_rev) {
-                target = node_approximately_at(aln_pos - delta);
-            } else {
-                target = node_approximately_at(aln_pos + delta);
-            }
-        } else {
-            if (!aln_is_rev) {
-                target = node_approximately_at(aln_pos - delta);
-            } else {
-                target = node_approximately_at(aln_pos + delta);
-            }
-        }
-    }
-    if (same_orientation) {
-        return make_pos_t(target, aln_is_rev, 0);
-    } else {
-        return make_pos_t(target, !aln_is_rev, 0);
-    }
-}
-
-map<string, vector<pair<size_t, bool> > > Mapper::alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby) const {
-    return xg_alignment_path_offsets(xindex, aln, just_min, nearby);
-}
-
 vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_mate) {
-    // fallback to approx when we don't have paths
-    if (xindex->path_count == 0) {
-        return { likely_mate_position(aln, is_first_mate) };
+    // when we don't have paths we can't properly estimate the mate position
+    if (xindex->get_path_count() == 0) {
+        return { };
     }
-    map<string, vector<pair<size_t, bool> > > offsets;
+    unordered_map<path_handle_t, vector<pair<size_t, bool> > > offsets;
     for (auto& mapping : aln.path().mapping()) {
         auto pos_offs = algorithms::nearest_offsets_in_paths(xindex, make_pos_t(mapping.position()), aln.sequence().size());
         for (auto& p : pos_offs) {
-            string pname = xindex->get_path_name(p.first);
-            if (offsets.find(pname)  == offsets.end()) {
-                offsets[pname] = p.second;
+            if (offsets.find(p.first)  == offsets.end()) {
+                offsets[p.first] = p.second;
             }
         }
         if (offsets.size()) break; // find a single node that has a path position
@@ -1999,7 +1740,7 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
     for (auto& seq : offsets) {
         // find the likely position
         // then direction
-        auto& seq_name = seq.first;
+        const std::string& seq_name = xindex->get_path_name(seq.first);
         for (auto& p : seq.second) { 
             size_t path_pos = p.first;
             bool on_reverse_path = p.second;
@@ -2033,8 +1774,13 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
                     }
                 }
             }
-            mate_pos = max((int64_t)0, mate_pos);
-            pos_t target = xindex->graph_pos_at_path_position(seq_name, mate_pos);
+            path_handle_t path_handle = xindex->get_path_handle(seq_name);
+            mate_pos = min(max((int64_t)0, mate_pos), (int64_t)xindex->get_path_length(path_handle)-1);
+            //pos_t target = xindex->graph_pos_at_path_position(seq_name, mate_pos);
+            step_handle_t step = xindex->get_step_at_position(path_handle, mate_pos);
+            size_t pos_of_step = xindex->get_position_of_step(step);
+            handle_t handle = xindex->get_handle_of_step(step);
+            pos_t target = make_pos_t(xindex->get_id(handle), xindex->get_is_reverse(handle), mate_pos-pos_of_step);
             // what orientation should we use
             if ((same_orientation && on_reverse_path)
                 || (!same_orientation && !on_reverse_path)) {
@@ -2093,7 +1839,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
         return make_pair(false, false);
     }
     if (mate_positions.empty()) return make_pair(false, false); // can't rescue because the selected mate is unaligned
-    Graph graph;
+    sglib::HashGraph graph;
     set<bool> orientations;
 #ifdef debug_rescue
     if (debug) cerr << "got " << mate_positions.size() << " mate positions" << endl;
@@ -2108,21 +1854,16 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
                                   (int64_t)max((double)frag_stats.cached_fragment_length_stdev * 10.0,
                                                mate1.sequence().size() * 3.0)));
         //cerr << "Getting at least " << get_at_least << endl;
-        graph.MergeFrom(xindex->graph_context_id(mate_pos, get_at_least/2));
-        graph.MergeFrom(xindex->graph_context_id(reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2));
-        //if (debug) cerr << "rescue got graph " << pb2json(graph) << endl;
+        // TODO it may be possible to make this sugraph smaller with little penalty in terms of accuracy
+        algorithms::extract_context(*xindex, graph, xindex->get_handle(id(mate_pos), is_rev(mate_pos)), offset(mate_pos), get_at_least);
         // if we're reversed, align the reverse sequence and flip it back
         // align against it
     }
-    sort_by_id_dedup_and_clean(graph);
-    bool acyclic_and_sorted = is_id_sortable(graph) && !has_inversion(graph);
-    //VG g; g.extend(graph);string h = g.hash();
-    //g.serialize_to_file("rescue-" + h + ".vg");
     int max_mate1_score = mate1.score();
     int max_mate2_score = mate2.score();
     for (auto& orientation : orientations) {
         if (rescue_off_first) {
-            Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback, acyclic_and_sorted, false, xdrop_alignment);
+            Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback, false, xdrop_alignment);
             tried2 = true;
             //vg::io::write_to_file(aln2, "rescue-" + h + ".gam");
 #ifdef debug_rescue
@@ -2131,7 +1872,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
 #endif
             if (aln2.score() > max_mate2_score && (double)aln2.score()/perfect_score > min_threshold && pair_consistent(mate1, aln2, accept_pval)) {
                 if (!traceback) { // now get the traceback
-                    aln2 = align_maybe_flip(mate2, graph, orientation, true, acyclic_and_sorted, false, xdrop_alignment);
+                    aln2 = align_maybe_flip(mate2, graph, orientation, true, false, xdrop_alignment);
                 }
 #ifdef debug_rescue
                 if (debug) cerr << "rescued aln2 " << pb2json(aln2) << endl;
@@ -2142,7 +1883,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
                 rescued2 = true;
             }
         } else if (rescue_off_second) {
-            Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback, acyclic_and_sorted, false, xdrop_alignment);
+            Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback, false, xdrop_alignment);
             tried1 = true;
             //vg::io::write_to_file(aln1, "rescue-" + h + ".gam");
 #ifdef debug_rescue
@@ -2151,7 +1892,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
 #endif
             if (aln1.score() > max_mate1_score && (double)aln1.score()/perfect_score > min_threshold && pair_consistent(aln1, mate2, accept_pval)) {
                 if (!traceback) { // now get the traceback
-                    aln1 = align_maybe_flip(mate1, graph, orientation, true, acyclic_and_sorted, false, xdrop_alignment);
+                    aln1 = align_maybe_flip(mate1, graph, orientation, true, false, xdrop_alignment);
                 }
 #ifdef debug_rescue
                 if (debug) cerr << "rescued aln1 " << pb2json(aln1) << endl;
@@ -2197,7 +1938,7 @@ bool Mapper::pair_consistent(Alignment& aln1,
                              double pval) {
     if (!(aln1.score() && aln2.score())) return false;
     bool length_ok = false;
-    if (xindex->path_count == 0) {
+    if (xindex->get_path_count() == 0) {
         // use the approximate distance
         //cerr << "using approx distance" << endl;
         int len = approx_fragment_length(aln1, aln2);
@@ -2217,8 +1958,8 @@ bool Mapper::pair_consistent(Alignment& aln1,
     } else {
         // use the distance induced by the graph paths
         // won't recompute if we already have refpos
-        annotate_with_initial_path_positions(aln1);
-        annotate_with_initial_path_positions(aln2);
+        algorithms::annotate_with_initial_path_positions(*xindex, aln1);
+        algorithms::annotate_with_initial_path_positions(*xindex, aln2);
         map<string, vector<pair<size_t, bool> > > offsets1 = alignment_refpos_to_path_offsets(aln1);
         map<string, vector<pair<size_t, bool> > > offsets2 = alignment_refpos_to_path_offsets(aln2);
         auto pos_consistent =
@@ -2276,8 +2017,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     read2.set_name(second_mate.name());
     read2.set_sequence(second_mate.sequence());
     read2.set_quality(second_mate.quality());
-
-    double avg_node_len = average_node_length();
 
     auto aligner = get_aligner(!read1.quality().empty());
     int8_t match = aligner->match;
@@ -2393,11 +2132,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             // if we have a cached fragment orientation, use it to pick the min distance with the correct path relative orientation
             int64_t approx_dist = (!frag_stats.fragment_size ? min(d.first, d.second)
                                    : (frag_stats.cached_fragment_orientation_same ? d.first : d.second));
-            /*// could be expensive for pairs
-            if (approx_dist < max_length) {
-                approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
-            }
-            */
             if (approx_dist >= max_length) {
                 // too far apart or wrong path/pair relative orientation
                 return -std::numeric_limits<double>::max();
@@ -2454,8 +2188,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                               [&](pos_t n) -> int64_t {
                                   return approx_position(n);
                               },
-                              [&](pos_t n) -> map<string, vector<pair<size_t, bool> > > {
-                                  return algorithms::offsets_in_paths(xindex, n);
+                              [&](pos_t n) -> unordered_map<path_handle_t, vector<pair<size_t, bool> > > {
+                                  return algorithms::nearest_offsets_in_paths(xindex, n, -1);
                               },
                               transition_weight,
                               band_width);
@@ -2642,7 +2376,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             auto& aln1 = p->first;
             auto& aln2 = p->second;
             auto approx_frag_lengths = min_pair_fragment_length(aln1, aln2);
-            frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 1e-6));
+            frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, xindex, pair_consistent(aln1, aln2, 1e-6));
         }
         // sort the aligned pairs by score
         sort_shuffling_ties(aln_ptrs.begin(), aln_ptrs.end(),
@@ -2944,8 +2678,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     if (!results.first.empty() && !results.second.empty()) {
         // if we have references, annotate the alignments with their reference positions
-        annotate_with_initial_path_positions(results.first);
-        annotate_with_initial_path_positions(results.second);
+        algorithms::annotate_with_initial_path_positions(*xindex, results.first);
+        algorithms::annotate_with_initial_path_positions(*xindex, results.second);
 
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
         auto used_time = chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
@@ -2955,14 +2689,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     return results;
 
-}
-
-void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns, size_t search_limit) const {
-    for (auto& aln : alns) annotate_with_initial_path_positions(aln, search_limit);
-}
-
-void Mapper::annotate_with_initial_path_positions(Alignment& aln, size_t search_limit) const {
-    xg_annotate_with_initial_path_positions(xindex, aln, search_limit);
 }
 
 double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters,
@@ -3010,11 +2736,6 @@ double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactM
     if (weights[0] == 0) return 0;
     return min((double)max_cluster_mapping_quality,
                max(best_chance, prob_to_phred(weights[1]/weights[0])));
-}
-
-double
-Mapper::average_node_length(void) {
-    return (double) xindex->seq_length / (double) xindex->node_count;
 }
 
 int sub_overlaps_of_first_aln(const vector<Alignment>& alns, float overlap_fraction) {
@@ -3115,7 +2836,6 @@ Mapper::align_mem_multi(const Alignment& aln,
 
     if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_mq << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << " " << total_multimaps << " " << mem_read_ratio << " " << fraction_filtered << " " << max_possible_mq << " " << total_multimaps << endl;
 
-    double avg_node_len = average_node_length();
     // go through the ordered single-hit MEMs
     // build the clustering model
     // find the alignments that are the best-scoring walks through it
@@ -3143,11 +2863,11 @@ Mapper::align_mem_multi(const Alignment& aln,
     vector<vector<MaximalExactMatch> > clusters;
     if (total_multimaps) {
         MEMChainModel chainer({ aln.sequence().size() }, { mems },
-                              [&](pos_t n) {
+                              [&](pos_t n) -> int64_t {
                                   return approx_position(n);
                               },
-                              [&](pos_t n) -> map<string, vector<pair<size_t, bool> > > {
-                                  return algorithms::offsets_in_paths(xindex, n);
+                              [&](pos_t n) -> unordered_map<path_handle_t, vector<pair<size_t, bool> > > {
+                                  return algorithms::nearest_offsets_in_paths(xindex, n, -1);
                               },
                               transition_weight,
                               aln.sequence().size());
@@ -3175,15 +2895,6 @@ Mapper::align_mem_multi(const Alignment& aln,
                     size_t offset = gcsa::Node::offset(node);
                     bool is_rev = gcsa::Node::rc(node);
                     cerr << "|" << id << (is_rev ? "-" : "+") << ":" << offset << "," << mem.fragment << ",";
-                    /*
-                    for (auto& ref : node_positions_in_paths(gcsa::Node::encode(id, 0, is_rev))) {
-                        auto& name = ref.first;
-                        for (auto pos : ref.second) {
-                            //cerr << name << (is_rev?"-":"+") << pos + offset;
-                            cerr << "|" << id << (is_rev ? "-" : "+") << ":" << offset << ",";
-                        }
-                    }
-                    */
                 }
                 cerr << mem.sequence() << " ";
             }
@@ -3319,57 +3030,35 @@ Mapper::align_mem_multi(const Alignment& aln,
     return alns;
 }
 
-Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global, bool xdrop_alignment) {
+Alignment Mapper::align_maybe_flip(const Alignment& base, HandleGraph& graph, bool flip, bool traceback, bool banded_global, bool xdrop_alignment) {
     // do not use X-drop alignment when seed position is not available
     vector<MaximalExactMatch> mems;
-    return(align_maybe_flip(base, graph, mems, flip, traceback, acyclic_and_sorted, banded_global, xdrop_alignment));
+    return(align_maybe_flip(base, graph, mems, flip, traceback, banded_global, xdrop_alignment));
 }
 
-Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, const vector<MaximalExactMatch>& mems, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global, bool xdrop_alignment) {
+Alignment Mapper::align_maybe_flip(const Alignment& base, HandleGraph& graph, const vector<MaximalExactMatch>& mems, bool flip, bool traceback, bool banded_global, bool xdrop_alignment) {
     Alignment aln = base;
-    map<id_t, int64_t> node_length;
     // do not modify aln.sequence() in X-drop alignment so that seed position is calculated by mem.begin - aln.sequence().begin()
-    if (flip) {
-        for (auto& node : graph.node()) {
-            node_length[node.id()] = node.sequence().size();
-        }
-        aln.set_sequence(reverse_complement(base.sequence()));
-        if (!base.quality().empty()) {
-            aln.set_quality(base.quality());
-            reverse(aln.mutable_quality()->begin(),
-                    aln.mutable_quality()->end());
-        }
-    } else {
-        aln.set_sequence(base.sequence());
-        if (!base.quality().empty()) {
-            aln.set_quality(base.quality());
-        }
+    aln.set_sequence(base.sequence());
+    if (!base.quality().empty()) {
+        aln.set_quality(base.quality());
     }
     bool pinned_alignment = false;
     bool pinned_reverse = false;
-
+    //algorithms::to_gfa(*dynamic_cast<PathHandleGraph*>(&graph), cerr);
     aln = align_to_graph(aln,
                          graph,
                          mems,
-                         max_query_graph_ratio,
+                         flip,
                          traceback,
-                         acyclic_and_sorted,
                          pinned_alignment,
                          pinned_reverse,
                          banded_global,
-                         xdrop_alignment ? (flip ? 2 : 1) : 0,
+                         xdrop_alignment ? 1 : 0,
                          include_full_length_bonuses);
-
     if (strip_bonuses && !banded_global && traceback) {
         // We want to remove the bonuses
         aln.set_score(get_aligner()->remove_bonuses(aln));
-    }
-    if (flip) {
-        aln = reverse_complement_alignment(
-            aln,
-            (function<int64_t(int64_t)>) ([&](int64_t id) {
-                    return node_length[id];
-                }));
     }
     return aln;
 }
@@ -3393,126 +3082,16 @@ double Mapper::compute_uniqueness(const Alignment& aln, const vector<MaximalExac
 }
 
 Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems, bool traceback, bool xdrop_alignment) {
-    // check if we can just fill out the alignment with exact matches
-    /*
-    if (cluster_coverage(mems) == aln.sequence().size()) {
-        Alignment walked = mems_to_alignment(aln, mems);
-        assert(walked.identity() == 1);
-        return walked;
-    }
-    */
-    // poll the mems to see if we should flip
-    int count_fwd = 0, count_rev = 0;
-    for (auto& mem : mems) {
-        bool is_rev = gcsa::Node::rc(mem.nodes.front());
-        if (is_rev) {
-            ++count_rev;
-        } else {
-            ++count_fwd;
-        }
-    }
-    // get the graph with cluster.hpp's cluster_subgraph
-    Graph graph = cluster_subgraph_walk(*xindex, aln, mems, 1);
-    bool acyclic_and_sorted = is_id_sortable(graph) && !has_inversion(graph);
-    // and test each direction for which we have MEM hits
-    Alignment aln_fwd;
-    Alignment aln_rev;
-    // try both ways if we're not sure if we are acyclic
-    if (count_fwd || !acyclic_and_sorted) {
-        aln_fwd = align_maybe_flip(aln, graph, mems, false, traceback, acyclic_and_sorted, false, xdrop_alignment);
-    }
-    if (count_rev || !acyclic_and_sorted) {
-        aln_rev = align_maybe_flip(aln, graph, mems, true, traceback, acyclic_and_sorted, false, xdrop_alignment);
-    }
-    // TODO check if we have soft clipping on the end of the graph and if so try to expand the context
-    if (aln_fwd.score() + aln_rev.score() == 0) {
-        // abject failure, nothing aligned with score > 0
-        Alignment result = aln;
-        result.clear_path();
-        result.clear_score();
-        return result;
-    } else if (aln_rev.score() > aln_fwd.score()) {
-        // reverse won
-        return aln_rev;
-    } else {
-        // forward won
-        return aln_fwd;
-    }
-}
-
-VG Mapper::cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
-#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) {
-            cerr << "Getting a cluster graph for " << mems.size() << " MEMs" << endl;
-        }
-    }
-#endif
-
-    // As in the multipath aligner, we work out how far we can get from a MEM
-    // with gaps and use that for how much graph to grab.
-    vector<pos_t> positions;
-    vector<size_t> forward_max_dist;
-    vector<size_t> backward_max_dist;
-    
-    positions.reserve(mems.size());
-    forward_max_dist.reserve(mems.size());
-    backward_max_dist.reserve(mems.size());
-    
-    // What aligner are we using?
-    const GSSWAligner* aligner = get_aligner();
-    
-    for (const auto& mem : mems) {
-        // get the start position of the MEM
-        assert(!mem.nodes.empty());
-        positions.push_back(make_pos_t(mem.nodes.front()));
-        
-        // search far enough away to get any hit detectable without soft clipping
-        forward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.end)
-                                   + (aln.sequence().end() - mem.begin));
-        backward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.begin)
-                                    + (mem.begin - aln.sequence().begin()));
-    }
-    
-    // Extract the graph
-    VG graph;
-    algorithms::extract_containing_graph(xindex, &graph, positions, forward_max_dist, backward_max_dist);
-    
-    graph.remove_orphan_edges();
-    
-#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) {
-            cerr << "\tFound " << graph.node_count() << " nodes " << graph.min_node_id() << " - " << graph.max_node_id()
-                << " and " << graph.edge_count() << " edges" << endl;
-        }
-    }
-#endif
-    return graph;
-}
-
-VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
-    set<id_t> nodes;
-    auto& path = aln.path();
-    for (int i = 0; i < path.mapping_size(); ++i) {
-        nodes.insert(path.mapping(i).position().node_id());
-    }
-    VG graph;
-    for (auto& node : nodes) {
-        *graph.graph.add_node() = xindex->node(node);
-    }
-    xindex->expand_context(graph.graph, max(1, context_size), false); // get connected edges
-    graph.rebuild_indexes();
-    return graph;
+    sglib::HashGraph graph = cluster_subgraph_containing(*xindex, aln, mems, get_aligner());
+    Alignment aligned = align_maybe_flip(aln, graph, mems, false, traceback, false, xdrop_alignment);
+    return aligned;
 }
 
 // estimate the fragment length as the difference in mean positions of both alignments
-map<string, int64_t> Mapper::min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
-    map<string, int64_t> lengths;
-    auto pos1 = alignment_path_offsets(aln1);
-    auto pos2 = alignment_path_offsets(aln2);
+unordered_map<path_handle_t, int64_t> Mapper::min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
+    unordered_map<path_handle_t, int64_t> lengths;
+    auto pos1 = algorithms::alignment_path_offsets(*xindex, aln1, true, false);
+    auto pos2 = algorithms::alignment_path_offsets(*xindex, aln2, true, false);
     for (auto& p : pos1) {
         auto x = pos2.find(p.first);
         if (x != pos2.end()) {
@@ -3543,13 +3122,15 @@ string FragmentLengthStatistics::fragment_model_str(void) {
 }
 
 void FragmentLengthStatistics::save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2,
-    const map<string, int64_t>& approx_frag_lengths, bool is_consistent) {
+                                                      const unordered_map<path_handle_t, int64_t>& approx_frag_lengths,
+                                                      PathPositionHandleGraph* xindex,
+                                                      bool is_consistent) {
     double max_score = 0;
     aln1.clear_fragment();
     aln2.clear_fragment();
     for (auto& j : approx_frag_lengths) {
         Path fragment;
-        fragment.set_name(j.first);
+        fragment.set_name(xindex->get_path_name(j.first));
         int length = j.second;
         fragment.set_length(length);
         *aln1.add_fragment() = fragment;
@@ -3567,9 +3148,9 @@ void FragmentLengthStatistics::save_frag_lens_to_alns(Alignment& aln1, Alignment
 void FragmentLengthStatistics::record_fragment_configuration(const Alignment& aln1, const Alignment& aln2, Mapper* mapper) {
     if (fixed_fragment_model) return;
     assert(aln1.path().mapping(0).has_position() && aln2.path().mapping(0).has_position());    
-    map<string, tuple<int64_t, bool, bool> > lengths;
-    auto pos1 = mapper->alignment_path_offsets(aln1);
-    auto pos2 = mapper->alignment_path_offsets(aln2);
+    unordered_map<path_handle_t, tuple<int64_t, bool, bool> > lengths;
+    auto pos1 = algorithms::alignment_path_offsets(*mapper->xindex, aln1, true, false);
+    auto pos2 = algorithms::alignment_path_offsets(*mapper->xindex, aln2, true, false);
     for (auto& p : pos1) {
         auto x = pos2.find(p.first);
         if (x != pos2.end()) {
@@ -3672,120 +3253,12 @@ bool FragmentLengthStatistics::fragment_direction(void) {
     return count_fwd > count_rev;
 }
 
-set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& mems1,
-                                                    vector<MaximalExactMatch>& mems2) {
-    // find the MEMs that are within estimated_fragment_size of each other
-
-    set<MaximalExactMatch*> pairable;
-
-    // do a wide clustering and then do all pairs within each cluster
-    // we will use these to determine the alignment strand
-    //map<id_t, StrandCounts> node_strands;
-    // records a mapping of id->MEMs, for cluster ranking
-    map<id_t, vector<MaximalExactMatch*> > id_to_mems;
-    // for clustering
-    set<id_t> ids1, ids2;
-    vector<id_t> ids;
-
-    // run through the mems
-    for (auto& mem : mems1) {
-        for (auto& node : mem.nodes) {
-            id_t id = gcsa::Node::id(node);
-            id_to_mems[id].push_back(&mem);
-            ids1.insert(id);
-            ids.push_back(id);
-        }
-    }
-    for (auto& mem : mems2) {
-        for (auto& node : mem.nodes) {
-            id_t id = gcsa::Node::id(node);
-            id_to_mems[id].push_back(&mem);
-            ids2.insert(id);
-            ids.push_back(id);
-        }
-    }
-    // remove duplicates
-    //std::sort(ids.begin(), ids.end());
-    //ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
-
-    // get each hit's path-relative position
-    map<string, map<int, vector<id_t> > > node_positions;
-    for (auto& id : ids) {
-        for (auto& ref : node_positions_in_paths(gcsa::Node::encode(id, 0))) {
-            auto& name = ref.first;
-            for (auto pos : ref.second) {
-                node_positions[name][pos].push_back(id);
-            }
-        }
-    }
-
-    vector<vector<id_t> > clusters;
-    for (auto& g : node_positions) {
-        //if (g.second.empty()) continue; // should be impossible
-        //cerr << g.first << endl;
-        clusters.emplace_back();
-        int prev = -1;
-        for (auto& x : g.second) {
-            auto cluster = &clusters.back();
-            //auto& prev = clusters.back().back();
-            auto curr = x.first;
-            if(debug) {
-                cerr << "p/c " << prev << " " << curr << endl;
-            }
-            if (prev != -1) {
-                if (curr - prev <= frag_stats.fragment_size) {
-                    // in cluster
-#ifdef debug_mapper
-#pragma omp critical
-                    {
-                        if (debug) {
-                            cerr << "in cluster" << endl;
-                        }
-                    }
-#endif
-                } else {
-                    // It's a new cluster
-                    clusters.emplace_back();
-                    cluster = &clusters.back();
-                }
-            }
-            //cerr << " " << x.first << endl;
-            for (auto& y : x.second) {
-                //cerr << "  " << y << endl;
-                cluster->push_back(y);
-            }
-            prev = curr;
-        }
-    }
-
-    for (auto& cluster : clusters) {
-        // for each pair of ids in the cluster
-        // which are not from the same read
-        // estimate the distance between them
-        // we're roughly in the expected range
-        bool has_first = false;
-        bool has_second = false;
-        for (auto& id : cluster) {
-            has_first |= ids1.count(id);
-            has_second |= ids2.count(id);
-        }
-        if (!has_first || !has_second) continue;
-        for (auto& id : cluster) {
-            for (auto& memptr : id_to_mems[id]) {
-                pairable.insert(memptr);
-            }
-        }
-    }
-
-    return pairable;
-}
-
 // We need a function to get the lengths of nodes, in case we need to
 // reverse an Alignment, including all its Mappings and Positions.
 int64_t Mapper::get_node_length(int64_t node_id) {
-    // Grab the node sequence only from the XG index and get its size.
+    // Grab the node sequence only from the PathPositionHandleGraph index and get its size.
     // Make sure to use the cache
-    return xg_node_length(node_id, xindex);
+    return xindex->get_length(xindex->get_handle(node_id));
 }
 
 bool Mapper::check_alignment(const Alignment& aln) {
@@ -3793,17 +3266,15 @@ bool Mapper::check_alignment(const Alignment& aln) {
     // assert that this == the alignment
     if (aln.path().mapping_size()) {
         // get the graph corresponding to the alignment path
-        Graph sub;
+        sglib::HashGraph sub;
         for (int i = 0; i < aln.path().mapping_size(); ++ i) {
             auto& m = aln.path().mapping(i);
             if (m.has_position() && m.position().node_id()) {
                 auto id = aln.path().mapping(i).position().node_id();
-                // XXXXXX this is single-threaded!
-                xindex->neighborhood(id, 2, sub);
+                algorithms::extract_id_range(*xindex, id, id, sub);
             }
         }
-        VG g; g.extend(sub);
-        auto seq = g.path_string(aln.path());
+        auto seq = algorithms::path_string(sub, aln.path());
         //if (aln.sequence().find('N') == string::npos && seq != aln.sequence()) {
         if (aln.quality().size() && aln.quality().size() != aln.sequence().size()) {
             cerr << "alignment quality is not the same length as its sequence" << endl
@@ -3818,9 +3289,10 @@ bool Mapper::check_alignment(const Alignment& aln) {
             // save alignment
             vg::io::write_to_file(aln, "fail-" + hash_alignment(aln) + ".gam");
             // save graph, bigger fragment
-            xindex->expand_context(sub, 5, true);
-            VG gn; gn.extend(sub);
-            gn.serialize_to_file("fail-" + gn.hash() + ".vg");
+            algorithms::expand_subgraph_by_steps(*xindex, sub, 5);
+            algorithms::add_subpaths_to_subgraph(*xindex, sub);
+            std::ofstream out("fail-" + hash_alignment(aln) + ".hg");
+            sub.serialize(out);
             return false;
         }
     }
@@ -3955,8 +3427,8 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
 
     // cost function
     auto transition_weight = [&](const Alignment& aln1, const Alignment& aln2,
-                                 const map<string, vector<pair<size_t, bool> > >& pos1,
-                                 const map<string, vector<pair<size_t, bool> > >& pos2,
+                                 const unordered_map<path_handle_t, vector<pair<size_t, bool> > >& pos1,
+                                 const unordered_map<path_handle_t, vector<pair<size_t, bool> > >& pos2,
                                  int64_t band_distance) {
         if (aln1.has_path() && !aln2.has_path()) {
             // pay a lot to go into unaligned from aligned because then we risk dropping into a random place
@@ -3973,16 +3445,8 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         // consider both the forward and inversion case
         // counter[3]++; bench_t b; bench_init(b); bench_start(b);
         int64_t dist_fwd = distances.first;
-        if (aln1_end == aln2_begin || id(aln1_end) == id(aln2_begin) || dist_fwd < aln2.sequence().size()*2) {
-            int64_t graph_dist_fwd = graph_distance(aln1_end, aln2_begin, aln2.sequence().size());
-            dist_fwd = min(graph_dist_fwd, dist_fwd);
-        }
         dist_fwd -= band_distance;
         int64_t dist_inv = distances.second;
-        if (dist_inv < aln2.sequence().size()*2) {
-            int64_t graph_dist_inv = graph_distance(aln2_begin, aln1_end, aln2.sequence().size());
-            dist_inv = min(graph_dist_inv, dist_inv);
-        }
         dist_inv -= band_distance;
         // bench_end(b);
 
@@ -4019,7 +3483,6 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         compute_mapping_qualities(alignments, 0, max_mapping_quality, max_mapping_quality);
         filter_and_process_multimaps(alignments, max_multimaps);
     }
-    //cerr << "got alignment " << pb2json(alignments.front()) << endl;
     chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
     // set time for alignment
     alignments.front().set_time_used(chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count());
@@ -4029,25 +3492,23 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
 bool Mapper::adjacent_positions(const Position& pos1, const Position& pos2) {
     // are they the same id, with offset differing by 1?
     if (pos1.node_id() == pos2.node_id()
+        && pos1.is_reverse() == pos2.is_reverse()
         && pos1.offset() == pos2.offset()-1) {
         return true;
     }
     // otherwise, we're going to need to check via the index
-    VG graph;
-    // pick up a graph that's just the neighborhood of the start and end positions
-    int64_t id1 = pos1.node_id();
-    int64_t id2 = pos2.node_id();
-    if(xindex) {
-        // Grab the node sequence only from the XG index and get its size.
-        xindex->get_id_range(id1, id1, graph.graph);
-        xindex->get_id_range(id2, id2, graph.graph);
-        xindex->expand_context(graph.graph, 1, false);
-        graph.rebuild_indexes();
-    } else {
-        throw runtime_error("No index to get nodes from.");
-    }
-    // now look in the graph to figure out if we are adjacent
-    return graph.adjacent(pos1, pos2);
+    // look in the graph to figure out if we are adjacent
+    handle_t handle1 = xindex->get_handle(pos1.node_id(), pos1.is_reverse());
+    handle_t handle2 = xindex->get_handle(pos2.node_id(), pos2.is_reverse());
+    bool adjacent = false;
+    xindex->follow_edges(handle1, false, [&](const handle_t& next) {
+            if (next == handle2) {
+                adjacent = true;
+                return false;
+            }
+            return true;
+        });
+    return adjacent;
 }
 
 void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq, double mq_estimate, double mq_cap) {
@@ -4269,7 +3730,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
     }
 #endif
     
-    annotate_with_initial_path_positions(alignments);
+    algorithms::annotate_with_initial_path_positions(*xindex, alignments);
     chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
     // set time for alignment
     alignments.front().set_time_used(chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count());
@@ -4302,17 +3763,8 @@ set<pos_t> gcsa_nodes_to_positions(const vector<gcsa::node_type>& nodes) {
     return positions;    
 }
 
-
-int64_t Mapper::graph_distance(pos_t pos1, pos_t pos2, int64_t maximum) {
-    return xg_distance(pos1, pos2, maximum, xindex);
-}
-
 int64_t Mapper::graph_mixed_distance_estimate(pos_t pos1, pos_t pos2, int64_t maximum) {
-    if (maximum) {
-        int64_t graph_dist = graph_distance(pos1, pos2, maximum);
-        if (graph_dist < maximum) return graph_dist;
-    }
-    int64_t path_dist = xindex->min_approx_path_distance(id(pos1), id(pos2));
+    int64_t path_dist = algorithms::min_approx_path_distance(xindex, pos1, pos2, maximum*2);
     int64_t approx_dist = abs(approx_distance(pos1, pos2));
     return min(path_dist, approx_dist);
 }
@@ -4320,9 +3772,9 @@ int64_t Mapper::graph_mixed_distance_estimate(pos_t pos1, pos_t pos2, int64_t ma
 int64_t Mapper::approx_position(pos_t pos) {
     // get nodes on the forward strand
     if (is_rev(pos)) {
-        pos = reverse(pos, xg_node_length(id(pos), xindex));
+        pos = reverse(pos, get_node_length(id(pos)));
     }
-    return (int64_t)xg_node_start(id(pos), xindex) + (int64_t)offset(pos);
+    return dynamic_cast<VectorizableHandleGraph*>(xindex)->node_vector_offset((nid_t)id(pos)) + offset(pos);
 }
 
 int64_t Mapper::approx_distance(pos_t pos1, pos_t pos2) {
@@ -4353,167 +3805,6 @@ int64_t Mapper::approx_fragment_length(const Alignment& aln1, const Alignment& a
     } else {
         return -1;
     }
-}
-
-id_t Mapper::node_approximately_at(int64_t approx_pos) {
-    return xindex->node_at_seq_pos(
-        min(xindex->seq_length,
-            (size_t)max(approx_pos, (int64_t)1)));
-}
-
-// use LRU caching to get the most-recent node positions
-map<string, vector<size_t> > Mapper::node_positions_in_paths(gcsa::node_type node) {
-    return xindex->position_in_paths(gcsa::Node::id(node), gcsa::Node::rc(node), gcsa::Node::offset(node));
-}
-
-Alignment Mapper::walk_match(const string& seq, pos_t pos) {
-    //cerr << "in walk match with " << seq << " " << seq.size() << " " << pos << endl;
-    Alignment aln;
-    aln.set_sequence(seq);
-    auto alns = walk_match(aln, seq, pos);
-    if (!alns.size()) {
-        //cerr << "no alignments returned from walk match with " << seq << " " << seq.size() << " " << pos << endl;
-        //assert(false);
-        return aln;
-    }
-    aln = alns.front(); // take the first one we found
-    //assert(alignment_to_length(aln) == alignment_from_length(aln));
-    if (alignment_to_length(aln) != alignment_from_length(aln)
-        || alignment_to_length(aln) != seq.size()) {
-        //cerr << alignment_to_length(aln) << " is not " << seq.size() << endl;
-        //cerr << pb2json(aln) << endl;
-        //assert(false);
-        aln.clear_path();
-    }
-#ifdef debug_mapper
-    if (debug) {
-        cerr << "walk_match result " << pb2json(aln) << endl;
-        if (!check_alignment(aln)) {
-            cerr << "aln is invalid!" << endl;
-            exit(1);
-        }
-    }
-#endif
-    return aln;
-}
-
-vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, pos_t pos) {
-    //cerr << "in walk_match " << seq << " from " << pos << " with base " << pb2json(base) << endl;
-    // go to the position in the xg index
-    // and step in the direction given
-    // until we exhaust our sequence
-    // or hit another node
-    vector<Alignment> alns;
-    Alignment aln = base;
-    Path& path = *aln.mutable_path();
-    Mapping* mapping = path.add_mapping();
-    *mapping->mutable_position() = make_position(pos);
-#ifdef debug_mapper
-#pragma omp critical
-    if (debug) cerr << "walking match for seq " << seq << " at position " << pb2json(*mapping) << endl;
-#endif
-    // get the first node we match
-    int total = 0;
-    size_t match_len = 0;
-    for (size_t i = 0; i < seq.size(); ++i) {
-        char c = seq[i];
-        //cerr << string(base.path().mapping_size(), ' ') << pos << " @ " << i << " on " << c << endl;
-        auto nexts = next_pos_chars(pos);
-        // we can have a match on the current node
-        if (nexts.size() == 1 && id(nexts.begin()->first) == id(pos)) {
-            pos_t npos = nexts.begin()->first;
-            // check that the next position would match
-            if (i+1 < seq.size()) {
-                // we can't step, so we break
-                //cerr << "Checking if " << pos_char(npos) << " != " << seq[i+1] << endl;
-                if (pos_char(npos) != seq[i+1]) {
-#ifdef debug_mapper
-#pragma omp critical
-                    if (debug) cerr << "MEM does not match position, returning without creating alignment" << endl;
-#endif
-                    return alns;
-                }
-            }
-            // otherwise we step our counters
-            ++match_len;
-            ++get_offset(pos);
-        } else { // or we go into the next node
-            // we must be going into another node
-            // emit the mapping for this node
-            //cerr << "we are going into a new node" << endl;
-            // finish the last node
-            {
-                // we must have matched / we already checked
-                ++match_len;
-                Edit* edit = mapping->add_edit();
-                edit->set_from_length(match_len);
-                edit->set_to_length(match_len);
-                // reset our counter
-                match_len = 0;
-            }
-            // find the next node that matches our MEM
-            bool got_match = false;
-            if (i+1 < seq.size()) {
-                //cerr << "nexts @ " << i << " " << nexts.size() << endl;
-                for (auto& p : nexts) {
-                    //cerr << " next : " << p.first << " " << p.second << " (looking for " << seq[i+1] << ")" << endl;
-                    if (p.second == seq[i+1]) {
-                        if (!got_match) {
-                            pos = p.first;
-                            got_match = true;
-                        } else {
-                            auto v = walk_match(aln, seq.substr(i+1), p.first);
-                            if (v.size()) {
-                                alns.reserve(alns.size() + distance(v.begin(), v.end()));
-                                alns.insert(alns.end(), v.begin(), v.end());
-                            }
-                        }
-                    }
-                }
-                if (!got_match) {
-                    // this matching ends here
-                    // and we haven't finished matching
-                    // thus this path doesn't contain the match
-                    //cerr << "got no match" << endl;
-                    return alns;
-                }
-
-                // set up a new mapping
-                mapping = path.add_mapping();
-                *mapping->mutable_position() = make_position(pos);
-            } else {
-                //cerr << "done!" << endl;
-            }
-        }
-    }
-    if (match_len) {
-        Edit* edit = mapping->add_edit();
-        edit->set_from_length(match_len);
-        edit->set_to_length(match_len);
-    }
-    alns.push_back(aln);
-#ifdef debug_mapper
-#pragma omp critical
-    if (debug) {
-        cerr << "walked alignment(s):" << endl;
-        for (auto& aln : alns) {
-            cerr << pb2json(aln) << endl;
-        }
-    }
-#endif
-    //cerr << "returning " << alns.size() << endl;
-    return alns;
-}
-
-// convert one mem into a set of alignments, one for each exact match
-vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
-    vector<Alignment> alns;
-    const string seq = mem.sequence();
-    for (auto& node : mem.nodes) {
-        pos_t pos = make_pos_t(node);
-        alns.emplace_back(walk_match(seq, pos));
-    }
-    return alns;
 }
 
 Position Mapper::alignment_end_position(const Alignment& aln) {
@@ -4587,12 +3878,12 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
                             //cerr << "trying position " << pos << endl;
-                            pos_t pos_rev = reverse(pos, xg_node_length(id(pos), xindex));
-                            Graph graph = xindex->graph_context_id(pos_rev, band.sequence().size()*extend_fwd);
-                            graph.MergeFrom(xindex->graph_context_id(pos, band.sequence().size()*extend_rev));
-                            sort_by_id_dedup_and_clean(graph);
-                            bool acyclic_and_sorted = is_id_sortable(graph) && !has_inversion(graph);
-                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, acyclic_and_sorted, false, xdrop_alignment);
+                            sglib::HashGraph graph;
+                            algorithms::extract_context(*xindex, graph, xindex->get_handle(id(pos), is_rev(pos)), offset(pos),
+                                                        band.sequence().size()*extend_fwd, true, false);
+                            algorithms::extract_context(*xindex, graph, xindex->get_handle(id(pos), is_rev(pos)), offset(pos),
+                                                        band.sequence().size()*extend_rev, false, true);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, false, xdrop_alignment);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
                         // TODO
@@ -4605,13 +3896,13 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
                             //cerr << "trying position " << pos << endl;
-                            Graph graph = xindex->graph_context_id(pos, band.sequence().size()*extend_fwd);
-                            pos_t pos_rev = reverse(pos, xg_node_length(id(pos), xindex));
-                            graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()*extend_rev));
-                            sort_by_id_dedup_and_clean(graph);
+                            sglib::HashGraph graph;
+                            algorithms::extract_context(*xindex, graph, xindex->get_handle(id(pos), is_rev(pos)), offset(pos),
+                                                        band.sequence().size()*extend_fwd, true, false);
+                            algorithms::extract_context(*xindex, graph, xindex->get_handle(id(pos), is_rev(pos)), offset(pos),
+                                                        band.sequence().size()*extend_rev, false, true);
                             //cerr << "on graph " << pb2json(graph) << endl;
-                            bool acyclic_and_sorted = is_id_sortable(graph) && !has_inversion(graph);
-                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, acyclic_and_sorted, false, xdrop_alignment);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, false, xdrop_alignment);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
                     } else {
@@ -4619,13 +3910,13 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
                             //cerr << "trying position " << pos << endl;
-                            Graph graph = xindex->graph_context_id(pos, band.sequence().size()*extend_fwd);
-                            pos_t pos_rev = reverse(pos, xg_node_length(id(pos), xindex));
-                            graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()*extend_rev));
-                            sort_by_id_dedup_and_clean(graph);
+                            sglib::HashGraph graph;
+                            algorithms::extract_context(*xindex, graph, xindex->get_handle(id(pos), is_rev(pos)), offset(pos),
+                                                        band.sequence().size()*extend_fwd, true, false);
+                            algorithms::extract_context(*xindex, graph, xindex->get_handle(id(pos), is_rev(pos)), offset(pos),
+                                                        band.sequence().size()*extend_rev, false, true);
                             //cerr << "on graph " << pb2json(graph) << endl;
-                            bool acyclic_and_sorted = is_id_sortable(graph) && !has_inversion(graph);
-                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, acyclic_and_sorted, false, xdrop_alignment);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, false, xdrop_alignment);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
                     }
@@ -4648,7 +3939,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                             && from_length >= min_cluster_length
                             && band.identity() > min_identity) {
                             band_ref_pos.clear();
-                            //cerr << "thing worked " << pb2json(band) << endl;
                             // todo... step our position back just a little to match the banding
                             // right now we're relying on the chunkiness of the graph to get this for us
                             // strip back a little
@@ -4669,6 +3959,12 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         } else {
                             //cerr << "clearing the path" << endl;
                             band.clear_path();
+                            /*
+                            Edit* e = band.mutable_path()->add_mapping()->add_edit();
+                            e->set_to_length(band.sequence().size());
+                            band.clear_score();
+                            band.clear_identity();
+                            */
                             // TODO try to align over a bigger chunk after this
                         }
                     }
@@ -4687,7 +3983,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         // walk graph to estimate next position based on assumption we are ~ homologous to the graph
                         set<pos_t> next_pos;
                         for (auto& pos : band_ref_pos) {
-                            for (auto& next : positions_bp_from(pos, band.sequence().size(), false)) {
+                            for (auto& next : algorithms::jump_along_closest_path(xindex, pos, band.sequence().size(), band.sequence().size())) {
                                 next_pos.insert(next);
                             }
                         }
@@ -4704,10 +4000,13 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         }
                     }
                 }
+
                 /*
-                cerr << "done bands" << endl;
-                for (auto& band : bands) {
-                    cerr << "band: " << pb2json(band) << endl;
+                if (debug) {
+                    cerr << "done bands" << endl;
+                    for (auto& band : bands) {
+                        cerr << "band: " << pb2json(band) << endl;
+                    }
                 }
                 */
                 patch = simplify(merge_alignments(bands));
@@ -4723,9 +4022,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                     assert(false);
                 }
 #endif
-                //cerr << "adding " << pb2json(patch) << endl;
                 if (patched.path().mapping_size()) {
-                    extend_alignment(patched, patch);
+                    extend_alignment(patched, patch, true);
                 } else {
                     patched = patch;
                 }
@@ -4799,69 +4097,6 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
     
 }
 
-// make a perfect-match alignment out of a vector of MEMs which each have only one recorded hit
-// use the base alignment sequence (which the SMEMs relate to) to fill in the gaps
-Alignment Mapper::mems_to_alignment(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
-    // base case--- empty alignment
-    if (mems.empty()) {
-        Alignment aln; return aln;
-    }
-    vector<Alignment> alns;
-    // get reference to the start and end of the sequences
-    string::const_iterator seq_begin = aln.sequence().begin();
-    string::const_iterator seq_end = aln.sequence().end();
-    // we use this to track where we need to add sequence
-    string::const_iterator last_end = seq_begin;
-    for (int i = 0; i < mems.size(); ++i) {
-        auto& mem = mems.at(i);
-        //cerr << "looking at " << mem.sequence() << endl;
-        // this mem is contained in the last
-        if (mem.end <= last_end) {
-            continue;
-        }
-        // handle unaligned portion between here and the last SMEM or start of read
-        if (mem.begin > last_end) {
-            alns.emplace_back();
-            alns.back().set_sequence(aln.sequence().substr(last_end - seq_begin, mem.begin - last_end));
-        }
-        Alignment aln = mem_to_alignment(mem);
-        // find and trim overlap with previous
-        if (i > 0) {
-            // use the end of the last mem we touched (we may have skipped several)
-            int overlap = last_end - mem.begin;
-            if (overlap > 0) {
-                aln = strip_from_start(aln, overlap);
-            }
-        }
-        alns.push_back(aln);
-        last_end = mem.end;
-    }
-    // handle unaligned portion at end of read
-    int start = last_end - seq_begin;
-    int length = seq_end - (seq_begin + start);
-    
-    alns.emplace_back();
-    alns.back().set_sequence(aln.sequence().substr(start, length));
-
-    auto alnm = simplify(merge_alignments(alns));
-    *alnm.mutable_quality() = aln.quality();
-    alnm.set_name(aln.name());
-    alnm.set_score(score_alignment(alnm));
-    alnm.set_identity(identity(alnm.path()));
-    return alnm;
-}
-
-// convert one mem into an alignment; validates that only one node is given
-Alignment Mapper::mem_to_alignment(const MaximalExactMatch& mem) {
-    const string seq = mem.sequence();
-    if (mem.nodes.size() > 1) {
-        cerr << "[vg::Mapper] warning: generating first alignment from MEM with multiple recorded hits" << endl;
-    }
-    auto& node = mem.nodes.front();
-    pos_t pos = make_pos_t(node);
-    return walk_match(seq, pos);
-}
-
 const int balanced_stride(int read_length, int kmer_size, int stride) {
     double r = read_length;
     double k = kmer_size;
@@ -4887,7 +4122,7 @@ const vector<string> balanced_kmers(const string& seq, const int kmer_size, cons
 AlignmentChainModel::AlignmentChainModel(
     vector<vector<Alignment> >& bands,
     Mapper* mapper,
-    const function<double(const Alignment&, const Alignment&, const map<string, vector<pair<size_t, bool> > >&, const map<string, vector<pair<size_t, bool> > >&, int64_t)>& transition_weight,
+    const function<double(const Alignment&, const Alignment&, const unordered_map<path_handle_t, vector<pair<size_t, bool> > >&, const unordered_map<path_handle_t, vector<pair<size_t, bool> > >&, int64_t)>& transition_weight,
     int vertex_band_width,
     int position_depth,
     int max_connections) {
@@ -4905,8 +4140,8 @@ AlignmentChainModel::AlignmentChainModel(
             v.weight = aln.score();
             v.prev = nullptr;
             v.score = 0;
-            v.positions = mapper->alignment_path_offsets(aln);
-            v.positions[""].push_back(make_pair(mapper->approx_alignment_position(aln), false));
+            v.positions = algorithms::alignment_path_offsets(*mapper->xindex, aln, true, false);
+            v.positions[handlegraph::as_path_handle(0)].push_back(make_pair(mapper->approx_alignment_position(aln), false));
             model.push_back(v);
             // mapper->counter[1]++;
         }
@@ -5101,7 +4336,7 @@ void AlignmentChainModel::display_dot(ostream& out, vector<AlignmentChainModelVe
         out << "\npositions: ";
         for (auto& p : vertex.positions) {
             for (auto& q : p.second) {
-                out << p.first << ":" << q.first << (q.second?"-":"+") << " ";
+                out << as_integer(p.first) << ":" << q.first << (q.second?"-":"+") << " ";
             }
         }
         pos_t p_start = make_pos_t(path_start_position(vertex.aln->path()));

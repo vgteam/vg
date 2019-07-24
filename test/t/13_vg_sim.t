@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 12
+plan tests 14
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -45,3 +45,9 @@ is $(vg sim -N -n 1000 -l 20 -x n.xg | grep -o N | uniq | wc -l) 1 "sim can emit
 is $(vg sim -n 1000 -l 2 -p 5 -e 0.1 -x n.xg | grep N | wc -l) 0 "sim doesn't emit Ns even with pair and errors"
 
 rm -f x.vg x.xg n.vg n.fa n.xg
+
+vg view -Fv graphs/cactus-BRCA2.gfa >cactus-BRCA2.vg
+vg index -x cactus-BRCA2.xg cactus-BRCA2.vg
+is $(vg sim -x cactus-BRCA2.xg -n 100 -l 150 -p 1000 -v 100 -e 0.01 -i 0.005 -F minigiab/NA12878.chr22.tiny.fq.gz | wc -l) 100 "ngs trained simulator works"
+is $(vg sim -x cactus-BRCA2.xg -n 100 -l 150 -p 1000 -v 100 -e 0.01 -i 0.005 -a -F minigiab/NA12878.chr22.tiny.fq.gz | vg view -a - | wc -l) 200 "ngs trained simulator generates gam"
+rm -f cactus-BRCA2.xg cactus-BRCA2.vg
