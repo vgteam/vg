@@ -49,10 +49,10 @@ namespace vg {
                 // no subpaths or mappings on an empty graph and empty alignment                
 				
                 // check requirements 
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph); 
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, 1000); 
                 vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
-
-                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector);
+                double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
+                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 
                 auto iter = genome.begin(0);
                
@@ -90,9 +90,10 @@ namespace vg {
 
                 multipath_aln.add_start(0);        
 
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph);   
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, 1000);   
                 vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
-                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector);
+                double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
+                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 
                 // check requirements
                 // here the optimal solution is that both haplotypes match to the read
@@ -183,12 +184,13 @@ namespace vg {
                 multipath_aln.add_start(0);
 
             
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph);    //object
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, 1000);    //object
                 vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
                 //instantiating an empty vector: 
                 //vector<a> v;
                 //v.push_back(multipath_align)
-                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector);
+                double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
+                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 
                 // check requirements
                 REQUIRE(genome.num_haplotypes() == 2);
@@ -320,12 +322,14 @@ namespace vg {
                 multipath_aln.add_start(0); //integer given is the subpath number
 
 
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph);    //object
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, 1000);    //object
                 vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
                 //instantiating an empty vector: 
                 //vector<a> v;
                 //v.push_back(multipath_align)
-                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector);
+
+                double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
+                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 				
                 //check requirements
                 REQUIRE(genome.num_haplotypes() == 2);
@@ -486,12 +490,18 @@ namespace vg {
 
                 multipath_aln.add_start(0); //integer given is the subpath number
 				
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph);    //object
+                // match and mismatch represent the point system used for penalty
+                double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
+
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, 1000);    //object
                 vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
-                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector);
+                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 
                 //check requirements
                 REQUIRE(genome.num_haplotypes() == 2);
+
+
+                
                 
                 // haplotype 1 
                 auto iter = genome.begin(0); //Haplotype ID
@@ -580,12 +590,8 @@ namespace vg {
                 aln4.set_sequence(read4);
 
                 vector<MultipathAlignment> multipath_alns_out1, multipath_alns_out2, multipath_alns_out3, multipath_alns_out4 ;
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph); //create mcmc_genptyper obj
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, 1000); //create mcmc_genptyper obj
                 vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>(); 
-                
-                // create a function accumulates the reads that have been mapped and it takes a 
-                
-                vector<MultipathAlignment> vector_alns_out;//does this have to be 2D
 
                 // map read in alignment to graph and make multipath alignments  
                 multipath_mapper.multipath_map(aln1, multipath_alns_out1, 1);
@@ -593,15 +599,16 @@ namespace vg {
                 multipath_mapper.multipath_map(aln3, multipath_alns_out3, 1);
                 multipath_mapper.multipath_map(aln4, multipath_alns_out4, 1);
                 
-
+                
                 //accumulate MultipathAlignment objects 
                 accumulate_alns(multipath_alns_out1, multipath_aln_vector);
                 accumulate_alns(multipath_alns_out2, multipath_aln_vector);
                 accumulate_alns(multipath_alns_out3, multipath_aln_vector);
                 accumulate_alns(multipath_alns_out4, multipath_aln_vector);
 
+                double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
                 //pass vector with accumulated MultipathAlignment objects to run_genotype()
-                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector); 
+                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base); 
                 
                 // create a set of 2 possible solutions
                 vector<NodeTraversal> soln1, soln2;
