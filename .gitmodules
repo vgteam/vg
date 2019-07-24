@@ -110,3 +110,6 @@
 [submodule "deps/FlameGraph"]
 	path = deps/FlameGraph
 	url = https://github.com/brendangregg/FlameGraph
+[submodule "deps/libbdsg"]
+	path = deps/libbdsg
+	url = https://github.com/vgteam/libbdsg.git

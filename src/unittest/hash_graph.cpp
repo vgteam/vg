@@ -12,7 +12,7 @@
 
 #include "algorithms/are_equivalent.hpp"
 
-#include "sglib/hash_graph.hpp"
+#include "bdsg/hash_graph.hpp"
 
 #include "catch.hpp"
 
@@ -33,7 +33,7 @@ using namespace std;
         uniform_int_distribution<int> circ_distr(0, 1);
         
         for (int i = 0; i < num_graphs; i++) {
-            sglib::HashGraph graph;
+            bdsg::HashGraph graph;
             random_graph(seq_length, long_var_length, num_variants, &graph);
             
             graph.for_each_path_handle([&](const path_handle_t& path) {
@@ -43,7 +43,7 @@ using namespace std;
             stringstream strm;
             graph.serialize(strm);
             strm.seekg(0);
-            sglib::HashGraph loaded(strm);
+            bdsg::HashGraph loaded(strm);
             REQUIRE(algorithms::are_equivalent_with_paths(&graph, &loaded));
         }
     }

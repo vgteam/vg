@@ -21,7 +21,7 @@
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/split_strands.hpp"
 
-#include "sglib/hash_graph.hpp"
+#include "bdsg/hash_graph.hpp"
 
 namespace vg {
 
