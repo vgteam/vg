@@ -118,8 +118,8 @@ Public Types</h2></td></tr>
 <tr class="memitem:a781815d148571276e536c7a7780017be"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> = vector&lt; pair&lt; const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&gt;</td></tr>
 <tr class="memdesc:a781815d148571276e536c7a7780017be"><td class="mdescLeft">&#160;</td><td class="mdescRight">We often pass around clusters of MEMs and their graph positions.  <a href="#a781815d148571276e536c7a7780017be">More...</a><br/></td></tr>
 <tr class="separator:a781815d148571276e536c7a7780017be"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad07498c25a4454f3f531dd7e7c762e34"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> = tuple&lt; sglib::HashGraph *, <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a>, size_t &gt;</td></tr>
-<tr class="separator:ad07498c25a4454f3f531dd7e7c762e34"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a936e50beb6616e5decca443b3c35ddde"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> = tuple&lt; bdsg::HashGraph *, <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a>, size_t &gt;</td></tr>
+<tr class="separator:a936e50beb6616e5decca443b3c35ddde"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
@@ -344,15 +344,15 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a6e6fb4cb7896a6de840b2af5b70a4fed"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a58a6a2bccf8123914bcf4e378edcbb61"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a58a6a2bccf8123914bcf4e378edcbb61">attempt_rescue</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;other_aln, bool rescue_forward, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;rescue_multipath_aln)</td></tr>
 <tr class="separator:a58a6a2bccf8123914bcf4e378edcbb61"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0e10da35d46a51134c29d96ecb329fdb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a0e10da35d46a51134c29d96ecb329fdb">align_to_cluster_graphs</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39">MappingQualityMethod</a> mapq_method, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;cluster_graphs, vector&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt; &amp;multipath_alns_out, size_t <a class="el" href="classvg_1_1MultipathMapper.html#acd259da737785206d02cc2807ab831fa">num_mapping_attempts</a>, vector&lt; size_t &gt; *cluster_idxs=nullptr)</td></tr>
+<tr class="memitem:a0e10da35d46a51134c29d96ecb329fdb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a0e10da35d46a51134c29d96ecb329fdb">align_to_cluster_graphs</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39">MappingQualityMethod</a> mapq_method, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;cluster_graphs, vector&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt; &amp;multipath_alns_out, size_t <a class="el" href="classvg_1_1MultipathMapper.html#acd259da737785206d02cc2807ab831fa">num_mapping_attempts</a>, vector&lt; size_t &gt; *cluster_idxs=nullptr)</td></tr>
 <tr class="separator:a0e10da35d46a51134c29d96ecb329fdb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a22e559455e46e8fc3b4e1b6850db1768"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a22e559455e46e8fc3b4e1b6850db1768">align_to_cluster_graph_pairs</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;cluster_graphs2, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;duplicate_pairs_out)</td></tr>
+<tr class="memitem:a22e559455e46e8fc3b4e1b6850db1768"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a22e559455e46e8fc3b4e1b6850db1768">align_to_cluster_graph_pairs</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;cluster_graphs2, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;duplicate_pairs_out)</td></tr>
 <tr class="separator:a22e559455e46e8fc3b4e1b6850db1768"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7dd5a0243c79cbb71c9ca2af2f86fcd5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a7dd5a0243c79cbb71c9ca2af2f86fcd5">align_to_cluster_graphs_with_rescue</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;cluster_graphs2, bool block_rescue_from_1, bool block_rescue_from_2, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;pair_distances, size_t max_alt_mappings)</td></tr>
+<tr class="memitem:a7dd5a0243c79cbb71c9ca2af2f86fcd5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a7dd5a0243c79cbb71c9ca2af2f86fcd5">align_to_cluster_graphs_with_rescue</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;cluster_graphs2, bool block_rescue_from_1, bool block_rescue_from_2, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;pair_distances, size_t max_alt_mappings)</td></tr>
 <tr class="separator:a7dd5a0243c79cbb71c9ca2af2f86fcd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1751c97818eef51d83a0e8f31260822b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a1751c97818eef51d83a0e8f31260822b">attempt_rescue_for_secondaries</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;cluster_graphs2, vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;duplicate_pairs, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs)</td></tr>
+<tr class="memitem:a1751c97818eef51d83a0e8f31260822b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a1751c97818eef51d83a0e8f31260822b">attempt_rescue_for_secondaries</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;cluster_graphs2, vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;duplicate_pairs, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs)</td></tr>
 <tr class="separator:a1751c97818eef51d83a0e8f31260822b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a17aa98cc9509dd4e9cec05610dc629ea"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a17aa98cc9509dd4e9cec05610dc629ea">attempt_rescue_of_repeat_from_non_repeat</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems1, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems2, bool do_repeat_rescue_from_1, bool do_repeat_rescue_from_2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &gt; &amp;clusters1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &gt; &amp;clusters2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;cluster_graphs2, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;pair_distances, size_t max_alt_mappings, <a class="el" href="classvg_1_1OrientedDistanceMeasurer.html">OrientedDistanceMeasurer</a> &amp;distance_measurer)</td></tr>
+<tr class="memitem:a17aa98cc9509dd4e9cec05610dc629ea"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a17aa98cc9509dd4e9cec05610dc629ea">attempt_rescue_of_repeat_from_non_repeat</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems1, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems2, bool do_repeat_rescue_from_1, bool do_repeat_rescue_from_2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &gt; &amp;clusters1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &gt; &amp;clusters2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;cluster_graphs2, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;pair_distances, size_t max_alt_mappings, <a class="el" href="classvg_1_1OrientedDistanceMeasurer.html">OrientedDistanceMeasurer</a> &amp;distance_measurer)</td></tr>
 <tr class="separator:a17aa98cc9509dd4e9cec05610dc629ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a435fa7c040563791dcae4386cb0128ed"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a435fa7c040563791dcae4386cb0128ed">merge_rescued_mappings</a> (vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;rescued_multipath_aln_pairs, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;rescued_cluster_pairs) const </td></tr>
 <tr class="memdesc:a435fa7c040563791dcae4386cb0128ed"><td class="mdescLeft">&#160;</td><td class="mdescRight">Merge the rescued mappings into the output vector and deduplicate pairs.  <a href="#a435fa7c040563791dcae4386cb0128ed">More...</a><br/></td></tr>
@@ -360,16 +360,16 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:a5fda5da79bd2dd61ca2d3633a8f25133"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a5fda5da79bd2dd61ca2d3633a8f25133">get_clusters</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, <a class="el" href="classvg_1_1OrientedDistanceMeasurer.html">OrientedDistanceMeasurer</a> *distance_measurer=nullptr) const </td></tr>
 <tr class="separator:a5fda5da79bd2dd61ca2d3633a8f25133"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a49fdf1a2efedda808c2d3a7bda5a7f98"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; pair&lt; size_t, <br class="typebreak"/>
-size_t &gt;, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a49fdf1a2efedda808c2d3a7bda5a7f98">get_cluster_pairs</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;cluster_graphs2, <a class="el" href="classvg_1_1OrientedDistanceMeasurer.html">OrientedDistanceMeasurer</a> *distance_measurer=nullptr)</td></tr>
+size_t &gt;, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a49fdf1a2efedda808c2d3a7bda5a7f98">get_cluster_pairs</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;cluster_graphs2, <a class="el" href="classvg_1_1OrientedDistanceMeasurer.html">OrientedDistanceMeasurer</a> *distance_measurer=nullptr)</td></tr>
 <tr class="separator:a49fdf1a2efedda808c2d3a7bda5a7f98"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a961427b7963da3d8ba3ae3c075dcb55d"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a961427b7963da3d8ba3ae3c075dcb55d">query_cluster_graphs</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &gt; &amp;clusters)</td></tr>
+<tr class="memitem:a961427b7963da3d8ba3ae3c075dcb55d"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a961427b7963da3d8ba3ae3c075dcb55d">query_cluster_graphs</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &gt; &amp;clusters)</td></tr>
 <tr class="separator:a961427b7963da3d8ba3ae3c075dcb55d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaf5567509cf58d2d8b675e7cba5b8bf2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aaf5567509cf58d2d8b675e7cba5b8bf2">split_multicomponent_alignments</a> (vector&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt; &amp;multipath_alns_out, vector&lt; size_t &gt; *cluster_idxs=nullptr) const </td></tr>
 <tr class="separator:aaf5567509cf58d2d8b675e7cba5b8bf2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a75e3181768ba99553c33a8a6a0331ebd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a75e3181768ba99553c33a8a6a0331ebd">split_multicomponent_alignments</a> (vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs) const </td></tr>
 <tr class="separator:a75e3181768ba99553c33a8a6a0331ebd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad40bdecb093ac9bd839b46b0e993e69e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ad40bdecb093ac9bd839b46b0e993e69e">multipath_align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const sglib::HashGraph *graph, <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &amp;graph_mems, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out) const </td></tr>
-<tr class="separator:ad40bdecb093ac9bd839b46b0e993e69e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab8a788e636c1129960c1da1eaea10d3d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ab8a788e636c1129960c1da1eaea10d3d">multipath_align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const bdsg::HashGraph *graph, <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &amp;graph_mems, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out) const </td></tr>
+<tr class="separator:ab8a788e636c1129960c1da1eaea10d3d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a38334bfa61a9939db4e4a1cae9bdd1bb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a38334bfa61a9939db4e4a1cae9bdd1bb">make_nontrivial_multipath_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;subgraph, unordered_map&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, bool &gt;&gt; &amp;translator, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1MultipathMapper.html#a82e1a1af4b8ba0170cf7817cd44f1008">snarl_manager</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out) const </td></tr>
 <tr class="separator:a38334bfa61a9939db4e4a1cae9bdd1bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad33bea3e28eb96db7e15f374ae9949fa"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ad33bea3e28eb96db7e15f374ae9949fa">strip_full_length_bonuses</a> (<a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln) const </td></tr>
@@ -382,11 +382,11 @@ size_t &gt;, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom
 <tr class="separator:a0590fa849998ad4f4ef6536a40645d3a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae0dbcb8e10d7675f5b62cac6b3161ba4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ae0dbcb8e10d7675f5b62cac6b3161ba4">sort_and_compute_mapping_quality</a> (vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, bool allow_population_component, vector&lt; pair&lt; size_t, size_t &gt;&gt; *duplicate_pairs_out=nullptr) const </td></tr>
 <tr class="separator:ae0dbcb8e10d7675f5b62cac6b3161ba4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a143b12213214f32022cc89c4f3493ee3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a143b12213214f32022cc89c4f3493ee3">cap_mapping_quality_by_rescue_probability</a> (vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;cluster_graphs2, bool from_secondary_rescue) const </td></tr>
+<tr class="memitem:a143b12213214f32022cc89c4f3493ee3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a143b12213214f32022cc89c4f3493ee3">cap_mapping_quality_by_rescue_probability</a> (vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;cluster_graphs2, bool from_secondary_rescue) const </td></tr>
 <tr class="separator:a143b12213214f32022cc89c4f3493ee3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad13ab2bba48e2d30f8b225a210a599f0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ad13ab2bba48e2d30f8b225a210a599f0">cap_mapping_quality_by_hit_sampling_probability</a> (vector&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt; &amp;multipath_alns_out, vector&lt; size_t &gt; &amp;cluster_idxs, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;cluster_graphs) const </td></tr>
+<tr class="memitem:ad13ab2bba48e2d30f8b225a210a599f0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ad13ab2bba48e2d30f8b225a210a599f0">cap_mapping_quality_by_hit_sampling_probability</a> (vector&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt; &amp;multipath_alns_out, vector&lt; size_t &gt; &amp;cluster_idxs, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;cluster_graphs) const </td></tr>
 <tr class="separator:ad13ab2bba48e2d30f8b225a210a599f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a82b6366f42c3d50ef9d7673e7c3a4381"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a82b6366f42c3d50ef9d7673e7c3a4381">cap_mapping_quality_by_hit_sampling_probability</a> (vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;cluster_graphs2, bool did_secondary_rescue) const </td></tr>
+<tr class="memitem:a82b6366f42c3d50ef9d7673e7c3a4381"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a82b6366f42c3d50ef9d7673e7c3a4381">cap_mapping_quality_by_hit_sampling_probability</a> (vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;cluster_graphs2, bool did_secondary_rescue) const </td></tr>
 <tr class="separator:a82b6366f42c3d50ef9d7673e7c3a4381"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab9c2a2d33793ca4c777b3249554fa4bf"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ab9c2a2d33793ca4c777b3249554fa4bf">prob_equivalent_clusters_hits_missed</a> (const <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &amp;cluster) const </td></tr>
 <tr class="separator:ab9c2a2d33793ca4c777b3249554fa4bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -470,12 +470,12 @@ Additional Inherited Members</h2></td></tr>
 <tr class="separator:a279b5883907a56ada69b41796230b209 inherit pub_static_attribs_classvg_1_1BaseMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Member Typedef Documentation</h2>
-<a class="anchor" id="ad07498c25a4454f3f531dd7e7c762e34"></a>
+<a class="anchor" id="a936e50beb6616e5decca443b3c35ddde"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">vg::MultipathMapper::clustergraph_t</a> =  tuple&lt;sglib::HashGraph*, <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a>, size_t&gt;</td>
+          <td class="memname">using <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">vg::MultipathMapper::clustergraph_t</a> =  tuple&lt;bdsg::HashGraph*, <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a>, size_t&gt;</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -586,13 +586,13 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster_graphs1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster_graphs2</em>, </td>
         </tr>
         <tr>
@@ -651,7 +651,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster_graphs</em>, </td>
         </tr>
         <tr>
@@ -710,13 +710,13 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster_graphs1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster_graphs2</em>, </td>
         </tr>
         <tr>
@@ -870,13 +870,13 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster_graphs1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster_graphs2</em>, </td>
         </tr>
         <tr>
@@ -971,13 +971,13 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster_graphs1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster_graphs2</em>, </td>
         </tr>
         <tr>
@@ -1116,7 +1116,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster_graphs</em>&#160;</td>
         </tr>
         <tr>
@@ -1157,13 +1157,13 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster_graphs1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster_graphs2</em>, </td>
         </tr>
         <tr>
@@ -1210,13 +1210,13 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster_graphs1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster_graphs2</em>, </td>
         </tr>
         <tr>
@@ -1407,13 +1407,13 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster_graphs1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34">clustergraph_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde">clustergraph_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster_graphs2</em>, </td>
         </tr>
         <tr>
@@ -1685,7 +1685,7 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ad40bdecb093ac9bd839b46b0e993e69e"></a>
+<a class="anchor" id="ab8a788e636c1129960c1da1eaea10d3d"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -1701,7 +1701,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const sglib::HashGraph *&#160;</td>
+          <td class="paramtype">const bdsg::HashGraph *&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
         </tr>
         <tr>

@@ -140,7 +140,7 @@ var searchData=
   ['cluster_5ft',['cluster_t',['../classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d',1,'vg::MEMClusterer']]],
   ['cluster_5ftype',['cluster_type',['../classvg_1_1GaplessExtender.html#a7ac1326772ac23e766774279d39e9c04',1,'vg::GaplessExtender']]],
   ['clusterer',['clusterer',['../classvg_1_1MinimizerMapper.html#a2420d8771bcc824f7e7d36dbe4531fcf',1,'vg::MinimizerMapper']]],
-  ['clustergraph_5ft',['clustergraph_t',['../classvg_1_1MultipathMapper.html#ad07498c25a4454f3f531dd7e7c762e34',1,'vg::MultipathMapper']]],
+  ['clustergraph_5ft',['clustergraph_t',['../classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde',1,'vg::MultipathMapper']]],
   ['clusters',['clusters',['../classvg_1_1MEMClusterer.html#a33c57c2613769a60e3d54b10c41f4aa8',1,'vg::MEMClusterer::clusters()'],['../classvg_1_1MEMClusterer_1_1HitGraph.html#a34d7904686d0f953620a404f483c1a6c',1,'vg::MEMClusterer::HitGraph::clusters()']]],
   ['clusters_5foverlap_5fin_5fgraph',['clusters_overlap_in_graph',['../namespacevg.html#a9d8947e51da3156529e12ae131c25a47',1,'vg']]],
   ['clusters_5foverlap_5fin_5fread',['clusters_overlap_in_read',['../namespacevg.html#af67eb440256877ac857d6649052d7db1',1,'vg']]],

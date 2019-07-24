@@ -195,7 +195,7 @@ var searchData=
   ['multinomial_5fcensored_5fsampling_5fprob_5fln',['multinomial_censored_sampling_prob_ln',['../namespacevg.html#a074fcebfeb68fc970b5b2a0db3722f01',1,'vg']]],
   ['multinomial_5fchoose_5fln',['multinomial_choose_ln',['../namespacevg.html#a15f09f05f7894863e9cd852c63266078',1,'vg']]],
   ['multinomial_5fsampling_5fprob_5fln',['multinomial_sampling_prob_ln',['../namespacevg.html#af4d69cf9a7d7e6272960fcb9f0a0a00c',1,'vg']]],
-  ['multipath_5falign',['multipath_align',['../classvg_1_1MultipathMapper.html#ad40bdecb093ac9bd839b46b0e993e69e',1,'vg::MultipathMapper']]],
+  ['multipath_5falign',['multipath_align',['../classvg_1_1MultipathMapper.html#ab8a788e636c1129960c1da1eaea10d3d',1,'vg::MultipathMapper']]],
   ['multipath_5fmap',['multipath_map',['../classvg_1_1MultipathMapper.html#a422996497786dca48fec812d13ffc81b',1,'vg::MultipathMapper']]],
   ['multipath_5fmap_5finternal',['multipath_map_internal',['../classvg_1_1MultipathMapper.html#a50bf42d3a43afc92f7695f66e9744496',1,'vg::MultipathMapper']]],
   ['multipath_5fmap_5fpaired',['multipath_map_paired',['../classvg_1_1MultipathMapper.html#a27190ea63595c2d7119b27d198848373',1,'vg::MultipathMapper']]],
