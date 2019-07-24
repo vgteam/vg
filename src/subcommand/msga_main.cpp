@@ -708,8 +708,8 @@ int main_msga(int argc, char** argv) {
                     cerr << "expected " << seq << endl;
                     cerr << "got      " << aln_seq << endl;
                     ofstream f(name + "-failed-alignment-" + convert(j) + ".gam");
-                    vg::io::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }));
-                    vg::io::finish(f);
+                    vg::io::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }), false);
+                    vg::io::finish(f, false);
                     f.close();
                     graph->serialize_to_file(name + "-corrupted-alignment.vg");
                     exit(1);
@@ -725,8 +725,8 @@ int main_msga(int argc, char** argv) {
 
             /*
                ofstream f(name + "-pre-edit-" + convert(j) + ".gam");
-               vg::io::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }));
-               vg::io::finish(f);
+               vg::io::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }), false);
+               vg::io::finish(f, false);
                f.close();
                */
 
@@ -778,8 +778,8 @@ int main_msga(int argc, char** argv) {
                     << pb2json(graph->paths.path(name)) << endl;
                 graph->serialize_to_file(name + "-post-edit.vg");
                 ofstream f(name + "-failed-alignment-" + convert(j) + ".gam");
-                vg::io::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }));
-                vg::io::finish(f);
+                vg::io::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }), false);
+                vg::io::finish(f, false);
                 f.close();
             }
         }

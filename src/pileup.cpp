@@ -81,8 +81,8 @@ void Pileups::write(ostream& out, size_t chunk_size) {
         return pileup;
     };
 
-    vg::io::write(out, count, lambda);
-    vg::io::finish(out);
+    vg::io::write(out, count, lambda, false);
+    vg::io::finish(out, false);
 }
 
 void Pileups::for_each_node_pileup(const function<void(NodePileup&)>& lambda) {

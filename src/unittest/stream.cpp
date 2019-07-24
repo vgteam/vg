@@ -24,8 +24,8 @@ TEST_CASE("Protobuf messages that are all default can be stored and retrieved", 
     // Write one empty message
     REQUIRE(vg::io::write<Graph>(datastream, 1, [](size_t i) {
        return Graph();
-    }));
-    vg::io::finish(datastream);
+    }, false));
+    vg::io::finish(datastream, false);
     
     // Look for it
     int seen = 0;
@@ -62,8 +62,8 @@ TEST_CASE("Protobuf messages can be written and read back", "[stream]") {
     };
     
     // Serialize some objects
-    REQUIRE(vg::io::write<message_t>(datastream, 10, get_message));
-    vg::io::finish(datastream);
+    REQUIRE(vg::io::write<message_t>(datastream, 10, get_message, false));
+    vg::io::finish(datastream, false);
     
 #ifdef debug
     // Dump the compressed data
@@ -107,9 +107,9 @@ TEST_CASE("Multiple write calls work correctly on the same stream", "[stream]") 
     
     for (size_t i = 0; i < 10; i++) {
         // Serialize some objects
-        REQUIRE(vg::io::write<message_t>(datastream, 1, get_message));
+        REQUIRE(vg::io::write<message_t>(datastream, 1, get_message, false));
     }
-    vg::io::finish(datastream);
+    vg::io::finish(datastream, false);
     
     // Read them back
     vg::io::for_each<message_t>(datastream, check_message);
@@ -144,9 +144,9 @@ TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
     
     for (size_t i = 0; i < 10; i++) {
         // Serialize some objects (20, in groups of 2)
-        REQUIRE(vg::io::write<message_t>(datastream, 2, get_message));
+        REQUIRE(vg::io::write<message_t>(datastream, 2, get_message, false));
     }
-    vg::io::finish(datastream);
+    vg::io::finish(datastream, false);
     
     {
         // Scan and populate the table
