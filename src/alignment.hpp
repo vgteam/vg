@@ -8,7 +8,6 @@
 #include "path.hpp"
 #include "position.hpp"
 #include <vg/vg.pb.h>
-#include "xg.hpp"
 #include "edit.hpp"
 #include "htslib/hfile.h"
 #include "htslib/hts.h"
@@ -22,8 +21,10 @@ const char* const BAM_DNA_LOOKUP = "=ACMGRSVTWYHKDBN";
 
 int hts_for_each(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
-int hts_for_each(string& filename, function<void(Alignment&)> lambda, XG* xgindex);
-int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda, XG* xgindex);
+int hts_for_each(string& filename, function<void(Alignment&)> lambda,
+                 const PathPositionHandleGraph* graph);
+int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
+                          const PathPositionHandleGraph* graph);
 int fastq_for_each(string& filename, function<void(Alignment&)> lambda);
 bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& alignment);
 bool get_next_interleaved_alignment_pair_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& mate1, Alignment& mate2);
@@ -62,7 +63,8 @@ string mapping_string(const string& source, const Mapping& mapping);
 
 void cigar_mapping(const bam1_t *b, Mapping& mapping);
 
-Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh, XG* xgindex);
+Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh,
+                           const PathPositionHandleGraph* graph);
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
 
 /**

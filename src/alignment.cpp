@@ -5,7 +5,7 @@
 
 namespace vg {
 
-int hts_for_each(string& filename, function<void(Alignment&)> lambda, XG* xgindex) {
+int hts_for_each(string& filename, function<void(Alignment&)> lambda, const PathPositionHandleGraph* graph) {
 
     samFile *in = hts_open(filename.c_str(), "r");
     if (in == NULL) return 0;
@@ -14,7 +14,7 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda, XG* xginde
     parse_rg_sample_map(hdr->text, rg_sample);
     bam1_t *b = bam_init1();
     while (sam_read1(in, hdr, b) >= 0) {
-        Alignment a = bam_to_alignment(b, rg_sample, hdr, xgindex);
+        Alignment a = bam_to_alignment(b, rg_sample, hdr, graph);
         lambda(a);
     }
     bam_destroy1(b);
@@ -28,7 +28,8 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda) {
     return hts_for_each(filename, lambda, nullptr);
 }
 
-int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda, XG* xgindex) {
+int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
+                          const PathPositionHandleGraph* graph) {
 
     samFile *in = hts_open(filename.c_str(), "r");
     if (in == NULL) return 0;
@@ -59,7 +60,7 @@ int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda, X
             }
             // Now we're outside the critical section so we can only rely on our own variables.
             if (got_read) {
-                Alignment a = bam_to_alignment(b, rg_sample, hdr, xgindex);
+                Alignment a = bam_to_alignment(b, rg_sample, hdr, graph);
                 lambda(a);
             }
         }
@@ -1041,7 +1042,8 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
     return flag;
 }
 
-Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh, XG* xgindex) {
+Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh,
+                           const PathPositionHandleGraph* graph) {
 
     Alignment alignment;
 
@@ -1102,9 +1104,9 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, cons
         
     }
     
-    if (xgindex != nullptr && bh != nullptr) {
+    if (graph != nullptr && bh != nullptr) {
         alignment.set_mapping_quality(b->core.qual);
-        mapping_against_path(alignment, b, bh->target_name[b->core.tid], xgindex, b->core.flag & BAM_FREVERSE);
+        mapping_against_path(alignment, b, bh->target_name[b->core.tid], graph, b->core.flag & BAM_FREVERSE);
     }
     
     // TODO: htslib doesn't wrap this flag for some reason.
