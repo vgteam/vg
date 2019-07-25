@@ -11,7 +11,7 @@
 #include "catch.hpp"
 
 #include <vg/vg.pb.h>
-#include <sglib/hash_graph.hpp>
+#include <bdsg/hash_graph.hpp>
 
 namespace vg {
 namespace unittest {
@@ -22,7 +22,7 @@ using namespace std;
 TEST_CASE("TreeSubgraph can be created and traversed", "[subgraph]") {
     
     // Make up a base graph
-    sglib::HashGraph base;
+    bdsg::HashGraph base;
     
     handle_t start = base.create_handle("GAT");
     handle_t middle = base.create_handle("TA");

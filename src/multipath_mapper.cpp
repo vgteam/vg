@@ -468,7 +468,7 @@ namespace vg {
         }
         
         // pull out the graph around the position(s) we jumped to
-        sglib::HashGraph rescue_graph;
+        bdsg::HashGraph rescue_graph;
         vector<size_t> backward_dist(jump_positions.size(), 6 * fragment_length_distr.stdev());
         vector<size_t> forward_dist(jump_positions.size(), 6 * fragment_length_distr.stdev() + other_aln.sequence().size());
         algorithms::extract_containing_graph(xindex, &rescue_graph, jump_positions, backward_dist, forward_dist,
@@ -485,12 +485,12 @@ namespace vg {
         size_t target_length = other_aln.sequence().size() + get_aligner()->longest_detectable_gap(other_aln);
         
         // convert from bidirected to directed
-        sglib::HashGraph align_graph;
+        bdsg::HashGraph align_graph;
         unordered_map<id_t, pair<id_t, bool> > node_trans = algorithms::split_strands(&rescue_graph, &align_graph);
         // if necessary, convert from cyclic to acylic
         if (!algorithms::is_directed_acyclic(&rescue_graph)) {
             // make a dagified graph and translation
-            sglib::HashGraph dagified;
+            bdsg::HashGraph dagified;
             unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
             
             // replace the original with the dagified ones
@@ -2441,7 +2441,7 @@ namespace vg {
             auto prev_1 = previous_multipath_alns_1.find(cluster_pair.first.first);
             if (prev_1 == previous_multipath_alns_1.end()) {
                 // we haven't done this alignment yet, so we have to complete it for the first time
-                sglib::HashGraph* graph1 = get<0>(cluster_graphs1[cluster_pair.first.first]);
+                bdsg::HashGraph* graph1 = get<0>(cluster_graphs1[cluster_pair.first.first]);
                 memcluster_t& graph_mems1 = get<1>(cluster_graphs1[cluster_pair.first.first]);
                 
 #ifdef debug_multipath_mapper
@@ -2537,7 +2537,7 @@ namespace vg {
         unordered_map<id_t, size_t> node_id_to_cluster;
         
         // to hold the clusters as they are (possibly) merged
-        unordered_map<size_t, sglib::HashGraph*> cluster_graphs;
+        unordered_map<size_t, bdsg::HashGraph*> cluster_graphs;
         
         // to keep track of which clusters have been merged
         UnionFind union_find(clusters.size());
@@ -2579,7 +2579,7 @@ namespace vg {
             
             // extract the subgraph within the search distance
             
-            auto cluster_graph = new sglib::HashGraph();
+            auto cluster_graph = new bdsg::HashGraph();
             algorithms::extract_containing_graph(xindex, cluster_graph, positions, forward_max_dist, backward_max_dist,
                                                  num_alt_alns > 1 ? reversing_walk_length : 0);
                                                  
@@ -2634,7 +2634,7 @@ namespace vg {
                 cerr << "merging as cluster " << remaining_idx << endl;
 #endif
                 
-                sglib::HashGraph* merging_graph;
+                bdsg::HashGraph* merging_graph;
                 if (remaining_idx == i) {
                     // the new graph was chosen to remain, so add it to the record
                     cluster_graphs[i] = cluster_graph;
@@ -2697,7 +2697,7 @@ namespace vg {
 #endif
             
             for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
-                cluster_graphs[max_graph_idx + i] = new sglib::HashGraph();
+                cluster_graphs[max_graph_idx + i] = new bdsg::HashGraph();
             }
             
             // divvy up the nodes
@@ -2849,7 +2849,7 @@ namespace vg {
             
         // find the node ID range for the cluster graphs to help set up a stable, system-independent ordering
         // note: technically this is not quite a total ordering, but it should be close to one
-        unordered_map<sglib::HashGraph*, pair<id_t, id_t>> node_range;
+        unordered_map<bdsg::HashGraph*, pair<id_t, id_t>> node_range;
         node_range.reserve(cluster_graphs_out.size());
         for (const auto& cluster_graph : cluster_graphs_out) {
             node_range[get<0>(cluster_graph)] = make_pair(get<0>(cluster_graph)->min_node_id(),
@@ -2870,7 +2870,7 @@ namespace vg {
         
     }
     
-    void MultipathMapper::multipath_align(const Alignment& alignment, const sglib::HashGraph* graph,
+    void MultipathMapper::multipath_align(const Alignment& alignment, const bdsg::HashGraph* graph,
                                           memcluster_t& graph_mems,
                                           MultipathAlignment& multipath_aln_out) const {
 
@@ -2883,7 +2883,7 @@ namespace vg {
         
         // convert from bidirected to directed
         unordered_map<id_t, pair<id_t, bool> > node_trans;
-        sglib::HashGraph align_graph;
+        bdsg::HashGraph align_graph;
         
         // check if we can get away with using only one strand of the graph
         bool use_single_stranded = algorithms::is_single_stranded(graph);
@@ -2928,7 +2928,7 @@ namespace vg {
             cerr << "graph contains directed cycles, performing dagification" << endl;
 #endif
             // make a dagified graph and translation
-            sglib::HashGraph dagified;
+            bdsg::HashGraph dagified;
             unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
             
             // replace the original with the dagified ones
