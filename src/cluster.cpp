@@ -3505,7 +3505,7 @@ vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const HandleGrap
     return positions;
 }
 
-sglib::HashGraph cluster_subgraph_containing(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& cluster, const GSSWAligner* aligner) {
+bdsg::HashGraph cluster_subgraph_containing(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& cluster, const GSSWAligner* aligner) {
     vector<pos_t> positions;
     vector<size_t> forward_max_dist;
     vector<size_t> backward_max_dist;
@@ -3521,12 +3521,12 @@ sglib::HashGraph cluster_subgraph_containing(const HandleGraph& base, const Alig
         backward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.begin)
                                     + (mem.begin - aln.sequence().begin()));
     }
-    auto cluster_graph = new sglib::HashGraph();
+    auto cluster_graph = new bdsg::HashGraph();
     algorithms::extract_containing_graph(&base, cluster_graph, positions, forward_max_dist, backward_max_dist);
     return *cluster_graph;
 }
 
-sglib::HashGraph cluster_subgraph_walk(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
+bdsg::HashGraph cluster_subgraph_walk(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
     assert(mems.size());
     auto& start_mem = mems.front();
     auto start_pos = make_pos_t(start_mem.nodes.front());
@@ -3534,7 +3534,7 @@ sglib::HashGraph cluster_subgraph_walk(const HandleGraph& base, const Alignment&
     // Even if the MEM is right up against the start of the read, it may not be
     // part of the best alignment. Make sure to have some padding.
     // TODO: how much padding?
-    sglib::HashGraph graph;
+    bdsg::HashGraph graph;
     int inside_padding = max(1, (int)aln.sequence().size()/16);
     int end_padding = max(8, (int)aln.sequence().size()/8);
     int get_before = end_padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
