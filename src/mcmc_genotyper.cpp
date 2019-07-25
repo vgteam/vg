@@ -25,7 +25,8 @@ namespace vg {
         for(int i = 1; i<= n_iterations; i++){
         
             // set x_star 
-            
+            PhasedGenome x_star(snarls);
+
             // calculate likelihood ratio of posterior distribution 
             double likelihood_ratio = exp(log_base*(log_target(x_star, reads)-log_target(*current, reads)));
 
@@ -41,7 +42,6 @@ namespace vg {
         }
 
         return PhasedGenome(snarls);
-
 
     }   
     double MCMCGenotyper::log_target(PhasedGenome& phased_genome, const vector<MultipathAlignment>& reads)const{
@@ -76,9 +76,6 @@ namespace vg {
         // unpack the pair, we only care about the nodes
         unordered_set<id_t>& ids = contents.first;
             
-        // HandleGraph of vg graph
-        
-        // build a subhandle graph from super graph
         // we only want to enumerate counts through nodes in a snarl not the entire graph
         SubHandleGraph subgraph(&graph);
         
@@ -89,11 +86,15 @@ namespace vg {
             subgraph.add_handle(subgraph.get_handle(id, false));
         }
         
-        unordered_map<handle_t, size_t> count_map = algorithms::count_walks_through_nodes(&graph);
-        size_t sink_totals = algorithms::get_total();
+        auto tuple_for_sampling = algorithms::count_walks_through_nodes(&graph);
+        // have to unpack this to get the map out of it 
+
+        size_t sink_totals = algorithms::count_walks(&graph);
         
         // bookkeeping: haplotype ID, snarl* (site that we replaced at), get_allele())
         tuple<id_t, Snarl*, vector<NodeTraversal> > unpacked_pg;
+
+        // bind references to memebers for wasy access - see count_walks 
         
         //vector<NodeTraversal> allele;
         //push back the nodes in the allele
@@ -115,7 +116,7 @@ namespace vg {
 
     }
     int MCMCGenotyper::sample_uniform_haplotypes(minstd_rand0& random_engine, vector<id_t> matched_haplotypes) const{
-        int number_of_haplotypes = matched_haplotypes.size;
+        int number_of_haplotypes = matched_haplotypes.size();
     
         // choose a haplotype randomly using discrete uniform distribution
         uniform_int_distribution<int> distribution(0, number_of_haplotypes);  
