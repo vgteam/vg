@@ -6,8 +6,8 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 
-#include "sglib/packed_graph.hpp"
-#include "sglib/hash_graph.hpp"
+#include "bdsg/packed_graph.hpp"
+#include "bdsg/hash_graph.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -103,9 +103,9 @@ int main_convert(int argc, char** argv) {
         if (graph_type == "vg") {
             return new VG();
         } else if (graph_type == "hash") {
-            return new sglib::HashGraph();
+            return new bdsg::HashGraph();
         } else if (graph_type == "packed") {
-            return new sglib::PackedGraph();
+            return new bdsg::PackedGraph();
         } else if (graph_type == "xg") {
             return new XG();
         }

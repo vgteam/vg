@@ -27,6 +27,7 @@
 #include "algorithms/eades_algorithm.hpp"
 #include "algorithms/shortest_cycle.hpp"
 #include "algorithms/reverse_complement.hpp"
+#include "algorithms/jump_along_path.hpp"
 #include "unittest/random_graph.hpp"
 #include "vg.hpp"
 #include "json2pb.h"
@@ -5441,6 +5442,182 @@ namespace vg {
             REQUIRE(rev_graph.has_edge(rev_graph.flip(r1), r3));
             REQUIRE(rev_graph.has_edge(rev_graph.flip(r2), rev_graph.flip(r4)));
             REQUIRE(rev_graph.has_edge(r3, rev_graph.flip(r4)));
+        }
+        
+        TEST_CASE("Jumping along paths works correctly", "[algorithms][mapping][jump]") {
+            
+            VG vg;
+            
+            Node* n0 = vg.create_node("CGA");
+            Node* n1 = vg.create_node("TTGG");
+            Node* n2 = vg.create_node("CCGT");
+            Node* n3 = vg.create_node("C");
+            Node* n4 = vg.create_node("GT");
+            Node* n5 = vg.create_node("GATAA");
+            Node* n6 = vg.create_node("CGG");
+            Node* n7 = vg.create_node("ACA");
+            Node* n8 = vg.create_node("GCCG");
+            Node* n9 = vg.create_node("A");
+            Node* n10 = vg.create_node("C");
+            Node* n11 = vg.create_node("G");
+            Node* n12 = vg.create_node("T");
+            Node* n13 = vg.create_node("A");
+            Node* n14 = vg.create_node("C");
+            Node* n15 = vg.create_node("C");
+            
+            vg.create_edge(n0, n1);
+            vg.create_edge(n2, n0, true, true);
+            vg.create_edge(n1, n3);
+            vg.create_edge(n2, n3);
+            vg.create_edge(n3, n4, false, true);
+            vg.create_edge(n4, n5, true, false);
+            vg.create_edge(n5, n6);
+            vg.create_edge(n8, n6, false, true);
+            vg.create_edge(n6, n7, false, true);
+            vg.create_edge(n7, n9, true, true);
+            vg.create_edge(n9, n10, true, false);
+            vg.create_edge(n10, n11, false, false);
+            vg.create_edge(n12, n11, false, true);
+            vg.create_edge(n13, n12, false, false);
+            vg.create_edge(n14, n13, true, false);
+            vg.create_edge(n15, n14, true, true);
+            
+            Graph graph = vg.graph;
+            
+            Path* path = graph.add_path();
+            path->set_name("path");
+            Mapping* mapping = path->add_mapping();
+            mapping->mutable_position()->set_node_id(n0->id());
+            mapping->set_rank(1);
+            mapping = path->add_mapping();
+            mapping->mutable_position()->set_node_id(n2->id());
+            mapping->set_rank(2);
+            mapping = path->add_mapping();
+            mapping->mutable_position()->set_node_id(n3->id());
+            mapping->set_rank(3);
+            mapping = path->add_mapping();
+            mapping->mutable_position()->set_node_id(n4->id());
+            mapping->mutable_position()->set_is_reverse(true);
+            mapping->set_rank(4);
+            mapping = path->add_mapping();
+            mapping->mutable_position()->set_node_id(n5->id());
+            mapping->set_rank(5);
+            mapping = path->add_mapping();
+            mapping->mutable_position()->set_node_id(n6->id());
+            mapping->set_rank(6);
+            mapping = path->add_mapping();
+            mapping->mutable_position()->set_node_id(n8->id());
+            mapping->mutable_position()->set_is_reverse(true);
+            mapping->set_rank(7);
+            
+            XG xg_index(graph);
+            
+            SECTION("Distance jumping produces expected result when start position and jump position are on path") {
+                vector<pos_t> jump_pos = algorithms::jump_along_closest_path(&xg_index,
+                                                                             make_pos_t(n0->id(), false, 1),
+                                                                             8, 10);
+                
+                REQUIRE(jump_pos.size() == 1);
+                REQUIRE(id(jump_pos[0]) == n4->id());
+                REQUIRE(is_rev(jump_pos[0]) == true);
+                REQUIRE(offset(jump_pos[0]) == 1);
+                
+                jump_pos = algorithms::jump_along_closest_path(&xg_index,
+                                                               make_pos_t(n0->id(), true, 2),
+                                                               -8, 10);
+                
+                
+                REQUIRE(jump_pos.size() == 1);
+                REQUIRE(id(jump_pos[0]) == n4->id());
+                REQUIRE(is_rev(jump_pos[0]) == false);
+                REQUIRE(offset(jump_pos[0]) == 1);
+                
+                jump_pos = algorithms::jump_along_closest_path(&xg_index,
+                                                               make_pos_t(n4->id(), true, 1),
+                                                               -8, 10);
+                
+                
+                REQUIRE(jump_pos.size() == 1);
+                REQUIRE(id(jump_pos[0]) == n0->id());
+                REQUIRE(is_rev(jump_pos[0]) == false);
+                REQUIRE(offset(jump_pos[0]) == 1);
+                
+                jump_pos = algorithms::jump_along_closest_path(&xg_index,
+                                                               make_pos_t(n4->id(), false, 1),
+                                                               8, 10);
+                
+                
+                REQUIRE(jump_pos.size() == 1);
+                REQUIRE(id(jump_pos[0]) == n0->id());
+                REQUIRE(is_rev(jump_pos[0]) == true);
+                REQUIRE(offset(jump_pos[0]) == 2);
+            }
+            
+            SECTION("Distance jumping doesn't go past the end of a path") {
+                vector<pos_t> jump_pos = algorithms::jump_along_closest_path(&xg_index,
+                                                                             make_pos_t(n0->id(), false, 1),
+                                                                             200, 10);
+                
+                REQUIRE(jump_pos.empty());
+            }
+            
+            SECTION("Distance jumping produces expected results when it needs to traverse an edge to the path") {
+                vector<pos_t> jump_pos = algorithms::jump_along_closest_path(&xg_index,
+                                                                             make_pos_t(n1->id(), false, 1),
+                                                                             9, 10);
+                
+                REQUIRE(jump_pos.size() == 1);
+                REQUIRE(id(jump_pos[0]) == n5->id());
+                REQUIRE(is_rev(jump_pos[0]) == false);
+                REQUIRE(offset(jump_pos[0]) == 3);
+                
+                jump_pos = algorithms::jump_along_closest_path(&xg_index,
+                                                               make_pos_t(n1->id(), false, 3),
+                                                               7, 10);
+                
+                REQUIRE(jump_pos.size() == 1);
+                REQUIRE(id(jump_pos[0]) == n5->id());
+                REQUIRE(is_rev(jump_pos[0]) == false);
+                REQUIRE(offset(jump_pos[0]) == 3);
+                
+                jump_pos = algorithms::jump_along_closest_path(&xg_index,
+                                                               make_pos_t(n1->id(), true, 3),
+                                                               -9, 10);
+                
+                REQUIRE(jump_pos.size() == 1);
+                REQUIRE(id(jump_pos[0]) == n5->id());
+                REQUIRE(is_rev(jump_pos[0]) == true);
+                REQUIRE(offset(jump_pos[0]) == 2);
+                
+                jump_pos = algorithms::jump_along_closest_path(&xg_index,
+                                                               make_pos_t(n1->id(), true, 1),
+                                                               -7, 10);
+                
+                REQUIRE(jump_pos.size() == 1);
+                REQUIRE(id(jump_pos[0]) == n5->id());
+                REQUIRE(is_rev(jump_pos[0]) == true);
+                REQUIRE(offset(jump_pos[0]) == 2);
+            }
+            
+            SECTION("Distance jumping doesn't search past the maximum search length") {
+                vector<pos_t> jump_pos = algorithms::jump_along_closest_path(&xg_index,
+                                                                             make_pos_t(n1->id(), true, 2),
+                                                                             9, 1);
+                
+                REQUIRE(jump_pos.empty());
+            }
+            
+            
+            SECTION("Distance jumping can traverse every edge type") {
+                vector<pos_t> jump_pos = algorithms::jump_along_closest_path(&xg_index,
+                                                                             make_pos_t(n15->id(), false, 1),
+                                                                             -12, 15);
+                
+                REQUIRE(jump_pos.size() == 1);
+                REQUIRE(id(jump_pos[0]) == n6->id());
+                REQUIRE(is_rev(jump_pos[0]) == false);
+                REQUIRE(offset(jump_pos[0]) == 1);
+            }
         }
     }
 }

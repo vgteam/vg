@@ -59,7 +59,6 @@ void help_mpmap(char** argv) {
     << "  -X, --snarl-max-cut INT       do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
     << "  -a, --alt-paths INT           align to (up to) this many alternate paths in between MEMs or in snarls [10]" << endl
     << "      --suppress-tail-anchors   don't produce extra anchors when aligning to alternate paths in snarls" << endl
-    << "  -n, --unstranded              use lazy strand consistency when clustering MEMs" << endl
     << "  -b, --frag-sample INT         look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
     << "  -I, --frag-mean               mean for fixed fragment length distribution" << endl
     << "  -D, --frag-stddev             standard deviation for fixed fragment length distribution" << endl
@@ -176,7 +175,6 @@ int main_mpmap(int argc, char** argv) {
     double max_mapping_p_value = 0.00001;
     size_t num_calibration_simulations = 250;
     size_t calibration_read_length = 150;
-    bool unstranded_clustering = false;
     size_t order_length_repeat_hit_max = 3000;
     size_t sub_mem_count_thinning = 4;
     size_t sub_mem_thinning_burn_in = 16;
@@ -228,7 +226,6 @@ int main_mpmap(int argc, char** argv) {
             {"tvs-clusterer", no_argument, 0, 'v'},
             {"snarl-max-cut", required_argument, 0, 'X'},
             {"alt-paths", required_argument, 0, 'a'},
-            {"unstranded", no_argument, 0, 'n'},
             {"frag-sample", required_argument, 0, 'b'},
             {"frag-mean", required_argument, 0, 'I'},
             {"frag-stddev", required_argument, 0, 'D'},
@@ -267,7 +264,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:ieSs:vX:u:O:a:nb:I:D:BP:Q:p:M:r:W:K:c:w:C:R:Eq:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:ieSs:vX:u:O:a:b:I:D:BP:Q:p:M:r:W:K:c:w:C:R:Eq:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -396,10 +393,6 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'a':
                 num_alt_alns = parse<int>(optarg);
-                break;
-                
-            case 'n':
-                unstranded_clustering = true;
                 break;
                 
             case 'b':
@@ -602,15 +595,6 @@ int main_mpmap(int argc, char** argv) {
     if (num_alt_alns <= 0) {
         cerr << "error:[vg mpmap] Number of alternate snarl paths (-a) set to " << num_alt_alns << ", must set to a positive integer." << endl;
         exit(1);
-    }
-    
-    if (unstranded_clustering && use_tvs_clusterer) {
-        cerr << "warning:[vg mpmap] Target value search clustering (-v) does not have an unstranded option (-n), ignoring unstranded option" << endl;
-        unstranded_clustering = false;
-    }
-    else if (unstranded_clustering && !distance_index_name.empty()) {
-        cerr << "warning:[vg mpmap] Snarl distance index-based clustering (-d) does not have an unstranded option (-n), ignoring unstranded option" << endl;
-        unstranded_clustering = false;
     }
     
     if (frag_length_sample_size <= 0) {
@@ -1009,7 +993,6 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
     multipath_mapper.log_likelihood_approx_factor = likelihood_approx_exp;
     multipath_mapper.num_mapping_attempts = max_map_attempts;
-    multipath_mapper.unstranded_clustering = unstranded_clustering;
     multipath_mapper.min_median_mem_coverage_for_split = min_median_mem_coverage_for_split;
     multipath_mapper.suppress_cluster_merging = suppress_cluster_merging;
     multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;

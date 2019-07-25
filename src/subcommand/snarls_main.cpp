@@ -14,6 +14,7 @@
 #include <vg/vg.pb.h>
 #include "../traversal_finder.hpp"
 #include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 
 //#define debug
 
@@ -22,7 +23,7 @@ using namespace vg;
 using namespace vg::subcommand;
 
 void help_snarl(char** argv) {
-    cerr << "usage: " << argv[0] << " snarls [options] graph.vg > snarls.pb" << endl
+    cerr << "usage: " << argv[0] << " snarls [options] graph > snarls.pb" << endl
          << "       By default, a list of protobuf Snarls is written" << endl
          << "options:" << endl
          << "    -p, --pathnames        output variant paths as SnarlTraversals to STDOUT" << endl
@@ -155,16 +156,15 @@ int main_snarl(int argc, char** argv) {
     }
 
     // Read the graph
-    VG* graph;
+    VG* vg_graph = nullptr;
+    unique_ptr<PathHandleGraph> graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
-            graph = new VG(in);
+            graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
         });
-    
-    if (graph == nullptr) {
-        cerr << "error:[vg snarl]: Could not load graph" << endl;
-        exit(1);
-    }
 
+    // this is hopefully temporary, pending traversal finder support
+    vg_graph = dynamic_cast<VG*>(graph.get());
+    
     // The only implemented snarl finder:
     SnarlFinder* snarl_finder = new CactusSnarlFinder(*graph);
 
@@ -173,8 +173,6 @@ int main_snarl(int argc, char** argv) {
     unique_ptr<FastaReference> ref_fasta;
     unique_ptr<FastaReference> ins_fasta;
 
-    // vcftraversal finder is dependent on this relic of the support_caller (for now)
-    map<string, PathIndex*> path_index;
     
     if (!vcf_filename.empty()) {
         variant_file.parseSamples = false;
@@ -183,13 +181,6 @@ int main_snarl(int argc, char** argv) {
             cerr << "error: [vg snarls] could not open " << vcf_filename << endl;
             return 1;
         }
-
-        // load every reference path into the index
-        graph->paths.for_each_name([&] (const string& path_name) {
-                if (!Paths::is_alt(path_name)) {
-                    path_index[path_name] = new PathIndex(*graph, path_name);
-                }
-            });
 
         // load up the fasta
         if (!ref_fasta_filename.empty()) {
@@ -201,26 +192,16 @@ int main_snarl(int argc, char** argv) {
             ins_fasta->open(ins_fasta_filename);
         }
     }
-    auto delete_path_index = [&] () {
-        for (auto name_index : path_index) {
-            delete name_index.second;
-        }
-    };
-    auto get_path_index = [&] (const Snarl& site) -> PathIndex* {
-        for(auto name_index : path_index) { 
-            if (name_index.second->by_id.count(site.start().node_id()) &&
-                name_index.second->by_id.count(site.end().node_id())) {
-                return name_index.second;
-            }
-        }
-        return nullptr;
-    };
     
     // Load up all the snarls
     SnarlManager snarl_manager = snarl_finder->find_snarls();
     vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
     if (fill_path_names){
-      trav_finder = new PathBasedTraversalFinder(*graph, snarl_manager);
+        if (vg_graph == nullptr) {
+            cerr << "error: [vg snarls] -p requires .vg graph input" << endl;
+            return 1;
+        }
+        trav_finder = new PathBasedTraversalFinder(*vg_graph, snarl_manager);
         for (const Snarl* snarl : snarl_roots ){
             if (filter_trivial_snarls) {
                 auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
@@ -235,8 +216,6 @@ int main_snarl(int argc, char** argv) {
 
         delete trav_finder;
         delete snarl_finder;
-        delete graph;
-        delete_path_index();
 
         exit(0);
     }
@@ -248,7 +227,7 @@ int main_snarl(int argc, char** argv) {
         // for testing purposes.  The VCFTraversalFinder differs from Exhaustive in that
         // it's easier to limit traversals using read support, and it takes care of
         // mapping back to the VCF via the alt paths. 
-        trav_finder = new VCFTraversalFinder(*graph, snarl_manager, variant_file, get_path_index,
+      trav_finder = new VCFTraversalFinder(*vg_graph, snarl_manager, variant_file, {},
                                              ref_fasta.get(), ins_fasta.get());
     }
     
@@ -303,10 +282,11 @@ int main_snarl(int argc, char** argv) {
             snarl_buffer.push_back(*snarl);
             vg::io::write_buffered(cout, snarl_buffer, buffer_size);
 
-            auto check_max_nodes = [&graph, &max_nodes](const unordered_set<Node*>& nodeset)  {
+            auto check_max_nodes = [&graph, &max_nodes](const unordered_set<vg::id_t>& nodeset)  {
                 int node_count = 0;
-                for (auto node : nodeset) {
-                    if (graph->start_degree(node) > 1 || graph->end_degree(node) > 1) {
+                for (auto node_id : nodeset) {
+                    handle_t node = graph->get_handle(node_id);
+                    if (graph->get_degree(node, false) > 1 || graph->get_degree(node, true) > 1) {
                         ++node_count;
                         if (node_count > max_nodes) {
                             return false;
@@ -362,8 +342,6 @@ int main_snarl(int argc, char** argv) {
     
     delete snarl_finder;
     delete trav_finder;
-    delete graph;
-    delete_path_index();
 
     return 0;
 }

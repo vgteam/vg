@@ -18,7 +18,7 @@ SnarlTraversal get_traversal_of_snarl(VG& graph, const Snarl* snarl, const Snarl
     for(size_t i = 0; i < path.mapping_size(); i++) {
         const Mapping& mapping = path.mapping(i);
 
-        if(contents.first.count(graph.get_node(mapping.position().node_id()))) {
+        if(contents.first.count(mapping.position().node_id())) {
             // We're inside the bubble. This is super simple when we have the contents!
             *to_return.add_visit() = to_visit(mapping, true);
         }
@@ -137,15 +137,17 @@ vector<const Alignment*> AugmentedGraph::get_alignments(pair<NodeSide, NodeSide>
     }
 }
 
-Support AugmentedGraph::get_support(Node* node) {
+Support AugmentedGraph::get_support(id_t node) {
     Support support;
-    support.set_forward(get_alignments(node->id()).size());
+    support.set_forward(get_alignments(node).size());
     return support;
 }
 
-Support AugmentedGraph::get_support(Edge* edge) {
+Support AugmentedGraph::get_support(edge_t edge) {
     Support support;
-    support.set_forward(get_alignments(NodeSide::pair_from_edge(edge)).size());
+    NodeSide from(graph.get_id(edge.first), !graph.get_is_reverse(edge.first));
+    NodeSide to(graph.get_id(edge.second), graph.get_is_reverse(edge.second));
+    support.set_forward(get_alignments(make_pair(from, to)).size());
     return support;
 }
 
@@ -303,11 +305,11 @@ bool SupportAugmentedGraph::has_supports() const {
     return !node_supports.empty() || !edge_supports.empty();
 }
 
-Support SupportAugmentedGraph::get_support(Node* node) {
+Support SupportAugmentedGraph::get_support(id_t node) {
     return node_supports.count(node) ? node_supports.at(node) : Support();
 }
 
-Support SupportAugmentedGraph::get_support(Edge* edge) {
+Support SupportAugmentedGraph::get_support(edge_t edge) {
     return edge_supports.count(edge) ? edge_supports.at(edge) : Support();
 }
 
@@ -321,11 +323,12 @@ void SupportAugmentedGraph::load_supports(istream& in_file) {
         cerr << pb2json(location_support) << endl;
 #endif
         if (location_support.oneof_location_case() == LocationSupport::kNodeId) {
-            node_supports[graph.get_node(location_support.node_id())] = location_support.support();
+            node_supports[location_support.node_id()] = location_support.support();
         } else {
             const Edge& edge = location_support.edge();
-            edge_supports[graph.get_edge(NodeSide(edge.from(), !edge.from_start()),
-                                         NodeSide(edge.to(), edge.to_end()))] = location_support.support();
+            edge_t edge_handle = graph.edge_handle(graph.get_handle(edge.from(), edge.from_start()),
+                                                   graph.get_handle(edge.to(), edge.to_end()));
+            edge_supports[edge_handle] = location_support.support();
         }
     };
     vg::io::for_each(in_file, lambda);    
@@ -347,7 +350,7 @@ void SupportAugmentedGraph::load_pack_as_supports(const string& pack_file_name, 
             Support support;
             // we just get one value and put it in "forward".  can't fill out the rest of the Support object. 
             support.set_forward(avg_coverage);
-            node_supports[graph.get_node(xg->get_id(handle))] = support;
+            node_supports[xg->get_id(handle)] = support;
         });
     xg->for_each_edge([&](const edge_t& handle_edge) {
             Edge edge;
@@ -357,8 +360,8 @@ void SupportAugmentedGraph::load_pack_as_supports(const string& pack_file_name, 
             edge.set_to_end(xg->get_is_reverse(handle_edge.second));
             Support support;
             support.set_forward(packer.edge_coverage(edge));
-            edge_supports[graph.get_edge(NodeSide(edge.from(), !edge.from_start()),
-                                         NodeSide(edge.to(), edge.to_end()))] = support;
+            edge_supports[graph.edge_handle(graph.get_handle(edge.from(), edge.from_start()),
+                                            graph.get_handle(edge.to(), edge.to_end()))] = support;
             return true;
         });
 }
@@ -368,14 +371,19 @@ void SupportAugmentedGraph::write_supports(ostream& out_file) {
     for (auto& node_support : node_supports) {
         LocationSupport location_support;
         *location_support.mutable_support() = node_support.second;
-        location_support.set_node_id(node_support.first->id());
+        location_support.set_node_id(node_support.first);
         buffer.push_back(location_support);
         vg::io::write_buffered(out_file, buffer, 500);
     }
     for (auto& edge_support : edge_supports) {
         LocationSupport location_support;
-        *location_support.mutable_support() = edge_support.second;        
-        *location_support.mutable_edge() = *edge_support.first;
+        *location_support.mutable_support() = edge_support.second;
+        Edge edge;
+        edge.set_from(graph.get_id(edge_support.first.first));
+        edge.set_from_start(graph.get_is_reverse(edge_support.first.first));
+        edge.set_to(graph.get_id(edge_support.first.second));
+        edge.set_to_end(graph.get_is_reverse(edge_support.first.second));
+        *location_support.mutable_edge() = edge;
         buffer.push_back(location_support);
         vg::io::write_buffered(out_file, buffer, 500);
     }

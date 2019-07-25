@@ -22,7 +22,7 @@ Deconstructor::~Deconstructor(){
  * otherwise, hasRef is set to false and all strings are alt alleles.
  */
 vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx,
-                                       char prev_char) {
+                                       char prev_char, bool use_start) {
 
     assert(ref_path_idx >=0 && ref_path_idx < travs.size());
 
@@ -45,6 +45,7 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
         }
         return toUppercase(allele);
     };
+       
 
     // set the reference allele
     string ref_allele = trav_to_string(travs.at(ref_path_idx));
@@ -76,7 +77,13 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
     v.alt.resize(allele_idx.size() - 1);
 
     for (auto ai_pair : allele_idx) {
-        string allele_string = substitution ? ai_pair.first : string(1, prev_char) + ai_pair.first;
+        string allele_string = ai_pair.first;
+        if (!use_start) {
+            reverse_complement_in_place(allele_string);
+        }
+        if (!substitution) {
+            allele_string = string(1, prev_char) + allele_string;
+        }
         v.alleles[ai_pair.second] = allele_string;
         if (ai_pair.second > 0) {
             v.alt[ai_pair.second - 1] = allele_string;
@@ -87,8 +94,8 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
 
     // shift our variant back if it's an indel
     if (!substitution) {
+        assert(v.position >= 2);
         --v.position;
-        assert(v.position >= 1);
     }
 
     v.updateAlleleIndexes();
@@ -132,17 +139,13 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
         if (sample_to_traversals.count(sample_name)) {
             const vector<int>& travs = sample_to_traversals[sample_name];
             assert(!travs.empty());
-            int lowest_trav = 0;
-
-            for (int i = 1; i < travs.size(); ++i) {
-                if (names[travs[i]] < names[travs[lowest_trav]]) {
-                    lowest_trav = i;
-                }
-                if (trav_to_allele[i] != trav_to_allele[0]) {
-                    conflicts.insert(sample_name);
-                }
+            int chosen_trav;
+            bool conflict;
+            std::tie(chosen_trav, conflict) = choose_traversal(travs, trav_to_allele, names);
+            if (conflict) {
+                conflicts.insert(sample_name);
             }
-            v.samples[sample_name]["GT"] = {std::to_string(trav_to_allele[travs[lowest_trav]])};
+            v.samples[sample_name]["GT"] = {std::to_string(trav_to_allele[chosen_trav])};
             if (path_to_sample) {
                 for (auto trav : travs) {
                     v.samples[sample_name]["PI"].push_back(names[trav] + "=" + std::to_string(trav_to_allele[trav]));
@@ -155,12 +158,38 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
             }
         }
     }
-    assert(conflicts.empty() || path_to_sample != nullptr);
     for (auto& conflict_sample : conflicts) {
         v.info["CONFLICT"].push_back(conflict_sample);
     }
 }
 
+pair<int, bool> Deconstructor::choose_traversal(const vector<int>& travs, const vector<int>& trav_to_allele,
+                                                const vector<string>& trav_to_name) {
+    assert(!travs.empty());
+    vector<int> frequencies(trav_to_allele.size(), 0);
+    for (auto trav : travs) {
+        ++frequencies[trav];
+    }
+
+    int most_frequent = -1;
+    bool conflict = false;
+
+    for (auto trav: travs) {
+        if (most_frequent == -1 ||
+            // prefer non-ref when possible
+            (trav_to_allele[most_frequent] == 0 && trav_to_allele[trav] != 0) ||
+            // otherwise use frequency
+            (((trav_to_allele[most_frequent] == 0) == (trav_to_allele[trav] == 0)) &&
+             (frequencies[trav] > frequencies[most_frequent] ||
+              // break frequency tie using lex order on path name
+              (frequencies[trav] == frequencies[most_frequent] && trav_to_name[trav] < trav_to_name[most_frequent])))) {
+            most_frequent = trav;
+        }
+        conflict = conflict || trav_to_allele[trav] != trav_to_allele[travs[0]];
+    }
+
+    return make_pair(most_frequent, conflict);
+}
     
 bool Deconstructor::deconstruct_site(const Snarl* snarl) {
 
@@ -173,23 +202,51 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
 #endif
         return false;
     }
+#ifdef debug
+#pragma omp crtiical (cerr)
+    cerr << "Computing traversals of site " << pb2json(*snarl) << endl;
+#endif
 
     // find every traversal that runs through a path in the graph
-    pair<vector<SnarlTraversal>, vector<string>> named_travs;
-    named_travs = path_trav_finder->find_named_traversals(*snarl);
+    pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > path_travs;
+    path_travs = path_trav_finder->find_path_traversals(*snarl);
+    vector<string> path_trav_names;
 
     // pick out the traversal corresponding to a reference path, breaking ties consistently
-    int ref_trav_idx = -1;
-    for (int i = 0; i < named_travs.first.size(); ++i) {
-        if (pindexes.count(named_travs.second.at(i)) &&
-            (ref_trav_idx == -1 || named_travs.second[i] < named_travs.second[ref_trav_idx])) {
-            ref_trav_idx = i;
+    string ref_trav_name;
+    for (int i = 0; i < path_travs.first.size(); ++i) {
+        string path_trav_name = graph->get_path_name(graph->get_path_handle_of_step(path_travs.second[i].first));
+#ifdef debug
+#pragma omp critical (cerr)
+        {
+            cerr << "Traversal " << i << ": name=" << path_trav_name << ", size=" << path_travs.first[i].visit_size()
+                 << ", start=" << graph->get_position_of_step(path_travs.second[i].first)
+                 << ", end=" << graph->get_position_of_step(path_travs.second[i].second) << endl
+                 << " trav=" << pb2json(path_travs.first[i]) << endl;
+        }
+#endif
+        if (ref_paths.count(path_trav_name) &&
+            (ref_trav_name.empty() || path_trav_name < ref_trav_name)) {
+            ref_trav_name = path_trav_name;
+        }
+        path_trav_names.push_back(path_trav_name);
+    }
+
+    // remember all the reference traversals (there can be more than one only in the case of a
+    // cycle in the reference path
+    vector<int> ref_travs;
+    if (!ref_trav_name.empty()) {
+        for (int i = 0; i < path_travs.first.size(); ++i) {
+            string path_trav_name = graph->get_path_name(graph->get_path_handle_of_step(path_travs.second[i].first));
+            if (path_trav_name == ref_trav_name) {
+                ref_travs.push_back(i);
+            }
         }
     }
 
     // there's no reference path through the snarl, so we can't make a variant
     // (todo: should we try to detect this before computing traversals?)
-    if (ref_trav_idx == -1) {
+    if (ref_travs.empty()) {
 #ifdef debug
 #pragma omp critical (cerr)
         cerr << "Skipping site becuase no reference traversal was found " << pb2json(*snarl) << endl;
@@ -213,15 +270,18 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         if (exhaustive_travs.empty()) {
             return false;
         }
-        named_travs.first.insert(named_travs.first.end(), exhaustive_travs.begin(), exhaustive_travs.end());
+        path_travs.first.insert(path_travs.first.end(), exhaustive_travs.begin(), exhaustive_travs.end());
         for (int i = 0; i < exhaustive_travs.size(); ++i) {
             // dummy names so we can use the same code as the named path traversals above
-            named_travs.second.push_back(" >>" + std::to_string(i));
+            path_trav_names.push_back(" >>" + std::to_string(i));
+            // dummy handles so we can use the same code as the named path traversals above
+            path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
+            
         }
     }
     
     // there's not alt path through the snarl, so we can't make an interesting variant
-    if (named_travs.first.size() < 2) {
+    if (path_travs.first.size() < 2) {
 #ifdef debug
 #pragma omp critical (cerr)
         cerr << "Skipping site because to alt traversal was found " << pb2json(*snarl) << endl;
@@ -229,56 +289,70 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         return false;
     }
 
-    vcflib::Variant v;
-    v.setVariantCallFile(outvcf);
-    v.quality = 23;
+    // we write a variant for every reference traversal
+    for (auto ref_trav_idx : ref_travs) {
 
-    // write variant's sequenceName (VCF contig)
-    v.sequenceName = named_travs.second.at(ref_trav_idx);
+        const SnarlTraversal& ref_trav = path_travs.first[ref_trav_idx];
+        
+        vcflib::Variant v;
+        v.setVariantCallFile(outvcf);
+        v.quality = 23;
 
-    // Set position based on the lowest position in the snarl.
-    pair<size_t, bool> pos_orientation_start = pindexes[v.sequenceName]->by_id[snarl->start().node_id()];
-    pair<size_t, bool> pos_orientation_end = pindexes[v.sequenceName]->by_id[snarl->end().node_id()];
-    bool use_start = pos_orientation_start.first < pos_orientation_end.first;
-    size_t node_pos = (use_start ? pos_orientation_start.first : pos_orientation_end.first);
-    v.position = node_pos + 1; // shift from 0-based to 1-based
-    if (use_start) {
-        v.position += graph->get_node(snarl->start().node_id())->sequence().length();
-    } else {
-        v.position += graph->get_node(snarl->end().node_id())->sequence().length();
-    }
+        // write variant's sequenceName (VCF contig)
+        v.sequenceName = ref_trav_name;
 
-    // We need to shift back a position for indels.  Get the previous base from the graph:
-    const Visit& prev_visit = use_start ? snarl->start() : snarl->end();
-    int offset = 0;
-    if (use_start != prev_visit.backward()) {
-        offset = graph->get_length(graph->get_handle(prev_visit.node_id())) - 1;
-    }
-    char prev_char = ::toupper(graph->get_sequence(graph->get_handle(prev_visit.node_id()))[offset]);
+        // Map our snarl endpoints to oriented positions in the embedded path in the graph
+        step_handle_t start_step = path_travs.second[ref_trav_idx].first;
+        step_handle_t end_step = path_travs.second[ref_trav_idx].second;
+        handle_t start_handle = graph->get_handle_of_step(start_step);
+        handle_t end_handle = graph->get_handle_of_step(end_step);
+        size_t start_pos = graph->get_position_of_step(start_step);
+        size_t end_pos = graph->get_position_of_step(end_step);
+        bool use_start = start_pos < end_pos;
+        handle_t first_path_handle = use_start ? start_handle : end_handle;
+        size_t first_path_pos = use_start ? start_pos : end_pos;
+        // Get the first visit of our snarl traversal
+        const Visit& first_trav_visit = use_start ? ref_trav.visit(0) : ref_trav.visit(ref_trav.visit_size() - 1);
 
-    // Convert the snarl traversals to strings and add them to the variant
-    vector<int> trav_to_allele = get_alleles(v, named_travs.first, ref_trav_idx, prev_char);
+        char prev_char;
+        if ((use_start && first_trav_visit.backward() == graph->get_is_reverse(first_path_handle)) ||
+            (!use_start && first_trav_visit.backward() != graph->get_is_reverse(first_path_handle))) {
+            // Our path and traversal have consistent orientation.  leave off the end of the start node going forward
+            first_path_pos += graph->get_length(first_path_handle);
+            prev_char = ::toupper(graph->get_sequence(first_path_handle)[graph->get_length(first_path_handle) - 1]);
+        } else {
+            // They are flipped: leave off the beginning of the start node going backward
+            prev_char = reverse_complement(::toupper(graph->get_sequence(first_path_handle)[0]));
+        }
+        
+        // shift from 0-based to 1-based for VCF
+        first_path_pos += 1;
 
-    // Fill in the genotypes
-    if (path_restricted) {
-        get_genotypes(v, named_travs.second, trav_to_allele);
-    }
+        v.position = first_path_pos;
+        
+        // Convert the snarl traversals to strings and add them to the variant
+        vector<int> trav_to_allele = get_alleles(v, path_travs.first, ref_trav_idx, prev_char, use_start);
 
-    // we only bother printing out sites with at least 1 non-reference allele
-    if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return i == 0; })) {
+        // Fill in the genotypes
+        if (path_restricted) {
+            get_genotypes(v, path_trav_names, trav_to_allele);
+        }
+
+        // we only bother printing out sites with at least 1 non-reference allele
+        if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return i == 0; })) {
 #pragma omp critical (cout)
-        {
-        cout << v << endl;
+            {
+                cout << v << endl;
+            }
         }
     }
-
     return true;
 }
 
 /**
  * Convenience wrapper function for deconstruction of multiple paths.
  */
-void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph, SnarlManager* snarl_manager,
+void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
                                 bool path_restricted_traversals,
                                 const unordered_map<string, string>* path_to_sample) {
 
@@ -286,20 +360,14 @@ void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph, SnarlMa
     this->snarl_manager = snarl_manager;
     this->path_restricted = path_restricted_traversals;
     this->path_to_sample = path_to_sample;
+    this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
     assert(path_to_sample == nullptr || path_restricted);
     
-    // Create path index for the contig if we don't have one.
-    for (auto& refpath : ref_paths) {
-        if (pindexes.find(refpath) == pindexes.end()){
-            pindexes[refpath] = new PathIndex(*graph, refpath, false);
-        }
-    }
-
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     sample_names.clear();
     graph->for_each_path_handle([&](const path_handle_t& path_handle) {
             string path_name = graph->get_path_name(path_handle);
-            if (!pindexes.count(path_name)) {
+            if (!this->ref_paths.count(path_name)) {
                 // rely on the given map.  if a path isn't in it, it'll be ignored
                 if (path_to_sample && path_to_sample->count(path_name)) {
                     sample_names.insert(path_to_sample->find(path_name)->second);
@@ -343,12 +411,8 @@ void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph, SnarlMa
 
     // create the traversal finder
     map<string, const Alignment*> reads_by_name;
-    path_trav_finder = unique_ptr<PathRestrictedTraversalFinder>(new PathRestrictedTraversalFinder(*graph,
-                                                                                                   *snarl_manager,
-                                                                                                   reads_by_name,
-                                                                                                   1,
-                                                                                                   100,
-                                                                                                   true));
+    path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*graph,
+                                                                               *snarl_manager));
     
     if (!path_restricted) {
         trav_finder = unique_ptr<TraversalFinder>(new ExhaustiveTraversalFinder(*graph,
@@ -378,10 +442,11 @@ void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph, SnarlMa
 }
 
 bool Deconstructor::check_max_nodes(const Snarl* snarl)  {
-    unordered_set<Node*> nodeset = snarl_manager->deep_contents(snarl, *graph, false).first;
+    unordered_set<id_t> nodeset = snarl_manager->deep_contents(snarl, *graph, false).first;
     int node_count = 0;
-    for (auto node : nodeset) {
-        if (graph->start_degree(node) > 1 || graph->end_degree(node) > 1) {
+    for (auto node_id : nodeset) {
+        handle_t node = graph->get_handle(node_id);
+        if (graph->get_degree(node, true) > 1 || graph->get_degree(node, false) > 1) {
             ++node_count;
             if (node_count > max_nodes_for_exhaustive) {
                 return false;

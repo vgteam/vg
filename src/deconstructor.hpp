@@ -2,18 +2,13 @@
 #define VG_DECONSTRUCTOR_HPP_INCLUDED
 #include <vector>
 #include <string>
-#include <sstream>
 #include <ostream>
 #include <sstream>
 #include "genotypekit.hpp"
-#include "path_index.hpp"
 #include "Variant.h"
-#include "path.hpp"
-#include "vg.hpp"
+#include "handle.hpp"
 #include "genotypekit.hpp"
 #include "traversal_finder.hpp"
-#include <vg/vg.pb.h>
-#include "Fasta.h"
 
 /** \file
 * Deconstruct is getting rewritten.
@@ -36,7 +31,7 @@ public:
     ~Deconstructor();
 
     // deconstruct the entire graph to cout
-    void deconstruct(vector<string> refpaths, vg::VG* graph, SnarlManager* snarl_manager,
+    void deconstruct(vector<string> refpaths, const PathPositionHandleGraph* grpah, SnarlManager* snarl_manager,
                      bool path_restricted_traversals,
                      const unordered_map<string, string>* path_to_sample = nullptr); 
     
@@ -47,10 +42,18 @@ private:
     bool deconstruct_site(const Snarl* site);
 
     // convert traversals to strings.  returns mapping of traversal (offset in travs) to allele
-    vector<int> get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx, char prev_char);
+    vector<int> get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx,
+                            char prev_char, bool use_start);
 
     // write traversal path names as genotypes
     void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele);
+
+    // given a set of traversals associated with a particular sample, select one for the VCF
+    // the highest-frequency ALT traversal is chosen
+    // the bool returned is true if multiple traversals map to different alleles.
+    pair<int, bool> choose_traversal(const vector<int>& travs, const vector<int>& trav_to_allele,
+                                     const vector<string>& trav_to_name);
+
 
     // check to see if a snarl is too big to exhaustively traverse
     bool check_max_nodes(const Snarl* snarl);
@@ -62,22 +65,22 @@ private:
     // output vcf object
     vcflib::VariantCallFile outvcf;
     
-    // in memory path index for every specified reference path.
-    map<string, PathIndex*> pindexes;
-
     // toggle between exhaustive and path restricted traversal finder
     bool path_restricted = false;
 
     // the graph
-    VG* graph;
+    const PathPositionHandleGraph* graph;
 
     // the snarl manager
     SnarlManager* snarl_manager;
 
     // the traversal finders. we always use a path traversal finder to get the reference path
-    unique_ptr<PathRestrictedTraversalFinder> path_trav_finder;
+    unique_ptr<PathTraversalFinder> path_trav_finder;
     // we optionally use another (exhaustive for now) traversal finder if we don't want to rely on paths
     unique_ptr<TraversalFinder> trav_finder;
+
+    // the ref paths
+    set<string> ref_paths;
 
     // keep track of the non-ref paths as they will be our samples
     set<string> sample_names;

@@ -12,7 +12,6 @@
 #include "aligner.hpp"
 #include "types.hpp"
 #include "multipath_alignment.hpp"
-#include "xg.hpp"
 #include <vg/vg.pb.h>
 #include "position.hpp"
 #include "nodeside.hpp"
@@ -24,6 +23,7 @@
 #include "utility.hpp"
 #include "annotation.hpp"
 #include "path_component_index.hpp"
+#include "memoizing_graph.hpp"
 
 #include "identity_overlay.hpp"
 #include "reverse_graph.hpp"
@@ -42,8 +42,10 @@
 #include "algorithms/dagify.hpp"
 #include "algorithms/reverse_complement.hpp"
 #include "algorithms/extend.hpp"
+#include "algorithms/jump_along_path.hpp"
 
-#include "sglib/hash_graph.hpp"
+
+#include "bdsg/hash_graph.hpp"
 
 #include <structures/union_find.hpp>
 #include <gbwt/gbwt.h>
@@ -61,7 +63,7 @@ namespace vg {
         // Interface
         ////////////////////////////////////////////////////////////////////////
     
-        MultipathMapper(XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
+        MultipathMapper(PathPositionHandleGraph* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                         haplo::ScoreProvider* haplo_score_provider = nullptr, SnarlManager* snarl_manager = nullptr,
                         MinimumDistanceIndex* distance_index = nullptr);
         ~MultipathMapper();
@@ -116,7 +118,6 @@ namespace vg {
         size_t band_padding_memo_size = 500;
         double pseudo_length_multiplier = 1.65;
         double max_mapping_p_value = 0.00001;
-        bool unstranded_clustering = true;
         size_t max_single_end_mappings_for_rescue = 64;
         size_t max_rescue_attempts = 32;
         size_t plausible_rescue_cluster_coverage_diff = 5;
@@ -166,7 +167,7 @@ namespace vg {
         /// actual extracted graph, a list of assigned MEMs, and the number of
         /// bases of read coverage that that MEM cluster provides (which serves
         /// as a priority).
-        using clustergraph_t = tuple<sglib::HashGraph*, memcluster_t, size_t>;
+        using clustergraph_t = tuple<bdsg::HashGraph*, memcluster_t, size_t>;
         
     protected:
         
@@ -296,7 +297,7 @@ namespace vg {
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
         /// Does NOT necessarily produce a MultipathAlignment in topological order.
-        void multipath_align(const Alignment& alignment, const sglib::HashGraph* graph,
+        void multipath_align(const Alignment& alignment, const bdsg::HashGraph* graph,
                              memcluster_t& graph_mems,
                              MultipathAlignment& multipath_aln_out) const;
         

@@ -19,6 +19,22 @@
 namespace vg {
 namespace unittest {
 
+static pair<unordered_set<Node*>, unordered_set<Edge*> > pb_contents(
+    VG& graph, const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents) {
+    pair<unordered_set<Node*>, unordered_set<Edge*> > ret;
+    for (id_t node_id : contents.first) {
+        ret.first.insert(graph.get_node(node_id));
+    }
+    for (const edge_t& edge_handle : contents.second) {
+        Edge* edge = graph.get_edge(NodeTraversal(graph.get_node(graph.get_id(edge_handle.first)),
+                                                  graph.get_is_reverse(edge_handle.first)),
+                                    NodeTraversal(graph.get_node(graph.get_id(edge_handle.second)),
+                                                  graph.get_is_reverse(edge_handle.second)));
+        ret.second.insert(edge);
+    }
+    return ret;
+}
+
 int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
     //Distance using djikstras algorithm
 
@@ -977,9 +993,9 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
                 const Snarl* snarl2 = allSnarls[randSnarlIndex(generator)];
                  
                 pair<unordered_set<Node*>, unordered_set<Edge*>> contents1 = 
-                           snarl_manager.shallow_contents(snarl1, graph, true);
+                    pb_contents(graph, snarl_manager.shallow_contents(snarl1, graph, true));
                 pair<unordered_set<Node*>, unordered_set<Edge*>> contents2 = 
-                           snarl_manager.shallow_contents(snarl2, graph, true);
+                    pb_contents(graph, snarl_manager.shallow_contents(snarl2, graph, true));
  
                 vector<Node*> nodes1 (contents1.first.begin(), contents1.first.end());
                 vector<Node*> nodes2 (contents2.first.begin(), contents2.first.end());
@@ -1150,9 +1166,9 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
                 const Snarl* snarl2 = allSnarls[randSnarlIndex(generator)];
                  
                 pair<unordered_set<Node*>, unordered_set<Edge*>> contents1 = 
-                           snarl_manager.shallow_contents(snarl1, graph, true);
+                    pb_contents(graph, snarl_manager.shallow_contents(snarl1, graph, true));
                 pair<unordered_set<Node*>, unordered_set<Edge*>> contents2 = 
-                           snarl_manager.shallow_contents(snarl2, graph, true);
+                    pb_contents(graph, snarl_manager.shallow_contents(snarl2, graph, true));
  
                 vector<Node*> nodes1 (contents1.first.begin(), contents1.first.end());
                 vector<Node*> nodes2 (contents2.first.begin(), contents2.first.end());
@@ -1257,7 +1273,7 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
                 const Snarl* snarl2 = allSnarls[randSnarlIndex(generator)];
                  
                 pair<unordered_set<Node*>, unordered_set<Edge*>> contents1 = 
-                           snarl_manager.shallow_contents(snarl1, graph, true);
+                           pb_contents(graph, snarl_manager.shallow_contents(snarl1, graph, true));
                 pair<unordered_set<Node*>, unordered_set<Edge*>> contents2 = 
                            snarl_manager.shallow_contents(snarl2, graph, true);
  
