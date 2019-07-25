@@ -14,6 +14,7 @@
 #include "htslib/hts.h"
 #include "htslib/sam.h"
 #include "htslib/vcf.h"
+#include "handle.hpp"
 
 namespace vg {
 
@@ -59,7 +60,7 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
 string cigar_string(const vector<pair<int, char> >& cigar);
 string mapping_string(const string& source, const Mapping& mapping);
 
-void cigar_mapping(const bam1_t *b, Mapping& mapping, XG* xgindex);
+void cigar_mapping(const bam1_t *b, Mapping& mapping);
 
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh, XG* xgindex);
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
@@ -141,7 +142,8 @@ string alignment_to_sam(const Alignment& alignment,
 /// which is why it is passed by reference.
 vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress);
 
-void mapping_against_path(Alignment& alignment, const bam1_t *b, XG* xgindex, bool on_reverse_strand);
+void mapping_against_path(Alignment& alignment, const bam1_t *b,
+                          const PathPositionHandleGraph* graph, bool on_reverse_strand);
 
 /// Work out the TLEN values for two reads. The magnitude is the distance
 /// between the outermost aligned bases, and the sign is positive for the
@@ -217,8 +219,8 @@ map<id_t, int> alignment_quality_per_node(const Alignment& aln);
 /// Parse regions from the given BED file into Alignments in a vector.
 /// Reads the optional name, is_reverse, and score fields if present, and populates the relevant Alignment fields.
 /// Skips and warns about malformed or illegal BED records.
-void parse_bed_regions(istream& bedstream, XG* xgindex, vector<Alignment>* out_alignments);
-void parse_gff_regions(istream& gtfstream, XG* xgindex, vector<Alignment>* out_alignments);
+void parse_bed_regions(istream& bedstream, const PathPositionHandleGraph* graph, vector<Alignment>* out_alignments);
+void parse_gff_regions(istream& gtfstream, const PathPositionHandleGraph* graph, vector<Alignment>* out_alignments);
 
 Position alignment_start(const Alignment& aln);
 Position alignment_end(const Alignment& aln);Position alignment_start(const Alignment& aln);
@@ -231,6 +233,17 @@ void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<
 
 /// check to make sure edits on the alignment's path don't assume incorrect node lengths or ids
 bool alignment_is_valid(Alignment& aln, const HandleGraph* hgraph);
+    
+/// Make an Alignment corresponding to a subregion of a stored path.
+/// Positions are 0-based, and pos2 is excluded.
+/// Respects path circularity, so pos2 < pos1 is not a problem.
+/// If pos1 == pos2, returns an empty alignment.
+Alignment target_alignment(const PathPositionHandleGraph* graph, const string& name, size_t pos1, size_t pos2,
+                           const string& feature, bool is_reverse);
+/// Same as above, but uses the given Mapping, translated directly form a CIGAR string, as a source of edits.
+/// The edits are inserted into the generated Alignment, cut as necessary to fit into the Alignment's Mappings.
+Alignment target_alignment(const PathPositionHandleGraph* graph, const string& name, size_t pos1, size_t pos2,
+                           const string& feature, bool is_reverse, Mapping& cigar_mapping);
 }
 
 #endif

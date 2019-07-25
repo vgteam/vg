@@ -409,20 +409,10 @@ public:
                                   int64_t id2, bool is_rev2, size_t offset2) const;
     /// Get the ID of the node that covers the given 0-based position along the path.
     int64_t node_at_path_position(const string& name, size_t pos) const;
-    /// Get the Mapping that covers the given 0-based position along the path.
-    Mapping mapping_at_path_position(const string& name, size_t pos) const;
     /// Get the 0-based start position in the path that covers the given 0-based position along the path.
     size_t node_start_at_path_position(const string& name, size_t pos) const;
     /// Get the graph position at the given 0-based path position
     pos_t graph_pos_at_path_position(const string& name, size_t pos) const;
-    /// Make an Alignment corresponding to a subregion of a stored path.
-    /// Positions are 0-based, and pos2 is excluded.
-    /// Respects path circularity, so pos2 < pos1 is not a problem.
-    /// If pos1 == pos2, returns an empty alignment.
-    Alignment target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse) const;
-    /// Same as above, but uses the given Mapping, translated directly form a CIGAR string, as a source of edits.
-    /// The edits are inserted into the generated Alignment, cut as necessary to fit into the Alignment's Mappings.
-    Alignment target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse, Mapping& cigar_mapping) const;
     size_t path_length(const string& name) const;
     size_t path_length(size_t rank) const;
     /// Return true if the path with the given name is circular, and false if it is not. The path must exist.
