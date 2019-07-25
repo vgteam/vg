@@ -13,7 +13,7 @@
 #include "random_graph.hpp"
 #include "catch.hpp"
 
-#include "sglib/hash_graph.hpp"
+#include "bdsg/hash_graph.hpp"
 
 namespace vg {
 namespace unittest {
@@ -404,17 +404,17 @@ namespace unittest {
         
         size_t num_trials = 1000;
         for (size_t i = 0; i < num_trials; ++i) {
-            sglib::HashGraph graph;
+            bdsg::HashGraph graph;
             random_graph(seq_size, variant_len, variant_count, &graph);
             
-            sglib::HashGraph direct_split;
+            bdsg::HashGraph direct_split;
             algorithms::split_strands(&graph, &direct_split);
-            sglib::HashGraph direct_dagified;
+            bdsg::HashGraph direct_dagified;
             algorithms::dagify(&direct_split, &direct_dagified, preserved_length);
 
             StrandSplitGraph split(&graph);
             
-            sglib::HashGraph dagified;
+            bdsg::HashGraph dagified;
             algorithms::dagify(&split, &dagified, preserved_length);
             
             REQUIRE(algorithms::is_acyclic(&direct_dagified));

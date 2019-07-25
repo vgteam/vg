@@ -113,6 +113,27 @@ map<string, vector<pair<size_t, bool>>> offsets_in_paths(const PathPositionHandl
     }
     return named_offsets;
 }
+
+unordered_map<path_handle_t, vector<pair<size_t, bool>>> simple_offsets_in_paths(const PathPositionHandleGraph* graph, pos_t pos) {
+    unordered_map<path_handle_t, vector<pair<size_t, bool>>> positions;
+    handle_t handle = graph->get_handle(id(pos), is_rev(pos));
+    size_t handle_length = graph->get_length(handle);
+    for (const step_handle_t& step : graph->steps_of_handle(handle)) {
+        // the orientation of the position relative to the forward strand of the path
+        bool rev_path = graph->get_is_reverse(graph->get_handle_of_step(step));
+        // the offset of this step on the forward strand
+        int64_t path_offset = graph->get_position_of_step(step);
+        auto& pos_in_path = positions[graph->get_path_handle_of_step(step)];
+        // Make sure to interpret the pos_t offset on the correct strand.
+        size_t node_forward_strand_offset = is_rev(pos) ? (handle_length - offset(pos) - 1) : offset(pos);
+        // Normalize to a forward strand offset.
+        size_t off = path_offset + (rev_path ?
+                                    (handle_length - node_forward_strand_offset - 1) :
+                                    node_forward_strand_offset);
+        pos_in_path.push_back(make_pair(off, rev_path));
+    }
+    return positions;
+}
     
 }
 }

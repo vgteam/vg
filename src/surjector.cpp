@@ -107,12 +107,12 @@ using namespace std;
 #endif
             
             // get the path graph corresponding to this interval
-            sglib::HashGraph path_graph;
+            bdsg::HashGraph path_graph;
             unordered_map<id_t, pair<id_t, bool>> path_trans = extract_linearized_path_graph(&memoizing_graph, &path_graph, path_record.first,
                                                                                              ref_path_interval.first, ref_path_interval.second);
             
             // split it into a forward and reverse strand
-            sglib::HashGraph split_path_graph;
+            bdsg::HashGraph split_path_graph;
             unordered_map<id_t, pair<id_t, bool>> split_trans = algorithms::split_strands(&path_graph, &split_path_graph);
             
             auto node_trans = overlay_node_translations(split_trans, path_trans);

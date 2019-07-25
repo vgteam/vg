@@ -2212,7 +2212,7 @@ cerr << "Making graph acyclic" << endl;
     }
 
      */
-    sglib::HashGraph split;
+    bdsg::HashGraph split;
     split_to_id = algorithms::split_strands(graph, &split);
     graph = &split;
 
@@ -2222,7 +2222,7 @@ cerr << "Making graph acyclic" << endl;
 
     //If the graph has directed cycles, dagify it
     HandleGraph* dag;
-    sglib::HashGraph dagified; 
+    bdsg::HashGraph dagified; 
     if (!is_acyclic) {
 #ifdef debugIndex
 cerr << "Making graph acyclic" << endl;

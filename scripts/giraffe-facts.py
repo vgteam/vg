@@ -522,14 +522,23 @@ class Table(object):
         
         self.out.write('\n')
                 
-def print_table(read_count, stats_total, stages=STAGES, out=sys.stdout):
+def print_table(read_count, stats_total, have_times, stages=STAGES, out=sys.stdout):
     """
     Take the read count, and the accumulated total stats dict.
     
     Print a nicely formatted table to the given stream.
+    
+    If have_times is false, elides the time and speed columns which would be full of NANs.
     """
     
     # Now do a table
+    
+    # First header line for each column
+    headers = []
+    # Second header line for wach column
+    headers2 = []
+    # Column min widths from headers
+    header_widths = []
     
     # How long is the longest stage name
     stage_width = max((len(x) for x in STAGES))
@@ -540,25 +549,42 @@ def print_table(read_count, stats_total, stages=STAGES, out=sys.stdout):
     stage_overall = "Overall"
     stage_width = max(stage_width, len(stage_overall))
     
-    # How about the reads per second column
-    rps_header = "Reads/Second"
-    rps_header2 = "(cumulative)"
-    rps_width = max(len(rps_header), len(rps_header2))
+    headers.append(stage_header)
+    headers2.append('')
+    header_widths.append(stage_width)
     
-    # And the time percent column
-    time_header = "Time"
-    time_header2 = "(%)"
-    # Make sure to leave room for "100%"
-    time_width = max(len(time_header), len(time_header2), 4)
+    if have_times:
+        # How about the reads per second column
+        rps_header = "Reads/Second"
+        rps_header2 = "(cumulative)"
+        rps_width = max(len(rps_header), len(rps_header2))
+        
+        headers.append(rps_header)
+        headers2.append(rps_header2)
+        header_widths.append(rps_width)
+        
+        # And the time percent column
+        time_header = "Time"
+        time_header2 = "(%)"
+        # Make sure to leave room for "100%"
+        time_width = max(len(time_header), len(time_header2), 4)
+        
+        headers.append(time_header)
+        headers2.append(time_header2)
+        header_widths.append(time_width)
     
     # And the result count column (average)
     results_header = "Candidates"
     results_header2 = "(Avg.)"
     results_width = max(len(results_header), len(results_header2))
     
+    headers.append(results_header)
+    headers2.append(results_header2)
+    header_widths.append(results_width)
+    
     # And the correct result lost count header
-    lost_header = "Stop"
-    lost_header2 = "Here"
+    lost_header = "Correct"
+    lost_header2 = "Lost"
     # How big a number will we need to hold?
     # Look at the reads lost at all stages except final (because if you make it to the final stage nothing is lost)
     lost_reads = [stats_total[stage]['correct_stop'] for stage in STAGES[:-1]]
@@ -567,18 +593,19 @@ def print_table(read_count, stats_total, stages=STAGES, out=sys.stdout):
     overall_lost = sum(lost_reads)
     lost_width = max(len(lost_header), len(lost_header2), len(str(max_stage_stop)), len(str(overall_lost)))
     
-    # Get all the column widths together
-    widths = [stage_width, rps_width, time_width, results_width, lost_width]
+    headers.append(lost_header)
+    headers2.append(lost_header2)
+    header_widths.append(lost_width)
     
     # Start the table
-    table = Table(widths)
+    table = Table(header_widths)
     
-    table.row(["Giraffe Facts"], 'c', merge=[len(widths)])
+    table.row(["Giraffe Facts"], 'c', merge=[len(header_widths)])
     table.line()
-    table.row(['Reads' + str(read_count).rjust(table.inner_width() - 5)], merge=[len(widths)])
+    table.row(['Reads' + str(read_count).rjust(table.inner_width() - 5)], merge=[len(header_widths)])
     table.line()
-    table.row([stage_header, rps_header, time_header, results_header, lost_header], 'c' )
-    table.row(['', rps_header2, time_header2, results_header2, lost_header2], 'c')
+    table.row(headers, 'c')
+    table.row(headers2, 'c')
     table.line()
     
     
@@ -606,13 +633,36 @@ def print_table(read_count, stats_total, stages=STAGES, out=sys.stdout):
         # No reads are lost at the final stage.
         lost = stats_total[stage]['correct_stop'] if stage != stages[-1] else '-'
         
-        table.row([stage, '{:.2f}'.format(reads_per_second), '{:.0f}%'.format(stage_percent), '{:.2f}'.format(average_results), lost], 'crrrr')
+        row = [stage]
+        align = 'c'
+        if have_times:
+            # Include the time columns
+            row += ['{:.2f}'.format(reads_per_second), '{:.0f}%'.format(stage_percent)]
+            align += 'rr'
+        # Add the provenance columns
+        row += ['{:.2f}'.format(average_results), lost]
+        align += 'rr'
+        
+        # Output the final row
+        table.row(row, align)
         
     table.line()
         
     # And do overall reads per second
     reads_per_second_overall = read_count / overall_time if overall_time != 0 else float('NaN')
-    table.row([stage_overall, '{:.2f}'.format(reads_per_second_overall), '100%', '', overall_lost], 'crrrr')
+    
+    # Compose the overall row
+    row = [stage_overall]
+    align = 'c'
+    if have_times:
+        # Include the time columns
+        row += ['{:.2f}'.format(reads_per_second_overall), '100%']
+        align += 'rr'
+    # Add the provenance columns
+    row += ['', overall_lost]
+    align += 'rr'
+    
+    table.row(row, align)
     
     # Close off table
     table.close()
@@ -642,6 +692,11 @@ def main(args):
     # Count all the reads
     read_count = 0
     
+    # See if wa have any times actually.
+    # If they are all 0 (which they are now that we have ripped out timing) we
+    # can't actually draw the plot.
+    have_times = False
+    
     for stats in (make_stats(read) for read in read_line_oriented_json(options.input)):
         # For the stats dict for each read
         
@@ -651,6 +706,9 @@ def main(args):
             
             # Dump cumulative times to the TSV we will plot a histogram from
             tsv.write('{}\t{}\n'.format(stage, cumulative_time))
+            
+            if cumulative_time > 0:
+                have_times = True
         
         # Also include total time
         tsv.write('total\t{}\n'.format(stats['overall']['time']))
@@ -667,20 +725,21 @@ def main(args):
     tsv.close()
     
     # Print the table now in case histogram plotting fails
-    print_table(read_count, stats_total)
+    print_table(read_count, stats_total, have_times)
     
-    # Plot the histogram
-    svg_path = os.path.join(options.outdir, 'times.svg')
-    histogram.main(['histogram.py', tsv_path, '--save', svg_path,
-        '--title', 'Runtime Histogram',
-        '--x_label',  'Time (seconds)',
-        '--line',
-        '--bins', '100',
-        '--log',
-        '--cumulative',
-        '--y_label', 'Cumulative Count',
-        '--legend_overlay', 'lower right',
-        '--categories', 'total'] + STAGES)
+    if have_times:
+        # Plot the histogram
+        svg_path = os.path.join(options.outdir, 'times.svg')
+        histogram.main(['histogram.py', tsv_path, '--save', svg_path,
+            '--title', 'Runtime Histogram',
+            '--x_label',  'Time (seconds)',
+            '--line',
+            '--bins', '100',
+            '--log',
+            '--cumulative',
+            '--y_label', 'Cumulative Count',
+            '--legend_overlay', 'lower right',
+            '--categories', 'total'] + STAGES)
         
     
    
