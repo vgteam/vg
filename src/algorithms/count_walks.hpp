@@ -23,10 +23,10 @@ using namespace std;
     /// algorithms::is_single_stranded and algorithms::is_directed_acyclic for safety.
     /// Returns numeric_limits<size_t>::max() if the actual number of walks is larger
     /// than this.
-     unordered_map<handle_t, size_t> count_walks_through_nodes(const HandleGraph* graph);
+    tuple<vector<handle_t>, unordered_map<handle_t, size_t>, bool> count_walks_through_nodes(const HandleGraph* graph);
 
     /// Returns the number of source-to-sink walks through the graph
-    size_t get_total();
+    size_t count_walks(const HandleGraph* graph);
 
 }
 }
