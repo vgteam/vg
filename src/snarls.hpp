@@ -566,6 +566,13 @@ public:
     /// Given a Snarl that we don't own (like from a Visit), find the
     /// pointer to the managed copy of that Snarl.
     const Snarl* manage(const Snarl& not_owned) const;
+
+    /// Sample snarls discrete uniformly 
+    const Snarl* discrete_uniform_sample(minstd_rand0& random_engine)const;
+
+    /// Count snarls in deque<SnarlRecords>, a master list of snarls in graph
+    int num_snarls()const;
+
         
 private:
     

@@ -31,23 +31,27 @@ public:
     MCMCGenotyper(SnarlManager& snarls, VG& graph, const int n_iterations); 
 
     /** 
-     * This method takes as input a collection of mapped reads stored as a vector of multipath alignments and uses 
+     * Takes as input a collection of mapped reads stored as a vector of multipath alignments and uses 
      * MCMC to find two optimal paths through the graph.
      * Output: phased genome 
      */    
     PhasedGenome run_genotype(const vector<MultipathAlignment>& reads, const double log_base) const;
     
     /**
-     * This method represents the poseterior distribution function 
+     * Represents the poseterior distribution function 
      * returns the posterir probability
      */ 
      double log_target(PhasedGenome& phased_genome, const vector<MultipathAlignment>& reads) const;  
 
     /**
-     * This method generates a proposal sample over the desired distrubution
+     * Generates a proposal sample over the desired distrubution
      * returns a sample from the proposal distribution
      */
-     PhasedGenome proposal_sample(PhasedGenome& current) const;
+     tuple<id_t, Snarl*, vector<NodeTraversal> > proposal_sample(PhasedGenome& current) const;
+    /**
+     * Samples haplotypes randomly using the discrete uniform distribution
+     */
+     int sample_uniform_haplotypes(minstd_rand0& random_engine, vector<id_t> matched_haplotypes) const;
     
     /**
      * Given a range [a,b] will return a random number uniformly distributed within that range 

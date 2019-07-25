@@ -4,11 +4,14 @@ namespace vg {
 namespace algorithms {
 
 using namespace std;
+    
+    vector<handle_t> sinks;
+    unordered_map<handle_t, size_t> count;
+    bool overflowed = false;
 
-    size_t count_walks(const HandleGraph* graph) {
+    unordered_map<handle_t, size_t> count_walks_through_nodes(const HandleGraph* graph) {
         
-        vector<handle_t> sinks;
-        unordered_map<handle_t, size_t> count;
+        
         count.reserve(graph->get_node_count());
         
         // identify sources and sinks
@@ -33,7 +36,7 @@ using namespace std;
         });
         
         // count walks by dynamic programming
-        bool overflowed = false;
+        
         for (const handle_t& handle : lazier_topological_order(graph)) {
             size_t count_here = count[handle];
             graph->follow_edges(handle, false, [&](const handle_t& next) {
@@ -45,18 +48,19 @@ using namespace std;
                     count_next += count_here;
                 }
             });
-            
-            if (overflowed) {
+        }
+    }
+    size_t get_total(){
+
+        if (overflowed) {
                 return numeric_limits<size_t>::max();
             }
-        }
-        
+ 
         // total up the walks at the sinks
         size_t total_count = 0;
         for (handle_t& sink : sinks) {
             total_count += count[sink];
-        }
-        
+        }     
         return total_count;
     }
 }

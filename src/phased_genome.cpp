@@ -199,14 +199,14 @@ namespace vg {
         return iterator(0, which_haplotype, nullptr);
     }
 
-    vector<int> PhasedGenome::get_haplotypes_with_snarl(const Snarl* snarl_to_find){
+    vector<id_t> PhasedGenome::get_haplotypes_with_snarl(const Snarl* snarl_to_find){
         
         // a vector that will hold the haplotype IDs of haplotypes found to traverse through the snarl
-        vector<int> matched_haplotype_ids;
+        vector<id_t> matched_haplotype_ids;
 
         // interate through the vector of haplotype pointers and do a lookup for snarl_to_find
         // if found then we add it to the list of matched haplotypes 
-        int id = 0;
+        id_t id = 0;
         for (Haplotype* haplotype : haplotypes){
             bool found = haplotype->sites.count(snarl_to_find);
             if(found){
