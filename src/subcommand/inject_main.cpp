@@ -12,6 +12,7 @@
 
 #include "../alignment.hpp"
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 
