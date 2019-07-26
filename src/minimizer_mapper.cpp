@@ -594,8 +594,14 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     if (track_provenance) {
     
         // And with the number of results in play at each stage
-        funnel.for_each_stage([&](const string& stage, size_t result_count) {
-            set_annotation(mappings[0], "stage_" + stage + "_results", (double)result_count);
+        funnel.for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
+            // Save the number of items
+            set_annotation(mappings[0], "stage_" + stage + "_results", (double)result_sizes.size());
+            // Save the size of each item
+            vector<double> converted;
+            converted.reserve(result_sizes.size());
+            std::copy(result_sizes.begin(), result_sizes.end(), std::back_inserter(converted));
+            set_annotation(mappings[0], "stage_" + stage + "_sizes", converted);
         });
 
         if (track_correctness) {
