@@ -103,7 +103,7 @@ inline int64_t JSONStreamHelper<T>::write(std::ostream& out, bool json_out,
         }
         if (!good || buf.size() >= buf_size) {
             if (!json_out) {
-                vg::io::write(out, buf.size(), lambda, false);
+                vg::io::write(out, buf.size(), lambda);
             } else {
                 for (int i = 0; i < buf.size(); ++i) {
                     out << pb2json(buf[i]);
@@ -115,7 +115,7 @@ inline int64_t JSONStreamHelper<T>::write(std::ostream& out, bool json_out,
     }
     
     if (!json_out) {
-        vg::io::finish(out, false);
+        vg::io::finish(out);
     }
     
     out.flush();

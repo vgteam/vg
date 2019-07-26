@@ -111,8 +111,8 @@ void Paths::write(ostream& out) {
         }
         return path;
     };
-    vg::io::write(out, _paths.size(), lambda, false);
-    vg::io::finish(out, false);
+    vg::io::write(out, _paths.size(), lambda);
+    vg::io::finish(out);
 }
 
 void Paths::to_graph(Graph& g) {

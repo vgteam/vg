@@ -215,8 +215,8 @@ int main_align(int argc, char** argv) {
             [&alignment] (size_t n) {
                 return alignment;
             };
-        vg::io::write(cout, 1, lambda, false);
-        vg::io::finish(cout, false);
+        vg::io::write(cout, 1, lambda);
+        vg::io::finish(cout);
     }
 
     if (graph != nullptr) {
