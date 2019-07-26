@@ -94,7 +94,8 @@ protected:
     /// Get the bias used to for comparing two traversals
     /// (It differrs heuristically depending whether they are alt/ref/het/hom/snp/indel
     ///  see tuning parameters below)
-    double get_bias(const vector<int>& traversal_sizes, int trav_idx1, int trav_idx2, int ref_trav_idx) const;
+    double get_bias(const vector<int>& traversal_sizes, int best_trav,
+                    int second_best_trav, int ref_trav_idx) const;
 
     /// Tuning
 
@@ -111,8 +112,6 @@ protected:
     double max_ref_het_bias = 4.5;
     /// Like the max het bias, but applies to novel indels.
     double max_indel_het_bias =3;
-    /// Like the max het bias, but applies to multiallelic indels.
-    double max_indel_ma_bias = 6;
 
     ///
 

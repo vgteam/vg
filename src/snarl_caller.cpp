@@ -65,8 +65,6 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
     // get the supports of each traversal in light of best
     vector<Support> secondary_supports = get_traversal_set_support(traversals, {best_allele}, false);
     int second_best_allele = get_best_support(secondary_supports, {skips});
-#endif
-
 
     // get the supports of each traversal in light of second best
     // for special case where we may call two alts, with each having less support than ref
@@ -86,12 +84,6 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
         third_best_allele = get_best_support(tertiary_supports, skips);
     }
 
-
-    // Decide if we're an indel by looking at the traversal sizes
-    bool is_indel = traversal_sizes[best_allele] != traversal_sizes[ref_trav_idx] ||
-        (second_best_allele != -1 && traversal_sizes[ref_trav_idx] != traversal_sizes[second_best_allele]);
-    bool is_indel_ma_2 = (second_best_allele != -1 && traversal_sizes[ref_trav_idx] != traversal_sizes[second_best_allele]);
-    bool is_indel_ma_3 = (third_best_allele != -1 && traversal_sizes[ref_trav_idx] != traversal_sizes[third_best_allele]);
     
     // Now make a genotype call at this site, up to the allowed copy number
     vector<int> genotype;
@@ -112,39 +104,17 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
     if (third_best_allele != -1) {
         third_best_support = supports.at(third_best_allele);
     }
-                    
-    double bias_limit;
-    if (best_allele == 0) {
-        // Use ref bias limit
-            
-        // We decide closeness differently depending on whether best is ref
-        // or not. In practice, we use this to slightly penalize homozygous
-        // ref calls (by setting max_ref_het_bias higher than max_het_bias)
-        // and rather make a less supported alt call instead.  This boost
-        // max sensitivity, and because everything is homozygous ref by
-        // default in VCF, any downstream filters will effectively reset
-        // these calls back to homozygous ref. TODO: This shouldn't apply
-        // when off the primary path!
-        bias_limit = max_ref_het_bias;
-    } else if (is_indel) {
-        // This is an indel
-        // Use indel bias limit
-        bias_limit = max_indel_het_bias;
-    } else {
-        // Use normal het bias limit
-        bias_limit = max_het_bias;
-    }
-        
+                            
 #ifdef debug
     cerr << best_allele << ", " << best_support << " and "
          << second_best_allele << ", " << second_best_support << endl;
         
     if (support_val(second_best_support) > 0) {
-        cerr << "Bias: (limit " << bias_limit  << "):"
+        cerr << "Bias: (limit " << get_bias(traversal_sizes, best_allele, second_best_allele, ref_trav_idx)  << "):"
              << support_val(best_support)/support_val(second_best_support) << endl;
     }
         
-    cerr << bias_limit * support_val(second_best_support) << " vs "
+    cerr << get_bias(traversal_sizes, best_allele, second_best_allele, ref_trav_idx) * support_val(second_best_support) << " vs "
          << support_val(best_support) << endl;
             
     cerr << total(second_best_support) << " vs " << min_total_support_for_call << endl;
@@ -154,8 +124,8 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
     if (ploidy >= 2 &&
         best_allele == ref_trav_idx && 
         third_best_allele > 0 &&
-        is_indel_ma_3 &&
-        max_indel_ma_bias * support_val(third_best_support) >= support_val(best_support) &&
+        get_bias(traversal_sizes, second_best_allele, third_best_allele, ref_trav_idx) *
+        support_val(third_best_support) >= support_val(best_support) &&
         total(second_best_support) > min_total_support_for_call &&
         total(third_best_support) > min_total_support_for_call) {
         // There's a second best allele and third best allele, and it's not too biased to call,
@@ -171,7 +141,8 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
     }
     else if (ploidy >= 2 &&
              second_best_allele != -1 &&
-             bias_limit * support_val(second_best_support) >= support_val(best_support) &&
+             get_bias(traversal_sizes, best_allele, second_best_allele, ref_trav_idx) *
+             support_val(second_best_support) >= support_val(best_support) &&
              total(best_support) > min_total_support_for_call &&
              total(second_best_support) > min_total_support_for_call) {
         // There's a second best allele, and it's not too biased to call,
@@ -372,11 +343,36 @@ vector<int> SupportBasedSnarlCaller::get_traversal_sizes(const vector<SnarlTrave
     
 }
 
-double SupportBasedSnarlCaller::get_bias(const vector<int>& traversal_sizes, int trav_idx1, int trav_idx2, int ref_trav_idx) const {
-    assert(trav_idx1 >= 0 && trav_idx2 >=0);
-
-    return 2;
+double SupportBasedSnarlCaller::get_bias(const vector<int>& traversal_sizes, int best_trav,
+                                         int second_best_trav, int ref_trav_idx) const {
+    bool is_indel = ((best_trav >= 0 && traversal_sizes[best_trav] != traversal_sizes[ref_trav_idx]) ||
+                     (second_best_trav >=0 && traversal_sizes[second_best_trav] != traversal_sizes[ref_trav_idx]));
     
+    double bias_limit = 1;
+
+    if (best_trav >= 0 && second_best_trav >=0) {
+        if (best_trav == ref_trav_idx) {
+            // Use ref bias limit
+            
+            // We decide closeness differently depending on whether best is ref
+            // or not. In practice, we use this to slightly penalize homozygous
+            // ref calls (by setting max_ref_het_bias higher than max_het_bias)
+            // and rather make a less supported alt call instead.  This boost
+            // max sensitivity, and because everything is homozygous ref by
+            // default in VCF, any downstream filters will effectively reset
+            // these calls back to homozygous ref. TODO: This shouldn't apply
+            // when off the primary path!
+            bias_limit = max_ref_het_bias;
+        } else if (is_indel) {
+            // This is an indel
+            // Use indel bias limit
+            bias_limit = max_indel_het_bias;
+        } else {
+            // Use normal het bias limit
+            bias_limit = max_het_bias;
+        }
+    }
+    return bias_limit;
 }
 
 
