@@ -24,9 +24,10 @@ using namespace sdsl;
 class Packer {
 public:
     Packer(void);
-    Packer(HandleGraph* xidx, size_t bin_size = 0, bool qual_adjust = false);
+    // graph must also implement VectorizableHandleGraph
+    Packer(const HandleGraph* graph, size_t bin_size = 0, bool qual_adjust = false);
     ~Packer(void);
-    HandleGraph* xgidx;
+    const HandleGraph* graph;
     void merge_from_files(const vector<string>& file_names);
     void merge_from_dynamic(vector<Packer*>& packers);
     void load_from_file(const string& file_name);
