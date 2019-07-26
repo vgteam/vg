@@ -5,7 +5,7 @@ using namespace std;
         
         assert(converted->get_node_count() == 0);
         
-        // If xg is a null pointer, throw a runtime error
+        // If converting or converted is a null pointer, throw a runtime error
         if (converting == nullptr) {
             throw runtime_error("There is no graph to convert from");
         }

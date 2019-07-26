@@ -15,6 +15,7 @@
 #include "../option.hpp"
 
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include "../support_caller.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
