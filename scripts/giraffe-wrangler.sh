@@ -108,6 +108,9 @@ BWA_DOUBLE_TIME="$(cat "${WORK}/bwa-log-double.txt" | grep "Real time:" | sed 's
 
 BWA_RPS="$(echo "${REAL_READ_COUNT} / (${BWA_DOUBLE_TIME} - ${BWA_TIME}) / ${THREAD_COUNT}" | bc -l)"
 
+
+echo "==== Giraffe Wrangler Report for vg $(vg version -s) ===="
+
 if which perf 2>/dev/null ; then
     # Output perf stuff
     mv "${WORK}/perf.data" ./perf.data
