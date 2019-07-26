@@ -7,7 +7,7 @@ set -e
 usage() {
     # Print usage to stderr
     exec 1>&2
-    printf "Usage: $0 [Options] FASTA XG_INDEX GBWT_INDEX MINIMIZER_INDEX DISTANCE_INDEX SIM_GAM REAL_FASTQ \n"
+    printf "Usage: $0 [Options] FASTA XG_INDEX GCSA_INDEX GBWT_INDEX MINIMIZER_INDEX DISTANCE_INDEX SIM_GAM REAL_FASTQ \n"
     printf "Options:\n\n"
     exit 1
 }
@@ -22,7 +22,7 @@ done
 
 shift $((OPTIND-1))
 
-if [[ "$#" -lt "7" ]]; then
+if [[ "$#" -lt "8" ]]; then
     # Too few arguments
     usage
 fi
@@ -30,6 +30,8 @@ fi
 FASTA="${1}"
 shift
 XG_INDEX="${1}"
+shift
+GCSA_INDEX="${1}"
 shift
 GBWT_INDEX="${1}"
 shift
@@ -43,7 +45,7 @@ REAL_FASTQ="${1}"
 shift
 
 # Define the Giraffe parameters
-GIRAFFE_OPTS=(-s75 -u 0.1 -v 25 -w 5 -C 600)
+GIRAFFE_OPTS=(-s75 -u 0.1 -v 25 -w 5 -C 600 --skip-connectivity)
 # And the thread count for everyone
 THREAD_COUNT=32
 
@@ -68,14 +70,20 @@ fi
 # Run simulated reads, with stats
 vg gaffe --track-correctness -x "${XG_INDEX}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -G "${SIM_GAM}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/mapped.gam"
 
+# And map to compare with them
+vg map -x "${XG_INDEX}" -g "${GCSA_INDEX}" -G "${SIM_GAM}" -t "${THREAD_COUNT}" >"${WORK}/mapped-map.gam"
+
 # Annotate and compare against truth
 vg annotate -p -x "${XG_INDEX}" -a "${WORK}/mapped.gam" >"${WORK}/annotated.gam"
+vg annotate -p -x "${XG_INDEX}" -a "${WORK}/mapped-map.gam" >"${WORK}/annotated-map.gam"
 
 # GAM compare against truth. Use gamcompare to count correct reads to save a JSON scan.
 CORRECT_COUNT="$(vg gamcompare -r 100 "${WORK}/annotated.gam" "${SIM_GAM}" 2>&1 >/dev/null | sed 's/[^0-9]//g')"
+CORRECT_COUNT_MAP="$(vg gamcompare -r 100 "${WORK}/annotated-map.gam" "${SIM_GAM}" 2>&1 >/dev/null | sed 's/[^0-9]//g')"
 
 # Compute identity
 MEAN_IDENTITY="$(vg view -aj "${WORK}/mapped.gam" | jq -c '.identity' | awk '{x+=$1} END {print x/NR}')"
+MEAN_IDENTITY_MAP="$(vg view -aj "${WORK}/mapped-map.gam" | jq -c '.identity' | awk '{x+=$1} END {print x/NR}')"
 
 # Compute loss stages
 vg view -aj "${WORK}/mapped.gam" | scripts/giraffe-facts.py "${WORK}/facts" >"${WORK}/facts.txt" 2>&1
@@ -110,6 +118,7 @@ fi
 
 # Print the report
 echo "Giraffe got ${CORRECT_COUNT} simulated reads correct with ${MEAN_IDENTITY} average identity"
+echo "Map got ${CORRECT_COUNT_MAP} simulated reads correct with ${MEAN_IDENTITY_MAP} average identity"
 echo "Giraffe aligned real reads at ${GIRAFFE_RPS} reads/second vs. bwa-mem's ${BWA_RPS} reads/second on ${THREAD_COUNT} threads"
 
 cat "${WORK}/facts.txt"
