@@ -92,6 +92,11 @@ ifeq ($(shell uname -s),Darwin)
 	
     # Note shared libraries are dylibs
     SHARED_SUFFIX = dylib
+    
+    # Define options to start and end static linking of libraries.
+	# We don't actually do any static linking on Mac, so we leave these empty.
+    START_STATIC =
+    END_STATIC =
 
 else
     # We are not running on OS X
@@ -109,6 +114,11 @@ else
 	
     # Note shared libraries are so files
     SHARED_SUFFIX = so
+    
+	# Define options to start and end static linking of libraries on GNU ld
+    START_STATIC = -Wl,-Bstatic
+    END_STATIC = -Wl,-Bdynamic
+	
 endif
 
 # These libs need to come after libdw if used, because libdw depends on them
@@ -398,13 +408,13 @@ $(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc: $(LIB_DIR)/libdeflate.a $(LI
 	+. ./source_me.sh && rm -Rf $(CWD)/$(INC_DIR)/htslib && cd $(HTSLIB_DIR) && autoheader && autoconf && CFLAGS="-I$(CWD)/$(INC_DIR)" LDFLAGS="-L$(CWD)/$(LIB_DIR)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins --prefix=$(CWD) $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install
 
 # We tell the vcflib build to use our own htslib.
-# We link it and libdeflate statically because our lib directory won't
-# necessarily be on the vcflib binarys' search path.
+# We link it and libdeflate statically (on Linux) because our lib directory won't
+# necessarily be on the vcflib binaries' search path.
 $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/intervaltree/*.cpp $(VCFLIB_DIR)/intervaltree/*.h $(VCFLIB_DIR)/tabixpp/*.cpp $(VCFLIB_DIR)/tabixpp/*.hpp
-	+. ./source_me.sh && cd $(VCFLIB_DIR) && HTS_LIB="$(CWD)/$(LIB_DIR)/libhts.a" HTS_INCLUDES="-I$(CWD)/$(INC_DIR)" HTS_LDFLAGS="-L$(CWD)/$(LIB_DIR) -Wl,-static -lhts -ldeflate -Wl,-Bdynamic -lpthread -lm -lbz2 -llzma -lz" $(MAKE) libvcflib.a $(FILTER) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/ && cp intervaltree/*.h $(CWD)/$(INC_DIR)/ && cp src/*.h* $(CWD)/$(INC_DIR)/
-    
+	+. ./source_me.sh && cd $(VCFLIB_DIR) && HTS_LIB="$(CWD)/$(LIB_DIR)/libhts.a" HTS_INCLUDES="-I$(CWD)/$(INC_DIR)" HTS_LDFLAGS="-L$(CWD)/$(LIB_DIR) $(START_STATIC) -lhts -ldeflate $(END_STATIC) -lpthread -lm -lbz2 -llzma -lz" $(MAKE) libvcflib.a $(FILTER) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/ && cp intervaltree/*.h $(CWD)/$(INC_DIR)/ && cp src/*.h* $(CWD)/$(INC_DIR)/
+
 $(VCFLIB_DIR)/bin/vcf2tsv: $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.h $(LIB_DIR)/libvcflib.a
-	+. ./source_me.sh && cd $(VCFLIB_DIR) && HTS_LIB="$(CWD)/$(LIB_DIR)/libhts.a" HTS_INCLUDES="-I$(CWD)/$(INC_DIR)" HTS_LDFLAGS="-L$(CWD)/$(LIB_DIR) -Wl,-static -lhts -ldeflate -Wl,-Bdynamic -lpthread -lm -lbz2 -llzma -lz" $(MAKE) vcf2tsv $(FILTER)
+	+. ./source_me.sh && cd $(VCFLIB_DIR) && HTS_LIB="$(CWD)/$(LIB_DIR)/libhts.a" HTS_INCLUDES="-I$(CWD)/$(INC_DIR)" HTS_LDFLAGS="-L$(CWD)/$(LIB_DIR) $(START_STATIC) -lhts -ldeflate $(END_STATIC) -lpthread -lm -lbz2 -llzma -lz" $(MAKE) vcf2tsv $(FILTER)
 
 $(FASTAHACK_DIR)/fastahack: $(FASTAHACK_DIR)/*.c $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
 	+. ./source_me.sh && cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER)
