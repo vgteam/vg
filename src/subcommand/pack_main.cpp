@@ -186,6 +186,10 @@ int main_pack(int argc, char** argv) {
             vg::io::for_each_parallel(std::cin, lambda);
         } else {
             ifstream gam_stream(gam_in);
+            if (!gam_stream) {
+                cerr << "[vg pack] error reading gam file: " << gam_in << endl;
+                return 1;
+            }
             vg::io::for_each_parallel(gam_stream, lambda);
             gam_stream.close();
         }

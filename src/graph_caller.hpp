@@ -64,6 +64,8 @@ public:
                  vcflib::VariantCallFile& variant_file,
                  const string& sample_name,
                  const vector<string>& ref_paths = {},
+                 FastaReference* ref_fasta = nullptr,
+                 FastaReference* ins_fasta = nullptr,
                  ostream& out_stream = cout);
 
     virtual ~VCFGenotyper();

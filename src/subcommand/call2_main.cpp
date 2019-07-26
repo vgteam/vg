@@ -28,6 +28,8 @@ void help_call2(char** argv) {
        << "    -k, --pack FILE         Supports created from vg pack (input graph must be xg)" << endl
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
+       << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
+       << "    -i, --ins-fasta FILE    Insertions fasta (required if VCF contains symbolic insertions)" << endl
        << "    -s, --sample NAME       Sample name [default=SAMPLE]" << endl
        << "    -r, --snarls FILE       Snarls (from vg snarls) to avoid recomputing." << endl
        << "    -p, --ref-path NAME     Reference path to call on (multipile allowed.  defaults to all paths)" << endl
@@ -51,6 +53,8 @@ int main_call2(int argc, char** argv) {
         static const struct option long_options[] = {
             {"pack", required_argument, 0, 'k'},
             {"vcf", required_argument, 0, 'v'},
+            {"ref-fasta", required_argument, 0, 'f'},
+            {"ins-fasta", required_argument, 0, 'i'},
             {"sample", required_argument, 0, 's'},            
             {"snarls", required_argument, 0, 'r'},
             {"ref-path", required_argument, 0, 'p'},
@@ -61,7 +65,7 @@ int main_call2(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:v:s:r:p:t:h",
+        c = getopt_long (argc, argv, "k:v:f:i:s:r:p:t:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -75,6 +79,12 @@ int main_call2(int argc, char** argv) {
             break;
         case 'v':
             vcf_filename = optarg;
+            break;
+        case 'f':
+            ref_fasta_filename = optarg;
+            break;
+        case 'i':
+            ins_fasta_filename = optarg;
             break;
         case 's':
             sample_name = optarg;
@@ -194,7 +204,9 @@ int main_call2(int argc, char** argv) {
         
         VCFGenotyper* vcf_genotyper = new VCFGenotyper(*graph, *snarl_caller,
                                                        *snarl_manager, variant_file,
-                                                       sample_name, ref_paths);
+                                                       sample_name, ref_paths,
+                                                       ref_fasta.get(),
+                                                       ins_fasta.get());
         graph_caller = unique_ptr<GraphCaller>(vcf_genotyper);
     }
 

@@ -21,7 +21,6 @@ void GraphCaller::call_top_level_snarls(bool recurse_on_fail) {
         bool was_called = call_snarl(*snarl);
         if (!was_called && recurse_on_fail) {
             const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
-            cerr << "recursing on " << children.size() << " children of " << pb2json(*snarl) << endl;
             snarl_queue.insert(snarl_queue.end(), children.begin(), children.end());
         }
     };
@@ -60,12 +59,14 @@ VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
                            vcflib::VariantCallFile& variant_file,
                            const string& sample_name,
                            const vector<string>& ref_paths,
+                           FastaReference* ref_fasta,
+                           FastaReference* ins_fasta,
                            ostream& out_stream) :
     GraphCaller(snarl_caller, snarl_manager, out_stream),
     graph(graph),
     input_vcf(variant_file),
     sample_name(sample_name),
-    traversal_finder(graph, snarl_manager, variant_file, ref_paths) {
+    traversal_finder(graph, snarl_manager, variant_file, ref_paths, ref_fasta, ins_fasta) {
     
 }
 
