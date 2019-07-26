@@ -2084,7 +2084,7 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const string& n
     
     if (pos2 < pos1) {
         // Looks like we want to span the origin of a circular path
-        if (graph->get_is_circular(path_handle)) {
+        if (!graph->get_is_circular(path_handle)) {
             // But the path isn't circular, which is a problem
             throw runtime_error("Cannot extract Alignment from " + to_string(pos1) +
                                 " to " + to_string(pos2) + " across the junction of non-circular path " + name);
