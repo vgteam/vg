@@ -406,7 +406,7 @@ var searchData=
   ['surject',['surject',['../classvg_1_1Surjector.html#aa01a5d3fe30da337b4533b69d0c297be',1,'vg::Surjector::surject(const Alignment &amp;source, const set&lt; string &gt; &amp;path_names, string &amp;path_name_out, int64_t &amp;path_pos_out, bool &amp;path_rev_out, bool allow_negative_scores=false) const '],['../classvg_1_1Surjector.html#a93b288be86926bdfd48bc991ccfaaa01',1,'vg::Surjector::surject(const Alignment &amp;source, const set&lt; string &gt; &amp;path_names, bool allow_negative_scores=false) const ']]],
   ['surject_5fmain_2ecpp',['surject_main.cpp',['../surject__main_8cpp.html',1,'']]],
   ['surjector',['Surjector',['../classvg_1_1Surjector.html',1,'vg']]],
-  ['surjector',['Surjector',['../classvg_1_1Surjector.html#a67a791fb27de53167b5c86f8ea380fb2',1,'vg::Surjector']]],
+  ['surjector',['Surjector',['../classvg_1_1Surjector.html#a4b083231c3ae02e3e14c3efb2a72eb1d',1,'vg::Surjector']]],
   ['surjector_2ecpp',['surjector.cpp',['../surjector_8cpp.html',1,'']]],
   ['surjector_2ehpp',['surjector.hpp',['../surjector_8hpp.html',1,'']]],
   ['sv_5ftype',['SV_TYPE',['../structvg_1_1BREAKPOINT.html#a52c38d41e036406a3c2e79d9f4bbfc50',1,'vg::BREAKPOINT']]],

@@ -96,7 +96,7 @@ var searchData=
   ['is_5fsnarl_5fsmaller_5fthan_5freads',['is_snarl_smaller_than_reads',['../classvg_1_1Genotyper.html#a7c7f091482612f6b0cd2baf0c19c45fb',1,'vg::Genotyper']]],
   ['is_5fsnv',['is_snv',['../structhaplo_1_1linear__haplo__structure.html#ab4791f16363698a31ebbef9b0549fdc8',1,'haplo::linear_haplo_structure']]],
   ['is_5fsolitary_5fref',['is_solitary_ref',['../structhaplo_1_1linear__haplo__structure.html#a37b90eeaa391a155c687e0dc8f01070a',1,'haplo::linear_haplo_structure']]],
-  ['is_5fsplit',['is_split',['../classvg_1_1ReadFilter.html#a1029bded9e3f9a8fac9e3e15b7545415',1,'vg::ReadFilter']]],
+  ['is_5fsplit',['is_split',['../classvg_1_1ReadFilter.html#a07039862a8bee98803f764863b3ba0fa',1,'vg::ReadFilter']]],
   ['is_5ftail_5fnode',['is_tail_node',['../classvg_1_1VG.html#a40b412ca09b09b3c0e07bcd5bd9ee03b',1,'vg::VG::is_tail_node(id_t id)'],['../classvg_1_1VG.html#af58b227f21324d30be531088ed49b0f1',1,'vg::VG::is_tail_node(Node *node)']]],
   ['is_5ftrivial',['is_trivial',['../classvg_1_1SnarlManager.html#ad41733340f2a496a879f5659f174f24e',1,'vg::SnarlManager']]],
   ['is_5fvalid',['is_valid',['../classvg_1_1Sampler.html#a6f979036816c6f3657c98193b9b1e22d',1,'vg::Sampler::is_valid()'],['../classvg_1_1VG.html#aa77d93fdf76698460ce509ea5dcde954',1,'vg::VG::is_valid()']]],

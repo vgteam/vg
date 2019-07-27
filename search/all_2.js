@@ -22,7 +22,7 @@ var searchData=
   ['balanced_5fkmers',['balanced_kmers',['../namespacevg.html#ab7caa49b187d9fc25833daa572cdf770',1,'vg']]],
   ['balanced_5fstride',['balanced_stride',['../namespacevg.html#a7211eb89509ce3ca625333936c08ec9b',1,'vg']]],
   ['bam_5fdna_5flookup',['BAM_DNA_LOOKUP',['../namespacevg.html#ade7204b42260155b9a98a6d18c24a0b7',1,'vg']]],
-  ['bam_5fto_5falignment',['bam_to_alignment',['../namespacevg.html#a61817053c8d556af3fc8c44a79a56486',1,'vg::bam_to_alignment(const bam1_t *b, map&lt; string, string &gt; &amp;rg_sample, const bam_hdr_t *bh, XG *xgindex)'],['../namespacevg.html#a0235b33ab3f656ef6bc9b8700f553511',1,'vg::bam_to_alignment(const bam1_t *b, map&lt; string, string &gt; &amp;rg_sample)']]],
+  ['bam_5fto_5falignment',['bam_to_alignment',['../namespacevg.html#a0a30b286915ee7e036a53fffc82aeffe',1,'vg::bam_to_alignment(const bam1_t *b, map&lt; string, string &gt; &amp;rg_sample, const bam_hdr_t *bh, const PathPositionHandleGraph *graph)'],['../namespacevg.html#a0235b33ab3f656ef6bc9b8700f553511',1,'vg::bam_to_alignment(const bam1_t *b, map&lt; string, string &gt; &amp;rg_sample)']]],
   ['bamatrix',['BAMatrix',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html',1,'vg::BandedGlobalAligner']]],
   ['bamatrix',['BAMatrix',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a5cbc56500929e0097ddc365901e5e628',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['band_5fbegin',['band_begin',['../classvg_1_1AlignmentChainModelVertex.html#a80e1c7143112904a01ece86659f4eefc',1,'vg::AlignmentChainModelVertex']]],

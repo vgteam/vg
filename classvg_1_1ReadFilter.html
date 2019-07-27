@@ -111,8 +111,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a398d61417de9097c385315490b7034df"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7fe8cb61ed8a2f376b0404e934af8b91"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a7fe8cb61ed8a2f376b0404e934af8b91">filter</a> (istream *alignment_stream)</td></tr>
 <tr class="separator:a7fe8cb61ed8a2f376b0404e934af8b91"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0f4d0e707454ce6207d4b2b323a03f09"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a0f4d0e707454ce6207d4b2b323a03f09">trim_ambiguous_ends</a> (<a class="el" href="classvg_1_1XG.html">XG</a> *index, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, int k)</td></tr>
-<tr class="separator:a0f4d0e707454ce6207d4b2b323a03f09"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a31011cb29962d3510bb50b315409a025"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a31011cb29962d3510bb50b315409a025">trim_ambiguous_ends</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, int k)</td></tr>
+<tr class="separator:a31011cb29962d3510bb50b315409a025"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -167,9 +167,9 @@ Public Attributes</h2></td></tr>
 <tr class="separator:ad5aa58e55aa8546d0e555a90b7b1ac1a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad5bab332dd50a2b84e4bb7798fabd349"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ad5bab332dd50a2b84e4bb7798fabd349">write_output</a> = true</td></tr>
 <tr class="separator:ad5bab332dd50a2b84e4bb7798fabd349"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aecc2393e4ccefa1d699280b09796512d"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1XG.html">XG</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#aecc2393e4ccefa1d699280b09796512d">xindex</a> = nullptr</td></tr>
-<tr class="memdesc:aecc2393e4ccefa1d699280b09796512d"><td class="mdescLeft">&#160;</td><td class="mdescRight">An <a class="el" href="classvg_1_1XG.html">XG</a> index is required for some filters (Note: <a class="el" href="classvg_1_1ReadFilter.html">ReadFilter</a> doesn't own/free this)  <a href="#aecc2393e4ccefa1d699280b09796512d">More...</a><br/></td></tr>
-<tr class="separator:aecc2393e4ccefa1d699280b09796512d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7fc3a9a61f57bb5a8c9857fe43a032f5"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a7fc3a9a61f57bb5a8c9857fe43a032f5">graph</a> = nullptr</td></tr>
+<tr class="memdesc:a7fc3a9a61f57bb5a8c9857fe43a032f5"><td class="mdescLeft">&#160;</td><td class="mdescRight">A HandleGraph is required for some filters (Note: <a class="el" href="classvg_1_1ReadFilter.html">ReadFilter</a> doesn't own/free this)  <a href="#a7fc3a9a61f57bb5a8c9857fe43a032f5">More...</a><br/></td></tr>
+<tr class="separator:a7fc3a9a61f57bb5a8c9857fe43a032f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a30a2dea40e9afefb8e7e4e1827a5c109"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a30a2dea40e9afefb8e7e4e1827a5c109">interleaved</a> = false</td></tr>
 <tr class="memdesc:a30a2dea40e9afefb8e7e4e1827a5c109"><td class="mdescLeft">&#160;</td><td class="mdescRight">Interleaved input.  <a href="#a30a2dea40e9afefb8e7e4e1827a5c109">More...</a><br/></td></tr>
 <tr class="separator:a30a2dea40e9afefb8e7e4e1827a5c109"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -186,10 +186,10 @@ Public Attributes</h2></td></tr>
 Private Member Functions</h2></td></tr>
 <tr class="memitem:ac6a2619d7e6dff8fc81aed985a28e3f2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ac6a2619d7e6dff8fc81aed985a28e3f2">has_repeat</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, int k)</td></tr>
 <tr class="separator:ac6a2619d7e6dff8fc81aed985a28e3f2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a591a23aa1ed7eea8df14d8b60b64407d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a591a23aa1ed7eea8df14d8b60b64407d">trim_ambiguous_end</a> (<a class="el" href="classvg_1_1XG.html">XG</a> *index, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, int k)</td></tr>
-<tr class="separator:a591a23aa1ed7eea8df14d8b60b64407d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1029bded9e3f9a8fac9e3e15b7545415"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a1029bded9e3f9a8fac9e3e15b7545415">is_split</a> (<a class="el" href="classvg_1_1XG.html">XG</a> *index, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
-<tr class="separator:a1029bded9e3f9a8fac9e3e15b7545415"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a35f5b827c01ca762dbe3707034d42d25"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a35f5b827c01ca762dbe3707034d42d25">trim_ambiguous_end</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, int k)</td></tr>
+<tr class="separator:a35f5b827c01ca762dbe3707034d42d25"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a07039862a8bee98803f764863b3ba0fa"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a07039862a8bee98803f764863b3ba0fa">is_split</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
+<tr class="separator:a07039862a8bee98803f764863b3ba0fa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a052c3d8dcfcf5b26d2180b37217159f5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a052c3d8dcfcf5b26d2180b37217159f5">sample_read</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;read)</td></tr>
 <tr class="separator:a052c3d8dcfcf5b26d2180b37217159f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
@@ -263,7 +263,7 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a1029bded9e3f9a8fac9e3e15b7545415"></a>
+<a class="anchor" id="a07039862a8bee98803f764863b3ba0fa"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -273,19 +273,9 @@ Private Member Functions</h2></td></tr>
         <tr>
           <td class="memname">bool vg::ReadFilter::is_split </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1XG.html">XG</a> *&#160;</td>
-          <td class="paramname"><em>index</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>alignment</em>&#160;</td>
-        </tr>
-        <tr>
+          <td class="paramname"><em>alignment</em></td><td>)</td>
           <td></td>
-          <td>)</td>
-          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -324,7 +314,7 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a591a23aa1ed7eea8df14d8b60b64407d"></a>
+<a class="anchor" id="a35f5b827c01ca762dbe3707034d42d25"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -334,12 +324,6 @@ Private Member Functions</h2></td></tr>
         <tr>
           <td class="memname">bool vg::ReadFilter::trim_ambiguous_end </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1XG.html">XG</a> *&#160;</td>
-          <td class="paramname"><em>index</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>alignment</em>, </td>
         </tr>
@@ -365,19 +349,13 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a0f4d0e707454ce6207d4b2b323a03f09"></a>
+<a class="anchor" id="a31011cb29962d3510bb50b315409a025"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">bool vg::ReadFilter::trim_ambiguous_ends </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1XG.html">XG</a> *&#160;</td>
-          <td class="paramname"><em>index</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>alignment</em>, </td>
         </tr>
@@ -559,6 +537,20 @@ Private Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a7fc3a9a61f57bb5a8c9857fe43a032f5"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>* vg::ReadFilter::graph = nullptr</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>A HandleGraph is required for some filters (Note: <a class="el" href="classvg_1_1ReadFilter.html">ReadFilter</a> doesn't own/free this) </p>
 
 </div>
 </div>
@@ -746,20 +738,6 @@ Private Member Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Sometimes we only want a report, and not a filtered gam. toggling off output speeds things up considerably. </p>
-
-</div>
-</div>
-<a class="anchor" id="aecc2393e4ccefa1d699280b09796512d"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classvg_1_1XG.html">XG</a>* vg::ReadFilter::xindex = nullptr</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>An <a class="el" href="classvg_1_1XG.html">XG</a> index is required for some filters (Note: <a class="el" href="classvg_1_1ReadFilter.html">ReadFilter</a> doesn't own/free this) </p>
 
 </div>
 </div>

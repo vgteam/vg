@@ -97,7 +97,7 @@ var searchData=
   ['chunker_2ecpp',['chunker.cpp',['../chunker_8cpp.html',1,'']]],
   ['chunker_2ehpp',['chunker.hpp',['../chunker_8hpp.html',1,'']]],
   ['cigar_5fagainst_5fpath',['cigar_against_path',['../namespacevg.html#a43ac2d1903fa51a20a2366a865f5f0a4',1,'vg']]],
-  ['cigar_5fmapping',['cigar_mapping',['../namespacevg.html#ad2b7a43b08ac85a2d4df8ee79243deee',1,'vg::cigar_mapping(const bam1_t *b, Mapping *mapping, XG *xgindex)'],['../namespacevg.html#a3dde1bced1d71a9a838bf2eeade1188b',1,'vg::cigar_mapping(const bam1_t *b, Mapping &amp;mapping, XG *xgindex)']]],
+  ['cigar_5fmapping',['cigar_mapping',['../namespacevg.html#a81755bb87928f81a864e4a752973bd69',1,'vg::cigar_mapping(const bam1_t *b, Mapping *mapping)'],['../namespacevg.html#a598379872a84d4be8ff74df6242abf10',1,'vg::cigar_mapping(const bam1_t *b, Mapping &amp;mapping)']]],
   ['cigar_5fstring',['cigar_string',['../namespacevg.html#a022b99db4260a7fd77a248bf27c50041',1,'vg']]],
   ['circular',['circular',['../classvg_1_1Paths.html#ad8af70b16e2280fba6e46418842229fa',1,'vg::Paths']]],
   ['circularbuffer',['CircularBuffer',['../structvg_1_1mi_1_1CircularBuffer.html',1,'vg::mi']]],
