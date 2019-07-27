@@ -1572,6 +1572,11 @@ namespace vg {
                     subpath->set_next(j, subpath->next(j) - removed_so_far[subpath->next(j)]);
                 }
             }
+            
+            // update the indexes of the starts
+            for (size_t i = 0; i < multipath_aln.start_size(); ++i) {
+                multipath_aln.set_start(i, multipath_aln.start(i) - removed_so_far[multipath_aln.start(i)]);
+            }
         }
     }
     

@@ -51,7 +51,7 @@ TEST_CASE("We can read and write XG", "[vpkg][handlegraph][xg]") {
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
     
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    XG xg_index(proto_graph);
 
     stringstream ss;
     
@@ -61,7 +61,7 @@ TEST_CASE("We can read and write XG", "[vpkg][handlegraph][xg]") {
         // There should be some data
         REQUIRE(ss.str().size() != 0);
         
-        unique_ptr<xg::XG> loaded = vg::io::VPKG::load_one<xg::XG>(ss);
+        unique_ptr<XG> loaded = vg::io::VPKG::load_one<XG>(ss);
         
         // Make sure we got something
         REQUIRE(loaded.get() != nullptr);
@@ -93,7 +93,7 @@ TEST_CASE("We can read and write XG", "[vpkg][handlegraph][xg]") {
         // There should be some data
         REQUIRE(ss.str().size() != 0);
         
-        unique_ptr<xg::XG> loaded = vg::io::VPKG::load_one<xg::XG>(ss);
+        unique_ptr<XG> loaded = vg::io::VPKG::load_one<XG>(ss);
         
         // Make sure we got something
         REQUIRE(loaded.get() != nullptr);

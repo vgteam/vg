@@ -71,21 +71,11 @@ gbwt::vector_type short_path {
     static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(9, false))
 };
 
-gbwt::vector_type ambiguous_path {
-    static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(1, false)),
-    static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(6, false)),
-    static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(7, false)),
-    static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(9, false))
-};
-
-// Build GBWT with 2x short_path, alt_path, and possibly ambiguous_path.
-gbwt::GBWT build_gbwt_index(bool additional_paths) {
+// Build GBWT with 2x short_path and alt_path.
+gbwt::GBWT build_gbwt_index() {
     std::vector<gbwt::vector_type> gbwt_threads {
         short_path, alt_path, short_path
     };
-    if (additional_paths) {
-        gbwt_threads.push_back(ambiguous_path);
-    }
 
     return get_gbwt(gbwt_threads);
 }
@@ -94,6 +84,27 @@ void same_position(const Position& pos, const Position& correct) {
     REQUIRE(pos.node_id() == correct.node_id());
     REQUIRE(pos.is_reverse() == correct.is_reverse());
     REQUIRE(pos.offset() == correct.offset());
+}
+
+std::vector<std::pair<pos_t, size_t>> normalize_seeds(std::vector<std::pair<pos_t, size_t>>& seeds) {
+    GaplessExtender::cluster_type cluster;
+    for (auto seed : seeds) {
+        cluster.insert(GaplessExtender::to_seed(seed.first, seed.second));
+    }
+    std::vector<std::pair<pos_t, size_t>> result;
+    for (auto seed : cluster) {
+        result.emplace_back(GaplessExtender::get_pos(seed), GaplessExtender::get_read_offset(seed));
+    }
+    std::sort(result.begin(), result.end());
+    return result;
+}
+
+void correct_score(const GaplessExtension& extension, const Aligner& aligner) {
+    int32_t expected_score = (extension.length() - extension.mismatches()) * aligner.match;
+    expected_score -= extension.mismatches() * aligner.mismatch;
+    expected_score += extension.left_full * aligner.full_length_bonus;
+    expected_score += extension.right_full * aligner.full_length_bonus;
+    REQUIRE(extension.score == expected_score);
 }
 
 void alignment_matches(const Path& path, const std::vector<std::pair<pos_t, std::string>>& alignment) {
@@ -119,10 +130,68 @@ void alignment_matches(const Path& path, const std::vector<std::pair<pos_t, std:
     }
 }
 
-void flanks_match(GaplessExtension& extension, std::pair<size_t, size_t> core_range, std::pair<size_t, size_t> flanked_range, std::vector<size_t>& mismatches) {
-    REQUIRE(extension.core_interval == core_range);
-    REQUIRE(extension.flanked_interval == flanked_range);
-    REQUIRE(extension.mismatch_positions == mismatches);
+void full_length_match(const std::vector<std::pair<pos_t, size_t>>& seeds, const std::string& read, const std::vector<std::pair<pos_t, std::string>>& correct_alignment, const GaplessExtender& extender, size_t error_bound) {
+    GaplessExtender::cluster_type cluster;
+    for (auto seed : seeds) {
+        cluster.insert(GaplessExtender::to_seed(seed.first, seed.second));
+    }
+    auto result = extender.extend(cluster, read, error_bound);
+
+    // Empty correct alignment indicates that there should not be a full-length alignment.
+    if (correct_alignment.empty()) {
+        for (auto& extension : result) {
+            if (extension.full()) {
+                REQUIRE(extension.mismatches() > error_bound);
+            }
+        }
+    } else {
+        REQUIRE(result.size() == 1);
+        REQUIRE(!result.front().empty());
+        REQUIRE(result.front().full());
+        REQUIRE(result.front().mismatches() <= error_bound);
+        correct_score(result.front(), *(extender.aligner));
+        alignment_matches(result.front().to_path(*(extender.graph), read), correct_alignment);
+    }
+}
+
+void partial_matches(const std::vector<std::pair<pos_t, size_t>>& seeds, const std::string& read, const std::vector<std::vector<std::pair<pos_t, std::string>>>& correct_extensions, const std::vector<size_t>& correct_offsets, const GaplessExtender& extender, size_t error_bound) {
+    GaplessExtender::cluster_type cluster;
+    for (auto seed : seeds) {
+        cluster.insert(GaplessExtender::to_seed(seed.first, seed.second));
+    }
+    auto result = extender.extend(cluster, read, error_bound, false);
+
+    REQUIRE(result.size() == correct_extensions.size());
+    for (size_t i = 0; i < result.size(); i++) {
+        REQUIRE(!(result[i].empty()));
+        if (result[i].full()) {
+            REQUIRE(result[i].mismatches() > error_bound);
+        }
+        REQUIRE(result[i].read_interval.first == correct_offsets[i]);
+        correct_score(result.front(), *(extender.aligner));
+        alignment_matches(result[i].to_path(*(extender.graph), read), correct_extensions[i]);
+    }
+}
+
+void trimmed_extensions(std::vector<GaplessExtension>& extensions, std::vector<GaplessExtension>& correct, const GaplessExtender& extender, size_t error_bound) {
+    for (GaplessExtension& extension : extensions) {
+        extension.state = extender.graph->bd_find(extension.path);
+    }
+    extender.trim(extensions, error_bound);
+
+    REQUIRE(extensions.size() == correct.size());
+    for (size_t i = 0; i < extensions.size(); i++) {
+        correct_score(extensions[i], *(extender.aligner));
+        REQUIRE(extensions[i].path == correct[i].path);
+        REQUIRE(extensions[i].offset == correct[i].offset);
+        correct[i].state = extender.graph->bd_find(correct[i].path);
+        REQUIRE(extensions[i].state == correct[i].state);
+        REQUIRE(extensions[i].read_interval == correct[i].read_interval);
+        REQUIRE(extensions[i].mismatch_positions == correct[i].mismatch_positions);
+        REQUIRE(extensions[i].score == correct[i].score);
+        REQUIRE(extensions[i].left_full == correct[i].left_full);
+        REQUIRE(extensions[i].right_full == correct[i].right_full);
+    }
 }
 
 } // anonymous namespace
@@ -134,10 +203,10 @@ TEST_CASE("Gapless extensions report correct positions", "[gapless_extender]") {
     // Build an XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    xg::XG xg_index(graph);
+    XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
-    gbwt::GBWT gbwt_index = build_gbwt_index(false);
+    gbwt::GBWT gbwt_index = build_gbwt_index();
 
     // Build a GBWT-backed graph.
     GBWTGraph gbwt_graph(gbwt_index, xg_index);
@@ -148,12 +217,10 @@ TEST_CASE("Gapless extensions report correct positions", "[gapless_extender]") {
                 gbwt_graph.get_handle(1, false),
                 gbwt_graph.get_handle(4, false)
             },
-            0,
-            gbwt::BidirectionalState(),
-            { 0, 4 },
-            false,
-            { 0, 4 },
-            { }
+            0, gbwt::BidirectionalState(),
+            { 0, 4 }, { },
+            0, false, false,
+            false, false, 0, 0
         };
         Position correct_start = make_position(1, false, 0);
         Position correct_tail = make_position(4, false, 3);
@@ -167,12 +234,10 @@ TEST_CASE("Gapless extensions report correct positions", "[gapless_extender]") {
                 gbwt_graph.get_handle(4, false),
                 gbwt_graph.get_handle(5, false)
             },
-            1,
-            gbwt::BidirectionalState(),
-            { 0, 3 },
-            false,
-            { 0, 3 },
-            { }
+            1, gbwt::BidirectionalState(),
+            { 0, 3 }, { },
+            0, false, false,
+            false, false, 0, 0
         };
         Position correct_start = make_position(4, false, 1);
         Position correct_tail = make_position(5, false, 1);
@@ -186,12 +251,10 @@ TEST_CASE("Gapless extensions report correct positions", "[gapless_extender]") {
                 gbwt_graph.get_handle(1, false),
                 gbwt_graph.get_handle(4, false)
             },
-            0,
-            gbwt::BidirectionalState(),
-            { 0, 3 },
-            false,
-            { 0, 3 },
-            { }
+            0, gbwt::BidirectionalState(),
+            { 0, 3 }, { },
+            0, false, false,
+            false, false, 0, 0
         };
         Position correct_start = make_position(1, false, 0);
         Position correct_tail = make_position(4, false, 2);
@@ -204,12 +267,10 @@ TEST_CASE("Gapless extensions report correct positions", "[gapless_extender]") {
             {
                 gbwt_graph.get_handle(4, false)
             },
-            1,
-            gbwt::BidirectionalState(),
-            { 0, 1 },
-            false,
-            { 0, 1 },
-            { }
+            1, gbwt::BidirectionalState(),
+            { 0, 1 }, { },
+            0, false, false,
+            false, false, 0, 0
         };
         Position correct_start = make_position(4, false, 1);
         Position correct_tail = make_position(4, false, 2);
@@ -220,23 +281,74 @@ TEST_CASE("Gapless extensions report correct positions", "[gapless_extender]") {
 
 //------------------------------------------------------------------------------
 
-TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extender]") {
+TEST_CASE("Redundant seeds are removed from a cluster", "[gapless_extender]") {
+
+    SECTION("various types of redundant seeds") {
+        std::vector<std::pair<pos_t, size_t>> seeds {
+            { make_pos_t(4, false, 2), static_cast<size_t>(1) },
+            { make_pos_t(4, false, 3), static_cast<size_t>(2) },
+            { make_pos_t(5, true, 1), static_cast<size_t>(2) },
+            { make_pos_t(5, true, 2), static_cast<size_t>(3) },
+            { make_pos_t(6, false, 0), static_cast<size_t>(0) },
+            { make_pos_t(6, false, 1), static_cast<size_t>(1) }
+        };
+        std::vector<std::pair<pos_t, size_t>> correct_seeds {
+            { make_pos_t(4, false, 1), static_cast<size_t>(0) },
+            { make_pos_t(5, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(6, false, 0), static_cast<size_t>(0) }
+        };
+        std::vector<std::pair<pos_t, size_t>> extracted_seeds = normalize_seeds(seeds);
+        REQUIRE(extracted_seeds.size() == correct_seeds.size());
+        REQUIRE(extracted_seeds == correct_seeds);
+    }
+
+    SECTION("various types of distinct seeds") {
+        std::vector<std::pair<pos_t, size_t>> seeds {
+            { make_pos_t(4, false, 2), static_cast<size_t>(1) },
+            { make_pos_t(4, true, 3), static_cast<size_t>(2) },
+            { make_pos_t(5, true, 1), static_cast<size_t>(2) },
+            { make_pos_t(5, false, 2), static_cast<size_t>(3) },
+            { make_pos_t(6, false, 0), static_cast<size_t>(0) },
+            { make_pos_t(6, true, 1), static_cast<size_t>(1) }
+        };
+        std::vector<std::pair<pos_t, size_t>> correct_seeds {
+            { make_pos_t(4, false, 1), static_cast<size_t>(0) },
+            { make_pos_t(4, true, 1), static_cast<size_t>(0) },
+            { make_pos_t(5, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(5, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(6, false, 0), static_cast<size_t>(0) },
+            { make_pos_t(6, true, 0), static_cast<size_t>(0) }
+        };
+        std::vector<std::pair<pos_t, size_t>> extracted_seeds = normalize_seeds(seeds);
+        REQUIRE(extracted_seeds.size() == correct_seeds.size());
+        REQUIRE(extracted_seeds == correct_seeds);
+    }
+}
+
+//------------------------------------------------------------------------------
+
+TEST_CASE("Full-length alignments", "[gapless_extender]") {
 
     // Build an XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    xg::XG xg_index(graph);
+    XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
-    gbwt::GBWT gbwt_index = build_gbwt_index(false);
+    gbwt::GBWT gbwt_index = build_gbwt_index();
 
     // Build a GBWT-backed graph.
     GBWTGraph gbwt_graph(gbwt_index, xg_index);
 
-    // And finally wrap it in a GaplessExtender.
-    GaplessExtender extender(gbwt_graph);
+    // And finally wrap it in a GaplessExtender with an Aligner.
+    Aligner aligner;
+    GaplessExtender extender(gbwt_graph, aligner);
 
     SECTION("read starting in the middle of a node matches exactly") {
+        std::vector<std::pair<pos_t, size_t>> seeds {
+            { make_pos_t(4, false, 2), 0 },
+            { make_pos_t(6, false, 0), 2 }
+        };
         std::string read = "GTACA";
         std::vector<std::pair<pos_t, std::string>> correct_alignment {
             { make_pos_t(4, false, 2), "1" },
@@ -245,19 +357,15 @@ TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extende
             { make_pos_t(7, false, 0), "1" },
             { make_pos_t(9, false, 0), "1" }
         };
-        std::vector<std::pair<size_t, pos_t>> cluster {
-            { 0, make_pos_t(4, false, 2) },
-            { 2, make_pos_t(6, false, 0) }
-        };
         size_t error_bound = 0;
-        auto result = extender.extend_seeds(cluster, read, error_bound);
-        REQUIRE(!result.empty());
-        REQUIRE(result.full());
-        REQUIRE(result.mismatches() <= error_bound);
-        alignment_matches(result.to_path(gbwt_graph, read), correct_alignment);
+        full_length_match(seeds, read, correct_alignment, extender, error_bound);
     }
 
     SECTION("read matches with errors") {
+        std::vector<std::pair<pos_t, size_t>> seeds {
+            { make_pos_t(5, false, 0), 4 },
+            { make_pos_t(4, false, 2), 3 }
+        };
         std::string read = "GGAGTAC";
         std::vector<std::pair<pos_t, std::string>> correct_alignment {
             { make_pos_t(1, false, 0), "1" },
@@ -266,19 +374,16 @@ TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extende
             { make_pos_t(6, false, 0), "1" },
             { make_pos_t(7, false, 0), "1" }
         };
-        std::vector<std::pair<size_t, pos_t>> cluster {
-            { 4, make_pos_t(5, false, 0) },
-            { 3, make_pos_t(4, false, 2) }
-        };
         size_t error_bound = 1;
-        auto result = extender.extend_seeds(cluster, read, error_bound);
-        REQUIRE(!result.empty());
-        REQUIRE(result.full());
-        REQUIRE(result.mismatches() <= error_bound);
-        alignment_matches(result.to_path(gbwt_graph, read), correct_alignment);
+        full_length_match(seeds, read, correct_alignment, extender, error_bound);
     }
 
     SECTION("false seeds do not matter") {
+        std::vector<std::pair<pos_t, size_t>> seeds {
+            { make_pos_t(5, false, 0), 4 },
+            { make_pos_t(4, false, 2), 3 },
+            { make_pos_t(2, false, 0), 0 }
+        };
         std::string read = "GGAGTAC";
         std::vector<std::pair<pos_t, std::string>> correct_alignment {
             { make_pos_t(1, false, 0), "1" },
@@ -287,20 +392,15 @@ TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extende
             { make_pos_t(6, false, 0), "1" },
             { make_pos_t(7, false, 0), "1" }
         };
-        std::vector<std::pair<size_t, pos_t>> cluster {
-            { 4, make_pos_t(5, false, 0) },
-            { 3, make_pos_t(4, false, 2) },
-            { 0, make_pos_t(2, false, 0) }
-        };
         size_t error_bound = 1;
-        auto result = extender.extend_seeds(cluster, read, error_bound);
-        REQUIRE(!result.empty());
-        REQUIRE(result.full());
-        REQUIRE(result.mismatches() <= error_bound);
-        alignment_matches(result.to_path(gbwt_graph, read), correct_alignment);
+        full_length_match(seeds, read, correct_alignment, extender, error_bound);
     }
 
     SECTION("read matches reverse complement and ends within a node") {
+        std::vector<std::pair<pos_t, size_t>> seeds {
+            { make_pos_t(5, true, 0), 2 },
+            { make_pos_t(6, true, 0), 1 }
+        };
         std::string read = "GTACT";
         std::vector<std::pair<pos_t, std::string>> correct_alignment {
             { make_pos_t(7, true, 0), "1" },
@@ -308,345 +408,366 @@ TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extende
             { make_pos_t(5, true, 0), "1" },
             { make_pos_t(4, true, 0), "1T" }
         };
-        std::vector<std::pair<size_t, pos_t>> cluster {
-            { 2, make_pos_t(5, true, 0) },
-            { 1, make_pos_t(6, true, 0) }
-        };
         size_t error_bound = 1;
-        auto result = extender.extend_seeds(cluster, read, error_bound);
-        REQUIRE(!result.empty());
-        REQUIRE(result.full());
-        REQUIRE(result.mismatches() <= error_bound);
-        alignment_matches(result.to_path(gbwt_graph, read), correct_alignment);
+        full_length_match(seeds, read, correct_alignment, extender, error_bound);
     }
 
-    SECTION("a non-matching read cannot be extended") {
+    SECTION("there is no full-length alignment") {
+        std::vector<std::pair<pos_t, size_t>> seeds {
+            { make_pos_t(5, false, 0), 4 },
+            { make_pos_t(4, false, 2), 3 }
+        };
         std::string read = "AGAGTAC";
-        std::vector<std::pair<size_t, pos_t>> cluster {
-            { 4, make_pos_t(5, false, 0) },
-            { 3, make_pos_t(4, false, 2) }
-        };
         size_t error_bound = 1;
-        auto result = extender.extend_seeds(cluster, read, error_bound);
-        REQUIRE(result.empty());
-        REQUIRE(!result.full());
+        full_length_match(seeds, read, { }, extender, error_bound);
     }
 }
 
 //------------------------------------------------------------------------------
 
-TEST_CASE("Haplotype-aware unambiguous extension works correctly", "[gapless_extender]") {
+TEST_CASE("Partial alignments without trimming", "[gapless_extender]") {
 
     // Build an XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    xg::XG xg_index(graph);
+    XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
-    gbwt::GBWT gbwt_index = build_gbwt_index(true);
+    gbwt::GBWT gbwt_index = build_gbwt_index();
 
     // Build a GBWT-backed graph.
     GBWTGraph gbwt_graph(gbwt_index, xg_index);
 
-    // And finally wrap it in a GaplessExtender.
-    GaplessExtender extender(gbwt_graph);
+    // And finally wrap it in a GaplessExtender with an Aligner.
+    Aligner aligner;
+    GaplessExtender extender(gbwt_graph, aligner);
 
-    SECTION("extension stops when the continuation is ambiguous") {
-        std::string read = "CGAxTCG";
-        std::vector<std::pair<size_t, pos_t>> cluster {
-            { 1, make_pos_t(1, false, 0) }, // Match 1 to 1; right extension is ambiguous.
-            { 5, make_pos_t(1, true, 0) }   // Match 1 to 1; left extension is ambiguous.
+    SECTION("exact matching") {
+        std::vector<std::pair<pos_t, size_t>> seeds {
+            { make_pos_t(4, false, 0), 1 },  // Match [0, 4); read border / mismatch
+            { make_pos_t(2, false, 0), 7 },  // Match [6, 9); graph border / mismatch
+            { make_pos_t(5, false, 0), 11 }, // Match [10, 13); mismatch / mismatch
+            { make_pos_t(7, false, 0), 15 }, // Match [14, 17); mismatch / graph border
+            { make_pos_t(6, false, 0), 20 }  // Match [19, 22); mismatch / read border
         };
-        std::vector<std::vector<std::pair<pos_t, std::string>>> correct_extensions {
-            {
-                { make_pos_t(1, false, 0), "1" }
-            },
-            {
-                { make_pos_t(1, true, 0), "1" }
-            }
-        };
-        std::vector<size_t> correct_offsets {
-            static_cast<size_t>(1),
-            static_cast<size_t>(5)
-        };
-        auto result = extender.maximal_extensions(cluster, read);
-        REQUIRE(result.size() == correct_extensions.size());
-        for (size_t i = 0; i < result.size(); i++) {
-            REQUIRE(!(result[i].empty()));
-            REQUIRE(!(result[i].full()));
-            REQUIRE(result[i].core_interval.first == correct_offsets[i]);
-            alignment_matches(result[i].to_path(gbwt_graph, read), correct_extensions[i]);
-        }
-    }
-
-    SECTION("the seed is in the middle of a node") {
-        std::string read = "AGGxAGGGTxCGGT";
-        std::vector<std::pair<size_t, pos_t>> cluster {
-            { 2, make_pos_t(4, false, 1) },  // Match 0 to 2; cannot extend to right.
-            { 6, make_pos_t(4, false, 1) },  // Match 4 to 8.
-            { 11, make_pos_t(4, false, 1) }, // Match 11 to 13; cannot extend to left.
-        };
+        std::string read = "AGGGxCGAGxGTAxACAAxTAA";
         std::vector<std::vector<std::pair<pos_t, std::string>>> correct_extensions {
             {
                 { make_pos_t(2, false, 0), "1" },
-                { make_pos_t(4, false, 0), "2" }
+                { make_pos_t(4, false, 0), "3" }
             },
             {
+                { make_pos_t(1, false, 0), "1" },
                 { make_pos_t(2, false, 0), "1" },
-                { make_pos_t(4, false, 0), "3" },
-                { make_pos_t(5, false, 0), "1" }
+                { make_pos_t(4, false, 0), "1" }
             },
             {
-                { make_pos_t(4, false, 1), "2" },
-                { make_pos_t(5, false, 0), "1" }
+                { make_pos_t(4, false, 2), "1" },
+                { make_pos_t(5, false, 0), "1" },
+                { make_pos_t(6, false, 0), "1" }
+            },
+            {
+                { make_pos_t(6, false, 0), "1" },
+                { make_pos_t(7, false, 0), "1" },
+                { make_pos_t(9, false, 0), "1" }
+            },
+            {
+                { make_pos_t(5, false, 0), "1" },
+                { make_pos_t(6, false, 0), "1" },
+                { make_pos_t(8, false, 0), "1" }
             }
         };
         std::vector<size_t> correct_offsets {
             static_cast<size_t>(0),
-            static_cast<size_t>(4),
-            static_cast<size_t>(11)
+            static_cast<size_t>(6),
+            static_cast<size_t>(10),
+            static_cast<size_t>(14),
+            static_cast<size_t>(19)
         };
-        auto result = extender.maximal_extensions(cluster, read);
-        REQUIRE(result.size() == correct_extensions.size());
-        for (size_t i = 0; i < result.size(); i++) {
-            REQUIRE(!(result[i].empty()));
-            REQUIRE(!(result[i].full()));
-            REQUIRE(result[i].core_interval.first == correct_offsets[i]);
-            alignment_matches(result[i].to_path(gbwt_graph, read), correct_extensions[i]);
-        }
+        size_t error_bound = 0;
+        partial_matches(seeds, read, correct_extensions, correct_offsets, extender, error_bound);
     }
 
-    SECTION("the seed is at the end of a node") {
-        std::string read = "AGGTxAGGGTxAGGGT";
-        std::vector<std::pair<size_t, pos_t>> cluster {
-            { 1, make_pos_t(4, false, 0) },  // Match 0 to 2; seed is at the start.
-            { 2, make_pos_t(4, false, 2) },  // Match 1 to 3; seed is at the end.
-            { 6, make_pos_t(4, false, 0) },  // Match 5 to 9; seed is at the start.
-            { 14, make_pos_t(4, false, 2) }  // Match 11 to 15; seed is at the end.
+    SECTION("exact matching with mismatches in the initial node") {
+        std::vector<std::pair<pos_t, size_t>> seeds {
+            { make_pos_t(4, false, 2), 4 }
         };
+        std::string read = "xAGxGTAx";
         std::vector<std::vector<std::pair<pos_t, std::string>>> correct_extensions {
             {
                 { make_pos_t(2, false, 0), "1" },
-                { make_pos_t(4, false, 0), "2" }
-            },
-            {
-                { make_pos_t(4, false, 1), "2" },
-                { make_pos_t(5, false, 0), "1" }
-            },
-            {
-                { make_pos_t(2, false, 0), "1" },
-                { make_pos_t(4, false, 0), "3" },
-                { make_pos_t(5, false, 0), "1" }
-            },
-            {
-                { make_pos_t(2, false, 0), "1" },
-                { make_pos_t(4, false, 0), "3" },
-                { make_pos_t(5, false, 0), "1" }
+                { make_pos_t(4, false, 0), "1x1" },
+                { make_pos_t(5, false, 0), "1" },
+                { make_pos_t(6, false, 0), "1" }
             }
         };
         std::vector<size_t> correct_offsets {
-            static_cast<size_t>(0),
-            static_cast<size_t>(1),
-            static_cast<size_t>(5),
-            static_cast<size_t>(11)
+            static_cast<size_t>(1)
         };
-        auto result = extender.maximal_extensions(cluster, read);
-        REQUIRE(result.size() == correct_extensions.size());
-        for (size_t i = 0; i < result.size(); i++) {
-            REQUIRE(!(result[i].empty()));
-            REQUIRE(!(result[i].full()));
-            REQUIRE(result[i].core_interval.first == correct_offsets[i]);
-            alignment_matches(result[i].to_path(gbwt_graph, read), correct_extensions[i]);
-        }
+        size_t error_bound = 0;
+        partial_matches(seeds, read, correct_extensions, correct_offsets, extender, error_bound);
     }
 
-    SECTION("redundant seeds") {
-        std::string read = "AGGGT";
-        std::vector<std::pair<size_t, pos_t>> cluster {
-            { 0, make_pos_t(2, false, 0) },
-            { 1, make_pos_t(4, false, 0) },
-            { 2, make_pos_t(4, false, 1) },
-            { 3, make_pos_t(4, false, 2) },
-            { 4, make_pos_t(5, false, 0) }
+    SECTION("approximate matching") {
+        std::vector<std::pair<pos_t, size_t>> seeds {
+            { make_pos_t(4, false, 2), 4 }
         };
+        std::string read = "xAGGGTxAx";
         std::vector<std::vector<std::pair<pos_t, std::string>>> correct_extensions {
             {
                 { make_pos_t(2, false, 0), "1" },
                 { make_pos_t(4, false, 0), "3" },
-                { make_pos_t(5, false, 0), "1" }
+                { make_pos_t(5, false, 0), "1" },
+                { make_pos_t(6, false, 0), "x" },
+                { make_pos_t(8, false, 0), "1" }
             }
         };
         std::vector<size_t> correct_offsets {
-            static_cast<size_t>(0)
+            static_cast<size_t>(1)
         };
-        auto result = extender.maximal_extensions(cluster, read);
-        REQUIRE(result.size() == correct_extensions.size());
-        for (size_t i = 0; i < result.size(); i++) {
-            REQUIRE(!(result[i].empty()));
-            REQUIRE(result[i].full());
-            REQUIRE(result[i].core_interval.first == correct_offsets[i]);
-            alignment_matches(result[i].to_path(gbwt_graph, read), correct_extensions[i]);
-        }
+        size_t error_bound = 1;
+        partial_matches(seeds, read, correct_extensions, correct_offsets, extender, error_bound);
+    }
+
+    SECTION("removing duplicates") {
+        std::vector<std::pair<pos_t, size_t>> seeds {
+            { make_pos_t(2, false, 0), 1 },
+            { make_pos_t(4, false, 2), 4 }
+        };
+        std::string read = "xAGGGTxAx";
+        std::vector<std::vector<std::pair<pos_t, std::string>>> correct_extensions {
+            {
+                { make_pos_t(2, false, 0), "1" },
+                { make_pos_t(4, false, 0), "3" },
+                { make_pos_t(5, false, 0), "1" },
+                { make_pos_t(6, false, 0), "x" },
+                { make_pos_t(8, false, 0), "1" }
+            }
+        };
+        std::vector<size_t> correct_offsets {
+            static_cast<size_t>(1)
+        };
+        size_t error_bound = 1;
+        partial_matches(seeds, read, correct_extensions, correct_offsets, extender, error_bound);
     }
 }
 
 //------------------------------------------------------------------------------
 
-TEST_CASE("Haplotype-aware flank extension works correctly", "[gapless_extender]") {
+TEST_CASE("Trimming mismatches", "[gapless_extender]") {
 
     // Build an XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    xg::XG xg_index(graph);
+    XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
-    gbwt::GBWT gbwt_index = build_gbwt_index(true);
+    gbwt::GBWT gbwt_index = build_gbwt_index();
 
     // Build a GBWT-backed graph.
     GBWTGraph gbwt_graph(gbwt_index, xg_index);
 
-    // And finally wrap it in a GaplessExtender.
-    GaplessExtender extender(gbwt_graph);
+    // And finally wrap it in a GaplessExtender with an Aligner.
+    Aligner aligner;
+    GaplessExtender extender(gbwt_graph, aligner);
 
-    SECTION("cannot extend at border") {
-        std::string read = "AGGxxCAT";
-        std::vector<std::pair<size_t, pos_t>> cluster {
-            { 2, make_pos_t(4, false, 0) },
-            { 5, make_pos_t(7, false, 0) }
+    SECTION("basic trimming") {
+        std::vector<GaplessExtension> extensions {
+            { // Trim right end.
+                {
+                    gbwt_graph.get_handle(4, false),
+                    gbwt_graph.get_handle(5, false),
+                    gbwt_graph.get_handle(6, false)
+                },
+                static_cast<size_t>(1), gbwt::BidirectionalState(),
+                std::pair<size_t, size_t>(5, 9), { static_cast<size_t>(7) },
+                static_cast<int32_t>(-1), false, false,
+                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
+            },
+            { // Trim left end.
+                {
+                    gbwt_graph.get_handle(4, false),
+                    gbwt_graph.get_handle(5, false),
+                    gbwt_graph.get_handle(6, false),
+                    gbwt_graph.get_handle(8, false),
+                    gbwt_graph.get_handle(9, false)
+                },
+                static_cast<size_t>(0), gbwt::BidirectionalState(),
+                std::pair<size_t, size_t>(2, 9), { static_cast<size_t>(3) },
+                static_cast<int32_t>(2), false, false,
+                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
+            },
+            { // Trim both ends.
+                {
+                    gbwt_graph.get_handle(2, false),
+                    gbwt_graph.get_handle(4, false),
+                    gbwt_graph.get_handle(5, false),
+                    gbwt_graph.get_handle(6, false),
+                    gbwt_graph.get_handle(8, false),
+                    gbwt_graph.get_handle(9, false)
+                },
+                static_cast<size_t>(0), gbwt::BidirectionalState(),
+                std::pair<size_t, size_t>(1, 9), { static_cast<size_t>(2), static_cast<size_t>(7) },
+                static_cast<int32_t>(-2), false, false,
+                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
+            }
         };
-        size_t error_bound = 1;
-        std::vector<std::pair<size_t, size_t>> core_ranges {
-            { static_cast<size_t>(1), static_cast<size_t>(3) },
-            { static_cast<size_t>(5), static_cast<size_t>(7) }
+        std::vector<GaplessExtension> correct {
+            { // Trim both ends.
+                {
+                    gbwt_graph.get_handle(4, false),
+                    gbwt_graph.get_handle(5, false),
+                    gbwt_graph.get_handle(6, false)
+                },
+                static_cast<size_t>(1), gbwt::BidirectionalState(),
+                std::pair<size_t, size_t>(3, 7), { },
+                static_cast<int32_t>(4), false, false,
+                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
+            },
+            { // Trim left end.
+                {
+                    gbwt_graph.get_handle(4, false),
+                    gbwt_graph.get_handle(5, false),
+                    gbwt_graph.get_handle(6, false),
+                    gbwt_graph.get_handle(8, false),
+                    gbwt_graph.get_handle(9, false)
+                },
+                static_cast<size_t>(2), gbwt::BidirectionalState(),
+                std::pair<size_t, size_t>(4, 9), { },
+                static_cast<int32_t>(5), false, false,
+                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
+            },
+            { // Trim right end.
+                {
+                    gbwt_graph.get_handle(4, false),
+                },
+                static_cast<size_t>(1), gbwt::BidirectionalState(),
+                std::pair<size_t, size_t>(5, 7), { },
+                static_cast<int32_t>(2), false, false,
+                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
+            }
         };
-        std::vector<std::pair<size_t, size_t>> flanked_ranges {
-            { static_cast<size_t>(1), static_cast<size_t>(3) },
-            { static_cast<size_t>(5), static_cast<size_t>(7) }
-        };
-        std::vector<std::vector<size_t>> mismatches {
-            { },
-            { }
-        };
-        auto result = extender.maximal_extensions(cluster, read);
-        extender.extend_flanks(result, read, error_bound);
-        REQUIRE(result.size() == core_ranges.size());
-        for (size_t i = 0; i < result.size(); i++) {
-            REQUIRE(!(result[i].empty()));
-            REQUIRE(!(result[i].full()));
-            flanks_match(result[i], core_ranges[i], flanked_ranges[i], mismatches[i]);
-        }
+        size_t error_bound = 0;
+        trimmed_extensions(extensions, correct, extender, error_bound);
     }
 
-    SECTION("extend past ambiguous positions") {
-        std::string read = "GACAxTGTC";
-        std::vector<std::pair<size_t, pos_t>> cluster {
-            { 0, make_pos_t(1, false, 0) }, // Ambiguous right extension.
-            { 8, make_pos_t(1, true, 0) }   // Ambiguous left extension.
+    SECTION("trimming full-length alignments") {
+        std::vector<GaplessExtension> extensions {
+            { // Number of mismatches is below the bound.
+                {
+                    gbwt_graph.get_handle(2, false),
+                    gbwt_graph.get_handle(4, false),
+                    gbwt_graph.get_handle(5, false),
+                    gbwt_graph.get_handle(6, false),
+                    gbwt_graph.get_handle(8, false),
+                    gbwt_graph.get_handle(9, false)
+                },
+                static_cast<size_t>(0), gbwt::BidirectionalState(),
+                std::pair<size_t, size_t>(0, 8), { static_cast<size_t>(6), static_cast<size_t>(7) },
+                static_cast<int32_t>(8), true, true,
+                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
+            },
+            { // Full-length bonus means more than a single mismatch.
+                {
+                    gbwt_graph.get_handle(2, false),
+                    gbwt_graph.get_handle(4, false),
+                    gbwt_graph.get_handle(5, false),
+                    gbwt_graph.get_handle(6, false),
+                    gbwt_graph.get_handle(8, false),
+                    gbwt_graph.get_handle(9, false)
+                },
+                static_cast<size_t>(0), gbwt::BidirectionalState(),
+                std::pair<size_t, size_t>(0, 8), { static_cast<size_t>(0), static_cast<size_t>(6), static_cast<size_t>(7) },
+                static_cast<int32_t>(3), true, true,
+                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
+            }
         };
-        size_t error_bound = 1;
-        std::vector<std::pair<size_t, size_t>> core_ranges {
-            { static_cast<size_t>(0), static_cast<size_t>(1) },
-            { static_cast<size_t>(8), static_cast<size_t>(9) }
-        };
-        std::vector<std::pair<size_t, size_t>> flanked_ranges {
-            { static_cast<size_t>(0), static_cast<size_t>(4) },
-            { static_cast<size_t>(5), static_cast<size_t>(9) }
-        };
-        std::vector<std::vector<size_t>> mismatches {
-            { },
-            { }
-        };
-        auto result = extender.maximal_extensions(cluster, read);
-        extender.extend_flanks(result, read, error_bound);
-        REQUIRE(result.size() == core_ranges.size());
-        for (size_t i = 0; i < result.size(); i++) {
-            REQUIRE(!(result[i].empty()));
-            REQUIRE(!(result[i].full()));
-            flanks_match(result[i], core_ranges[i], flanked_ranges[i], mismatches[i]);
-        }
-    }
-
-    SECTION("trim flanking mismatches") {
-        std::string read = "GATTxAATC";
-        std::vector<std::pair<size_t, pos_t>> cluster {
-            { 0, make_pos_t(1, false, 0) },
-            { 8, make_pos_t(1, true, 0) }
-        };
-        size_t error_bound = 1;
-        std::vector<std::pair<size_t, size_t>> core_ranges {
-            { static_cast<size_t>(0), static_cast<size_t>(1) },
-            { static_cast<size_t>(8), static_cast<size_t>(9) }
-        };
-        std::vector<std::pair<size_t, size_t>> flanked_ranges {
-            { static_cast<size_t>(0), static_cast<size_t>(2) },
-            { static_cast<size_t>(7), static_cast<size_t>(9) }
-        };
-        std::vector<std::vector<size_t>> mismatches {
-            { },
-            { }
-        };
-        auto result = extender.maximal_extensions(cluster, read);
-        extender.extend_flanks(result, read, error_bound);
-        REQUIRE(result.size() == core_ranges.size());
-        for (size_t i = 0; i < result.size(); i++) {
-            REQUIRE(!(result[i].empty()));
-            REQUIRE(!(result[i].full()));
-            flanks_match(result[i], core_ranges[i], flanked_ranges[i], mismatches[i]);
-        }
-    }
-
-    SECTION("extend with mismatches") {
-        std::string read = "GTCTxAGAC";
-        std::vector<std::pair<size_t, pos_t>> cluster {
-            { 0, make_pos_t(1, false, 0) },
-            { 8, make_pos_t(1, true, 0) }
-        };
-        size_t error_bound = 1;
-        std::vector<std::pair<size_t, size_t>> core_ranges {
-            { static_cast<size_t>(0), static_cast<size_t>(1) },
-            { static_cast<size_t>(8), static_cast<size_t>(9) }
-        };
-        std::vector<std::pair<size_t, size_t>> flanked_ranges {
-            { static_cast<size_t>(0), static_cast<size_t>(3) },
-            { static_cast<size_t>(6), static_cast<size_t>(9) }
-        };
-        std::vector<std::vector<size_t>> mismatches {
-            { static_cast<size_t>(1) },
-            { static_cast<size_t>(7) }
-        };
-        auto result = extender.maximal_extensions(cluster, read);
-        extender.extend_flanks(result, read, error_bound);
-        REQUIRE(result.size() == core_ranges.size());
-        for (size_t i = 0; i < result.size(); i++) {
-            REQUIRE(!(result[i].empty()));
-            REQUIRE(!(result[i].full()));
-            flanks_match(result[i], core_ranges[i], flanked_ranges[i], mismatches[i]);
-        }
-    }
-
-    SECTION("mismatches in both directions") {
-        std::string read = "GAGGTTCA";
-        std::vector<std::pair<size_t, pos_t>> cluster {
-            { 3, make_pos_t(4, false, 2) }
+        std::vector<GaplessExtension> correct {
+            { // Full-length bonus means more than a single mismatch.
+                {
+                    gbwt_graph.get_handle(2, false),
+                    gbwt_graph.get_handle(4, false),
+                    gbwt_graph.get_handle(5, false),
+                    gbwt_graph.get_handle(6, false)
+                },
+                static_cast<size_t>(0), gbwt::BidirectionalState(),
+                std::pair<size_t, size_t>(0, 6), { static_cast<size_t>(0) },
+                static_cast<int32_t>(6), true, false,
+                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
+            },
+            { // Number of mismatches is below the bound.
+                {
+                    gbwt_graph.get_handle(2, false),
+                    gbwt_graph.get_handle(4, false),
+                    gbwt_graph.get_handle(5, false),
+                    gbwt_graph.get_handle(6, false),
+                    gbwt_graph.get_handle(8, false),
+                    gbwt_graph.get_handle(9, false)
+                },
+                static_cast<size_t>(0), gbwt::BidirectionalState(),
+                std::pair<size_t, size_t>(0, 8), { static_cast<size_t>(6), static_cast<size_t>(7) },
+                static_cast<int32_t>(8), true, true,
+                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
+            }
         };
         size_t error_bound = 2;
-        std::vector<std::pair<size_t, size_t>> core_ranges {
-            { static_cast<size_t>(2), static_cast<size_t>(5) }
+        trimmed_extensions(extensions, correct, extender, error_bound);
+    }
+
+    SECTION("removing duplicates and empty extensions") {
+        std::vector<GaplessExtension> extensions {
+            { // First duplicate.
+                {
+                    gbwt_graph.get_handle(4, false),
+                    gbwt_graph.get_handle(5, false),
+                    gbwt_graph.get_handle(6, false),
+                    gbwt_graph.get_handle(8, false),
+                    gbwt_graph.get_handle(9, false)
+                },
+                static_cast<size_t>(0), gbwt::BidirectionalState(),
+                std::pair<size_t, size_t>(4, 11), { static_cast<size_t>(5) },
+                static_cast<int32_t>(2), false, false,
+                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
+            },
+            { // Second duplicate.
+                {
+                    gbwt_graph.get_handle(4, false),
+                    gbwt_graph.get_handle(5, false),
+                    gbwt_graph.get_handle(6, false),
+                    gbwt_graph.get_handle(8, false),
+                    gbwt_graph.get_handle(9, false)
+                },
+                static_cast<size_t>(1), gbwt::BidirectionalState(),
+                std::pair<size_t, size_t>(5, 11), { static_cast<size_t>(5) },
+                static_cast<int32_t>(1), false, false,
+                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
+            },
+            { // Empty extension.
+                {
+                },
+                static_cast<size_t>(0), gbwt::BidirectionalState(),
+                std::pair<size_t, size_t>(0, 0), { },
+                static_cast<int32_t>(0), false, false,
+                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
+            }
         };
-        std::vector<std::pair<size_t, size_t>> flanked_ranges {
-            { static_cast<size_t>(0), static_cast<size_t>(8) }
+        std::vector<GaplessExtension> correct {
+            { // Duplicates.
+                {
+                    gbwt_graph.get_handle(4, false),
+                    gbwt_graph.get_handle(5, false),
+                    gbwt_graph.get_handle(6, false),
+                    gbwt_graph.get_handle(8, false),
+                    gbwt_graph.get_handle(9, false)
+                },
+                static_cast<size_t>(2), gbwt::BidirectionalState(),
+                std::pair<size_t, size_t>(6, 11), { },
+                static_cast<int32_t>(5), false, false,
+                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
+            }
         };
-        std::vector<std::vector<size_t>> mismatches {
-            { static_cast<size_t>(1), static_cast<size_t>(5) }
-        };
-        auto result = extender.maximal_extensions(cluster, read);
-        extender.extend_flanks(result, read, error_bound);
-        REQUIRE(result.size() == core_ranges.size());
-        for (size_t i = 0; i < result.size(); i++) {
-            REQUIRE(!(result[i].empty()));
-            REQUIRE(!(result[i].full()));
-            flanks_match(result[i], core_ranges[i], flanked_ranges[i], mismatches[i]);
-        }
+        size_t error_bound = 0;
+        trimmed_extensions(extensions, correct, extender, error_bound);
     }
 }
 

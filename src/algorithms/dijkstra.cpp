@@ -3,8 +3,9 @@
  *
  * Implementation of Dijkstra's Algorithm over the bidirected graph.
  */
- 
-#include "find_shortest_paths.hpp"
+
+#include "dijkstra.hpp"
+
 #include <structures/updateable_priority_queue.hpp>
 
 namespace vg {
@@ -13,6 +14,18 @@ namespace algorithms {
 using namespace structures;
 
 bool dijkstra(const HandleGraph* g, handle_t start,
+              function<bool(const handle_t&, size_t)> reached_callback,
+              bool traverse_leftward) {
+              
+    unordered_set<handle_t> starts;
+    starts.insert(start);          
+    
+    // Implement single-start search in terms of multi-start search
+    return dijkstra(g, starts, reached_callback, traverse_leftward);
+              
+}
+
+bool dijkstra(const HandleGraph* g, const unordered_set<handle_t>& starts,
               function<bool(const handle_t&, size_t)> reached_callback,
               bool traverse_leftward) {
 
@@ -38,9 +51,11 @@ bool dijkstra(const HandleGraph* g, handle_t start,
     });
     
     // We keep a current handle
-    handle_t current = start;
+    handle_t current;
     size_t distance = 0;
-    queue.push(make_pair(distance, start));
+    for (auto& start : starts) {
+        queue.push(make_pair(distance, start));
+    }
     
     while (!queue.empty()) {
         // While there are things in the queue, get the first.
@@ -55,16 +70,21 @@ bool dijkstra(const HandleGraph* g, handle_t start,
         // Emit the handle as being at the given distance
         if (!reached_callback(current, distance)) {
             // The user told us to stop. Return that we stopped early.
+            
+#ifdef debug_vg_algorithms
+            cerr << "\tAbort search" << endl;
+#endif  
+            
             return false;
         }
         
         // Remember that we made it here.
         visited.emplace(current);
         
-        if (current != start) {
+        if (!starts.count(current)) {
             // Up the distance with the node's length. We don't do this for the
-            // start handle because we want to count distance from the *end* of
-            // the start handle unless directed otherwise.
+            // start handles because we want to count distance from the *end* of
+            // the start handles unless directed otherwise.
             distance += g->get_length(current);
         }
             
@@ -80,6 +100,11 @@ bool dijkstra(const HandleGraph* g, handle_t start,
                     << " at distance " << distance << endl;
 #endif
                 
+            } else {
+#ifdef debug_vg_algorithms
+                cerr << "\tDisregard path to " << g->get_id(next) << " " << g->get_is_reverse(next)
+                    << " at distance " << distance << endl;
+#endif
             }
         });
     }

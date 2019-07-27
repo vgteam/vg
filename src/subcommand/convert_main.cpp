@@ -2,11 +2,12 @@
 #include "../vg.hpp"
 #include "../utility.hpp"
 #include "../xg.hpp"
-#include "../packed_graph.hpp"
-#include "../hash_graph.hpp"
 #include "../convert_handle.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+
+#include "bdsg/packed_graph.hpp"
+#include "bdsg/hash_graph.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -102,11 +103,11 @@ int main_convert(int argc, char** argv) {
         if (graph_type == "vg") {
             return new VG();
         } else if (graph_type == "hash") {
-            return new HashGraph();
+            return new bdsg::HashGraph();
         } else if (graph_type == "packed") {
-            return new PackedGraph();
+            return new bdsg::PackedGraph();
         } else if (graph_type == "xg") {
-            return new xg::XG();
+            return new XG();
         }
         return nullptr;
     };
@@ -124,7 +125,7 @@ int main_convert(int argc, char** argv) {
         dynamic_cast<SerializableHandleGraph*>(input_graph)->deserialize(input_path == "-" ? cin : input_stream);
     } else {
         //todo: XG::deserialize() doesn't work.  Need to go through vpkg
-        unique_ptr<xg::XG> xindex = vg::io::VPKG::load_one<xg::XG>(input_path);
+        unique_ptr<XG> xindex = vg::io::VPKG::load_one<XG>(input_path);
         delete input_graph;
         input_graph = xindex.release();
     }

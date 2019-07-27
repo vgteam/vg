@@ -46,7 +46,7 @@ On other distros, you will need to perform the equivalent of:
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libjansson-dev automake libtool \
                          jq bc rs curl unzip redland-utils librdf-dev bison flex gawk \
-                         lzma-dev liblzma-dev liblz4-dev libffi-dev
+                         lzma-dev liblzma-dev liblz4-dev libffi-dev libcairo-dev
 
 At present, you will need GCC version 4.9 or greater to compile vg. (Check your version with `gcc --version`.)
 

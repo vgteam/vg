@@ -28,8 +28,8 @@ inline pos_t gbwt_to_pos(gbwt::node_type node, size_t offset) {
     return make_pos_t(gbwt::Node::id(node), gbwt::Node::is_reverse(node), offset);
 }
 
-/// Convert gbwt::node_type to xg::XG:ThreadMapping.
-inline xg::XG::ThreadMapping gbwt_to_thread_mapping(gbwt::node_type node) {
+/// Convert gbwt::node_type to XG:ThreadMapping.
+inline XG::ThreadMapping gbwt_to_thread_mapping(gbwt::node_type node) {
     return { static_cast<int64_t>(gbwt::Node::id(node)), gbwt::Node::is_reverse(node) };
 }
 
@@ -48,8 +48,8 @@ inline gbwt::node_type mapping_to_gbwt(const Mapping& mapping) {
     return gbwt::Node::encode(mapping.position().node_id(), mapping.position().is_reverse());
 }
 
-/// Convert a node on xg::XGPath to gbwt::node_type.
-inline gbwt::node_type xg_path_to_gbwt(const xg::XGPath& path, size_t i) {
+/// Convert a node on XGPath to gbwt::node_type.
+inline gbwt::node_type xg_path_to_gbwt(const XGPath& path, size_t i) {
     return gbwt::Node::encode(path.node(i), path.is_reverse(i));
 }
 
@@ -59,13 +59,21 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i);
 //------------------------------------------------------------------------------
 
 /**
- * A runtime-only HandleGraph implementation that uses GBWT for graph topology and
- * extracts sequences from another HandleGraph. Faster sequence access but slower
+ * A HandleGraph implementation that uses GBWT for graph topology and extracts
+ * sequences from another HandleGraph. Faster sequence access but slower
  * graph navigation than in XG. Also supports a version of follow_edges() that
  * takes only paths supported by the indexed haplotypes.
+ *
+ * Graph file format versions:
+ *
+ *   1  The initial version.
  */
-class GBWTGraph : public HandleGraph {
+class GBWTGraph : public HandleGraph, public SerializableHandleGraph {
 public:
+
+    /// Default constructor. Call deserialize() and set_gbwt() before using the graph.
+    GBWTGraph();
+
     /// Create a graph backed by the GBWT index and extract the sequences from the
     /// given HandleGraph.
     GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_source);
@@ -76,13 +84,32 @@ public:
     /// Move constructor.
     GBWTGraph(GBWTGraph&& source);
 
-    const gbwt::GBWT&   index;
+    struct Header {
+        std::uint32_t tag, version;
+        std::uint64_t nodes;
+        std::uint64_t flags;
+
+        constexpr static std::uint32_t TAG = 0x6B3764AF;
+        constexpr static std::uint32_t VERSION = 1;
+        constexpr static std::uint32_t MIN_VERSION = 1;
+
+        Header();
+        void sanitize();
+        bool check() const;
+
+        bool operator==(const Header& another) const;
+        bool operator!=(const Header& another) const { return !(this->operator==(another)); }
+    };
+
+    const gbwt::GBWT*   index;
+
+    Header              header;
     std::vector<char>   sequences;
     sdsl::int_vector<0> offsets;
     sdsl::bit_vector    real_nodes;
-    size_t              total_nodes;
 
     constexpr static size_t CHUNK_SIZE = 1024; // For parallel for_each_handle().
+    constexpr static size_t BLOCK_SIZE = 64 * gbwt::MEGABYTE; // For serialization.
 
 //------------------------------------------------------------------------------
 
@@ -150,6 +177,23 @@ protected:
 
 public:
 
+    // SerializableHandleGraph interface.
+
+    /// Serialize the sequences to the ostream.
+    virtual void serialize(std::ostream& out) const;
+
+    /// Load the sequences from the istream.
+    /// Call set_gbwt() before using the graph.
+    virtual void deserialize(std::istream& in);
+
+    /// Set the GBWT index used for graph topology.
+    /// Call deserialize() before using the graph.
+    void set_gbwt(const gbwt::GBWT& gbwt_index);
+
+//------------------------------------------------------------------------------
+
+public:
+
     // GBWTGraph specific interface.
 
     /// Convert gbwt::node_type to handle_t.
@@ -168,10 +212,16 @@ public:
     bool ends_with(const handle_t& handle, char c) const;
 
     /// Convert handle_t to gbwt::SearchState.
-    gbwt::SearchState get_state(const handle_t& handle) const { return this->index.find(handle_to_node(handle)); }
+    gbwt::SearchState get_state(const handle_t& handle) const { return this->index->find(handle_to_node(handle)); }
 
     /// Convert handle_t to gbwt::BidirectionalState.
-    gbwt::BidirectionalState get_bd_state(const handle_t& handle) const { return this->index.bdFind(handle_to_node(handle)); }
+    gbwt::BidirectionalState get_bd_state(const handle_t& handle) const { return this->index->bdFind(handle_to_node(handle)); }
+
+    /// Get the search state corresponding to the vector of handles.
+    gbwt::SearchState find(const std::vector<handle_t>& path) const;
+
+    /// Get the bidirectional search state corresponding to the vector of handles.
+    gbwt::BidirectionalState bd_find(const std::vector<handle_t>& path) const;
 
     /// Visit all successor states of this state and call iteratee for the state.
     /// Stop and return false if the iteratee returns false.
@@ -187,7 +237,7 @@ public:
                       const std::function<bool(const gbwt::BidirectionalState&)>& iteratee) const;
 
 private:
-    size_t node_offset(gbwt::node_type node) const { return node - this->index.firstNode(); }
+    size_t node_offset(gbwt::node_type node) const { return node - this->index->firstNode(); }
     size_t node_offset(const handle_t& handle) const { return this->node_offset(handle_to_node(handle)); }
 };
 

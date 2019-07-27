@@ -11,7 +11,6 @@
 #include <vg/vg.pb.h>
 
 #include "../position.hpp"
-#include "../cached_position.hpp"
 #include "../hash_map.hpp"
 #include "../handle.hpp"
 

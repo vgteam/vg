@@ -8,9 +8,12 @@
 #include "aligner.hpp"
 #include "utility.hpp"
 #include "mem.hpp"
-#include "xg.hpp"
 #include "handle.hpp"
 #include "min_distance.hpp"
+#include "path_component_index.hpp"
+#include "bdsg/hash_graph.hpp"
+#include "algorithms/subgraph.hpp"
+#include "algorithms/extract_containing_graph.hpp"
 
 #include <functional>
 #include <string>
@@ -132,13 +135,13 @@ public:
 class MEMChainModel {
 public:
     vector<MEMChainModelVertex> model;
-    map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > > positions;
+    unordered_map<path_handle_t, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > > positions;
     set<vector<MEMChainModelVertex>::iterator> redundant_vertexes;
     MEMChainModel(
         const vector<size_t>& aln_lengths,
         const vector<vector<MaximalExactMatch> >& matches,
         const function<int64_t(pos_t)>& approx_position,
-        const function<map<string, vector<pair<size_t, bool> > >(pos_t)>& path_position,
+        const function<unordered_map<path_handle_t, vector<pair<size_t, bool> > >(pos_t)>& path_position,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
         int band_width = 10,
         int position_depth = 1,
@@ -368,7 +371,8 @@ public:
     
     /// Construct a distance service to measures distance along paths in this XG. Optionally
     /// measures all distances on the forward strand of the paths.
-    PathOrientedDistanceMeasurer(xg::XG* xgindex, bool unstranded = false);
+    PathOrientedDistanceMeasurer(const PathPositionHandleGraph* graph,
+                                 const PathComponentIndex* path_component_index = nullptr);
     
     /// Default desctructor
     ~PathOrientedDistanceMeasurer() = default;
@@ -392,16 +396,9 @@ public:
     
 private:
     
-    xg::XG* xgindex = nullptr;
-    
-    /// A memo for the results of XG::paths_of_node
-    unordered_map<id_t, vector<size_t>> paths_of_node_memo;
-    /// A memo for the results of XG::oriented_occurrences_on_path
-    unordered_map<pair<id_t, size_t>, vector<pair<size_t, bool>>> oriented_occurences_memo;
-    /// A memo for the results of XG::get_handle
-    unordered_map<pair<int64_t, bool>, handle_t> handle_memo;
-    
-    const bool unstranded;
+    const PathPositionHandleGraph* graph = nullptr;
+    const PathComponentIndex* path_component_index = nullptr;
+
 };
     
 /*
@@ -441,7 +438,6 @@ public:
     
     /// Constructor
     OrientedDistanceClusterer(OrientedDistanceMeasurer& distance_measurer,
-                              bool unstranded,
                               size_t max_expected_dist_approx_error = 8);
     
     /// Concrete implementation of virtual method from MEMClusterer
@@ -676,11 +672,12 @@ private:
     
 
 /// get the handles that a mem covers
-vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg, const vg::MaximalExactMatch& mem);
-/// use walking to get the hits
-Graph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion);
+vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const HandleGraph& graph, const vg::MaximalExactMatch& mem);
+/// return a containing subgraph connecting the mems
+bdsg::HashGraph cluster_subgraph_containing(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& cluster, const GSSWAligner* aligner);
 /// return a subgraph form an xg for a cluster of MEMs from the given alignment
-Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion);
+/// use walking to get the hits
+bdsg::HashGraph cluster_subgraph_walk(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion);
 
 }
 

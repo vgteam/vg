@@ -5,6 +5,7 @@
 
 #include "../gbwt_helper.hpp"
 #include "../json2pb.h"
+#include "../utility.hpp"
 
 #include "catch.hpp"
 
@@ -13,6 +14,7 @@
 
 #include <omp.h>
 
+//------------------------------------------------------------------------------
 
 namespace handlegraph {
 
@@ -91,12 +93,22 @@ gbwt::GBWT build_gbwt_index() {
 
 } // anonymous namespace
 
+//------------------------------------------------------------------------------
+
 TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
+
+    // Test an empty graph first.
+    SECTION("we can build an empty GBWTGraph") {
+        XG empty_xg;
+        gbwt::GBWT empty_gbwt;
+        GBWTGraph empty_graph(empty_gbwt, empty_xg);
+        REQUIRE(empty_graph.get_node_count() == 0);
+    }
 
     // Build an XG index.
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
-    xg::XG xg_index(graph);
+    XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
@@ -341,12 +353,66 @@ TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
     }
 }
 
+//------------------------------------------------------------------------------
+
+TEST_CASE("GBWTGraph serialization", "[gbwt_helper]") {
+
+    // Serialize and load an empty graph.
+    SECTION("empty graph can be serialized") {
+        GBWTGraph empty_graph;
+        std::string filename = temp_file::create("gbwtgraph");
+        std::ofstream out(filename, std::ios_base::binary);
+        empty_graph.serialize(out);
+        out.close();
+
+        GBWTGraph duplicate_graph;
+        std::ifstream in(filename, std::ios_base::binary);
+        duplicate_graph.deserialize(in);
+        in.close();
+        temp_file::remove(filename);
+        REQUIRE(duplicate_graph.get_node_count() == 0);
+    }
+
+    // Build an XG index.
+    Graph graph;
+    json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
+    XG xg_index(graph);
+
+    // Build a GBWT with three threads including a duplicate.
+    gbwt::GBWT gbwt_index = build_gbwt_index();
+
+   // Build a GBWT-backed graph.
+    GBWTGraph gbwt_graph(gbwt_index, xg_index);
+
+    // Serialize and load a non-empty graph.
+    SECTION("serialization preserves the graph") {
+        std::string filename = temp_file::create("gbwtgraph");
+        std::ofstream out(filename, std::ios_base::binary);
+        gbwt_graph.serialize(out);
+        out.close();
+
+        GBWTGraph duplicate_graph;
+        std::ifstream in(filename, std::ios_base::binary);
+        duplicate_graph.deserialize(in);
+        duplicate_graph.set_gbwt(gbwt_index);
+        in.close();
+        temp_file::remove(filename);
+
+        REQUIRE(duplicate_graph.header == gbwt_graph.header);
+        REQUIRE(duplicate_graph.sequences == gbwt_graph.sequences);
+        REQUIRE(duplicate_graph.offsets == gbwt_graph.offsets);
+        REQUIRE(duplicate_graph.real_nodes == gbwt_graph.real_nodes);
+    }
+}
+
+//------------------------------------------------------------------------------
+
 TEST_CASE("for_each_window() finds the correct windows with GBWT", "[gbwt_helper]") {
 
     // Build an XG index.
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
-    xg::XG xg_index(graph);
+    XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
@@ -405,12 +471,14 @@ TEST_CASE("for_each_window() finds the correct windows with GBWT", "[gbwt_helper
     }
 }
 
+//------------------------------------------------------------------------------
+
 TEST_CASE("for_each_window() finds the correct windows without GBWT", "[gbwt_helper]") {
 
     // Build an XG index.
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
-    xg::XG xg_index(graph);
+    XG xg_index(graph);
 
     // These are the windows the traversal should find.
     typedef std::pair<std::vector<handle_t>, std::string> kmer_type;
@@ -465,6 +533,8 @@ TEST_CASE("for_each_window() finds the correct windows without GBWT", "[gbwt_hel
         }
     }
 }
+
+//------------------------------------------------------------------------------
 
 }
 }

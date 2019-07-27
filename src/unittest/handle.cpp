@@ -8,9 +8,13 @@
 #include "../handle.hpp"
 #include "../vg.hpp"
 #include "../xg.hpp"
-#include "../packed_graph.hpp"
-#include "../hash_graph.hpp"
 #include "../json2pb.h"
+
+
+#include "algorithms/are_equivalent.hpp"
+
+#include "bdsg/packed_graph.hpp"
+#include "bdsg/hash_graph.hpp"
 
 #include <handlegraph/util.hpp>
 
@@ -143,7 +147,7 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
     vg.create_edge(n8, n9);
     
     // Make an xg out of it
-    xg::XG xg_index(vg.graph);
+    XG xg_index(vg.graph);
     
     SECTION("Each graph exposes the right nodes") {
         
@@ -565,10 +569,10 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
     VG vg;
     implementations.push_back(&vg);
     
-    PackedGraph pg;
+    bdsg::PackedGraph pg;
     implementations.push_back(&pg);
     
-    HashGraph hg;
+    bdsg::HashGraph hg;
     implementations.push_back(&hg);
     
     // And test them
@@ -1689,7 +1693,7 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
     // also add the paths to the Protobuf graph so that they're XG'able
     vg.paths.to_graph(vg.graph);
     
-    xg::XG xg_index(vg.graph);
+    XG xg_index(vg.graph);
     
     SECTION("Handles can find all paths") {
         
@@ -1821,6 +1825,16 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
         check_path_traversal(vg, path2);
         check_path_traversal(vg, path3);
         
+        
+        // maintains validity after serialization (had a bug with this after rewrites at
+        // one point)
+        stringstream strm;
+        vg.serialize_to_ostream(strm);
+        strm.seekg(0);
+        VG copy(strm);
+        
+        REQUIRE(algorithms::are_equivalent_with_paths(&vg, &copy));
+        
         // TODO: check the replaced segments' handles
     }
 }
@@ -1829,10 +1843,10 @@ TEST_CASE("Deletable handle graphs behave correctly when a graph has multiple ed
     
     vector<DeletableHandleGraph*> implementations;
     
-    PackedGraph pg;
+    bdsg::PackedGraph pg;
     implementations.push_back(&pg);
     
-    HashGraph hg;
+    bdsg::HashGraph hg;
     implementations.push_back(&hg);
     
     VG vg;
@@ -2027,10 +2041,10 @@ TEST_CASE("Mutable handle graphs with mutable paths work", "[handle][packed][has
     
     vector<MutablePathDeletableHandleGraph*> implementations;
     
-    PackedGraph pg;
+    bdsg::PackedGraph pg;
     implementations.push_back(&pg);
     
-    HashGraph hg;
+    bdsg::HashGraph hg;
     implementations.push_back(&hg);
     
     // These tests include assertions that embedded paths are maintained to be

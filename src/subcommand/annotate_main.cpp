@@ -8,6 +8,7 @@
 #include "../annotation.hpp"
 #include "../gff_reader.hpp"
 #include "../region_expander.hpp"
+#include "../algorithms/alignment_path_offsets.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -34,7 +35,7 @@ void help_annotate(char** argv) {
 }
 
 /// Find the region of the Mapping's node used by the Mapping, in forward strand space, as start to past_end.
-static pair<size_t, size_t> mapping_to_range(const xg::XG* xg_index, const Mapping& mapping) {
+static pair<size_t, size_t> mapping_to_range(const XG* xg_index, const Mapping& mapping) {
     // How much of the node does it cover?
     auto mapping_length = mapping_from_length(mapping);
     
@@ -175,11 +176,11 @@ int main_annotate(int argc, char** argv) {
     }
     
     
-    unique_ptr<xg::XG> xg_index = nullptr;
+    unique_ptr<XG> xg_index = nullptr;
     if (!xg_name.empty()) {
         get_input_file(xg_name, [&](istream& in) {
             // Read in the XG index
-            xg_index = vg::io::VPKG::load_one<xg::XG>(in);
+            xg_index = vg::io::VPKG::load_one<XG>(in);
         });
     } else {
         cerr << "error [vg annotate]: no xg index provided" << endl;
@@ -308,7 +309,7 @@ int main_annotate(int argc, char** argv) {
                     if (add_positions) {
                         // Annotate it with its initial position on each path it touches
                         aln.clear_refpos();
-                        mapper.annotate_with_initial_path_positions(aln, search_limit);
+                        algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln);
                     }
                     
                     if (!features_on_node.empty()) {

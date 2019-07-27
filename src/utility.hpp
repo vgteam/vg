@@ -52,6 +52,9 @@ string toUppercase(const string& s);
 double median(std::vector<int> &v);
 double stdev(const std::vector<double>& v);
 
+// write a fasta sqeuence
+void write_fasta_sequence(const std::string& name, const std::string& sequence, ostream& os, size_t width=80);
+
 template<typename T>
 double stdev(const T& v) {
     double sum = std::accumulate(v.begin(), v.end(), 0.0);

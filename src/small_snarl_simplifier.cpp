@@ -77,7 +77,7 @@ pair<size_t, size_t> SmallSnarlSimplifier::simplify_once(size_t iteration) {
     
     // We can't use the SnarlManager after we modify the graph, so we load the
     // contents of all the leaves we're going to modify first.
-    map<const Snarl*, pair<unordered_set<Node*>, unordered_set<Edge*>>> leaf_contents;
+    map<const Snarl*, pair<unordered_set<id_t>, unordered_set<edge_t>>> leaf_contents;
     
     // How big is each leaf in bp
     map<const Snarl*, size_t> leaf_sizes;
@@ -94,11 +94,11 @@ pair<size_t, size_t> SmallSnarlSimplifier::simplify_once(size_t iteration) {
         leaf_contents[leaf] = site_manager.deep_contents(leaf, graph, false);
         
         // For each leaf, calculate its total size.
-        unordered_set<Node*>& nodes = leaf_contents[leaf].first;
+        unordered_set<id_t>& nodes = leaf_contents[leaf].first;
         size_t& total_size = leaf_sizes[leaf];
-        for (Node* node : nodes) {
+        for (id_t node_id : nodes) {
             // For each node include it in the size figure
-            total_size += node->sequence().size();
+            total_size += graph.get_length(graph.get_handle(node_id));
         }
         
         if (total_size == 0) {
@@ -122,8 +122,8 @@ pair<size_t, size_t> SmallSnarlSimplifier::simplify_once(size_t iteration) {
         // Look at all the leaves
         
         // Get the contents of the bubble, excluding the boundary nodes
-        unordered_set<Node*>& nodes = leaf_contents[leaf].first;
-        unordered_set<Edge*>& edges = leaf_contents[leaf].second;
+        unordered_set<id_t>& nodes = leaf_contents[leaf].first;
+        unordered_set<edge_t>& edges = leaf_contents[leaf].second;
         
         // For each leaf, grab its total size.
         size_t& total_size = leaf_sizes[leaf];
@@ -141,8 +141,8 @@ pair<size_t, size_t> SmallSnarlSimplifier::simplify_once(size_t iteration) {
         
 #ifdef debug
         cerr << "Found " << total_size << " bp leaf" << endl;
-        for (auto* node : nodes) {
-            cerr << "\t" << node << " = " << node->id() << ": " << node->sequence() << endl;
+        for (id_t node_id : nodes) {
+            cerr << "\t" << node << " = " << node_id << ": " << graph.get_sequence(graph.get_handle(node_id)) << endl;
         }
 #endif
         
@@ -397,7 +397,7 @@ pair<size_t, size_t> SmallSnarlSimplifier::simplify_once(size_t iteration) {
                     
                     if (here->node_id() != leaf->start().node_id() &&
                         here->node_id() != leaf->end().node_id() && 
-                        !nodes.count(graph.get_node(here->node_id()))) {
+                        !nodes.count(here->node_id())) {
                         // We aren't the start, the end, or any internal contained node.
                         // That's an error!
                         // We really should stay inside the site!
@@ -697,7 +697,11 @@ pair<size_t, size_t> SmallSnarlSimplifier::simplify_once(size_t iteration) {
 
         // The traversal also touches the boundary nodes, so don't do anything special for them.
         
-        for (auto* edge : edges) {
+        for (const edge_t& edge_handle : edges) {
+            Node* from_node = graph.get_node(graph.get_id(edge_handle.first));
+            Node* to_node = graph.get_node(graph.get_id(edge_handle.second));
+            Edge* edge = graph.get_edge(NodeTraversal(from_node, graph.get_is_reverse(edge_handle.first)),
+                                        NodeTraversal(to_node, graph.get_is_reverse(edge_handle.second)));
             if (!blessed_edges.count(edge)) {
                 // Get rid of all the edges not needed for the one true traversal
 #ifdef debug
@@ -720,7 +724,8 @@ pair<size_t, size_t> SmallSnarlSimplifier::simplify_once(size_t iteration) {
             blessed_nodes.insert(graph.get_node(visit.node_id()));
         }
         
-        for (auto* node : nodes) {
+        for (id_t node_id : nodes) {
+            Node* node = graph.get_node(node_id);
             // For every node in the site
             if (!blessed_nodes.count(node)) {
                 // If we don't need it for the chosen path, destroy it

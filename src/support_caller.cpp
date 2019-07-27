@@ -251,17 +251,17 @@ SupportCaller::PrimaryPath::PrimaryPath(SupportAugmentedGraph& augmented, const 
     // support in total (node length * aligned reads) does the primary path get?
     total_support = Support();
     for(auto& pointerAndSupport : augmented.node_supports) {
-        if(index.by_id.count(pointerAndSupport.first->id())) {
+        if(index.by_id.count(pointerAndSupport.first)) {
             // This is a primary path node. Add in the total read bases supporting it
-            total_support += pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
+            total_support += augmented.graph.get_length(augmented.graph.get_handle(pointerAndSupport.first)) * pointerAndSupport.second;
             
             // We also update the total for the appropriate bin
-            size_t bin = index.by_id[pointerAndSupport.first->id()].first / ref_bin_size;
+            size_t bin = index.by_id[pointerAndSupport.first].first / ref_bin_size;
             if (bin == binned_support.size()) {
                 --bin;
             }
             binned_support[bin] = binned_support[bin] + 
-                pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
+               augmented.graph.get_length(augmented.graph.get_handle(pointerAndSupport.first)) * pointerAndSupport.second;
         }
     }
     
@@ -542,7 +542,7 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
         // Grab this node's total support along its length
         // Make sure to only use half the support if the node is shared or none if its shared twice
         double shared_factor = 1. - 0.5 * (double) min(2UL, shared_nodes.count(node_id));
-        auto got_support = augmented.get_support(node) * node->sequence().size() * shared_factor;
+        auto got_support = augmented.get_support(node->id()) * node->sequence().size() * shared_factor;
         
         if (is_reverse) {
             // Put the support relative to the traversal's strand
@@ -566,7 +566,7 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
         }
         
         // And update its min support
-        min_supports[i] = support_min(min_supports[i], augmented.get_support(node) * shared_factor);
+        min_supports[i] = support_min(min_supports[i], augmented.get_support(node->id()) * shared_factor);
         
     }, [&](size_t i, NodeSide end1, NodeSide end2) {
         // This is an edge
@@ -580,7 +580,9 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
         // Count as 1 base worth for the total/average support
         // Make sure to only use half the support if the edge is shared
         double shared_factor = 1. - 0.5 * (double) min(2UL, shared_edges.count(edge));
-        auto got_support = (double)edge_size * augmented.get_support(edge) * shared_factor;
+        edge_t edge_handle = augmented.graph.edge_handle(augmented.graph.get_handle(end1.node, !end1.is_end),
+                                                         augmented.graph.get_handle(end2.node, end2.is_end));
+        auto got_support = (double)edge_size * augmented.get_support(edge_handle) * shared_factor;
 
         // Prevent averaging over SVs with 0 support, just because the reference part of the traversal has support
         if (edge_size > max_unsupported_edge_size && support_val(got_support) == 0) {
@@ -614,15 +616,16 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
         }
         
         // Min in its support
-        min_supports[i] = support_min(min_supports[i], augmented.get_support(edge) * shared_factor);        
+        min_supports[i] = support_min(min_supports[i], augmented.get_support(edge_handle) * shared_factor);        
     }, [&](size_t i, Snarl child, bool is_reverse) {
         // This is a child snarl, so get its max support.
         
         Support child_max;
         size_t child_size = 0;
-        for (Node* node : snarl_manager.deep_contents(snarl_manager.manage(child),
+        for (id_t node_id : snarl_manager.deep_contents(snarl_manager.manage(child),
             augmented.graph, true).first) {
             // For every node in the child
+            Node* node = augmented.graph.get_node(node_id);
             
             if (coverage_counted.count(node)) {
                 // Already used by another child snarl on this traversal
@@ -631,7 +634,7 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
             // Claim this node for this child.
             coverage_counted.insert(node);
             
-            Support child_support = augmented.get_support(node);
+            Support child_support = augmented.get_support(node->id());
             
             // TODO: We can't tell which strand of a child snarl's contained
             // nodes corresponds to which strand of the child snarl. Just
@@ -641,7 +644,7 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
             child_support.set_reverse(average_support);
             
             // How many distinct reads must use the child, given the distinct reads on this node?
-            child_max = support_max(child_max, augmented.get_support(node));
+            child_max = support_max(child_max, augmented.get_support(node->id()));
             
             // Add in the node's size to the child
             child_size += node->sequence().size();
@@ -860,10 +863,15 @@ vector<Support> SupportCaller::get_inversion_supports(
 
             assert(edge1 != nullptr && edge2 != nullptr);
 
+            edge_t edge_handle1 = augmented.graph.edge_handle(augmented.graph.get_handle(edge1->from(), edge1->from_start()),
+                                                              augmented.graph.get_handle(edge1->to(), edge2->to_end()));
+            edge_t edge_handle2 = augmented.graph.edge_handle(augmented.graph.get_handle(edge2->from(), edge2->from_start()),
+                                                              augmented.graph.get_handle(edge2->to(), edge2->to_end()));
+
             if (longest_traversal_length > average_support_switch_threshold || use_average_support) {
-                inversion_supports[allele] = (augmented.get_support(edge1) + augmented.get_support(edge2) / 2);
+                inversion_supports[allele] = (augmented.get_support(edge_handle1) + augmented.get_support(edge_handle2) / 2);
             } else {
-                inversion_supports[allele] = min(augmented.get_support(edge1), augmented.get_support(edge2));
+                inversion_supports[allele] = min(augmented.get_support(edge_handle2), augmented.get_support(edge_handle2));
             }
         }
     }
@@ -1917,6 +1925,7 @@ void SupportCaller::add_variant_info_and_emit(vcflib::Variant& variant, SupportA
         if(can_write_alleles(variant)) {
             // No need to check for collisions because we assume sites are correctly found.
             // Output the created VCF variant.
+#pragma omp critical (cout)
             cout << variant << endl;
             
         } else {
@@ -1932,6 +1941,7 @@ void SupportCaller::add_variant_info_and_emit(vcflib::Variant& variant, SupportA
 void SupportCaller::call(
     // Augmented graph
     SupportAugmentedGraph& augmented,
+    SnarlManager& site_manager,
     // Should we load a pileup and print out pileup info as comments after
     // variants?
     string pileup_filename) {
@@ -1942,7 +1952,7 @@ void SupportCaller::call(
     // Set up the graph's paths properly after augmentation modified them.
     augmented.graph.paths.sort_by_mapping_rank();
     augmented.graph.paths.rebuild_mapping_aux();
-    
+
     // Make a list of the specified or autodetected primary reference paths.
     vector<string> primary_path_names = ref_path_names;
     if (primary_path_names.empty()) {
@@ -1964,7 +1974,7 @@ void SupportCaller::call(
         }
         
     }
-    
+
     // We'll fill this in with a PrimaryPath for every primary reference path
     // that is specified or detected.
     primary_paths.clear();
@@ -2044,7 +2054,7 @@ void SupportCaller::call(
             // neglect to warn people that they forgot options by parsing what
             // they said when they provide too few overrides?
         }
-    
+
         // Generate a vcf header. We can't make Variant records without a
         // VariantCallFile, because the variants need to know which of their
         // available info fields or whatever are defined in the file's header,
@@ -2065,12 +2075,8 @@ void SupportCaller::call(
     // Find all the top-level sites
     list<const Snarl*> site_queue;
     
-    CactusSnarlFinder finder(augmented.graph);
-    SnarlManager site_manager = finder.find_snarls();
-    
-    site_manager.for_each_top_level_snarl_parallel([&](const Snarl* site) {
+    site_manager.for_each_top_level_snarl([&](const Snarl* site) {
         // Stick all the sites in this vector.
-        #pragma omp critical (sites)
         site_queue.emplace_back(site);
     });
     
@@ -2079,7 +2085,7 @@ void SupportCaller::call(
     // and we will break top-level sites to find things on a primary path.
     // Otherwise it's everything.
     vector<const Snarl*> sites;
-    
+
     while(!site_queue.empty()) {
         // Grab the first site
         const Snarl* site = move(site_queue.front());
@@ -2189,8 +2195,12 @@ void SupportCaller::call(
         };
         
         // we are genotyping a VCF.  load it and make sure we only traverse its alleles
+        vector<string> ref_path_names;
+        for (const auto& primary_path : primary_paths) {
+            ref_path_names.push_back(primary_path.first);
+        }
         traversal_finder = unique_ptr<TraversalFinder>(new VCFTraversalFinder(augmented.graph, site_manager,
-                                                                              variant_file, get_path_index,
+                                                                              variant_file, ref_path_names,
                                                                               ref_fasta.get(),
                                                                               ins_fasta.get(),
                                                                               skip_alt));
@@ -2199,13 +2209,25 @@ void SupportCaller::call(
 
     else {
         // Now start looking for traversals of the sites.
-        RepresentativeTraversalFinder* rep_trav_finder = new RepresentativeTraversalFinder(augmented, site_manager,
+        function<Support(id_t)> get_node_support = nullptr;
+        function<Support(edge_t)> get_edge_support = nullptr;
+        if (augmented.has_supports()) {
+            get_node_support = [&augmented](id_t node_id) {
+                return augmented.get_support(node_id);
+            };
+            get_edge_support = [&augmented](edge_t edge) {
+                return augmented.get_support(edge);
+            };
+        }
+        RepresentativeTraversalFinder* rep_trav_finder = new RepresentativeTraversalFinder(augmented.graph, site_manager,
                                                                                            max_search_depth,
                                                                                            max_search_width,
                                                                                            max_bubble_paths,
                                                                                            min_total_support_for_call,
                                                                                            min_total_support_for_call,
-                                                                                           get_path_index);
+                                                                                           get_path_index,
+                                                                                           get_node_support,
+                                                                                           get_edge_support);
         rep_trav_finder->other_orientation_timeout = max_inversion_size;
         traversal_finder = unique_ptr<TraversalFinder>(rep_trav_finder);
     }
@@ -2221,8 +2243,11 @@ void SupportCaller::call(
     
     // How many sites result in output?
     size_t called_loci = 0;
-    
-    for(const Snarl* site : sites) {
+
+
+#pragma omp parallel for
+    for(size_t site_number = 0; site_number < sites.size(); ++site_number) {
+        const Snarl* site = sites[site_number];
         // For every site, we're going to make a bunch of Locus objects
         
         // See if the site is on a primary path, so we can use binned support.
@@ -2268,7 +2293,6 @@ void SupportCaller::call(
             // Now we have the Locus with call information, and the site (either
             // the root snarl we passed in or a child snarl) that the call is
             // for. We need to output the call.
-        
             if (convert_to_vcf) {
                 // We want to emit VCF
                 
@@ -2289,21 +2313,36 @@ void SupportCaller::call(
                 // Otherwise discard it as off-path
                 // TODO: update bases lost
             } else {
-                // Emit the locus itself
-                locus_buffer.push_back(locus);
-                vg::io::write_buffered(cout, locus_buffer, locus_buffer_size);
+#pragma omp critical (cout)
+                {
+                    // Emit the locus itself
+                    locus_buffer.push_back(locus);
+                    vg::io::write_buffered(cout, locus_buffer, locus_buffer_size);
+                }
             }
             
             // We called a site
+#pragma omp atomic
             called_loci++;
             
             // Mark all the nodes and edges in the site as covered
-            auto contents = site_manager.deep_contents(site, augmented.graph, true);
-            for (auto* node : contents.first) {
-                covered_nodes.insert(node);
-            }
-            for (auto* edge : contents.second) {
-                covered_edges.insert(edge);
+            if (!convert_to_vcf) {
+                auto contents = site_manager.deep_contents(site, augmented.graph, true);
+#pragma omp critical (covered)            
+                {
+                    for (auto& node_id : contents.first) {
+                        Node* node = augmented.graph.get_node(node_id);
+                        covered_nodes.insert(node);
+                    }
+                    for (auto& edge_handle : contents.second) {
+                        Edge* edge = augmented.graph.get_edge(
+                            NodeTraversal(augmented.graph.get_node(augmented.graph.get_id(edge_handle.first)),
+                                          augmented.graph.get_is_reverse(edge_handle.first)),
+                            NodeTraversal(augmented.graph.get_node(augmented.graph.get_id(edge_handle.second)),
+                                          augmented.graph.get_is_reverse(edge_handle.second)));
+                        covered_edges.insert(edge);
+                    }
+                }
             }
         });
     }
@@ -2314,6 +2353,7 @@ void SupportCaller::call(
     
     // OK now we have handled all the real sites. But there are still nodes and
     // edges that we might want to call as present or absent.
+
     
     if (!convert_to_vcf) {
         
@@ -2349,8 +2389,10 @@ void SupportCaller::call(
                 *path->add_mapping() = to_mapping(to_visit, augmented.graph);
                 
                 // Set the support
-                *locus.add_support() = augmented.edge_supports[e];
-                *locus.mutable_overall_support() = augmented.edge_supports[e];
+                edge_t edge_handle = augmented.graph.edge_handle(augmented.graph.get_handle(e->from(), e->from_start()),
+                                                                 augmented.graph.get_handle(e->to(), e->to_end()));
+                *locus.add_support() = augmented.get_support(edge_handle);
+                *locus.mutable_overall_support() = augmented.get_support(edge_handle);
                 
                 // Decide on the genotype
                 Genotype gt;
@@ -2433,10 +2475,12 @@ void SupportCaller::call(
                     // Fill in 
                     *path->add_mapping() = to_mapping(from_visit, augmented.graph);
                     *path->add_mapping() = to_mapping(to_visit, augmented.graph);
-                    
+
+                    edge_t crossed_handle = augmented.graph.edge_handle(augmented.graph.get_handle(crossed->from(), crossed->from_start()),
+                                                                        augmented.graph.get_handle(crossed->to(), crossed->to_end()));
                     // Set the support
-                    *locus.add_support() = augmented.get_support(crossed);
-                    *locus.mutable_overall_support() = augmented.get_support(crossed);
+                    *locus.add_support() = augmented.get_support(crossed_handle);
+                    *locus.mutable_overall_support() = augmented.get_support(crossed_handle);
                     
                     // Decide on the genotype of hom ref.
                     Genotype* gt = locus.add_genotype();

@@ -51,7 +51,7 @@ public:
 class CactusSnarlFinder : public SnarlFinder {
     
     /// Holds the vg graph we are looking for sites in.
-    VG& graph;
+    const PathHandleGraph* graph;
     
     /// Holds the names of reference path hints
     unordered_set<string> hint_paths;
@@ -75,13 +75,13 @@ public:
      *
      * Optionally takes a hint path name.
      */
-    CactusSnarlFinder(VG& graph);
+    CactusSnarlFinder(const PathHandleGraph& graph);
     
     /**
      * Make a new CactusSnarlFinder with a single hinted path to base the
      * decomposition on.
      */
-    CactusSnarlFinder(VG& graph, const string& hint_path);
+    CactusSnarlFinder(const PathHandleGraph& graph, const string& hint_path);
     
     /**
      * Find all the snarls with Cactus, and put them into a SnarlManager.
@@ -508,31 +508,31 @@ public:
     /// Returns true if the sanrl is trivial (an ultrabubble with just the
     /// start and end nodes) and false otherwise.
     /// TODO: Implement without needing the vg graph, by adding a flag to trivial snarls.
-    bool is_trivial(const Snarl* snarl, VG& graph) const;
+    bool is_trivial(const Snarl* snarl, const HandleGraph& graph) const;
     
     /// Returns true if the snarl lacks any nontrivial children.
-    bool all_children_trivial(const Snarl* snarl, VG& graph) const;
+    bool all_children_trivial(const Snarl* snarl, const HandleGraph& graph) const;
 
     /// Returns a reference to a vector with the roots of the Snarl trees
     const vector<const Snarl*>& top_level_snarls() const;
         
     /// Returns the Nodes and Edges contained in this Snarl but not in any child Snarls (always includes the
     /// Nodes that form the boundaries of child Snarls, optionally includes this Snarl's own boundary Nodes)
-    pair<unordered_set<Node*>, unordered_set<Edge*> > shallow_contents(const Snarl* snarl, VG& graph,
+    pair<unordered_set<id_t>, unordered_set<edge_t> > shallow_contents(const Snarl* snarl, const HandleGraph& graph,
                                                                        bool include_boundary_nodes) const;
         
     /// Returns the Nodes and Edges contained in this Snarl, including those in child Snarls (optionally
     /// includes Snarl's own boundary Nodes)
-    pair<unordered_set<Node*>, unordered_set<Edge*> > deep_contents(const Snarl* snarl, VG& graph,
+    pair<unordered_set<id_t>, unordered_set<edge_t> > deep_contents(const Snarl* snarl, const HandleGraph& graph,
                                                                     bool include_boundary_nodes) const;
         
     /// Look left from the given visit in the given graph and gets all the
     /// attached Visits to nodes or snarls.
-    vector<Visit> visits_left(const Visit& visit, VG& graph, const Snarl* in_snarl) const;
+    vector<Visit> visits_left(const Visit& visit, const HandleGraph& graph, const Snarl* in_snarl) const;
         
     /// Look left from the given visit in the given graph and gets all the
     /// attached Visits to nodes or snarls.
-    vector<Visit> visits_right(const Visit& visit, VG& graph, const Snarl* in_snarl) const;
+    vector<Visit> visits_right(const Visit& visit, const HandleGraph& graph, const Snarl* in_snarl) const;
         
     /// Returns a map from all Snarl boundaries to the Snarl they point into. Note that this means that
     /// end boundaries will be reversed.
@@ -731,7 +731,7 @@ inline Mapping to_mapping(const Visit& visit, std::function<size_t(id_t)> node_l
     
 /// Converts a Visit to a Mapping. Throws an exception if the Visit is of a Snarl instead
 /// of a Node. Uses a graph to get node length.
-inline Mapping to_mapping(const Visit& visit, VG& vg);
+inline Mapping to_mapping(const Visit& visit, const HandleGraph& vg);
     
 /// Copies the boundary Visits from one Snarl into another
 inline void transfer_boundary_info(const Snarl& from, Snarl& to);
@@ -933,9 +933,9 @@ inline Mapping to_mapping(const Visit& visit, std::function<size_t(id_t)> node_l
     return mapping;
 }
     
-inline Mapping to_mapping(const Visit& visit, VG& graph) {
+inline Mapping to_mapping(const Visit& visit, const HandleGraph& graph) {
     return to_mapping(visit, [&](id_t id) {
-            return graph.get_node(id)->sequence().size();
+            return graph.get_length(graph.get_handle(id));
         });
 }
     

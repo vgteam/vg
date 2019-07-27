@@ -7,6 +7,7 @@
 #include "../region.hpp"
 #include "../stream_index.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
+#include "../algorithms/approx_path_distance.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -380,9 +381,9 @@ int main_find(int argc, char** argv) {
         vindex->open_read_only(db_name);
     }
 
-    unique_ptr<xg::XG> xindex;
+    unique_ptr<XG> xindex;
     if (!xg_name.empty()) {
-        xindex = vg::io::VPKG::load_one<xg::XG>(xg_name);
+        xindex = vg::io::VPKG::load_one<XG>(xg_name);
     }
     
     unique_ptr<GAMIndex> gam_index;
@@ -582,11 +583,11 @@ int main_find(int argc, char** argv) {
                 cerr << "[vg find] error, exactly 2 nodes (-n) required with -D" << endl;
                 exit(1);
             }
-            cout << xindex->min_approx_path_distance(node_ids[0], node_ids[1]) << endl;
+            cout << algorithms::min_approx_path_distance(dynamic_cast<PathPositionHandleGraph*>(&*xindex), make_pos_t(node_ids[0], false, 0), make_pos_t(node_ids[1], false, 0), 1000) << endl;
             return 0;
         }
         if (approx_id != 0) {
-            cout << xindex->node_start(approx_id) << endl;
+            cout << xindex->node_vector_offset(approx_id) << endl;
             return 0;
         }
         if (list_path_names) {
@@ -712,7 +713,7 @@ int main_find(int argc, char** argv) {
         }
         if (extract_threads) {
             bool extract_reverse = false;
-            map<string, list<xg::XG::thread_t> > threads;
+            map<string, list<XG::thread_t> > threads;
             if (extract_thread_patterns.empty()) {
                 threads = xindex->extract_threads(extract_reverse);
             } else {
@@ -727,7 +728,7 @@ int main_find(int argc, char** argv) {
                 auto& thread = *t.second.begin();
                 auto& thread_name = t.first;
                 Path path;
-                for(xg::XG::ThreadMapping& m : thread) {
+                for(XG::ThreadMapping& m : thread) {
                     // Convert all the mappings
                     Mapping mapping;
                     mapping.mutable_position()->set_node_id(m.node_id);
