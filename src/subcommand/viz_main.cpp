@@ -1,6 +1,7 @@
 #include "subcommand.hpp"
 #include "../utility.hpp"
 #include "../viz.hpp"
+#include "../xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 

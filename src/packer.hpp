@@ -13,6 +13,8 @@
 #include "json2pb.h"
 #include "graph.hpp"
 #include "gcsa/internal.h"
+#include "sdsl/csa_wt.hpp"
+#include "sdsl/suffix_arrays.hpp"
 #include "utility.hpp"
 
 namespace vg {

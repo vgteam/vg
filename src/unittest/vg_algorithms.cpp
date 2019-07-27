@@ -30,6 +30,7 @@
 #include "algorithms/jump_along_path.hpp"
 #include "unittest/random_graph.hpp"
 #include "vg.hpp"
+#include "xg.hpp"
 #include "json2pb.h"
 
 

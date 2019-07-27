@@ -257,7 +257,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     // add in the exhaustive traversals
     if (!path_restricted) {
         // exhaustive traversal can't do all snarls
-        if (!snarl->type() == ULTRABUBBLE) {
+        if (snarl->type() != ULTRABUBBLE) {
             return false;
         }
         if (!check_max_nodes(snarl)) {
