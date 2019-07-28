@@ -23,7 +23,7 @@ var searchData=
   ['load_5fgraph',['load_graph',['../classvg_1_1Index.html#a0c6f4fc6c51426cc3ff46bcaed6973ee',1,'vg::Index']]],
   ['load_5finto_5fone',['load_into_one',['../classvg_1_1io_1_1VPKG.html#a2202bb1eac89a28b2986be4e874807b8',1,'vg::io::VPKG']]],
   ['load_5fone',['load_one',['../classvg_1_1io_1_1VPKG.html#aae9030bf4195ca81ed30228d875175ef',1,'vg::io::VPKG::load_one(istream &amp;in)'],['../classvg_1_1io_1_1VPKG.html#a60cacf98de761eab29ed168ee56e8e39',1,'vg::io::VPKG::load_one(const string &amp;filename)']]],
-  ['load_5fpack_5fas_5fsupports',['load_pack_as_supports',['../structvg_1_1SupportAugmentedGraph.html#a9852f9cafb786602509fa43cf3a9b467',1,'vg::SupportAugmentedGraph']]],
+  ['load_5fpack_5fas_5fsupports',['load_pack_as_supports',['../structvg_1_1SupportAugmentedGraph.html#ac7374e695e572eb9eace645005992ec9',1,'vg::SupportAugmentedGraph']]],
   ['load_5fpaths',['load_paths',['../classvg_1_1Index.html#a8f24c391c502aa89f3f089c5a2c4eada',1,'vg::Index']]],
   ['load_5fscoring_5fmatrix',['load_scoring_matrix',['../classvg_1_1GSSWAligner.html#a76a56281ddd422dfee5e617c7a39bcbc',1,'vg::GSSWAligner::load_scoring_matrix()'],['../classvg_1_1AlignerClient.html#a2ef1e755d0886e16328eb9818ae31fb2',1,'vg::AlignerClient::load_scoring_matrix()']]],
   ['load_5fsize',['load_size',['../namespacevg_1_1mi.html#af29a3fd45381a8f5a173636940105e36',1,'vg::mi']]],

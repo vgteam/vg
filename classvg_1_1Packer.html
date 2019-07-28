@@ -105,8 +105,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a23ca736ab7fa0690ae575aa1d7a4de73"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a23ca736ab7fa0690ae575aa1d7a4de73">Packer</a> (void)</td></tr>
 <tr class="separator:a23ca736ab7fa0690ae575aa1d7a4de73"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae86441c3da58f434ccdd3f07a4f594a8"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#ae86441c3da58f434ccdd3f07a4f594a8">Packer</a> (<a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *xidx, size_t <a class="el" href="classvg_1_1Packer.html#a528fbf835285899061cd6947e163976d">bin_size</a>=0, bool <a class="el" href="classvg_1_1Packer.html#a08679bd0da43f583ad81fcb3ed409cb2">qual_adjust</a>=false)</td></tr>
-<tr class="separator:ae86441c3da58f434ccdd3f07a4f594a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab45b08bc72199d969576f8934c96fefc"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#ab45b08bc72199d969576f8934c96fefc">Packer</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *<a class="el" href="classvg_1_1Packer.html#a52ac5f2ff5549fe1b296efc53204e94f">graph</a>, size_t <a class="el" href="classvg_1_1Packer.html#a528fbf835285899061cd6947e163976d">bin_size</a>=0, bool <a class="el" href="classvg_1_1Packer.html#a08679bd0da43f583ad81fcb3ed409cb2">qual_adjust</a>=false)</td></tr>
+<tr class="separator:ab45b08bc72199d969576f8934c96fefc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a65a8bbaf02215e1e8c4f1385101ffbd4"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a65a8bbaf02215e1e8c4f1385101ffbd4">~Packer</a> (void)</td></tr>
 <tr class="separator:a65a8bbaf02215e1e8c4f1385101ffbd4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af857449c08a56dd66c6a4bc0402231cb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#af857449c08a56dd66c6a4bc0402231cb">merge_from_files</a> (const vector&lt; string &gt; &amp;file_names)</td></tr>
@@ -170,8 +170,8 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:a150a15974074a7c5d7246adf394a872b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a150a15974074a7c5d7246adf394a872b">xgidx</a></td></tr>
-<tr class="separator:a150a15974074a7c5d7246adf394a872b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a52ac5f2ff5549fe1b296efc53204e94f"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a52ac5f2ff5549fe1b296efc53204e94f">graph</a></td></tr>
+<tr class="separator:a52ac5f2ff5549fe1b296efc53204e94f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -258,15 +258,15 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ae86441c3da58f434ccdd3f07a4f594a8"></a>
+<a class="anchor" id="ab45b08bc72199d969576f8934c96fefc"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">vg::Packer::Packer </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>xidx</em>, </td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -1344,6 +1344,18 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a52ac5f2ff5549fe1b296efc53204e94f"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>* vg::Packer::graph</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a class="anchor" id="aa7f90bbde45e8487029a424392b653ad"></a>
 <div class="memitem">
 <div class="memproto">
@@ -1480,18 +1492,6 @@ Static Private Attributes</h2></td></tr>
 <span class="mlabels"><span class="mlabel">private</span></span>  </td>
   </tr>
 </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a150a15974074a7c5d7246adf394a872b"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>* vg::Packer::xgidx</td>
-        </tr>
-      </table>
 </div><div class="memdoc">
 
 </div>

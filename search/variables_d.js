@@ -156,8 +156,8 @@ var searchData=
   ['my_5fmapper',['my_mapper',['../classvg_1_1Filter.html#a13678a95a03ae4feb7e6ebc0fa00a69f',1,'vg::Filter']]],
   ['my_5fmax_5fdistance',['my_max_distance',['../classvg_1_1Filter.html#ab9ec8e13d2cd4fc50aa86981a0b6475f',1,'vg::Filter']]],
   ['my_5fnames',['my_names',['../classVectorizer.html#a5702f38d3e6d29866e2135d29f7496fd',1,'Vectorizer']]],
+  ['my_5fpath_5fposition_5fgraph',['my_path_position_graph',['../classvg_1_1Filter.html#af17db75bb83c6d2ad00b813a4812d30d',1,'vg::Filter']]],
   ['my_5fvectors',['my_vectors',['../classVectorizer.html#af370e810d055623deaa0bfaac120fe8d',1,'Vectorizer']]],
   ['my_5fvg',['my_vg',['../classvg_1_1Filter.html#ac849cd8534ba9b7eb7daa8485d6c9d45',1,'vg::Filter']]],
-  ['my_5fxg',['my_xg',['../classVectorizer.html#a76d387717ac2ad51a188b1ffbc9118f3',1,'Vectorizer']]],
-  ['my_5fxg_5findex',['my_xg_index',['../classvg_1_1Filter.html#aa0caf5f7c171a85e0c444e35308e99f5',1,'vg::Filter']]]
+  ['my_5fxg',['my_xg',['../classVectorizer.html#a76d387717ac2ad51a188b1ffbc9118f3',1,'Vectorizer']]]
 ];

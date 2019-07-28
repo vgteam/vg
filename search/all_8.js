@@ -205,7 +205,7 @@ var searchData=
   ['hitgraph',['HitGraph',['../classvg_1_1MEMClusterer_1_1HitGraph.html',1,'vg::MEMClusterer']]],
   ['hitnode',['HitNode',['../classvg_1_1MEMClusterer_1_1HitNode.html#a3156b62ac2208fdac8d0b12475011472',1,'vg::MEMClusterer::HitNode::HitNode(const MaximalExactMatch &amp;mem, pos_t start_pos, int32_t score)'],['../classvg_1_1MEMClusterer_1_1HitNode.html#aaeb6e6e2bb1c2ce2cda76adce19a40d6',1,'vg::MEMClusterer::HitNode::HitNode()=default']]],
   ['hitnode',['HitNode',['../classvg_1_1MEMClusterer_1_1HitNode.html',1,'vg::MEMClusterer']]],
-  ['homogenize',['homogenize',['../classvg_1_1Homogenizer.html#abb1fba9a3bef147bea557cf85a771b2c',1,'vg::Homogenizer::homogenize(vg::VG *graph, XG *xindex, gcsa::GCSA *gcsa_index, gcsa::LCPArray *lcp_index, Paths p, int kmer_size)'],['../classvg_1_1Homogenizer.html#a781dce0db5af5b7baf305580bc88aa65',1,'vg::Homogenizer::homogenize(vg::VG *graph, XG *xindex, gcsa::GCSA *gcsa_index, gcsa::LCPArray *lcp_index, vg::Index reads_index)']]],
+  ['homogenize',['homogenize',['../classvg_1_1Homogenizer.html#ad555283b137168bebff0a2777318eaff',1,'vg::Homogenizer::homogenize(vg::VG *graph, PathPositionHandleGraph *path_graph, gcsa::GCSA *gcsa_index, gcsa::LCPArray *lcp_index, Paths p, int kmer_size)'],['../classvg_1_1Homogenizer.html#a297210f67119909167b96872ddb36e62',1,'vg::Homogenizer::homogenize(vg::VG *graph, PathPositionHandleGraph *path_graph, gcsa::GCSA *gcsa_index, gcsa::LCPArray *lcp_index, vg::Index reads_index)']]],
   ['homogenizer',['Homogenizer',['../classvg_1_1Homogenizer.html',1,'vg']]],
   ['homogenizer_2ecpp',['homogenizer.cpp',['../homogenizer_8cpp.html',1,'']]],
   ['homogenizer_2ehpp',['homogenizer.hpp',['../homogenizer_8hpp.html',1,'']]],

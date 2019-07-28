@@ -22,6 +22,7 @@ var searchData=
   ['path_5fcomponent_5findex',['path_component_index',['../classvg_1_1PathOrientedDistanceMeasurer.html#aec1793ac0e2bf87292b90a5a2c8f14d8',1,'vg::PathOrientedDistanceMeasurer::path_component_index()'],['../classvg_1_1MultipathMapper.html#aed953c796da9df6f2942ee78907742e3',1,'vg::MultipathMapper::path_component_index()']]],
   ['path_5fcount',['path_count',['../classvg_1_1XG.html#a1083a6f52e5a079de4bf37e39953271e',1,'vg::XG']]],
   ['path_5ffinder',['path_finder',['../classvg_1_1VCFTraversalFinder.html#a7f529cb408098ee45d3e4868ed9fe2b8',1,'vg::VCFTraversalFinder']]],
+  ['path_5fgraph',['path_graph',['../classvg_1_1MinimizerMapper.html#aa75ca7504db85f1ba5d340b8213036de',1,'vg::MinimizerMapper']]],
   ['path_5flength',['path_length',['../classvg_1_1HTSAlignmentEmitter.html#a120f7a095425d81db9fa4c3574f0bee5',1,'vg::HTSAlignmentEmitter']]],
   ['path_5fname',['path_name',['../structvg_1_1FeatureSet_1_1Feature.html#a645900ed3044cc3359c18e109f7460a7',1,'vg::FeatureSet::Feature::path_name()'],['../classvg_1_1GraphSynchronizer_1_1Lock.html#ad19c5f9cbb68abb1bcfe6e3a9fd65382',1,'vg::GraphSynchronizer::Lock::path_name()']]],
   ['path_5fnames',['path_names',['../classvg_1_1VariantAdder.html#a3f40d9f81c27adf5afffe04d551ac138',1,'vg::VariantAdder']]],
