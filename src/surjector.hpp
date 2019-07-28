@@ -10,7 +10,6 @@
 
 #include "alignment.hpp"
 #include "aligner.hpp"
-#include "xg.hpp"
 #include "vg.hpp"
 #include "translator.hpp"
 #include "utility.hpp"

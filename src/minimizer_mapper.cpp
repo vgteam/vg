@@ -21,8 +21,8 @@ namespace vg {
 using namespace std;
 
 MinimizerMapper::MinimizerMapper(const GBWTGraph& graph, const MinimizerIndex& minimizer_index,
-     MinimumDistanceIndex& distance_index, const XG* xg_index) :
-    xg_index(xg_index), minimizer_index(minimizer_index),
+     MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph) :
+    path_graph(path_graph), minimizer_index(minimizer_index),
     distance_index(distance_index), gbwt_graph(graph),
     extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index) {
     
@@ -147,7 +147,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Tag seeds with correctness based on proximity along paths to the input read's refpos
         funnel.substage("correct");
       
-        if (xg_index == nullptr) {
+        if (path_graph == nullptr) {
             cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
             exit(1);
         }
@@ -158,8 +158,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             for (size_t i = 0; i < seeds.size(); i++) {
                 // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
-                auto offsets = algorithms::nearest_offsets_in_paths(xg_index, seeds[i], 100);
-                for (auto& hit_pos : offsets[xg_index->get_path_handle(true_pos.name())]) {
+                auto offsets = algorithms::nearest_offsets_in_paths(path_graph, seeds[i], 100);
+                for (auto& hit_pos : offsets[path_graph->get_path_handle(true_pos.name())]) {
                     // Look at all the ones on the path the read's true position is on.
                     if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
                         // Call this seed hit close enough to be correct

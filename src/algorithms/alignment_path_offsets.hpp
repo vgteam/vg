@@ -20,7 +20,7 @@ alignment_path_offsets(const PathPositionHandleGraph& graph,
                        bool nearby,
                        size_t search_limit = 0);
 
-/// Use the xg index we hold to annotate an Alignment with the first
+/// Use the graph to annotate an Alignment with the first
 /// position it touches on each reference path. Thread safe.
 ///
 /// search_limit gives the maximum distance to search for a path if the
@@ -28,7 +28,7 @@ alignment_path_offsets(const PathPositionHandleGraph& graph,
 /// sequence length is used.
 void annotate_with_initial_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, size_t search_limit = 0);
 
-/// Use the xg index we hold to annotate Alignments with the first position
+/// Use the graph annotate Alignments with the first position
 /// they touch on each reference path. Thread safe.
 ///
 /// search_limit gives the maximum distance to search for a path if the
