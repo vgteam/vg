@@ -462,6 +462,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 }
                 
                 // Do the chaining and compute an alignment into out.
+                // We still need to call this if using skip_connectivity; it
+                // just treats everything as isolated when making the multipath
+                // alignment.
                 chain_extended_seeds(aln, extensions, out);
                 
                 if (track_provenance) {
@@ -591,8 +594,14 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     if (track_provenance) {
     
         // And with the number of results in play at each stage
-        funnel.for_each_stage([&](const string& stage, size_t result_count) {
-            set_annotation(mappings[0], "stage_" + stage + "_results", (double)result_count);
+        funnel.for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
+            // Save the number of items
+            set_annotation(mappings[0], "stage_" + stage + "_results", (double)result_sizes.size());
+            // Save the size of each item
+            vector<double> converted;
+            converted.reserve(result_sizes.size());
+            std::copy(result_sizes.begin(), result_sizes.end(), std::back_inserter(converted));
+            set_annotation(mappings[0], "stage_" + stage + "_sizes", converted);
         });
 
         if (track_correctness) {
@@ -774,8 +783,11 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
     // We don't actually need the read sequence for this, just the read length for longest gap computation.
     // The paths in the seeds know the hit length.
     // We assume all overlapping hits are exclusive.
-    unordered_map<size_t, unordered_map<size_t, vector<Path>>> paths_between_seeds = find_connecting_paths(extended_seeds,
-        aln.sequence().size());
+    unordered_map<size_t, unordered_map<size_t, vector<Path>>> paths_between_seeds;
+    if (!skip_connectivity) {
+        // Only actually fill in any connectivity if we don't just want to do tails off everything.
+        paths_between_seeds = std::move(find_connecting_paths(extended_seeds, aln.sequence().size()));
+    }
         
         
     // Now we need to identify the sources and sinks in the reachability graph (again)

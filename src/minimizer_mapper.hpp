@@ -79,6 +79,9 @@ public:
     bool do_chaining = true;
     bool use_xdrop_for_tails = true;
     bool linear_tails = false;
+    /// Don't try and chain up extended seeds; treat them all as sources and sinks.
+    /// Can't be used with linear_tails.
+    bool skip_connectivity = false;
     /// Use GBWT states from extensions to seed connectivity and tail searches.
     bool reuse_gbwt_states = true;
     string sample_name;
