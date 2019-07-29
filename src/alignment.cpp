@@ -5,7 +5,7 @@
 
 namespace vg {
 
-int hts_for_each(string& filename, function<void(Alignment&)> lambda, XG* xgindex) {
+int hts_for_each(string& filename, function<void(Alignment&)> lambda, const PathPositionHandleGraph* graph) {
 
     samFile *in = hts_open(filename.c_str(), "r");
     if (in == NULL) return 0;
@@ -14,7 +14,7 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda, XG* xginde
     parse_rg_sample_map(hdr->text, rg_sample);
     bam1_t *b = bam_init1();
     while (sam_read1(in, hdr, b) >= 0) {
-        Alignment a = bam_to_alignment(b, rg_sample, hdr, xgindex);
+        Alignment a = bam_to_alignment(b, rg_sample, hdr, graph);
         lambda(a);
     }
     bam_destroy1(b);
@@ -28,7 +28,8 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda) {
     return hts_for_each(filename, lambda, nullptr);
 }
 
-int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda, XG* xgindex) {
+int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
+                          const PathPositionHandleGraph* graph) {
 
     samFile *in = hts_open(filename.c_str(), "r");
     if (in == NULL) return 0;
@@ -59,7 +60,7 @@ int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda, X
             }
             // Now we're outside the critical section so we can only rely on our own variables.
             if (got_read) {
-                Alignment a = bam_to_alignment(b, rg_sample, hdr, xgindex);
+                Alignment a = bam_to_alignment(b, rg_sample, hdr, graph);
                 lambda(a);
             }
         }
@@ -856,7 +857,7 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char>>& cigar) {
     }
 }
 
-int64_t cigar_mapping(const bam1_t *b, Mapping* mapping, XG* xgindex) {
+int64_t cigar_mapping(const bam1_t *b, Mapping* mapping) {
     int64_t ref_length = 0;
     int64_t query_length = 0;
 
@@ -889,15 +890,15 @@ int64_t cigar_mapping(const bam1_t *b, Mapping* mapping, XG* xgindex) {
     return ref_length;
 }
 
-void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, XG* xgindex, bool on_reverse_strand) {
+void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, const PathPositionHandleGraph* graph, bool on_reverse_strand) {
 
     if (b->core.pos == -1) return;
 
     Mapping mapping;
 
-    int64_t length = cigar_mapping(b, &mapping, xgindex);
+    int64_t length = cigar_mapping(b, &mapping);
 
-    Alignment aln = xgindex->target_alignment(chr, b->core.pos, b->core.pos + length, "", on_reverse_strand, mapping);
+    Alignment aln = target_alignment(graph, chr, b->core.pos, b->core.pos + length, "", on_reverse_strand, mapping);
 
     *alignment.mutable_path() = aln.path();
 
@@ -1041,7 +1042,8 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
     return flag;
 }
 
-Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh, XG* xgindex) {
+Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh,
+                           const PathPositionHandleGraph* graph) {
 
     Alignment alignment;
 
@@ -1102,9 +1104,9 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, cons
         
     }
     
-    if (xgindex != nullptr && bh != nullptr) {
+    if (graph != nullptr && bh != nullptr) {
         alignment.set_mapping_quality(b->core.qual);
-        mapping_against_path(alignment, b, bh->target_name[b->core.tid], xgindex, b->core.flag & BAM_FREVERSE);
+        mapping_against_path(alignment, b, bh->target_name[b->core.tid], graph, b->core.flag & BAM_FREVERSE);
     }
     
     // TODO: htslib doesn't wrap this flag for some reason.
@@ -1685,7 +1687,7 @@ pair<string, string> signature(const Alignment& aln1, const Alignment& aln2) {
 }
 
 void parse_bed_regions(istream& bedstream,
-                       XG* xgindex,
+                       const PathPositionHandleGraph* graph,
                        vector<Alignment>* out_alignments) {
     out_alignments->clear();
     if (!bedstream) {
@@ -1709,12 +1711,14 @@ void parse_bed_regions(istream& bedstream,
         istringstream ss(row);
         ss >> seq;
         
-        if (xgindex->path_rank(seq) == 0) {
+        if (!graph->has_path(seq)) {
             // This path doesn't exist, and we'll get a segfault or worse if
             // we go look for positions in it.
             cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
             continue;
         }
+        
+        path_handle_t path_handle = graph->get_path_handle(seq);
         
         ss >> sbuf;
         ss >> ebuf;
@@ -1725,7 +1729,7 @@ void parse_bed_regions(istream& bedstream,
             continue;
         } 
         
-        if (sbuf >= ebuf && !xgindex->path_is_circular(seq)) {
+        if (sbuf >= ebuf && !graph->get_is_circular(path_handle)) {
             // The start of the region can be after the end of the region only if the underlying path is circular.
             // That's not the case, so complain and skip the region.
             cerr << "warning: path \"" << seq << "\" is not circular, skipping end-spanning region on line "
@@ -1744,7 +1748,7 @@ void parse_bed_regions(istream& bedstream,
         }
 
         // Make the Alignment
-        Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name, is_reverse);
+        Alignment alignment = target_alignment(graph, seq, sbuf, ebuf, name, is_reverse);
         alignment.set_score(score);
 
         out_alignments->push_back(alignment);
@@ -1752,7 +1756,7 @@ void parse_bed_regions(istream& bedstream,
 }
 
 void parse_gff_regions(istream& gffstream,
-                       XG* xgindex,
+                       const PathPositionHandleGraph* graph,
                        vector<Alignment>* out_alignments) {
     out_alignments->clear();
     if (!gffstream) {
@@ -1804,12 +1808,12 @@ void parse_gff_regions(istream& gffstream,
                 is_reverse = true;
             }
 
-            if (xgindex->path_rank(seq) == 0) {
+            if (!graph->has_path(seq)) {
                 // This path doesn't exist, and we'll get a segfault or worse if
                 // we go look for positions in it.
                 cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
             } else {
-                Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name, is_reverse);
+                Alignment alignment = target_alignment(graph, seq, sbuf, ebuf, name, is_reverse);
 
                 out_alignments->push_back(alignment);
             }
@@ -1900,5 +1904,263 @@ bool alignment_is_valid(Alignment& aln, const HandleGraph* hgraph) {
         }
     }
     return true;
+}
+
+Alignment target_alignment(const PathPositionHandleGraph* graph, const string& name, size_t pos1, size_t pos2,
+                           const string& feature, bool is_reverse, Mapping& cigar_mapping) {
+    Alignment aln;
+    
+    path_handle_t path_handle = graph->get_path_handle(name);
+    
+    if (pos2 < pos1) {
+        // Looks like we want to span the origin of a circular path
+        if (!graph->get_is_circular(path_handle)) {
+            // But the path isn't circular, which is a problem
+            throw runtime_error("Cannot extract Alignment from " + to_string(pos1) +
+                                " to " + to_string(pos2) + " across the junction of non-circular path " + name);
+        }
+        
+        // How long is the path?
+        auto path_len = graph->get_path_length(path_handle);
+        
+        if (pos1 >= path_len) {
+            // We want to start off the end of the path, which is no good.
+            throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
+                                " which is past end " + to_string(path_len) + " of path " + name);
+        }
+        
+        if (pos2 > path_len) {
+            // We want to end off the end of the path, which is no good either.
+            throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
+                                " which is past end " + to_string(path_len) + " of path " + name);
+        }
+        
+        // Split the proivided Mapping of edits at the path end/start junction
+        auto part_mappings = cut_mapping_offset(cigar_mapping, path_len - pos1);
+        
+        // We extract from pos1 to the end
+        Alignment aln1 = target_alignment(graph, name, pos1, path_len, feature, is_reverse, part_mappings.first);
+        
+        // And then from the start to pos2
+        Alignment aln2 = target_alignment(graph, name, 0, pos2, feature, is_reverse, part_mappings.second);
+        
+        if (is_reverse) {
+            // The alignments were flipped, so the second has to be first
+            return merge_alignments(aln2, aln1);
+        } else {
+            // The alignments get merged in the same order
+            return merge_alignments(aln1, aln2);
+        }
+    }
+    
+    // Otherwise, the base case is that we don't go over the circular path junction
+    
+    
+    step_handle_t step = graph->get_step_at_position(path_handle, pos1);
+    size_t step_start = graph->get_position_of_step(step);
+    handle_t handle = graph->get_handle_of_step(step);
+    
+    int64_t trim_start = pos1 - step_start;
+    {
+        Mapping* first_mapping = aln.mutable_path()->add_mapping();
+        first_mapping->mutable_position()->set_node_id(graph->get_id(handle));
+        first_mapping->mutable_position()->set_is_reverse(graph->get_is_reverse(handle));
+        first_mapping->mutable_position()->set_offset(trim_start);
+        
+        auto mappings = cut_mapping_offset(cigar_mapping, graph->get_length(handle)-trim_start);
+        first_mapping->clear_edit();
+        
+        string from_seq = graph->get_sequence(handle);
+        int from_pos = trim_start;
+        for (size_t j = 0; j < mappings.first.edit_size(); ++j) {
+            if (mappings.first.edit(j).to_length() == mappings.first.edit(j).from_length()) {// if (mappings.first.edit(j).sequence() != nullptr) {
+                // do the sequences match?
+                // emit a stream of "SNPs" and matches
+                int last_start = from_pos;
+                int k = 0;
+                Edit* edit;
+                for (int to_pos = 0 ; to_pos < mappings.first.edit(j).to_length() ; ++to_pos, ++from_pos) {
+                    //cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
+                    if (from_seq[from_pos] != mappings.first.edit(j).sequence()[to_pos]) {
+                        // emit the last "match" region
+                        if (from_pos - last_start > 0) {
+                            edit = first_mapping->add_edit();
+                            edit->set_from_length(from_pos-last_start);
+                            edit->set_to_length(from_pos-last_start);
+                        }
+                        // set up the SNP
+                        edit = first_mapping->add_edit();
+                        edit->set_from_length(1);
+                        edit->set_to_length(1);
+                        edit->set_sequence(from_seq.substr(to_pos,1));
+                        last_start = from_pos+1;
+                    }
+                }
+                // handles the match at the end or the case of no SNP
+                if (from_pos - last_start > 0) {
+                    edit = first_mapping->add_edit();
+                    edit->set_from_length(from_pos-last_start);
+                    edit->set_to_length(from_pos-last_start);
+                }
+                // to_pos += length;
+                // from_pos += length;
+            } else {
+                // Edit* edit = first_mapping->add_edit();
+                // *edit = mappings.first.edit(j);
+                *first_mapping->add_edit() = mappings.first.edit(j);
+                from_pos += mappings.first.edit(j).from_length();
+            }
+        }
+        cigar_mapping = mappings.second;
+    }
+    // get p to point to the next step (or past it, if we're a feature on a single node)
+    int64_t p = step_start + graph->get_length(handle);
+    step = graph->get_next_step(step);
+    while (p < pos2) {
+        handle = graph->get_handle_of_step(step);
+        
+        auto mappings = cut_mapping_offset(cigar_mapping, graph->get_length(handle));
+        
+        Mapping m;
+        m.mutable_position()->set_node_id(graph->get_id(handle));
+        m.mutable_position()->set_is_reverse(graph->get_is_reverse(handle));
+        
+        string from_seq = graph->get_sequence(handle);
+        int from_pos = 0;
+        for (size_t j = 0 ; j < mappings.first.edit_size(); ++j) {
+            if (mappings.first.edit(j).to_length() == mappings.first.edit(j).from_length()) {
+                // do the sequences match?
+                // emit a stream of "SNPs" and matches
+                int last_start = from_pos;
+                int k = 0;
+                Edit* edit;
+                for (int to_pos = 0 ; to_pos < mappings.first.edit(j).to_length() ; ++to_pos, ++from_pos) {
+                    //cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
+                    if (from_seq[from_pos] != mappings.first.edit(j).sequence()[to_pos]) {
+                        // emit the last "match" region
+                        if (from_pos - last_start > 0) {
+                            edit = m.add_edit();
+                            edit->set_from_length(from_pos-last_start);
+                            edit->set_to_length(from_pos-last_start);
+                        }
+                        // set up the SNP
+                        edit = m.add_edit();
+                        edit->set_from_length(1);
+                        edit->set_to_length(1);
+                        edit->set_sequence(from_seq.substr(to_pos,1));
+                        last_start = from_pos+1;
+                    }
+                }
+                // handles the match at the end or the case of no SNP
+                if (from_pos - last_start > 0) {
+                    edit = m.add_edit();
+                    edit->set_from_length(from_pos-last_start);
+                    edit->set_to_length(from_pos-last_start);
+                }
+                // to_pos += length;
+                // from_pos += length;
+            } else {
+                *m.add_edit() = mappings.first.edit(j);
+                from_pos += mappings.first.edit(j).from_length();
+            }
+        }
+        cigar_mapping = mappings.second;
+        *aln.mutable_path()->add_mapping() = m;
+        p += mapping_from_length(aln.path().mapping(aln.path().mapping_size()-1));
+        step = graph->get_next_step(step);
+    }
+    aln.set_name(feature);
+    if (is_reverse) {
+        reverse_complement_alignment_in_place(&aln, [&](vg::id_t node_id) { return graph->get_length(graph->get_handle(node_id)); });
+    }
+    return aln;
+}
+
+Alignment target_alignment(const PathPositionHandleGraph* graph, const string& name, size_t pos1, size_t pos2,
+                           const string& feature, bool is_reverse) {
+    Alignment aln;
+    
+    path_handle_t path_handle = graph->get_path_handle(name);
+    
+    if (pos2 < pos1) {
+        // Looks like we want to span the origin of a circular path
+        if (!graph->get_is_circular(path_handle)) {
+            // But the path isn't circular, which is a problem
+            throw runtime_error("Cannot extract Alignment from " + to_string(pos1) +
+                                " to " + to_string(pos2) + " across the junction of non-circular path " + name);
+        }
+        
+        // How long is the path?
+        auto path_len = graph->get_path_length(path_handle);
+        
+        if (pos1 >= path_len) {
+            // We want to start off the end of the path, which is no good.
+            throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
+                                " which is past end " + to_string(path_len) + " of path " + name);
+        }
+        
+        if (pos2 > path_len) {
+            // We want to end off the end of the path, which is no good either.
+            throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
+                                " which is past end " + to_string(path_len) + " of path " + name);
+        }
+        
+        // We extract from pos1 to the end
+        Alignment aln1 = target_alignment(graph, name, pos1, path_len, feature, is_reverse);
+        
+        // And then from the start to pos2
+        Alignment aln2 = target_alignment(graph, name, 0, pos2, feature, is_reverse);
+        
+        if (is_reverse) {
+            // The alignments were flipped, so the second has to be first
+            return merge_alignments(aln2, aln1);
+        } else {
+            // The alignments get merged in the same order
+            return merge_alignments(aln1, aln2);
+        }
+    }
+    
+    // If we get here, we do the normal non-circular path case.
+    
+    step_handle_t step = graph->get_step_at_position(path_handle, pos1);
+    size_t step_start = graph->get_position_of_step(step);
+    handle_t handle = graph->get_handle_of_step(step);
+    
+    int64_t trim_start = pos1 - step_start;
+    {
+        Mapping* first_mapping = aln.mutable_path()->add_mapping();
+        first_mapping->mutable_position()->set_node_id(graph->get_id(handle));
+        first_mapping->mutable_position()->set_is_reverse(graph->get_is_reverse(handle));
+        first_mapping->mutable_position()->set_offset(trim_start);
+        
+        Edit* e = first_mapping->add_edit();
+        size_t edit_len = min<size_t>(graph->get_length(handle) - trim_start, pos2 - pos1);
+        e->set_from_length(edit_len);
+        e->set_to_length(edit_len);
+    }
+    // get p to point to the next step (or past it, if we're a feature on a single node)
+    int64_t p = step_start + graph->get_length(handle);
+    step = graph->get_next_step(step);
+    while (p < pos2) {
+        handle = graph->get_handle_of_step(step);
+        
+        Mapping* m = aln.mutable_path()->add_mapping();
+        m->mutable_position()->set_node_id(graph->get_id(handle));
+        m->mutable_position()->set_is_reverse(graph->get_is_reverse(handle));
+        
+        Edit* e = m->add_edit();
+        size_t edit_len = min<size_t>(graph->get_length(handle), pos2 - p);
+        e->set_from_length(edit_len);
+        e->set_to_length(edit_len);
+        
+        p += graph->get_length(handle);
+        step = graph->get_next_step(step);
+    }
+    
+    aln.set_name(feature);
+    if (is_reverse) {
+        reverse_complement_alignment_in_place(&aln, [&](vg::id_t node_id) { return graph->get_length(graph->get_handle(node_id)); });
+    }
+    return aln;
 }
 }

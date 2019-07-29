@@ -7,6 +7,7 @@
 #include "../region.hpp"
 #include "../stream_index.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
+#include "../algorithms/approx_path_distance.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -582,11 +583,11 @@ int main_find(int argc, char** argv) {
                 cerr << "[vg find] error, exactly 2 nodes (-n) required with -D" << endl;
                 exit(1);
             }
-            cout << xindex->min_approx_path_distance(node_ids[0], node_ids[1]) << endl;
+            cout << algorithms::min_approx_path_distance(dynamic_cast<PathPositionHandleGraph*>(&*xindex), make_pos_t(node_ids[0], false, 0), make_pos_t(node_ids[1], false, 0), 1000) << endl;
             return 0;
         }
         if (approx_id != 0) {
-            cout << xindex->node_start(approx_id) << endl;
+            cout << xindex->node_vector_offset(approx_id) << endl;
             return 0;
         }
         if (list_path_names) {

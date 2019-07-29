@@ -41,8 +41,8 @@ Position reverse(const Position& pos, size_t node_length) {
     return p;
 }
 
-pair<int64_t, int64_t> min_oriented_distances(const map<string, vector<pair<size_t, bool> > >& path_offsets1,
-                                              const map<string, vector<pair<size_t, bool> > >& path_offsets2) {
+pair<int64_t, int64_t> min_oriented_distances(const unordered_map<path_handle_t, vector<pair<size_t, bool> > >& path_offsets1,
+                                              const unordered_map<path_handle_t, vector<pair<size_t, bool> > >& path_offsets2) {
     int64_t distance_same = std::numeric_limits<int64_t>::max();
     int64_t distance_diff = std::numeric_limits<int64_t>::max();
     for (auto& path : path_offsets1) {
