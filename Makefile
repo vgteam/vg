@@ -26,10 +26,11 @@ include $(wildcard $(IO_OBJ_DIR)/*.d)
 include $(wildcard $(SUBCOMMAND_OBJ_DIR)/*.d)
 include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
 
-# We don't ask for -fopenmp here because how we get it can depend on the compiler
-CXXFLAGS := -O3 -Werror=return-type -std=c++14 -ggdb -g -MMD -MP -msse4.2 $(CXXFLAGS)
+# We don't ask for -fopenmp here because how we get it can depend on the compiler.
+CXXFLAGS := -O3 -Werror=return-type -std=c++14 -ggdb -g -MMD -MP -msse4.2 -Wp,-v $(CXXFLAGS)
 
-LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib $(shell pkg-config --cflags cairo jansson)
+# Set include flags. All -I options need to go in here, so the first directory listed is genuinely searched first.
+INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib $(shell pkg-config --cflags cairo jansson)
 
 # Define libraries to link against. Make sure to always link statically against
 # htslib and libdeflate and Protobuf so that we can use position-dependent code
@@ -53,14 +54,13 @@ ifeq ($(shell uname -s),Darwin)
     endif
     
     ifeq ($(shell if [ -d /usr/local/include ];then echo 1;else echo 0;fi), 1)
-        # Use /usr/local/include as system-level (to avoid overriding our Protobuf) if present.
-        # One might expect this to already be there but see https://github.com/vgteam/vg/issues/2133
-        CXXFLAGS += -isystem /usr/local/include
+        # Use /usr/local/include to the end of the include search path.
+        INCLUDE_FLAGS += -I /usr/local/include
 
         ifeq ($(shell if [ -d /usr/local/include/cairo ];then echo 1;else echo 0;fi), 1)	
             # pkg-config is not always smart enough to find Cairo's include path for us.
             # We make sure to grab its directory manually if we see it.
-            CXXFLAGS += -I /usr/local/include/cairo
+            INCLUDE_FLAGS += -I /usr/local/include/cairo
             LD_LIB_FLAGS += -lcairo
         endif
     endif
@@ -79,13 +79,13 @@ ifeq ($(shell uname -s),Darwin)
             LD_LIB_FLAGS += -L/opt/local/lib/libomp
             # And we need to find the includes. Homebrew puts them in the normal place
             # but Macports hides them in "libomp"
-            CXXFLAGS += -I/opt/local/include/libomp
+            INCLUDE_FLAGS += -I/opt/local/include/libomp
         endif
 
         # We also need to link it
         LD_LIB_FLAGS += -lomp
         # And we need to find the includes. Homebrew puts them in the normal place but macports hides them in "libomp"
-        CXXFLAGS += -I/opt/local/include/libomp
+        INCLUDE_FLAGS += -I/opt/local/include/libomp
     else
         CXXFLAGS += -fopenmp
     endif
@@ -282,10 +282,10 @@ endif
 .PHONY: clean get-deps deps test set-path static docs .pre-build .check-environment .check-git .no-git
 
 $(BIN_DIR)/vg: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
-	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 static: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
-	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(STATIC_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) 
+	$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) 
 
 $(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
 	rm -f $@
@@ -321,7 +321,7 @@ $(LIB_DIR)/libprotobuf.a: deps/protobuf/src/google/protobuf/*.cc
 	+. ./source_me.sh && cd $(PROTOBUF_DIR) && ./autogen.sh && export DIST_LANG=cpp && ./configure --prefix="$(CWD)" $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install && export PATH=$(CWD)/bin:$$PATH
 
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/json2pb.h $(SRC_DIR)/vg.hpp
-	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LD_INCLUDE_FLAGS) -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(FILTER)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(FILTER)
 
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
 	+. ./source_me.sh && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
@@ -526,7 +526,7 @@ $(LIB_DIR)/libelf.a: $(ELFUTILS_DIR)/libebl/*.c $(ELFUTILS_DIR)/libebl/*.h $(ELF
 	+cd $(ELFUTILS_DIR) && mkdir -p $(CWD)/$(INC_DIR)/elfutils && cp libdw/known-dwarf.h libdw/libdw.h libebl/libebl.h libelf/elf-knowledge.h version.h libdwfl/libdwfl.h libdwelf/libdwelf.h $(CWD)/$(INC_DIR)/elfutils && cp libelf/gelf.h libelf/libelf.h libdw/dwarf.h $(CWD)/$(INC_DIR) && cp libebl/libebl.a libdw/libdw.a libdwfl/libdwfl.a libdwelf/libdwelf.a libelf/libelf.a $(CWD)/$(LIB_DIR)/
 
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
-	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
+	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -c -o $@ $< $(FILTER)
 
 $(LIB_DIR)/libfml.a: $(FERMI_DIR)/*.h $(FERMI_DIR)/*.c
 	cd $(FERMI_DIR) && $(MAKE) $(FILTER) && cp *.h $(CWD)/$(INC_DIR)/ && cp libfml.a $(CWD)/$(LIB_DIR)/
@@ -597,19 +597,19 @@ $(OBJ_DIR)/version.o: $(SRC_DIR)/version.cpp $(SRC_DIR)/version.hpp $(INC_DIR)/v
 # Use static pattern rules so the dependency files will not be ignored if the output exists
 # See <https://stackoverflow.com/a/34983297>
 $(OBJ) $(CONFIGURATION_OBJ) $(OBJ_DIR)/main.o: $(OBJ_DIR)/%.o : $(SRC_DIR)/%.cpp $(OBJ_DIR)/%.d $(DEPS)
-	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -c -o $@ $< $(FILTER)
 	@touch $@
 $(ALGORITHMS_OBJ): $(ALGORITHMS_OBJ_DIR)/%.o : $(ALGORITHMS_SRC_DIR)/%.cpp $(ALGORITHMS_OBJ_DIR)/%.d $(DEPS)
-	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -c -o $@ $< $(FILTER)
 	@touch $@
 $(IO_OBJ): $(IO_OBJ_DIR)/%.o : $(IO_SRC_DIR)/%.cpp $(IO_OBJ_DIR)/%.d $(DEPS)
-	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -c -o $@ $< $(FILTER)
 	@touch $@
 $(SUBCOMMAND_OBJ): $(SUBCOMMAND_OBJ_DIR)/%.o : $(SUBCOMMAND_SRC_DIR)/%.cpp $(SUBCOMMAND_OBJ_DIR)/%.d $(DEPS)
-	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -c -o $@ $< $(FILTER)
 	@touch $@
 $(UNITTEST_OBJ): $(UNITTEST_OBJ_DIR)/%.o : $(UNITTEST_SRC_DIR)/%.cpp $(UNITTEST_OBJ_DIR)/%.d $(DEPS)
-	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -c -o $@ $< $(FILTER)
 	@touch $@
         
 # Use a fake rule to build .d files, so we don't complain if they don't exist.
