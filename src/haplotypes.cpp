@@ -8,107 +8,6 @@ namespace haplo {
 bool warn_on_score_fail = false;
 
 /*******************************************************************************
-haplo_DP_edge_memo
-*******************************************************************************/
-
-haplo_DP_edge_memo::haplo_DP_edge_memo() : 
-  in(vector<vg::Edge>(0)), out(vector<vg::Edge>(0)) {
-  
-}
-
-haplo_DP_edge_memo::haplo_DP_edge_memo(vg::XG& graph,
-                                       vg::XG::ThreadMapping last_node,
-                                       vg::XG::ThreadMapping node) {
-  if(has_edge(graph, last_node, node)) {
-    out = last_node.is_reverse ? 
-         graph.edges_on_start(last_node.node_id) : 
-         graph.edges_on_end(last_node.node_id);
-    in = node.is_reverse ? 
-        graph.edges_on_end(node.node_id) :
-        graph.edges_on_start(node.node_id);
-  } else {
-    out = vector<vg::Edge>(0);
-    in = vector<vg::Edge>(0);
-  }
-}
-
-const vector<vg::Edge>& haplo_DP_edge_memo::edges_in() const {
-  return in;
-}
-
-const vector<vg::Edge>& haplo_DP_edge_memo::edges_out() const {
-  return out;
-}
-
-bool haplo_DP_edge_memo::is_null() const {
-  return out.size() == 0;
-}
-
-bool haplo_DP_edge_memo::has_edge(vg::XG& graph, vg::XG::ThreadMapping old_node, vg::XG::ThreadMapping new_node) {
-  vg::Edge edge_taken = vg::make_edge(old_node.node_id, old_node.is_reverse, new_node.node_id, new_node.is_reverse);
-
-  bool edge_found = false;
-
-  const vector<vg::Edge>& edges = old_node.is_reverse ? graph.edges_on_start(old_node.node_id) : 
-                                                   graph.edges_on_end(old_node.node_id);
-  
-  for(auto& edge : edges) {
-    // Look at every edge in order.
-    if(vg::edges_equivalent(edge, edge_taken)) {
-      // If we found the edge we're taking, break.
-      edge_found = true;
-      break;
-    }
-  }
-  return edge_found;  
-}
-
-/*******************************************************************************
-hDP_graph_accessor
-*******************************************************************************/
-
-hDP_graph_accessor::hDP_graph_accessor(vg::XG& graph,
-                                       vg::XG::ThreadMapping new_node,
-                                       haploMath::RRMemo& memo) :
-  graph(graph), edges(haplo_DP_edge_memo()), 
-  old_node(vg::XG::ThreadMapping()), new_node(new_node), memo(memo) {
-    
-}
-
-hDP_graph_accessor::hDP_graph_accessor(vg::XG& graph,
-                                       vg::XG::ThreadMapping old_node,
-                                       vg::XG::ThreadMapping new_node,
-                                       haploMath::RRMemo& memo) :
-  graph(graph), old_node(old_node), new_node(new_node), memo(memo),
-  edges(haplo_DP_edge_memo(graph, old_node, new_node)) {
-    
-}
-
-bool hDP_graph_accessor::has_edge() const {
-  return !edges.is_null();
-}
-
-int64_t hDP_graph_accessor::new_side() const {
-  return graph.id_to_rank(new_node.node_id) * 2 + new_node.is_reverse;
-}
-
-int64_t hDP_graph_accessor::new_height() const {
-  return graph.node_height(new_node);
-}
-
-int64_t hDP_graph_accessor::old_height() const {
-  return graph.node_height(old_node);
-}
-
-int64_t hDP_graph_accessor::new_length() const {
-  return graph.node_length(new_node.node_id);
-}
-
-void hDP_graph_accessor::print(ostream& output_stream) const {
-  output_stream << "From node: ID " << old_node.node_id << " is_reverse " << old_node.is_reverse << " ; To node: ID " << old_node.node_id << " is_reverse " << new_node.is_reverse << " ; Reference haplotypes visiting To Node: " << new_height() << endl;
-}
-
-/*******************************************************************************
 hDP_gbwt_graph_accessor
 *******************************************************************************/
 
@@ -169,32 +68,6 @@ haplo_DP_rectangle::haplo_DP_rectangle() {
 
 haplo_DP_rectangle::haplo_DP_rectangle(bool inclusive_interval) : int_is_inc(inclusive_interval) {
   
-}
-
-void haplo_DP_rectangle::extend(hDP_graph_accessor& ga) {
-  int64_t new_side = ga.new_side();
-  if(previous_index == -1) {
-    // We're extending an empty state
-    state.first = 0;
-    state.second = ga.new_height();
-  } else if(!ga.edges.is_null()) {
-    state.first = ga.graph.where_to(flat_node, 
-                                    state.first, 
-                                    new_side, 
-                                    ga.edges.edges_in(), 
-                                    ga.edges.edges_out());
-    state.second = ga.graph.where_to(flat_node, 
-                                    state.second, 
-                                    new_side, 
-                                    ga.edges.edges_in(), 
-                                    ga.edges.edges_out());
-  } else {
-    // gPBWT can't extend across an edge it doesn't know about; don't try
-    state.first = 0;
-    state.second = 0;
-  }
-  flat_node = new_side;
-  inner_value = -1;
 }
 
 void haplo_DP_rectangle::calculate_I(int64_t succ_o_val) {
@@ -380,46 +253,6 @@ void haplo_DP_column::print(ostream& out) const {
 
 bool haplo_DP_column::is_empty() const {
   return entries.size() == 0;
-}
-
-/*******************************************************************************
-haplo_DP
-*******************************************************************************/
-haplo_score_type haplo_DP::score(const vg::Path& path, vg::XG& graph, haploMath::RRMemo& memo) {
-  return score(path_to_thread_t(path), graph, memo);
-}
-
-haplo_score_type haplo_DP::score(const thread_t& thread, vg::XG& graph, haploMath::RRMemo& memo) {
-  hDP_graph_accessor ga_i(graph, thread[0], memo);
-  haplo_DP hdp(ga_i);
-#ifdef debug
-  cerr << "After entry 0 (" << thread[0].node_id << ") height: " << ga_i.new_height() << " score: " << hdp.DP_column.current_sum() << endl;
-#endif
-  if(ga_i.new_height() == 0) {
-    if (warn_on_score_fail) {
-      cerr << "[WARNING] Initial node in path is visited by 0 reference haplotypes" << endl;
-      cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
-      ga_i.print(cerr);
-    }
-    return pair<double, bool>(nan(""), false);
-  }
-  for(size_t i = 1; i < thread.size(); i++) {
-    hDP_graph_accessor ga(graph, thread[i-1], thread[i], memo);
-    if(ga.new_height() == 0) {
-      if (warn_on_score_fail) {
-        cerr << "[WARNING] Node " << i + 1 << " in path is visited by 0 reference haplotypes" << endl;
-        cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
-        ga.print(cerr);
-      }
-      return pair<double, bool>(nan(""), false);
-    } else {
-      hdp.DP_column.extend(ga);
-    }
-#ifdef debug
-  cerr << "After entry " << i << " (" << thread[i].node_id << ") height: " << ga.new_height() << " score: " << hdp.DP_column.current_sum() << endl;
-#endif
-  }
-  return pair<double, bool>(hdp.DP_column.current_sum(), true);
 }
 
 haplo_DP_column* haplo_DP::get_current_column() {
@@ -843,24 +676,6 @@ IncrementalSearchState ScoreProvider::incremental_extend(const IncrementalSearch
 }
 
 /*******************************************************************************
-XGScoreProvider
-*******************************************************************************/
-
-XGScoreProvider::XGScoreProvider(vg::XG& index) : index(index) {
-  // Nothing to do!
-}
-
-pair<double, bool> XGScoreProvider::score(const vg::Path& path, haploMath::RRMemo& memo) {
-  return haplo_DP::score(path, index, memo);
-}
-
-int64_t XGScoreProvider::get_haplotype_count() const {
-  // vg::XG indexes track a haplotype count still.
-  // TODO: This should be removed!
-  return index.get_haplotype_count();
-}
-
-/*******************************************************************************
 LinearScoreProvider
 *******************************************************************************/
 
@@ -878,21 +693,6 @@ pair<double, bool> LinearScoreProvider::score(const vg::Path& path, haploMath::R
   }
   
   return scored;
-}
-
-/*******************************************************************************
-path conversion
-*******************************************************************************/
-
-thread_t path_to_thread_t(const vg::Path& path) {
-  thread_t t;
-  for(size_t i = 0; i < path.mapping_size(); i++) {
-    vg::Mapping mapping = path.mapping(i);
-    auto pos = mapping.position();
-    vg::XG::ThreadMapping m = {pos.node_id(), pos.is_reverse()};
-    t.push_back(m);
-  }
-  return t;
 }
 
 /*******************************************************************************
