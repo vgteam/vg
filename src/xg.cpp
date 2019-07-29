@@ -796,7 +796,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         // now build up the record
         g_bv[g] = 1; // mark record start for later query
         g_iv[g++] = n.id(); // save id
-        g_iv[g++] = node_start(n.id());
+        g_iv[g++] = node_vector_offset(n.id());
         g_iv[g++] = n.sequence().size(); // sequence length
         size_t to_edge_count = 0;
         size_t from_edge_count = 0;
@@ -1959,11 +1959,11 @@ size_t XG::max_node_rank(void) const {
     return s_bv_rank(s_bv.size());
 }
 
-int64_t XG::node_at_seq_pos(size_t pos) const {
+int64_t XG::node_at_vector_offset(const size_t& pos) const {
     return rank_to_id(s_bv_rank(pos));
 }
 
-size_t XG::node_start(int64_t id) const {
+size_t XG::node_vector_offset(const nid_t& id) const {
     return s_bv_select(id_to_rank(id));
 }
 
@@ -1998,6 +1998,15 @@ bool XG::has_edge(const Edge& edge) const {
 
 size_t XG::node_graph_idx(int64_t id) const {
     return g_bv_select(id_to_rank(id));
+}
+
+size_t XG::edge_index(const edge_t& edge) const {
+    Edge e;
+    e.set_from(get_id(edge.first));
+    e.set_from_start(get_is_reverse(edge.first));
+    e.set_to(get_id(edge.second));
+    e.set_to_end(get_is_reverse(edge.second));
+    return edge_graph_idx(e);
 }
 
 size_t XG::edge_graph_idx(const Edge& edge_in) const {
@@ -2569,58 +2578,6 @@ bool XG::path_is_circular(size_t rank) const {
     return paths[rank-1]->is_circular;
 }
 
-pair<int64_t, vector<size_t> > XG::nearest_path_node(int64_t id, int max_steps) const {
-    set<int64_t> todo;
-    set<int64_t> seen;
-    todo.insert(id);
-    int i = 0;
-    while (!todo.empty() && i++ < max_steps) {
-        set<int64_t> next;
-        for (auto& id : todo) {
-            if (seen.count(id)) continue;
-            seen.insert(id);
-            vector<size_t> path_ids = paths_of_node(id);
-            if (!path_ids.empty()) {
-                // if we found a node on a path, return
-                return make_pair(id, path_ids);
-            } else {
-                for (auto& edge : edges_of(id)) {
-                    next.insert(edge.from());
-                    next.insert(edge.to());
-                }
-            }
-        }
-        todo = next;
-    }
-    return make_pair(id, vector<size_t>());
-}
-
-// like above, but find minumum over list of paths.  if names is empty, do all paths
-// don't actually take strict minumum over all paths.  rather, prefer paths that
-// contain the nodes when possible. 
-int64_t XG::min_approx_path_distance(int64_t id1, int64_t id2) const {
-
-    int64_t min_distance = numeric_limits<int64_t>::max();
-    pair<int64_t, vector<size_t> > near1 = nearest_path_node(id1);
-    pair<int64_t, vector<size_t> > near2 = nearest_path_node(id2);
-    if (near1.second.size() || near2.second.size()) {
-        map<int, size_t> paths;
-        for (auto& i : near1.second) paths[i]++;
-        for (auto& i : near2.second) paths[i]++;
-        for (auto& i : paths) {
-            if (i.second < 2) continue;
-            auto name = path_name(i.first);
-            for (auto& p1 : position_in_path(near1.first, name)) {
-                for (auto& p2 : position_in_path(near2.first, name)) {
-                    int64_t distance = abs((int64_t)p1 - (int64_t)p2);
-                    min_distance = min(distance, min_distance);
-                }
-            }
-        }
-    }
-    return min_distance;
-}
-
 void XG::for_path_range(const string& name, int64_t start, int64_t stop,
                         function<void(int64_t, bool)> lambda, bool is_rev) const {
 
@@ -2786,12 +2743,6 @@ int64_t XG::node_at_path_position(const string& name, size_t pos) const {
     return paths[p]->node_at_position(pos);
 }
 
-Mapping XG::mapping_at_path_position(const string& name, size_t pos) const {
-    size_t p = path_rank(name)-1;
-    return paths[p]->mapping(paths[p]->offsets_rank(pos+1)-1,
-                             [&](id_t id){ return get_length(get_handle(id, false)); });
-}
-
 size_t XG::node_start_at_path_position(const string& name, size_t pos) const {
     size_t p = path_rank(name)-1;
     size_t position_rank = paths[p]->offsets_rank(pos+1);
@@ -2809,235 +2760,6 @@ pos_t XG::graph_pos_at_path_position(const string& name, size_t path_pos) const 
     id_t node_id = path.node(trav_idx);
     bool is_rev = path.directions[trav_idx];
     return make_pos_t(node_id, is_rev, offset);
-}
-
-Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse, Mapping& cigar_mapping) const {
-    Alignment aln;
-    const XGPath& path = *paths[path_rank(name)-1];
-    
-    if (pos2 < pos1) {
-        // Looks like we want to span the origin of a circular path
-        if (!path.is_circular) {
-            // But the path isn't circular, which is a problem
-            throw runtime_error("Cannot extract Alignment from " + to_string(pos1) +
-                " to " + to_string(pos2) + " across the junction of non-circular path " + name);
-        }
-        
-        // How long is the path?
-        auto path_len = path_length(name);
-        
-        if (pos1 >= path_len) {
-            // We want to start off the end of the path, which is no good.
-            throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
-                " which is past end " + to_string(path_len) + " of path " + name);
-        }
-        
-        if (pos2 > path_len) {
-            // We want to end off the end of the path, which is no good either.
-            throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
-                " which is past end " + to_string(path_len) + " of path " + name);
-        }
-        
-        // Split the proivided Mapping of edits at the path end/start junction
-        auto part_mappings = cut_mapping_offset(cigar_mapping, path_len - pos1);
-        
-        // We extract from pos1 to the end
-        Alignment aln1 = target_alignment(name, pos1, path_len, feature, is_reverse, part_mappings.first); 
-        
-        // And then from the start to pos2
-        Alignment aln2 = target_alignment(name, 0, pos2, feature, is_reverse, part_mappings.second); 
-        
-        if (is_reverse) {
-            // The alignments were flipped, so the second has to be first
-            return merge_alignments(aln2, aln1);
-        } else {
-            // The alignments get merged in the same order
-            return merge_alignments(aln1, aln2);
-        }
-    }
-    
-    // Otherwise, the base case is that we don't go over the circular path junction
-    
-    size_t first_node_start = path.offsets_select(path.offsets_rank(pos1+1));
-    int64_t trim_start = pos1 - first_node_start;
-    {
-        Mapping* first_mapping = aln.mutable_path()->add_mapping();
-        *first_mapping = mapping_at_path_position(name, pos1);
-        auto mappings = cut_mapping_offset(cigar_mapping, node_length(first_mapping->position().node_id())-trim_start);
-        first_mapping->clear_edit();
-        if (trim_start > 0) {
-          first_mapping->mutable_position()->set_offset(trim_start);
-        }
-
-        string from_seq = node_sequence(first_mapping->position().node_id());
-        int from_pos = trim_start;
-        for (size_t j = 0; j < mappings.first.edit_size(); ++j) {
-            if (mappings.first.edit(j).to_length() == mappings.first.edit(j).from_length()) {// if (mappings.first.edit(j).sequence() != nullptr) {
-                // do the sequences match?
-                // emit a stream of "SNPs" and matches
-                    int last_start = from_pos;
-                    int k = 0;
-                    Edit* edit;
-                    for (int to_pos = 0 ; to_pos < mappings.first.edit(j).to_length() ; ++to_pos, ++from_pos) {
-                        //cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
-                        if (from_seq[from_pos] != mappings.first.edit(j).sequence()[to_pos]) {
-                            // emit the last "match" region
-                            if (from_pos - last_start > 0) {
-                                edit = first_mapping->add_edit();
-                                edit->set_from_length(from_pos-last_start);
-                                edit->set_to_length(from_pos-last_start);
-                            }
-                            // set up the SNP
-                            edit = first_mapping->add_edit();
-                            edit->set_from_length(1);
-                            edit->set_to_length(1);
-                            edit->set_sequence(from_seq.substr(to_pos,1));
-                            last_start = from_pos+1;
-                        }
-                    }
-                    // handles the match at the end or the case of no SNP
-                    if (from_pos - last_start > 0) {
-                        edit = first_mapping->add_edit();
-                        edit->set_from_length(from_pos-last_start);
-                        edit->set_to_length(from_pos-last_start);
-                    }
-                    // to_pos += length;
-                    // from_pos += length;
-            } else {
-                // Edit* edit = first_mapping->add_edit();
-                // *edit = mappings.first.edit(j);
-                *first_mapping->add_edit() = mappings.first.edit(j);
-                from_pos += mappings.first.edit(j).from_length();
-            }
-        }
-        cigar_mapping = mappings.second;
-    }
-    // get p to point to the next step (or past it, if we're a feature on a single node)
-    int64_t p = (int64_t)pos1 + node_length(aln.path().mapping(0).position().node_id()) - trim_start;
-    while (p < pos2) {
-        Mapping m = mapping_at_path_position(name, p);
-        auto mappings = cut_mapping_offset(cigar_mapping, node_length(m.position().node_id()));
-        m.clear_edit();
-
-        string from_seq = node_sequence(m.position().node_id());
-        int from_pos = 0;
-        for (size_t j = 0 ; j < mappings.first.edit_size(); ++j) {
-            if (mappings.first.edit(j).to_length() == mappings.first.edit(j).from_length()) {
-                // do the sequences match?
-                // emit a stream of "SNPs" and matches
-                    int last_start = from_pos;
-                    int k = 0;
-                    Edit* edit;
-                    for (int to_pos = 0 ; to_pos < mappings.first.edit(j).to_length() ; ++to_pos, ++from_pos) {
-                        //cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
-                        if (from_seq[from_pos] != mappings.first.edit(j).sequence()[to_pos]) {
-                            // emit the last "match" region
-                            if (from_pos - last_start > 0) {
-                                edit = m.add_edit();
-                                edit->set_from_length(from_pos-last_start);
-                                edit->set_to_length(from_pos-last_start);
-                            }
-                            // set up the SNP
-                            edit = m.add_edit();
-                            edit->set_from_length(1);
-                            edit->set_to_length(1);
-                            edit->set_sequence(from_seq.substr(to_pos,1));
-                            last_start = from_pos+1;
-                        }
-                    }
-                    // handles the match at the end or the case of no SNP
-                    if (from_pos - last_start > 0) {
-                        edit = m.add_edit();
-                        edit->set_from_length(from_pos-last_start);
-                        edit->set_to_length(from_pos-last_start);
-                    }
-                    // to_pos += length;
-                    // from_pos += length;
-            } else {
-                *m.add_edit() = mappings.first.edit(j);
-                from_pos += mappings.first.edit(j).from_length();
-            }
-        }
-        cigar_mapping = mappings.second;
-        *aln.mutable_path()->add_mapping() = m;
-        p += mapping_from_length(aln.path().mapping(aln.path().mapping_size()-1));
-    }
-    aln.set_name(feature);
-    if (is_reverse) {
-       reverse_complement_alignment_in_place(&aln, [&](vg::id_t node_id) { return this->node_length(node_id); });
-    }
-    return aln;
-}
-
-Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse) const {
-    Alignment aln;
-    const XGPath& path = *paths[path_rank(name)-1];
-    
-    if (pos2 < pos1) {
-        // Looks like we want to span the origin of a circular path
-        if (!path.is_circular) {
-            // But the path isn't circular, which is a problem
-            throw runtime_error("Cannot extract Alignment from " + to_string(pos1) +
-                " to " + to_string(pos2) + " across the junction of non-circular path " + name);
-        }
-        
-        // How long is the path?
-        auto path_len = path_length(name);
-        
-        if (pos1 >= path_len) {
-            // We want to start off the end of the path, which is no good.
-            throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
-                " which is past end " + to_string(path_len) + " of path " + name);
-        }
-        
-        if (pos2 > path_len) {
-            // We want to end off the end of the path, which is no good either.
-            throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
-                " which is past end " + to_string(path_len) + " of path " + name);
-        }
-        
-        // We extract from pos1 to the end
-        Alignment aln1 = target_alignment(name, pos1, path_len, feature, is_reverse); 
-        
-        // And then from the start to pos2
-        Alignment aln2 = target_alignment(name, 0, pos2, feature, is_reverse); 
-        
-        if (is_reverse) {
-            // The alignments were flipped, so the second has to be first
-            return merge_alignments(aln2, aln1);
-        } else {
-            // The alignments get merged in the same order
-            return merge_alignments(aln1, aln2);
-        }
-    }
-   
-    // If we get here, we do the normal non-circular path case.
-    
-    size_t first_node_start = path.offsets_select(path.offsets_rank(pos1+1));
-    int64_t trim_start = pos1 - first_node_start;
-    {
-        Mapping* first_mapping = aln.mutable_path()->add_mapping();
-        *first_mapping = mapping_at_path_position(name, pos1);
-    }
-    // get p to point to the next step (or past it, if we're a feature on a single node)
-    int64_t p = (int64_t)pos1 + node_length(aln.path().mapping(0).position().node_id()) - trim_start;
-    while (p < pos2) {
-        *aln.mutable_path()->add_mapping() = mapping_at_path_position(name, p);
-        p += mapping_from_length(aln.path().mapping(aln.path().mapping_size()-1));
-    }
-    // trim to the target
-    int64_t trim_end = p - pos2;
-    if (trim_start) {
-        *aln.mutable_path() = cut_path(aln.path(), trim_start).second;
-    }
-    if (trim_end) {
-        *aln.mutable_path() = cut_path(aln.path(), path_from_length(aln.path()) - trim_end).first;
-    }
-    aln.set_name(feature);
-    if (is_reverse) {
-       reverse_complement_alignment_in_place(&aln, [&](vg::id_t node_id) { return this->node_length(node_id); });
-    }
-    return aln;
 }
 
 Mapping new_mapping(const string& name, int64_t id, size_t rank, bool is_reverse) {

@@ -17,7 +17,7 @@
 #include "algorithms/dagify.hpp"
 #include "algorithms/is_acyclic.hpp"
 
-#include "sglib/hash_graph.hpp"
+#include "bdsg/hash_graph.hpp"
 
 #include "catch.hpp"
 
@@ -35,7 +35,7 @@ using namespace std;
         
         for (int i = 0; i < num_tests; ++i) {
             
-            sglib::HashGraph graph;
+            bdsg::HashGraph graph;
             random_graph(seq_size, var_len, var_count, &graph);
 
             StrandSplitGraph split(&graph);

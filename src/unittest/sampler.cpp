@@ -9,6 +9,7 @@
 #include "json2pb.h"
 #include <vg/vg.pb.h>
 #include "../sampler.hpp"
+#include "../xg.hpp"
 #include "catch.hpp"
 
 namespace vg {

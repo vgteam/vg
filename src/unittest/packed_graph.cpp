@@ -12,7 +12,7 @@
 
 #include "algorithms/are_equivalent.hpp"
 
-#include "sglib/packed_graph.hpp"
+#include "bdsg/packed_graph.hpp"
 
 #include "catch.hpp"
 
@@ -23,7 +23,7 @@ using namespace std;
 
     TEST_CASE("PackedGraph's reallocations do not change topology", "[packed][handle]") {
         
-        sglib::PackedGraph graph;
+        bdsg::PackedGraph graph;
         
         auto check_path = [&](const path_handle_t& p, const vector<handle_t>& steps) {
             
@@ -425,7 +425,7 @@ using namespace std;
         
         for (int i = 0; i < num_graphs; i++) {
             
-            sglib::PackedGraph graph;
+            bdsg::PackedGraph graph;
             random_graph(seq_length, long_var_length, num_variants, &graph);
             
             graph.for_each_path_handle([&](const path_handle_t& path) {
@@ -435,7 +435,7 @@ using namespace std;
             stringstream strm;
             graph.serialize(strm);
             strm.seekg(0);
-            sglib::PackedGraph loaded(strm);
+            bdsg::PackedGraph loaded(strm);
             
             REQUIRE(algorithms::are_equivalent_with_paths(&graph, &loaded));
         }

@@ -65,8 +65,8 @@ if which perf 2>/dev/null ; then
     deps/FlameGraph/flamegraph.pl "${WORK}/out.folded" > "${WORK}/profile.svg"
 fi
 
-# Run simulated reads
-vg gaffe -x "${XG_INDEX}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -G "${SIM_GAM}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/mapped.gam"
+# Run simulated reads, with stats
+vg gaffe --track-correctness -x "${XG_INDEX}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -G "${SIM_GAM}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/mapped.gam"
 
 # Annotate and compare against truth
 vg annotate -p -x "${XG_INDEX}" -a "${WORK}/mapped.gam" >"${WORK}/annotated.gam"
@@ -77,7 +77,8 @@ CORRECT_COUNT="$(vg gamcompare -r 100 "${WORK}/annotated.gam" "${SIM_GAM}" 2>&1 
 # Compute identity
 MEAN_IDENTITY="$(vg view -aj "${WORK}/mapped.gam" | jq -c '.identity' | awk '{x+=$1} END {print x/NR}')"
 
-# TODO: Compute loss stages
+# Compute loss stages
+vg view -aj "${WORK}/mapped.gam" | scripts/giraffe-facts.py "${WORK}/facts" >"${WORK}/facts.txt" 2>&1
 
 # Now do the real reads
 
@@ -97,11 +98,11 @@ bwa mem -t "${THREAD_COUNT}" "${FASTA}" "${WORK}/double.fq" >"${WORK}/mapped-dou
 BWA_TIME="$(cat "${WORK}/bwa-log.txt" | grep "Real time:" | sed 's/[^0-9.]*\([0-9.]*\).*/\1/')"
 BWA_DOUBLE_TIME="$(cat "${WORK}/bwa-log-double.txt" | grep "Real time:" | sed 's/[^0-9.]*\([0-9.]*\).*/\1/')"
 
-BWA_RPS="$(echo "${REAL_READ_COUNT} / (${BWA_DOUBLE_TIME} - ${BWA_TIME})" | bc -l)"
+BWA_RPS="$(echo "${REAL_READ_COUNT} / (${BWA_DOUBLE_TIME} - ${BWA_TIME}) / ${THREAD_COUNT}" | bc -l)"
 
 if which perf 2>/dev/null ; then
     # Output perf stuff
-    mv "${WORK}/perf.data" ./pref.data
+    mv "${WORK}/perf.data" ./perf.data
     mv "${WORK}/profile.svg" ./profile.svg
     echo "Profiling information saved as ./perf.data"
     echo "Interactive flame graph (for browsers) saved as ./profile.svg"
@@ -109,9 +110,9 @@ fi
 
 # Print the report
 echo "Giraffe got ${CORRECT_COUNT} simulated reads correct with ${MEAN_IDENTITY} average identity"
-echo "Giraffe aligned real reads at ${GIRAFFE_RPS} reads/second vs. bwa-mem's ${BWA_RPS} reads/second"
+echo "Giraffe aligned real reads at ${GIRAFFE_RPS} reads/second vs. bwa-mem's ${BWA_RPS} reads/second on ${THREAD_COUNT} threads"
 
-
+cat "${WORK}/facts.txt"
 
 rm -Rf "${WORK}"
 

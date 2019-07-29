@@ -8,6 +8,7 @@
 #include "../mapper.hpp"
 #include "../build_index.hpp"
 #include "catch.hpp"
+#include "../algorithms/alignment_path_offsets.hpp"
 
 namespace vg {
 namespace unittest {
@@ -351,7 +352,7 @@ TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][
         json2pb(aln, aln_json.c_str(), aln_json.size());
         
         // Annotate it
-        mapper.annotate_with_initial_path_positions(aln);
+        algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln);
                         
         // It should have one refpos
         REQUIRE(aln.refpos_size() == 1);
@@ -380,7 +381,7 @@ TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][
         json2pb(aln, aln_json.c_str(), aln_json.size());
         
         // Annotate it
-        mapper.annotate_with_initial_path_positions(aln);
+        algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln);
                         
         // It should have one refpos
         REQUIRE(aln.refpos_size() == 1);
@@ -410,7 +411,7 @@ TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][
         json2pb(aln, aln_json.c_str(), aln_json.size());
         
         // Annotate it
-        mapper.annotate_with_initial_path_positions(aln);
+        algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln);
                         
         // It should have one refpos
         REQUIRE(aln.refpos_size() == 1);
@@ -439,7 +440,7 @@ TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][
         json2pb(aln, aln_json.c_str(), aln_json.size());
         
         // Annotate it
-        mapper.annotate_with_initial_path_positions(aln);
+        algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln);
                         
         // It should have one refpos
         REQUIRE(aln.refpos_size() == 1);
@@ -472,7 +473,7 @@ TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][
         json2pb(aln, aln_json.c_str(), aln_json.size());
         
         // Annotate it
-        mapper.annotate_with_initial_path_positions(aln);
+        algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln);
                         
         // It should have one refpos
         REQUIRE(aln.refpos_size() == 1);
@@ -506,7 +507,7 @@ TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][
         json2pb(aln, aln_json.c_str(), aln_json.size());
         
         // Annotate it
-        mapper.annotate_with_initial_path_positions(aln);
+        algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln);
                         
         // It should have one refpos
         REQUIRE(aln.refpos_size() == 1);

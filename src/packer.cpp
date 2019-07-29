@@ -6,12 +6,19 @@ namespace vg {
 const int Packer::maximum_quality = 60;
 const int Packer::lru_cache_size = 50;
 
-Packer::Packer(void) : xgidx(nullptr), qual_adjust(false), quality_cache(nullptr) { }
+Packer::Packer(void) : graph(nullptr), qual_adjust(false), quality_cache(nullptr) { }
 
-Packer::Packer(XG* xidx, size_t binsz, bool qual_adjust) : xgidx(xidx), bin_size(binsz), qual_adjust(qual_adjust) {
-    coverage_dynamic = gcsa::CounterArray(xgidx->seq_length, qual_adjust ? 16 : 8);
-    edge_coverage_dynamic = gcsa::CounterArray(xgidx->get_g_iv_size(), qual_adjust ? 16 : 8);
-    if (binsz) n_bins = xgidx->seq_length / bin_size + 1;
+Packer::Packer(const HandleGraph* graph, size_t binsz, bool qual_adjust) : graph(graph), bin_size(binsz), qual_adjust(qual_adjust) {
+    size_t seq_length = 0;
+    graph->for_each_handle([&](const handle_t& handle) { seq_length += graph->get_length(handle); });
+    coverage_dynamic = gcsa::CounterArray(seq_length, qual_adjust ? 16 : 8);
+    size_t max_edge_index = 0;
+    graph->for_each_edge([&](const edge_t& edge) {
+            max_edge_index = std::max(max_edge_index,
+                                      dynamic_cast<const VectorizableHandleGraph*>(graph)->edge_index(edge));
+        });
+    edge_coverage_dynamic = gcsa::CounterArray(max_edge_index+1, qual_adjust ? 16 : 8);
+    if (binsz) n_bins = seq_length / bin_size + 1;
     quality_cache = qual_adjust ? new LRUCache<pair<int, int>, int>(lru_cache_size) : nullptr;
 }
 
@@ -275,7 +282,7 @@ void Packer::add(const Alignment& aln, bool record_edits) {
             continue;
         }
         // skip nodes outside of our graph, assuming this may be a subgraph
-        if (!xgidx->has_node(mapping.position().node_id())) {
+        if (!graph->has_node(mapping.position().node_id())) {
             continue;
         }
         size_t i = position_in_basis(mapping.position());
@@ -324,7 +331,7 @@ void Packer::add(const Alignment& aln, bool record_edits) {
             e.set_from_start(prev_mapping.position().is_reverse());
             e.set_to(mapping.position().node_id());
             e.set_to_end(mapping.position().is_reverse());
-            size_t edge_idx = xgidx->edge_graph_idx(e);
+            size_t edge_idx = edge_index(e);
             if (edge_idx != 0) {
                 if (!qual_adjust) {
                     edge_coverage_dynamic.increment(edge_idx);
@@ -351,10 +358,11 @@ void Packer::add(const Alignment& aln, bool record_edits) {
 size_t Packer::position_in_basis(const Position& pos) const {
     // get position on the forward strand
     if (pos.is_reverse()) {
-        return (int64_t)xg_node_start(pos.node_id(), xgidx)
-            + (int64_t)reverse(pos, xg_node_length(pos.node_id(), xgidx)).offset() - 1;
+        return (int64_t)dynamic_cast<const VectorizableHandleGraph*>(graph)->node_vector_offset(pos.node_id())
+            + (int64_t)reverse(pos, graph->get_length(graph->get_handle(pos.node_id()))).offset() - 1;
     } else {
-        return (int64_t)xg_node_start(pos.node_id(), xgidx) + (int64_t)pos.offset();
+        return (int64_t)dynamic_cast<const VectorizableHandleGraph*>(graph)->node_vector_offset(pos.node_id())
+            + (int64_t)pos.offset();
     }
 }
 
@@ -422,10 +430,6 @@ size_t Packer::graph_length(void) const {
     }
 }
 
-size_t Packer::edge_count(void) const{
-    return xgidx->edge_count;
-}
-
 size_t Packer::edge_vector_size(void) const{
     if (is_compacted){
         return edge_coverage_civ.size();
@@ -453,7 +457,7 @@ size_t Packer::edge_coverage(size_t i) const {
 }
 
 size_t Packer::edge_coverage(Edge& e) const {
-    size_t pos = xgidx->edge_graph_idx(e);
+    size_t pos = edge_index(e);
     if (is_compacted){
         return edge_coverage_civ[pos];
     }
@@ -494,6 +498,12 @@ vector<Edit> Packer::edits_at_position(size_t i) const {
     return edits;
 }
 
+size_t Packer::edge_index(const Edge& e) const {
+    edge_t edge = make_pair(graph->get_handle(e.from(), e.from_start()),
+                            graph->get_handle(e.to(), e.to_end()));
+    return dynamic_cast<const VectorizableHandleGraph*>(graph)->edge_index(edge);
+}
+
 ostream& Packer::as_table(ostream& out, bool show_edits, vector<vg::id_t> node_ids) {
 #ifdef debug
     cerr << "Packer table of " << coverage_civ.size() << " rows:" << 
@@ -508,11 +518,11 @@ ostream& Packer::as_table(ostream& out, bool show_edits, vector<vg::id_t> node_i
     out << endl;
     // write the coverage as a vector
     for (size_t i = 0; i < coverage_civ.size(); ++i) {
-        id_t node_id = xgidx->node_at_seq_pos(i+1);
+        nid_t node_id = dynamic_cast<const VectorizableHandleGraph*>(graph)->node_at_vector_offset(i+1);
         if (!node_ids.empty() && find(node_ids.begin(), node_ids.end(), node_id) == node_ids.end()) {
             continue;
         }
-        size_t offset = i - xgidx->node_start(node_id);
+        size_t offset = i - dynamic_cast<const VectorizableHandleGraph*>(graph)->node_vector_offset(node_id);
         out << i << "\t" << node_id << "\t" << offset << "\t" << coverage_civ[i];
         if (show_edits) {
             out << "\t" << count(edit_csas[bin_for_position(i)], pos_key(i));
@@ -534,12 +544,12 @@ ostream& Packer::as_edge_table(ostream& out, vector<vg::id_t> node_ids) {
         << "to.id" << "\t"
         << "to.end" << "\t"
         << "coverage" << endl;
-    xgidx->for_each_edge([&](const edge_t& handle_edge) {
+    graph->for_each_edge([&](const edge_t& handle_edge) {
             Edge edge;
-            edge.set_from(xgidx->get_id(handle_edge.first));
-            edge.set_from_start(xgidx->get_is_reverse(handle_edge.first));
-            edge.set_to(xgidx->get_id(handle_edge.second));
-            edge.set_to_end(xgidx->get_is_reverse(handle_edge.second));
+            edge.set_from(graph->get_id(handle_edge.first));
+            edge.set_from_start(graph->get_is_reverse(handle_edge.first));
+            edge.set_to(graph->get_id(handle_edge.second));
+            edge.set_to_end(graph->get_is_reverse(handle_edge.second));
             
             if (edge.from() <= edge.to() && (node_ids.empty() ||
                     find(node_ids.begin(), node_ids.end(), edge.from()) != node_ids.end() ||
@@ -548,7 +558,7 @@ ostream& Packer::as_edge_table(ostream& out, vector<vg::id_t> node_ids) {
                     << edge.from_start() << "\t"
                     << edge.to() << "\t"
                     << edge.to_end() << "\t"
-                    << edge_coverage_civ[xgidx->edge_graph_idx(edge)]
+                    << edge_coverage_civ[edge_index(edge)]
                     << endl;
             }
             return true;
