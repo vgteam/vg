@@ -159,6 +159,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:ab9901414b3a22bd6fd53c5dca315f8ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a88d44e02a4cbbad030a22355239db61d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a88d44e02a4cbbad030a22355239db61d">linear_tails</a> = false</td></tr>
 <tr class="separator:a88d44e02a4cbbad030a22355239db61d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5d9de9d2f776cac9b5139a2141248bc2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a5d9de9d2f776cac9b5139a2141248bc2">skip_connectivity</a> = false</td></tr>
+<tr class="separator:a5d9de9d2f776cac9b5139a2141248bc2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4c2b4440301a0f7e4ffb6151faef3d61"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4c2b4440301a0f7e4ffb6151faef3d61">reuse_gbwt_states</a> = true</td></tr>
 <tr class="memdesc:a4c2b4440301a0f7e4ffb6151faef3d61"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use GBWT states from extensions to seed connectivity and tail searches.  <a href="#a4c2b4440301a0f7e4ffb6151faef3d61">More...</a><br/></td></tr>
 <tr class="separator:a4c2b4440301a0f7e4ffb6151faef3d61"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1245,6 +1247,19 @@ Protected Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a5d9de9d2f776cac9b5139a2141248bc2"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MinimizerMapper::skip_connectivity = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Don't try and chain up extended seeds; treat them all as sources and sinks. Can't be used with linear_tails. </p>
 
 </div>
 </div>

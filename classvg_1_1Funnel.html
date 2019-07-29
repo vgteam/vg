@@ -168,9 +168,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:acea7ce7b301c778eba610288a096e61c"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#acea7ce7b301c778eba610288a096e61c">latest</a> () const </td></tr>
 <tr class="memdesc:acea7ce7b301c778eba610288a096e61c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the index of the most recent item created in the current stage.  <a href="#acea7ce7b301c778eba610288a096e61c">More...</a><br/></td></tr>
 <tr class="separator:acea7ce7b301c778eba610288a096e61c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a806cb0c57762ca6c6e304539155b20f3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a806cb0c57762ca6c6e304539155b20f3">for_each_stage</a> (const function&lt; void(const string &amp;, size_t)&gt; &amp;callback) const </td></tr>
-<tr class="memdesc:a806cb0c57762ca6c6e304539155b20f3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Call the given callback with stage name and number of results at that stage, for each stage.  <a href="#a806cb0c57762ca6c6e304539155b20f3">More...</a><br/></td></tr>
-<tr class="separator:a806cb0c57762ca6c6e304539155b20f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af460f1d8d1c76111c5fe65b2c6eea30e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#af460f1d8d1c76111c5fe65b2c6eea30e">for_each_stage</a> (const function&lt; void(const string &amp;, const vector&lt; size_t &gt; &amp;)&gt; &amp;callback) const </td></tr>
+<tr class="memdesc:af460f1d8d1c76111c5fe65b2c6eea30e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Call the given callback with stage name, and vector of result item sizes at that stage, for each stage.  <a href="#af460f1d8d1c76111c5fe65b2c6eea30e">More...</a><br/></td></tr>
+<tr class="separator:af460f1d8d1c76111c5fe65b2c6eea30e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab38eefb0fa53720d2ab80793a2c13762"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#ab38eefb0fa53720d2ab80793a2c13762">to_dot</a> (ostream &amp;out)</td></tr>
 <tr class="separator:ab38eefb0fa53720d2ab80793a2c13762"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -258,21 +258,21 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a806cb0c57762ca6c6e304539155b20f3"></a>
+<a class="anchor" id="af460f1d8d1c76111c5fe65b2c6eea30e"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">void vg::Funnel::for_each_stage </td>
           <td>(</td>
-          <td class="paramtype">const function&lt; void(const string &amp;, size_t)&gt; &amp;&#160;</td>
+          <td class="paramtype">const function&lt; void(const string &amp;, const vector&lt; size_t &gt; &amp;)&gt; &amp;&#160;</td>
           <td class="paramname"><em>callback</em></td><td>)</td>
           <td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Call the given callback with stage name and number of results at that stage, for each stage. </p>
+<p>Call the given callback with stage name, and vector of result item sizes at that stage, for each stage. </p>
 
 </div>
 </div>

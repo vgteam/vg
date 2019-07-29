@@ -49,6 +49,7 @@ var searchData=
   ['sites',['sites',['../classvg_1_1PhasedGenome_1_1Haplotype.html#a7fee7818b260154898be386649d3bfe7',1,'vg::PhasedGenome::Haplotype']]],
   ['size',['size',['../classvg_1_1DepthMap.html#acb11be955a40c316fcdd1c261bfb639e',1,'vg::DepthMap']]],
   ['skip_5falt',['skip_alt',['../classvg_1_1VCFTraversalFinder.html#a84e59fb19522583376ea7ca292a5a155',1,'vg::VCFTraversalFinder']]],
+  ['skip_5fconnectivity',['skip_connectivity',['../classvg_1_1MinimizerMapper.html#a5d9de9d2f776cac9b5139a2141248bc2',1,'vg::MinimizerMapper']]],
   ['skip_5fstructural_5fduplications',['skip_structural_duplications',['../classvg_1_1VariantAdder.html#a0c90a9845a662358588f517e2cf91501',1,'vg::VariantAdder']]],
   ['snarl',['snarl',['../structvg_1_1ReplaceSnarlHaplotypeCommand.html#aee85ad3c21e883f05b67c62fbf05be72',1,'vg::ReplaceSnarlHaplotypeCommand::snarl()'],['../structvg_1_1Visit.html#a7e671bbc7437a16dd3549a6fc49fd2a9',1,'vg::Visit::snarl()']]],
   ['snarl_5findexes',['snarl_indexes',['../classvg_1_1MinimumDistanceIndex.html#af4069c481be448a5ad38cd514df04fb5',1,'vg::MinimumDistanceIndex']]],
