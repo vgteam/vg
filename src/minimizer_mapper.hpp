@@ -26,12 +26,12 @@ class MinimizerMapper : public AlignerClient {
 public:
 
     /**
-     * Construct a new MinimizerMapper using the given indexes. The XG index can be nullptr,
+     * Construct a new MinimizerMapper using the given indexes. The PathPositionhandleGraph can be nullptr,
      * as we only use it for correctness tracking.
      */
 
     MinimizerMapper(const GBWTGraph& graph, const MinimizerIndex& minimizer_index,
-         MinimumDistanceIndex& distance_index, const XG* xg_index = nullptr);
+         MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
      * Map the given read, and send output to the given AlignmentEmitter. May be run from any thread.
@@ -98,7 +98,7 @@ public:
     
 protected:
     // These are our indexes
-    const XG* xg_index; // Can be nullptr; only needed for correctness tracking.
+    const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const MinimizerIndex& minimizer_index;
     MinimumDistanceIndex& distance_index;
 
