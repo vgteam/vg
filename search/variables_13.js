@@ -35,7 +35,6 @@ var searchData=
   ['show_5fdna',['show_dna',['../classvg_1_1Viz.html#a2b8e6f510bca9925fd39e37feddce251',1,'vg::Viz']]],
   ['show_5fpaths',['show_paths',['../classvg_1_1Viz.html#a501ab25fb94a4d3abd508af7bc77aac3',1,'vg::Viz']]],
   ['show_5fprogress',['show_progress',['../classvg_1_1Genotyper.html#a72599c00acaed553e0d235e5c73d4b82',1,'vg::Genotyper::show_progress()'],['../classvg_1_1Progressive.html#a6653625f496832c4cb8711185d5e04cb',1,'vg::Progressive::show_progress()'],['../classvg_1_1VGset.html#aa848e2230f2d5c016c0a816cfa14501e',1,'vg::VGset::show_progress()']]],
-  ['side_5fthread_5fwt',['side_thread_wt',['../classvg_1_1XG.html#aabbd6ca4070e02125c8779fb6502a192',1,'vg::XG']]],
   ['sigma',['sigma',['../classvg_1_1FragmentLengthDistribution.html#a6462bb11645a893b5dc2de057714d8f6',1,'vg::FragmentLengthDistribution']]],
   ['simplify_5ftopologies',['simplify_topologies',['../classvg_1_1MultipathMapper.html#a5f865a27bd34ffce2e2ea1d05fc02b43',1,'vg::MultipathMapper']]],
   ['simultaneous_5fpair_5falignment',['simultaneous_pair_alignment',['../classvg_1_1Mapper.html#ae83170a63789f8984e82e225486ca5bd',1,'vg::Mapper']]],

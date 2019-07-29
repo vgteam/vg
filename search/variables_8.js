@@ -1,7 +1,5 @@
 var searchData=
 [
-  ['h_5fciv',['h_civ',['../classvg_1_1XG.html#a5f52e8487fc5fb07a7a6060023c83338',1,'vg::XG']]],
-  ['h_5fiv',['h_iv',['../classvg_1_1XG.html#a43178857ba5c8e62ea378091f0a3ac33',1,'vg::XG']]],
   ['handle',['handle',['../classvg_1_1io_1_1BlockedGzipInputStream.html#a2d575dc899c6ef50c6ffe7c374573fb9',1,'vg::io::BlockedGzipInputStream::handle()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a726e457d2e98e4ca6ffa742a4378949f',1,'vg::io::BlockedGzipOutputStream::handle()']]],
   ['handle_5fbase_5foption',['handle_base_option',['../classvg_1_1ConfigurableParser.html#a0c39f36cf64d91a336afaac0604ff9f0',1,'vg::ConfigurableParser']]],
   ['handle_5fgraph',['handle_graph',['../classvg_1_1TargetValueSearch.html#a99dd4b74b5894a228a6d31174ca322de',1,'vg::TargetValueSearch::handle_graph()'],['../classvg_1_1MinDistanceClusterer.html#a6bc0aa3fb6df2824a2fe88f941312f09',1,'vg::MinDistanceClusterer::handle_graph()']]],
@@ -11,7 +9,6 @@ var searchData=
   ['haploid_5fprior_5flogprob',['haploid_prior_logprob',['../classvg_1_1Genotyper.html#a76e36b8cc1f5a8a5522c5ae3f57b5464',1,'vg::Genotyper']]],
   ['haplotype',['haplotype',['../structvg_1_1AppendHaplotypeCommand.html#a5dcde06b8eb329a38ae49f612218ad90',1,'vg::AppendHaplotypeCommand::haplotype()'],['../structvg_1_1ReplaceSnarlHaplotypeCommand.html#a096fd6e4d5329e8242d4d1a69e95314b',1,'vg::ReplaceSnarlHaplotypeCommand::haplotype()']]],
   ['haplotype_5fconsistency_5fexponent',['haplotype_consistency_exponent',['../classvg_1_1BaseMapper.html#a33465e76a17e2580a6e095f3373239c5',1,'vg::BaseMapper']]],
-  ['haplotype_5fcount',['haplotype_count',['../classvg_1_1XG.html#aa8a0a74ee9e79689de087bac7076bda6',1,'vg::XG']]],
   ['haplotype_5fnumber',['haplotype_number',['../classvg_1_1PhasedGenome_1_1iterator.html#a3d0bbf671bf2801e44d23fea4da0e397',1,'vg::PhasedGenome::iterator']]],
   ['haplotype_5forigins',['haplotype_origins',['../structvg_1_1TranscriptPath.html#a787dd66418a70a203596199441c45c29',1,'vg::TranscriptPath']]],
   ['haplotypes',['haplotypes',['../classvg_1_1SnarlState.html#a98f04166481311709d9a8d3b05b0245e',1,'vg::SnarlState::haplotypes()'],['../classvg_1_1PhasedGenome.html#aa7b2bebc28cc37da09216fca8361c75c',1,'vg::PhasedGenome::haplotypes()']]],

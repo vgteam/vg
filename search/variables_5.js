@@ -12,7 +12,7 @@ var searchData=
   ['edge_5fpileups',['edge_pileups',['../structvg_1_1Pileup.html#af21485035738e0f7c01912f4416138b7',1,'vg::Pileup']]],
   ['edge_5fsupports',['edge_supports',['../structvg_1_1SupportAugmentedGraph.html#a8ad39feeefa25e87a09571524f0467ef',1,'vg::SupportAugmentedGraph']]],
   ['edge_5fweight',['edge_weight',['../structvg_1_1FlowSort_1_1WeightedGraph.html#a0a343b1685fe587b3ddd3e68a8c1e456',1,'vg::FlowSort::WeightedGraph']]],
-  ['edges',['edges',['../classhaplo_1_1hDP__graph__accessor.html#a920b6cdc9bace444062c195106c95918',1,'haplo::hDP_graph_accessor::edges()'],['../classvg_1_1PathNode.html#a6cb73afb96a71fde67792e70c3a6eed1',1,'vg::PathNode::edges()']]],
+  ['edges',['edges',['../classvg_1_1PathNode.html#a6cb73afb96a71fde67792e70c3a6eed1',1,'vg::PathNode']]],
   ['edges_5ffrom',['edges_from',['../classvg_1_1MEMClusterer_1_1HitNode.html#a08f1cb5b86c27e7b763d16bcaeff2555',1,'vg::MEMClusterer::HitNode']]],
   ['edges_5fin_5fnodes',['edges_in_nodes',['../structvg_1_1FlowSort_1_1WeightedGraph.html#a66f3b9dc262d89dfedae8189e8869d9e',1,'vg::FlowSort::WeightedGraph']]],
   ['edges_5fon_5fend',['edges_on_end',['../classvg_1_1VG.html#a947ad1a02ca5be020879d56976a00e2a',1,'vg::VG']]],

@@ -75,7 +75,6 @@ var searchData=
   ['current_5fid',['current_id',['../classvg_1_1VG.html#a93f069b1a683a86ff2981a7f340ac009',1,'vg::VG']]],
   ['current_5fnode_5fid',['current_node_id',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#afbd1560242a69c0b36dbe0f6ffb81684',1,'vg::BandedGlobalAligner::BABuilder']]],
   ['current_5fnode_5fsequence',['current_node_sequence',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#a47a70166200af736bc64f4cc7adbfdad',1,'vg::BandedGlobalAligner::BABuilder']]],
-  ['current_5fside',['current_side',['../structvg_1_1XG_1_1ThreadSearchState.html#a5105fd461ab33c971776cd193e15838f',1,'vg::XG::ThreadSearchState']]],
   ['cursor_5fpool',['cursor_pool',['../classvg_1_1IndexedVG.html#a62d27a5ec1f917733604d724ab413f7f',1,'vg::IndexedVG']]],
   ['cursor_5fpool_5fmutex',['cursor_pool_mutex',['../classvg_1_1IndexedVG.html#a0e1a3526d6d76ea816b5cc579ae39227',1,'vg::IndexedVG']]],
   ['cursor_5fstreams',['cursor_streams',['../classvg_1_1IndexedVG.html#a73bae46f21d980ec8b4f198396c8060a',1,'vg::IndexedVG']]]

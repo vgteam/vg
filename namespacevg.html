@@ -632,8 +632,8 @@ std::vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> * &gt; &gt;&
 <tr class="separator:a7378a177b4ed2e7be87e02a9bfcb7d4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a449aa64ac606119e59f71cecb8a3b218"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a449aa64ac606119e59f71cecb8a3b218">VectorizableHandleGraph</a> = <a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html">handlegraph::VectorizableHandleGraph</a></td></tr>
 <tr class="separator:a449aa64ac606119e59f71cecb8a3b218"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9c9577785d47a752c704a282a02ed2ca"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9c9577785d47a752c704a282a02ed2ca">thread_t</a> = vector&lt; <a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">vg::XG::ThreadMapping</a> &gt;</td></tr>
-<tr class="separator:a9c9577785d47a752c704a282a02ed2ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a31b8b476fb46de6667b26514b7b24fd2"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a> = vector&lt; gbwt::node_type &gt;</td></tr>
+<tr class="separator:a31b8b476fb46de6667b26514b7b24fd2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa9d8b2ece3ab50a38656273662553f2d"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa9d8b2ece3ab50a38656273662553f2d">Chain</a> = vector&lt; pair&lt; const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *, bool &gt;&gt;</td></tr>
 <tr class="separator:aa9d8b2ece3ab50a38656273662553f2d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9b677be2f409ffcbefd5d9f6149c80c1"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9b677be2f409ffcbefd5d9f6149c80c1">GAMIndex</a> = <a class="el" href="classvg_1_1StreamIndex.html">StreamIndex</a>&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;</td></tr>
@@ -1074,9 +1074,6 @@ size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el
 <tr class="memitem:ae7b5f995eb3e1e824cc4e7db99c81042"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae7b5f995eb3e1e824cc4e7db99c81042">gbwt_to_pos</a> (gbwt::node_type node, size_t <a class="el" href="namespacevg.html#a416939020600ce2996331c350f1fe68c">offset</a>)</td></tr>
 <tr class="memdesc:ae7b5f995eb3e1e824cc4e7db99c81042"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert gbwt::node_type and an offset as size_t to pos_t.  <a href="#ae7b5f995eb3e1e824cc4e7db99c81042">More...</a><br/></td></tr>
 <tr class="separator:ae7b5f995eb3e1e824cc4e7db99c81042"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8429c767f659bba3bdcadc3555e66b61"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">XG::ThreadMapping</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8429c767f659bba3bdcadc3555e66b61">gbwt_to_thread_mapping</a> (gbwt::node_type node)</td></tr>
-<tr class="memdesc:a8429c767f659bba3bdcadc3555e66b61"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert gbwt::node_type to <a class="el" href="classvg_1_1XG.html">XG</a>:ThreadMapping.  <a href="#a8429c767f659bba3bdcadc3555e66b61">More...</a><br/></td></tr>
-<tr class="separator:a8429c767f659bba3bdcadc3555e66b61"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1fa5cc80bff735a8803aa9f564c29994"><td class="memItemLeft" align="right" valign="top">gbwt::node_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1fa5cc80bff735a8803aa9f564c29994">handle_to_gbwt</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> handle)</td></tr>
 <tr class="memdesc:a1fa5cc80bff735a8803aa9f564c29994"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert handle_t to gbwt::node_type.  <a href="#a1fa5cc80bff735a8803aa9f564c29994">More...</a><br/></td></tr>
 <tr class="separator:a1fa5cc80bff735a8803aa9f564c29994"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1176,28 +1173,26 @@ size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el
 <tr class="memitem:a89c2bb28b708cb4acf67eabfaa4b0168"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a89c2bb28b708cb4acf67eabfaa4b0168">flip_doubly_reversed_edges</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;graph)</td></tr>
 <tr class="memdesc:a89c2bb28b708cb4acf67eabfaa4b0168"><td class="mdescLeft">&#160;</td><td class="mdescRight">clean up doubly-reversed edges  <a href="#a89c2bb28b708cb4acf67eabfaa4b0168">More...</a><br/></td></tr>
 <tr class="separator:a89c2bb28b708cb4acf67eabfaa4b0168"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a132131bea46759b5923d3523cd050640"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a132131bea46759b5923d3523cd050640">trace_haplotypes_and_paths</a> (<a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;index, const gbwt::GBWT *haplotype_database, <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">vg::id_t</a> start_node, int extend_distance, <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;out_graph, map&lt; string, int &gt; &amp;out_thread_frequencies, bool expand_graph)</td></tr>
-<tr class="separator:a132131bea46759b5923d3523cd050640"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae13a9bf44798922e312ab3e20bd2cffd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae13a9bf44798922e312ab3e20bd2cffd">output_haplotype_counts</a> (ostream &amp;annotation_ostream, vector&lt; pair&lt; <a class="el" href="namespacevg.html#a9c9577785d47a752c704a282a02ed2ca">thread_t</a>, int &gt;&gt; &amp;haplotype_list, <a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;index)</td></tr>
-<tr class="separator:ae13a9bf44798922e312ab3e20bd2cffd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8ef12e0becbd9cf010e3858f77017619"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Graph.html">Graph</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8ef12e0becbd9cf010e3858f77017619">output_graph_with_embedded_paths</a> (vector&lt; pair&lt; <a class="el" href="namespacevg.html#a9c9577785d47a752c704a282a02ed2ca">thread_t</a>, int &gt;&gt; &amp;haplotype_list, <a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;index)</td></tr>
+<tr class="memitem:ac7060ce01b6563be35e3b3806859d7f2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac7060ce01b6563be35e3b3806859d7f2">trace_haplotypes_and_paths</a> (<a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;index, const gbwt::GBWT &amp;haplotype_database, <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">vg::id_t</a> start_node, int extend_distance, <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;out_graph, map&lt; string, int &gt; &amp;out_thread_frequencies, bool expand_graph)</td></tr>
+<tr class="separator:ac7060ce01b6563be35e3b3806859d7f2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae2d79bdac899f70214959ef92dbbad2f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae2d79bdac899f70214959ef92dbbad2f">output_haplotype_counts</a> (ostream &amp;annotation_ostream, vector&lt; pair&lt; <a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a>, int &gt;&gt; &amp;haplotype_list)</td></tr>
+<tr class="separator:ae2d79bdac899f70214959ef92dbbad2f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8ef12e0becbd9cf010e3858f77017619"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Graph.html">Graph</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8ef12e0becbd9cf010e3858f77017619">output_graph_with_embedded_paths</a> (vector&lt; pair&lt; <a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a>, int &gt;&gt; &amp;haplotype_list, <a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;index)</td></tr>
 <tr class="separator:a8ef12e0becbd9cf010e3858f77017619"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3648f2fdf779ece62fcbcaf0d5f48747"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3648f2fdf779ece62fcbcaf0d5f48747">output_graph_with_embedded_paths</a> (ostream &amp;subgraph_ostream, vector&lt; pair&lt; <a class="el" href="namespacevg.html#a9c9577785d47a752c704a282a02ed2ca">thread_t</a>, int &gt;&gt; &amp;haplotype_list, <a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;index, bool json)</td></tr>
+<tr class="memitem:a3648f2fdf779ece62fcbcaf0d5f48747"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3648f2fdf779ece62fcbcaf0d5f48747">output_graph_with_embedded_paths</a> (ostream &amp;subgraph_ostream, vector&lt; pair&lt; <a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a>, int &gt;&gt; &amp;haplotype_list, <a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;index, bool json)</td></tr>
 <tr class="separator:a3648f2fdf779ece62fcbcaf0d5f48747"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3a89f7a5b0e614ab9f5f270ea0e6514c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3a89f7a5b0e614ab9f5f270ea0e6514c">thread_to_graph_spanned</a> (<a class="el" href="namespacevg.html#a9c9577785d47a752c704a282a02ed2ca">thread_t</a> &amp;t, <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;g, <a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;index)</td></tr>
+<tr class="memitem:a3a89f7a5b0e614ab9f5f270ea0e6514c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3a89f7a5b0e614ab9f5f270ea0e6514c">thread_to_graph_spanned</a> (<a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a> &amp;t, <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;g, <a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;index)</td></tr>
 <tr class="separator:a3a89f7a5b0e614ab9f5f270ea0e6514c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2adfa9e81b2553fefdd5e1d6b24c7a77"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2adfa9e81b2553fefdd5e1d6b24c7a77">add_thread_nodes_to_set</a> (<a class="el" href="namespacevg.html#a9c9577785d47a752c704a282a02ed2ca">thread_t</a> &amp;t, set&lt; int64_t &gt; &amp;nodes)</td></tr>
+<tr class="memitem:a2adfa9e81b2553fefdd5e1d6b24c7a77"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2adfa9e81b2553fefdd5e1d6b24c7a77">add_thread_nodes_to_set</a> (<a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a> &amp;t, set&lt; int64_t &gt; &amp;nodes)</td></tr>
 <tr class="separator:a2adfa9e81b2553fefdd5e1d6b24c7a77"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afe2d6096dfe672a486e44df018c713c2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afe2d6096dfe672a486e44df018c713c2">add_thread_edges_to_set</a> (<a class="el" href="namespacevg.html#a9c9577785d47a752c704a282a02ed2ca">thread_t</a> &amp;t, set&lt; pair&lt; int, int &gt; &gt; &amp;edges)</td></tr>
+<tr class="memitem:afe2d6096dfe672a486e44df018c713c2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afe2d6096dfe672a486e44df018c713c2">add_thread_edges_to_set</a> (<a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a> &amp;t, set&lt; pair&lt; int, int &gt; &gt; &amp;edges)</td></tr>
 <tr class="separator:afe2d6096dfe672a486e44df018c713c2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a87b12b186c32823100be26015cb7af24"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a87b12b186c32823100be26015cb7af24">construct_graph_from_nodes_and_edges</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;g, <a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;index, set&lt; int64_t &gt; &amp;nodes, set&lt; pair&lt; int, int &gt; &gt; &amp;edges)</td></tr>
 <tr class="separator:a87b12b186c32823100be26015cb7af24"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a85c0d9e422c32e3692301aaa831acdc3"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a85c0d9e422c32e3692301aaa831acdc3">path_from_thread_t</a> (<a class="el" href="namespacevg.html#a9c9577785d47a752c704a282a02ed2ca">thread_t</a> &amp;t, <a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;index)</td></tr>
+<tr class="memitem:a85c0d9e422c32e3692301aaa831acdc3"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a85c0d9e422c32e3692301aaa831acdc3">path_from_thread_t</a> (<a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a> &amp;t, <a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;index)</td></tr>
 <tr class="separator:a85c0d9e422c32e3692301aaa831acdc3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a89628b01042afec4f2d6758196092cbe"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; <a class="el" href="namespacevg.html#a9c9577785d47a752c704a282a02ed2ca">thread_t</a>, int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a89628b01042afec4f2d6758196092cbe">list_haplotypes</a> (<a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;index, <a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">XG::ThreadMapping</a> start_node, int extend_distance)</td></tr>
-<tr class="separator:a89628b01042afec4f2d6758196092cbe"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acc8b302c2eedcaebee54239f0be76971"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; <a class="el" href="namespacevg.html#a9c9577785d47a752c704a282a02ed2ca">thread_t</a>, int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acc8b302c2eedcaebee54239f0be76971">list_haplotypes</a> (<a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;index, const gbwt::GBWT &amp;haplotype_database, <a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">XG::ThreadMapping</a> start_node, int extend_distance)</td></tr>
-<tr class="separator:acc8b302c2eedcaebee54239f0be76971"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac2976d103fa63013cafacea493cbc7ae"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; <a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a>, int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac2976d103fa63013cafacea493cbc7ae">list_haplotypes</a> (<a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;index, const gbwt::GBWT &amp;haplotype_database, gbwt::node_type start_node, int extend_distance)</td></tr>
+<tr class="separator:ac2976d103fa63013cafacea493cbc7ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a64eca16947663155295546927b631e56"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a64eca16947663155295546927b631e56">node_path_position</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, string &amp;path_name, int64_t &amp;position, bool backward, int64_t &amp;<a class="el" href="namespacevg.html#a416939020600ce2996331c350f1fe68c">offset</a>)</td></tr>
 <tr class="separator:a64eca16947663155295546927b631e56"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3ad3588bcc84b46c6ed107e604f9128e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3ad3588bcc84b46c6ed107e604f9128e">index_positions</a> (<a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph, map&lt; long, <a class="el" href="structvg_1_1Node.html">Node</a> * &gt; &amp;node_path, map&lt; long, <a class="el" href="structvg_1_1Edge.html">Edge</a> * &gt; &amp;edge_path)</td></tr>
@@ -1896,10 +1891,6 @@ int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a clas
 <tr class="separator:a56e6095cde0db8064d4ce4894db855d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a111cf4598c5fbe7d72f2b640177938af"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a111cf4598c5fbe7d72f2b640177938af">to_text</a> (ostream &amp;out, <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;graph)</td></tr>
 <tr class="separator:a111cf4598c5fbe7d72f2b640177938af"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a40c6279abf848287e1c0535f44408801"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a40c6279abf848287e1c0535f44408801">serialize_vector</a> (const <a class="el" href="classvg_1_1XG.html#a5c93c530fd0dbb64ae022e5197602c3f">XG::rank_select_int_vector</a> &amp;to_serialize, ostream &amp;out, sdsl::structure_tree_node *parent, const std::string name)</td></tr>
-<tr class="separator:a40c6279abf848287e1c0535f44408801"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a11ead1b6fdf87eae0976bf49f88bd951"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a11ead1b6fdf87eae0976bf49f88bd951">deserialize_rsiv</a> (<a class="el" href="classvg_1_1XG.html#a5c93c530fd0dbb64ae022e5197602c3f">XG::rank_select_int_vector</a> &amp;target, istream &amp;in)</td></tr>
-<tr class="separator:a11ead1b6fdf87eae0976bf49f88bd951"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9a4fbe0baff25b6631c4e594c607d3ac"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9a4fbe0baff25b6631c4e594c607d3ac">edges_equivalent</a> (const <a class="el" href="structvg_1_1Edge.html">Edge</a> &amp;e1, const <a class="el" href="structvg_1_1Edge.html">Edge</a> &amp;e2)</td></tr>
 <tr class="separator:a9a4fbe0baff25b6631c4e594c607d3ac"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae370b3a708004dbc2280cd11fb3e4fa7"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae370b3a708004dbc2280cd11fb3e4fa7">relative_orientation</a> (const <a class="el" href="structvg_1_1Edge.html">Edge</a> &amp;e1, const <a class="el" href="structvg_1_1Edge.html">Edge</a> &amp;e2)</td></tr>
@@ -2274,12 +2265,12 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a9c9577785d47a752c704a282a02ed2ca"></a>
+<a class="anchor" id="a31b8b476fb46de6667b26514b7b24fd2"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="namespacevg.html#a9c9577785d47a752c704a282a02ed2ca">vg::thread_t</a> = typedef vector&lt;<a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">vg::XG::ThreadMapping</a>&gt;</td>
+          <td class="memname">using <a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">vg::thread_t</a> = typedef vector&lt;gbwt::node_type&gt;</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -2549,7 +2540,7 @@ Variables</h2></td></tr>
         <tr>
           <td class="memname">void vg::add_thread_edges_to_set </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="trace__main_8cpp.html#a3743fad275c2ee72cd0a0a638aea17e3">thread_t</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="trace__main_8cpp.html#a02bec433061240167abf72c66d6c253e">thread_t</a> &amp;&#160;</td>
           <td class="paramname"><em>t</em>, </td>
         </tr>
         <tr>
@@ -2575,7 +2566,7 @@ Variables</h2></td></tr>
         <tr>
           <td class="memname">void vg::add_thread_nodes_to_set </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="trace__main_8cpp.html#a3743fad275c2ee72cd0a0a638aea17e3">thread_t</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="trace__main_8cpp.html#a02bec433061240167abf72c66d6c253e">thread_t</a> &amp;&#160;</td>
           <td class="paramname"><em>t</em>, </td>
         </tr>
         <tr>
@@ -5228,32 +5219,6 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a11ead1b6fdf87eae0976bf49f88bd951"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::deserialize_rsiv </td>
-          <td>(</td>
-          <td class="paramtype">XG::rank_select_int_vector &amp;&#160;</td>
-          <td class="paramname"><em>target</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">istream &amp;&#160;</td>
-          <td class="paramname"><em>in</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a class="anchor" id="a58f9a3f311a844e7a223da7e619d2937"></a>
 <div class="memitem">
 <div class="memproto">
@@ -6666,32 +6631,6 @@ template&lt;class RandomIt &gt; </div>
 </div><div class="memdoc">
 
 <p>Convert gbwt::node_type and an offset as size_t to pos_t. </p>
-
-</div>
-</div>
-<a class="anchor" id="a8429c767f659bba3bdcadc3555e66b61"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">XG::ThreadMapping</a> vg::gbwt_to_thread_mapping </td>
-          <td>(</td>
-          <td class="paramtype">gbwt::node_type&#160;</td>
-          <td class="paramname"><em>node</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Convert gbwt::node_type to <a class="el" href="classvg_1_1XG.html">XG</a>:ThreadMapping. </p>
 
 </div>
 </div>
@@ -8390,44 +8329,12 @@ template&lt;class Element &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a89628b01042afec4f2d6758196092cbe"></a>
+<a class="anchor" id="ac2976d103fa63013cafacea493cbc7ae"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt; pair&lt; <a class="el" href="namespacevg.html#a9c9577785d47a752c704a282a02ed2ca">thread_t</a>, int &gt; &gt; vg::list_haplotypes </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;&#160;</td>
-          <td class="paramname"><em>index</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">XG::ThreadMapping&#160;</td>
-          <td class="paramname"><em>start_node</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>extend_distance</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="acc8b302c2eedcaebee54239f0be76971"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt; pair&lt; <a class="el" href="namespacevg.html#a9c9577785d47a752c704a282a02ed2ca">thread_t</a>, int &gt; &gt; vg::list_haplotypes </td>
+          <td class="memname">vector&lt; pair&lt; <a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a>, int &gt; &gt; vg::list_haplotypes </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;&#160;</td>
           <td class="paramname"><em>index</em>, </td>
@@ -8441,7 +8348,7 @@ template&lt;class Element &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">XG::ThreadMapping&#160;</td>
+          <td class="paramtype">gbwt::node_type&#160;</td>
           <td class="paramname"><em>start_node</em>, </td>
         </tr>
         <tr>
@@ -11663,7 +11570,7 @@ template&lt;typename Scalar &gt; </div>
         <tr>
           <td class="memname"><a class="el" href="structvg_1_1Graph.html">Graph</a> vg::output_graph_with_embedded_paths </td>
           <td>(</td>
-          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="trace__main_8cpp.html#a3743fad275c2ee72cd0a0a638aea17e3">thread_t</a>, int &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="trace__main_8cpp.html#a02bec433061240167abf72c66d6c253e">thread_t</a>, int &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>haplotype_list</em>, </td>
         </tr>
         <tr>
@@ -11695,7 +11602,7 @@ template&lt;typename Scalar &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="trace__main_8cpp.html#a3743fad275c2ee72cd0a0a638aea17e3">thread_t</a>, int &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="trace__main_8cpp.html#a02bec433061240167abf72c66d6c253e">thread_t</a>, int &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>haplotype_list</em>, </td>
         </tr>
         <tr>
@@ -11720,7 +11627,7 @@ template&lt;typename Scalar &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="ae13a9bf44798922e312ab3e20bd2cffd"></a>
+<a class="anchor" id="ae2d79bdac899f70214959ef92dbbad2f"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -11733,14 +11640,8 @@ template&lt;typename Scalar &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="trace__main_8cpp.html#a3743fad275c2ee72cd0a0a638aea17e3">thread_t</a>, int &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>haplotype_list</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1XG.html">vg::XG</a> &amp;&#160;</td>
-          <td class="paramname"><em>index</em>&#160;</td>
+          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="trace__main_8cpp.html#a02bec433061240167abf72c66d6c253e">thread_t</a>, int &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>haplotype_list</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -12337,7 +12238,7 @@ template&lt;&gt; </div>
         <tr>
           <td class="memname"><a class="el" href="structvg_1_1Path.html">Path</a> vg::path_from_thread_t </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="trace__main_8cpp.html#a3743fad275c2ee72cd0a0a638aea17e3">thread_t</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="trace__main_8cpp.html#a02bec433061240167abf72c66d6c253e">thread_t</a> &amp;&#160;</td>
           <td class="paramname"><em>t</em>, </td>
         </tr>
         <tr>
@@ -13951,44 +13852,6 @@ template&lt;class Decoder &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a40c6279abf848287e1c0535f44408801"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::serialize_vector </td>
-          <td>(</td>
-          <td class="paramtype">const XG::rank_select_int_vector &amp;&#160;</td>
-          <td class="paramname"><em>to_serialize</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">ostream &amp;&#160;</td>
-          <td class="paramname"><em>out</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">sdsl::structure_tree_node *&#160;</td>
-          <td class="paramname"><em>parent</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::string&#160;</td>
-          <td class="paramname"><em>name</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a class="anchor" id="adea29af7b94ac90b1db0eacd908511c0"></a>
 <div class="memitem">
 <div class="memproto">
@@ -15110,7 +14973,7 @@ template&lt;typename Collection &gt; </div>
         <tr>
           <td class="memname">void vg::thread_to_graph_spanned </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="trace__main_8cpp.html#a3743fad275c2ee72cd0a0a638aea17e3">thread_t</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="trace__main_8cpp.html#a02bec433061240167abf72c66d6c253e">thread_t</a> &amp;&#160;</td>
           <td class="paramname"><em>t</em>, </td>
         </tr>
         <tr>
@@ -15812,7 +15675,7 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a132131bea46759b5923d3523cd050640"></a>
+<a class="anchor" id="ac7060ce01b6563be35e3b3806859d7f2"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -15825,7 +15688,7 @@ template&lt;typename T &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const gbwt::GBWT *&#160;</td>
+          <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
           <td class="paramname"><em>haplotype_database</em>, </td>
         </tr>
         <tr>

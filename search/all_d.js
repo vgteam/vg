@@ -254,7 +254,7 @@ var searchData=
   ['memcluster_5ft',['memcluster_t',['../classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be',1,'vg::MultipathMapper']]],
   ['memclusterer',['MEMClusterer',['../classvg_1_1MEMClusterer.html',1,'vg']]],
   ['memclusterer',['MEMClusterer',['../classvg_1_1MEMClusterer.html#ae035e62365ff4617433e18d102bec452',1,'vg::MEMClusterer']]],
-  ['memo',['memo',['../classhaplo_1_1hDP__graph__accessor.html#a4d5efa70b9c919fa007dbf62a21f2859',1,'haplo::hDP_graph_accessor::memo()'],['../classhaplo_1_1hDP__gbwt__graph__accessor.html#a382739dd7136e759c6a01725ddebd301',1,'haplo::hDP_gbwt_graph_accessor::memo()']]],
+  ['memo',['memo',['../classhaplo_1_1hDP__gbwt__graph__accessor.html#a382739dd7136e759c6a01725ddebd301',1,'haplo::hDP_gbwt_graph_accessor']]],
   ['memoizing_5fgraph_2ecpp',['memoizing_graph.cpp',['../memoizing__graph_8cpp.html',1,'']]],
   ['memoizing_5fgraph_2ehpp',['memoizing_graph.hpp',['../memoizing__graph_8hpp.html',1,'']]],
   ['memoizinggraph',['MemoizingGraph',['../classvg_1_1MemoizingGraph.html',1,'vg']]],

@@ -88,12 +88,9 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#nested-classes">Classes</a> &#124;
-<a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pub-static-attribs">Static Public Attributes</a> &#124;
-<a href="#pri-types">Private Types</a> &#124;
 <a href="#pri-methods">Private Member Functions</a> &#124;
 <a href="#pri-attribs">Private Attributes</a> &#124;
 <a href="#pri-static-attribs">Static Private Attributes</a> &#124;
@@ -118,20 +115,6 @@ Inheritance diagram for vg::XG:</div>
 </map>
  </div></div>
 <table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
-Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">ThreadMapping</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1XG_1_1ThreadSearchState.html">ThreadSearchState</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
-Public Types</h2></td></tr>
-<tr class="memitem:a5c93c530fd0dbb64ae022e5197602c3f"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a5c93c530fd0dbb64ae022e5197602c3f">rank_select_int_vector</a> = sdsl::wt_rlmn&lt; sdsl::sd_vector&lt;&gt;&gt;</td></tr>
-<tr class="separator:a5c93c530fd0dbb64ae022e5197602c3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad9dfad42be3116ad66171d24ff83585e"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#ad9dfad42be3116ad66171d24ff83585e">thread_t</a> = vector&lt; <a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">ThreadMapping</a> &gt;</td></tr>
-<tr class="separator:ad9dfad42be3116ad66171d24ff83585e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:aa45cf098b52de3e33d447d80120b0696"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#aa45cf098b52de3e33d447d80120b0696">XG</a> (void)=default</td></tr>
@@ -152,14 +135,14 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a9e8cc8c7c7d9032534c80ade311e5eca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abfe3234869b4e208ed0492bba2e50158"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1XG.html">XG</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#abfe3234869b4e208ed0492bba2e50158">operator=</a> (<a class="el" href="classvg_1_1XG.html">XG</a> &amp;&amp;other)=delete</td></tr>
 <tr class="separator:abfe3234869b4e208ed0492bba2e50158"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6b1f44c56f6c2ea61551033821fee4b2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a6b1f44c56f6c2ea61551033821fee4b2">from_stream</a> (istream &amp;in, bool validate_graph=false, bool print_graph=false, bool store_threads=false, bool is_sorted_dag=false)</td></tr>
-<tr class="separator:a6b1f44c56f6c2ea61551033821fee4b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acd7bd843f700f64d01f6be10e4e2db89"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#acd7bd843f700f64d01f6be10e4e2db89">from_graph</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;graph, bool validate_graph=false, bool print_graph=false, bool store_threads=false, bool is_sorted_dag=false)</td></tr>
-<tr class="separator:acd7bd843f700f64d01f6be10e4e2db89"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab15cf29003263d6d170e4b1de5517f5d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#ab15cf29003263d6d170e4b1de5517f5d">from_callback</a> (function&lt; void(function&lt; void(<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;)&gt;)&gt; get_chunks, bool validate_graph=false, bool print_graph=false, bool store_threads=false, bool is_sorted_dag=false)</td></tr>
-<tr class="separator:ab15cf29003263d6d170e4b1de5517f5d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3f7a2c08dbafaefb338cf049e09b7d2d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a3f7a2c08dbafaefb338cf049e09b7d2d">build</a> (vector&lt; pair&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, string &gt; &gt; &amp;node_label, unordered_map&lt; <a class="el" href="namespacevg.html#aba92839826b185dceb2e5789d618b785">side_t</a>, vector&lt; <a class="el" href="namespacevg.html#aba92839826b185dceb2e5789d618b785">side_t</a> &gt; &gt; &amp;from_to, unordered_map&lt; <a class="el" href="namespacevg.html#aba92839826b185dceb2e5789d618b785">side_t</a>, vector&lt; <a class="el" href="namespacevg.html#aba92839826b185dceb2e5789d618b785">side_t</a> &gt; &gt; &amp;to_from, map&lt; string, vector&lt; <a class="el" href="namespacevg.html#ab4a38bfa82e060b258aa53d0cc4ed695">trav_t</a> &gt; &gt; &amp;path_nodes, unordered_set&lt; string &gt; &amp;circular_paths, bool validate_graph, bool print_graph, bool store_threads, bool is_sorted_dag)</td></tr>
-<tr class="separator:a3f7a2c08dbafaefb338cf049e09b7d2d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a46810a3ff39e7f7377286f3e8932c2d1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a46810a3ff39e7f7377286f3e8932c2d1">from_stream</a> (istream &amp;in, bool validate_graph=false, bool print_graph=false)</td></tr>
+<tr class="separator:a46810a3ff39e7f7377286f3e8932c2d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a01de29ba133137d7999a3142cf36425f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a01de29ba133137d7999a3142cf36425f">from_graph</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;graph, bool validate_graph=false, bool print_graph=false)</td></tr>
+<tr class="separator:a01de29ba133137d7999a3142cf36425f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0836cda18183458d92379dcfdee1e256"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a0836cda18183458d92379dcfdee1e256">from_callback</a> (function&lt; void(function&lt; void(<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;)&gt;)&gt; get_chunks, bool validate_graph=false, bool print_graph=false)</td></tr>
+<tr class="separator:a0836cda18183458d92379dcfdee1e256"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af937b9b950500a948ff53ed288a6b9fe"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#af937b9b950500a948ff53ed288a6b9fe">build</a> (vector&lt; pair&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, string &gt; &gt; &amp;node_label, unordered_map&lt; <a class="el" href="namespacevg.html#aba92839826b185dceb2e5789d618b785">side_t</a>, vector&lt; <a class="el" href="namespacevg.html#aba92839826b185dceb2e5789d618b785">side_t</a> &gt; &gt; &amp;from_to, unordered_map&lt; <a class="el" href="namespacevg.html#aba92839826b185dceb2e5789d618b785">side_t</a>, vector&lt; <a class="el" href="namespacevg.html#aba92839826b185dceb2e5789d618b785">side_t</a> &gt; &gt; &amp;to_from, map&lt; string, vector&lt; <a class="el" href="namespacevg.html#ab4a38bfa82e060b258aa53d0cc4ed695">trav_t</a> &gt; &gt; &amp;path_nodes, unordered_set&lt; string &gt; &amp;circular_paths, bool validate_graph, bool print_graph)</td></tr>
+<tr class="separator:af937b9b950500a948ff53ed288a6b9fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad53add6b44b17dea551749df803d88c3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#ad53add6b44b17dea551749df803d88c3">load</a> (istream &amp;in)</td></tr>
 <tr class="separator:ad53add6b44b17dea551749df803d88c3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaa001f306e1fa927d14637ba3483199f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#aaa001f306e1fa927d14637ba3483199f">deserialize</a> (istream &amp;in)</td></tr>
@@ -451,72 +434,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a74b21858fdc2c9d0a279304aee111c28"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; size_t, vector<br class="typebreak"/>
 &lt; pair&lt; size_t, bool &gt; &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a74b21858fdc2c9d0a279304aee111c28">oriented_paths_of_node</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>) const </td></tr>
 <tr class="separator:a74b21858fdc2c9d0a279304aee111c28"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a50cfd4437052baa5ffaed2e2a5057342"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a50cfd4437052baa5ffaed2e2a5057342">set_thread_names</a> (const vector&lt; string &gt; &amp;names)</td></tr>
-<tr class="separator:a50cfd4437052baa5ffaed2e2a5057342"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a09f15194947ebb5cffe481cf085a7d11"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a09f15194947ebb5cffe481cf085a7d11">thread_name</a> (int64_t thread_id) const </td></tr>
-<tr class="separator:a09f15194947ebb5cffe481cf085a7d11"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a03c71715ff5805500b78136f3641cb8a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a03c71715ff5805500b78136f3641cb8a">set_haplotype_count</a> (size_t count)</td></tr>
-<tr class="separator:a03c71715ff5805500b78136f3641cb8a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8034d390ec570870a1e078d1a9a263ec"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a8034d390ec570870a1e078d1a9a263ec">get_haplotype_count</a> () const </td></tr>
-<tr class="separator:a8034d390ec570870a1e078d1a9a263ec"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a663e524d7c45faf0d56f59ce1c63f740"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a663e524d7c45faf0d56f59ce1c63f740">where_to</a> (int64_t current_side, int64_t visit_offset, int64_t new_side) const </td></tr>
-<tr class="separator:a663e524d7c45faf0d56f59ce1c63f740"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1807e454fc5a2c207531ddd78ba0f969"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a1807e454fc5a2c207531ddd78ba0f969">where_to</a> (int64_t current_side, int64_t visit_offset, int64_t new_side, const vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &amp;edges_into_new, const vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &amp;edges_out_of_old) const </td></tr>
-<tr class="separator:a1807e454fc5a2c207531ddd78ba0f969"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5aa441347a680911cdb289cb5c659d51"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a5aa441347a680911cdb289cb5c659d51">node_height</a> (<a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">ThreadMapping</a> <a class="el" href="classvg_1_1XG.html#a6d9e9b330aed19620673370c6e2b1308">node</a>) const </td></tr>
-<tr class="separator:a5aa441347a680911cdb289cb5c659d51"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad84dc1bc5be75ebbd87cbab7958bcefa"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#ad84dc1bc5be75ebbd87cbab7958bcefa">insert_thread</a> (const <a class="el" href="classvg_1_1XG.html#ad9dfad42be3116ad66171d24ff83585e">thread_t</a> &amp;t, const string &amp;name)</td></tr>
-<tr class="separator:ad84dc1bc5be75ebbd87cbab7958bcefa"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acdb3a113f4d5d6f8bd4b2773b5660680"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#acdb3a113f4d5d6f8bd4b2773b5660680">insert_threads_into_dag</a> (const vector&lt; <a class="el" href="classvg_1_1XG.html#ad9dfad42be3116ad66171d24ff83585e">thread_t</a> &gt; &amp;t, const vector&lt; string &gt; &amp;names)</td></tr>
-<tr class="separator:acdb3a113f4d5d6f8bd4b2773b5660680"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aeb0333a24fd5448f07165a32eacdfd86"><td class="memItemLeft" align="right" valign="top">map&lt; string, list&lt; <a class="el" href="classvg_1_1XG.html#ad9dfad42be3116ad66171d24ff83585e">thread_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#aeb0333a24fd5448f07165a32eacdfd86">extract_threads</a> (bool extract_reverse) const </td></tr>
-<tr class="memdesc:aeb0333a24fd5448f07165a32eacdfd86"><td class="mdescLeft">&#160;</td><td class="mdescRight">Read all the threads embedded in the graph.  <a href="#aeb0333a24fd5448f07165a32eacdfd86">More...</a><br/></td></tr>
-<tr class="separator:aeb0333a24fd5448f07165a32eacdfd86"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2f0fb19721c656ef0f9e12445074fee2"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1XG.html#ad9dfad42be3116ad66171d24ff83585e">thread_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a2f0fb19721c656ef0f9e12445074fee2">extract_thread</a> (const string &amp;name) const </td></tr>
-<tr class="memdesc:a2f0fb19721c656ef0f9e12445074fee2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Extract a particular thread by name. Name may not be empty.  <a href="#a2f0fb19721c656ef0f9e12445074fee2">More...</a><br/></td></tr>
-<tr class="separator:a2f0fb19721c656ef0f9e12445074fee2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a37516fbc8b01560fd89dbae5f4cc88e7"><td class="memItemLeft" align="right" valign="top">map&lt; string, list&lt; <a class="el" href="classvg_1_1XG.html#ad9dfad42be3116ad66171d24ff83585e">thread_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a37516fbc8b01560fd89dbae5f4cc88e7">extract_threads_matching</a> (const string &amp;pattern, bool <a class="el" href="namespacevg.html#a91adfc6327b5709dc73fcc7edbe5da57">reverse</a>) const </td></tr>
-<tr class="memdesc:a37516fbc8b01560fd89dbae5f4cc88e7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Extract a set of threads matching a pattern.  <a href="#a37516fbc8b01560fd89dbae5f4cc88e7">More...</a><br/></td></tr>
-<tr class="separator:a37516fbc8b01560fd89dbae5f4cc88e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9366bb8c5e44ad87453596c4abc2e2c2"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1XG.html#ad9dfad42be3116ad66171d24ff83585e">thread_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a9366bb8c5e44ad87453596c4abc2e2c2">extract_thread</a> (<a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">XG::ThreadMapping</a> <a class="el" href="classvg_1_1XG.html#a6d9e9b330aed19620673370c6e2b1308">node</a>, int64_t <a class="el" href="namespacevg.html#a416939020600ce2996331c350f1fe68c">offset</a>, int64_t max_length)</td></tr>
-<tr class="separator:a9366bb8c5e44ad87453596c4abc2e2c2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5c08eca0205cccbb94d360d6bee307b9"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a5c08eca0205cccbb94d360d6bee307b9">count_matches</a> (const <a class="el" href="classvg_1_1XG.html#ad9dfad42be3116ad66171d24ff83585e">thread_t</a> &amp;t) const </td></tr>
-<tr class="memdesc:a5c08eca0205cccbb94d360d6bee307b9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Count matches to a subthread among embedded threads.  <a href="#a5c08eca0205cccbb94d360d6bee307b9">More...</a><br/></td></tr>
-<tr class="separator:a5c08eca0205cccbb94d360d6bee307b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7c60b02e6a4068f2654bc4448d2225b6"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a7c60b02e6a4068f2654bc4448d2225b6">count_matches</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;t) const </td></tr>
-<tr class="separator:a7c60b02e6a4068f2654bc4448d2225b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac828deeea2556c77675147f27a438203"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#ac828deeea2556c77675147f27a438203">extend_search</a> (<a class="el" href="structvg_1_1XG_1_1ThreadSearchState.html">ThreadSearchState</a> &amp;state, const <a class="el" href="classvg_1_1XG.html#ad9dfad42be3116ad66171d24ff83585e">thread_t</a> &amp;t) const </td></tr>
-<tr class="separator:ac828deeea2556c77675147f27a438203"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adb70447d27d7713e47e6e005fa9856e4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#adb70447d27d7713e47e6e005fa9856e4">extend_search</a> (<a class="el" href="structvg_1_1XG_1_1ThreadSearchState.html">ThreadSearchState</a> &amp;state, const <a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">ThreadMapping</a> &amp;t) const </td></tr>
-<tr class="memdesc:adb70447d27d7713e47e6e005fa9856e4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Extend a search with the given single <a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">ThreadMapping</a>.  <a href="#adb70447d27d7713e47e6e005fa9856e4">More...</a><br/></td></tr>
-<tr class="separator:adb70447d27d7713e47e6e005fa9856e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a07e4e97d393f876dbedbc63d6b0b56a8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1XG_1_1ThreadSearchState.html">ThreadSearchState</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a07e4e97d393f876dbedbc63d6b0b56a8">select_starting</a> (const <a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">ThreadMapping</a> &amp;start) const </td></tr>
-<tr class="separator:a07e4e97d393f876dbedbc63d6b0b56a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afd6b32c20e2114982a58787ccda11cd5"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#afd6b32c20e2114982a58787ccda11cd5">id_rev_to_side</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, bool <a class="el" href="namespacevg.html#aac725dd44bc5a8f540554d4b1882c1fe">is_rev</a>) const </td></tr>
-<tr class="memdesc:afd6b32c20e2114982a58787ccda11cd5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Take a node id and side and return the side id.  <a href="#afd6b32c20e2114982a58787ccda11cd5">More...</a><br/></td></tr>
-<tr class="separator:afd6b32c20e2114982a58787ccda11cd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0f42b13bfdb74eed64f696ce305ab272"><td class="memItemLeft" align="right" valign="top">pair&lt; int64_t, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a0f42b13bfdb74eed64f696ce305ab272">side_to_id_rev</a> (int64_t side) const </td></tr>
-<tr class="memdesc:a0f42b13bfdb74eed64f696ce305ab272"><td class="mdescLeft">&#160;</td><td class="mdescRight">Take a side and give a node id / rev pair.  <a href="#a0f42b13bfdb74eed64f696ce305ab272">More...</a><br/></td></tr>
-<tr class="separator:a0f42b13bfdb74eed64f696ce305ab272"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad05ef51f6528801d83a1091de744b634"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#ad05ef51f6528801d83a1091de744b634">threads_starting_on_side</a> (int64_t side) const </td></tr>
-<tr class="memdesc:ad05ef51f6528801d83a1091de744b634"><td class="mdescLeft">&#160;</td><td class="mdescRight">The number of threads starting at this side.  <a href="#ad05ef51f6528801d83a1091de744b634">More...</a><br/></td></tr>
-<tr class="separator:ad05ef51f6528801d83a1091de744b634"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3ca2aa4040c8b9eff8c2b150122c389e"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a3ca2aa4040c8b9eff8c2b150122c389e">thread_starting_at</a> (int64_t side, int64_t <a class="el" href="namespacevg.html#a416939020600ce2996331c350f1fe68c">offset</a>) const </td></tr>
-<tr class="memdesc:a3ca2aa4040c8b9eff8c2b150122c389e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Given a side and offset, return the id of the thread starting there (or 0 if none)  <a href="#a3ca2aa4040c8b9eff8c2b150122c389e">More...</a><br/></td></tr>
-<tr class="separator:a3ca2aa4040c8b9eff8c2b150122c389e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7de9ba8b2a9dae9f6f3443dd95619422"><td class="memItemLeft" align="right" valign="top">pair&lt; int64_t, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a7de9ba8b2a9dae9f6f3443dd95619422">thread_start</a> (int64_t thread_id) const </td></tr>
-<tr class="memdesc:a7de9ba8b2a9dae9f6f3443dd95619422"><td class="mdescLeft">&#160;</td><td class="mdescRight">Given a thread id and the reverse state get the starting side and offset.  <a href="#a7de9ba8b2a9dae9f6f3443dd95619422">More...</a><br/></td></tr>
-<tr class="separator:a7de9ba8b2a9dae9f6f3443dd95619422"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a03206cad4beaaf336b3796e39b491f14"><td class="memItemLeft" align="right" valign="top">pair&lt; int64_t, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a03206cad4beaaf336b3796e39b491f14">thread_start</a> (int64_t thread_id, bool <a class="el" href="namespacevg.html#aac725dd44bc5a8f540554d4b1882c1fe">is_rev</a>) const </td></tr>
-<tr class="memdesc:a03206cad4beaaf336b3796e39b491f14"><td class="mdescLeft">&#160;</td><td class="mdescRight">Gives the thread start for the given thread.  <a href="#a03206cad4beaaf336b3796e39b491f14">More...</a><br/></td></tr>
-<tr class="separator:a03206cad4beaaf336b3796e39b491f14"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae21905d1597a6a0140ef652e8e734b8a"><td class="memItemLeft" align="right" valign="top">vector&lt; int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#ae21905d1597a6a0140ef652e8e734b8a">threads_named_starting</a> (const string &amp;pattern) const </td></tr>
-<tr class="memdesc:ae21905d1597a6a0140ef652e8e734b8a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Gives the thread ids of those whose names start with this pattern.  <a href="#ae21905d1597a6a0140ef652e8e734b8a">More...</a><br/></td></tr>
-<tr class="separator:ae21905d1597a6a0140ef652e8e734b8a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a224b21d8bab3cb0b5ca8be19ff3e7e34"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1XG_1_1ThreadSearchState.html">ThreadSearchState</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a224b21d8bab3cb0b5ca8be19ff3e7e34">select_continuing</a> (const <a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">ThreadMapping</a> &amp;start) const </td></tr>
-<tr class="separator:a224b21d8bab3cb0b5ca8be19ff3e7e34"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8914b4578ce853df9a1a873f5e73ba99"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a8914b4578ce853df9a1a873f5e73ba99">bs_dump</a> (ostream &amp;out) const </td></tr>
-<tr class="separator:a8914b4578ce853df9a1a873f5e73ba99"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1PathPositionHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1PathPositionHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">handlegraph::PathPositionHandleGraph</a></td></tr>
 <tr class="memitem:a9816f56f1626d7f8c14e732dfb9d83af inherit pub_methods_classhandlegraph_1_1PathPositionHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html#a9816f56f1626d7f8c14e732dfb9d83af">for_each_step_position_on_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;, const bool &amp;, const size_t &amp;)&gt; &amp;iteratee) const </td></tr>
 <tr class="separator:a9816f56f1626d7f8c14e732dfb9d83af inherit pub_methods_classhandlegraph_1_1PathPositionHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -578,22 +495,13 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a4c84d9a5a77c2e5ec7b156a8ed66cad6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1083a6f52e5a079de4bf37e39953271e"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a1083a6f52e5a079de4bf37e39953271e">path_count</a> = 0</td></tr>
 <tr class="separator:a1083a6f52e5a079de4bf37e39953271e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adb18bde1d040f4bb397019eaebc9713a"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#adb18bde1d040f4bb397019eaebc9713a">start_marker</a> = '#'</td></tr>
-<tr class="separator:adb18bde1d040f4bb397019eaebc9713a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac70328f337e05818e2d799fd280e8a85"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#ac70328f337e05818e2d799fd280e8a85">end_marker</a> = '$'</td></tr>
-<tr class="separator:ac70328f337e05818e2d799fd280e8a85"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
-<tr class="memitem:a9a373f2d49574fa49a5598f7c1c9f620"><td class="memItemLeft" align="right" valign="top">static const uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a9a373f2d49574fa49a5598f7c1c9f620">MAX_INPUT_VERSION</a> = 11</td></tr>
+<tr class="memitem:a9a373f2d49574fa49a5598f7c1c9f620"><td class="memItemLeft" align="right" valign="top">static const uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a9a373f2d49574fa49a5598f7c1c9f620">MAX_INPUT_VERSION</a> = 12</td></tr>
 <tr class="separator:a9a373f2d49574fa49a5598f7c1c9f620"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af2d9aba3cc55af7370e0ea7d1fba4dac"><td class="memItemLeft" align="right" valign="top">static const uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#af2d9aba3cc55af7370e0ea7d1fba4dac">OUTPUT_VERSION</a> = 11</td></tr>
+<tr class="memitem:af2d9aba3cc55af7370e0ea7d1fba4dac"><td class="memItemLeft" align="right" valign="top">static const uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#af2d9aba3cc55af7370e0ea7d1fba4dac">OUTPUT_VERSION</a> = 12</td></tr>
 <tr class="separator:af2d9aba3cc55af7370e0ea7d1fba4dac"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-types"></a>
-Private Types</h2></td></tr>
-<tr class="memitem:a0ff7aac17c984f966fd4193e200bf310"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a0ff7aac17c984f966fd4193e200bf310">destination_t</a> = size_t</td></tr>
-<tr class="separator:a0ff7aac17c984f966fd4193e200bf310"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -601,21 +509,6 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:addfabc9c1a716fdfe82ebd7208ab0e28"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad54e24ce01372e702bd554d4eb1f4b0e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#ad54e24ce01372e702bd554d4eb1f4b0e">do_edges</a> (const size_t &amp;g, const size_t &amp;start, const size_t &amp;count, bool is_to, bool want_left, bool is_reverse, const function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee) const </td></tr>
 <tr class="separator:ad54e24ce01372e702bd554d4eb1f4b0e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a30e48e078b1193fc50af0f80c2a9ee03"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a30e48e078b1193fc50af0f80c2a9ee03">count_haplotypes</a> ()</td></tr>
-<tr class="memdesc:a30e48e078b1193fc50af0f80c2a9ee03"><td class="mdescLeft">&#160;</td><td class="mdescRight">Back-calculate haplotype_count from the thread names for upgrading old XGs.  <a href="#a30e48e078b1193fc50af0f80c2a9ee03">More...</a><br/></td></tr>
-<tr class="separator:a30e48e078b1193fc50af0f80c2a9ee03"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a54dfbdddf2f6284aac2d945fc2ef1e57"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1XG.html#a0ff7aac17c984f966fd4193e200bf310">destination_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a54dfbdddf2f6284aac2d945fc2ef1e57">bs_get</a> (int64_t side, int64_t <a class="el" href="namespacevg.html#a416939020600ce2996331c350f1fe68c">offset</a>) const </td></tr>
-<tr class="separator:a54dfbdddf2f6284aac2d945fc2ef1e57"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a79e5f93f03a52e613ce7433335f3ade7"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a79e5f93f03a52e613ce7433335f3ade7">bs_rank</a> (int64_t side, int64_t <a class="el" href="namespacevg.html#a416939020600ce2996331c350f1fe68c">offset</a>, <a class="el" href="classvg_1_1XG.html#a0ff7aac17c984f966fd4193e200bf310">destination_t</a> value) const </td></tr>
-<tr class="separator:a79e5f93f03a52e613ce7433335f3ade7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2dfa6c2b0229b2e7f2000f838610e3a5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a2dfa6c2b0229b2e7f2000f838610e3a5">bs_set</a> (int64_t side, vector&lt; <a class="el" href="classvg_1_1XG.html#a0ff7aac17c984f966fd4193e200bf310">destination_t</a> &gt; new_array)</td></tr>
-<tr class="separator:a2dfa6c2b0229b2e7f2000f838610e3a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aca6cad8e1695c817a22974b247b76681"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#aca6cad8e1695c817a22974b247b76681">bs_insert</a> (int64_t side, int64_t <a class="el" href="namespacevg.html#a416939020600ce2996331c350f1fe68c">offset</a>, <a class="el" href="classvg_1_1XG.html#a0ff7aac17c984f966fd4193e200bf310">destination_t</a> value)</td></tr>
-<tr class="separator:aca6cad8e1695c817a22974b247b76681"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a24cb3b7112a819b9102664d31d6d3b6a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a24cb3b7112a819b9102664d31d6d3b6a">bs_bake</a> ()</td></tr>
-<tr class="separator:a24cb3b7112a819b9102664d31d6d3b6a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af4d22c085c6903ea30fe384e9cc35b66"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#af4d22c085c6903ea30fe384e9cc35b66">tn_bake</a> ()</td></tr>
-<tr class="separator:af4d22c085c6903ea30fe384e9cc35b66"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -664,36 +557,10 @@ Private Attributes</h2></td></tr>
 <tr class="separator:a7cb346be0c7d9de66e2e6271fb6d3492"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a834d97d19e747e0b3b304d9d026462a4"><td class="memItemLeft" align="right" valign="top">bit_vector::select_1_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a834d97d19e747e0b3b304d9d026462a4">np_bv_select</a></td></tr>
 <tr class="separator:a834d97d19e747e0b3b304d9d026462a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6ce4dd4b58b3a3b858ad28269d8aa093"><td class="memItemLeft" align="right" valign="top">csa_bitcompressed&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a6ce4dd4b58b3a3b858ad28269d8aa093">tn_csa</a></td></tr>
-<tr class="separator:a6ce4dd4b58b3a3b858ad28269d8aa093"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a211c59f3dae702ae063c603d098120e5"><td class="memItemLeft" align="right" valign="top">sd_vector&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a211c59f3dae702ae063c603d098120e5">tn_cbv</a></td></tr>
-<tr class="separator:a211c59f3dae702ae063c603d098120e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1b9c06011408afc2d14dc95d6c7a8dbd"><td class="memItemLeft" align="right" valign="top">sd_vector::rank_1_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a1b9c06011408afc2d14dc95d6c7a8dbd">tn_cbv_rank</a></td></tr>
-<tr class="separator:a1b9c06011408afc2d14dc95d6c7a8dbd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a49a4c4e2fdf07b1b9c13fbd8be324841"><td class="memItemLeft" align="right" valign="top">sd_vector::select_1_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a49a4c4e2fdf07b1b9c13fbd8be324841">tn_cbv_select</a></td></tr>
-<tr class="separator:a49a4c4e2fdf07b1b9c13fbd8be324841"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa8a0a74ee9e79689de087bac7076bda6"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#aa8a0a74ee9e79689de087bac7076bda6">haplotype_count</a> = 0</td></tr>
-<tr class="separator:aa8a0a74ee9e79689de087bac7076bda6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a43178857ba5c8e62ea378091f0a3ac33"><td class="memItemLeft" align="right" valign="top">int_vector&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a43178857ba5c8e62ea378091f0a3ac33">h_iv</a></td></tr>
-<tr class="separator:a43178857ba5c8e62ea378091f0a3ac33"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5f52e8487fc5fb07a7a6060023c83338"><td class="memItemLeft" align="right" valign="top">vlc_vector&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a5f52e8487fc5fb07a7a6060023c83338">h_civ</a></td></tr>
-<tr class="separator:a5f52e8487fc5fb07a7a6060023c83338"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a951f0f06186242042550c266dd73bd82"><td class="memItemLeft" align="right" valign="top">int_vector&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a951f0f06186242042550c266dd73bd82">ts_iv</a></td></tr>
-<tr class="separator:a951f0f06186242042550c266dd73bd82"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2e33c27bcee5de625ce6fc62e11cb931"><td class="memItemLeft" align="right" valign="top">vlc_vector&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a2e33c27bcee5de625ce6fc62e11cb931">ts_civ</a></td></tr>
-<tr class="separator:a2e33c27bcee5de625ce6fc62e11cb931"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5aafb7f578b4fcd01e80550318f11248"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a5aafb7f578b4fcd01e80550318f11248">bs_arrays</a></td></tr>
-<tr class="separator:a5aafb7f578b4fcd01e80550318f11248"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a92fd7c17a1a91fa8126af71c035efcdd"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1XG.html#a5c93c530fd0dbb64ae022e5197602c3f">rank_select_int_vector</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a92fd7c17a1a91fa8126af71c035efcdd">bs_single_array</a></td></tr>
-<tr class="separator:a92fd7c17a1a91fa8126af71c035efcdd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af171cff75baa6e7e275565601a2caec9"><td class="memItemLeft" align="right" valign="top">vlc_vector&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#af171cff75baa6e7e275565601a2caec9">tin_civ</a></td></tr>
-<tr class="separator:af171cff75baa6e7e275565601a2caec9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3cf7600cc05f0b5c9d8c657e0e1d5925"><td class="memItemLeft" align="right" valign="top">vlc_vector&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a3cf7600cc05f0b5c9d8c657e0e1d5925">tio_civ</a></td></tr>
-<tr class="separator:a3cf7600cc05f0b5c9d8c657e0e1d5925"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aabbd6ca4070e02125c8779fb6502a192"><td class="memItemLeft" align="right" valign="top">wt_int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#aabbd6ca4070e02125c8779fb6502a192">side_thread_wt</a></td></tr>
-<tr class="separator:aabbd6ca4070e02125c8779fb6502a192"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad4bf3804354adb3b3872abf7e6945491"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#ad4bf3804354adb3b3872abf7e6945491">names_str</a></td></tr>
-<tr class="separator:ad4bf3804354adb3b3872abf7e6945491"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adb18bde1d040f4bb397019eaebc9713a"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#adb18bde1d040f4bb397019eaebc9713a">start_marker</a> = '#'</td></tr>
+<tr class="separator:adb18bde1d040f4bb397019eaebc9713a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac70328f337e05818e2d799fd280e8a85"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#ac70328f337e05818e2d799fd280e8a85">end_marker</a> = '$'</td></tr>
+<tr class="separator:ac70328f337e05818e2d799fd280e8a85"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-static-attribs"></a>
 Static Private Attributes</h2></td></tr>
@@ -715,10 +582,6 @@ Static Private Attributes</h2></td></tr>
 <tr class="separator:a8806e0fd275ec38cddc2c28f36157a81"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a69e92107f8bc8b960a60ef89554f00f2"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#a69e92107f8bc8b960a60ef89554f00f2">G_EDGE_LENGTH</a> = 2</td></tr>
 <tr class="separator:a69e92107f8bc8b960a60ef89554f00f2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:accc1925592dc24877a0785e36bb3a2ea"><td class="memItemLeft" align="right" valign="top">static const <a class="el" href="classvg_1_1XG.html#a0ff7aac17c984f966fd4193e200bf310">destination_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#accc1925592dc24877a0785e36bb3a2ea">BS_SEPARATOR</a> = 1</td></tr>
-<tr class="separator:accc1925592dc24877a0785e36bb3a2ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af9d82a646f3d33e70e8ff3344b4b1a4c"><td class="memItemLeft" align="right" valign="top">static const <a class="el" href="classvg_1_1XG.html#a0ff7aac17c984f966fd4193e200bf310">destination_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XG.html#af9d82a646f3d33e70e8ff3344b4b1a4c">BS_NULL</a> = 0</td></tr>
-<tr class="separator:af9d82a646f3d33e70e8ff3344b4b1a4c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
 Additional Inherited Members</h2></td></tr>
@@ -735,52 +598,7 @@ Additional Inherited Members</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Provides succinct storage for a graph, its positional paths, and a set of embedded threads. </p>
-</div><h2 class="groupheader">Member Typedef Documentation</h2>
-<a class="anchor" id="a0ff7aac17c984f966fd4193e200bf310"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">using <a class="el" href="classvg_1_1XG.html#a0ff7aac17c984f966fd4193e200bf310">vg::XG::destination_t</a> =  size_t</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a5c93c530fd0dbb64ae022e5197602c3f"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">using <a class="el" href="classvg_1_1XG.html#a5c93c530fd0dbb64ae022e5197602c3f">vg::XG::rank_select_int_vector</a> =  sdsl::wt_rlmn&lt;sdsl::sd_vector&lt;&gt;&gt;</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="ad9dfad42be3116ad66171d24ff83585e"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">using <a class="el" href="classvg_1_1XG.html#ad9dfad42be3116ad66171d24ff83585e">vg::XG::thread_t</a> =  vector&lt;<a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">ThreadMapping</a>&gt;</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+</div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a class="anchor" id="aa45cf098b52de3e33d447d80120b0696"></a>
 <div class="memitem">
 <div class="memproto">
@@ -944,195 +762,7 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a24cb3b7112a819b9102664d31d6d3b6a"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::XG::bs_bake </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a8914b4578ce853df9a1a873f5e73ba99"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::XG::bs_dump </td>
-          <td>(</td>
-          <td class="paramtype">ostream &amp;&#160;</td>
-          <td class="paramname"><em>out</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Mark separators </p>
-
-</div>
-</div>
-<a class="anchor" id="a54dfbdddf2f6284aac2d945fc2ef1e57"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classvg_1_1XG.html#a0ff7aac17c984f966fd4193e200bf310">XG::destination_t</a> vg::XG::bs_get </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>side</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>offset</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="aca6cad8e1695c817a22974b247b76681"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::XG::bs_insert </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>side</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>offset</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1XG.html#a0ff7aac17c984f966fd4193e200bf310">destination_t</a>&#160;</td>
-          <td class="paramname"><em>value</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a79e5f93f03a52e613ce7433335f3ade7"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::XG::bs_rank </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>side</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>offset</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1XG.html#a0ff7aac17c984f966fd4193e200bf310">destination_t</a>&#160;</td>
-          <td class="paramname"><em>value</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a2dfa6c2b0229b2e7f2000f838610e3a5"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::XG::bs_set </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>side</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1XG.html#a0ff7aac17c984f966fd4193e200bf310">destination_t</a> &gt;&#160;</td>
-          <td class="paramname"><em>new_array</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a3f7a2c08dbafaefb338cf049e09b7d2d"></a>
+<a class="anchor" id="af937b9b950500a948ff53ed288a6b9fe"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -1176,19 +806,7 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>print_graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>store_threads</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>is_sorted_dag</em>&#160;</td>
+          <td class="paramname"><em>print_graph</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1216,65 +834,6 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Get the rank of the edge, or numeric_limits&lt;size_t&gt;.max() if no such edge exists. </p>
-
-</div>
-</div>
-<a class="anchor" id="a30e48e078b1193fc50af0f80c2a9ee03"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::XG::count_haplotypes </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Back-calculate haplotype_count from the thread names for upgrading old XGs. </p>
-
-</div>
-</div>
-<a class="anchor" id="a5c08eca0205cccbb94d360d6bee307b9"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::XG::count_matches </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1XG.html#ad9dfad42be3116ad66171d24ff83585e">thread_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>t</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Count matches to a subthread among embedded threads. </p>
-
-</div>
-</div>
-<a class="anchor" id="a7c60b02e6a4068f2654bc4448d2225b6"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::XG::count_matches </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td>
-          <td class="paramname"><em>t</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
 
 </div>
 </div>
@@ -1823,157 +1382,6 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ac828deeea2556c77675147f27a438203"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::XG::extend_search </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1XG_1_1ThreadSearchState.html">ThreadSearchState</a> &amp;&#160;</td>
-          <td class="paramname"><em>state</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1XG.html#ad9dfad42be3116ad66171d24ff83585e">thread_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>t</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="adb70447d27d7713e47e6e005fa9856e4"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::XG::extend_search </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1XG_1_1ThreadSearchState.html">ThreadSearchState</a> &amp;&#160;</td>
-          <td class="paramname"><em>state</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">ThreadMapping</a> &amp;&#160;</td>
-          <td class="paramname"><em>t</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Extend a search with the given single <a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">ThreadMapping</a>. </p>
-
-</div>
-</div>
-<a class="anchor" id="a2f0fb19721c656ef0f9e12445074fee2"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classvg_1_1XG.html#ad9dfad42be3116ad66171d24ff83585e">thread_t</a> vg::XG::extract_thread </td>
-          <td>(</td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>name</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Extract a particular thread by name. Name may not be empty. </p>
-
-</div>
-</div>
-<a class="anchor" id="a9366bb8c5e44ad87453596c4abc2e2c2"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classvg_1_1XG.html#ad9dfad42be3116ad66171d24ff83585e">XG::thread_t</a> vg::XG::extract_thread </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">XG::ThreadMapping</a>&#160;</td>
-          <td class="paramname"><em>node</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>offset</em> = <code>0</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>max_length</em> = <code>0</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Extract a particular thread, referring to it by its offset at node; step it out to a maximum of max_length </p>
-
-</div>
-</div>
-<a class="anchor" id="aeb0333a24fd5448f07165a32eacdfd86"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">auto vg::XG::extract_threads </td>
-          <td>(</td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>extract_reverse</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Read all the threads embedded in the graph. </p>
-
-</div>
-</div>
-<a class="anchor" id="a37516fbc8b01560fd89dbae5f4cc88e7"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">auto vg::XG::extract_threads_matching </td>
-          <td>(</td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>pattern</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>reverse</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Extract a set of threads matching a pattern. </p>
-
-</div>
-</div>
 <a class="anchor" id="a5f8e3ed0a0ebca58d19ddca3cecf1910"></a>
 <div class="memitem">
 <div class="memproto">
@@ -2168,7 +1576,7 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ab15cf29003263d6d170e4b1de5517f5d"></a>
+<a class="anchor" id="a0836cda18183458d92379dcfdee1e256"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -2188,19 +1596,7 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>print_graph</em> = <code>false</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>store_threads</em> = <code>false</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>is_sorted_dag</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>print_graph</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -2212,7 +1608,7 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="acd7bd843f700f64d01f6be10e4e2db89"></a>
+<a class="anchor" id="a01de29ba133137d7999a3142cf36425f"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -2232,19 +1628,7 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>print_graph</em> = <code>false</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>store_threads</em> = <code>false</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>is_sorted_dag</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>print_graph</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -2256,7 +1640,7 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a6b1f44c56f6c2ea61551033821fee4b2"></a>
+<a class="anchor" id="a46810a3ff39e7f7377286f3e8932c2d1"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -2276,19 +1660,7 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>print_graph</em> = <code>false</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>store_threads</em> = <code>false</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>is_sorted_dag</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>print_graph</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -2431,22 +1803,6 @@ Additional Inherited Members</h2></td></tr>
 <p>Get a node handle (node ID and orientation) from a handle to a step on a path. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a339e690ce3e2bb8280dd1f3ea45abe42">handlegraph::PathHandleGraph</a>.</p>
-
-</div>
-</div>
-<a class="anchor" id="a8034d390ec570870a1e078d1a9a263ec"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::XG::get_haplotype_count </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Get the number of haplotypes that gave rise to threads stored in the thread index. TODO: needs to account for graph component or contig, as different components may have different numbers of haplotypes on them. </p>
 
 </div>
 </div>
@@ -3308,34 +2664,6 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="afd6b32c20e2114982a58787ccda11cd5"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int64_t vg::XG::id_rev_to_side </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>is_rev</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Take a node id and side and return the side id. </p>
-
-</div>
-</div>
 <a class="anchor" id="ad10cf25f2611d13fa4cc38f098f53bf9"></a>
 <div class="memitem">
 <div class="memproto">
@@ -3381,60 +2709,6 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="ad84dc1bc5be75ebbd87cbab7958bcefa"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::XG::insert_thread </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1XG.html#ad9dfad42be3116ad66171d24ff83585e">thread_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>t</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>name</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Insert a thread. Name must be unique or empty. <a class="el" href="classvg_1_1XG.html#a24cb3b7112a819b9102664d31d6d3b6a">bs_bake()</a> and <a class="el" href="classvg_1_1XG.html#af4d22c085c6903ea30fe384e9cc35b66">tn_bake()</a> need to be called before queries. </p>
-
-</div>
-</div>
-<a class="anchor" id="acdb3a113f4d5d6f8bd4b2773b5660680"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::XG::insert_threads_into_dag </td>
-          <td>(</td>
-          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1XG.html#ad9dfad42be3116ad66171d24ff83585e">thread_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>t</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
-          <td class="paramname"><em>names</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Insert a whole group of threads. Names should be unique or empty (though they aren't used yet). The indexed graph must be a DAG, at least in the subset traversed by the threads. (Reversing edges are fine, but the threads in a node must all run in the same direction.) This uses a special efficient batch insert algorithm for DAGs that lets us just scan the graph and generate nodes' B_s arrays independently. This must be called only once, and no threads can have been inserted previously. Otherwise the gPBWT data structures will be left in an inconsistent state. </p>
 
 </div>
 </div>
@@ -3713,22 +2987,6 @@ Additional Inherited Members</h2></td></tr>
           <td>(</td>
           <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>id</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a5aa441347a680911cdb289cb5c659d51"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int64_t vg::XG::node_height </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">XG::ThreadMapping</a>&#160;</td>
-          <td class="paramname"><em>node</em></td><td>)</td>
           <td> const</td>
         </tr>
       </table>
@@ -4714,40 +3972,6 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a224b21d8bab3cb0b5ca8be19ff3e7e34"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structvg_1_1XG_1_1ThreadSearchState.html">XG::ThreadSearchState</a> vg::XG::select_continuing </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">ThreadMapping</a> &amp;&#160;</td>
-          <td class="paramname"><em>start</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Select only the threads (if any) continuing through a particular <a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">ThreadMapping</a>, and not those starting there. </p>
-
-</div>
-</div>
-<a class="anchor" id="a07e4e97d393f876dbedbc63d6b0b56a8"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structvg_1_1XG_1_1ThreadSearchState.html">XG::ThreadSearchState</a> vg::XG::select_starting </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">ThreadMapping</a> &amp;&#160;</td>
-          <td class="paramname"><em>start</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Select only the threads (if any) starting with a particular <a class="el" href="structvg_1_1XG_1_1ThreadMapping.html">ThreadMapping</a>, and not those continuing through it. </p>
-
-</div>
-</div>
 <a class="anchor" id="afaf43f55c1b30786fe3de07455b2410a"></a>
 <div class="memitem">
 <div class="memproto">
@@ -4840,365 +4064,7 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a03c71715ff5805500b78136f3641cb8a"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::XG::set_haplotype_count </td>
-          <td>(</td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>count</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Store the number of haplotypes that gave rise to the indexed threads. A single haplotype may be represented by multiple threads. If the index spans multiple contigs, threads from the same VCF phase on different contigs from the same sample will be considered to be part of the same haplotype for counting purposes. </p>
-
-</div>
-</div>
-<a class="anchor" id="a50cfd4437052baa5ffaed2e2a5057342"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::XG::set_thread_names </td>
-          <td>(</td>
-          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
-          <td class="paramname"><em>names</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Replace the existing thread names (if any) with the new names. Each name must be unique. Each name corresponds to a pair of embedded oriented threads, which comprise a single thread. </p>
-
-</div>
-</div>
-<a class="anchor" id="a0f42b13bfdb74eed64f696ce305ab272"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">pair&lt; int64_t, bool &gt; vg::XG::side_to_id_rev </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>side</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Take a side and give a node id / rev pair. </p>
-
-</div>
-</div>
-<a class="anchor" id="a09f15194947ebb5cffe481cf085a7d11"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">string vg::XG::thread_name </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>thread_id</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Given a thread id, return its name. Thread IDs are all threads as given in names in order, and then the reverse versions of all those oriented threads in the same order. </p>
-
-</div>
-</div>
-<a class="anchor" id="a7de9ba8b2a9dae9f6f3443dd95619422"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">pair&lt;int64_t, int64_t&gt; vg::XG::thread_start </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>thread_id</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Given a thread id and the reverse state get the starting side and offset. </p>
-
-</div>
-</div>
-<a class="anchor" id="a03206cad4beaaf336b3796e39b491f14"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">pair&lt; int64_t, int64_t &gt; vg::XG::thread_start </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>thread_id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>is_rev</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Gives the thread start for the given thread. </p>
-
-</div>
-</div>
-<a class="anchor" id="a3ca2aa4040c8b9eff8c2b150122c389e"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int64_t vg::XG::thread_starting_at </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>side</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>offset</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Given a side and offset, return the id of the thread starting there (or 0 if none) </p>
-
-</div>
-</div>
-<a class="anchor" id="ae21905d1597a6a0140ef652e8e734b8a"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt; int64_t &gt; vg::XG::threads_named_starting </td>
-          <td>(</td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>pattern</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Gives the thread ids of those whose names start with this pattern. </p>
-
-</div>
-</div>
-<a class="anchor" id="ad05ef51f6528801d83a1091de744b634"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int64_t vg::XG::threads_starting_on_side </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>side</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>The number of threads starting at this side. </p>
-
-</div>
-</div>
-<a class="anchor" id="af4d22c085c6903ea30fe384e9cc35b66"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::XG::tn_bake </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a663e524d7c45faf0d56f59ce1c63f740"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int64_t vg::XG::where_to </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>current_side</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>visit_offset</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>new_side</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a1807e454fc5a2c207531ddd78ba0f969"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int64_t vg::XG::where_to </td>
-          <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>current_side</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>visit_offset</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>new_side</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>edges_into_new</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>edges_out_of_old</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a class="anchor" id="a5aafb7f578b4fcd01e80550318f11248"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt;string&gt; vg::XG::bs_arrays</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="af9d82a646f3d33e70e8ff3344b4b1a4c"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const <a class="el" href="classvg_1_1XG.html#a0ff7aac17c984f966fd4193e200bf310">XG::destination_t</a> vg::XG::BS_NULL = 0</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="accc1925592dc24877a0785e36bb3a2ea"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const <a class="el" href="classvg_1_1XG.html#a0ff7aac17c984f966fd4193e200bf310">XG::destination_t</a> vg::XG::BS_SEPARATOR = 1</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a92fd7c17a1a91fa8126af71c035efcdd"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classvg_1_1XG.html#a5c93c530fd0dbb64ae022e5197602c3f">rank_select_int_vector</a> vg::XG::bs_single_array</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a class="anchor" id="a4c84d9a5a77c2e5ec7b156a8ed66cad6"></a>
 <div class="memitem">
 <div class="memproto">
@@ -5214,11 +4080,19 @@ Additional Inherited Members</h2></td></tr>
 <a class="anchor" id="ac70328f337e05818e2d799fd280e8a85"></a>
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">char vg::XG::end_marker = '$'</td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 </div>
@@ -5488,66 +4362,6 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a5f52e8487fc5fb07a7a6060023c83338"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">vlc_vector vg::XG::h_civ</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a43178857ba5c8e62ea378091f0a3ac33"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">int_vector vg::XG::h_iv</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="aa8a0a74ee9e79689de087bac7076bda6"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::XG::haplotype_count = 0</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a class="anchor" id="a55f38c290221ee8d82156234ba00d532"></a>
 <div class="memitem">
 <div class="memproto">
@@ -5576,7 +4390,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const uint32_t vg::XG::MAX_INPUT_VERSION = 11</td>
+          <td class="memname">const uint32_t vg::XG::MAX_INPUT_VERSION = 12</td>
         </tr>
       </table>
   </td>
@@ -5597,26 +4411,6 @@ Additional Inherited Members</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">int64_t vg::XG::min_id = 0</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="ad4bf3804354adb3b3872abf7e6945491"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">string vg::XG::names_str</td>
         </tr>
       </table>
   </td>
@@ -5728,7 +4522,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const uint32_t vg::XG::OUTPUT_VERSION = 11</td>
+          <td class="memname">const uint32_t vg::XG::OUTPUT_VERSION = 12</td>
         </tr>
       </table>
   </td>
@@ -6004,187 +4798,15 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="aabbd6ca4070e02125c8779fb6502a192"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">wt_int vg::XG::side_thread_wt</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a class="anchor" id="adb18bde1d040f4bb397019eaebc9713a"></a>
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">char vg::XG::start_marker = '#'</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="af171cff75baa6e7e275565601a2caec9"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">vlc_vector vg::XG::tin_civ</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a3cf7600cc05f0b5c9d8c657e0e1d5925"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">vlc_vector vg::XG::tio_civ</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a211c59f3dae702ae063c603d098120e5"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">sd_vector vg::XG::tn_cbv</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a1b9c06011408afc2d14dc95d6c7a8dbd"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">sd_vector ::rank_1_type vg::XG::tn_cbv_rank</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a49a4c4e2fdf07b1b9c13fbd8be324841"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">sd_vector ::select_1_type vg::XG::tn_cbv_select</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a6ce4dd4b58b3a3b858ad28269d8aa093"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">csa_bitcompressed vg::XG::tn_csa</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a2e33c27bcee5de625ce6fc62e11cb931"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">vlc_vector vg::XG::ts_civ</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a951f0f06186242042550c266dd73bd82"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">int_vector vg::XG::ts_iv</td>
         </tr>
       </table>
   </td>

@@ -96,7 +96,7 @@ var searchData=
   ['mem',['mem',['../classvg_1_1MEMChainModelVertex.html#acd9990963345deb38096763554ae4b3d',1,'vg::MEMChainModelVertex::mem()'],['../classvg_1_1MEMClusterer_1_1HitNode.html#a9f3480f5d231cf8d4325ae558a379f10',1,'vg::MEMClusterer::HitNode::mem()']]],
   ['mem_5fcoverage_5fmin_5fratio',['mem_coverage_min_ratio',['../classvg_1_1MultipathMapper.html#ae977e7bbf30ca7634e7422aa76c16e71',1,'vg::MultipathMapper']]],
   ['mem_5freseed_5flength',['mem_reseed_length',['../classvg_1_1BaseMapper.html#abaea877646c1be5aea6200201d28c4cf',1,'vg::BaseMapper']]],
-  ['memo',['memo',['../classhaplo_1_1hDP__graph__accessor.html#a4d5efa70b9c919fa007dbf62a21f2859',1,'haplo::hDP_graph_accessor::memo()'],['../classhaplo_1_1hDP__gbwt__graph__accessor.html#a382739dd7136e759c6a01725ddebd301',1,'haplo::hDP_gbwt_graph_accessor::memo()']]],
+  ['memo',['memo',['../classhaplo_1_1hDP__gbwt__graph__accessor.html#a382739dd7136e759c6a01725ddebd301',1,'haplo::hDP_gbwt_graph_accessor']]],
   ['memory_5fhigh_5fwater_5fkb',['memory_high_water_kb',['../classvg_1_1Watchdog.html#aa759f3d73ebe15aeb95a13a8c86a0b59',1,'vg::Watchdog']]],
   ['merged_5fgroup',['merged_group',['../structvg_1_1IndexedVG_1_1CacheEntry.html#acd6301aa5e085df9fa56ba8b102cdde6',1,'vg::IndexedVG::CacheEntry']]],
   ['message',['message',['../classvg_1_1NoAlignmentInBandException.html#a3cc1fd5899066709228ecea9e5a25956',1,'vg::NoAlignmentInBandException::message()'],['../classvg_1_1indexOpenException.html#ad2e9c28b9dd893378b1cd5af79ec2efb',1,'vg::indexOpenException::message()']]],
