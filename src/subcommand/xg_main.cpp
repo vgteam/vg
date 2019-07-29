@@ -47,13 +47,9 @@ void help_xg(char** argv) {
          << "    -S, --edges-on-start ID    list all edges on start of node with ID" << endl
          << "    -E, --edges-on-end ID      list all edges on start of node with ID" << endl
          << "    -p, --path TARGET          gets the region of the graph @ TARGET (chr:start-end)" << endl
-         << "    -x, --extract-threads      extract succinct threads as paths" << endl
-         << "    -r, --store-threads        store perfect match paths as succinct threads" << endl
-         << "    -d, --is-sorted-dag        graph is a sorted dag; use fast thread insert" << endl
          << "    -R, --report FILE          save an HTML space usage report to FILE when serializing" << endl
          << "    -D, --debug                show debugging output" << endl
          << "    -T, --text-output          write text instead of vg protobuf" << endl
-         << "    -b, --dump-bs FILE         dump the gPBWT to the given file" << endl
          << "    -h, --help                 this text" << endl;
 }
 
@@ -83,11 +79,7 @@ int main_xg(int argc, char** argv) {
     bool print_graph = false;
     bool text_output = false;
     bool validate_graph = false;
-    bool extract_threads = false;
-    bool store_threads = false;
-    bool is_sorted_dag = false;
     string report_name;
-    string b_array_name;
     
     int c;
     optind = 2; // force optind past "xg" positional argument
@@ -111,19 +103,15 @@ int main_xg(int argc, char** argv) {
                 {"edges-on-end", required_argument, 0, 'E'},
                 {"node-seq", required_argument, 0, 's'},
                 {"path", required_argument, 0, 'p'},
-                {"extract-threads", no_argument, 0, 'x'},
-                {"store-threads", no_argument, 0, 'r'},
-                {"is-sorted-dag", no_argument, 0, 'd'},
                 {"report", required_argument, 0, 'R'},
                 {"debug", no_argument, 0, 'D'},
                 {"text-output", no_argument, 0, 'T'},
                 {"validate", no_argument, 0, 'V'},
-                {"dump-bs", required_argument, 0, 'b'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hv:o:i:X:f:t:s:c:n:p:DxrdTO:S:E:VR:P:F:b:",
+        c = getopt_long (argc, argv, "hv:o:i:X:f:t:s:c:n:p:DTO:S:E:VR:P:F:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -151,18 +139,6 @@ int main_xg(int argc, char** argv) {
 
         case 'T':
             text_output = true;
-            break;
-            
-        case 'x':
-            extract_threads = true;
-            break;
-            
-        case 'r':
-            store_threads = true;
-            break;
-            
-        case 'd':
-            is_sorted_dag = true;
             break;
 
         case 'i':
@@ -228,10 +204,6 @@ int main_xg(int argc, char** argv) {
             report_name = optarg;
             break;
             
-        case 'b':
-            b_array_name = optarg;
-            break;
-            
         case 'h':
         case '?':
             help_xg(argv);
@@ -249,13 +221,13 @@ int main_xg(int argc, char** argv) {
     if (vg_in == "-") {
         // Read VG from stdin
         graph = unique_ptr<XG>(new XG());
-        graph->from_stream(std::cin, validate_graph, print_graph, store_threads, is_sorted_dag);
+        graph->from_stream(std::cin, validate_graph, print_graph);
     } else if (vg_in.size()) {
         // Read VG from a file
         ifstream in;
         in.open(vg_in.c_str());
         graph = unique_ptr<XG>(new XG());
-        graph->from_stream(in, validate_graph, print_graph, store_threads, is_sorted_dag);
+        graph->from_stream(in, validate_graph, print_graph);
     }
 
     if (in_name.size()) {
@@ -398,62 +370,6 @@ int main_xg(int argc, char** argv) {
             vector<Graph> gb = { g };
             vg::io::write_buffered(cout, gb, 0);
         }
-    }
-    
-    if (extract_threads) {
-        list<XG::thread_t> threads;
-        for (auto& p : graph->extract_threads(false)) {
-            for (auto& t : p.second) {
-                threads.push_back(t);
-            }
-        }
-        for (auto& p : graph->extract_threads(true)) {
-            for (auto& t : p.second) {
-                threads.push_back(t);
-            }
-        }
-
-        size_t thread_number = 0;
-        for(XG::thread_t& thread : threads) {
-            // Convert to a Path
-            Path path;
-            for(XG::ThreadMapping& m : thread) {
-                // Convert all the mappings
-                Mapping mapping;
-                mapping.mutable_position()->set_node_id(m.node_id);
-                mapping.mutable_position()->set_is_reverse(m.is_reverse);
-                
-                *(path.add_mapping()) = mapping;
-            }
-        
-        
-            // Give each thread a name
-            path.set_name("_thread_" + to_string(thread_number++));
-            
-            // We need a Graph for serialization purposes. We do one chunk per
-            // thread in case the threads are long.
-            Graph g;
-            
-            *(g.add_path()) = path;
-            
-            // Dump the graph with its mappings. TODO: can we restrict these to
-            // mappings to nodes we have already pulled out? Or pull out the
-            // whole compressed graph?
-            if (text_output) {
-                to_text(cout, g);
-            } else {
-                vector<Graph> gb = { g };
-                vg::io::write_buffered(cout, gb, 0);
-            }
-            
-        }
-    }
-
-    if (!b_array_name.empty()) {
-        // Dump B array
-        ofstream out;
-        out.open(b_array_name.c_str());
-        graph->bs_dump(out);
     }
 
     return 0;

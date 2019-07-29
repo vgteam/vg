@@ -10,20 +10,20 @@
 
 #include <vg/vg.pb.h>
 #include "xg.hpp"
+#include "gbwt_helper.hpp"
 
 namespace vg {
 
 using namespace std;
 
-using thread_t = vector<vg::XG::ThreadMapping>;
-
+using thread_t = vector<gbwt::node_type>;
+    
 // Walk forward from a node, collecting all haplotypes.  Also do a regular
 // subgraph search for all the paths too.  Haplotype thread i will be embedded
 // as Paths a path with name thread_i.  Each path name (including threads) is
 // mapped to a frequency in out_thread_frequencies.  Haplotypes will be pulled
-// from the xg index's gPBWT if haplotype_database is null, and from the given
-// GBWT index otherwise.
-void trace_haplotypes_and_paths(vg::XG& index, const gbwt::GBWT* haplotype_database,
+// from the GBWT index.
+void trace_haplotypes_and_paths(vg::XG& index, const gbwt::GBWT& haplotype_database,
                                 vg::id_t start_node, int extend_distance,
                                 Graph& out_graph,
                                 map<string, int>& out_thread_frequencies,
@@ -32,19 +32,12 @@ void trace_haplotypes_and_paths(vg::XG& index, const gbwt::GBWT* haplotype_datab
 // Turns an (xg-based) thread_t into a (vg-based) Path
 Path path_from_thread_t(thread_t& t, vg::XG& index);
 
-// Lists all the sub-haplotypes of length extend_distance nodes starting at node
-// start_node from the set of haplotypes embedded as thread_t's in xg index.
-// Records, for each thread_t t the number of haplotypes of which t is a
-// subhaplotype
-vector<pair<thread_t,int> > list_haplotypes(vg::XG& index,
-            vg::XG::ThreadMapping start_node, int extend_distance);
-
 // Lists all the sub-haplotypes of length extend_distance nodes starting at
 // node start_node from the set of haplotypes embedded in the geven GBWT
 // haplotype database.  Records, for each thread_t t the number of haplotypes
 // of which t is a subhaplotype
 vector<pair<thread_t,int> > list_haplotypes(vg::XG& index, const gbwt::GBWT& haplotype_database,
-            vg::XG::ThreadMapping start_node, int extend_distance);
+            gbwt::node_type start_node, int extend_distance);
 
 // writes to subgraph_ostream the subgraph covered by
 // the haplotypes in haplotype_list, as well as these haplotypes embedded as
@@ -57,7 +50,7 @@ Graph output_graph_with_embedded_paths(vector<pair<thread_t,int>>& haplotype_lis
 // writes to annotation_ostream the list of counts of identical subhaplotypes
 // using the same ordering as the Paths from output_graph_with_embedded_paths
 void output_haplotype_counts(ostream& annotation_ostream,
-            vector<pair<thread_t,int>>& haplotype_list, vg::XG& index);
+            vector<pair<thread_t,int>>& haplotype_list);
 
 // Adds to a Graph the nodes and edges touched by a thread_t
 void thread_to_graph_spanned(thread_t& t, Graph& graph, vg::XG& index);

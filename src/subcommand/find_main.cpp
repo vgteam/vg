@@ -56,10 +56,6 @@ void help_find(char** argv) {
          << "                           (works only with kmers in the index)" << endl
          << "    -C, --kmer-count       report approximate count of kmer (-k) in db" << endl
          << "    -D, --distance         return distance on path between pair of nodes (-n). if -P not used, best path chosen heurstically" << endl
-         << "haplotypes:" << endl
-         << "    -H, --haplotypes FILE  count xg threads in agreement with alignments in the GAM" << endl
-         << "    -t, --extract-threads  extract the threads, writing them as paths to the .vg stream on stdout" << endl
-         << "    -q, --threads-named S  return all threads whose names are prefixed with string S (multiple allowed)" << endl
          << "    -Q, --paths-named S    return all paths whose names are prefixed with S (multiple allowed)" << endl;
 
 }
@@ -99,7 +95,6 @@ int main_find(int argc, char** argv) {
     vg::id_t start_id = 0;
     vg::id_t end_id = 0;
     bool pairwise_distance = false;
-    string haplotype_alignments;
     string gam_file;
     int max_mem_length = 0;
     int min_mem_length = 1;
@@ -146,13 +141,10 @@ int main_find(int argc, char** argv) {
                 {"mappings", no_argument, 0, 'm'},
                 {"alns-on", required_argument, 0, 'o'},
                 {"distance", no_argument, 0, 'D'},
-                {"haplotypes", required_argument, 0, 'H'},
                 {"gam", required_argument, 0, 'G'},
                 {"to-graph", required_argument, 0, 'A'},
                 {"max-mem", required_argument, 0, 'Y'},
                 {"min-mem", required_argument, 0, 'Z'},
-                {"extract-threads", no_argument, 0, 't'},
-                {"threads-named", required_argument, 0, 'q'},
                 {"paths-named", required_argument, 0, 'Q'},
                 {"approx-pos", required_argument, 0, 'X'},
                 {"list-paths", no_argument, 0, 'I'},
@@ -160,7 +152,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:R:B:fDH:G:N:A:Y:Z:tq:X:IQ:E:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:R:B:fDG:N:A:Y:Z:X:IQ:E:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -295,19 +287,6 @@ int main_find(int argc, char** argv) {
 
         case 'D':
             pairwise_distance = true;
-            break;
-
-        case 'H':
-            haplotype_alignments = optarg;
-            break;
-
-        case 't':
-            extract_threads = true;
-            break;
-
-        case 'q':
-            extract_threads = true;
-            extract_thread_patterns.push_back(optarg);
             break;
 
         case 'Q':
@@ -685,73 +664,6 @@ int main_find(int argc, char** argv) {
             VG vgg; vgg.extend(graph); // removes dupes
             vgg.remove_orphan_edges();
             vgg.serialize_to_ostream(cout);
-        }
-        if(!haplotype_alignments.empty()) {
-            // What should we do with each alignment?
-            function<void(Alignment&)> lambda = [&xindex](Alignment& aln) {
-                // Count the amtches to the path. The path might be empty, in
-                // which case it will yield the biggest size_t you can have.
-                size_t matches = xindex->count_matches(aln.path());
-
-                // We do this single-threaded, at least for now, so we don't
-                // need to worry about coordinating output, and we can just
-                // spit out the counts as bare numbers.
-                cout << matches << endl;
-            };
-            if (haplotype_alignments == "-") {
-                vg::io::for_each(std::cin, lambda);
-            } else {
-                ifstream in;
-                in.open(haplotype_alignments.c_str());
-                if(!in.is_open()) {
-                    cerr << "[vg find] error: could not open alignments file " << haplotype_alignments << endl;
-                    exit(1);
-                }
-                vg::io::for_each(in, lambda);
-            }
-
-        }
-        if (extract_threads) {
-            bool extract_reverse = false;
-            map<string, list<XG::thread_t> > threads;
-            if (extract_thread_patterns.empty()) {
-                threads = xindex->extract_threads(extract_reverse);
-            } else {
-                for (auto& pattern : extract_thread_patterns) {
-                    for (auto& t : xindex->extract_threads_matching(pattern, extract_reverse)) {
-                        threads[t.first] = t.second;
-                    }
-                }
-            }
-            for(auto t : threads) {
-                // Convert to a Path
-                auto& thread = *t.second.begin();
-                auto& thread_name = t.first;
-                Path path;
-                for(XG::ThreadMapping& m : thread) {
-                    // Convert all the mappings
-                    Mapping mapping;
-                    mapping.mutable_position()->set_node_id(m.node_id);
-                    mapping.mutable_position()->set_is_reverse(m.is_reverse);
-                    Edit* e = mapping.add_edit();
-                    size_t l = xindex->node_length(m.node_id);
-                    e->set_from_length(l);
-                    e->set_to_length(l);
-                    *(path.add_mapping()) = mapping;
-                }
-
-                // Get each thread's name
-                path.set_name(thread_name);
-
-                // We need a Graph for serialization purposes. We do one chunk per
-                // thread in case the threads are long.
-                Graph g;
-                *(g.add_path()) = path;
-
-                // Dump the graph with its mappings. TODO: can we restrict these to
-                vector<Graph> gb = { g };
-                vg::io::write_buffered(cout, gb, 0);
-            }
         }
         if (extract_paths) {
             vector<Path> paths;
