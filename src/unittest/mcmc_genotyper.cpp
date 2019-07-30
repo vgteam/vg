@@ -34,43 +34,19 @@ namespace vg {
             vect.erase(vect.begin(), vect.end()); 
         }
 
-        TEST_CASE("Test1" ) {
-            
-            SECTION("Tests output of run_genotyper() with empty graph and a vector with an empty string (no read)") {
-                VG graph;
-				
-				CactusSnarlFinder bubble_finder(graph);
-                SnarlManager snarl_manager = bubble_finder.find_snarls(); // returns empty SnarlManager object because node_count == 0
-                
-                string read = string(""); 
-                MultipathAlignment multipath_aln;
-                multipath_aln.set_sequence(read);
-
-                // no subpaths or mappings on an empty graph and empty alignment                
-				
-                // check requirements 
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, 1000); 
-                vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
-                double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
-                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
-
-                auto iter = genome.begin(0);
-               
-                // check requirements
-                REQUIRE(genome.num_haplotypes() == 0); //because the graph is empty 
-            }
- 
-        }
+        
         TEST_CASE("Test2") {
             
             SECTION("Tests run_genotyper() that takes a graph with one node and vector of one short read") {
                 VG graph;
 				
                 Node* n1 = graph.create_node("GCA");
+                cerr << "this is the node address"<< &n1 << endl;
+                path_handle_t path_handle = graph.create_path_handle("x");
+                graph.append_step(path_handle, graph.get_handle(n1->id()));
                 
                 //Cactus does not currently support finding snarls in graph of single-node connected components
-				CactusSnarlFinder bubble_finder(graph); 
-                SnarlManager snarl_manager = bubble_finder.find_snarls();
+                SnarlManager snarl_manager; 
             
                 string read = string("GCA");
                 MultipathAlignment multipath_aln;
@@ -90,25 +66,38 @@ namespace vg {
 
                 multipath_aln.add_start(0);        
 
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, 1000);   
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, 10);   
                 vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
-                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
+                unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 
                 // check requirements
                 // here the optimal solution is that both haplotypes match to the read
-                REQUIRE(genome.num_haplotypes() == 2);
+                REQUIRE(genome->num_haplotypes() == 2);
+                REQUIRE(multipath_aln.start_size() > 0);
+                
                 // haplotype 1 
-                auto iter = genome.begin(0); //Haplotype ID
+                auto iter = genome->begin(0); //Haplotype ID
+                REQUIRE(iter != genome->end(0));
+                // check that iter is pointing to "valid" node and not empty
+                cerr << "this is the iter node pointer"<< (*iter).node << endl;
+                REQUIRE((*iter).node != nullptr); 
+                REQUIRE((*iter).node == n1);
+                REQUIRE((*iter).backward == false);
                 REQUIRE((*iter) == NodeTraversal(n1)); 
                 iter++;
-                REQUIRE(iter == genome.end(0));
+                REQUIRE(iter == genome->end(0));
 
                 // haplotype 2
-                iter = genome.begin(1);
+                iter = genome->begin(1);
+                // check that iter is pointing to "valid" node and not empty
+                REQUIRE(iter != genome->end(1));
+                REQUIRE((*iter).node != nullptr);
+                REQUIRE((*iter).node == n1);
+                REQUIRE((*iter).backward == false);
                 REQUIRE((*iter) == NodeTraversal(n1)); 
                 iter++;
-                REQUIRE(iter == genome.end(1));
+                REQUIRE(iter == genome->end(1));
 
 
             }
@@ -190,29 +179,39 @@ namespace vg {
                 //vector<a> v;
                 //v.push_back(multipath_align)
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
-                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
+                unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 
                 // check requirements
-                REQUIRE(genome.num_haplotypes() == 2);
+                REQUIRE(genome->num_haplotypes() == 2);
                 // haplotype 1 
-                auto iter = genome.begin(0); //Haplotype ID
+                auto iter = genome->begin(0); //Haplotype ID
+
+                // check that iter is pointing to "valid" node and not empty
+                REQUIRE(iter != genome->end(0));
+                REQUIRE((*iter).node != nullptr);
+
                 REQUIRE((*iter) == NodeTraversal(n1)); 
                 iter++;
                 REQUIRE((*iter) == NodeTraversal(n2));
                 iter++;
                 REQUIRE((*iter) == NodeTraversal(n4));        
                 iter++;
-                REQUIRE(iter == genome.end(0));
+                REQUIRE(iter == genome->end(0));
 
                 // haplotype 2
-                iter = genome.begin(1);
+                iter = genome->begin(1);
+
+                // check that iter is pointing to "valid" node and not empty
+                REQUIRE(iter != genome->end(1));
+                REQUIRE((*iter).node != nullptr);
+
                 REQUIRE((*iter) == NodeTraversal(n1)); 
                 iter++;
                 REQUIRE((*iter) == NodeTraversal(n2));
                 iter++;
                 REQUIRE((*iter) == NodeTraversal(n4));        
                 iter++;
-                REQUIRE(iter == genome.end(1));
+                REQUIRE(iter == genome->end(1));
  
             } 
         }                  
@@ -329,12 +328,17 @@ namespace vg {
                 //v.push_back(multipath_align)
 
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
-                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
+                unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 				
                 //check requirements
-                REQUIRE(genome.num_haplotypes() == 2);
+                REQUIRE(genome->num_haplotypes() == 2);
                 // haplotype 1 
-                auto iter = genome.begin(0); //Haplotype ID
+                auto iter = genome->begin(0); //Haplotype ID
+
+                // check that iter is pointing to "valid" node and not empty
+                REQUIRE(iter != genome->end(0));
+                REQUIRE((*iter).node != nullptr);
+
                 REQUIRE((*iter) == NodeTraversal(n1)); 
                 iter++;
                 REQUIRE((*iter) == NodeTraversal(n2));
@@ -345,10 +349,15 @@ namespace vg {
                 iter++;
                 REQUIRE((*iter) == NodeTraversal(n7));        
                 iter++;
-                REQUIRE(iter == genome.end(0));
+                REQUIRE(iter == genome->end(0));
 
                 // haplotype 2
-                iter = genome.begin(1);
+                iter = genome->begin(1);
+
+                // check that iter is pointing to "valid" node and not empty
+                REQUIRE(iter != genome->end(1));
+                REQUIRE((*iter).node != nullptr);
+
                 REQUIRE((*iter) == NodeTraversal(n1)); 
                 iter++;
                 REQUIRE((*iter) == NodeTraversal(n2));
@@ -359,7 +368,7 @@ namespace vg {
                 iter++;
                 REQUIRE((*iter) == NodeTraversal(n7));        
                 iter++;
-                REQUIRE(iter == genome.end(1));
+                REQUIRE(iter == genome->end(1));
 
 
             }
@@ -495,16 +504,16 @@ namespace vg {
 
                 MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, 1000);    //object
                 vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
-                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
+                unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 
                 //check requirements
-                REQUIRE(genome.num_haplotypes() == 2);
+                REQUIRE(genome->num_haplotypes() == 2);
 
 
                 
                 
                 // haplotype 1 
-                auto iter = genome.begin(0); //Haplotype ID
+                auto iter = genome->begin(0); //Haplotype ID
                 REQUIRE((*iter) == NodeTraversal(n1)); 
                 iter++;
                 REQUIRE((*iter) == NodeTraversal(n2));
@@ -515,10 +524,10 @@ namespace vg {
                 iter++;
                 REQUIRE((*iter) == NodeTraversal(n6));        
                 iter++;
-                REQUIRE(iter == genome.end(0));
+                REQUIRE(iter == genome->end(0));
 
                 // haplotype 2
-                iter = genome.begin(1);
+                iter = genome->begin(1);
                 REQUIRE((*iter) == NodeTraversal(n1)); 
                 iter++;
                 REQUIRE((*iter) == NodeTraversal(n2));
@@ -529,7 +538,7 @@ namespace vg {
                 iter++;
                 REQUIRE((*iter) == NodeTraversal(n6));        
                 iter++;
-                REQUIRE(iter == genome.end(1));
+                REQUIRE(iter == genome->end(1));
                
             }    
 
@@ -568,7 +577,7 @@ namespace vg {
                 gcsa::LCPArray* lcpidx = nullptr;
                 
                 // Build the GCSA index
-                build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3); // may need to change the values 
+                build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3); 
             
                 
                 // Build the xg index
@@ -608,7 +617,7 @@ namespace vg {
 
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
                 //pass vector with accumulated MultipathAlignment objects to run_genotype()
-                PhasedGenome genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base); 
+                unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base); 
                 
                 // create a set of 2 possible solutions
                 vector<NodeTraversal> soln1, soln2;
@@ -620,12 +629,12 @@ namespace vg {
                 solns_set.insert(soln2);
 
                 // check requirements 
-                REQUIRE(genome.num_haplotypes() == 2);
+                REQUIRE(genome->num_haplotypes() == 2);
 
                 // move the genome haplotype into a vector
                 vector<NodeTraversal> haplotype1, haplotype2;
-                copy(genome.begin(0), genome.end(0), back_inserter(haplotype1));
-                copy(genome.begin(1), genome.end(1), back_inserter(haplotype2));
+                copy(genome->begin(0), genome->end(0), back_inserter(haplotype1));
+                copy(genome->begin(1), genome->end(1), back_inserter(haplotype2));
                 
                 // check haplotypes are indeed in optimal solution set   
                 REQUIRE(solns_set.count(haplotype1));
