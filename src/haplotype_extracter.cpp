@@ -28,6 +28,7 @@ void trace_haplotypes_and_paths(const PathHandleGraph& source, const gbwt::GBWT&
       // TODO: is expanding only forward really the right behavior here?
       algorithms::expand_context_with_paths(&source, &extractor, extend_distance, true, true, false);
       
+      // Convert to Protobuf I guess
       extractor.for_each_handle([&](const handle_t& h) {
           Node* node = out_graph.add_node();
           node->set_id(extractor.get_id(h));

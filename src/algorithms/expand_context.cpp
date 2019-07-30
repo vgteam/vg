@@ -103,48 +103,38 @@ using namespace std;
             pair<pair<handle_t, bool>, int64_t> here = dijk_queue.top();
             dijk_queue.pop();
             
-            if (here.first.second) {
-                // we're at the beginning of the node
-                if (expand_forward) {
-                    // cross the node (traverse the sequence length)
-                    int64_t dist_across = here.second + source->get_length(here.first.first);
-                    if (dist_across <= dist) {
-                        dijk_queue.push_or_reprioritize(make_pair(here.first.first, false), dist_across);
-                    }
-                    
-                }
-                if (expand_backward) {
-                    // cross a join (no added distance)
-                    source->follow_edges(here.first.first, true, [&](const handle_t& prev) {
-                        dijk_queue.push_or_reprioritize(make_pair(prev, false), here.second);
-                        seen_edges.insert(source->edge_handle(prev, here.first.first));
-                        if (!subgraph->has_node(source->get_id(prev))) {
-                            subgraph->create_handle(source->get_sequence(source->forward(prev)),
-                                                    source->get_id(prev));
-                        }
-                    });
+            if (here.second > dist) {
+                break;
+            }
+            
+            if ((here.first.second && expand_forward)
+                || (!here.first.second && expand_backward)) {
+                // cross the node (traverse the sequence length)
+                int64_t dist_across = here.second + source->get_length(here.first.first);
+                if (dist_across <= dist) {
+                    dijk_queue.push_or_reprioritize(make_pair(here.first.first, false), dist_across);
                 }
             }
-            else {
-                // we're at the end of the node
-                if (expand_forward) {
-                    // cross a join (no added distance)
-                    source->follow_edges(here.first.first, false, [&](const handle_t& next) {
-                        dijk_queue.push_or_reprioritize(make_pair(next, true), here.second);
-                        seen_edges.insert(source->edge_handle(here.first.first, next));
-                        if (!subgraph->has_node(source->get_id(next))) {
-                            subgraph->create_handle(source->get_sequence(source->forward(next)),
-                                                    source->get_id(next));
-                        }
-                    });
-                }
-                if (expand_backward) {
-                    // cross the node (traverse the sequence length)
-                    int64_t dist_across = here.second + source->get_length(here.first.first);
-                    if (dist_across <= dist) {
-                        dijk_queue.push_or_reprioritize(make_pair(here.first.first, true), dist_across);
+            if ((here.first.second && expand_backward)
+                || (!here.first.second && expand_forward)) {
+                // cross an edge (no added distance)
+                source->follow_edges(here.first.first, here.first.second, [&](const handle_t& next) {
+                    dijk_queue.push_or_reprioritize(make_pair(next, !here.first.second), here.second);
+                    
+                    // the edge handle will be in a different order depending on whether we're
+                    // going left or right
+                    if (here.first.second) {
+                        seen_edges.insert(source->edge_handle(next, here.first.first));
                     }
-                }
+                    else {
+                        seen_edges.insert(source->edge_handle(here.first.first, next));
+                    }
+                    
+                    if (!subgraph->has_node(source->get_id(next))) {
+                        subgraph->create_handle(source->get_sequence(source->forward(next)),
+                                                source->get_id(next));
+                    }
+                });
             }
         }
         
@@ -227,6 +217,11 @@ using namespace std;
                 string path_name = source->get_path_name(path_handle);
                 if (segment_count[path_handle]) {
                     path_name += "-" + to_string(segment_count[path_handle]);
+                }
+                
+                if (subgraph->has_path(path_name)) {
+                    cerr << "error: failed to create a unique path name for segment of " << source->get_path_name(path_handle) << ", there is already path named " << path_name << endl;
+                    exit(1);
                 }
                 
                 // make a new path for this segment
