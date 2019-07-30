@@ -3,7 +3,7 @@
 //
 
 #include "phased_genome.hpp"
-
+#define debug_phased_genome
 using namespace std;
 
 namespace vg {
@@ -86,7 +86,7 @@ namespace vg {
                     // are we leaving or entering the site?
                     if (site_start_sides.count(site)) {
 #ifdef debug_phased_genome
-                        cerr << "[PhasedGenome::build_indices]: leaving at start of site " << site->start.node->id() << "->" << site->end.node->id() << endl;
+                        cerr << "[PhasedGenome::build_indices]: leaving at start of site " << site->start().node_id() << "->" << site->end().node_id() << endl;
 #endif
                         // leaving: put the site in the index in the orientation of haplotype travesal
                         HaplotypeNode* other_side_node = site_start_sides[site];
@@ -95,7 +95,7 @@ namespace vg {
                     }
                     else {
 #ifdef debug_phased_genome
-                        cerr << "[PhasedGenome::build_indices]: entering at start of site " << site->start.node->id() << "->" << site->end.node->id() << endl;
+                        cerr << "[PhasedGenome::build_indices]: entering at start of site " << site->start().node_id() << "->" << site->end().node_id() << endl;
 #endif
                         // entering: mark the node in the haplotype path where we entered
                         site_end_sides[site] = haplo_node;
@@ -107,7 +107,7 @@ namespace vg {
                     // are we leaving or entering the site?
                     if (site_end_sides.count(site)) {
 #ifdef debug_phased_genome
-                        cerr << "[PhasedGenome::build_indices]: leaving at end of site " << site->start.node->id() << "->" << site->end.node->id() << endl;
+                        cerr << "[PhasedGenome::build_indices]: leaving at end of site " << site->start().node_id() << "->" << site->end().node_id() << endl;
 #endif
                         // leaving: put the site in the index in the orientation of haplotype travesal
                         HaplotypeNode* other_side_node = site_end_sides[site];
@@ -116,7 +116,7 @@ namespace vg {
                     }
                     else {
 #ifdef debug_phased_genome
-                        cerr << "[PhasedGenome::build_indices]: entering at end of site " << site->start.node->id() << "->" << site->end.node->id() << endl;
+                        cerr << "[PhasedGenome::build_indices]: entering at end of site " << site->start().node_id() << "->" << site->end().node_id() << endl;
 #endif
                         // entering: mark the node in the haplotype path where we entered
                         site_start_sides[site] = haplo_node;
@@ -217,6 +217,25 @@ namespace vg {
         }
 
         return matched_haplotype_ids;
+
+    }
+
+    void PhasedGenome::print_phased_genome(){
+         // output number of haplotypes contained in phased genome 
+        size_t haplo_num = num_haplotypes();
+        cerr << "The haplotype num is: " << haplo_num << endl;
+
+        // iterate through the genome and all its haplotypes
+        for(int i = 0; i < haplo_num; i++){
+            cout << "Haplotype ID is: " << i <<endl;
+            // iterate through each node in the haplotype
+            for(auto iter = begin(i); iter != end(i); iter++ ){
+                cerr << "The node is: "<< (*iter).node <<endl;
+                cerr << "The sequence is: " << (*iter).node->sequence() <<endl;
+            }   
+            
+        }
+        
 
     }
     
