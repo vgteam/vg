@@ -773,7 +773,7 @@ bool MinimizerMapper::score_is_significant(int score_estimate, int best_score, i
 void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
 
 #ifdef debug
-    cerr << "Trying again to chain " << extended_seeds.size() << " extended seeds" << endl;
+    cerr << "Trying again find tail alignments for " << extended_seeds.size() << " extended seeds" << endl;
 #endif
 
     // We're going to record source and sink path count distributions, for debugging
@@ -804,19 +804,12 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
    
     // Get the forests of all left tails by extension they belong to
     auto tails_by_extension = get_tail_forests(extended_seeds, aln.sequence().size(), true);
-    
-    for (size_t source = 0; source < extended_seeds.size(); source++) {
-        // For each extension
-        
-        if (extended_seeds[source].read_interval.first == 0) {
-            // We actually have no tail to align.
-            // We should be a multipath source already. Don't do anything with the empty tail forest.
-            continue;
-        }
-        
-        // Grab its possibly empty forest on this side
-        auto& forest = tails_by_extension[source];
-        
+   
+    for (auto& kv : tails_by_extension) {
+        // For each extension that has a nonempty tail
+        auto& source = kv.first;
+        auto& forest = kv.second;
+   
         // Grab the part of the read sequence that comes before it
         string before_sequence = aln.sequence().substr(0, extended_seeds[source].read_interval.first);
         
@@ -853,16 +846,10 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
     // Get the forests of all right tails by extension they belong to
     tails_by_extension = get_tail_forests(extended_seeds, aln.sequence().size(), false);
     
-    for (size_t from = 0; from < extended_seeds.size(); from++) {
-        // For each extension
-        
-        if (extended_seeds[from].read_interval.second == aln.sequence().size()) {
-            // Skip extensions that abut the end of the read.
-            continue;
-        }
-        
-        // Grab its possibly empty forest on this side
-        auto& forest = tails_by_extension[from];
+    for (auto& kv : tails_by_extension) {
+        // For each extension that has a nonempty tail
+        auto& from = kv.first;
+        auto& forest = kv.second;
         
 #ifdef debug
         cerr << "Consider right tails for extension " << from << " with interval "
@@ -1178,8 +1165,13 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
             
             tail_length = read_length - extended_seeds[extension_number].read_interval.second;
         }
-        
-        // Make sure we at least have an empty forest
+    
+        if (tail_length == 0) {
+            // Don't go looking for places to put no tail.
+            continue;
+        }
+    
+        // Make sure we at least have an empty forest if we have any tail.
         to_return.emplace(extension_number, vector<TreeSubgraph>());
         
         // This is one tree that we are filling in
