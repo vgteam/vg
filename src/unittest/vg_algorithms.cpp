@@ -33,6 +33,7 @@
 #include "unittest/random_graph.hpp"
 #include "vg.hpp"
 #include "xg.hpp"
+#include "bdsg/hash_graph.hpp"
 #include "json2pb.h"
 
 
@@ -5626,7 +5627,7 @@ namespace vg {
     
     TEST_CASE("expand_context behaves as expected","[algorithms][subgraph][expand_context]") {
         
-        VG graph;
+        bdsg::HashGraph graph;
         
         handle_t h1 = graph.create_handle("ACGT");
         handle_t h2 = graph.create_handle("GGC");
@@ -5643,24 +5644,35 @@ namespace vg {
         graph.create_edge(h4, h7);
         graph.create_edge(h5, h6);
         
-        VG subgraph;
+        
+        string path_name = "path";
+        path_handle_t p = graph.create_path_handle(path_name);
+        graph.append_step(p, h1);
+        graph.append_step(p, h3);
+        graph.append_step(p, h5);
+        graph.append_step(p, h6);
+        
+        bdsg::HashGraph subgraph;
         subgraph.create_handle(graph.get_sequence(h3), graph.get_id(h3));
         
         SECTION("expand_context can do 0 step extraction") {
             
-            algorithms::expand_context(&graph, &subgraph, 0, true, true, true);
+            algorithms::expand_context_with_paths(&graph, &subgraph, 0, true, true, true);
             
-            VG compare;
+            bdsg::HashGraph compare;
             handle_t c3 = compare.create_handle(graph.get_sequence(h3), graph.get_id(h3));
             
-            REQUIRE(algorithms::are_equivalent(&subgraph, &compare));
+            path_handle_t q = compare.create_path_handle(path_name);
+            compare.append_step(q, c3);
+            
+            REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
         }
         
         SECTION("expand_context can do 1 step extraction") {
             
-            algorithms::expand_context(&graph, &subgraph, 1, true, true, true);
+            algorithms::expand_context_with_paths(&graph, &subgraph, 1, true, true, true);
             
-            VG compare;
+            bdsg::HashGraph compare;
             handle_t c1 = compare.create_handle(graph.get_sequence(h1), graph.get_id(h1));
             handle_t c2 = compare.create_handle(graph.get_sequence(h2), graph.get_id(h2));
             handle_t c3 = compare.create_handle(graph.get_sequence(h3), graph.get_id(h3));
@@ -5672,14 +5684,19 @@ namespace vg {
             compare.create_edge(c3, c4);
             compare.create_edge(c3, c5);
             
-            REQUIRE(algorithms::are_equivalent(&subgraph, &compare));
+            path_handle_t q = compare.create_path_handle(path_name);
+            compare.append_step(q, c1);
+            compare.append_step(q, c3);
+            compare.append_step(q, c5);
+            
+            REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
         }
         
         SECTION("expand_context can do 2 step extraction") {
             
-            algorithms::expand_context(&graph, &subgraph, 2, true, true, true);
+            algorithms::expand_context_with_paths(&graph, &subgraph, 2, true, true, true);
             
-            VG compare;
+            bdsg::HashGraph compare;
             handle_t c1 = compare.create_handle(graph.get_sequence(h1), graph.get_id(h1));
             handle_t c2 = compare.create_handle(graph.get_sequence(h2), graph.get_id(h2));
             handle_t c3 = compare.create_handle(graph.get_sequence(h3), graph.get_id(h3));
@@ -5695,14 +5712,20 @@ namespace vg {
             compare.create_edge(c4, c7);
             compare.create_edge(c5, c6);
             
-            REQUIRE(algorithms::are_equivalent(&subgraph, &compare));
+            path_handle_t q = compare.create_path_handle(path_name);
+            compare.append_step(q, c1);
+            compare.append_step(q, c3);
+            compare.append_step(q, c5);
+            compare.append_step(q, c6);
+            
+            REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
         }
         
         SECTION("expand_context expand by steps only forward") {
             
-            algorithms::expand_context(&graph, &subgraph, 1, true, true, false);
+            algorithms::expand_context_with_paths(&graph, &subgraph, 1, true, true, false);
             
-            VG compare;
+            bdsg::HashGraph compare;
             handle_t c3 = compare.create_handle(graph.get_sequence(h3), graph.get_id(h3));
             handle_t c4 = compare.create_handle(graph.get_sequence(h4), graph.get_id(h4));
             handle_t c5 = compare.create_handle(graph.get_sequence(h5), graph.get_id(h5));
@@ -5710,14 +5733,18 @@ namespace vg {
             compare.create_edge(c3, c4);
             compare.create_edge(c3, c5);
             
-            REQUIRE(algorithms::are_equivalent(&subgraph, &compare));
+            path_handle_t q = compare.create_path_handle(path_name);
+            compare.append_step(q, c3);
+            compare.append_step(q, c5);
+            
+            REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
         }
         
         SECTION("expand_context expand by steps only backward") {
             
-            algorithms::expand_context(&graph, &subgraph, 1, true, false, true);
+            algorithms::expand_context_with_paths(&graph, &subgraph, 1, true, false, true);
             
-            VG compare;
+            bdsg::HashGraph compare;
             handle_t c1 = compare.create_handle(graph.get_sequence(h1), graph.get_id(h1));
             handle_t c2 = compare.create_handle(graph.get_sequence(h2), graph.get_id(h2));
             handle_t c3 = compare.create_handle(graph.get_sequence(h3), graph.get_id(h3));
@@ -5725,24 +5752,31 @@ namespace vg {
             compare.create_edge(c1, c3);
             compare.create_edge(c2, c3);
             
-            REQUIRE(algorithms::are_equivalent(&subgraph, &compare));
+            path_handle_t q = compare.create_path_handle(path_name);
+            compare.append_step(q, c1);
+            compare.append_step(q, c3);
+            
+            REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
         }
         
         SECTION("expand_context can do null length-based extraction") {
             
-            algorithms::expand_context(&graph, &subgraph, -1, false, true, true);
+            algorithms::expand_context_with_paths(&graph, &subgraph, -1, false, true, true);
             
-            VG compare;
+            bdsg::HashGraph compare;
             handle_t c3 = compare.create_handle(graph.get_sequence(h3), graph.get_id(h3));
             
-            REQUIRE(algorithms::are_equivalent(&subgraph, &compare));
+            path_handle_t q = compare.create_path_handle(path_name);
+            compare.append_step(q, c3);
+            
+            REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
         }
         
         SECTION("expand_context can get neighbors by length") {
             
-            algorithms::expand_context(&graph, &subgraph, 0, false, true, true);
+            algorithms::expand_context_with_paths(&graph, &subgraph, 0, false, true, true);
             
-            VG compare;
+            bdsg::HashGraph compare;
             handle_t c1 = compare.create_handle(graph.get_sequence(h1), graph.get_id(h1));
             handle_t c2 = compare.create_handle(graph.get_sequence(h2), graph.get_id(h2));
             handle_t c3 = compare.create_handle(graph.get_sequence(h3), graph.get_id(h3));
@@ -5754,14 +5788,19 @@ namespace vg {
             compare.create_edge(c3, c4);
             compare.create_edge(c3, c5);
             
-            REQUIRE(algorithms::are_equivalent(&subgraph, &compare));
+            path_handle_t q = compare.create_path_handle(path_name);
+            compare.append_step(q, c1);
+            compare.append_step(q, c3);
+            compare.append_step(q, c5);
+            
+            REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
         }
         
         SECTION("expand_context can get selected neighbors by length") {
             
-            algorithms::expand_context(&graph, &subgraph, 3, false, true, true);
+            algorithms::expand_context_with_paths(&graph, &subgraph, 3, false, true, true);
             
-            VG compare;
+            bdsg::HashGraph compare;
             handle_t c1 = compare.create_handle(graph.get_sequence(h1), graph.get_id(h1));
             handle_t c2 = compare.create_handle(graph.get_sequence(h2), graph.get_id(h2));
             handle_t c3 = compare.create_handle(graph.get_sequence(h3), graph.get_id(h3));
@@ -5775,14 +5814,20 @@ namespace vg {
             compare.create_edge(c3, c5);
             compare.create_edge(c5, c6);
             
-            REQUIRE(algorithms::are_equivalent(&subgraph, &compare));
+            path_handle_t q = compare.create_path_handle(path_name);
+            compare.append_step(q, c1);
+            compare.append_step(q, c3);
+            compare.append_step(q, c5);
+            compare.append_step(q, c6);
+            
+            REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
         }
         
         SECTION("expand_context can expand by length going only forward") {
             
-            algorithms::expand_context(&graph, &subgraph, 3, false, true, false);
+            algorithms::expand_context_with_paths(&graph, &subgraph, 3, false, true, false);
             
-            VG compare;
+            bdsg::HashGraph compare;
             handle_t c3 = compare.create_handle(graph.get_sequence(h3), graph.get_id(h3));
             handle_t c4 = compare.create_handle(graph.get_sequence(h4), graph.get_id(h4));
             handle_t c5 = compare.create_handle(graph.get_sequence(h5), graph.get_id(h5));
@@ -5792,14 +5837,19 @@ namespace vg {
             compare.create_edge(c3, c5);
             compare.create_edge(c5, c6);
             
-            REQUIRE(algorithms::are_equivalent(&subgraph, &compare));
+            path_handle_t q = compare.create_path_handle(path_name);
+            compare.append_step(q, c3);
+            compare.append_step(q, c5);
+            compare.append_step(q, c6);
+            
+            REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
         }
         
         SECTION("expand_context can expand by length going only backward") {
             
-            algorithms::expand_context(&graph, &subgraph, 3, false, false, true);
+            algorithms::expand_context_with_paths(&graph, &subgraph, 3, false, false, true);
             
-            VG compare;
+            bdsg::HashGraph compare;
             handle_t c1 = compare.create_handle(graph.get_sequence(h1), graph.get_id(h1));
             handle_t c2 = compare.create_handle(graph.get_sequence(h2), graph.get_id(h2));
             handle_t c3 = compare.create_handle(graph.get_sequence(h3), graph.get_id(h3));
@@ -5807,7 +5857,11 @@ namespace vg {
             compare.create_edge(c1, c3);
             compare.create_edge(c2, c3);
             
-            REQUIRE(algorithms::are_equivalent(&subgraph, &compare));
+            path_handle_t q = compare.create_path_handle(path_name);
+            compare.append_step(q, c1);
+            compare.append_step(q, c3);
+            
+            REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
         }
     }
 }

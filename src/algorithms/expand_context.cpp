@@ -187,11 +187,14 @@ using namespace std;
             step_handle_t segment_seed = *seen_steps.begin();
             path_handle_t path_handle = source->get_path_handle_of_step(segment_seed);
             
+            
             // walk backwards until we're out of the subgraph or we loop around to
             // the same step
             auto step = segment_seed;
+            step_handle_t prev;
             bool first_iter = true;
             while (seen_steps.count(step) && (first_iter || step != segment_seed)) {
+                prev = step;
                 step = source->get_previous_step(step);
                 first_iter = false;
             }
@@ -227,7 +230,7 @@ using namespace std;
                 // make a new path for this segment
                 path_handle_t segment_handle = subgraph->create_path_handle(path_name);
                 
-                for (step = source->get_next_step(step);   // walk back onto the subgraph
+                for (step = prev;                          // start back on the subgraph
                      seen_steps.count(step);               // stop once we leave the subgraph
                      step = source->get_next_step(step)) {
                     
