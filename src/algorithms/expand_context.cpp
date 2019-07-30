@@ -112,7 +112,7 @@ using namespace std;
                 // cross the node (traverse the sequence length)
                 int64_t dist_across = here.second + source->get_length(here.first.first);
                 if (dist_across <= dist) {
-                    dijk_queue.push_or_reprioritize(make_pair(here.first.first, false), dist_across);
+                    dijk_queue.push_or_reprioritize(make_pair(here.first.first, !here.first.second), dist_across);
                 }
             }
             if ((here.first.second && expand_backward)
