@@ -10,7 +10,7 @@ var searchData=
   ['new_5fmapping',['new_mapping',['../namespacevg.html#a56e6095cde0db8064d4ce4894db855d9',1,'vg']]],
   ['new_5fpath_5fid',['new_path_id',['../classvg_1_1Index.html#aae2499f500eef27aeb1ceff0a2ccfa82',1,'vg::Index']]],
   ['new_5fside',['new_side',['../classhaplo_1_1hDP__gbwt__graph__accessor.html#a733ccc0ac6e17253f258957d8d105a88',1,'haplo::hDP_gbwt_graph_accessor']]],
-  ['next',['next',['../classvg_1_1WindowedVcfBuffer.html#a0d66b5a177f55cb726122577840d8911',1,'vg::WindowedVcfBuffer::next()'],['../classvg_1_1io_1_1BlockedGzipInputStream.html#a91e4dc4f48957737a80e99a8ad32ba53',1,'vg::io::BlockedGzipInputStream::Next()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a0c3e80161a999b884abf3965dd0a5a39',1,'vg::io::BlockedGzipOutputStream::Next()']]],
+  ['next',['Next',['../classvg_1_1io_1_1BlockedGzipInputStream.html#a91e4dc4f48957737a80e99a8ad32ba53',1,'vg::io::BlockedGzipInputStream::Next()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a0c3e80161a999b884abf3965dd0a5a39',1,'vg::io::BlockedGzipOutputStream::Next()'],['../classvg_1_1WindowedVcfBuffer.html#a0d66b5a177f55cb726122577840d8911',1,'vg::WindowedVcfBuffer::next()']]],
   ['next_5fempty_5falignment',['next_empty_alignment',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a08e8eed8f95a621c9786bca1b0850dd2',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
   ['next_5fis_5fempty',['next_is_empty',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a016150b6b6f4551ee3eb7600d7037b67',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
   ['next_5fpos_5fchars',['next_pos_chars',['../classvg_1_1Sampler.html#ab5455f8f6faf176b418e3dbcb6bf1ce8',1,'vg::Sampler']]],

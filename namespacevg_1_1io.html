@@ -167,20 +167,20 @@ Functions</h2></td></tr>
 <tr class="separator:a8b1a63276edf814575b7afb3b2b9844d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae0cd97ec5478403a25e02c9805f3d286"><td class="memItemLeft" align="right" valign="top">auto&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ae0cd97ec5478403a25e02c9805f3d286">wrap_bare_saver</a> (function&lt; void(const void *, ostream &amp;)&gt; ostream_saver) -&gt; <a class="el" href="namespacevg_1_1io.html#a161bd20a13c1fd9993bcddd7ea3cbe57">save_function_t</a></td></tr>
 <tr class="separator:ae0cd97ec5478403a25e02c9805f3d286"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab837270d17aa118a64fa22626fc67c20"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ab837270d17aa118a64fa22626fc67c20">finish</a> (std::ostream &amp;out)</td></tr>
-<tr class="separator:ab837270d17aa118a64fa22626fc67c20"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9b562b3e8bd001bb10bcd0353bf5a929"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a9b562b3e8bd001bb10bcd0353bf5a929">finish</a> (std::ostream &amp;out, bool compressed)</td></tr>
+<tr class="separator:a9b562b3e8bd001bb10bcd0353bf5a929"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae5ab0e97965e5b5e461a997ed374423e"><td class="memTemplParams" colspan="2">template&lt;typename Item &gt; </td></tr>
 <tr class="memitem:ae5ab0e97965e5b5e461a997ed374423e"><td class="memTemplItemLeft" align="right" valign="top">auto&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ae5ab0e97965e5b5e461a997ed374423e">emit_to</a> (ostream &amp;out) -&gt; std::function&lt; void(const Item &amp;)&gt;</td></tr>
 <tr class="separator:ae5ab0e97965e5b5e461a997ed374423e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a04ca79594b0602aec57f9f103c829736"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a04ca79594b0602aec57f9f103c829736"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a04ca79594b0602aec57f9f103c829736">write</a> (std::ostream &amp;out, size_t count, const std::function&lt; T &amp;(size_t)&gt; &amp;lambda)</td></tr>
-<tr class="separator:a04ca79594b0602aec57f9f103c829736"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3b6898aa89ca8c14c882012e60afcba8"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a3b6898aa89ca8c14c882012e60afcba8"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a3b6898aa89ca8c14c882012e60afcba8">write</a> (std::ostream &amp;out, size_t count, const std::function&lt; T(size_t)&gt; &amp;lambda)</td></tr>
-<tr class="separator:a3b6898aa89ca8c14c882012e60afcba8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abec94de0c23a7a9a473068e85dc9e1fd"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:abec94de0c23a7a9a473068e85dc9e1fd"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#abec94de0c23a7a9a473068e85dc9e1fd">write_buffered</a> (std::ostream &amp;out, std::vector&lt; T &gt; &amp;buffer, size_t buffer_limit)</td></tr>
-<tr class="separator:abec94de0c23a7a9a473068e85dc9e1fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1b6b275aeefcf193d8d25a6b3b7b8f11"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a1b6b275aeefcf193d8d25a6b3b7b8f11"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a1b6b275aeefcf193d8d25a6b3b7b8f11">write</a> (std::ostream &amp;out, size_t count, const std::function&lt; T &amp;(size_t)&gt; &amp;lambda, bool compressed=true)</td></tr>
+<tr class="separator:a1b6b275aeefcf193d8d25a6b3b7b8f11"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa4c230c8fd256d7a5dfd16aa2014a51f"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:aa4c230c8fd256d7a5dfd16aa2014a51f"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#aa4c230c8fd256d7a5dfd16aa2014a51f">write</a> (std::ostream &amp;out, size_t count, const std::function&lt; T(size_t)&gt; &amp;lambda, bool compressed=true)</td></tr>
+<tr class="separator:aa4c230c8fd256d7a5dfd16aa2014a51f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a482c50dd5f56410de4988931f2510f57"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a482c50dd5f56410de4988931f2510f57"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a482c50dd5f56410de4988931f2510f57">write_buffered</a> (std::ostream &amp;out, std::vector&lt; T &gt; &amp;buffer, size_t buffer_limit, bool compressed=true)</td></tr>
+<tr class="separator:a482c50dd5f56410de4988931f2510f57"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a88cb8e7bbebb78a2ef3bdce1c64ba077"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:a88cb8e7bbebb78a2ef3bdce1c64ba077"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a88cb8e7bbebb78a2ef3bdce1c64ba077">write_to_file</a> (const T &amp;item, const string &amp;filename)</td></tr>
 <tr class="memdesc:a88cb8e7bbebb78a2ef3bdce1c64ba077"><td class="mdescLeft">&#160;</td><td class="mdescRight">Write a single message to a file.  <a href="#a88cb8e7bbebb78a2ef3bdce1c64ba077">More...</a><br/></td></tr>
@@ -314,7 +314,7 @@ template&lt;typename Item &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="ab837270d17aa118a64fa22626fc67c20"></a>
+<a class="anchor" id="a9b562b3e8bd001bb10bcd0353bf5a929"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -322,12 +322,22 @@ template&lt;typename Item &gt; </div>
           <td class="memname">void vg::io::finish </td>
           <td>(</td>
           <td class="paramtype">std::ostream &amp;&#160;</td>
-          <td class="paramname"><em>out</em></td><td>)</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>compressed</em> = <code>true</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Write the EOF marker to the given stream, so that readers won't complain that it might be truncated when they read it in. Internal EOF markers MAY exist, but a file SHOULD have exactly one EOF marker at its end. </p>
+<p>Write the EOF marker to the given stream, so that readers won't complain that it might be truncated when they read it in. Internal EOF markers MAY exist, but a file SHOULD have exactly one EOF marker at its end. Needs to know if the output stream is compressed or not. Note that uncompressed streams don't actually have nonempty EOF markers. </p>
 
 </div>
 </div>
@@ -674,7 +684,7 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a04ca79594b0602aec57f9f103c829736"></a>
+<a class="anchor" id="a1b6b275aeefcf193d8d25a6b3b7b8f11"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -696,7 +706,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const std::function&lt; T &amp;(size_t)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>lambda</em>&#160;</td>
+          <td class="paramname"><em>lambda</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>compressed</em> = <code>true</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -705,11 +721,11 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Write objects. count should be equal to the number of objects to write. count is written before the objects, but if it is 0, it is not written. To get the objects, calls lambda with the index of the object to retrieve. If not all objects are written, return false, otherwise true. </p>
+<p>Write objects. count should be equal to the number of objects to write. count is written before the objects, but if it is 0, it is not written. To get the objects, calls lambda with the index of the object to retrieve. If not all objects are written, return false, otherwise true. Needs to know whether to BGZF-compress the output or not. </p>
 
 </div>
 </div>
-<a class="anchor" id="a3b6898aa89ca8c14c882012e60afcba8"></a>
+<a class="anchor" id="aa4c230c8fd256d7a5dfd16aa2014a51f"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -731,7 +747,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const std::function&lt; T(size_t)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>lambda</em>&#160;</td>
+          <td class="paramname"><em>lambda</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>compressed</em> = <code>true</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -740,11 +762,11 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Write objects. count should be equal to the number of objects to write. count is written before the objects, but if it is 0, it is not written. To get the objects, calls lambda with the index of the object to retrieve. If not all objects are written, return false, otherwise true. This implementation takes a function that returns actual objects and not references. </p>
+<p>Write objects. count should be equal to the number of objects to write. count is written before the objects, but if it is 0, it is not written. To get the objects, calls lambda with the index of the object to retrieve. If not all objects are written, return false, otherwise true. This implementation takes a function that returns actual objects and not references. Needs to know whether to BGZF-compress the output or not. </p>
 
 </div>
 </div>
-<a class="anchor" id="abec94de0c23a7a9a473068e85dc9e1fd"></a>
+<a class="anchor" id="a482c50dd5f56410de4988931f2510f57"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -766,7 +788,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>buffer_limit</em>&#160;</td>
+          <td class="paramname"><em>buffer_limit</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>compressed</em> = <code>true</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -775,7 +803,7 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Start, continue, or finish a buffered stream of objects. If the length of the buffer is greater than the limit, writes the buffer out. Otherwise, leaves the objects in the buffer. Must be called with a buffer limit of 0 after all the objects have been produced, to flush the buffer. When called with a buffer limit of 0, automatically appends an EOF marker. Returns true unless an error occurs. </p>
+<p>Start, continue, or finish a buffered stream of objects. If the length of the buffer is greater than the limit, writes the buffer out. Otherwise, leaves the objects in the buffer. Must be called with a buffer limit of 0 after all the objects have been produced, to flush the buffer. When called with a buffer limit of 0, automatically appends an EOF marker. Returns true unless an error occurs. Needs to know whether to BGZF-compress the output or not. </p>
 
 </div>
 </div>

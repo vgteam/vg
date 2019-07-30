@@ -144,6 +144,8 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
+<tr class="memitem:ac9b3fff8dbbff744fe1ff60805af1c20"><td class="memItemLeft" align="right" valign="top">static string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#ac9b3fff8dbbff744fe1ff60805af1c20">sniff_tag</a> (istream &amp;stream)</td></tr>
+<tr class="separator:ac9b3fff8dbbff744fe1ff60805af1c20"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af88ac04ab7cbb8245a86d21a71a5dd76"><td class="memItemLeft" align="right" valign="top">static std::pair<br class="typebreak"/>
 &lt; <a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a>, <br class="typebreak"/>
 <a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#af88ac04ab7cbb8245a86d21a71a5dd76">range</a> (istream &amp;in)</td></tr>
@@ -457,6 +459,33 @@ Private Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Seek to the given virtual offset and start reading the group that is there. The next value produced will be the first value in that group. If already at the start of the group at the given virtual offset, does nothing. Return false if seeking is unsupported or the seek fails. </p>
+
+</div>
+</div>
+<a class="anchor" id="ac9b3fff8dbbff744fe1ff60805af1c20"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::io::MessageIterator::sniff_tag </td>
+          <td>(</td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>stream</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Sniffing function to identify if data in a C++ stream appears to be <em>uncompressed</em> type-tagged message data, and, if so, what the tag is. Returns the tag if it could be sniffed, or the empty string if the tag could not be read, if the tag actually is an (illegal) empty string, or if the tag is not valid according to the <a class="el" href="classvg_1_1io_1_1Registry.html">Registry</a>.</p>
+<p>Ungets the stream up to where it was before the sniffing read.</p>
+<p>Fails with an exception if the sniffed data cannot be ungotten, so not safe to run on streams that aren't seekable and don't have buffering to support this. </p>
 
 </div>
 </div>

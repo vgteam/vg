@@ -107,9 +107,8 @@ Public Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:abc329e367c2e12d27159ca8bd26f1d63"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html#abc329e367c2e12d27159ca8bd26f1d63">MessageEmitter</a> (ostream &amp;out, size_t <a class="el" href="classvg_1_1io_1_1MessageEmitter.html#a4bcef07ec2af1cb44f4cd3abfe58f29c">max_group_size</a>=1000)</td></tr>
-<tr class="memdesc:abc329e367c2e12d27159ca8bd26f1d63"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1Constructor.html">Constructor</a>.  <a href="#abc329e367c2e12d27159ca8bd26f1d63">More...</a><br/></td></tr>
-<tr class="separator:abc329e367c2e12d27159ca8bd26f1d63"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a674e6dee23ee5d3a5b49e56ff6dad2c1"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html#a674e6dee23ee5d3a5b49e56ff6dad2c1">MessageEmitter</a> (ostream &amp;out, bool compress=false, size_t <a class="el" href="classvg_1_1io_1_1MessageEmitter.html#a4bcef07ec2af1cb44f4cd3abfe58f29c">max_group_size</a>=1000)</td></tr>
+<tr class="separator:a674e6dee23ee5d3a5b49e56ff6dad2c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae9fa66759101257b58f38ec4f54dabfa"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html#ae9fa66759101257b58f38ec4f54dabfa">~MessageEmitter</a> ()</td></tr>
 <tr class="memdesc:ae9fa66759101257b58f38ec4f54dabfa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destructor that finishes the file.  <a href="#ae9fa66759101257b58f38ec4f54dabfa">More...</a><br/></td></tr>
 <tr class="separator:ae9fa66759101257b58f38ec4f54dabfa"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -146,17 +145,29 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:ad240e5c3ae379aa3257c498dd4c4e1bf"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html#ad240e5c3ae379aa3257c498dd4c4e1bf">group_tag</a></td></tr>
 <tr class="separator:ad240e5c3ae379aa3257c498dd4c4e1bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adb0173ebe6170c259448c8dd1d4c0dde"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html#adb0173ebe6170c259448c8dd1d4c0dde">group</a></td></tr>
+<tr class="memdesc:adb0173ebe6170c259448c8dd1d4c0dde"><td class="mdescLeft">&#160;</td><td class="mdescRight">This is our internal buffer.  <a href="#adb0173ebe6170c259448c8dd1d4c0dde">More...</a><br/></td></tr>
 <tr class="separator:adb0173ebe6170c259448c8dd1d4c0dde"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4bcef07ec2af1cb44f4cd3abfe58f29c"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html#a4bcef07ec2af1cb44f4cd3abfe58f29c">max_group_size</a></td></tr>
+<tr class="memdesc:a4bcef07ec2af1cb44f4cd3abfe58f29c"><td class="mdescLeft">&#160;</td><td class="mdescRight">This is how big we let it get before we dump it.  <a href="#a4bcef07ec2af1cb44f4cd3abfe58f29c">More...</a><br/></td></tr>
 <tr class="separator:a4bcef07ec2af1cb44f4cd3abfe58f29c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a591f1c1d3271301d0df6999cf15eb801"><td class="memItemLeft" align="right" valign="top">unique_ptr<br class="typebreak"/>
 &lt; <a class="el" href="classvg_1_1io_1_1BlockedGzipOutputStream.html">BlockedGzipOutputStream</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html#a591f1c1d3271301d0df6999cf15eb801">bgzip_out</a></td></tr>
 <tr class="separator:a591f1c1d3271301d0df6999cf15eb801"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a19f6d714ad67ec55346998140ce79258"><td class="memItemLeft" align="right" valign="top">unique_ptr<br class="typebreak"/>
+&lt; google::protobuf::io::OstreamOutputStream &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html#a19f6d714ad67ec55346998140ce79258">uncompressed_out</a></td></tr>
+<tr class="memdesc:a19f6d714ad67ec55346998140ce79258"><td class="mdescLeft">&#160;</td><td class="mdescRight">This holds the non-BGZF output stream, if we aren't writing compressed data.  <a href="#a19f6d714ad67ec55346998140ce79258">More...</a><br/></td></tr>
+<tr class="separator:a19f6d714ad67ec55346998140ce79258"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeb08e36bd3266eabc11d2d27e6336812"><td class="memItemLeft" align="right" valign="top">ostream *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html#aeb08e36bd3266eabc11d2d27e6336812">uncompressed_out_ostream</a></td></tr>
+<tr class="separator:aeb08e36bd3266eabc11d2d27e6336812"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae75aa23f1b6b85340f7bc586282e7c55"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html#ae75aa23f1b6b85340f7bc586282e7c55">uncompressed_out_written</a></td></tr>
+<tr class="memdesc:ae75aa23f1b6b85340f7bc586282e7c55"><td class="mdescLeft">&#160;</td><td class="mdescRight">We need to track the total bytes written by previous OstreamOutputStreams.  <a href="#ae75aa23f1b6b85340f7bc586282e7c55">More...</a><br/></td></tr>
+<tr class="separator:ae75aa23f1b6b85340f7bc586282e7c55"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8e586d31762cb47872de4b4723e01696"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1io_1_1MessageEmitter.html#a4569ac626dfd036074603cc6f05d55e1">group_listener_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html#a8e586d31762cb47872de4b4723e01696">group_handlers</a></td></tr>
+<tr class="memdesc:a8e586d31762cb47872de4b4723e01696"><td class="mdescLeft">&#160;</td><td class="mdescRight">If someone wants to listen in on emitted groups, they can register a handler.  <a href="#a8e586d31762cb47872de4b4723e01696">More...</a><br/></td></tr>
 <tr class="separator:a8e586d31762cb47872de4b4723e01696"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Class that wraps an output stream and allows emitting groups of binary messages to it, with internal buffering. Handles finishing the file on its own, and allows tracking of BGZF virtual offsets within a non-seekable stream (as long as the entire stream is controlled by one instance). Cannot be copied, but can be moved.</p>
+<div class="textblock"><p>Class that wraps an output stream and allows emitting groups of binary messages to it, with internal buffering. Handles finishing the file on its own, and allows tracking of (possibly virtual) offsets within a non-seekable stream (as long as the entire stream is controlled by one instance). Cannot be copied, but can be moved.</p>
 <p>Each group consists of:</p>
 <ul>
 <li>A 64-bit varint with the number of messages plus 1</li>
@@ -168,7 +179,8 @@ Private Attributes</h2></td></tr>
 <p>This format is designed to be syntactically the same as the old untagged <a class="el" href="classvg_1_1VG.html">VG</a> Protobuf format, to allow easy sniffing/reading of old files.</p>
 <p>Can call callbacks with the groups emitted and their virtual offsets, for indexing purposes.</p>
 <p>Note that the callbacks may be called by the object's destructor, so anything they reference needs to outlive the object.</p>
-<p>Not thread-safe. May be more efficient than repeated write/write_buffered calls because a single BGZF stream can be used. </p>
+<p>Not thread-safe. May be more efficient than repeated write/write_buffered calls because a single BGZF stream can be used.</p>
+<p>Can write either compressed or uncompressed but framed data. </p>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
 <a class="anchor" id="a4569ac626dfd036074603cc6f05d55e1"></a>
 <div class="memitem">
@@ -184,7 +196,7 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="abc329e367c2e12d27159ca8bd26f1d63"></a>
+<a class="anchor" id="a674e6dee23ee5d3a5b49e56ff6dad2c1"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -193,6 +205,12 @@ Private Attributes</h2></td></tr>
           <td>(</td>
           <td class="paramtype">ostream &amp;&#160;</td>
           <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>compress</em> = <code>false</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -207,8 +225,8 @@ Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p><a class="el" href="classvg_1_1Constructor.html">Constructor</a>. </p>
+<p><a class="el" href="classvg_1_1Constructor.html">Constructor</a>. Write output to the given stream. If compress is true, compress it as BGZF. Limit the maximum number of messages in a group to max_group_size.</p>
+<p>If not compressing, virtual offsets are just ordinary offsets. </p>
 
 </div>
 </div>
@@ -465,6 +483,7 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<p>This holds the BGZF output stream, if we are writing BGZF. Since Protobuf streams can't be copied or moved, we wrap ours in a uniqueptr_t so we can be moved. </p>
 
 </div>
 </div>
@@ -486,6 +505,8 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
+<p>This is our internal buffer. </p>
+
 </div>
 </div>
 <a class="anchor" id="a8e586d31762cb47872de4b4723e01696"></a>
@@ -506,6 +527,8 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
+<p>If someone wants to listen in on emitted groups, they can register a handler. </p>
+
 </div>
 </div>
 <a class="anchor" id="ad240e5c3ae379aa3257c498dd4c4e1bf"></a>
@@ -525,6 +548,7 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<p>This is our internal tag string for what is in our buffer. If it is empty, no group is buffered, because empty tags are prohibited. </p>
 
 </div>
 </div>
@@ -546,6 +570,8 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
+<p>This is how big we let it get before we dump it. </p>
+
 </div>
 </div>
 <a class="anchor" id="a67ece9e5b7c411ccb40169b650e1f5ae"></a>
@@ -559,6 +585,71 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>We refuse to serialize individual messages longer than this size. </p>
+
+</div>
+</div>
+<a class="anchor" id="a19f6d714ad67ec55346998140ce79258"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">unique_ptr&lt;google::protobuf::io::OstreamOutputStream&gt; vg::io::MessageEmitter::uncompressed_out</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>This holds the non-BGZF output stream, if we aren't writing compressed data. </p>
+
+</div>
+</div>
+<a class="anchor" id="aeb08e36bd3266eabc11d2d27e6336812"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">ostream* vg::io::MessageEmitter::uncompressed_out_ostream</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>When writing uncompressed data, we can't flush the OstreamOutputStream's internal buffer. So we need to destroy and recreate it, so we need the ostream pointer. </p>
+
+</div>
+</div>
+<a class="anchor" id="ae75aa23f1b6b85340f7bc586282e7c55"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::io::MessageEmitter::uncompressed_out_written</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>We need to track the total bytes written by previous OstreamOutputStreams. </p>
 
 </div>
 </div>

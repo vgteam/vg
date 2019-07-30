@@ -134,6 +134,7 @@ var searchData=
   ['snarlorienteddistancemeasurer',['SnarlOrientedDistanceMeasurer',['../classvg_1_1SnarlOrientedDistanceMeasurer.html#a1987e3b0a362c283df4f12a7715607c7',1,'vg::SnarlOrientedDistanceMeasurer']]],
   ['snarlseedclusterer',['SnarlSeedClusterer',['../classvg_1_1SnarlSeedClusterer.html#a0d509b0a72cf8bc1345eef47b8b930b4',1,'vg::SnarlSeedClusterer']]],
   ['snarlstate',['SnarlState',['../classvg_1_1SnarlState.html#a14db6ed9f20936f71de90d0d12f92468',1,'vg::SnarlState']]],
+  ['sniff_5ftag',['sniff_tag',['../classvg_1_1io_1_1MessageIterator.html#ac9b3fff8dbbff744fe1ff60805af1c20',1,'vg::io::MessageIterator']]],
   ['snvs',['SNVs',['../structhaplo_1_1linear__haplo__structure.html#a7e61684b822dcd13e39e8f0d59c9ec33',1,'haplo::linear_haplo_structure']]],
   ['soft_5fclip_5ffilter',['soft_clip_filter',['../classvg_1_1Filter.html#aff62aad43f70cd8de756bdbdf94b962d',1,'vg::Filter']]],
   ['softclip_5fend',['softclip_end',['../namespacevg.html#a05d6d0388148a996d9423524fa4bcc91',1,'vg::softclip_end(const Alignment &amp;alignment)'],['../namespacevg.html#aa84e4c417206a9b3a910dfde0fec3857',1,'vg::softclip_end(const Mapping &amp;mapping)']]],
