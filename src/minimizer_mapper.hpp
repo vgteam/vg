@@ -241,6 +241,14 @@ protected:
      */ 
     void dfs_gbwt(handle_t from_handle, size_t from_offset, size_t walk_distance,
         const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const;
+        
+    /**
+     * The same as dfs_gbwt on a handle and an offset, but takes a
+     * gbwt::SearchState that defines only some haplotypes on a handle to start
+     * with.
+     */ 
+    void dfs_gbwt(const gbwt::SearchState& start_state, size_t from_offset, size_t walk_distance,
+        const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const;
      
 };
 
