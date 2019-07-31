@@ -31,7 +31,7 @@ var searchData=
   ['distance_5flimit',['distance_limit',['../classvg_1_1MinimizerMapper.html#a2fa22653d0c63a1d7bf41946f6f62a55',1,'vg::MinimizerMapper::distance_limit()'],['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a3a28e15f45693e39153ad847842d9147',1,'vg::SnarlSeedClusterer::TreeState::distance_limit()']]],
   ['distance_5fmeasurer',['distance_measurer',['../classvg_1_1OrientedDistanceClusterer.html#a73c5578cbd124a60d54b49474937b78b',1,'vg::OrientedDistanceClusterer']]],
   ['distances',['distances',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a40fc927b0c7ebe7e523950c97cac5ce0',1,'vg::MinimumDistanceIndex::SnarlIndex']]],
-  ['do_5fchaining',['do_chaining',['../classvg_1_1MinimizerMapper.html#accb4c5e6e9502672709279b01f94cdef',1,'vg::MinimizerMapper']]],
+  ['do_5fdp',['do_dp',['../classvg_1_1MinimizerMapper.html#a80efe32334434e2121f45d9683e2b53b',1,'vg::MinimizerMapper']]],
   ['do_5fremap',['do_remap',['../classvg_1_1Filter.html#a7c02ec9d43e85148a82acf980728e9ac',1,'vg::Filter']]],
   ['do_5fsvs',['do_svs',['../classvg_1_1Constructor.html#a2e48ae756193c44a889202591a562d18',1,'vg::Constructor']]],
   ['doubling_5fsteps',['doubling_steps',['../classvg_1_1VariantAdder.html#a07970f9f50038e088ef054cde57755af',1,'vg::VariantAdder']]],

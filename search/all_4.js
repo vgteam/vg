@@ -97,7 +97,7 @@ var searchData=
   ['divide_5fnode',['divide_node',['../classvg_1_1VG.html#ad06f0fcad4bf5b1c29cf937a870a58b4',1,'vg::VG::divide_node(Node *node, int pos, Node *&amp;left, Node *&amp;right)'],['../classvg_1_1VG.html#a7bee7317e4f7e42d85d8e7ef8d07273a',1,'vg::VG::divide_node(Node *node, vector&lt; int &gt; &amp;positions, vector&lt; Node * &gt; &amp;parts)']]],
   ['divide_5fpath',['divide_path',['../classvg_1_1VG.html#a1ce3b7afc274a50cd7b1296e64ca2f01',1,'vg::VG']]],
   ['dna3bit',['dna3bit',['../namespacevg.html#a82735072e169c54b096b17ca0e2e64df',1,'vg']]],
-  ['do_5fchaining',['do_chaining',['../classvg_1_1MinimizerMapper.html#accb4c5e6e9502672709279b01f94cdef',1,'vg::MinimizerMapper']]],
+  ['do_5fdp',['do_dp',['../classvg_1_1MinimizerMapper.html#a80efe32334434e2121f45d9683e2b53b',1,'vg::MinimizerMapper']]],
   ['do_5fedges',['do_edges',['../classvg_1_1XG.html#ad54e24ce01372e702bd554d4eb1f4b0e',1,'vg::XG']]],
   ['do_5fremap',['do_remap',['../classvg_1_1Filter.html#a7c02ec9d43e85148a82acf980728e9ac',1,'vg::Filter']]],
   ['do_5fsvs',['do_svs',['../classvg_1_1Constructor.html#a2e48ae756193c44a889202591a562d18',1,'vg::Constructor']]],

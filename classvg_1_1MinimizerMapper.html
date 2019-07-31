@@ -153,17 +153,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:aede601962425752ec75ea1d890505357"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2fa22653d0c63a1d7bf41946f6f62a55"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2fa22653d0c63a1d7bf41946f6f62a55">distance_limit</a> = 1000</td></tr>
 <tr class="separator:a2fa22653d0c63a1d7bf41946f6f62a55"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:accb4c5e6e9502672709279b01f94cdef"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#accb4c5e6e9502672709279b01f94cdef">do_chaining</a> = true</td></tr>
-<tr class="separator:accb4c5e6e9502672709279b01f94cdef"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab9901414b3a22bd6fd53c5dca315f8ff"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab9901414b3a22bd6fd53c5dca315f8ff">use_xdrop_for_tails</a> = true</td></tr>
-<tr class="separator:ab9901414b3a22bd6fd53c5dca315f8ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a88d44e02a4cbbad030a22355239db61d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a88d44e02a4cbbad030a22355239db61d">linear_tails</a> = false</td></tr>
-<tr class="separator:a88d44e02a4cbbad030a22355239db61d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5d9de9d2f776cac9b5139a2141248bc2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a5d9de9d2f776cac9b5139a2141248bc2">skip_connectivity</a> = false</td></tr>
-<tr class="separator:a5d9de9d2f776cac9b5139a2141248bc2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4c2b4440301a0f7e4ffb6151faef3d61"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4c2b4440301a0f7e4ffb6151faef3d61">reuse_gbwt_states</a> = true</td></tr>
-<tr class="memdesc:a4c2b4440301a0f7e4ffb6151faef3d61"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use GBWT states from extensions to seed connectivity and tail searches.  <a href="#a4c2b4440301a0f7e4ffb6151faef3d61">More...</a><br/></td></tr>
-<tr class="separator:a4c2b4440301a0f7e4ffb6151faef3d61"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a80efe32334434e2121f45d9683e2b53b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a80efe32334434e2121f45d9683e2b53b">do_dp</a> = true</td></tr>
+<tr class="separator:a80efe32334434e2121f45d9683e2b53b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2f47382b14baf0482c43034e6484d086"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2f47382b14baf0482c43034e6484d086">sample_name</a></td></tr>
 <tr class="separator:a2f47382b14baf0482c43034e6484d086"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aee3e4b7c4e777da6c09f70218481e3d6"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aee3e4b7c4e777da6c09f70218481e3d6">read_group</a></td></tr>
@@ -187,23 +178,19 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a6a485aa968767c54bc47fdff11bcdd76"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a45beb55a9535a9b986506a48703613c9"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a45beb55a9535a9b986506a48703613c9">score_is_significant</a> (int score_estimate, int best_score, int second_best_score) const </td></tr>
 <tr class="separator:a45beb55a9535a9b986506a48703613c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abb836281d5ce79b02655a6c83c92d8ea"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#abb836281d5ce79b02655a6c83c92d8ea">chain_extended_seeds</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;out) const </td></tr>
-<tr class="separator:abb836281d5ce79b02655a6c83c92d8ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6045a66e4c271c4901ad9e539d01a1d6"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; size_t, <br class="typebreak"/>
+<tr class="memitem:a2f8c43ce7e04292284d84fdde5e4e557"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2f8c43ce7e04292284d84fdde5e4e557">find_optimal_tail_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;out) const </td></tr>
+<tr class="separator:a2f8c43ce7e04292284d84fdde5e4e557"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4a67a89b962d336a62f1fac1274febf4"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; size_t, <br class="typebreak"/>
 unordered_map&lt; size_t, vector<br class="typebreak"/>
-&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6045a66e4c271c4901ad9e539d01a1d6">find_connecting_paths</a> (const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, size_t read_length) const </td></tr>
-<tr class="separator:a6045a66e4c271c4901ad9e539d01a1d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6afa809e098aaa9ab1bf6064e1431f72"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; size_t, vector<br class="typebreak"/>
-&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6afa809e098aaa9ab1bf6064e1431f72">get_tail_forests</a> (const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, size_t read_length, const unordered_map&lt; size_t, unordered_map&lt; size_t, vector&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt;&gt;&gt; &amp;connecting_paths, bool left_tails) const </td></tr>
-<tr class="separator:a6afa809e098aaa9ab1bf6064e1431f72"><td class="memSeparator" colspan="2">&#160;</td></tr>
+&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4a67a89b962d336a62f1fac1274febf4">find_connecting_paths</a> (const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, size_t read_length) const </td></tr>
+<tr class="separator:a4a67a89b962d336a62f1fac1274febf4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8be8aff3aa063d91f68f8ec82a8a2b42"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; size_t, vector<br class="typebreak"/>
+&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a8be8aff3aa063d91f68f8ec82a8a2b42">get_tail_forests</a> (const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, size_t read_length, bool left_tails) const </td></tr>
+<tr class="separator:a8be8aff3aa063d91f68f8ec82a8a2b42"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a51a9a311f5dad119ef8402e49a90830a"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="structvg_1_1Path.html">Path</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a51a9a311f5dad119ef8402e49a90830a">get_best_alignment_against_any_path</a> (const vector&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;paths, const string &amp;sequence, const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;default_position, bool pinned, bool pin_left) const </td></tr>
 <tr class="separator:a51a9a311f5dad119ef8402e49a90830a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaf968bd30104207da51aaf9819345af7"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="structvg_1_1Path.html">Path</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aaf968bd30104207da51aaf9819345af7">get_best_alignment_against_any_tree</a> (const vector&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt; &amp;trees, const string &amp;sequence, const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;default_position, bool pin_left) const </td></tr>
 <tr class="separator:aaf968bd30104207da51aaf9819345af7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab70b78c267831792c8025e979b8141d4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab70b78c267831792c8025e979b8141d4">explore_gbwt</a> (const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;from, const gbwt::SearchState *from_state, size_t walk_distance, const function&lt; bool(const <a class="el" href="classvg_1_1MinimizerMapper.html#af12f40d8ae25f153fba1dc122fda29f0">ImmutablePath</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;visit_callback, const function&lt; void(const <a class="el" href="classvg_1_1MinimizerMapper.html#af12f40d8ae25f153fba1dc122fda29f0">ImmutablePath</a> &amp;)&gt; &amp;limit_callback) const </td></tr>
-<tr class="separator:ab70b78c267831792c8025e979b8141d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3287d87669b9f792e075397947d68ee4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a3287d87669b9f792e075397947d68ee4">explore_gbwt</a> (<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> from_handle, size_t from_offset, const gbwt::SearchState *from_state, size_t walk_distance, const function&lt; bool(const <a class="el" href="classvg_1_1MinimizerMapper.html#af12f40d8ae25f153fba1dc122fda29f0">ImmutablePath</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;visit_callback, const function&lt; void(const <a class="el" href="classvg_1_1MinimizerMapper.html#af12f40d8ae25f153fba1dc122fda29f0">ImmutablePath</a> &amp;)&gt; &amp;limit_callback) const </td></tr>
-<tr class="separator:a3287d87669b9f792e075397947d68ee4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5efadba4b15b8f3e5d6ae1279387f529"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a5efadba4b15b8f3e5d6ae1279387f529">dfs_gbwt</a> (const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;from, size_t walk_distance, const function&lt; void(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;enter_handle, const function&lt; void(void)&gt; exit_handle) const </td></tr>
 <tr class="separator:a5efadba4b15b8f3e5d6ae1279387f529"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acd5978f5b80bc43ea763209eabc48382"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#acd5978f5b80bc43ea763209eabc48382">dfs_gbwt</a> (<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> from_handle, size_t from_offset, size_t walk_distance, const function&lt; void(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;enter_handle, const function&lt; void(void)&gt; exit_handle) const </td></tr>
@@ -306,47 +293,6 @@ Protected Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a class="anchor" id="abb836281d5ce79b02655a6c83c92d8ea"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::MinimizerMapper::chain_extended_seeds </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>aln</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>extended_seeds</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>out</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Operating on the given input alignment, chain together the given extended perfect-match seeds and produce an alignment into the given output <a class="el" href="structvg_1_1Alignment.html">Alignment</a> object. </p>
-
-</div>
-</div>
 <a class="anchor" id="a5efadba4b15b8f3e5d6ae1279387f529"></a>
 <div class="memitem">
 <div class="memproto">
@@ -485,7 +431,7 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ab70b78c267831792c8025e979b8141d4"></a>
+<a class="anchor" id="a4a67a89b962d336a62f1fac1274febf4"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -493,124 +439,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::MinimizerMapper::explore_gbwt </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;&#160;</td>
-          <td class="paramname"><em>from</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const gbwt::SearchState *&#160;</td>
-          <td class="paramname"><em>from_state</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>walk_distance</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const function&lt; bool(const <a class="el" href="classvg_1_1MinimizerMapper.html#af12f40d8ae25f153fba1dc122fda29f0">ImmutablePath</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>visit_callback</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const function&lt; void(const <a class="el" href="classvg_1_1MinimizerMapper.html#af12f40d8ae25f153fba1dc122fda29f0">ImmutablePath</a> &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>limit_callback</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Given a <a class="el" href="structvg_1_1Position.html">Position</a>, explore the GBWT graph out to the given maximum walk distance.</p>
-<p>If from_state is not null, uses that starting GBWT search state, which must be on the node that from is on and facking in the same orientation as from.</p>
-<p>Calls the visit callback with the list of Mappings being extended (in reverse order) and the handle it is being extended with.</p>
-<p>Only considers paths that visit at least one node after the node the from <a class="el" href="structvg_1_1Position.html">Position</a> is on. The from <a class="el" href="structvg_1_1Position.html">Position</a> cuts immediately before the first included base.</p>
-<p>If the callback returns false, that GBWT search state is not extended further.</p>
-<p>If the walk_distance limit is exceeded, or a dead end in the graph is hit, calls the limit callback with the list of Mappings (in reverse order) that passed the limit or hit the dead end. </p>
-
-</div>
-</div>
-<a class="anchor" id="a3287d87669b9f792e075397947d68ee4"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::MinimizerMapper::explore_gbwt </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td>
-          <td class="paramname"><em>from_handle</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>from_offset</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const gbwt::SearchState *&#160;</td>
-          <td class="paramname"><em>from_state</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>walk_distance</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const function&lt; bool(const <a class="el" href="classvg_1_1MinimizerMapper.html#af12f40d8ae25f153fba1dc122fda29f0">ImmutablePath</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>visit_callback</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const function&lt; void(const <a class="el" href="classvg_1_1MinimizerMapper.html#af12f40d8ae25f153fba1dc122fda29f0">ImmutablePath</a> &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>limit_callback</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>The same as explore_gbwt on a <a class="el" href="structvg_1_1Position.html">Position</a>, but takes a handle in the backing gbwt_graph and an offset from the start of the handle instead. </p>
-
-</div>
-</div>
-<a class="anchor" id="a6045a66e4c271c4901ad9e539d01a1d6"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">unordered_map&lt; size_t, unordered_map&lt; size_t, vector&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &gt; &gt; vg::MinimizerMapper::find_connecting_paths </td>
+          <td class="memname">unordered_map&lt;size_t, unordered_map&lt;size_t, vector&lt;<a class="el" href="structvg_1_1Path.html">Path</a>&gt; &gt; &gt; vg::MinimizerMapper::find_connecting_paths </td>
           <td>(</td>
           <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>extended_seeds</em>, </td>
@@ -638,6 +467,47 @@ Protected Attributes</h2></td></tr>
 <p>extended_seeds must be sorted by read start position. Any extended seeds that overlap in the read will be precluded from connecting.</p>
 <p>numeric_limits&lt;size_t&gt;::max() is used to store sufficiently long <a class="el" href="classvg_1_1Paths.html">Paths</a> ending before sources (which cannot be reached from other extended seeds) and starting after sinks (which cannot reach any other extended seeds). Only sources and sinks have these "tail" paths.</p>
 <p>Tail paths are only calculated if the <a class="el" href="classvg_1_1MinimizerMapper.html">MinimizerMapper</a> has linear_tails set to true. </p>
+
+</div>
+</div>
+<a class="anchor" id="a2f8c43ce7e04292284d84fdde5e4e557"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MinimizerMapper::find_optimal_tail_alignments </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>extended_seeds</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>out</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Operating on the given input alignment, align the tails dangling off the given extended perfect-match seeds and produce an optimal alignment into the given output <a class="el" href="structvg_1_1Alignment.html">Alignment</a> object. </p>
 
 </div>
 </div>
@@ -749,7 +619,7 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a6afa809e098aaa9ab1bf6064e1431f72"></a>
+<a class="anchor" id="a8be8aff3aa063d91f68f8ec82a8a2b42"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -771,12 +641,6 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const unordered_map&lt; size_t, unordered_map&lt; size_t, vector&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt;&gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>connecting_paths</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype">bool&#160;</td>
           <td class="paramname"><em>left_tails</em>&#160;</td>
         </tr>
@@ -792,12 +656,11 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>For gapless extensions that can't reach/be reached by anything in connecting_paths, get all the trees defining tails off the specified side of the gapless extension. Assumes that connecting_paths contains no tail entries itself (i.e. that linear_tails was false on the <a class="el" href="classvg_1_1MinimizerMapper.html">MinimizerMapper</a> when find_connecting_paths computed it), but uses it to identify the source or sink extensions.</p>
+<p>Get all the trees defining tails off the specified side of each gapless extension.</p>
 <p>If the gapless extension starts or ends at a node boundary, there may be multiple trees produced, each with a distinct root.</p>
-<p>If the gapless extension abuts the edge of the read, no forests will be produced for it.</p>
+<p>If the gapless extension abuts the edge of the read, an empty forest will be produced.</p>
 <p>Each tree is represented as a <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> over our gbwt_graph.</p>
-<p>If left_tails is true, the trees read out of the left sides of the gapless extensions. Otherwise they read out of the right sides.</p>
-<p>Gapless extensions that are not sources or sinks get no map entries. Gapless extensions with dangling read sequence but no viable paths in the graph will at least get map entries with empty forests. Sources or sinks with no dangling sequence don't necessarily get map entries at all. </p>
+<p>If left_tails is true, the trees read out of the left sides of the gapless extensions. Otherwise they read out of the right sides. </p>
 
 </div>
 </div>
@@ -999,12 +862,12 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="accb4c5e6e9502672709279b01f94cdef"></a>
+<a class="anchor" id="a80efe32334434e2121f45d9683e2b53b"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::MinimizerMapper::do_chaining = true</td>
+          <td class="memname">bool vg::MinimizerMapper::do_dp = true</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -1104,18 +967,6 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Use all minimizers with at most hit_cap hits. </p>
-
-</div>
-</div>
-<a class="anchor" id="a88d44e02a4cbbad030a22355239db61d"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::MinimizerMapper::linear_tails = false</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
 
 </div>
 </div>
@@ -1224,20 +1075,6 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a4c2b4440301a0f7e4ffb6151faef3d61"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::MinimizerMapper::reuse_gbwt_states = true</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Use GBWT states from extensions to seed connectivity and tail searches. </p>
-
-</div>
-</div>
 <a class="anchor" id="a2f47382b14baf0482c43034e6484d086"></a>
 <div class="memitem">
 <div class="memproto">
@@ -1247,19 +1084,6 @@ Protected Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a5d9de9d2f776cac9b5139a2141248bc2"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::MinimizerMapper::skip_connectivity = false</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Don't try and chain up extended seeds; treat them all as sources and sinks. Can't be used with linear_tails. </p>
 
 </div>
 </div>
@@ -1286,18 +1110,6 @@ Protected Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Track which internal work items came from which others during each stage of the mapping algorithm. </p>
-
-</div>
-</div>
-<a class="anchor" id="ab9901414b3a22bd6fd53c5dca315f8ff"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::MinimizerMapper::use_xdrop_for_tails = true</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
 
 </div>
 </div>
