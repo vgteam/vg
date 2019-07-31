@@ -9,6 +9,7 @@
 #include "vcf_buffer.hpp"
 #include "path_index.hpp"
 #include "vg.hpp"
+#include "xg.hpp"
 #include "progressive.hpp"
 #include "name_mapper.hpp"
 #include "graph_synchronizer.hpp"

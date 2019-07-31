@@ -18,8 +18,8 @@ PathChunker::~PathChunker() {
 
 }
 
-void PathChunker::extract_subgraph(const Region& region, int context, int length,
-                                   bool forward_only, MutablePathMutableHandleGraph& subgraph, Region& out_region) {
+void PathChunker::extract_subgraph(const Region& region, int context, int length, bool forward_only,
+                                   VG& subgraph, Region& out_region) {
 
     // extract our path range into the graph
     Graph g;

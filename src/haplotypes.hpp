@@ -4,9 +4,10 @@
 #include <cmath>
 #include <vector>
 #include <iostream>
+#include <unordered_set>
 
 #include <vg/vg.pb.h>
-#include "xg.hpp"
+#include "handle.hpp"
 
 #include <gbwt/gbwt.h>
 #include <gbwt/dynamic_gbwt.h>
@@ -265,8 +266,8 @@ private:
   siteIndex* index = nullptr;
   haplotypeCohort* cohort = nullptr;
   penaltySet* penalties = nullptr;
-  vg::XG& xg_index;
-  size_t xg_ref_rank;
+  const vg::PathPositionHandleGraph& graph;
+  vg::path_handle_t ref_path_handle;
 public:
   typedef enum nodeType{
     ref_span,
@@ -291,9 +292,10 @@ public:
     size_t size() const;
   };
   
-  /// Make a new linear_haplo_structure with the given indexes, mutation and recombination scoring parameters, and reference path in the XG.
+  /// Make a new linear_haplo_structure with the given indexes, mutation and recombination scoring parameters, and reference path in the graph.
   /// Penalties *must* be negative, and ought to be something like -9*2.3 mutation and -6*2.3 recombination.
-  linear_haplo_structure(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, vg::XG& xg_index, size_t xg_ref_rank);
+  linear_haplo_structure(istream& slls_index, double log_mut_penalty, double log_recomb_penalty,
+                         const vg::PathPositionHandleGraph& graph, vg::path_handle_t ref_path_handle);
   ~linear_haplo_structure();
   haplo_score_type score(const vg::Path& path) const;
   
