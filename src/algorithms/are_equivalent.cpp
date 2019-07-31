@@ -87,7 +87,7 @@ namespace algorithms {
         if (!are_equivalent(graph_1, graph_2, verbose)) {
             return false;
         }
-        
+                
         if (graph_1->get_path_count() != graph_2->get_path_count()) {
             if (verbose) {
                 cerr << "graphs have different numbers of paths: " << graph_1->get_path_count() << " and " << graph_2->get_path_count() << endl;
