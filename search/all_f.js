@@ -97,7 +97,7 @@ var searchData=
   ['outdegree',['outdegree',['../classvg_1_1XG.html#a164bb31e85f9d886cba58f0fe5458cab',1,'vg::XG']]],
   ['outfile',['outfile',['../classvg_1_1Viz.html#a78a53d3a62a503ff6c29e93cb9a12a88',1,'vg::Viz']]],
   ['output',['output',['../structvg_1_1io_1_1hFILE__cppstream.html#a1b13eb012084d4b68b0f30a1cddebb41',1,'vg::io::hFILE_cppstream']]],
-  ['output_5fgraph_5fwith_5fembedded_5fpaths',['output_graph_with_embedded_paths',['../namespacevg.html#a8ef12e0becbd9cf010e3858f77017619',1,'vg::output_graph_with_embedded_paths(vector&lt; pair&lt; thread_t, int &gt;&gt; &amp;haplotype_list, vg::XG &amp;index)'],['../namespacevg.html#a3648f2fdf779ece62fcbcaf0d5f48747',1,'vg::output_graph_with_embedded_paths(ostream &amp;subgraph_ostream, vector&lt; pair&lt; thread_t, int &gt;&gt; &amp;haplotype_list, vg::XG &amp;index, bool json)']]],
+  ['output_5fgraph_5fwith_5fembedded_5fpaths',['output_graph_with_embedded_paths',['../namespacevg.html#ae62ff63e415416fd298c6f59c8f2da47',1,'vg::output_graph_with_embedded_paths(vector&lt; pair&lt; thread_t, int &gt;&gt; &amp;haplotype_list, const HandleGraph &amp;source)'],['../namespacevg.html#a134ccba76916d6d94e59581932f1b595',1,'vg::output_graph_with_embedded_paths(ostream &amp;subgraph_ostream, vector&lt; pair&lt; thread_t, int &gt;&gt; &amp;haplotype_list, const HandleGraph &amp;source, bool json)']]],
   ['output_5fhaplotype_5fcounts',['output_haplotype_counts',['../namespacevg.html#ae2d79bdac899f70214959ef92dbbad2f',1,'vg']]],
   ['output_5fin_5fprogress',['output_in_progress',['../classvg_1_1Funnel.html#ae946f8189275c0f4b77f29433406a24b',1,'vg::Funnel']]],
   ['output_5fis_5fbgzf',['output_is_bgzf',['../classvg_1_1HTSAlignmentEmitter.html#a932706bb5a22a35092be3ddacd49c34c',1,'vg::HTSAlignmentEmitter']]],

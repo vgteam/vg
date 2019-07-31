@@ -223,7 +223,7 @@ var searchData=
   ['construct_5fchunk',['construct_chunk',['../classvg_1_1Constructor.html#a0f9749b954b807619681a15369648baf',1,'vg::Constructor']]],
   ['construct_5fgbwt',['construct_gbwt',['../classvg_1_1Transcriptome.html#af9b3dde004ad91bd5ed1c9546de8aab9',1,'vg::Transcriptome']]],
   ['construct_5fgraph',['construct_graph',['../classvg_1_1Constructor.html#aacbb4e33868a95f8fdca68bc6aafcfdd',1,'vg::Constructor::construct_graph(string vcf_contig, FastaReference &amp;reference, VcfBuffer &amp;variant_source, const vector&lt; FastaReference * &gt; &amp;insertion, function&lt; void(Graph &amp;)&gt; callback)'],['../classvg_1_1Constructor.html#ac2f30c1963b9c7da1de0a5c67c81dada',1,'vg::Constructor::construct_graph(const vector&lt; FastaReference * &gt; &amp;references, const vector&lt; vcflib::VariantCallFile * &gt; &amp;variant_files, const vector&lt; FastaReference * &gt; &amp;insertions, function&lt; void(Graph &amp;)&gt; callback)']]],
-  ['construct_5fgraph_5ffrom_5fnodes_5fand_5fedges',['construct_graph_from_nodes_and_edges',['../namespacevg.html#a87b12b186c32823100be26015cb7af24',1,'vg']]],
+  ['construct_5fgraph_5ffrom_5fnodes_5fand_5fedges',['construct_graph_from_nodes_and_edges',['../namespacevg.html#a5b7416f4636f53c22bcb1fab81d63de8',1,'vg']]],
   ['construct_5fmain_2ecpp',['construct_main.cpp',['../construct__main_8cpp.html',1,'']]],
   ['constructedchunk',['ConstructedChunk',['../structvg_1_1ConstructedChunk.html',1,'vg']]],
   ['constructor',['Constructor',['../classvg_1_1Constructor.html',1,'vg']]],
