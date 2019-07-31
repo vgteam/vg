@@ -140,6 +140,10 @@ TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
     
     for (auto compress : {false, true}) {
     
+#ifdef debug
+        cerr << "Compress: " << compress << endl;
+#endif
+    
         stringstream datastream;
 
         // Define some functions to make and check fake Protobuf objects
