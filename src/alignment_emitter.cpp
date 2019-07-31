@@ -212,7 +212,7 @@ HTSAlignmentEmitter::~HTSAlignmentEmitter() {
     if (output_is_bgzf) {
         // Now put one BGZF EOF marker in thread 0's stream.
         // It will be the last thing, after all the barriers, and close the file.
-        vg::io::finish(multiplexer.get_thread_stream(0));
+        vg::io::finish(multiplexer.get_thread_stream(0), true);
     }
     
 }
@@ -638,6 +638,10 @@ void VGAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
     size_t thread_number = omp_get_thread_num();
     if (!proto.empty()) {
         // Save in protobuf
+#ifdef debug
+        #pragma omp critical (cerr)
+        cerr << "VGAlignmentEmitter emitting " << aln_batch.size() << " reads to Protobuf in thread " << thread_number << endl;
+#endif
         proto[thread_number]->write_many(std::move(aln_batch));
         if (multiplexer.want_breakpoint(thread_number)) {
             // The multiplexer wants our data.
@@ -664,6 +668,11 @@ void VGAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_ba
         for (auto& alns : alns_batch) {
             count += alns.size();
         }
+
+#ifdef debug
+        #pragma omp critical (cerr)
+        cerr << "VGAlignmentEmitter emitting " << count << " alignments to Protobuf in thread " << thread_number << endl;
+#endif
         
         if (count == 0) {
             // Nothing to do
@@ -684,6 +693,9 @@ void VGAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_ba
             // Flush and create a breakpoint.
             proto[thread_number]->flush();
             multiplexer.register_breakpoint(thread_number);
+#ifdef debug
+            cerr << "Sent breakpoint from thread " << thread_number << endl;
+#endif
         }
     } else {
         // Serialize to a string in our thread
@@ -711,6 +723,11 @@ void VGAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
     
     if (!proto.empty()) {
         // Save in protobuf
+        
+#ifdef debug
+        #pragma omp critical (cerr)
+        cerr << "VGAlignmentEmitter emitting paired reads to Protobuf in thread " << thread_number << endl;
+#endif
         
         // Arrange into a vector in collated order
         vector<Alignment> all;
@@ -758,6 +775,11 @@ void VGAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_bat
             assert(alns1_batch[i].size() == alns2_batch[i].size());
             count += alns1_batch[i].size() * 2;
         }
+        
+#ifdef debug
+        #pragma omp critical (cerr)
+        cerr << "VGAlignmentEmitter emitting " << count << " mapped pairs to Protobuf in thread " << thread_number << endl;
+#endif
         
         if (count == 0) {
             // Nothing to do
