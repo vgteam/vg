@@ -19,24 +19,22 @@ PathChunker::~PathChunker() {
 }
 
 void PathChunker::extract_subgraph(const Region& region, int context, int length,
-                                   bool forward_only, VG& subgraph, Region& out_region) {
+                                   bool forward_only, MutablePathMutableHandleGraph& subgraph, Region& out_region) {
 
-    // extract our path range into the graph
-    Graph g;
-    xg->for_path_range(region.seq, region.start, region.end, [&](int64_t id, bool) {
-            *g.add_node() = xg->node(id);
-        });
-    
-    // expand the context and get path information
-    // if forward_only true, then we only go forward.
-    xg->expand_context(g, context, true, true, true, !forward_only);
-    if (length) {
-        xg->expand_context(g, context, true, false, true, !forward_only);
-    }
+    // TODO: this loop can be done with less reaching into the data structure
+    path_handle_t path_handle = xg->get_path_handle(region.seq);
+    for (step_handle_t step = xg->get_step_at_position(path_handle, region.start);
+         xg->get_position_of_step(step) < region.end;
+         step = xg->get_next_step(step)) {
         
-    // build the vg of the subgraph
-    subgraph.extend(g);
-    subgraph.remove_orphan_edges();
+        handle_t handle = xg->get_handle_of_step(step);
+        subgraph.create_handle(xg->get_sequence(handle),
+                               xg->get_id(handle));
+    }
+    
+    algorithm::expand_context_with_paths(xg, &subgraph, length, true, !forward_only);
+
+    // TODO: from here
 
     // get our range endpoints before context expansion
     list<mapping_t>& mappings = subgraph.paths.get_path(region.seq);
