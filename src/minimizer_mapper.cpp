@@ -1287,7 +1287,7 @@ void MinimizerMapper::dfs_gbwt(handle_t from_handle, size_t from_offset, size_t 
     gbwt::SearchState start_state = gbwt_graph.get_state(from_handle);
     
     // Delegate to the state-based version
-    dfs_gbwt(start_state, from_offset,walk_distance, exit_handle);
+    dfs_gbwt(start_state, from_offset, walk_distance, enter_handle, exit_handle);
 }
     
 void MinimizerMapper::dfs_gbwt(const gbwt::SearchState& start_state, size_t from_offset, size_t walk_distance,
