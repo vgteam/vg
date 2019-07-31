@@ -14,6 +14,7 @@
 #include <list>
 #include <vg/vg.pb.h>
 #include "vg.hpp"
+#include "xg.hpp"
 #include "translator.hpp"
 #include "deconstructor.hpp"
 #include "srpe.hpp"
