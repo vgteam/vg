@@ -24,11 +24,12 @@ class MCMCGenotyper{
     SnarlManager& snarls; 
     VG& graph;
     const int n_iterations;
+    const int seed;
     mutable minstd_rand0 random_engine;
 
 public:
     
-    MCMCGenotyper(SnarlManager& snarls, VG& graph, const int n_iterations); 
+    MCMCGenotyper(SnarlManager& snarls, VG& graph, const int n_iterations, const int seed); 
 
     /** 
      * Takes as input a collection of mapped reads stored as a vector of multipath alignments and uses 
@@ -51,7 +52,7 @@ public:
     /**
      * Generates a number randomly using the discrete uniform distribution
      */
-     int generate_discrete_uniform(minstd_rand0& random_engine, id_t lower_bound , id_t upper_bound) const;
+     int generate_discrete_uniform(minstd_rand0& random_engine, int lower_bound , int upper_bound) const;
     
     /**
      * Given a range [a,b] will return a random number uniformly distributed within that range 
