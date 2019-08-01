@@ -3,7 +3,7 @@
 //
 
 #include "phased_genome.hpp"
-#define debug_phased_genome
+
 using namespace std;
 
 namespace vg {
@@ -210,7 +210,7 @@ namespace vg {
         for (Haplotype* haplotype : haplotypes){
             bool found = haplotype->sites.count(snarl_to_find);
             if(found){
-                // add the ID to the haplotype add it to the vector 
+                // add the ID to the haplotype to the vector 
                 matched_haplotype_ids.push_back(id);
             }
             id++;
