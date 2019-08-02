@@ -255,26 +255,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #ifdef debug
     cerr << "Found " << clusters.size() << " clusters" << endl;
 #endif
-    
-    // Make a vector of cluster indexes to sort
-    vector<size_t> cluster_indexes_in_order;
-    cluster_indexes_in_order.reserve(clusters.size());
-    for (size_t i = 0; i < clusters.size(); i++) {
-        cluster_indexes_in_order.push_back(i);
-    }
-
-    // Put the most covering cluster's index first
-    std::sort(cluster_indexes_in_order.begin(), cluster_indexes_in_order.end(), 
-        [&](const size_t& a, const size_t& b) -> bool {
-            // Return true if a must come before b, and false otherwise
-            return (read_coverage_by_cluster[a] > read_coverage_by_cluster[b]);
-    });
-
-    //Retain clusters only if their read coverage is better than this
-    double cluster_coverage_cutoff = cluster_indexes_in_order.size() == 0 ? 0 : 
-                                 read_coverage_by_cluster[cluster_indexes_in_order[0]]
-                                    - cluster_coverage_threshold;
-    //Retain clusters only if their score is better than this
+                                    
+    // Retain clusters only if their score is better than this, in addition to the coverage cutoff
     double cluster_score_cutoff = cluster_score.size() == 0 ? 0 :
                     *std::max_element(cluster_score.begin(), cluster_score.end()) - cluster_score_threshold;
     
@@ -285,67 +267,78 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     // These are the GaplessExtensions for all the clusters, in cluster_indexes_in_order order.
     vector<vector<GaplessExtension>> cluster_extensions;
-    cluster_extensions.reserve(cluster_indexes_in_order.size());
+    cluster_extensions.reserve(clusters.size());
     
-    size_t num_extensions = 0;
-    for (size_t i = 0; i < clusters.size() && num_extensions < max_extensions &&
-                 (cluster_coverage_threshold == 0 || read_coverage_by_cluster[cluster_indexes_in_order[i]] > cluster_coverage_cutoff); i++) {
-        // For each cluster, in sorted order
-        size_t& cluster_num = cluster_indexes_in_order[i];
-        if (cluster_score_threshold != 0 && cluster_score[cluster_num] < cluster_score_cutoff) {
-            //If the score isn't good enough, ignore this cluster
-            continue;
-        }
-        num_extensions ++;
-        
-        if (track_provenance) {
-            funnel.processing_input(cluster_num);
-        }
-
-        vector<size_t>& cluster = clusters[cluster_num];
-
-#ifdef debug
-        cerr << "Cluster " << cluster_num << " rank " << i << ": " << endl;
-#endif
-         
-        // Pack the seeds for GaplessExtender.
-        GaplessExtender::cluster_type seed_matchings;
-        for (auto& seed_index : cluster) {
-            // Insert the (graph position, read offset) pair.
-            seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
-#ifdef debug
-            cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
-                << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index.count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
-#endif
-        }
-        
-        // Extend seed hits in the cluster into one or more gapless extensions
-        vector<GaplessExtension> extensions = extender.extend(seed_matchings, aln.sequence());
-        // Find the best scoring extension
-        vector<GaplessExtension> filtered_extensions;
-        int32_t best_extension_score = 0;
-        for (GaplessExtension& extension : extensions) {
-            best_extension_score = max(best_extension_score, extension.score);
-        }
-        //Keep only the extensions whose score is within extension_score_threshold
-        //of the best scoring extension
-        for (GaplessExtension& extension : extensions) {
-            if (extension_score_threshold == 0 || 
-                extension.score > best_extension_score - extension_score_threshold) {
-                filtered_extensions.push_back(std::move(extension));
-            }
-        }
-        cluster_extensions.emplace_back(std::move(filtered_extensions));
-        
-        if (track_provenance) {
-            // Record with the funnel that the previous group became a group of this size.
-            // Don't bother recording the seed to extension matching...
-            funnel.project_group(cluster_num, cluster_extensions.back().size());
+    process_until_threshold(clusters, read_coverage_by_cluster,
+        cluster_coverage_threshold, 1, max_extensions,
+        [&](size_t cluster_num) {
+            // Handle sufficiently good clusters in descending coverage order
             
-            // Say we finished with this cluster, for now.
-            funnel.processed_input();
-        }
-    }
+            // First check against the additional score filter
+            if (cluster_score_threshold != 0 && cluster_score[cluster_num] < cluster_score_cutoff) {
+                //If the score isn't good enough, ignore this cluster
+                if (track_provenance) {
+                    funnel.kill(cluster_num);
+                }
+                return false;
+            }
+            
+            if (track_provenance) {
+                funnel.processing_input(cluster_num);
+            }
+
+            vector<size_t>& cluster = clusters[cluster_num];
+
+#ifdef debug
+            cerr << "Cluster " << cluster_num << " rank " << i << ": " << endl;
+#endif
+             
+            // Pack the seeds for GaplessExtender.
+            GaplessExtender::cluster_type seed_matchings;
+            for (auto& seed_index : cluster) {
+                // Insert the (graph position, read offset) pair.
+                seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
+#ifdef debug
+                cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
+                    << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index.count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
+#endif
+            }
+            
+            // Extend seed hits in the cluster into one or more gapless extensions
+            vector<GaplessExtension> extensions = extender.extend(seed_matchings, aln.sequence());
+            // Find the best scoring extension
+            vector<GaplessExtension> filtered_extensions;
+            int32_t best_extension_score = 0;
+            for (GaplessExtension& extension : extensions) {
+                best_extension_score = max(best_extension_score, extension.score);
+            }
+            //Keep only the extensions whose score is within extension_score_threshold
+            //of the best scoring extension
+            for (GaplessExtension& extension : extensions) {
+                if (extension_score_threshold == 0 || 
+                    extension.score > best_extension_score - extension_score_threshold) {
+                    filtered_extensions.push_back(std::move(extension));
+                }
+            }
+            cluster_extensions.emplace_back(std::move(filtered_extensions));
+            
+            if (track_provenance) {
+                // Record with the funnel that the previous group became a group of this size.
+                // Don't bother recording the seed to extension matching...
+                funnel.project_group(cluster_num, cluster_extensions.back().size());
+                
+                // Say we finished with this cluster, for now.
+                funnel.processed_input();
+            }
+            
+            return true;
+        }, [&](size_t cluster_num) {
+            // This cluster is not sufficiently good.
+            if (track_provenance) {
+                funnel.kill(cluster_num);
+            }
+        });
+        
     
     if (track_provenance) {
         funnel.substage("score");
@@ -372,25 +365,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         }
     }
     
-    // Now sort them by score
-    vector<size_t> extension_indexes_in_order;
-    extension_indexes_in_order.reserve(cluster_extension_scores.size());
-    for (size_t i = 0; i < cluster_extension_scores.size(); i++) {
-        extension_indexes_in_order.push_back(i);
-    }
-    
-    // Put the most matching group of extensions first
-    std::sort(extension_indexes_in_order.begin(), extension_indexes_in_order.end(), [&](const int& a, const int& b) -> bool {
-        // Return true if a must come before b, and false otherwise
-        return cluster_extension_scores.at(a) > cluster_extension_scores.at(b);
-    });
-
-    //Retain cluster_extensions only if their score (coverage of the read) is at
-    //least as good as this
-    double extension_set_cutoff = cluster_extension_scores.size() == 0 ? 0 :
-                              cluster_extension_scores[extension_indexes_in_order[0]]
-                                    - extension_set_score_threshold;
-    
     if (track_provenance) {
         funnel.stage("align");
     }
@@ -399,7 +373,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
     // We will fill this with all computed alignments in estimated score order.
     vector<Alignment> alignments;
-    alignments.reserve(extension_indexes_in_order.size());
+    alignments.reserve(cluster_extensions.size());
     
     // Clear any old refpos annotation and path
     aln.clear_refpos();
@@ -409,21 +383,19 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     aln.set_mapping_quality(0);
     
     // Go through the gapless extension groups in score order.
-    for (size_t i = 0; i < extension_indexes_in_order.size() && i < max_alignments ; i++) {
-        // Find the extension group we are talking about
-        size_t& extension_num = extension_indexes_in_order[i];
-        
-        if (track_provenance) {
-            funnel.processing_input(extension_num);
-        }
-
-        auto& extensions = cluster_extensions[extension_num];
-        
-        if (i < 2 || (extension_set_score_threshold == 0 || cluster_extension_scores[extension_num] > extension_set_cutoff)) {
-            // Always take the first and second.
-            // For later ones, check if this score is above the cutoff.
+    process_until_threshold(cluster_extensions, cluster_extension_scores,
+        extension_set_score_threshold, 2, max_alignments,
+        [&](size_t extension_num) {
+            // This extension set is good enough.
+            // Called in descending score order.
             
-            // If so, get an Alignment out of it somehow, and throw it in.
+            if (track_provenance) {
+                funnel.processing_input(extension_num);
+            }
+            
+            auto& extensions = cluster_extensions[extension_num];
+            
+            // Get an Alignment out of it somehow, and throw it in.
             alignments.emplace_back(aln);
             Alignment& out = alignments.back();
             
@@ -474,23 +446,19 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             if (track_provenance) {
                 // Record the Alignment and its score with the funnel
                 funnel.project(extension_num);
-                funnel.score(i, out.score());
+                funnel.score(alignments.size() - 1, out.score());
                 
                 // We're done with this input item
                 funnel.processed_input();
             }
-        } else {
-            // If this score is insignificant, nothing past here is significant.
-            // Don't do any more.
             
+            return true;
+        }, [&](size_t extension_num) {
+            // This extension is not good enough.
             if (track_provenance) {
-                funnel.kill_all(extension_indexes_in_order.begin() + i, extension_indexes_in_order.end());
-                funnel.processed_input();
+                funnel.kill(extension_num);
             }
-            
-            break;
-        }
-    }
+        });
     
     if (alignments.size() == 0) {
         // Produce an unaligned Alignment
@@ -502,59 +470,53 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         }
     }
     
-    // Order the Alignments by score
-    vector<size_t> alignments_in_order;
-    alignments_in_order.reserve(alignments.size());
-    for (size_t i = 0; i < alignments.size(); i++) {
-        alignments_in_order.push_back(i);
-    }
-    
-    // Sort again by actual score instead of extennsion score
-    std::sort(alignments_in_order.begin(), alignments_in_order.end(), [&](const size_t& a, const size_t& b) -> bool {
-        // Return true if a must come before b (i.e. it has a larger score)
-        return alignments[a].score() > alignments[b].score();
-    });
-    
     if (track_provenance) {
         // Now say we are finding the winner(s)
         funnel.stage("winner");
     }
     
+    // Fill this in with the alignments we will output
     vector<Alignment> mappings;
-    mappings.reserve(min(alignments_in_order.size(), max_multimaps));
-    for (size_t i = 0; i < alignments_in_order.size() && i < max_multimaps; i++) {
-        // For each output slot, fill it with the alignment at that rank if available.
-        size_t& alignment_num = alignments_in_order[i];
+    mappings.reserve(min(alignments.size(), max_multimaps));
+    
+    // Grab all the scores in order for MAPQ computation.
+    vector<double> scores;
+    scores.reserve(alignments.size());
+    
+    process_until_threshold(alignments, (std::function<double(size_t)>) [&](size_t i) -> double {
+        return alignments.at(i).score();
+    }, 0, 1, max_multimaps, [&](size_t alignment_num) {
+        // This alignment makes it
+        // Called in score order
+        
+        // Remember the score at its rank
+        scores.emplace_back(alignments[alignment_num].score());
+        
+        // Remember the output alignment
         mappings.emplace_back(std::move(alignments[alignment_num]));
         
         if (track_provenance) {
             // Tell the funnel
             funnel.project(alignment_num);
-            funnel.score(alignment_num, mappings.back().score());
-        }
-    }
-
-    if (track_provenance) {
-        if (max_multimaps < alignments_in_order.size()) {
-            // Some things stop here
-            funnel.kill_all(alignments_in_order.begin() + max_multimaps, alignments_in_order.end());
+            funnel.score(alignment_num, scores.back());
         }
         
+        return true;
+    }, [&](size_t alignment_num) {
+        // This alignment does not make it
+        
+        // Remember the score at its rank anyway
+        scores.emplace_back(alignments[alignment_num].score());
+        
+        if (track_provenance) {
+            funnel.kill(alignment_num);
+        }
+    });
+    
+    if (track_provenance) {
         funnel.substage("mapq");
     }
     
-    // Grab all the scores for MAPQ computation.
-    vector<double> scores;
-    scores.reserve(alignments.size());
-    for (size_t i = 0; i < mappings.size(); i++) {
-        // Grab the scores of the alignments we are outputting
-        scores.push_back(mappings[i].score());
-    }
-    for (size_t i = mappings.size(); i < alignments_in_order.size(); i++) {
-        // And of the alignments we aren't
-        scores.push_back(alignments[alignments_in_order[i]].score());
-    }
-        
 #ifdef debug
     cerr << "For scores ";
     for (auto& score : scores) cerr << score << " ";
