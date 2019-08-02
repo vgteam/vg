@@ -1148,20 +1148,28 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
 #endif
 
         // TODO: Come up with a better way to do this with more accessors on the extension and less get_handle
-        // Get the Position reading out of the extnsion on the appropriate tail
+        // Get the Position reading out of the extension on the appropriate tail
         Position from;
         // And the length of that tail
         size_t tail_length;
+        // And the GBWT search state we want to start with
+        const gbwt::SearchState* base_state = nullptr;
         if (left_tails) {
             // Look right from start 
             from = extended_seeds[extension_number].starting_position(gbwt_graph);
             // And then flip to look the other way at the prev base
             from = reverse(from, gbwt_graph.get_length(gbwt_graph.get_handle(from.node_id(), false)));
-            
+           
+            // Use the search state going backward
+            base_state = &extended_seeds[extension_number].state.backward;
+           
             tail_length = extended_seeds[extension_number].read_interval.first;
         } else {
             // Look right from end
             from = extended_seeds[extension_number].tail_position(gbwt_graph);
+            
+            // Use the search state going forward
+            base_state = &extended_seeds[extension_number].state.forward;
             
             tail_length = read_length - extended_seeds[extension_number].read_interval.second;
         }
@@ -1181,6 +1189,7 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
         list<int64_t> parent_stack;
         
         // Get the handle we are starting from
+        // TODO: is it cheaper to get this out of base_state? 
         handle_t start_handle = gbwt_graph.get_handle(from.node_id(), from.is_reverse());
         
         // Decide if the start node will end up included in the tree, or if we cut it all off with the offset.
@@ -1190,7 +1199,7 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
         size_t search_limit = get_regular_aligner()->longest_detectable_gap(tail_length, read_length) + tail_length;
         
         // Do a DFS over the haplotypes in the GBWT out to that distance.
-        dfs_gbwt(start_handle, from.offset(), search_limit, [&](const handle_t& entered) {
+        dfs_gbwt(*base_state, from.offset(), search_limit, [&](const handle_t& entered) {
             // Enter a new handle.
             
             if (parent_stack.empty()) {
@@ -1274,17 +1283,26 @@ void MinimizerMapper::dfs_gbwt(const Position& from, size_t walk_distance,
 void MinimizerMapper::dfs_gbwt(handle_t from_handle, size_t from_offset, size_t walk_distance,
     const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const {
     
+    // Turn from_handle into a SearchState for everything on it.
+    gbwt::SearchState start_state = gbwt_graph.get_state(from_handle);
+    
+    // Delegate to the state-based version
+    dfs_gbwt(start_state, from_offset, walk_distance, enter_handle, exit_handle);
+}
+    
+void MinimizerMapper::dfs_gbwt(const gbwt::SearchState& start_state, size_t from_offset, size_t walk_distance,
+    const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const {
+    
     // Holds the gbwt::SearchState we are at, and the distance we have consumed
     using traversal_state_t = pair<gbwt::SearchState, size_t>;
-
-    // Turn from_handle into a SearchState.
-    // TODO: Let a search state come in.
-    gbwt::SearchState start_state = gbwt_graph.get_state(from_handle);
     
     if (start_state.empty()) {
         // No haplotypes even visit the first node. Stop.
         return;
     }
+    
+    // Get the handle we are starting on
+    handle_t from_handle = gbwt_graph.node_to_handle(start_state.node);
 
     // The search state represents searching through the end of the node, so we have to consume that much search limit.
 
