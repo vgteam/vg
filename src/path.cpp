@@ -1173,6 +1173,15 @@ Path& extend_path(Path& path1, const Path& path2) {
 
 // concatenates paths
 Path concat_paths(const Path& path1, const Path& path2) {
+    
+    if (path1.mapping_size() == 0) {
+        return path2;
+    } else if (path2.mapping_size() == 0) {
+        return path1;
+    }
+    
+    // Otherwise there are mappings in both and we have real work to do
+
     Path res = path1;
     //cerr << "-------------------- concat thing ------------------" << endl;
     //cerr << pb2json(path1) << endl << pb2json(path2) << endl;
