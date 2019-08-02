@@ -113,12 +113,6 @@ protected:
     int estimate_extension_group_score(const Alignment& aln, vector<GaplessExtension>& extended_seeds) const;
     
     /**
-     * Determine if a score estimate is significant enough to justify computing the real Alignment.
-     * Returns true if it might win or affect mapping quality, and false otherwise.
-     */
-    bool score_is_significant(int score_estimate, int best_score, int second_best_score) const; 
-    
-    /**
      * Operating on the given input alignment, align the tails dangling off the
      * given extended perfect-match seeds and produce an optimal alignment into
      * the given output Alignment object.

@@ -409,9 +409,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     aln.set_mapping_quality(0);
     
     // Go through the gapless extension groups in score order.
-    // Keep track of best and second best scores.
-    int second_best_score = cluster_extension_scores.size() < 2 ? 0 :
-                            cluster_extension_scores[extension_indexes_in_order[1]];
     for (size_t i = 0; i < extension_indexes_in_order.size() && i < max_alignments ; i++) {
         // Find the extension group we are talking about
         size_t& extension_num = extension_indexes_in_order[i];
@@ -424,7 +421,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         
         if (i < 2 || (extension_set_score_threshold == 0 || cluster_extension_scores[extension_num] > extension_set_cutoff)) {
             // Always take the first and second.
-            // For later ones, check if this score is significant relative to the running best and second best scores.
+            // For later ones, check if this score is above the cutoff.
             
             // If so, get an Alignment out of it somehow, and throw it in.
             alignments.emplace_back(aln);
@@ -757,17 +754,6 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
         return score_estimate;
     }
     
-}
-
-bool MinimizerMapper::score_is_significant(int score_estimate, int best_score, int second_best_score) const {
-    // mpmap uses a heuristic of if the read coverage of the cluster is less than half the best cluster's read coverage, stop.
-    // We do something similar, but with scores. And we make sure to get at least one second best score.
-    // If it's not more than half the best score, it doesn't matter if it beats the second best score; both secondaries are sufficiently bad.
-    // TODO: real scores from full-length gapless extensions aren't quite directly comparable with estimates.
-    if (score_estimate * 2 >= best_score || second_best_score < 1) {
-        return true;
-    }
-    return false;
 }
 
 void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
