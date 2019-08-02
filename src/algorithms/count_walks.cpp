@@ -5,12 +5,16 @@ namespace algorithms {
 
 using namespace std;
     
-    vector<handle_t> sinks;
-    unordered_map<handle_t, size_t> count;
-    bool overflowed = false;
+    
 
-    unordered_map<handle_t, size_t> count_walks_through_nodes(const HandleGraph* graph) {
+     tuple<vector<handle_t>, unordered_map<handle_t, size_t>, bool> count_walks_through_nodes(const HandleGraph* graph) {
         
+        
+        tuple<vector<handle_t>, unordered_map<handle_t, size_t>, bool> to_return; 
+
+        vector<handle_t>& sinks = get<0>(to_return);
+        unordered_map<handle_t, size_t>& count = get<1>(to_return);
+        bool& overflowed = get<2>(to_return);
         
         count.reserve(graph->get_node_count());
         
@@ -36,7 +40,6 @@ using namespace std;
         });
         
         // count walks by dynamic programming
-        
         for (const handle_t& handle : lazier_topological_order(graph)) {
             size_t count_here = count[handle];
             graph->follow_edges(handle, false, [&](const handle_t& next) {
@@ -49,8 +52,15 @@ using namespace std;
                 }
             });
         }
+        return to_return;
     }
-    size_t get_total(){
+    size_t count_walks(const HandleGraph* graph){
+
+        tuple<vector<handle_t>, unordered_map<handle_t, size_t>, bool>  to_receive = count_walks_through_nodes(graph);
+
+        vector<handle_t>& sinks = get<0>(to_receive);
+        unordered_map<handle_t, size_t>& count = get<1>(to_receive);
+        bool& overflowed = get<2>(to_receive); 
 
         if (overflowed) {
                 return numeric_limits<size_t>::max();

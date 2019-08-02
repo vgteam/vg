@@ -5,6 +5,7 @@
 #include <random> 
 #include <chrono>
 #include <utility>
+#include "multipath_alignment.hpp"
 
 namespace vg {
 
@@ -51,7 +52,7 @@ namespace vg {
                 // calculate acceptance probability 
                 double acceptance_probability = min(1.0, likelihood_ratio);
             
-                if(runif(0.0,1.0) > acceptance_probability){ 
+                if(generate_continuous_uniform(0.0,1.0) > acceptance_probability){ 
                     genome->set_allele(modified_site, old_allele.begin(), old_allele.end(), modified_haplo); 
                 }
                 
@@ -69,12 +70,15 @@ namespace vg {
     double MCMCGenotyper::log_target(PhasedGenome& phased_genome, const vector<MultipathAlignment>& reads)const{
         
         // sum of scores given the reads aligned on the haplotype 
-        double sum_scores; 
+        int32_t sum_scores = 0; 
         
+              
         // condition on data 
         for(MultipathAlignment mp : reads){
-            cerr << sum_scores <<endl;
+            identify_start_subpaths(mp);  
+            
             sum_scores += phased_genome.optimal_score_on_genome(mp, graph);
+            cerr << "sum score is : "<< sum_scores <<endl;
         } 
         return sum_scores;
     }
@@ -88,12 +92,15 @@ namespace vg {
         int& random_haplotype = get<0>(to_return);
         const Snarl*& random_snarl = get<1>(to_return);
         // the random path through the snarl 
-        vector<NodeTraversal>& allele = get<2>(to_return);
+        vector<NodeTraversal>& old_allele = get<2>(to_return);
         
         // sample uniformly between snarls 
         random_snarl = snarls.discrete_uniform_sample(random_engine);
         
+        cerr << "this is the boundary nodes of the snarl " << random_snarl->start() << random_snarl->end() <<endl;
+        
         if(random_snarl == nullptr){
+            cerr << "random_snarl is null " <<endl;
             random_haplotype = -1;
             return to_return;
         }
@@ -111,11 +118,13 @@ namespace vg {
 
         // choose a haplotype uiformly 
         id_t lower_bound = 0;
-        id_t upper_bound = matched_haplotypes.size();
+        id_t upper_bound = matched_haplotypes.size()-1;
+
         int random_num = generate_discrete_uniform(random_engine, lower_bound, upper_bound);
         random_haplotype = matched_haplotypes[random_num];
 
-        pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarls.deep_contents(random_snarl, graph, false);
+
+        pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarls.deep_contents(random_snarl, graph, true);
 
         // unpack the pair, we only care about the node_ids
         unordered_set<id_t>& ids = contents.first;
@@ -129,94 +138,81 @@ namespace vg {
             subgraph.add_handle(graph.get_handle(id, false));
         }
         
+        
         // create a count_map of the subgraph
         auto count_contents = algorithms::count_walks_through_nodes(&subgraph);
         
         // unpack the count map from the count_contents 
         unordered_map<handle_t, size_t>& count_map = get<1>(count_contents);
-        handle_t& source_handle = get<3>(count_contents); //get the source 
+
         
-        // build the topology of the count_map
-        vector<size_t> cumulative_sum;
-        vector<size_t> paths_to_take; // will store the counts 
-        bool start_from_sink =true;
-        size_t  count = 0, chosen  =0;
-        vector<handle_t> handles;
         
         // create a topological order of the map
         vector<handle_t> topological_order = algorithms::lazier_topological_order(&graph);
 
-        //  we want to get just one handle
-        handle_t start = topological_order.back(); 
+        //  we want to get just the sink handle handle
+        handle_t start = topological_order.back();  
+        handle_t source = topological_order.front();
         
-
         // start at sink in topological
+        bool start_from_sink =true;
         bool not_source = true;
-        
+
+        vector<NodeTraversal> allele;
+ 
         while(not_source){
-            // cumulative sum should reset for new paths 
+
             size_t  cum_sum = 0;
-            cerr <<"line 157"<< &start << endl;
+            vector<size_t> cumulative_sum;
+            vector<size_t> paths_to_take;
+            size_t  count = 0;
+            vector<handle_t> handles;
+            
             subgraph.follow_edges(start, start_from_sink, [&](const handle_t& next) { 
                 unordered_map<handle_t, size_t>::iterator it;
-                cerr << "this is the id of start handle from follow edges "<<subgraph.get_id(start) << endl;
-                cerr << "this is the id of handle from follow edges "<<subgraph.get_id(next) << endl;
-                it= count_map.find(next); // find the handle
+                it = count_map.find(next); // find the handle
                 count = it->second; // get the count 
-                cerr <<"count: " << count << endl;
-                paths_to_take.push_back(count);
                 cum_sum += count;
-                cerr << "cum_sum is: " << cum_sum <<endl;
                 cumulative_sum.push_back(cum_sum); 
-                cerr << "this is the size of the array after push in line 167"<< cumulative_sum.size() <<endl;
                 handles.push_back(next); 
         
             });
-            
-            
+
             // choose a random path uniformly
-            int l_bound = cumulative_sum[0];
-            int u_bound = cum_sum; 
+            int l_bound = 0;
+            int u_bound = cumulative_sum.back()-1;
             int random_num = generate_discrete_uniform(random_engine,l_bound, u_bound);
-            cerr << "random number is: " << random_num <<endl;
 
-            int found = -1;
-
+            // use the random_num to select a random_handle
+            int found = 0, prev = 0;
             for (int i = 0; i< cumulative_sum.size() ; i++) {
-                if (i <= random_num && random_num < cumulative_sum[i] ){
-                    cerr << "we are comparing " << cumulative_sum[i] << "to " << random_num << "in iteration " << i <<endl;
-                    chosen = paths_to_take[i]; // chosen will contain the count of the handle we want to take
-                    found = i;
+                // check what range the random_num falls in    
+                if (prev <= random_num && random_num < cumulative_sum[i] ){
+                    found = i; // will correspond to the index of handles
                     break; 
-                }else{
-                    continue;
                 }
+                prev = cumulative_sum[i];
             } 
-            cerr << "this is found: " << found << endl;
-            if(found != -1){
-                handle_t random_handle = handles[found]; // this is the handle we want to start from
-                bool position = graph.get_is_reverse(random_handle);
-                Node* n = graph.get_node(graph.get_id(random_handle));
-                allele.push_back(NodeTraversal(n,false));
-                // follow random _handle
-                cerr << "random_handle " << &random_handle <<endl;
-                cerr << "start " << &start <<endl;
-                start = random_handle; // start cant be a pointer (requirements for follow_edges)
-                cerr << "new start" << &start << endl; 
 
-            }   
+            assert(found != -1);
 
-            // check if the random handle is the source, if so we terminate loop
-            if(start == source_handle){
+            // start_ptr will point to random handle 
+            start = handles[found]; 
+            
+            // save the random path 
+            bool position = subgraph.get_is_reverse(start);
+            Node* n = graph.get_node(subgraph.get_id(start));
+            allele.push_back(NodeTraversal(n,position));
+
+            // check if we are at the source, if so we terminate loop
+            if(start == source){
                 not_source = false;
             }    
             
-
         }
         
-        // get allele at site where we will make replacement 
-        vector<NodeTraversal> old_allele = get<2>(to_return);
         old_allele = current.get_allele(*random_snarl, random_haplotype);
+        
         
 
         // set new allele with random allele, replace with previous allele 
@@ -234,7 +230,7 @@ namespace vg {
 
         return random_num;
     }
-    double MCMCGenotyper::runif(const double a, const double b)const{
+    double MCMCGenotyper::generate_continuous_uniform(const double a, const double b)const{
         
         uniform_real_distribution<double> distribution(a,b);
         double random_num = distribution(random_engine);

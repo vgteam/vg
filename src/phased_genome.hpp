@@ -8,6 +8,7 @@
 
 #ifndef phased_genome_hpp
 #define phased_genome_hpp
+#define debug_phased_genome
 
 #include <stdio.h>
 #include <cassert>
@@ -51,6 +52,8 @@ namespace vg {
         /// Constructor
         PhasedGenome(const SnarlManager& snarl_manager);
         ~PhasedGenome();
+        PhasedGenome(const PhasedGenome& phased_genome) = delete;
+        PhasedGenome&  operator =(const PhasedGenome& phased_genome) = delete;
         
         /// Build a haplotype in place from an iterator that returns NodeTraversal objects from its
         /// dereference operator (allows construction without instantiating the haplotype elsewhere)
@@ -84,6 +87,9 @@ namespace vg {
         /// Check which haplotypes a snarl is found in 
         // Returns a list of haplotype IDs 
         vector<id_t> get_haplotypes_with_snarl(const Snarl* snarl_to_find);
+
+        /// Prints out the haplotypes, and node values
+        void print_phased_genome();
         
         /*
          *  HAPLOTYPE EDITING METHODS

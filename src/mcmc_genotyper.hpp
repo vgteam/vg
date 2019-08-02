@@ -57,7 +57,7 @@ public:
     /**
      * Given a range [a,b] will return a random number uniformly distributed within that range 
      */
-     double runif(const double a, const double b) const;
+     double generate_continuous_uniform(const double a, const double b) const;
 
      /**
       * Generate a PhasedGenome to use as an initial value in M-H
