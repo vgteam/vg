@@ -8,7 +8,7 @@
 
 #ifndef phased_genome_hpp
 #define phased_genome_hpp
-#define debug_phased_genome
+
 
 #include <stdio.h>
 #include <cassert>
@@ -21,7 +21,6 @@
 #include "hash_map.hpp"
 #include "snarls.hpp"
 
-//#define debug_phased_genome
 
 using namespace std;
 

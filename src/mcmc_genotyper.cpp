@@ -61,11 +61,6 @@ namespace vg {
             }
 
         }
-        if(invalid_contents){
-            cerr<< "contents are invalid"<< endl;
-        }
-        cerr << "returning the genome from run_genotyper"<< endl;
-        genome->print_phased_genome();
         return std::move(genome); 
 
     }   
@@ -79,7 +74,6 @@ namespace vg {
         for(MultipathAlignment mp : reads){
             identify_start_subpaths(mp);  
             sum_scores += phased_genome.optimal_score_on_genome(mp, graph);
-            cerr << "sum score is : "<< sum_scores <<endl;
         } 
         return sum_scores;
     }
@@ -205,10 +199,12 @@ namespace vg {
             bool position = subgraph.get_is_reverse(start);
             Node* n = graph.get_node(subgraph.get_id(start));
 
-            // allele should not include boundary nodes
-            if(n != graph.get_node(subgraph.get_id(source)) && n != graph.get_node(subgraph.get_id(topological_order.back()))){
+
+            // allele should not include boundary nodes of random_snarl
+            if(n->id() != random_snarl->start().node_id() && n->id() != random_snarl->end().node_id() ){
                 allele.push_back(NodeTraversal(n,position));
             }
+            
             
 
             // check if we are at the source, if so we terminate loop
@@ -217,11 +213,11 @@ namespace vg {
             }    
             
         }
-        
+        // save old allele so we can swap back to it if we need to 
         old_allele = current.get_allele(*random_snarl, random_haplotype);
         
         // set new allele with random allele, replace with previous allele 
-        current.set_allele(*random_snarl , allele.begin(), allele.end(), random_haplotype);
+        current.set_allele(*random_snarl , allele.rbegin(), allele.rend(), random_haplotype);
         
  
         return to_return;

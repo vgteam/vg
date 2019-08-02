@@ -406,12 +406,9 @@ namespace vg {
 
                 path_handle_t path_handle = graph.create_path_handle("x");
                 graph.append_step(path_handle, graph.get_handle(n1->id()));
-                graph.append_step(path_handle, graph.get_handle(n2->id()));
-                graph.append_step(path_handle, graph.get_handle(n4->id()));
-                graph.append_step(path_handle, graph.get_handle(n5->id()));
-                graph.append_step(path_handle, graph.get_handle(n6->id()));
                 graph.append_step(path_handle, graph.get_handle(n7->id()));
                 graph.append_step(path_handle, graph.get_handle(n8->id()));
+                graph.append_step(path_handle, graph.get_handle(n6->id()));
 
                 
                 graph.create_edge(n1, n2);
@@ -469,13 +466,13 @@ namespace vg {
                 edit0->set_from_length(3); //a match 
                 edit0->set_to_length(3);
                 
-                Mapping* mapping1 = subpath0->mutable_path()->add_mapping();
+                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
                 Edit* edit1 = mapping1->add_edit();
                 edit1->set_from_length(3); //a match 
                 edit1->set_to_length(3);
                 
-                Mapping* mapping2 = subpath1->mutable_path()->add_mapping();
+                Mapping* mapping2 = subpath2->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(3);
                 Edit* edit2 = mapping2->add_edit();
                 edit2->set_from_length(1); //a match 
@@ -505,7 +502,7 @@ namespace vg {
                 Edit* edit6 = mapping6->add_edit();
                 edit6->set_from_length(2); //a mismatch 
                 edit6->set_to_length(2); // will offset 2 positions in read and graph 
-                edit6->set_sequence("TA");
+                edit6->set_sequence("CC");
                 Edit* edit6b = mapping6->add_edit();
                 edit6b->set_from_length(1); // a match
                 edit6b->set_to_length(1);
@@ -516,11 +513,11 @@ namespace vg {
                 Edit* edit7 = mapping7->add_edit();
                 edit7->set_from_length(1); //a mismatch 
                 edit7->set_to_length(1);
-                edit7->set_sequence("T");
+                edit7->set_sequence("A");
                 Edit* edit7b = mapping7->add_edit(); // a deletion , gap open 
                 edit7b->set_from_length(1); // denotes the length of the gap observed in alt seq
                 edit7b->set_to_length(0); // length in alt sequence is zero because it is a gap
-                edit7b->set_sequence("C");
+                edit7b->set_sequence("G");
 
                 multipath_aln.add_start(0); //integer given is the subpath number
 				
@@ -581,10 +578,8 @@ namespace vg {
                 path_handle_t path_handle = graph.create_path_handle("x");
                 graph.append_step(path_handle, graph.get_handle(n1->id()));
                 graph.append_step(path_handle, graph.get_handle(n2->id()));
-                graph.append_step(path_handle, graph.get_handle(n3->id()));
                 graph.append_step(path_handle, graph.get_handle(n4->id()));
                 graph.append_step(path_handle, graph.get_handle(n5->id()));
-                graph.append_step(path_handle, graph.get_handle(n6->id()));
                 graph.append_step(path_handle, graph.get_handle(n7->id()));
                 
                 
@@ -654,8 +649,8 @@ namespace vg {
                 
                 // create a set of 2 possible solutions
                 vector<NodeTraversal> soln1, soln2;
-                soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n5), NodeTraversal(n7)};
-                soln2 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4), NodeTraversal(n6), NodeTraversal(n7)};
+                soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n6), NodeTraversal(n7)};
+                soln2 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4), NodeTraversal(n5), NodeTraversal(n7)};
 
                 set<vector<NodeTraversal>> solns_set;
                 solns_set.insert(soln1);

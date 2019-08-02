@@ -206,12 +206,10 @@ namespace vg {
 
         // interate through the vector of haplotype pointers and do a lookup for snarl_to_find
         // if found then we add it to the list of matched haplotypes 
+
         id_t id = 0;
         for (Haplotype* haplotype : haplotypes){
-            cerr << "size of sites "<<haplotype->sites.size() <<endl;
             bool found = haplotype->sites.count(snarl_to_find);
-            cerr << "id : " << id <<endl;
-            cerr << "found : " << found << endl;
             if(found){
                 // add the ID to the haplotype to the vector 
                 matched_haplotype_ids.push_back(id);
