@@ -28,14 +28,15 @@ namespace vg {
         for(int i = 1; i<= n_iterations; i++){
             
             // holds the previous sample allele
-            double x_star_log = log_target(*genome, reads);
+            double x_prev = log_target(*genome, reads);
         
             // get contents from proposal_sample
             tuple<int, const Snarl*, vector<NodeTraversal> > to_receive = proposal_sample(*genome);
             int& modified_haplo = get<0>(to_receive);
              
             
-            // if the to_receive contents are invalid, do not swap
+            // if the to_receive contents are invalid keep the new allele
+            // for graphs that do not contain snarls
             if (modified_haplo ==-1){
                 invalid_contents = true;
                 continue;
@@ -44,14 +45,15 @@ namespace vg {
                 vector<NodeTraversal>& old_allele = get<2>(to_receive); 
  
                 // holds new sample allele
-                double current_log = log_target(*genome, reads);
+                double x_new = log_target(*genome, reads);
 
                 // calculate likelihood ratio of posterior distribution 
-                double likelihood_ratio = exp(log_base*(current_log - x_star_log));
+                double likelihood_ratio = exp(log_base*(x_new - x_prev));
 
                 // calculate acceptance probability 
                 double acceptance_probability = min(1.0, likelihood_ratio);
-            
+
+                // if u~U(0,1) > alpha, discard new allele and keep previous 
                 if(generate_continuous_uniform(0.0,1.0) > acceptance_probability){ 
                     genome->set_allele(modified_site, old_allele.begin(), old_allele.end(), modified_haplo); 
                 }
@@ -76,7 +78,6 @@ namespace vg {
         // condition on data 
         for(MultipathAlignment mp : reads){
             identify_start_subpaths(mp);  
-            
             sum_scores += phased_genome.optimal_score_on_genome(mp, graph);
             cerr << "sum score is : "<< sum_scores <<endl;
         } 
@@ -97,7 +98,8 @@ namespace vg {
         // sample uniformly between snarls 
         random_snarl = snarls.discrete_uniform_sample(random_engine);
         
-        cerr << "this is the boundary nodes of the snarl " << random_snarl->start() << random_snarl->end() <<endl;
+        // comment this out when testing Test1 - will cause segfault
+        // cerr << "this is the boundary nodes of the snarl " << random_snarl->start() << random_snarl->end() <<endl;
         
         if(random_snarl == nullptr){
             cerr << "random_snarl is null " <<endl;
@@ -147,8 +149,8 @@ namespace vg {
 
         
         
-        // create a topological order of the map
-        vector<handle_t> topological_order = algorithms::lazier_topological_order(&graph);
+        // create a topological order of sub graph count map
+        vector<handle_t> topological_order = algorithms::lazier_topological_order(&subgraph);
 
         //  we want to get just the sink handle handle
         handle_t start = topological_order.back();  
@@ -202,7 +204,12 @@ namespace vg {
             // save the random path 
             bool position = subgraph.get_is_reverse(start);
             Node* n = graph.get_node(subgraph.get_id(start));
-            allele.push_back(NodeTraversal(n,position));
+
+            // allele should not include boundary nodes
+            if(n != graph.get_node(subgraph.get_id(source)) && n != graph.get_node(subgraph.get_id(topological_order.back()))){
+                allele.push_back(NodeTraversal(n,position));
+            }
+            
 
             // check if we are at the source, if so we terminate loop
             if(start == source){
@@ -213,8 +220,6 @@ namespace vg {
         
         old_allele = current.get_allele(*random_snarl, random_haplotype);
         
-        
-
         // set new allele with random allele, replace with previous allele 
         current.set_allele(*random_snarl , allele.begin(), allele.end(), random_haplotype);
         
