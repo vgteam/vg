@@ -256,25 +256,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     cerr << "Found " << clusters.size() << " clusters" << endl;
 #endif
                                     
-    // Make a vector of cluster indexes to sort
-    vector<size_t> cluster_indexes_in_order;
-    cluster_indexes_in_order.reserve(clusters.size());
-    for (size_t i = 0; i < clusters.size(); i++) {
-        cluster_indexes_in_order.push_back(i);
-    }
-
-    // Put the most covering cluster's index first
-    std::sort(cluster_indexes_in_order.begin(), cluster_indexes_in_order.end(), 
-        [&](const size_t& a, const size_t& b) -> bool {
-            // Return true if a must come before b, and false otherwise
-            return (read_coverage_by_cluster[a] > read_coverage_by_cluster[b]);
-    });
-
-    //Retain clusters only if their read coverage is better than this
-    double cluster_coverage_cutoff = cluster_indexes_in_order.size() == 0 ? 0 : 
-                                 read_coverage_by_cluster[cluster_indexes_in_order[0]]
-                                    - cluster_coverage_threshold;
-    //Retain clusters only if their score is better than this
+    // Retain clusters only if their score is better than this, in addition to the coverage cutoff
     double cluster_score_cutoff = cluster_score.size() == 0 ? 0 :
                     *std::max_element(cluster_score.begin(), cluster_score.end()) - cluster_score_threshold;
     
@@ -285,67 +267,78 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     // These are the GaplessExtensions for all the clusters, in cluster_indexes_in_order order.
     vector<vector<GaplessExtension>> cluster_extensions;
-    cluster_extensions.reserve(cluster_indexes_in_order.size());
+    cluster_extensions.reserve(clusters.size());
     
-    size_t num_extensions = 0;
-    for (size_t i = 0; i < clusters.size() && num_extensions < max_extensions &&
-                 (cluster_coverage_threshold == 0 || read_coverage_by_cluster[cluster_indexes_in_order[i]] > cluster_coverage_cutoff); i++) {
-        // For each cluster, in sorted order
-        size_t& cluster_num = cluster_indexes_in_order[i];
-        if (cluster_score_threshold != 0 && cluster_score[cluster_num] < cluster_score_cutoff) {
-            //If the score isn't good enough, ignore this cluster
-            continue;
-        }
-        num_extensions ++;
-        
-        if (track_provenance) {
-            funnel.processing_input(cluster_num);
-        }
-
-        vector<size_t>& cluster = clusters[cluster_num];
-
-#ifdef debug
-        cerr << "Cluster " << cluster_num << " rank " << i << ": " << endl;
-#endif
-         
-        // Pack the seeds for GaplessExtender.
-        GaplessExtender::cluster_type seed_matchings;
-        for (auto& seed_index : cluster) {
-            // Insert the (graph position, read offset) pair.
-            seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
-#ifdef debug
-            cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
-                << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index.count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
-#endif
-        }
-        
-        // Extend seed hits in the cluster into one or more gapless extensions
-        vector<GaplessExtension> extensions = extender.extend(seed_matchings, aln.sequence());
-        // Find the best scoring extension
-        vector<GaplessExtension> filtered_extensions;
-        int32_t best_extension_score = 0;
-        for (GaplessExtension& extension : extensions) {
-            best_extension_score = max(best_extension_score, extension.score);
-        }
-        //Keep only the extensions whose score is within extension_score_threshold
-        //of the best scoring extension
-        for (GaplessExtension& extension : extensions) {
-            if (extension_score_threshold == 0 || 
-                extension.score > best_extension_score - extension_score_threshold) {
-                filtered_extensions.push_back(std::move(extension));
-            }
-        }
-        cluster_extensions.emplace_back(std::move(filtered_extensions));
-        
-        if (track_provenance) {
-            // Record with the funnel that the previous group became a group of this size.
-            // Don't bother recording the seed to extension matching...
-            funnel.project_group(cluster_num, cluster_extensions.back().size());
+    process_until_threshold(clusters, read_coverage_by_cluster,
+        cluster_coverage_threshold, 1, max_extensions,
+        [&](size_t cluster_num) {
+            // Handle sufficiently good clusters in descending coverage order
             
-            // Say we finished with this cluster, for now.
-            funnel.processed_input();
-        }
-    }
+            // First check against the additional score filter
+            if (cluster_score_threshold != 0 && cluster_score[cluster_num] < cluster_score_cutoff) {
+                //If the score isn't good enough, ignore this cluster
+                if (track_provenance) {
+                    funnel.kill(cluster_num);
+                }
+                return false;
+            }
+            
+            if (track_provenance) {
+                funnel.processing_input(cluster_num);
+            }
+
+            vector<size_t>& cluster = clusters[cluster_num];
+
+#ifdef debug
+            cerr << "Cluster " << cluster_num << " rank " << i << ": " << endl;
+#endif
+             
+            // Pack the seeds for GaplessExtender.
+            GaplessExtender::cluster_type seed_matchings;
+            for (auto& seed_index : cluster) {
+                // Insert the (graph position, read offset) pair.
+                seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
+#ifdef debug
+                cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
+                    << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index.count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
+#endif
+            }
+            
+            // Extend seed hits in the cluster into one or more gapless extensions
+            vector<GaplessExtension> extensions = extender.extend(seed_matchings, aln.sequence());
+            // Find the best scoring extension
+            vector<GaplessExtension> filtered_extensions;
+            int32_t best_extension_score = 0;
+            for (GaplessExtension& extension : extensions) {
+                best_extension_score = max(best_extension_score, extension.score);
+            }
+            //Keep only the extensions whose score is within extension_score_threshold
+            //of the best scoring extension
+            for (GaplessExtension& extension : extensions) {
+                if (extension_score_threshold == 0 || 
+                    extension.score > best_extension_score - extension_score_threshold) {
+                    filtered_extensions.push_back(std::move(extension));
+                }
+            }
+            cluster_extensions.emplace_back(std::move(filtered_extensions));
+            
+            if (track_provenance) {
+                // Record with the funnel that the previous group became a group of this size.
+                // Don't bother recording the seed to extension matching...
+                funnel.project_group(cluster_num, cluster_extensions.back().size());
+                
+                // Say we finished with this cluster, for now.
+                funnel.processed_input();
+            }
+            
+            return true;
+        }, [&](size_t cluster_num) {
+            // This cluster is not sufficiently good.
+            if (track_provenance) {
+                funnel.kill(cluster_num);
+            }
+        });
+        
     
     if (track_provenance) {
         funnel.substage("score");
