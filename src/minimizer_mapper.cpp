@@ -504,6 +504,19 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         }
     }
     
+    // Order the Alignments by score
+    vector<size_t> alignments_in_order;
+    alignments_in_order.reserve(alignments.size());
+    for (size_t i = 0; i < alignments.size(); i++) {
+        alignments_in_order.push_back(i);
+    }
+    
+    // Sort again by actual score instead of extennsion score
+    std::sort(alignments_in_order.begin(), alignments_in_order.end(), [&](const size_t& a, const size_t& b) -> bool {
+        // Return true if a must come before b (i.e. it has a larger score)
+        return alignments[a].score() > alignments[b].score();
+    });
+    
     if (track_provenance) {
         // Now say we are finding the winner(s)
         funnel.stage("winner");
@@ -512,6 +525,30 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Fill this in with the alignments we will output
     vector<Alignment> mappings;
     mappings.reserve(min(alignments.size(), max_multimaps));
+    
+    vector<Alignment> mappings2;
+    mappings2.reserve(min(alignments.size(), max_multimaps));
+    
+    for (size_t i = 0; i < alignments_in_order.size() && i < max_multimaps; i++) {
+        // For each output slot, fill it with the alignment at that rank if available.
+        size_t& alignment_num = alignments_in_order[i];
+        mappings.emplace_back(alignments[alignment_num]);
+        
+        if (track_provenance) {
+            // Tell the funnel
+            funnel.project(alignment_num);
+            funnel.score(alignment_num, mappings.back().score());
+        }
+    }
+
+    if (track_provenance) {
+        if (max_multimaps < alignments_in_order.size()) {
+            // Some things stop here
+            funnel.kill_all(alignments_in_order.begin() + max_multimaps, alignments_in_order.end());
+        }
+        
+        funnel.substage("mapq");
+    }
     
     // Grab all the scores in order for MAPQ computation.
     vector<double> scores;
@@ -527,13 +564,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         scores.emplace_back(alignments[alignment_num].score());
         
         // Remember the output alignment
-        mappings.emplace_back(std::move(alignments[alignment_num]));
-        
-        if (track_provenance) {
-            // Tell the funnel
-            funnel.project(alignment_num);
-            funnel.score(alignment_num, scores.back());
-        }
+        mappings2.emplace_back(alignments[alignment_num]);
         
         return true;
     }, [&](size_t alignment_num) {
@@ -542,10 +573,21 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Remember the score at its rank anyway
         scores.emplace_back(alignments[alignment_num].score());
         
-        if (track_provenance) {
-            funnel.kill(alignment_num);
-        }
     });
+    
+    // OK, check to see if process_until_threshold agrees with our loop
+    if (mappings.size() != mappings2.size()) {
+        throw runtime_error("New code got " + to_string(mappings2.size()) + " mappings but old code got " + to_string(mappings.size()) + " mappings for read " + aln.name());
+    }
+    
+    for (size_t i = 0; i < mappings.size(); i++) {
+        if (mappings[i].score() != mappings2[i].score()) {
+            throw runtime_error("Score mismatch: " + pb2json(mappings[i]) + " vs " + pb2json(mappings2[i]));
+        }
+        if (mappings[i].path().mapping_size() != mappings2[i].path().mapping_size()) {
+            throw runtime_error("Path mismatch: " + pb2json(mappings[i]) + " vs " + pb2json(mappings2[i]));
+        }
+    }
     
     if (track_provenance) {
         funnel.substage("mapq");
