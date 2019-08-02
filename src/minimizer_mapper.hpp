@@ -167,23 +167,6 @@ protected:
         size_t read_length, bool left_tails) const;
         
     /**
-     * Find the best alignment of the given sequence against any of the paths
-     * defined in paths.
-     *
-     * If no mapping is possible, produce a pure insert at default_position.
-     *
-     * If pinned is true, pin the alignment on one end to the start or end of
-     * each path.
-     *
-     * When pinning, if pin_left is true, pin it on the left to the start of
-     * each path. Otherwise pin it on the right to the end.
-     *
-     * Returns alingments in gbwt_graph space.
-     */
-    pair<Path, size_t> get_best_alignment_against_any_path(const vector<Path>& paths, const string& sequence,
-        const Position& default_position, bool pinned, bool pin_left) const;
-    
-    /**
      * Find the best alignment of the given sequence against any of the trees
      * provided in trees, where each tree is a TreeSubgraph over the GBWT
      * graph. Each tree subgraph is rooted at the left in its own local
