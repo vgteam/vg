@@ -371,24 +371,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             funnel.produced_output();
         }
     }
-    // Now sort them by score
-    vector<size_t> extension_indexes_in_order;
-    extension_indexes_in_order.reserve(cluster_extension_scores.size());
-    for (size_t i = 0; i < cluster_extension_scores.size(); i++) {
-        extension_indexes_in_order.push_back(i);
-    }
-    
-    // Put the most matching group of extensions first
-    std::sort(extension_indexes_in_order.begin(), extension_indexes_in_order.end(), [&](const int& a, const int& b) -> bool {
-        // Return true if a must come before b, and false otherwise
-        return cluster_extension_scores.at(a) > cluster_extension_scores.at(b);
-    });
-
-    //Retain cluster_extensions only if their score (coverage of the read) is at
-    //least as good as this
-    double extension_set_cutoff = cluster_extension_scores.size() == 0 ? 0 :
-                              cluster_extension_scores[extension_indexes_in_order[0]]
-                                    - extension_set_score_threshold;
     
     if (track_provenance) {
         funnel.stage("align");
@@ -398,7 +380,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
     // We will fill this with all computed alignments in estimated score order.
     vector<Alignment> alignments;
-    alignments.reserve(extension_indexes_in_order.size());
+    alignments.reserve(cluster_extensions.size());
     
     // Clear any old refpos annotation and path
     aln.clear_refpos();
@@ -408,24 +390,19 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     aln.set_mapping_quality(0);
     
     // Go through the gapless extension groups in score order.
-    // Keep track of best and second best scores.
-    int second_best_score = cluster_extension_scores.size() < 2 ? 0 :
-                            cluster_extension_scores[extension_indexes_in_order[1]];
-    for (size_t i = 0; i < extension_indexes_in_order.size() && i < max_alignments ; i++) {
-        // Find the extension group we are talking about
-        size_t& extension_num = extension_indexes_in_order[i];
-        
-        if (track_provenance) {
-            funnel.processing_input(extension_num);
-        }
-
-        auto& extensions = cluster_extensions[extension_num];
-        
-        if (i < 2 || (extension_set_score_threshold == 0 || cluster_extension_scores[extension_num] > extension_set_cutoff)) {
-            // Always take the first and second.
-            // For later ones, check if this score is significant relative to the running best and second best scores.
+    process_until_threshold(cluster_extensions, cluster_extension_scores,
+        extension_set_score_threshold, 2, max_alignments,
+        [&](size_t extension_num) {
+            // This extension set is good enough.
+            // Called in descending score order.
             
-            // If so, get an Alignment out of it somehow, and throw it in.
+            if (track_provenance) {
+                funnel.processing_input(extension_num);
+            }
+            
+            auto& extensions = cluster_extensions[extension_num];
+            
+            // Get an Alignment out of it somehow, and throw it in.
             alignments.emplace_back(aln);
             Alignment& out = alignments.back();
             
@@ -476,23 +453,19 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             if (track_provenance) {
                 // Record the Alignment and its score with the funnel
                 funnel.project(extension_num);
-                funnel.score(i, out.score());
+                funnel.score(alignments.size() - 1, out.score());
                 
                 // We're done with this input item
                 funnel.processed_input();
             }
-        } else {
-            // If this score is insignificant, nothing past here is significant.
-            // Don't do any more.
             
+            return true;
+        }, [&](size_t extension_num) {
+            // This extension is not good enough.
             if (track_provenance) {
-                funnel.kill_all(extension_indexes_in_order.begin() + i, extension_indexes_in_order.end());
-                funnel.processed_input();
+                funnel.kill(extension_num);
             }
-            
-            break;
-        }
-    }
+        });
     
     if (alignments.size() == 0) {
         // Produce an unaligned Alignment
