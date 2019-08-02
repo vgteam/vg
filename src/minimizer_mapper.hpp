@@ -284,20 +284,19 @@ void MinimizerMapper::process_until_threshold(const vector<Item>& items, const f
     for (size_t i = 0; i < indexes_in_order.size() && unskipped < max_count ; i++) {
         // Find the item we are talking about
         size_t& item_num = indexes_in_order[i];
-        auto& item = items[item_num];
         
         if (unskipped < min_count || (threshold == 0 || get_score(item_num) > cutoff)) {
             // Do we definitely want this one, or is its score sufficiently good?
             
             // If so, go do it.
             // If it is not skipped, add it to the total number of unskipped items
-            unskipped += (size_t) process_item(i);
+            unskipped += (size_t) process_item(item_num);
         } else {
             // If this score is insignificant, nothing past here is significant.
             
             // Say we aren't doing this one.
             // We'll also say we aren't doing the rest.
-            discard_item(i);
+            discard_item(item_num);
         }
     }
 }
