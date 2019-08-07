@@ -10,6 +10,7 @@
 #include "../algorithms/0_draft_haplotype_realignment.hpp"
 #include "../gbwt_helper.hpp"
 #include "../../include/vg/io/vpkg.hpp"
+#include "../algorithms/0_draft_snarl_normalization_evaluation.cpp"
 
 
 using namespace std;
@@ -33,6 +34,7 @@ int main_normalize(int argc, char** argv) {
         return 1;
     }
 
+    bool evaluate = false;
     bool normalize = false;
     string gbwt;
     string snarls;
@@ -46,11 +48,12 @@ int main_normalize(int argc, char** argv) {
             {"help", no_argument, 0, 'h'},
             {"gbwt", required_argument, 0, 'g'},
             {"snarls", required_argument, 0, 's'},
+            {"evaluate", no_argument, 0, 'e'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "g:s:h", 
+        c = getopt_long (argc, argv, "g:s:eh", 
                 long_options, &option_index);
 
 
@@ -64,12 +67,18 @@ int main_normalize(int argc, char** argv) {
         case 'g':
             gbwt = optarg;
             normalize = true;
+            break;
         
+        case 'e':
+            evaluate = true;
+            break;
+
         case 's':
             snarls = optarg;
+            break;
 
-        // default: //TODO: get this to work, instead of always causing crash.
-        //     abort();
+        default:
+            abort();
         }
     }
 
@@ -101,14 +110,17 @@ int main_normalize(int argc, char** argv) {
         // run test code on all snarls in graph.
         disambiguate_top_level_snarls(*graph, haploGraph, snarl_stream);
 
-
-        // /// Run test code on a single snarl:
-        // vg::id_t source = 23493; vg::id_t sink = 23505;
-        // disambiguate_snarl(*graph, haploGraph, source, sink);
-
     }
 
-    graph->serialize(std::cout);
+    if ( evaluate ) {
+        std::ifstream snarl_stream;
+        string snarl_file = snarls;
+        snarl_stream.open(snarl_file);
+        cerr << "about to evaluate normalized snarls" << endl;
+        vg::evaluate_normalized_snarls(snarl_stream);
+    }
+
+    // graph->serialize(std::cout);
     delete graph;
 
     return 0;
@@ -116,72 +128,3 @@ int main_normalize(int argc, char** argv) {
 
 // Register subcommand
 static Subcommand vg_normalize("normalize", "edit snarls to reduce information duplication", TOOLKIT, main_normalize);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//TODO: Remove JUNK:
-
-        // vg::id_t source = 23251;//for robin_haplotypes/simple
-        // vg::id_t sink = 23257;//for robin_haplotypes/simple
-        // /Testing gbwt_helper.hpp's for_each_kmer function. This issue is that I don't know how to construct a gbwt::GBWT haplotypes object. Nor do I know how to determine what size k I should use.
-        // vg::id_t source = 23251;//for robin_haplotypes/simple
-        // vg::id_t sink = 23257;//for robin_haplotypes/simple
-        // clean_snarl_from_haplotypes(*graph, source, sink);
-        // cerr << "done!" << endl;
-        // vg::handle_t source_handle = graph->get_handle(source);
-        // vg::handle_t sink_handle = graph->get_handle(sink);
-
-        // vector<string> haplotypes = depth_first_haplotypes_to_strings(*graph, source, sink);
-        // cerr << "finished depth_first, now on to reference." << endl;
-        // vector<string> reference = get_paths(*graph, source_handle, sink_handle);
-
-        // haplotypes.insert(end(haplotypes), begin(reference), end(reference));
-
-        // cerr << "here goes!" << endl;
-        // for(string haplotype : haplotypes) {
-            
-        //     cerr << haplotype << endl;
-        // }
-        // cerr << "done" << endl;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        //     std::ifstream snarl_stream;
-        //     snarl_stream.open(demo_0);
-            
-        //     if (!snarl_stream) {
-        //         cerr << "error:[vg mod] Cannot open Snarls file " << demo_0 << endl;
-        //         exit(1);
-        //     }
-
-        //     clean_all_snarls(*graph, snarl_stream);
-
-        // string gbwt_name = "test/robin_haplotypes/simple/chr10_subgraph_2dels-shift-729006.gbwt";
-

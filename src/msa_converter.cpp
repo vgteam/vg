@@ -36,83 +36,111 @@ using namespace std;
         };
         
         if (format == "seqan") {
-            // conservation line starts with int.
-            unordered_set<char> conservation_chars{'0','1','2','3','4','5','6','7','8','9'}; 
-            
-            auto is_conservation_line = [&](string& line) {
-                bool conservation_line = false;
-                for (char c : line) {
-                    if (!isspace(c)) {
-                        if (conservation_chars.count(c)) {
-                            conservation_line = true;
-                        }
-                        else {
-                            conservation_line = false;
-                        }
-                        break;
-                    }
-                }
-                return conservation_line;
-            };
-            
-            auto is_blank = [](const string& str) {
-                return all_of(str.begin(), str.end(), [](char c){return isspace(c);});
-            };
-            
-            auto is_draw_line = [&](string& line) {
-                bool draw_line = false;
-                for (char c : line) {
-                    if (!isspace(c)) {
-                        if (c == '|') {
-                            draw_line = true;
-                        }
-                        else {
-                            draw_line = false;
-                        }
-                        break;
-                    }
-                }
-                return draw_line;
-            };
+            // in actuality, this works with an istream that has just the alignment
+            // sequence rows from a seqan alignment file. To parse the full file format,
+            // see commented-out code below.
 
-            // removes leading whitespace of line.
-            auto get_next_line = [&](istream& in) {
-                string line;
-                getline(in, line);
+            // remove first empty line.
+            string line;
+            getline(in, line);
 
-                for (auto it = line.begin(); it != line.end(); it++){
-                    if (!isspace(*it)) {
-                        line.erase(line.begin(), it);
-                        break;
-                    }
-                }
-                return line;
-            };
+            int seq_count = 0;
 
             // make an alignment block
             alignments.emplace_back();
             auto& alignment = alignments.back();
+            // alignment[to_string(seq_count)].append(line);
 
-            int seq_count = 0;
-            string line;
-            line = get_next_line(in);
+            // while there's still more lines to extract from the istream:
             while (!in.eof()) {
-                if (is_conservation_line(line)){
-                    seq_count = 0;
-                }
-                else if (!is_draw_line(line) && !is_blank(line)) {
-                    auto iter = alignment.find(to_string(seq_count));
-                    if (iter != alignment.end()) {
-                        iter->second.append(line);
-                    }
-                    else {
-                        alignment[to_string(seq_count)] = line;
-                    }
-                    seq_count++;
-                }
-                line = get_next_line(in);
-
+                getline(in, line);
+                alignment[to_string(seq_count)].append(line);
+                seq_count++;
             }
+
+
+            //Note: this is old code, which parses the full seqan align file format. 
+            // Above code instead works with all the rows in a seqan Align object,
+            // appended to a stream with \n for separators. (rows accessed with rows(align)).
+
+
+            // // conservation line starts with int.
+            // unordered_set<char> conservation_chars{'0','1','2','3','4','5','6','7','8','9'}; 
+            
+            // auto is_conservation_line = [&](string& line) {
+            //     bool conservation_line = false;
+            //     for (char c : line) {
+            //         if (!isspace(c)) {
+            //             if (conservation_chars.count(c)) {
+            //                 conservation_line = true;
+            //             }
+            //             else {
+            //                 conservation_line = false;
+            //             }
+            //             break;
+            //         }
+            //     }
+            //     return conservation_line;
+            // };
+            
+            // auto is_blank = [](const string& str) {
+            //     return all_of(str.begin(), str.end(), [](char c){return isspace(c);});
+            // };
+            
+            // auto is_draw_line = [&](string& line) {
+            //     bool draw_line = false;
+            //     for (char c : line) {
+            //         if (!isspace(c)) {
+            //             if (c == '|') {
+            //                 draw_line = true;
+            //             }
+            //             else {
+            //                 draw_line = false;
+            //             }
+            //             break;
+            //         }
+            //     }
+            //     return draw_line;
+            // };
+
+            // // removes leading whitespace of line.
+            // auto get_next_line = [&](istream& in) {
+            //     string line;
+            //     getline(in, line);
+
+            //     for (auto it = line.begin(); it != line.end(); it++){
+            //         if (!isspace(*it)) {
+            //             line.erase(line.begin(), it);
+            //             break;
+            //         }
+            //     }
+            //     return line;
+            // };
+
+            // // make an alignment block
+            // alignments.emplace_back();
+            // auto& alignment = alignments.back();
+
+            // int seq_count = 0;
+            // string line;
+            // line = get_next_line(in);
+            // while (!in.eof()) {
+            //     if (is_conservation_line(line)){
+            //         seq_count = 0;
+            //     }
+            //     else if (!is_draw_line(line) && !is_blank(line)) {
+            //         auto iter = alignment.find(to_string(seq_count));
+            //         if (iter != alignment.end()) {
+            //             iter->second.append(line);
+            //         }
+            //         else {
+            //             alignment[to_string(seq_count)] = line;
+            //         }
+            //         seq_count++;
+            //     }
+            //     line = get_next_line(in);
+
+            // }
 
             
 

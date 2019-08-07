@@ -10,17 +10,24 @@
 
 ## useful debug tools:
 # export VG_FULL_TRACEBACK=1
-# valgrind vg mod -F blah test/robin_snarl_examples/chr10_subgraph_0_new.vg
+    
+# valgrind vg mod -F blah test/robin_snarl_examples/chr10_subgraph_0_new.vg 
+    #Note: to make more informative, commment out the two lines in MakeFile under "use 
+    #jemalloc", delete bin/vg, and recompile.
+
 ## in terminal:
 # gdb vg
-#     run mod -F blah test/robin_haplotypes/simple/chr10_subgraph_2dels-shift-729006.vg
+#     run normalize -g test/robin_tests/full_chr10/hgsvc_chr10_construct.gbwt -s test/robin_tests/full_chr10/hgsvc_chr10_construct.snarls test/robin_tests/full_chr10/hgsvc_chr10_construct.hg >test/robin_tests/full_chr10/hgsvc_chr10_construct_normalized.hg
 
-export VG_FULL_TRACEBACK=0
+export VG_FULL_TRACEBACK=1
 set -e
 
 echo compiling!
 . ./source_me.sh && make -j 8
 echo running!
+
+## constructing a smaller graph from a larger one - one method of subsetting a graph.
+# vg construct -r test/small/x.fa -v test/small/x.vcf.gz -R x:1-10
 
 # TEST_DIR=test/robin_tests/vis_vg_find_sample
 # FILE_NAME=chr10_subset_vg_find
@@ -30,9 +37,52 @@ echo running!
 # chromium-browser $TEST_DIR/$FILE_NAME.svg
 
 ##running normalize_snarls on a full chromosome - local machine.
-# VG_DIR=/public/groups/cgl/graph-genomes/jmonlong/hgsvc/haps/chr10
 TEST_DIR=test/robin_tests/full_chr10
 FILE_NAME=hgsvc_chr10_construct
+
+## for printing out the subsnarl:
+vg normalize -g $TEST_DIR/$FILE_NAME.gbwt -s $TEST_DIR/$FILE_NAME.snarls $TEST_DIR/$FILE_NAME.hg >$TEST_DIR/full_chr10_normalized.vg
+# visualize
+# ./bin/vg view -dpn $TEST_DIR/graph3.vg| \
+# dot -Tsvg -o $TEST_DIR/graph3.svg
+# chromium-browser $TEST_DIR/graph3.svg
+
+# vg normalize -g $TEST_DIR/$FILE_NAME.gbwt -s $TEST_DIR/$FILE_NAME.snarls $TEST_DIR/$FILE_NAME.hg >$TEST_DIR/hgsvc_chr10_construct_normalized_one_snarl_pre_long_chr10.hg
+# echo "NORMALIZED HG MADE"
+# # convert .hg to .vg
+# vg convert -a $TEST_DIR/hgsvc_chr10_construct_normalized_one_snarl_pre_long_chr10.hg -V $TEST_DIR/hgsvc_chr10_construct_normalized_one_snarl_pre_long_chr10.vg
+# echo "CONVERTED BACK TO VG."
+# #extract subsnarl:
+# vg find 
+
+# # visualize
+# ./bin/vg view -dpn hgsvc_chr10_one_snarl_pre_long_chr10_extracted.vg| \
+# dot -Tsvg -o hgsvc_chr10_one_snarl_pre_long_chr10_extracted.svg
+# chromium-browser hgsvc_chr10_one_snarl_pre_long_chr10_extracted.svg
+
+
+
+
+
+
+# echo "CONVERTED VG TO HG"
+# Run normalize algorithm:
+# valgrind --leak-check=full vg normalize -g $TEST_DIR/$FILE_NAME.gbwt -s $TEST_DIR/$FILE_NAME.snarls $TEST_DIR/$FILE_NAME.hg >$TEST_DIR/hgsvc_chr10_construct_normalized.hg
+# vg normalize -g $TEST_DIR/$FILE_NAME.gbwt -s $TEST_DIR/$FILE_NAME.snarls $TEST_DIR/$FILE_NAME.hg >big_chr10_path.vg
+# vg normalize -g $TEST_DIR/$FILE_NAME.gbwt -s $TEST_DIR/$FILE_NAME.snarls $TEST_DIR/$FILE_NAME.hg >$TEST_DIR/hgsvc_chr10_construct_normalized.hg
+# echo "NORMALIZED HG MADE"
+# # convert .hg to .vg
+# vg convert -a $TEST_DIR/hgsvc_chr10_construct_normalized.hg -V $TEST_DIR/hgsvc_chr10_construct_normalized.vg
+# echo "CONVERTED BACK TO VG."
+# # visualize
+# ./bin/vg view -dpn $TEST_DIR/$FILE_NAME.vg| \
+# dot -Tsvg -o $TEST_DIR/$FILE_NAME.svg
+# chromium-browser $TEST_DIR/$FILE_NAME.svg
+# ./bin/vg view -dpn big_chr10_path.vg| \
+# dot -Tsvg -o big_chr10_path.svg
+# chromium-browser big_chr10_path.svg
+
+
 # # visualize subsetted chr10
 # vg mod -g 7280 -x 5360 $TEST_DIR/$FILE_NAME.vg >$TEST_DIR/hgsvc_chr10_construct_first_few_snarls.vg #produces snarl from 1879:12785
 # echo "subgraph made"
@@ -41,33 +91,14 @@ FILE_NAME=hgsvc_chr10_construct
 # dot -Tsvg -o $TEST_DIR/hgsvc_chr10_construct_first_few_snarls.svg
 # chromium-browser $TEST_DIR/$FILE_BASENAME_normalized.svg
 
-# echo "visualization made"
-# # To produce .snarls:
-# vg snarls $TEST_DIR/$FILE_NAME.vg >$TEST_DIR/$FILE_NAME.snarls 
-# echo "SNARLS MADE"
-# # To produce .gbwt:
-# vg index -G $TEST_DIR/$FILE_NAME.gbwt -v $TEST_DIR/../HGSVC.haps.chr10.vcf.gz $TEST_DIR/$FILE_NAME.vg
-# echo "GBWT MADE"
-# # Convert .vg to .hg:
-# vg convert -v $TEST_DIR/$FILE_NAME.vg -A >$TEST_DIR/$FILE_NAME.hg
-# echo "CONVERTED VG TO HG"
-# # Run normalize algorithm:
-# vg normalize -g $TEST_DIR/$FILE_NAME.gbwt -s $TEST_DIR/$FILE_NAME.snarls $TEST_DIR/$FILE_NAME.hg >$TEST_DIR/hgsvc_chr10_construct_normalized.hg
-# echo "NORMALIZED HG MADE"
-# # convert .hg to .vg
-# vg convert -a $TEST_DIR/hgsvc_chr10_construct_normalized.hg -V $TEST_DIR/hgsvc_chr10_construct_normalized.vg
-# echo "CONVERTED BACK TO VG."
-# # visualize
-# ./bin/vg view -dpn $TEST_DIR/hgsvc_chr10_construct_normalized.vg| \
-# dot -Tsvg -o $TEST_DIR/hgsvc_chr10_construct_normalized.svg
-# chromium-browser $TEST_DIR/$FILE_BASENAME_normalized.svg
-
-# ./bin/vg view -dpn $TEST_DIR/$FILE_NAME.vg| \
-# dot -Tsvg -o $TEST_DIR/$FILE_NAME.svg
-# chromium-browser $TEST_DIR/$FILE_NAME.svg
-
-
-
+# ## split off the first few snarls from chromosome ten: (aiming for nodes between 1883 and 12677)
+# # VG_DIR=/public/groups/cgl/graph-genomes/jmonlong/hgsvc/haps/chr10
+# TEST_DIR=test/robin_tests/chr10_subset/set_1
+# FILE_NAME=chr10_subset_vg_find
+# # vg find -x $VG_DIR/hgsvc_chr10_construct.xg -p "chr10:1883-12677" -c 10 >$TEST_DIR/$FILE_NAME.vg
+# vg find -x $TEST_DIR/hgsvc_chr10_construct.xg -n 7280 -c 5360 >$TEST_DIR/$FILE_NAME.vg #1878:12785 node range.
+# # vg mod -g 3000 -x 5 $VG_DIR/hgsvc_chr10_construct.vg >$TEST_DIR/$FILE_NAME.vg 
+# echo "vg subgraph made!"
 
 # ## split off the first few snarls from chromosome ten: (aiming for nodes between 1883 and 12677)
 # VG_DIR=/public/groups/cgl/graph-genomes/jmonlong/hgsvc/haps/chr10
