@@ -143,6 +143,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     }
 
 
+    vector<bool> seed_correctness (seeds.size(), false);
     if (track_provenance && track_correctness) {
         // Tag seeds with correctness based on proximity along paths to the input read's refpos
         funnel.substage("correct");
@@ -164,6 +165,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
                         // Call this seed hit close enough to be correct
                         funnel.tag_correct(i);
+                        seed_correctness[i] = true;
                     }
                 }
             }
@@ -186,6 +188,16 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     if (track_provenance) {
         funnel.substage("score");
     }
+    vector<bool> cluster_correctness (clusters.size(), false);
+    for (size_t cluster_i = 0 ; cluster_i < clusters.size() ; cluster_i++) {
+        vector<size_t>& cluster = clusters[cluster_i];
+        for (size_t seed : cluster) {
+            if ( seed_correctness[seed]){
+                cluster_correctness[cluster_i] = true;
+            }
+        }
+    }
+
 
     // Cluster score is the sum of minimizer scores.
     std::vector<double> cluster_score(clusters.size(), 0.0);
@@ -566,10 +578,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     for (auto& score : scores) cerr << score << " ";
     cerr << "MAPQ is " << max(min(mapq, 60.0), 0.0) 
          << " and last correct stage is " << funnel.last_correct_stage() << endl;
-    cerr << "\t cluster scores: " ;
-    for (auto& score : cluster_score) cerr << score << " ";
+    cerr << "\t cluster correctness: ";
+    for (bool c : cluster_correctness) cerr << c << "\t";
+    cerr << endl << "\t cluster scores: " ;
+    for (auto& score : cluster_score) cerr << score << "\t";
     cerr << endl << "\t cluster coverage: ";
-    for (auto& score : read_coverage_by_cluster) cerr << score << " ";
+    for (auto& score : read_coverage_by_cluster) cerr << score << "\t";
     cerr << endl;
     }
         
