@@ -10,7 +10,7 @@
 #include "algorithms/is_acyclic.hpp"
 #include "algorithms/is_single_stranded.hpp"
 
-#include "sglib/hash_graph.hpp"
+#include "bdsg/hash_graph.hpp"
 
 using namespace sdsl;
 namespace vg { 

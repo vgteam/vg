@@ -13,6 +13,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include "../alignment.hpp"
 #include <vg/io/vpkg.hpp>
 

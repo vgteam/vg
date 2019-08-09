@@ -10,7 +10,6 @@
 
 #include "alignment.hpp"
 #include "aligner.hpp"
-#include "xg.hpp"
 #include "vg.hpp"
 #include "translator.hpp"
 #include "utility.hpp"
@@ -21,7 +20,7 @@
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/split_strands.hpp"
 
-#include "sglib/hash_graph.hpp"
+#include "bdsg/hash_graph.hpp"
 
 namespace vg {
 
@@ -30,7 +29,7 @@ using namespace std;
     class Surjector : AlignerClient {
     public:
         
-        Surjector(const XG* xg_index);
+        Surjector(const PathPositionHandleGraph* graph);
         
         /// Extract the portions of an alignment that are on a chosen set of paths and try to
         /// align realign the portions that are off of the chosen paths to the intervening
@@ -91,7 +90,7 @@ using namespace std;
         // make a sentinel meant to indicate an unmapped read
         static Alignment make_null_alignment(const Alignment& source);
         
-        const XG* xindex;
+        const PathPositionHandleGraph* graph;
     };
 }
 

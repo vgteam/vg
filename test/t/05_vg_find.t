@@ -18,13 +18,10 @@ vg index -x x.xg -g x.gcsa -k 16 x.vg
 is $(( for seq in $(vg sim -l 50 -n 100 -x x.xg); do vg find -M $seq -g x.gcsa; done ) | jq length | grep ^1$ | wc -l) 100 "each perfect read contains one maximal exact match"
 
 vg index -x x.xg -g x.gcsa -k 16 x.vg
-is $(vg find -n 1 -n 3 -D -x x.xg ) 8 "vg find -D finds approximate distance between 2 adjacent nodes"
-is $(vg find -n 1 -n 2 -D -x x.xg ) 0 "vg find -D finds approximate distance between node and adjacent snp"
+is $(vg find -n 1 -n 3 -D -x x.xg ) 8 "vg find -D finds approximate distance between 2 adjacent node starts"
+is $(vg find -n 1 -n 2 -D -x x.xg ) 8 "vg find -D finds approximate distance between node start and adjacent snp"
 is $(vg find -n 17 -n 20 -D -x x.xg ) 7 "vg find -D jumps deletion"
-# The correct distance is 6 still from the SNP, but renumbering ref vs alt makes
-# the heuristic add 1 getting to the reference path
-# TODO: improve heuristic
-is $(vg find -n 16 -n 20 -D -x x.xg ) 19 "vg find -D jumps deletion from snp"
+is $(vg find -n 16 -n 20 -D -x x.xg ) 7 "vg find -D jumps deletion from other allele in snp"
 
 is $(vg find -n 2 -n 3 -c 1 -L -x x.xg | vg view -g - | grep "^S" | wc -l) 5 "vg find -L finds same number of nodes (with -c 1)"
 

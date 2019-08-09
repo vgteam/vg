@@ -91,6 +91,7 @@ int main_gamcompare(int argc, char** argv) {
         }
     }
 
+    // We need to read the second argument first, so we can't use get_input_file with its free error checking.
     string test_file_name = get_input_file_name(optind, argc, argv);
     string truth_file_name = get_input_file_name(optind, argc, argv);
 
@@ -101,11 +102,25 @@ int main_gamcompare(int argc, char** argv) {
 #pragma omp critical (truth_table)
         true_positions[aln.name()] = val;
     };
+    
     if (truth_file_name == "-") {
-        assert(test_file_name != "-");
+        // Read truth fropm standard input, if it looks good.
+        if (test_file_name == "-") {
+            cerr << "error[vg gamcompare]: Standard input can only be used for truth or test file, not both" << endl;
+            exit(1);
+        }
+        if (!std::cin) {
+            cerr << "error[vg gamcompare]: Unable to read standard input when looking for true reads" << endl;
+            exit(1);
+        }
         vg::io::for_each_parallel(std::cin, record_truth);
     } else {
+        // Read truth from this file, if it looks good.
         ifstream truth_file_in(truth_file_name);
+        if (!truth_file_in) {
+            cerr << "error[vg gamcompare]: Unable to read " << truth_file_name << " when looking for true reads" << endl;
+            exit(1);
+        }
         vg::io::for_each_parallel(truth_file_in, record_truth);
     }
 
@@ -138,7 +153,10 @@ int main_gamcompare(int argc, char** argv) {
         }
         text_buffer.clear();
     };
-    
+   
+    // We want to count correct reads
+    vector<size_t> correct_counts(get_thread_count(), 0);
+   
     // This function annotates every read with distance and correctness, and batch-outputs them.
     function<void(Alignment&)> annotate_test = [&](Alignment& aln) {
         auto f = true_positions.find(aln.name());
@@ -149,7 +167,14 @@ int main_gamcompare(int argc, char** argv) {
             if (range != -1) {
                 // We are flagging reads correct/incorrect.
                 // It is correct if there is a path for its minimum distance and it is in range on that path.
-                aln.set_correctly_mapped(aln.to_correct().name() != "" && aln.to_correct().offset() <= range);
+                bool correctly_mapped = (aln.to_correct().name() != "" && aln.to_correct().offset() <= range);
+                
+                // Annotate it as such
+                aln.set_correctly_mapped(correctly_mapped);
+                
+                if (correctly_mapped) {
+                    correct_counts.at(omp_get_thread_num()) += 1;
+                }
             }
             
         }
@@ -167,16 +192,33 @@ int main_gamcompare(int argc, char** argv) {
     };
 
     if (test_file_name == "-") {
-        assert(truth_file_name != "-");
+        if (!std::cin) {
+            cerr << "error[vg gamcompare]: Unable to read standard input when looking for reads under test" << endl;
+            exit(1);
+        }
         vg::io::for_each_parallel(std::cin, annotate_test);
     } else {
         ifstream test_file_in(test_file_name);
+        if (!test_file_in) {
+            cerr << "error[vg gamcompare]: Unable to read " << test_file_name << " when looking for reads under test" << endl;
+            exit(1);
+        }
         vg::io::for_each_parallel(test_file_in, annotate_test);
     }
 
     if (output_tsv) {
         // Save whatever's in the buffer at the end.
         flush_text_buffer();
+    }
+    
+    if (range != -1) {
+        // We are flagging reads correct/incorrect. So report the total correct.
+        size_t total_correct = 0;
+        for (auto& count : correct_counts) {
+            total_correct += count;
+        }
+        
+        cerr << total_correct << " reads correct" << endl;
     }
     
     return 0;

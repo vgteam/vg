@@ -3,7 +3,7 @@
 using namespace std;
 using namespace vg;
 
-void Homogenizer::homogenize(vg::VG* o_graph, XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, vg::Index reads_index){
+void Homogenizer::homogenize(vg::VG* o_graph, PathPositionHandleGraph* path_graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, vg::Index reads_index){
     /**
      * Pattern for SV homogenization
      * 1. Locate SV-indicating reads with Sift. Save them in a gam file
@@ -19,7 +19,7 @@ void Homogenizer::homogenize(vg::VG* o_graph, XG* xindex, gcsa::GCSA* gcsa_index
     }
 
 
-void Homogenizer::homogenize(vg::VG* o_graph, XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, Paths cached_paths, int kmer_size){
+void Homogenizer::homogenize(vg::VG* o_graph, PathPositionHandleGraph* path_graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, Paths cached_paths, int kmer_size){
 
     bool in_mem_path_only = true;
 
@@ -44,7 +44,7 @@ void Homogenizer::homogenize(vg::VG* o_graph, XG* xindex, gcsa::GCSA* gcsa_index
     /* Generate edges/nodes to add to graph */
     //vector<MaximalExactMatch> find_smems(const string& seq);
     Mapper* mapper;
-    mapper= new Mapper(xindex, gcsa_index, lcp_index);
+    mapper= new Mapper(path_graph, gcsa_index, lcp_index);
 
     map<vg::id_t, vector<MaximalExactMatch> > matches;
     map<vg::id_t, string> ref_node_to_clip;

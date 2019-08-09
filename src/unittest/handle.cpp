@@ -13,8 +13,8 @@
 
 #include "algorithms/are_equivalent.hpp"
 
-#include "sglib/packed_graph.hpp"
-#include "sglib/hash_graph.hpp"
+#include "bdsg/packed_graph.hpp"
+#include "bdsg/hash_graph.hpp"
 
 #include <handlegraph/util.hpp>
 
@@ -569,10 +569,10 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
     VG vg;
     implementations.push_back(&vg);
     
-    sglib::PackedGraph pg;
+    bdsg::PackedGraph pg;
     implementations.push_back(&pg);
     
-    sglib::HashGraph hg;
+    bdsg::HashGraph hg;
     implementations.push_back(&hg);
     
     // And test them
@@ -1843,10 +1843,10 @@ TEST_CASE("Deletable handle graphs behave correctly when a graph has multiple ed
     
     vector<DeletableHandleGraph*> implementations;
     
-    sglib::PackedGraph pg;
+    bdsg::PackedGraph pg;
     implementations.push_back(&pg);
     
-    sglib::HashGraph hg;
+    bdsg::HashGraph hg;
     implementations.push_back(&hg);
     
     VG vg;
@@ -2041,10 +2041,10 @@ TEST_CASE("Mutable handle graphs with mutable paths work", "[handle][packed][has
     
     vector<MutablePathDeletableHandleGraph*> implementations;
     
-    sglib::PackedGraph pg;
+    bdsg::PackedGraph pg;
     implementations.push_back(&pg);
     
-    sglib::HashGraph hg;
+    bdsg::HashGraph hg;
     implementations.push_back(&hg);
     
     // These tests include assertions that embedded paths are maintained to be

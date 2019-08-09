@@ -10,15 +10,15 @@
 #include <chrono>
 #include <ctime>
 #include "vg.hpp"
-#include "xg.hpp"
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
-#include "cached_position.hpp"
-#include "xg_position.hpp"
 #include "distributions.hpp"
 #include "lru_cache.h"
 #include "json2pb.h"
+#include "algorithms/subgraph.hpp"
+#include "algorithms/alignment_path_offsets.hpp"
+#include "algorithms/next_pos_chars.hpp"
 
 namespace vg {
 
@@ -28,17 +28,17 @@ using namespace std;
 /// orientations, into pos_ts. Remember that pos_t counts offset from the start
 /// of the reoriented node, while here we count offset from the beginning of the
 /// forward version of the path.
-pos_t position_at(XG* xgidx, const string& path_name, const size_t& path_offset, bool is_reverse);
+pos_t position_at(PathPositionHandleGraph* xgidx, const string& path_name, const size_t& path_offset, bool is_reverse);
 
 /**
  * Generate Alignments (with or without mutations, and in pairs or alone) from
- * an XG index.
+ * an PathPositionHandleGraph index.
  */
 class Sampler {
 
 public:
 
-    XG* xgidx;
+    PathPositionHandleGraph* xgidx;
     // We need this so we don't re-load the node for every character we visit in
     // it.
     LRUCache<id_t, Node> node_cache;
@@ -53,7 +53,8 @@ public:
     // A vector which, if nonempty, gives the names of the paths to restrict simulated reads to.
     vector<string> source_paths;
     vg::discrete_distribution<> path_sampler; // draw an index in source_paths
-    inline Sampler(XG* x,
+    size_t total_seq_length = 0;
+    inline Sampler(PathPositionHandleGraph* x,
             int seed = 0,
             bool forward_only = false,
             bool allow_Ns = false,
@@ -66,6 +67,10 @@ public:
           no_Ns(!allow_Ns),
           nonce(0),
           source_paths(source_paths) {
+        // sum seq lengths
+        xgidx->for_each_handle([&](const handle_t& handle) {
+            total_seq_length += xgidx->get_length(handle);
+        });
         if (!seed) {
             seed = time(NULL);
         }
@@ -122,7 +127,7 @@ public:
 
     string alignment_seq(const Alignment& aln);
     
-    /// Return true if the alignment is semantically valid against the XG index
+    /// Return true if the alignment is semantically valid against the PathPositionHandleGraph index
     /// we wrap, and false otherwise. Checks from_lengths on mappings to make
     /// sure all node bases are accounted for. Won't accept alignments with
     /// internal jumps between graph locations or regions; all skipped bases
@@ -143,7 +148,7 @@ public:
     /// distribution. The simulation can also be restricted to named paths in the graph.
     /// Alternatively, it can match an expression profile. However, it cannot be simulateously
     /// restricted to paths and to an expression profile.
-    NGSSimulator(XG& xg_index,
+    NGSSimulator(PathPositionHandleGraph& xg_index,
                  const string& ngs_fastq_file,
                  bool interleaved_fastq = false,
                  const vector<string>& source_paths = {},
@@ -193,6 +198,8 @@ private:
     static const string alphabet;
     /// Remainder of the alphabet after removing a given character
     unordered_map<char, string> mutation_alphabets;
+    /// The total sequence length in our graph
+    size_t total_seq_length = 0;
     
     /// Add a quality string to the training data
     void record_read_quality(const Alignment& aln, bool read_2 = false);
@@ -275,7 +282,7 @@ private:
     /// A distribution for the joint initial qualities of a read pair
     MarkovDistribution<pair<uint8_t, bool>, pair<pair<uint8_t, bool>, pair<uint8_t, bool>>> joint_initial_distr;
     
-    XG& xg_index;
+    PathPositionHandleGraph& xg_index;
     
     LRUCache<id_t, Node> node_cache;
     LRUCache<id_t, vector<Edge> > edge_cache;

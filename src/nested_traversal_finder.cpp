@@ -188,7 +188,7 @@ Support NestedTraversalFinder::min_support_in_path(const vector<Visit>& path) {
     function<Support(const Visit&)> support_for_visit = [&](const Visit& v) { 
         if (v.node_id()) {
             // This is a node visit
-            Node* node = augmented.graph.get_node(v.node_id());
+            id_t node = v.node_id();
             
             // Return the support for it, or 0 if it's not in the map.
             return augmented.node_supports.count(node) ? augmented.node_supports.at(node) : Support();
@@ -211,8 +211,12 @@ Support NestedTraversalFinder::min_support_in_path(const vector<Visit>& path) {
         min_support = support_min(min_support, support_for_visit(*next));
         
         // check the edge support
-        Edge* edge = augmented.graph.get_edge(to_left_side(*cur), to_right_side(*next));
-        assert(edge != NULL);
+        NodeSide from_side = to_right_side(*cur);
+        NodeSide to_side = to_left_side(*next);
+        edge_t edge = augmented.graph.edge_handle(augmented.graph.get_handle(from_side.node, !from_side.is_end),
+                                                  augmented.graph.get_handle(to_side.node, to_side.is_end));
+
+        assert(augmented.graph.has_edge(edge.first, edge.second));
         Support edge_support = augmented.edge_supports.count(edge) ? augmented.edge_supports.at(edge) : Support();
         min_support = support_min(min_support, edge_support);
     }
@@ -284,8 +288,11 @@ set<pair<size_t, list<Visit>>> NestedTraversalFinder::search_left(const Visit& r
                     continue;
                 }
                 
-                // Check the edge to it to make sure it has coverage
-                Edge* edge = augmented.graph.get_edge(to_right_side(extension), to_left_side(to_extend_from));
+                // Check the edge to it to make sure it has coverag
+                NodeSide from_side = to_right_side(extension);
+                NodeSide to_side = to_left_side(to_extend_from);
+                edge_t edge = augmented.graph.edge_handle(augmented.graph.get_handle(from_side.node, !from_side.is_end),
+                                                  augmented.graph.get_handle(to_side.node, to_side.is_end));
                 
                 if (!augmented.edge_supports.count(edge) || total(augmented.edge_supports.at(edge)) == 0) {
                     // This edge is not supported, so don't explore this extension.
@@ -295,7 +302,7 @@ set<pair<size_t, list<Visit>>> NestedTraversalFinder::search_left(const Visit& r
                 // Look up the node we're entering (either the snarl boundary or
                 // just the node we're going to visit), so we can check to make
                 // sure it has coverage.
-                Node* node = augmented.graph.get_node(to_right_side(extension).node);
+                id_t node = to_right_side(extension).node;
                 
                 if (!augmented.node_supports.count(node) || total(augmented.node_supports.at(node)) == 0) {
                     // This node is not supported, so don't explore this extension.

@@ -8,10 +8,12 @@
 #include "aligner.hpp"
 #include "utility.hpp"
 #include "mem.hpp"
-#include "xg.hpp"
 #include "handle.hpp"
 #include "min_distance.hpp"
 #include "path_component_index.hpp"
+#include "bdsg/hash_graph.hpp"
+#include "algorithms/subgraph.hpp"
+#include "algorithms/extract_containing_graph.hpp"
 
 #include <functional>
 #include <string>
@@ -133,13 +135,13 @@ public:
 class MEMChainModel {
 public:
     vector<MEMChainModelVertex> model;
-    map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > > positions;
+    unordered_map<path_handle_t, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > > positions;
     set<vector<MEMChainModelVertex>::iterator> redundant_vertexes;
     MEMChainModel(
         const vector<size_t>& aln_lengths,
         const vector<vector<MaximalExactMatch> >& matches,
         const function<int64_t(pos_t)>& approx_position,
-        const function<map<string, vector<pair<size_t, bool> > >(pos_t)>& path_position,
+        const function<unordered_map<path_handle_t, vector<pair<size_t, bool> > >(pos_t)>& path_position,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
         int band_width = 10,
         int position_depth = 1,
@@ -180,7 +182,7 @@ public:
                                double suboptimal_edge_pruning_factor = .75);
     
     /**
-     * Given two vectors of clusters, an xg index, and bounds on the distance between clusters,
+     * Given two vectors of clusters and bounds on the distance between clusters,
      * returns a vector of pairs of cluster numbers (one in each vector) matched with the estimated
      * distance.
      *
@@ -360,14 +362,14 @@ public:
 };
 
 /*
- * A distance function that uses an XG's embedded paths to measure distances, either in a stranded
+ * A distance function that uses an a graph's embedded paths to measure distances, either in a stranded
  * or unstranded manner.
  */
 class PathOrientedDistanceMeasurer : public OrientedDistanceMeasurer {
 
 public:
     
-    /// Construct a distance service to measures distance along paths in this XG. Optionally
+    /// Construct a distance service to measures distance along paths in this graph. Optionally
     /// measures all distances on the forward strand of the paths.
     PathOrientedDistanceMeasurer(const PathPositionHandleGraph* graph,
                                  const PathComponentIndex* path_component_index = nullptr);
@@ -466,8 +468,7 @@ private:
      * verify are on the same strand of the same molecule.
      *
      * We use the distance approximation to cluster the MEM hits according to
-     * the strand they fall on using the oriented distance estimation function
-     * in xg.
+     * the strand they fall on using the oriented distance estimation function.
      *
      * Returns a map from item pair (lower number first) to distance (which may
      * be negative) from the first to the second along the items' forward
@@ -670,11 +671,12 @@ private:
     
 
 /// get the handles that a mem covers
-vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const XG& xg, const vg::MaximalExactMatch& mem);
+vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const HandleGraph& graph, const vg::MaximalExactMatch& mem);
+/// return a containing subgraph connecting the mems
+bdsg::HashGraph cluster_subgraph_containing(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& cluster, const GSSWAligner* aligner);
+/// return a subgraph for a cluster of MEMs from the given alignment
 /// use walking to get the hits
-Graph cluster_subgraph_walk(const XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion);
-/// return a subgraph form an xg for a cluster of MEMs from the given alignment
-Graph cluster_subgraph(const XG& xg, const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion);
+bdsg::HashGraph cluster_subgraph_walk(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion);
 
 }
 
