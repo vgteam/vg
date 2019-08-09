@@ -22,9 +22,12 @@ namespace vg {
         // set a flag for invalid contents so a message it observed 
         bool invalid_contents = false;
 
-        // generate initial value 
+        // generate initial value
         unique_ptr<PhasedGenome> genome = generate_initial_guess();
-    
+        double max_likelihood = 0;
+
+        unique_ptr<PhasedGenome> optimal;
+        
         for(int i = 1; i<= n_iterations; i++){
             
             // holds the previous sample allele
@@ -32,8 +35,7 @@ namespace vg {
         
             // get contents from proposal_sample
             tuple<int, const Snarl*, vector<NodeTraversal> > to_receive = proposal_sample(*genome);
-            int& modified_haplo = get<0>(to_receive);
-             
+            int& modified_haplo = get<0>(to_receive);         
             
             // if the to_receive contents are invalid keep the new allele
             // for graphs that do not contain snarls
@@ -50,18 +52,25 @@ namespace vg {
                 // calculate likelihood ratio of posterior distribution 
                 double likelihood_ratio = exp(log_base*(x_new - x_prev));
 
+                double current_likelihood = 0;
+                // save the phased genome with the highest likelihood
+                double likelihood = likelihood + log_base*(x_new - x_prev);
+                if (current_likelihood > max_likelihood){
+                    max_likelihood = likelihood;
+                    optimal = unique_ptr<PhasedGenome>(new PhasedGenome(*genome));
+                }
+
                 // calculate acceptance probability 
                 double acceptance_probability = min(1.0, likelihood_ratio);
 
                 // if u~U(0,1) > alpha, discard new allele and keep previous 
                 if(generate_continuous_uniform(0.0,1.0) > acceptance_probability){ 
                     genome->set_allele(modified_site, old_allele.begin(), old_allele.end(), modified_haplo); 
-                }
-                
+                }        
             }
-
         }
-        return std::move(genome); 
+    
+        return std::move(optimal); 
 
     }   
     double MCMCGenotyper::log_target(PhasedGenome& phased_genome, const vector<MultipathAlignment>& reads)const{

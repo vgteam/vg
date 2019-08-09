@@ -33,7 +33,7 @@ namespace vg {
         }
     }
     
-    PhasedGenome::PhasedGenome(const SnarlManager& snarl_manager) : snarl_manager(snarl_manager) {
+    PhasedGenome::PhasedGenome(const SnarlManager& snarl_manager) : snarl_manager(&snarl_manager) {
         // nothing to do
     }
     
@@ -45,13 +45,37 @@ namespace vg {
         
     }
     
+    PhasedGenome::PhasedGenome(PhasedGenome& rhs){
+        *this = rhs;
+    }
+    PhasedGenome& PhasedGenome::operator = (PhasedGenome& phased_genome){
+        this->~PhasedGenome();
+
+        snarl_manager = phased_genome.snarl_manager;
+
+        haplotypes.clear();
+        
+        for(int i = 0; i < phased_genome.haplotypes.size(); i++ ){
+            
+            // construct Haplotype from the old phased genome    
+            Haplotype* new_haplo = new Haplotype(phased_genome.begin(i), phased_genome.end(i)); 
+            haplotypes.push_back(new_haplo);
+        }
+                          
+        // build indices on the new object 
+        build_indices();
+        
+        // call destructor on the old object 
+        return phased_genome;
+    } 
+    
     void PhasedGenome::build_indices() {
         
 #ifdef debug_phased_genome
         cerr << "[PhasedGenome::build_indices]: building node id to site index" << endl;
 #endif
         // construct the start and end of site indices
-        for (const Snarl* snarl : snarl_manager.top_level_snarls()) {
+        for (const Snarl* snarl : snarl_manager->top_level_snarls()) {
             build_site_indices_internal(snarl);
         }
         
@@ -140,7 +164,7 @@ namespace vg {
         site_ends[snarl->end().node_id()] = snarl;
         
         // recurse through child sites
-        for (const Snarl* subsnarl : snarl_manager.children_of(snarl)) {
+        for (const Snarl* subsnarl : snarl_manager->children_of(snarl)) {
             build_site_indices_internal(subsnarl);
         }
     }
@@ -182,7 +206,7 @@ namespace vg {
         }
         
         // update index for child sites
-        for (const Snarl* child_site : snarl_manager.children_of(&site)) {
+        for (const Snarl* child_site : snarl_manager->children_of(&site)) {
             swap_label(*child_site, haplotype_1, haplotype_2);
         }
     }
@@ -318,7 +342,7 @@ namespace vg {
 #endif
         
         // update index for child sites
-        for (const Snarl* child_site : snarl_manager.children_of(&site)) {
+        for (const Snarl* child_site : snarl_manager->children_of(&site)) {
             swap_label(*child_site, haplo_1, haplo_2);
         }
     }
@@ -436,7 +460,7 @@ namespace vg {
 #endif
                         // edge case: check if subpath_node was improperly incremented from a mapping that ended in the
                         // middle of a node
-                        Position end_pos = last_path_position(subpath.path());
+                        Position end_pos = make_position(final_position(subpath.path()));
                         if (end_pos.offset() != graph.get_node(end_pos.node_id())->sequence().length()) {
                             move_backward(subpath_node);
                         }

@@ -51,8 +51,8 @@ namespace vg {
         /// Constructor
         PhasedGenome(const SnarlManager& snarl_manager);
         ~PhasedGenome();
-        PhasedGenome(const PhasedGenome& phased_genome) = delete;
-        PhasedGenome&  operator =(const PhasedGenome& phased_genome) = delete;
+        PhasedGenome(PhasedGenome& phased_genome);
+        PhasedGenome&  operator =(PhasedGenome& phased_genome);
         
         /// Build a haplotype in place from an iterator that returns NodeTraversal objects from its
         /// dereference operator (allows construction without instantiating the haplotype elsewhere)
@@ -128,7 +128,7 @@ namespace vg {
         struct HaplotypeNode;
         class Haplotype;
         
-        const SnarlManager& snarl_manager;
+        const SnarlManager* snarl_manager;
         
         /// All haplotypes in the genome (generally 2 per chromosome)
         vector<Haplotype*> haplotypes;

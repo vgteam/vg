@@ -20,10 +20,11 @@
 
 #include "catch.hpp"
 
+
 namespace vg {
     namespace unittest {
-        // seed for random engine;
-        const int seed =0;
+        
+        const int seed = 0;
         const int n_iterations = 10;
 
         /**
@@ -673,6 +674,141 @@ namespace vg {
                 delete lcpidx;
             }
         }
+        TEST_CASE("Test6"){
+            SECTION("Run tests 5 with different seeds for random generator"){
+                int num_iterations = 100;
+                double count_correct =0, count_incorrect =0;
+                int max = 20;
+                
+                for(int seed_i = 0; seed_i < max; seed_i++){
+                    VG graph;
+
+                    Node* n1 = graph.create_node("GCA"); //gets ID # in incremintal order starting at 1, used in mapping
+                    Node* n2 = graph.create_node("T");
+                    Node* n3 = graph.create_node("G");
+                    Node* n4 = graph.create_node("CTGA"); //this node is part of both snarls
+                    Node* n5 = graph.create_node("A");
+                    Node* n6 = graph.create_node("G");
+                    Node* n7 = graph.create_node("CCC");
+
+                    path_handle_t path_handle = graph.create_path_handle("x");
+                    graph.append_step(path_handle, graph.get_handle(n1->id()));
+                    graph.append_step(path_handle, graph.get_handle(n2->id()));
+                    graph.append_step(path_handle, graph.get_handle(n4->id()));
+                    graph.append_step(path_handle, graph.get_handle(n5->id()));
+                    graph.append_step(path_handle, graph.get_handle(n7->id()));
+                    
+                
+                    graph.create_edge(n1, n2);
+                    graph.create_edge(n1, n3);
+                    graph.create_edge(n2, n4);
+                    graph.create_edge(n3, n4);
+                    graph.create_edge(n4, n5);
+                    graph.create_edge(n4, n6);
+                    graph.create_edge(n5, n7);
+                    graph.create_edge(n6, n7);
+                    
+                    CactusSnarlFinder bubble_finder(graph);
+                    SnarlManager snarl_manager = bubble_finder.find_snarls();
+
+                    // Configure GCSA temp directory to the system temp directory
+                    gcsa::TempFile::setDirectory(temp_file::get_dir());
+                    // And make it quiet
+                    gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+                    
+                    // Make pointers to fill in
+                    gcsa::GCSA* gcsaidx = nullptr;
+                    gcsa::LCPArray* lcpidx = nullptr;
+                    
+                    // Build the GCSA index
+                    build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3); 
+                
+                    
+                    // Build the xg index
+                    //defining an XG and a variable called xg_index and calling the constructor
+                    XG xg_index(graph.graph); //VG uses a Graph as internal structure 
+                    
+                    // Make a multipath mapper to map against the graph.
+                    MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
+
+                    string read1 = string("GCATCTGAGCCC"); 
+                    string read2 = string("GCATCTGAGCCC");
+                    string read3 = string("GCAGCTGAACCC");
+                    string read4 = string("GCAGCTGAACCC");
+
+                    //vector<string> reads = {"GCATCTGAGCCC", "GCATCTGAGCCC", "GCAGCTGAACCC", "GCAGCTGAACCC", "GCAGCTGAACCC", };
+
+                    
+                    Alignment aln1, aln2, aln3, aln4;
+                    aln1.set_sequence(read1);
+                    aln2.set_sequence(read2);
+                    aln3.set_sequence(read3);
+                    aln4.set_sequence(read4);
+
+                    vector<MultipathAlignment> multipath_alns_out1, multipath_alns_out2, multipath_alns_out3, multipath_alns_out4 ;
+                    MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, num_iterations, seed_i);
+                    vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>(); 
+
+                    // map read in alignment to graph and make multipath alignments  
+                    multipath_mapper.multipath_map(aln1, multipath_alns_out1, 1);
+                    multipath_mapper.multipath_map(aln2, multipath_alns_out2, 1);
+                    multipath_mapper.multipath_map(aln3, multipath_alns_out3, 1);
+                    multipath_mapper.multipath_map(aln4, multipath_alns_out4, 1);
+                
+                
+                    //accumulate MultipathAlignment objects 
+                    accumulate_alns(multipath_alns_out1, multipath_aln_vector);
+                    accumulate_alns(multipath_alns_out2, multipath_aln_vector);
+                    accumulate_alns(multipath_alns_out3, multipath_aln_vector);
+                    accumulate_alns(multipath_alns_out4, multipath_aln_vector);
+
+                    double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
+                    //pass vector with accumulated MultipathAlignment objects to run_genotype()
+                    unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base); 
+                    
+                    // create a set of 2 possible solutions
+                    vector<NodeTraversal> soln1, soln2;
+                    soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n6), NodeTraversal(n7)};
+                    soln2 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4), NodeTraversal(n5), NodeTraversal(n7)};
+
+                    set<vector<NodeTraversal>> solns_set;
+                    solns_set.insert(soln1);
+                    solns_set.insert(soln2);
+
+                    // move the genome haplotype into a vector
+                    vector<NodeTraversal> haplotype1, haplotype2;
+                    copy(genome->begin(0), genome->end(0), back_inserter(haplotype1));
+                    copy(genome->begin(1), genome->end(1), back_inserter(haplotype2));
+                    
+                    
+                    if(genome->num_haplotypes() == 2){
+                        if(solns_set.count(haplotype1) && solns_set.count(haplotype2)){
+                            count_correct += 1.0;
+                        }
+                        else if(solns_set.count(haplotype1) || solns_set.count(haplotype2)){
+                            count_correct += .5;
+                        }else{
+                            genome->print_phased_genome();
+                            count_incorrect++;
+                            //cerr << "****************************" <<endl;
+
+                        }
+                    }else{
+                        cerr << "num_haplotypes are: " << genome->num_haplotypes() << endl;
+                    }
+                    cerr << count_correct <<endl;
+                    
+                    // Clean up the GCSA/LCP index
+                    delete gcsaidx;
+                    delete lcpidx;
+                }
+
+                cerr << count_correct << " tests out of " << max << " are correct " <<endl;
+                cerr << count_incorrect << " tests are incorrect " << endl;
+                int percent_correct = (count_correct/max)*100;
+                cerr << percent_correct << "% are correct" <<endl;
+            }
+        }    
     }
 
 }
