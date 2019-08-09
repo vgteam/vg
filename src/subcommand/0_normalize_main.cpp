@@ -13,6 +13,8 @@
 #include "../algorithms/0_draft_snarl_normalization_evaluation.cpp"
 #include "../gbwt_helper.hpp"
 
+#include <chrono>  // for high_resolution_clock
+
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -98,9 +100,14 @@ int main_normalize(int argc, char **argv) {
             cerr << "error:[vg mod] Cannot open Snarls file " << snarl_file << endl;
             exit(1);
         }
-
+        // Record start time
+        auto start = std::chrono::high_resolution_clock::now();
         // run test code on all snarls in graph.
         disambiguate_top_level_snarls(*graph, haploGraph, snarl_stream);
+        // Record end time
+        auto finish = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = finish - start;
+        std::cout << "Elapsed time: " << elapsed.count() << " s\n";
     }
 
     if (evaluate) {

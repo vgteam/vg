@@ -25,6 +25,7 @@
 #include "../types.hpp"
 #include "extract_containing_graph.hpp"
 
+
 namespace vg {
 
 // TODO: allow for snarls that have haplotypes that begin or end in the middle of the
@@ -69,22 +70,22 @@ void disambiguate_top_level_snarls(MutablePathDeletableHandleGraph &graph,
     for (auto roots : snarl_roots) {
 
         // if (roots->start().node_id() == 4181165) {
-            // cerr << "disambiguating snarl #" << (num_snarls_normalized +
-            // num_snarls_skipped)
-            //      << " source: " << roots->start().node_id()
-            //      << " sink: " << roots->end().node_id() << endl;
-            one_snarl_error_record = disambiguate_snarl(
-                graph, haploGraph, roots->start().node_id(), roots->end().node_id());
-            get<0>(full_error_record) += get<0>(one_snarl_error_record);
-            get<1>(full_error_record) += get<1>(one_snarl_error_record);
-            get<2>(full_error_record) += get<2>(one_snarl_error_record);
-            get<3>(full_error_record) += get<3>(one_snarl_error_record);
-            if (!(get<0>(one_snarl_error_record) || get<1>(one_snarl_error_record) ||
-                  get<2>(one_snarl_error_record) || get<3>(one_snarl_error_record))) {
-                num_snarls_normalized += 1;
-            } else {
-                num_snarls_skipped += 1;
-            }
+        // cerr << "disambiguating snarl #" << (num_snarls_normalized +
+        // num_snarls_skipped)
+        //      << " source: " << roots->start().node_id()
+        //      << " sink: " << roots->end().node_id() << endl;
+        one_snarl_error_record = disambiguate_snarl(
+            graph, haploGraph, roots->start().node_id(), roots->end().node_id());
+        get<0>(full_error_record) += get<0>(one_snarl_error_record);
+        get<1>(full_error_record) += get<1>(one_snarl_error_record);
+        get<2>(full_error_record) += get<2>(one_snarl_error_record);
+        get<3>(full_error_record) += get<3>(one_snarl_error_record);
+        if (!(get<0>(one_snarl_error_record) || get<1>(one_snarl_error_record) ||
+              get<2>(one_snarl_error_record) || get<3>(one_snarl_error_record))) {
+            num_snarls_normalized += 1;
+        } else {
+            num_snarls_skipped += 1;
+        }
         // }
     }
     cerr << endl
@@ -163,8 +164,9 @@ tuple<bool, bool, bool, bool> disambiguate_snarl(MutablePathDeletableHandleGraph
     // TODO:    of the snarl. Get rid of this once alignment issue is addressed!
     // TODO: also, limits the number of haplotypes to be aligned, since snarl starting at
     // TODO:    2049699 with 258 haplotypes is taking many minutes.
-    if (get<1>(haplotypes).empty() && get<0>(haplotypes).size() < 200 &&
-        get<2>(haplotypes).size() == handles_in_snarl) {
+    // if (get<1>(haplotypes).empty() && get<0>(haplotypes).size() < 200 &&
+    //     get<2>(haplotypes).size() == handles_in_snarl) {
+    if (get<1>(haplotypes).empty() && get<2>(haplotypes).size() == handles_in_snarl) {
         // if (get<1>(haplotypes).empty()) {
         // Convert the haplotypes from vector<handle_t> format to string format.
         vector<string> haplotypes_from_source_to_sink =
@@ -222,18 +224,20 @@ tuple<bool, bool, bool, bool> disambiguate_snarl(MutablePathDeletableHandleGraph
         return error_record;
     } else {
         if (!get<1>(haplotypes).empty()) {
-            cerr << "found a snarl starting at " << source_id << " and ending at " << sink_id
+            cerr << "found a snarl starting at " << source_id << " and ending at "
+                 << sink_id
                  << " with haplotypes that start or end in the middle. Skipping." << endl;
             get<1>(error_record) = true;
         }
-        if (get<0>(haplotypes).size() > 200) {
-            cerr << "found a snarl starting at " << source_id << " and ending at " << sink_id << " with too many haplotypes ("
-                 << get<0>(haplotypes).size() << ") to efficiently align. Skipping."
-                 << endl;
-            get<0>(error_record) = true;
-        }
+        // if (get<0>(haplotypes).size() > 200) {
+        //     cerr << "found a snarl starting at " << source_id << " and ending at "
+        //          << sink_id << " with too many haplotypes (" << get<0>(haplotypes).size()
+        //          << ") to efficiently align. Skipping." << endl;
+        //     get<0>(error_record) = true;
+        // }
         if (get<2>(haplotypes).size() != handles_in_snarl) {
-            cerr << "some handles in the snarl starting at " << source_id << " and ending at " << sink_id
+            cerr << "some handles in the snarl starting at " << source_id
+                 << " and ending at " << sink_id
                  << " aren't accounted for by the gbwt graph. "
                     "Skipping."
                  << endl;
@@ -337,22 +341,27 @@ extract_gbwt_haplotypes(const SubHandleGraph &snarl, const GBWTGraph &haploGraph
                     if (incorrect_connections.find(
                             snarl.edge_handle(cur_haplotype.first.back(), next_handle)) ==
                         incorrect_connections.end()) {
-                            cerr << "snarl starting at node " << source_id << " and ending at " << sink_id
-                                 << " has a thread that incorrectly connects two nodes that don't have any edge connecting them. These two nodes are "
-                                 << haploGraph.get_id(cur_haplotype.first.back())
-                                 << " and "
-                                 << haploGraph.get_id(next_handle)
-                                 << ". This thread connection will be ignored." << endl;
-                            incorrect_connections.emplace(snarl.edge_handle(
-                                cur_haplotype.first.back(), next_handle));
+                        cerr
+                            << "snarl starting at node " << source_id << " and ending at "
+                            << sink_id
+                            << " has a thread that incorrectly connects two nodes that "
+                               "don't have any edge connecting them. These two nodes are "
+                            << haploGraph.get_id(cur_haplotype.first.back()) << " and "
+                            << haploGraph.get_id(next_handle)
+                            << ". This thread connection will be ignored." << endl;
+                        incorrect_connections.emplace(
+                            snarl.edge_handle(cur_haplotype.first.back(), next_handle));
 
-                            //todo: debug_statement
-                            cerr << "next handle(s) of handle " << snarl.get_id(cur_haplotype.first.back()) << " according to snarl:" << endl;
-                            snarl.follow_edges(cur_haplotype.first.back(), false, [&] (const handle_t handle){
-                                cerr << "\t" <<snarl.get_id(handle);
-                            }); 
-                            cerr << endl;
-                        }
+                        // todo: debug_statement
+                        cerr << "next handle(s) of handle "
+                             << snarl.get_id(cur_haplotype.first.back())
+                             << " according to snarl:" << endl;
+                        snarl.follow_edges(cur_haplotype.first.back(), false,
+                                           [&](const handle_t handle) {
+                                               cerr << "\t" << snarl.get_id(handle);
+                                           });
+                        cerr << endl;
+                    }
                     continue;
                 }
                 // copy over the vector<handle_t> of cur_haplotype:
