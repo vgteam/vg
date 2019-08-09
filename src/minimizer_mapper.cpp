@@ -561,7 +561,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
     size_t winning_index;
     double mapq = get_regular_aligner()->compute_mapping_quality(scores, false);
-    if (max(min(mapq, 60.0), 0.0) == 60 && funnel.last_correct_stage != "winner"){
+    if (max(min(mapq, 60.0), 0.0) == 60 && funnel.last_correct_stage() != "winner"){
     cerr << "For scores ";
     for (auto& score : scores) cerr << score << " ";
     cerr << "MAPQ is " << max(min(mapq, 60.0), 0.0) 
