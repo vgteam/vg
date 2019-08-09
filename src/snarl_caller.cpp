@@ -499,16 +499,6 @@ double SupportBasedSnarlCaller::get_bias(const vector<int>& traversal_sizes, int
     return bias_limit;
 }
 
-pair<bool, bool> SupportBasedSnarlCaller::toggle_avg_support(const vector<SnarlTraversal>& traversals) const {
-    bool use_avg_node_support = false;
-    bool use_avg_trav_support = false;
-    for (int i = 0; i < traversals.size() && (!use_avg_node_support || !use_avg_trav_support); ++i) {
-    }
-
-    return make_pair(use_avg_node_support, use_avg_trav_support);
-}
-
-
 PackedSupportSnarlCaller::PackedSupportSnarlCaller(const Packer& packer) :
     SupportBasedSnarlCaller(*dynamic_cast<const PathHandleGraph*>(packer.graph)),
     packer(packer) {
