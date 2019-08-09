@@ -8,15 +8,8 @@ namespace vg {
 SnarlCaller::~SnarlCaller() {
 }
 
-SupportBasedSnarlCaller::SupportBasedSnarlCaller(const PathHandleGraph& graph,
-                                                 bool use_avg_node_support,
-                                                 bool use_avg_trav_support) :
-    graph(graph), use_avg_node_support(use_avg_node_support), use_avg_trav_support(use_avg_trav_support) {
-    if (use_avg_node_support) {
-        get_node_support = [&] (id_t node) { return get_avg_node_support(node); };
-    } else {
-        get_node_support = [&] (id_t node) { return get_min_node_support(node); };
-    }
+SupportBasedSnarlCaller::SupportBasedSnarlCaller(const PathHandleGraph& graph) :
+    graph(graph) {
 }
 
 SupportBasedSnarlCaller::~SupportBasedSnarlCaller() {
@@ -304,8 +297,12 @@ int64_t SupportBasedSnarlCaller::get_edge_length(const edge_t& edge) const {
     return 1;
 }
 
-pair<Support, int> SupportBasedSnarlCaller::get_child_support(const Snarl& snarl) const {
-    return make_pair(Support(), 1);
+tuple<Support, Support, int> SupportBasedSnarlCaller::get_child_support(const Snarl& snarl) const {
+    // todo: do this properly (old caller used all nodes in child as proxy)
+    Support min_support;
+    Support avg_support;
+    int length = 1;
+    return std::tie(min_support, avg_support, length);
 }
 
 
@@ -354,68 +351,84 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
     }
 
     // pass 2: get the supports
-    vector<Support> min_supports;
-    vector<Support> tot_supports(traversals.size()); // weighted by lengths
+    // we compute the various combinations of min/avg node/trav supports as we don't know which
+    // we will need until all the sizes are known
+    vector<Support> min_supports_min; // use min node support
+    vector<Support> min_supports_avg; // use avg node support
+    vector<Support> tot_supports_min(traversals.size()); // weighted by lengths, using min node support
+    vector<Support> tot_supports_avg(traversals.size()); // weighted by lengths, using avg node support
     vector<int> tot_sizes(traversals.size(), 0); // to compute average from to_supports;
+    int max_trav_size = 0; // size of longest traversal
 
     bool count_end_nodes = false; // toggle to include snarl ends
 
-    auto update_support = [&] (int trav_idx, const Support& support, int length, int share_count) {
+    auto update_support = [&] (int trav_idx, const Support& min_support,
+                               const Support& avg_support, int length, int share_count) {
         // apply the scaling
         double scale_factor = (exclusive_only && share_count > 0) ? 0. : 1. / (1. + share_count);
-        Support scaled_support = support * scale_factor;
-        tot_supports[trav_idx] += scaled_support;
+        Support scaled_support_min = min_support * scale_factor;
+        Support scaled_support_avg = avg_support * scale_factor;
+        tot_supports_min[trav_idx] += scaled_support_min;
+        tot_supports_avg[trav_idx] += scaled_support_avg;
         tot_sizes[trav_idx] += length;
-        if (min_supports.size() <= trav_idx) {
-            assert(min_supports.size() == trav_idx);
-            min_supports.push_back(scaled_support);
+        max_trav_size = std::max(length, max_trav_size);
+        if (min_supports_min.size() <= trav_idx) {
+            assert(min_supports_min.size() == trav_idx);
+            min_supports_min.push_back(scaled_support_min);
+            min_supports_avg.push_back(scaled_support_avg);
         } else {
-            min_supports[trav_idx] = support_min(min_supports[trav_idx], scaled_support);
+            min_supports_min[trav_idx] = support_min(min_supports_min[trav_idx], scaled_support_min);
+            min_supports_avg[trav_idx] = support_min(min_supports_avg[trav_idx], scaled_support_avg);
         }
     };
-    
+
     for (int trav_idx = 0; trav_idx < traversals.size(); ++trav_idx) {
         const SnarlTraversal& trav = traversals[trav_idx];
         for (int visit_idx = 0; visit_idx < trav.visit_size(); ++visit_idx) {
             const Visit& visit = trav.visit(visit_idx);
-            Support support;
+            Support min_support;
+            Support avg_support;
             int64_t length;
             int share_count = 0;
 
             if (visit.node_id() != 0) {
                 // get the node support
-                support = get_node_support(visit.node_id());
+                min_support = get_min_node_support(visit.node_id());
+                avg_support = get_avg_node_support(visit.node_id());
                 length = graph.get_length(graph.get_handle(visit.node_id()));
                 if (node_counts.count(visit.node_id())) {
                     share_count = node_counts[visit.node_id()];
                 }
             } else {
                 // get the child support
-                tie(support, length) = get_child_support(visit.snarl());
+                tie(min_support, avg_support, length) = get_child_support(visit.snarl());
                 if (child_counts.count(visit.snarl())) {
                     share_count = child_counts[visit.snarl()];
                 }
             }
             if (count_end_nodes || (trav_idx > 0 && trav_idx < traversals.size() - 1)) {
-                update_support(trav_idx, support, length, share_count);
+                update_support(trav_idx, min_support, avg_support, length, share_count);
             }
             share_count = 0;
             
             if (visit_idx > 0) {
                 // get the edge support
                 edge_t edge = to_edge(graph, trav.visit(visit_idx - 1), visit);
-                support = get_edge_support(edge);
+                min_support = get_edge_support(edge);
                 length = get_edge_length(edge);
                 if (edge_counts.count(edge)) {
                     share_count = edge_counts[edge];
                 }
-                update_support(trav_idx, support, length, share_count);
+                update_support(trav_idx, min_support, min_support, length, share_count);
             }
-
         }
     }
 
+    bool use_avg_trav_support = max_trav_size >= average_traversal_support_switch_threshold;
+    bool use_avg_node_support = max_trav_size >= average_node_support_switch_threshold;
+
     if (use_avg_trav_support) {
+        vector<Support>& tot_supports = use_avg_node_support ? tot_supports_avg : tot_supports_min;
         for (int i = 0; i < tot_supports.size(); ++i) {
             if (tot_sizes[i] > 0) {
                 tot_supports[i] /= (double)tot_sizes[i];
@@ -425,7 +438,7 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
         }
         return tot_supports;
     } else {
-        return min_supports;
+        return use_avg_node_support ? min_supports_avg : min_supports_min;
     }
 }   
 
@@ -486,9 +499,18 @@ double SupportBasedSnarlCaller::get_bias(const vector<int>& traversal_sizes, int
     return bias_limit;
 }
 
+pair<bool, bool> SupportBasedSnarlCaller::toggle_avg_support(const vector<SnarlTraversal>& traversals) const {
+    bool use_avg_node_support = false;
+    bool use_avg_trav_support = false;
+    for (int i = 0; i < traversals.size() && (!use_avg_node_support || !use_avg_trav_support); ++i) {
+    }
 
-PackedSupportSnarlCaller::PackedSupportSnarlCaller(const Packer& packer, bool use_avg_node_support, bool use_avg_trav_support) :
-    SupportBasedSnarlCaller(*packer.xgidx, use_avg_node_support, use_avg_trav_support),
+    return make_pair(use_avg_node_support, use_avg_trav_support);
+}
+
+
+PackedSupportSnarlCaller::PackedSupportSnarlCaller(const Packer& packer) :
+    SupportBasedSnarlCaller(*dynamic_cast<const PathHandleGraph*>(packer.graph)),
     packer(packer) {
 }
 

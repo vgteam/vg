@@ -13,6 +13,7 @@
 #include "subcommand.hpp"
 #include "../path.hpp"
 #include "../graph_caller.hpp"
+#include "../xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 
@@ -157,7 +158,7 @@ int main_call2(int argc, char** argv) {
         // Load our packed supports (they must have come from vg pack on graph)
         packer = unique_ptr<Packer>(new Packer(dynamic_cast<XG*>(graph.get())));
         packer->load_from_file(pack_filename);
-        PackedSupportSnarlCaller* packed_caller = new PackedSupportSnarlCaller(*packer, true, true);
+        PackedSupportSnarlCaller* packed_caller = new PackedSupportSnarlCaller(*packer);
         snarl_caller = unique_ptr<SnarlCaller>(packed_caller);
     }
 

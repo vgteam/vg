@@ -45,11 +45,7 @@ public:
  */ 
 class SupportBasedSnarlCaller : public SnarlCaller {
 public:
-    /// use_avg_node_support: A node's support is the average (instead of minimum)
-    /// support across its bases
-    /// use_avg_trav_support: A traversals support is the average (instead of minimum)
-    /// support across its nodes and edges
-    SupportBasedSnarlCaller(const PathHandleGraph& graph, bool use_avg_node_support, bool use_avg_trav_support);
+    SupportBasedSnarlCaller(const PathHandleGraph& graph);
     virtual ~SupportBasedSnarlCaller();
 
     /// Support of an edge
@@ -64,11 +60,8 @@ public:
     /// Average support of a node
     virtual Support get_avg_node_support(id_t node) const = 0;
 
-    /// Get the support of a node
-    function<Support(id_t)> get_node_support;
-
     /// Use node or edge support as proxy for child support (as was done in original calling code)
-    virtual pair<Support, int> get_child_support(const Snarl& snarl) const;
+    virtual tuple<Support, Support, int> get_child_support(const Snarl& snarl) const;
 
     /// Get the genotype of a site
     virtual vector<int> genotype(const Snarl& snarl,
@@ -126,24 +119,23 @@ protected:
     double max_ref_het_bias = 4.5;
     /// Like the max het bias, but applies to novel indels.
     double max_indel_het_bias =3;
-
-    ///
-
-protected:
+    /// what's the minimum ref or alt allele depth to give a PASS in the filter
+    /// column? Also used as a min actual support for a second-best allele call
+    size_t min_mad_for_filter = 1;
+    /// what's the min log likelihood for allele depth assignments to PASS?
+    double min_ad_log_likelihood_for_filter = -9;
+    /// Use average instead of minimum support when determining a traversal's support
+    /// its node and edge supports.
+    size_t average_traversal_support_switch_threshold = 10;
+    /// Use average instead of minimum support when determining a node's support
+    /// its position supports.
+    size_t average_node_support_switch_threshold = 10;
 
     const PathHandleGraph& graph;
-    bool use_avg_node_support;
-    bool use_avg_trav_support;
 
     // todo: background support
 
     
-    /// what's the minimum ref or alt allele depth to give a PASS in the filter
-    /// column? Also used as a min actual support for a second-best allele call
-    size_t min_mad_for_filter = 1;
-
-    /// what's the min log likelihood for allele depth assignments to PASS?
-    double min_ad_log_likelihood_for_filter = -9;
 };
 
 /**
@@ -151,7 +143,7 @@ protected:
  */ 
 class PackedSupportSnarlCaller : public SupportBasedSnarlCaller {
 public:
-    PackedSupportSnarlCaller(const Packer& packer, bool use_avg_node_support, bool use_avg_trav_support);
+    PackedSupportSnarlCaller(const Packer& packer);
     virtual ~PackedSupportSnarlCaller();
 
     /// Support of an edge
