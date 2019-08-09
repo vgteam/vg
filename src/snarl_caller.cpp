@@ -189,6 +189,117 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
     return genotype;
 }
 
+void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
+                                              const vector<SnarlTraversal>& traversals,
+                                              const vector<int>& genotype,                                         
+                                              const string& sample_name,
+                                              vcflib::Variant& variant) {
+
+    /// Compute the supports of the genotype
+    /// (we're doing this a second time to fit the (unnecessarily modular?) interface where vcf
+    ///  info is updated independently of calling)
+    vector<SnarlTraversal> genotype_travs;
+    set<int> allele_set;
+    for (auto allele : genotype) {
+        if (!allele_set.count(allele)) {
+            genotype_travs.push_back(traversals[allele]);
+            allele_set.insert(allele);
+        }
+    }
+    vector<int> shared_travs;
+    if (genotype.size() >= 2 && genotype[0] != genotype[1]) {
+        shared_travs.push_back(0);
+    }
+    vector<Support> allele_supports = get_traversal_set_support(genotype_travs, shared_travs, false);
+    
+    // Set up the depth format field
+    variant.format.push_back("DP");
+    // And allelic depth
+    variant.format.push_back("AD");
+    // And the log likelihood from the assignment of reads among the
+    // present alleles
+    variant.format.push_back("XADL");
+    // Also the alt allele depth
+    variant.format.push_back("XAAD");
+
+    // Compute the total support for all the alts that will be appearing
+    Support total_support;
+    // And total alt allele depth for the alt alleles
+    Support alt_support;
+    // Find the min total support of anything called
+    double min_site_support = allele_supports.size() > 0 ? INFINITY : 0;
+
+    if (!allele_supports.empty()) { //only add info if we made a call
+        for (int allele : allele_set) {
+            // For all the alleles we are using, look at the support.
+            auto& support = allele_supports[allele];
+                
+            // Set up allele-specific stats for the allele
+            variant.samples[sample_name]["AD"].push_back(std::to_string((int64_t)round(total(support))));
+                
+            // Sum up into total depth
+            total_support += support;
+                
+            if (allele != 0) {
+                // It's not the primary reference allele
+                alt_support += support;
+            }
+            
+            // Min all the total supports from the alleles called as present    
+            min_site_support = min(min_site_support, total(support));
+        }
+    }
+    
+            
+    // Find the binomial bias between the called alleles, if multiple were called.
+    double ad_log_likelihood = INFINITY;
+    if (allele_set.size() == 2) {
+        int best_allele = genotype[0];
+        int second_best_allele = genotype[1];
+        // How many of the less common one do we have?
+        size_t successes = round(total(allele_supports[second_best_allele]));
+        // Out of how many chances
+        size_t trials = successes + (size_t) round(total(allele_supports[best_allele]));
+                
+        assert(trials >= successes);
+                
+        // How weird is that?                
+        ad_log_likelihood = binomial_cmf_ln(prob_to_logprob((real_t) 0.5), trials, successes);
+                
+        assert(!std::isnan(ad_log_likelihood));
+                
+        variant.samples[sample_name]["XADL"].push_back(std::to_string(ad_log_likelihood));
+    } else {
+        // No need to assign reads between two alleles
+        variant.samples[sample_name]["XADL"].push_back(".");
+    }
+
+    // Set the variant's total depth            
+    string depth_string = std::to_string((int64_t)round(total(total_support)));
+    variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
+            
+    // And for the sample
+    variant.samples[sample_name]["DP"].push_back(depth_string);            
+            
+    // And its depth of non-0 alleles
+    variant.samples[sample_name]["XAAD"].push_back(std::to_string((int64_t)round(total(alt_support))));
+
+    // Set the total support of the min allele as the variant quality
+    variant.quality = min_site_support;
+
+    // Now do the filters
+    variant.filter = "PASS";            
+    if (min_site_support < min_mad_for_filter) {
+        // Apply Min Allele Depth cutoff across all alleles (even ref)
+        variant.filter = "lowad";
+    } else if (min_ad_log_likelihood_for_filter != 0 &&
+               ad_log_likelihood < min_ad_log_likelihood_for_filter) {
+        // We have a het, but the assignment of reads between the two branches is just too weird
+        variant.filter = "lowxadl";
+    }
+}
+
+
 int64_t SupportBasedSnarlCaller::get_edge_length(const edge_t& edge) const {
     return 1;
 }

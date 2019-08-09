@@ -31,6 +31,13 @@ public:
                                  const vector<SnarlTraversal>& traversals,
                                  int ref_trav_idx,
                                  int ploidy) = 0;
+
+    /// Update INFO and FORMAT fields of the called variant
+    virtual void update_vcf_info(const Snarl& snarl,
+                                 const vector<SnarlTraversal>& traversals,
+                                 const vector<int>& genotype,
+                                 const string& sample_name,
+                                 vcflib::Variant& variant) = 0; 
 };
 
 /**
@@ -68,6 +75,13 @@ public:
                                  const vector<SnarlTraversal>& traversals,
                                  int ref_trav_idx,
                                  int ploidy);
+
+    /// Update INFO and FORMAT fields of the called variant
+    virtual void update_vcf_info(const Snarl& snarl,
+                                 const vector<SnarlTraversal>& traversals,
+                                 const vector<int>& genotype,
+                                 const string& sample_name,
+                                 vcflib::Variant& variant);
 
     /// Get the support of a traversal
     /// Child snarls are handled as in the old call code: their maximum support is used
@@ -122,6 +136,14 @@ protected:
     bool use_avg_trav_support;
 
     // todo: background support
+
+    
+    /// what's the minimum ref or alt allele depth to give a PASS in the filter
+    /// column? Also used as a min actual support for a second-best allele call
+    size_t min_mad_for_filter = 1;
+
+    /// what's the min log likelihood for allele depth assignments to PASS?
+    double min_ad_log_likelihood_for_filter = -9;
 };
 
 /**

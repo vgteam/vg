@@ -21,7 +21,10 @@ void GraphCaller::call_top_level_snarls(bool recurse_on_fail) {
         bool was_called = call_snarl(*snarl);
         if (!was_called && recurse_on_fail) {
             const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
-            snarl_queue.insert(snarl_queue.end(), children.begin(), children.end());
+#pragma omp critical (snarl_queue)
+            {
+                snarl_queue.insert(snarl_queue.end(), children.begin(), children.end());
+            }
         }
     };
 
@@ -106,7 +109,10 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
 
         // map our genotype back to the vcf
         for (int i = 0; i < variants.size(); ++i) {
-            string vcf_genotype;;
+            vector<int> vcf_alleles;
+            string vcf_genotype;
+            vector<SnarlTraversal> vcf_traversals;
+            
             if (trav_genotype.empty()) {
                 vcf_genotype = "./.";
             } else {
@@ -119,6 +125,8 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
                     if (j < trav_genotype.size() - 1) {
                         vcf_genotype += "/";
                     }
+                    vcf_alleles.push_back(vcf_allele);
+                    vcf_traversals.push_back(travs[trav_allele]);
                 }
             }
             // create an output variant from the input one
@@ -138,6 +146,9 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
             out_variant.format.push_back("GT");
             auto& genotype_vector = out_variant.samples[sample_name]["GT"];
             genotype_vector.push_back(vcf_genotype);
+
+            // add some info
+            snarl_caller.update_vcf_info(snarl, vcf_traversals, vcf_alleles, sample_name, out_variant);
 
             // print the variant
             out_stream << out_variant << endl;
