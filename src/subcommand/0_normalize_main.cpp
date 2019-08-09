@@ -101,13 +101,13 @@ int main_normalize(int argc, char **argv) {
             exit(1);
         }
         // Record start time
-        auto start = std::chrono::high_resolution_clock::now();
+        auto start = chrono::high_resolution_clock::now();
         // run test code on all snarls in graph.
         disambiguate_top_level_snarls(*graph, haploGraph, snarl_stream);
         // Record end time
         auto finish = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed = finish - start;
-        std::cout << "Elapsed time: " << elapsed.count() << " s\n";
+        chrono::duration<double> elapsed = finish - start;
+        cerr << "Elapsed time: " << elapsed.count() << " s\n";
     }
 
     if (evaluate) {

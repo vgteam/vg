@@ -69,7 +69,7 @@ void disambiguate_top_level_snarls(MutablePathDeletableHandleGraph &graph,
 
     for (auto roots : snarl_roots) {
 
-        // if (roots->start().node_id() == 4181165) {
+        if (roots->start().node_id() == 4181165) {
         // cerr << "disambiguating snarl #" << (num_snarls_normalized +
         // num_snarls_skipped)
         //      << " source: " << roots->start().node_id()
@@ -86,7 +86,7 @@ void disambiguate_top_level_snarls(MutablePathDeletableHandleGraph &graph,
         } else {
             num_snarls_skipped += 1;
         }
-        // }
+        }
     }
     cerr << endl
          << "normalized " << num_snarls_normalized << " snarl(s), skipped "

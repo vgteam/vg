@@ -11,6 +11,7 @@ echo running!
 TEST_DIR=test/robin_tests/full_chr10
 FILE_NAME=hgsvc_chr10_construct
 FILE_NAME_OUT=hgsvc_chr10_construct_normalized_no_max_size
+# FILE_NAME_OUT=junk
 
 ##running full chr10
 echo "running normalize (w/ evaluation)"
@@ -28,11 +29,7 @@ vg normalize -e -g $TEST_DIR/$FILE_NAME.gbwt -s $TEST_DIR/$FILE_NAME.snarls $TES
 # dot -Tsvg -o graph_in.svg
 # chromium-browser graph_in.svg
 
-
 ### After Normalization:
-# TEST_DIR=test/robin_tests/full_chr10
-# FILE_NAME_OUT=hgsvc_chr10_construct_normalized_2
-
 ## for making a snarls file:
 vg convert -a $TEST_DIR/$FILE_NAME_OUT.hg -V >$TEST_DIR/$FILE_NAME_OUT.vg
 echo "hg converted to vg"
@@ -40,8 +37,7 @@ vg snarls $TEST_DIR/$FILE_NAME_OUT.vg >$TEST_DIR/$FILE_NAME_OUT.snarls
 echo ".snarls made"
 
 ## for evaluating normalized graph:
-echo "evaluating. . ."
-# vg normalize -e -s $TEST_DIR/$FILE_NAME_OUT.snarls $TEST_DIR/$FILE_NAME_OUT.hg
+echo "getting vg stats:"
 vg stats -z -l $TEST_DIR/$FILE_NAME_OUT.vg
 
 ## creating a new gbwt graph from the outgraph:
