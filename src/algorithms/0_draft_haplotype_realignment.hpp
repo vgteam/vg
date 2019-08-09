@@ -49,7 +49,7 @@ namespace vg {
 void disambiguate_top_level_snarls(MutablePathDeletableHandleGraph &graph,
                                    const GBWTGraph &haploGraph, ifstream &snarl_stream);
 
-bool disambiguate_snarl(MutablePathDeletableHandleGraph &graph,
+tuple<bool, bool, bool, bool> disambiguate_snarl(MutablePathDeletableHandleGraph &graph,
                         const GBWTGraph &haploGraph, const id_t &source_id,
                         const id_t &sink_id);
 
@@ -68,6 +68,8 @@ vector<string> format_handle_haplotypes_to_strings(
 
 VG align_source_to_sink_haplotypes(vector<string> source_to_sink_haplotypes);
 
+void force_maximum_handle_size(MutableHandleGraph &graph, const size_t &max_size);
+
 vector<pair<step_handle_t, step_handle_t>>
 extract_embedded_paths_in_snarl(const PathHandleGraph &graph, const id_t &source_id,
                                 const id_t &sink_id);
@@ -85,13 +87,10 @@ void move_path_to_snarl(MutablePathDeletableHandleGraph &graph,
                         id_t &new_sink_id, const id_t &old_source_id,
                         const id_t &old_sink_id);
 
-bool source_and_sink_handles_map_properly(const HandleGraph &graph,
-                                          const id_t &new_source_id,
-                                          const id_t &new_sink_id,
-                                          const bool &touching_source,
-                                          const bool &touching_sink,
-                                          const handle_t &potential_source,
-                                          const handle_t &potential_sink);
+bool source_and_sink_handles_map_properly(
+    const HandleGraph &graph, const id_t &new_source_id, const id_t &new_sink_id,
+    const bool &touching_source, const bool &touching_sink,
+    const handle_t &potential_source, const handle_t &potential_sink);
 
 vector<int> check_handle_as_start_of_path_seq(const string &handle_seq,
                                               const string &path_seq);

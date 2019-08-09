@@ -10,6 +10,11 @@ namespace vg {
  * 43899
  * 71109
  * stops for several minuts at 2049699 b/c large size snarl now at 1:40
+ * Stats of the new graph:number of top_level snarls in graph: 3418
+ * number of total snarls in graph: 7443
+ * nodes	4218503
+ * edges	4227433
+ * length	134506805
  */
 
 void evaluate_normalized_snarls(ifstream &snarl_stream) {

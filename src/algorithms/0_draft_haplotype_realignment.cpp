@@ -25,7 +25,6 @@
 #include "../types.hpp"
 #include "extract_containing_graph.hpp"
 
-
 namespace vg {
 
 // TODO: allow for snarls that have haplotypes that begin or end in the middle of the
@@ -58,18 +57,30 @@ void disambiguate_top_level_snarls(MutablePathDeletableHandleGraph &graph,
     int num_snarls_normalized = 0;
     int num_snarls_skipped = 0;
     vector<const Snarl *> snarl_roots = snarl_manager->top_level_snarls();
-    bool success;
+    // error_record's bools are:
+    //      <snarl exceeds max number of threads that can be efficiently aligned,
+    //        snarl has haplotypes starting/ending in the middle,
+    //        some handles in the snarl aren't connected by a thread,
+    //        snarl is cyclic>
+    tuple<bool, bool, bool, bool> one_snarl_error_record;
+    tuple<int, int, int, int> full_error_record;
+    int num_of_errors = 4;
+
     for (auto roots : snarl_roots) {
 
-        // if (roots->start().node_id() == 1883 or roots->start().node_id() == 4211565) {
-            cerr << "disambiguating snarl #"
-                 << (num_snarls_normalized + num_snarls_skipped)
-                 << " source: " << roots->start().node_id()
-                 << " sink: " << roots->end().node_id() << endl;
-            success = disambiguate_snarl(graph, haploGraph, roots->start().node_id(),
-                                         roots->end().node_id());
-
-            if (success) {
+        // if (roots->start().node_id() == 4181165) {
+            // cerr << "disambiguating snarl #" << (num_snarls_normalized +
+            // num_snarls_skipped)
+            //      << " source: " << roots->start().node_id()
+            //      << " sink: " << roots->end().node_id() << endl;
+            one_snarl_error_record = disambiguate_snarl(
+                graph, haploGraph, roots->start().node_id(), roots->end().node_id());
+            get<0>(full_error_record) += get<0>(one_snarl_error_record);
+            get<1>(full_error_record) += get<1>(one_snarl_error_record);
+            get<2>(full_error_record) += get<2>(one_snarl_error_record);
+            get<3>(full_error_record) += get<3>(one_snarl_error_record);
+            if (!(get<0>(one_snarl_error_record) || get<1>(one_snarl_error_record) ||
+                  get<2>(one_snarl_error_record) || get<3>(one_snarl_error_record))) {
                 num_snarls_normalized += 1;
             } else {
                 num_snarls_skipped += 1;
@@ -78,11 +89,14 @@ void disambiguate_top_level_snarls(MutablePathDeletableHandleGraph &graph,
     }
     cerr << endl
          << "normalized " << num_snarls_normalized << " snarl(s), skipped "
-         << num_snarls_skipped
-         << " snarls b/c they had haplotypes starting/ending in the middle "
-            "of the snarl, the snarl was cyclic, it exceeded the size limit, or there "
-            "were handles not connected by the gbwt info."
-         << endl;
+         << num_snarls_skipped << " snarls because. . .\nthey exceeded the size limit ("
+         << get<0>(full_error_record)
+         << "snarls),\nhad haplotypes starting/ending in the middle of the snarl ("
+         << get<1>(full_error_record) << "),\nthe snarl was cyclic ("
+         << get<3>(full_error_record)
+         << " snarls),\nor there "
+            "were handles not connected by the gbwt info ("
+         << get<2>(full_error_record) << " snarls)." << endl;
 
     /// Args:
     ///  source                 graph to extract subgraph from
@@ -115,16 +129,22 @@ void disambiguate_top_level_snarls(MutablePathDeletableHandleGraph &graph,
 // Returns: none.
 // TODO: allow for snarls that have haplotypes that begin or end in the middle of the
 // snarl.
-bool disambiguate_snarl(MutablePathDeletableHandleGraph &graph,
-                        const GBWTGraph &haploGraph, const id_t &source_id,
-                        const id_t &sink_id) {
+tuple<bool, bool, bool, bool> disambiguate_snarl(MutablePathDeletableHandleGraph &graph,
+                                                 const GBWTGraph &haploGraph,
+                                                 const id_t &source_id,
+                                                 const id_t &sink_id) {
     // cerr << "disambiguate_snarl" << endl;
-
+    // error_record's bools are:
+    //      <snarl exceeds max number of threads that can be efficiently aligned,
+    //        snarl has haplotypes starting/ending in the middle,
+    //        some handles in the snarl aren't connected by a thread,
+    //        snarl is cyclic>
+    tuple<bool, bool, bool, bool> error_record{0, 0, 0, 0};
     SubHandleGraph snarl = extract_subgraph(graph, source_id, sink_id);
 
     if (!algorithms::is_acyclic(&snarl)) {
         cerr << "snarl at " << source_id << " is cyclic. Skipping." << endl;
-        return false;
+        get<3>(error_record) = true;
     }
 
     // First, find all haplotypes encoded by the GBWT, in order to create the new snarl.
@@ -137,9 +157,7 @@ bool disambiguate_snarl(MutablePathDeletableHandleGraph &graph,
     // ( needs the unordered_set from extract_gbwt haplotypes to be equal to the number of
     // handles in the snarl).
     int handles_in_snarl = 0;
-    snarl.for_each_handle([&](const handle_t handle) {
-        handles_in_snarl++;
-    });
+    snarl.for_each_handle([&](const handle_t handle) { handles_in_snarl++; });
 
     // TODO: this if statement removes snarls where a haplotype begins/ends in the middle
     // TODO:    of the snarl. Get rid of this once alignment issue is addressed!
@@ -163,9 +181,7 @@ bool disambiguate_snarl(MutablePathDeletableHandleGraph &graph,
         vector<pair<step_handle_t, step_handle_t>> embedded_paths =
             extract_embedded_paths_in_snarl(graph, source_id, sink_id);
 
-        // todo: debug_statment (lots of em)
-        // cerr << "\t gonna try to find an embedded path stretching from source to sink!"
-        // << endl; find the paths that stretch from source to sink:
+        // find the paths that stretch from source to sink:
         for (auto path : embedded_paths) {
             // cerr << "checking path of name " <<
             // graph.get_path_name(graph.get_path_handle_of_step(path.first)) << " with
@@ -192,36 +208,38 @@ bool disambiguate_snarl(MutablePathDeletableHandleGraph &graph,
         // Align the new snarl:
         VG new_snarl = align_source_to_sink_haplotypes(haplotypes_from_source_to_sink);
 
+        // todo: make 32 a part of the general object maximum handle_size info.
+        force_maximum_handle_size(new_snarl, 32);
+
         // todo: debug_statement
         // new_snarl.for_each_handle([&](const handle_t& handle) {
         //     cerr << new_snarl.get_id(handle) << " " << new_snarl.get_sequence(handle)
         //     << "\t";
         // });
 
-        // //todo: debug_statement:
-        // new_snarl.serialize_to_ostream(cout);
-        // return true;
-
         // integrate the new_snarl into the graph, removing the old snarl as you go.
         integrate_snarl(graph, new_snarl, embedded_paths, source_id, sink_id);
-        cerr << endl;
-        return true;
+        return error_record;
     } else {
         if (!get<1>(haplotypes).empty()) {
-            cerr << "found a snarl with haplotypes in the middle. Start: " << source_id
-                 << " sink is " << sink_id << ". Skipping." << endl;
+            cerr << "found a snarl starting at " << source_id << " and ending at " << sink_id
+                 << " with haplotypes that start or end in the middle. Skipping." << endl;
+            get<1>(error_record) = true;
         }
         if (get<0>(haplotypes).size() > 200) {
-            cerr << "found a snarl with too many haplotypes ("
+            cerr << "found a snarl starting at " << source_id << " and ending at " << sink_id << " with too many haplotypes ("
                  << get<0>(haplotypes).size() << ") to efficiently align. Skipping."
                  << endl;
+            get<0>(error_record) = true;
         }
         if (get<2>(haplotypes).size() != handles_in_snarl) {
-            cerr << "some handles in the snarl aren't accounted for by the gbwt graph. "
+            cerr << "some handles in the snarl starting at " << source_id << " and ending at " << sink_id
+                 << " aren't accounted for by the gbwt graph. "
                     "Skipping."
                  << endl;
+            get<2>(error_record) = true;
         }
-        return false;
+        return error_record;
     }
 }
 
@@ -270,6 +288,10 @@ extract_gbwt_haplotypes(const SubHandleGraph &snarl, const GBWTGraph &haploGraph
     vector<vector<handle_t>> haplotypes_from_source_to_sink;
     vector<vector<handle_t>> other_haplotypes;
 
+    // sometimes a gbwt thread will indicate a connection between two handles that doesn't
+    // actually exist in the graph. These connections need to be ignored.
+    unordered_set<edge_t> incorrect_connections;
+
     // int prev_size = 0;
     // for every partly-extracted thread, extend the thread until it either reaches
     // the sink of the snarl or the end of the thread.
@@ -308,14 +330,29 @@ extract_gbwt_haplotypes(const SubHandleGraph &snarl, const GBWTGraph &haploGraph
             // the other_haplotypes if haplotype ends before reaching sink.
             for (gbwt::SearchState next_search : next_searches) {
                 handle_t next_handle = haploGraph.node_to_handle(next_search.node);
-                if (!snarl.has_node(snarl.get_id(next_handle))) {
-                    cerr << "snarl starting at node " << source_id
-                         << " has a thread that incorrectly connects a node contained "
-                            "within the snarl (node "
-                         << haploGraph.get_id(cur_haplotype.first.back())
-                         << ") and a node outside the snarl ("
-                         << haploGraph.get_id(next_handle)
-                         << "). This thread connection will be ignored." << endl;
+                // if (!snarl.has_node(snarl.get_id(next_handle)) &&
+                // make_pair(haploGraph.get_id(cur_haplotype.first.back()),haploGraph.get_id(next_handle)))
+                // {
+                if (!snarl.has_edge(cur_haplotype.first.back(), next_handle)) {
+                    if (incorrect_connections.find(
+                            snarl.edge_handle(cur_haplotype.first.back(), next_handle)) ==
+                        incorrect_connections.end()) {
+                            cerr << "snarl starting at node " << source_id << " and ending at " << sink_id
+                                 << " has a thread that incorrectly connects two nodes that don't have any edge connecting them. These two nodes are "
+                                 << haploGraph.get_id(cur_haplotype.first.back())
+                                 << " and "
+                                 << haploGraph.get_id(next_handle)
+                                 << ". This thread connection will be ignored." << endl;
+                            incorrect_connections.emplace(snarl.edge_handle(
+                                cur_haplotype.first.back(), next_handle));
+
+                            //todo: debug_statement
+                            cerr << "next handle(s) of handle " << snarl.get_id(cur_haplotype.first.back()) << " according to snarl:" << endl;
+                            snarl.follow_edges(cur_haplotype.first.back(), false, [&] (const handle_t handle){
+                                cerr << "\t" <<snarl.get_id(handle);
+                            }); 
+                            cerr << endl;
+                        }
                     continue;
                 }
                 // copy over the vector<handle_t> of cur_haplotype:
@@ -580,7 +617,7 @@ vector<string> format_handle_haplotypes_to_strings(
 //      VG object representing the newly realigned snarl.
 VG align_source_to_sink_haplotypes(vector<string> source_to_sink_haplotypes) {
     // cerr << "align_source_to_sink_haplotypes" << endl;
-    cerr << "number of strings to align: " << source_to_sink_haplotypes.size() << endl;
+    // cerr << "number of strings to align: " << source_to_sink_haplotypes.size() << endl;
     // TODO: make the following comment true, so that I can normalize haplotypes that
     // TODO:    aren't source_to_sink by adding a similar special character to strings in
     // TODO:    the middle of the snarl.
@@ -674,6 +711,39 @@ VG align_source_to_sink_haplotypes(vector<string> source_to_sink_haplotypes) {
              << source_and_sink.second.size() << " sink nodes." << endl;
     }
     return snarl;
+}
+
+/** For each handle in a given graph, divides any handles greater than max_size into parts
+ * that are equal to or less than the size of max_size.
+ *
+ * @param  {MutableHandleGraph} graph : the graph in which we want to force a maximum
+ * handle size for all handles.
+ * @param  {size_t} max_size          : the maximum size we want a handle to be.
+ */
+void force_maximum_handle_size(MutableHandleGraph &graph, const size_t &max_size) {
+    // forcing each handle in the graph to have a maximum sequence length of max_size:
+    graph.for_each_handle([&](handle_t handle) {
+        // all the positions we want to make in the handle are in offsets.
+        vector<size_t> offsets;
+
+        size_t sequence_len = graph.get_sequence(handle).size();
+        int number_of_divisions = floor(sequence_len / max_size);
+
+        // if the handle divides evenly into subhandles of size max_size, we don't need to
+        // make the last cut (which would be at the very end of the handle - cutting off
+        // no sequence).
+        if (sequence_len % max_size == 0) {
+            number_of_divisions--;
+        }
+
+        // calculate the position of all the divisions we want to make.
+        for (int i = 1; i <= number_of_divisions; i++) {
+            offsets.push_back(i * max_size);
+        }
+
+        // divide the handle into parts.
+        graph.divide_handle(handle, offsets);
+    });
 }
 
 // Finds all embedded paths that either start or end in a snarl (or both) defined by
@@ -892,7 +962,7 @@ void integrate_snarl(MutablePathDeletableHandleGraph &graph,
     //     cerr << to_insert_snarl.get_id(handle) << " "
     //          << to_insert_snarl.get_sequence(handle) << " \t";
     // });
-    cerr << endl;
+    // cerr << endl;
     // Get old graph snarl
     SubHandleGraph old_snarl = extract_subgraph(graph, source_id, sink_id);
 
@@ -905,7 +975,8 @@ void integrate_snarl(MutablePathDeletableHandleGraph &graph,
 
     if (to_insert_snarl_defining_handles.first.size() > 1 ||
         to_insert_snarl_defining_handles.second.size() > 1) {
-        cerr << "ERROR: newly made snarl with more than one start or end. # of starts: "
+        cerr << "ERROR: newly made snarl from a snarl starting at " << source_id
+             << " has more than one start or end. # of starts: "
              << to_insert_snarl_defining_handles.first.size()
              << " # of ends: " << to_insert_snarl_defining_handles.second.size() << endl;
         return;
@@ -1330,11 +1401,13 @@ void move_path_to_snarl(MutablePathDeletableHandleGraph &graph,
     }
     // //todo: figure out how to do some better error message instead of cerr.
     // if we failed to find a path, show an error message.
-    cerr << "Warning! Didn't find a corresponding path of name "
+    cerr << "##########################\nWarning! Didn't find a corresponding path of "
+            "name "
          << graph.get_path_name(graph.get_path_handle_of_step(old_embedded_path.first))
-         << " from the old snarl in the newly aligned snarl. This snarl will not be "
-            "normalized."
-            "########################################################"
+         << " from the old snarl at " << old_source_id
+         << " in the newly aligned snarl. This snarl WILL be "
+            "normalized, resulting in a probably incorrectly-constructed snarl."
+            "\n##########################"
          << endl
          << endl;
     // throw graph.get_path_name(graph.get_path_handle_of_step(old_embedded_path.first));
