@@ -558,17 +558,20 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         scores.push_back(alignments[alignments_in_order[i]].score());
     }
         
-#ifdef debug
-    cerr << "For scores ";
-    for (auto& score : scores) cerr << score << " ";
-#endif
 
     size_t winning_index;
     double mapq = get_regular_aligner()->compute_mapping_quality(scores, false);
-    
-#ifdef debug
-    cerr << "MAPQ is " << mapq << endl;
-#endif
+    if (max(min(mapq, 60.0), 0.0) == 60 && funnel.last_correct_stage != "winner"){
+    cerr << "For scores ";
+    for (auto& score : scores) cerr << score << " ";
+    cerr << "MAPQ is " << max(min(mapq, 60.0), 0.0) 
+         << " and last correct stage is " << funnel.last_correct_stage() << endl;
+    cerr << "\t cluster scores: " ;
+    for (auto& score : cluster_score) cerr << score << " ";
+    cerr << endl << "\t cluster coverage: ";
+    for (auto& score : read_coverage_by_cluster) cerr << score << " ";
+    cerr << endl;
+    }
         
     // Make sure to clamp 0-60.
     mappings.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
