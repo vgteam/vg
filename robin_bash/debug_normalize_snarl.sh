@@ -1,3 +1,4 @@
+#!/bin/bash
 
 export VG_FULL_TRACEBACK=1
 set -e
