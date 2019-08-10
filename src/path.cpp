@@ -269,6 +269,7 @@ bool Paths::has_mapping(const string& name, int32_t rank) {
 }
 
 void Paths::append_mapping(const string& name, const mapping_t& m, bool warn_on_duplicates) {
+
     // get or create the path with this name
     list<mapping_t>& pt = get_create_path(name);
     // now if we haven't already supplied a mapping

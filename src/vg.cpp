@@ -1968,7 +1968,11 @@ void VG::expand_context_by_steps(VG& g, size_t steps, bool add_paths) {
                     }
                 }
             });
-        g.sync_paths();
+        g.paths.sort_by_mapping_rank();
+        g.paths.rebuild_mapping_aux();
+
+        // store paths in graph
+        g.paths.to_graph(g.graph);
     }
 }
 
