@@ -13,6 +13,7 @@
 #include "../mcmc_genotyper.hpp"
 
 #include "../vg.hpp"
+#include "../multipath_alignment.hpp"
 #include <vg/io/stream.hpp>
 
 
@@ -40,7 +41,7 @@ int main_mcmc(int argc, char** argv) {
     }
 
     // initialize parameters with their default options
-    int n_iterations = 10;
+    int n_iterations = 1000;
     int seed = 1;
     
     int c;
@@ -93,34 +94,34 @@ int main_mcmc(int argc, char** argv) {
     vector<MultipathAlignment> reads;
     get_input_file(multipath_file, [&] (istream& open_file){
         io::ProtobufIterator<MultipathAlignment> iter (open_file);
-        
         while(iter.has_current()){
             reads.push_back(*iter);
+            // vg::view_multipath_alignment_as_dot(cerr,*iter,true);
             ++iter;
         }
     });
     double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
-    
-        
     // invoke run genotyper 
     MCMCGenotyper mcmc_genotyper(*snarls, *graph, n_iterations, seed);
     unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(reads, log_base );
     
-    // create path handles that follow the haplotypes in VG graph 
-    path_handle_t path_handle = graph->create_path_handle("x");  
-
-    for(auto iter = genome->begin(0); iter!= genome->end(0); iter++){
-        // iter will be pointing at a node traversal
-        // have to convert to a path handle 
+    
+    for (int i = 0; i < 2; i++){
+        
+        // create two paths tracing each haplotype
+        path_handle_t path_handle = graph->create_path_handle("H" + to_string(i));
+        
+        for(auto iter = genome->begin(i); iter!= genome->end(i); iter++){
+        
         graph->append_step(path_handle, graph->get_handle((*iter).node->id()));
         
     }
+    }
     
-    // serialize to os stream
+    
+    
     // will output a graph w/ embedded paths
     graph->serialize_to_ostream(std::cout);
-
-    // use view to illustrate a graph 
    
     return 0;
 }

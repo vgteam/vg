@@ -14,4 +14,7 @@ vg snarls x.vg > sites.snarls
 vg mpmap -A -x x.xg -g x.gcsa -G reads.gam > reads.mgam
 
 # call mcmc subcommand
-vg mcmc reads.mgam x.vg sites.snarls > graphs_with_paths.vg
+vg mcmc reads.mgam x.vg sites.snarls > graph_with_paths.vg
+
+# call view on output
+vg view -d -w graph_with_paths.vg | dot -Tpdf -o /home/susanna/Desktop/img.pdf
