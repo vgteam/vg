@@ -1076,12 +1076,13 @@ Position first_path_position(const Path& path) {
 }
 
 Position last_path_position(const Path& path) {
+    
     int i = path.mapping_size()-1;
     while (i >= 0) {
         if (from_length(path.mapping(i))) break;
         --i;
     }
-    if (i < 0) { cerr << "[vg::Path] start of path without a from_length" << endl; exit(1); }
+    if (i < 0) { cerr << "[vg::Path] start of path without a from_length" << endl; assert(false); }
     const Mapping& mapping = path.mapping(i);
     // find the soft clip length here
     Position pos = mapping.position();
