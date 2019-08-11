@@ -46,26 +46,25 @@ namespace vg {
     }
     
     PhasedGenome::PhasedGenome(PhasedGenome& rhs){
+        
         *this = rhs;
     }
     PhasedGenome& PhasedGenome::operator = (PhasedGenome& phased_genome){
         this->~PhasedGenome();
-
+        
         snarl_manager = phased_genome.snarl_manager;
 
         haplotypes.clear();
         
         for(int i = 0; i < phased_genome.haplotypes.size(); i++ ){
-            
-            // construct Haplotype from the old phased genome    
+            // build haplotypes    
             Haplotype* new_haplo = new Haplotype(phased_genome.begin(i), phased_genome.end(i)); 
             haplotypes.push_back(new_haplo);
         }
-                          
+                     
         // build indices on the new object 
         build_indices();
         
-        // call destructor on the old object 
         return phased_genome;
     } 
     
@@ -255,7 +254,7 @@ namespace vg {
             cout << "Haplotype ID is: " << i <<endl;
             // iterate through each node in the haplotype
             for(auto iter = begin(i); iter != end(i); iter++ ){
-                cerr << "The node is: "<< (*iter).node <<endl;
+                //cerr << "The node is: "<< (*iter).node <<endl;
                 cerr << "The sequence is: " << (*iter).node->sequence() <<endl;
             }   
             
@@ -349,6 +348,7 @@ namespace vg {
     
     int32_t PhasedGenome::optimal_score_on_genome(const MultipathAlignment& multipath_aln, VG& graph) {
         
+        
         // must have identified start subpaths before computing optimal score   
         assert(multipath_aln.start_size() > 0);
         
@@ -431,10 +431,12 @@ namespace vg {
                     if (position.node_id() != subpath_node->node_traversal.node->id()
                         || ((position.is_reverse() == subpath_node->node_traversal.backward) != oriented_forward)) {
                         subpath_follows_path = false;
-                        break;
+                        
 #ifdef debug_phased_genome
                         cerr << "[PhasedGenome::optimal_score_on_genome]: subpath " << i << " is inconsistent with haplotype" << endl;
-#endif
+                        
+#endif              
+                    break;
                     }
                 }
                 
@@ -442,7 +444,7 @@ namespace vg {
                 if (subpath_follows_path) {
 #ifdef debug_phased_genome
                     cerr << "[PhasedGenome::optimal_score_on_genome]: subpath " << i << " is consistent with haplotype" << endl;
-#endif
+#endif              
                     int32_t extended_prefix_score = subpath_prefix_score[i] + subpath.score();
                     if (subpath.next_size() == 0) {
 #ifdef debug_phased_genome

@@ -28,7 +28,9 @@ namespace vg {
 
         unique_ptr<PhasedGenome> optimal;
         
+        // build markov chain using Metropolis-Hastings
         for(int i = 1; i<= n_iterations; i++){
+            genome->print_phased_genome();
             
             // holds the previous sample allele
             double x_prev = log_target(*genome, reads);
@@ -49,16 +51,21 @@ namespace vg {
                 // holds new sample allele
                 double x_new = log_target(*genome, reads);
 
+
                 // calculate likelihood ratio of posterior distribution 
                 double likelihood_ratio = exp(log_base*(x_new - x_prev));
 
-                double current_likelihood = 0;
+                double current_likelihood = 0.0;
                 // save the phased genome with the highest likelihood
-                double likelihood = likelihood + log_base*(x_new - x_prev);
+                current_likelihood = log_base*(x_new - x_prev);
+                cerr << "current likelihood" << current_likelihood << endl;
+                cerr << "max likelihood" << max_likelihood << endl;
                 if (current_likelihood > max_likelihood){
-                    max_likelihood = likelihood;
+                    max_likelihood = current_likelihood;
                     optimal = unique_ptr<PhasedGenome>(new PhasedGenome(*genome));
+
                 }
+                //cerr << "loop " << i << endl;
 
                 // calculate acceptance probability 
                 double acceptance_probability = min(1.0, likelihood_ratio);
@@ -70,20 +77,22 @@ namespace vg {
             }
         }
     
-        return std::move(optimal); 
+        return std::move(genome); 
 
     }   
     double MCMCGenotyper::log_target(PhasedGenome& phased_genome, const vector<MultipathAlignment>& reads)const{
         
         // sum of scores given the reads aligned on the haplotype 
         int32_t sum_scores = 0; 
-        
-              
-        // condition on data 
+        cerr << "***************" <<endl; 
+        // get scores for mp alignments 
         for(MultipathAlignment mp : reads){
-            identify_start_subpaths(mp);  
+            identify_start_subpaths(mp);
+            
             sum_scores += phased_genome.optimal_score_on_genome(mp, graph);
+            cerr << "sequence " << mp.sequence() << " has score of  " << phased_genome.optimal_score_on_genome(mp, graph) <<endl;
         } 
+        cerr << "***************" <<endl;
         return sum_scores;
     }
 

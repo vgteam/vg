@@ -33,7 +33,9 @@ namespace vg {
          */
         void accumulate_alns(vector<MultipathAlignment> vect, vector<MultipathAlignment> target){
             //moves the first object only 
+
             move(vect.begin(), vect.end(), back_inserter(target)); 
+
             // erase vect because it is not in an indeterminate state 
             vect.erase(vect.begin(), vect.end()); 
         }
@@ -676,9 +678,11 @@ namespace vg {
         }
         TEST_CASE("Test6"){
             SECTION("Run tests 5 with different seeds for random generator"){
-                int num_iterations = 100;
-                double count_correct =0, count_incorrect =0;
-                int max = 20;
+                int num_iterations = 10;
+                double count_correct =0.0;
+                int count_incorrect =0;
+                double count_minus = 0.0;
+                int max = 1;
                 
                 for(int seed_i = 0; seed_i < max; seed_i++){
                     VG graph;
@@ -731,41 +735,37 @@ namespace vg {
                     // Make a multipath mapper to map against the graph.
                     MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
 
-                    string read1 = string("GCATCTGAGCCC"); 
-                    string read2 = string("GCATCTGAGCCC");
-                    string read3 = string("GCAGCTGAACCC");
-                    string read4 = string("GCAGCTGAACCC");
-
-                    //vector<string> reads = {"GCATCTGAGCCC", "GCATCTGAGCCC", "GCAGCTGAACCC", "GCAGCTGAACCC", "GCAGCTGAACCC", };
-
                     
-                    Alignment aln1, aln2, aln3, aln4;
-                    aln1.set_sequence(read1);
-                    aln2.set_sequence(read2);
-                    aln3.set_sequence(read3);
-                    aln4.set_sequence(read4);
-
-                    vector<MultipathAlignment> multipath_alns_out1, multipath_alns_out2, multipath_alns_out3, multipath_alns_out4 ;
-                    MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, num_iterations, seed_i);
+                    vector<string> reads = {"GCATCTGAGCCC", "GCATCTGAGCCC", "GCAGCTGAACCC", "GCAGCTGAACCC","GCAGCTGAACCC", "GCAGCTGAACCC", "GCAGCTGAGCCC", "GCAGCTGAGCCC" };
+                    vector<Alignment> alns = {reads.size(), Alignment()};
+                    
+                    // set alignment sequence
+                    for(int i = 0; i< reads.size(); i++){
+                        alns[i].set_sequence(reads[i]);
+                    }
+                    
+                    MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
                     vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>(); 
 
-                    // map read in alignment to graph and make multipath alignments  
-                    multipath_mapper.multipath_map(aln1, multipath_alns_out1, 1);
-                    multipath_mapper.multipath_map(aln2, multipath_alns_out2, 1);
-                    multipath_mapper.multipath_map(aln3, multipath_alns_out3, 1);
-                    multipath_mapper.multipath_map(aln4, multipath_alns_out4, 1);
-                
-                
-                    //accumulate MultipathAlignment objects 
-                    accumulate_alns(multipath_alns_out1, multipath_aln_vector);
-                    accumulate_alns(multipath_alns_out2, multipath_aln_vector);
-                    accumulate_alns(multipath_alns_out3, multipath_aln_vector);
-                    accumulate_alns(multipath_alns_out4, multipath_aln_vector);
+                    vector<vector<MultipathAlignment>> vect = {reads.size(),vector<MultipathAlignment>() };
+                    
+                    
+                    // map read in alignment to graph and make multipath alignments 
+                    for(int i = 0; i< reads.size(); i++){
+                        multipath_mapper.multipath_map(alns[i], vect[i], 1);
+                    }
+                    
+                    // accumulate the mapped reads in one vector
+                    for(int i = 0; i< reads.size(); i++){
+                        move(vect[i].begin(), vect[i].end(), back_inserter(multipath_aln_vector)); 
+                    }
+                    
 
                     double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
                     //pass vector with accumulated MultipathAlignment objects to run_genotype()
                     unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base); 
                     
+
                     // create a set of 2 possible solutions
                     vector<NodeTraversal> soln1, soln2;
                     soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n6), NodeTraversal(n7)};
@@ -780,23 +780,23 @@ namespace vg {
                     copy(genome->begin(0), genome->end(0), back_inserter(haplotype1));
                     copy(genome->begin(1), genome->end(1), back_inserter(haplotype2));
                     
-                    
+                    //cerr << "**********************" << endl;
+                    //genome->print_phased_genome();
+                    //cerr << "**********************" << endl;
                     if(genome->num_haplotypes() == 2){
                         if(solns_set.count(haplotype1) && solns_set.count(haplotype2)){
                             count_correct += 1.0;
                         }
                         else if(solns_set.count(haplotype1) || solns_set.count(haplotype2)){
-                            count_correct += .5;
+                            count_correct += 0.5;
+                            count_minus++;
                         }else{
-                            genome->print_phased_genome();
+                            //genome->print_phased_genome();
                             count_incorrect++;
-                            //cerr << "****************************" <<endl;
 
                         }
-                    }else{
-                        cerr << "num_haplotypes are: " << genome->num_haplotypes() << endl;
                     }
-                    cerr << count_correct <<endl;
+                    //cerr << count_correct <<endl;
                     
                     // Clean up the GCSA/LCP index
                     delete gcsaidx;
@@ -805,10 +805,66 @@ namespace vg {
 
                 cerr << count_correct << " tests out of " << max << " are correct " <<endl;
                 cerr << count_incorrect << " tests are incorrect " << endl;
+                cerr << count_minus << " tests were counted with half points " <<endl;
                 int percent_correct = (count_correct/max)*100;
                 cerr << percent_correct << "% are correct" <<endl;
             }
-        }    
+        } 
+        TEST_CASE("Test7"){
+            SECTION("Test copy constructor"){
+
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("G");
+                Node* n4 = graph.create_node("CTGA");
+                Node* n5 = graph.create_node("TTG");
+                Node* n6 = graph.create_node("CGGATA");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n4);
+                graph.create_edge(n3, n4);
+                graph.create_edge(n4, n5);
+                graph.create_edge(n5, n6);
+                // segregating inversion
+                graph.create_edge(n4, n5, false, true);
+                graph.create_edge(n5, n6, true, false);
+                
+                CactusSnarlFinder bubble_finder(graph);
+                SnarlManager snarl_manager = bubble_finder.find_snarls();
+                
+                PhasedGenome genome(snarl_manager);
+                
+                // construct haplotypes
+                
+                list<NodeTraversal> haplotype_1;
+                list<NodeTraversal> haplotype_2;
+                
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n2));
+                haplotype_1.push_back(NodeTraversal(n4));
+                haplotype_1.push_back(NodeTraversal(n5));
+                haplotype_1.push_back(NodeTraversal(n6));
+                
+                haplotype_2.push_back(NodeTraversal(n1));
+                haplotype_2.push_back(NodeTraversal(n3));
+                haplotype_2.push_back(NodeTraversal(n4));
+                haplotype_2.push_back(NodeTraversal(n5, true)); // reversed
+                haplotype_2.push_back(NodeTraversal(n6));
+                
+                genome.add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                genome.add_haplotype(haplotype_2.begin(), haplotype_2.end());
+
+                genome.print_phased_genome();
+
+                PhasedGenome genome_copy(genome);
+
+                genome_copy.print_phased_genome();
+
+            }
+        }
     }
 
 }
