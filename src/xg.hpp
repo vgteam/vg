@@ -91,19 +91,13 @@ public:
     XG& operator=(XG&& other) = delete;
     
     void from_stream(istream& in, bool validate_graph = false,
-        bool print_graph = false, bool store_threads = false,
-        bool is_sorted_dag = false);
+        bool print_graph = false);
     void from_graph(Graph& graph, bool validate_graph = false,
-        bool print_graph = false, bool store_threads = false,
-        bool is_sorted_dag = false);
+        bool print_graph = false);
     // Load the graph by calling a function that calls us back with graph chunks.
     // The function passed in here is responsible for looping.
-    // If is_sorted_dag is true and store_threads is true, we store the threads
-    // with an algorithm that only works on topologically sorted DAGs, but which
-    // is faster.
     void from_callback(function<void(function<void(Graph&)>)> get_chunks,
-        bool validate_graph = false, bool print_graph = false,
-        bool store_threads = false, bool is_sorted_dag = false);
+        bool validate_graph = false, bool print_graph = false);
         
     /// Actually build the graph
     /// Note that path_nodes is a map to make the output deterministic in path order.
@@ -113,14 +107,12 @@ public:
                map<string, vector<trav_t> >& path_nodes,
                unordered_set<string>& circular_paths,
                bool validate_graph,
-               bool print_graph,
-               bool store_threads,
-               bool is_sorted_dag);
+               bool print_graph);
                
     // What's the maximum XG version number we can read with this code?
-    const static uint32_t MAX_INPUT_VERSION = 11;
+    const static uint32_t MAX_INPUT_VERSION = 12;
     // What's the version we serialize?
-    const static uint32_t OUTPUT_VERSION = 11;
+    const static uint32_t OUTPUT_VERSION = 12;
                
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
@@ -409,20 +401,10 @@ public:
                                   int64_t id2, bool is_rev2, size_t offset2) const;
     /// Get the ID of the node that covers the given 0-based position along the path.
     int64_t node_at_path_position(const string& name, size_t pos) const;
-    /// Get the Mapping that covers the given 0-based position along the path.
-    Mapping mapping_at_path_position(const string& name, size_t pos) const;
     /// Get the 0-based start position in the path that covers the given 0-based position along the path.
     size_t node_start_at_path_position(const string& name, size_t pos) const;
     /// Get the graph position at the given 0-based path position
     pos_t graph_pos_at_path_position(const string& name, size_t pos) const;
-    /// Make an Alignment corresponding to a subregion of a stored path.
-    /// Positions are 0-based, and pos2 is excluded.
-    /// Respects path circularity, so pos2 < pos1 is not a problem.
-    /// If pos1 == pos2, returns an empty alignment.
-    Alignment target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse) const;
-    /// Same as above, but uses the given Mapping, translated directly form a CIGAR string, as a source of edits.
-    /// The edits are inserted into the generated Alignment, cut as necessary to fit into the Alignment's Mappings.
-    Alignment target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse, Mapping& cigar_mapping) const;
     size_t path_length(const string& name) const;
     size_t path_length(size_t rank) const;
     /// Return true if the path with the given name is circular, and false if it is not. The path must exist.
@@ -443,173 +425,6 @@ public:
     /// and the orientation of the occurrences. false indicates that the traversal occurs in the same
     /// orientation as in the path, true indicates.
     vector<pair<size_t, vector<pair<size_t, bool>>>> oriented_paths_of_node(int64_t id) const;
-                                                  
-    ////////////////////////////////////////////////////////////////////////////
-    // Sample database API
-    ////////////////////////////////////////////////////////////////////////////
-    
-    // Can be used either with the gPBWT or an external index of threads.
-    
-    /// Replace the existing thread names (if any) with the new names. Each name
-    /// must be unique. Each name corresponds to a pair of embedded oriented
-    /// threads, which comprise a single thread.
-    void set_thread_names(const vector<string>& names);
-    
-    /// Given a thread id, return its name. Thread IDs are all threads as given
-    /// in names in order, and then the reverse versions of all those oriented
-    /// threads in the same order.
-    string thread_name(int64_t thread_id) const;
-    
-    /// Store the number of haplotypes that gave rise to the indexed threads. A
-    /// single haplotype may be represented by multiple threads. If the index
-    /// spans multiple contigs, threads from the same VCF phase on different
-    /// contigs from the same sample will be considered to be part of the same
-    /// haplotype for counting purposes.
-    void set_haplotype_count(size_t count);
-    
-    /// Get the number of haplotypes that gave rise to threads stored in the
-    /// thread index. TODO: needs to account for graph component or contig, as
-    /// different components may have different numbers of haplotypes on them.
-    size_t get_haplotype_count() const;
-    
-    
-    
-    ////////////////////////////////////////////////////////////////////////////
-    // gPBWT API
-    ////////////////////////////////////////////////////////////////////////////
-    
-#if GPBWT_MODE == MODE_SDSL
-    // We keep our strings in instances of this cool run-length-compressed wavelet tree.
-    using rank_select_int_vector = sdsl::wt_rlmn<sdsl::sd_vector<>>;
-#elif GPBWT_MODE == MODE_DYNAMIC
-    using rank_select_int_vector = dyn::rle_str;
-#endif
-
-    // We need the w function, which we call the "where_to" function. It tells
-    // you, from a given visit at a given side, what visit offset if you go to
-    // another side.
-    int64_t where_to(int64_t current_side, int64_t visit_offset, int64_t new_side) const;
-    
-    // This is another version of the where_to function which requires that you
-    // supply two vectors of edges.
-    // edges_into_new -> edges going into new_side
-    // edges_out_of_old -> edges coming out of current_side
-    // this is to save the overhead of re-extracting these edge-vectors in cases
-    // where you're calling where_to between the same two sides (but with 
-    // different offsets) many times. Otherwise use version above
-    int64_t where_to(int64_t current_side, int64_t visit_offset, int64_t new_side,
-      const vector<Edge>& edges_into_new, const vector<Edge>& edges_out_of_old) const;
-    
-    // We define a thread visit that's much smaller than a Protobuf Mapping.
-    // Note that the fields are not initialized, so the default-constructed ThreadMapping will be garbage.
-    struct ThreadMapping {
-        int64_t node_id;
-        bool is_reverse;
-        /// We need comparison for deduplication in sets and canonically orienting threads
-        bool operator<(const ThreadMapping& other) const {
-            return tie(node_id, is_reverse) < tie(other.node_id, other.is_reverse);
-        }
-    };
-    
-    // we have a public function for querying the contents of the h_iv vector
-    int64_t node_height(ThreadMapping node) const;
-    
-    // We define a thread as just a vector of these things, instead of a bulky
-    // Path.
-    using thread_t = vector<ThreadMapping>;
-    
-    /// Insert a thread. Name must be unique or empty.
-    /// bs_bake() and tn_bake() need to be called before queries.
-    void insert_thread(const thread_t& t, const string& name);
-    /// Insert a whole group of threads. Names should be unique or empty (though
-    /// they aren't used yet). The indexed graph must be a DAG, at least in the
-    /// subset traversed by the threads. (Reversing edges are fine, but the
-    /// threads in a node must all run in the same direction.) This uses a
-    /// special efficient batch insert algorithm for DAGs that lets us just scan
-    /// the graph and generate nodes' B_s arrays independently. This must be
-    /// called only once, and no threads can have been inserted previously.
-    /// Otherwise the gPBWT data structures will be left in an inconsistent
-    /// state.
-    void insert_threads_into_dag(const vector<thread_t>& t, const vector<string>& names);
-    /// Read all the threads embedded in the graph.
-    map<string, list<thread_t> > extract_threads(bool extract_reverse) const;
-    /// Extract a particular thread by name. Name may not be empty.
-    thread_t extract_thread(const string& name) const;
-    /// Extract a set of threads matching a pattern.
-    map<string, list<thread_t> > extract_threads_matching(const string& pattern, bool reverse) const;
-    /// Extract a particular thread, referring to it by its offset at node; step
-    /// it out to a maximum of max_length
-    thread_t extract_thread(XG::ThreadMapping node, int64_t offset, int64_t max_length);
-    /// Count matches to a subthread among embedded threads
-    size_t count_matches(const thread_t& t) const;
-    size_t count_matches(const Path& t) const;
-    
-    /**
-     * Represents the search state for the graph PBWT, so that you can continue
-     * a search with more of a thread, or backtrack.
-     *
-     * By default, represents an un-started search (with no first visited side)
-     * that can be extended to the whole collection of visits to a side.
-     */
-    struct ThreadSearchState {
-        // What side have we just arrived at in the search?
-        int64_t current_side = 0;
-        // What is the first visit at that side that is selected?
-        int64_t range_start = 0;
-        // And what is the past-the-last visit that is selected?
-        int64_t range_end = numeric_limits<int64_t>::max();
-        
-        // How many visits are selected?
-        inline int64_t count() {
-            return range_end - range_start;
-        }
-        
-        // Return true if the range has nothing selected.
-        inline bool is_empty() {
-            return range_end <= range_start;
-        }
-    };
-    
-    // Extend a search with the given section of a thread.
-    void extend_search(ThreadSearchState& state, const thread_t& t) const;
-
-    /// Extend a search with the given single ThreadMapping.
-    void extend_search(ThreadSearchState& state, const ThreadMapping& t) const;
-    
-    /// Select only the threads (if any) starting with a particular
-    /// ThreadMapping, and not those continuing through it.
-    ThreadSearchState select_starting(const ThreadMapping& start) const;
-
-    /// Take a node id and side and return the side id
-    int64_t id_rev_to_side(int64_t id, bool is_rev) const;
-
-    /// Take a side and give a node id / rev pair
-    pair<int64_t, bool> side_to_id_rev(int64_t side) const;
-
-    /// The number of threads starting at this side
-    int64_t threads_starting_on_side(int64_t side) const;
-    
-    /// Given a side and offset, return the id of the thread starting there (or 0 if none)
-    int64_t thread_starting_at(int64_t side, int64_t offset) const;
-
-    /// Given a thread id and the reverse state get the starting side and offset
-    pair<int64_t, int64_t> thread_start(int64_t thread_id) const;
-
-    /// Gives the thread start for the given thread
-    pair<int64_t, int64_t> thread_start(int64_t thread_id, bool is_rev) const;
-
-    /// Gives the thread ids of those whose names start with this pattern
-    vector<int64_t> threads_named_starting(const string& pattern) const;
-    
-    /// Select only the threads (if any) continuing through a particular
-    /// ThreadMapping, and not those starting there.
-    ThreadSearchState select_continuing(const ThreadMapping& start) const;
-
-    // Dump the whole B_s array to the given output stream as a report.
-    void bs_dump(ostream& out) const;
-    
-    char start_marker = '#';
-    char end_marker = '$';
     
 private:
 
@@ -708,120 +523,9 @@ private:
     bit_vector np_bv; // entity delimiters in ep_iv
     rank_support_v<1> np_bv_rank;
     bit_vector::select_1_type np_bv_select;
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Thread haplotype/sample database
-    ////////////////////////////////////////////////////////////////////////////
     
-    // thread name storage
-    // CSA that lets us look up names efficiently, build from ordered null-delimited names
-    // thread ids are taken to be the rank in the source text for tn_csa
-    csa_bitcompressed<> tn_csa;
-    // allows us to go from positions in the CSA to thread ids
-    // rank(i) gives us our thread index for a position in tn_csa's source
-    // select(i) gives us the thread name start for a given thread id
-    sd_vector<> tn_cbv;
-    sd_vector<>::rank_1_type tn_cbv_rank;
-    sd_vector<>::select_1_type tn_cbv_select;
-    
-    // Stores the number of haplotypes per contig that gave rise to the threads in the database
-    size_t haplotype_count = 0;
-    
-    /// Back-calculate haplotype_count from the thread names for upgrading old XGs.
-    void count_haplotypes();
-    
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Succinct thread storage (the gPBWT)
-    ////////////////////////////////////////////////////////////////////////////
-    
-    // Threads are haplotype paths in the graph with no edits allowed, starting
-    // and stopping at node boundaries.
-    
-    // TODO: Explain the whole graph PBWT extension here
-    
-    // Basically we keep usage counts for every element in the graph, and and
-    // array of next-node-start sides for each side in the graph. We number
-    // sides as 2 * xg internal node ID, +1 if it's a right side. This leaves us
-    // 0 and 1 free for representing the null destination side and to use as a
-    // per-side array run separator, respectively.
-    
-    // This holds, for each node and edge, in each direction (with indexes as in
-    // the entity vector g_iv, *2, and +1 for reverse), the usage count (i.e.
-    // the number of times it is visited by encoded threads). This doesn't have
-    // to be dynamic since the length will never change. Remember that entity
-    // ranks are 1-based, so if you have an entity rank you have to subtract 1
-    // to get its position here. We have to track separately for both directions
-    // because, even though when everything is inserted the usage counts in both
-    // directions are the same, while we're inserting a thread in one direction
-    // and not (yet) the other, the usage counts in both directions will be
-    // different.
-    int_vector<> h_iv;  // only used in construction
-    vlc_vector<> h_civ;
-
-    // This (as an extension to the algorithm described in the paper) holds the
-    // number of threads beginning at each node. This isn't any extra
-    // information relative to what's in the usage count array, but it's cheaper
-    // (probably) to maintain this rather than to scan through all the edges on
-    // a side every time.
-    // ts stands for "thread start"
-    int_vector<> ts_iv;  // only used in construction
-    vlc_vector<> ts_civ;
-    
-#if GPBWT_MODE == MODE_SDSL
-    // We use this for creating the sub-parts of the uncompressed B_s arrays.
-    // We don't really support rank and select on this.
-    vector<string> bs_arrays;
-#endif
-    
-    // This holds the concatenated Benedict arrays, with BS_SEPARATOR separating
-    // them, and BS_NULL noting the null side (i.e. the thread ends at this
-    // node). Instead of holding destination sides, we actually hold the index
-    // of the edge that gets taken to the destination side, out of all edges we
-    // could take leaving the node. We offset all the values up by 2, to make
-    // room for the null sentinel and the separator. Currently the separator
-    // isn't used; we just place these by side.
-    rank_select_int_vector bs_single_array;
-
-    // Glue to connect thread names and IDs to their locations in the gPBWT
-    // allows us to go from thread ids to thread start positions, enabling named queries of the graph
-    vlc_vector<> tin_civ; // from thread id to side id / reverse thread id to side id
-    vlc_vector<> tio_civ; // from thread id to offset / reverse thread id to offset
-    // thread starts ordered by their identifiers so we can map from sides into thread ids
-    wt_int<> side_thread_wt;
-    
-    // Holds the names of threads while they are being inserted, before the
-    // succinct name representation is built.
-    string names_str;
-    
-    // A "destination" is either a local edge number + 2, BS_NULL for stopping,
-    // or possibly BS_SEPARATOR for cramming multiple Benedict arrays into one.
-    using destination_t = size_t;
-    
-    // Constants used as sentinels in bs_iv above.
-    const static destination_t BS_SEPARATOR;
-    const static destination_t BS_NULL;
-    
-    // We access this only through these wrapper methods, because we're going to
-    // swap out functionality.
-    // Sides are from 1-based node ranks, so start at 2.
-    // Get the item in a B_s array for a side at an offset.
-    destination_t bs_get(int64_t side, int64_t offset) const;
-    // Get the rank of a position among positions pointing to a certain
-    // destination from a side.
-    size_t bs_rank(int64_t side, int64_t offset, destination_t value) const;
-    // Set the whole B_s array for a size. May throw an error if B_s for that
-    // side has already been set (as overwrite is not necessarily possible).
-    void bs_set(int64_t side, vector<destination_t> new_array);
-    // Insert into the B_s array for a side
-    void bs_insert(int64_t side, int64_t offset, destination_t value);
-    
-    // Prepare the B_s array data structures for query. After you call this, you
-    // shouldn't call bset or bs_insert.
-    void bs_bake();
-    
-    // Prepare the succinct thread name representation for queries
-    void tn_bake();
+    char start_marker = '#';
+    char end_marker = '$';
 };
 
 class XGPath {
@@ -874,13 +578,6 @@ public:
 
 Mapping new_mapping(const string& name, int64_t id, size_t rank, bool is_reverse);
 void to_text(ostream& out, Graph& graph);
-
-// Serialize a rank_select_int_vector in an SDSL serialization compatible way. Returns the number of bytes written.
-size_t serialize_vector(const XG::rank_select_int_vector& to_serialize, ostream& out,
-    sdsl::structure_tree_node* parent, const std::string name);
-
-// Deserialize a rank_select_int_vector in an SDSL serialization compatible way.
-void deserialize_rsiv(XG::rank_select_int_vector& target, istream& in);
 
 // Determine if two edges are equivalent (the same or one is the reverse of the other)
 bool edges_equivalent(const Edge& e1, const Edge& e2);

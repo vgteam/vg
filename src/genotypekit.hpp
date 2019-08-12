@@ -301,8 +301,9 @@ struct SupportAugmentedGraph : public AugmentedGraph {
     /**
      * Read the suppors from output of vg pack
      * Everything put in forward support, average used for nodes
+     * Graph must implement VectorizableHandleGraph
      */
-    void load_pack_as_supports(const string& pack_file_name, XG* xg);
+    void load_pack_as_supports(const string& pack_file_name, const HandleGraph* vectorizable_graph);
 
     /**
      * Write the supports to protobuf

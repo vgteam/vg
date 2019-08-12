@@ -173,7 +173,7 @@ int main_srpe(int argc, char** argv){
     if (!xg_name.empty()){
         xg_ind = vg::io::VPKG::load_one<XG>(xg_name);
         
-        srpe.ff.set_my_xg_idx(xg_ind.get());
+        srpe.ff.set_my_path_position_graph(xg_ind.get());
     }
     // Set GCSA indexes
     if (!gcsa_name.empty()){
@@ -189,7 +189,7 @@ int main_srpe(int argc, char** argv){
     if (!xg_name.empty()){
         xg_ind = vg::io::VPKG::load_one<XG>(xg_name);
         
-        srpe.ff.set_my_xg_idx(xg_ind.get());
+        srpe.ff.set_my_path_position_graph(xg_ind.get());
     }
     srpe.ff.init_mapper();
     // else{

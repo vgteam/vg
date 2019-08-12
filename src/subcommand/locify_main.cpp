@@ -13,6 +13,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include "../index.hpp"
 #include "../convert.hpp"
 #include <vg/io/stream.hpp>

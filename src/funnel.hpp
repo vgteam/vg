@@ -112,8 +112,8 @@ public:
     /// Get the index of the most recent item created in the current stage.
     size_t latest() const;
     
-    /// Call the given callback with stage name and number of results at that stage, for each stage.
-    void for_each_stage(const function<void(const string&, size_t)>& callback) const;
+    /// Call the given callback with stage name, and vector of result item sizes at that stage, for each stage.
+    void for_each_stage(const function<void(const string&, const vector<size_t>&)>& callback) const;
 
     /// Dump information from the Funnel as a dot-format Graphviz graph to the given stream.
     /// Illustrates stages and provenance.

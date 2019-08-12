@@ -844,7 +844,6 @@ int main_view(int argc, char** argv) {
         graph->to_turtle(std::cout, rdf_base_uri, color_variants);
     } else if (output_type == "vg") {
         graph->serialize_to_ostream(cout);
-        vg::io::finish(cout);
     } else if (output_type == "locus") {
 
     } else {

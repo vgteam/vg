@@ -1610,7 +1610,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
 
     // convert from bidirected to directed
     unordered_map<id_t, pair<id_t, bool> > node_trans;
-    sglib::HashGraph align_graph;
+    bdsg::HashGraph align_graph;
         
     // check if we can get away with using only one strand of the graph
     bool use_single_stranded = algorithms::is_single_stranded(&graph);
@@ -1667,7 +1667,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
     // if necessary, convert from cyclic to acylic
     if (!algorithms::is_directed_acyclic(&align_graph)) {
         // make a dagified graph and translation
-        sglib::HashGraph dagified;
+        bdsg::HashGraph dagified;
         unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
         // replace the original with the dagified ones
         align_graph = move(dagified);
@@ -1839,7 +1839,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
         return make_pair(false, false);
     }
     if (mate_positions.empty()) return make_pair(false, false); // can't rescue because the selected mate is unaligned
-    sglib::HashGraph graph;
+    bdsg::HashGraph graph;
     set<bool> orientations;
 #ifdef debug_rescue
     if (debug) cerr << "got " << mate_positions.size() << " mate positions" << endl;
@@ -3082,7 +3082,7 @@ double Mapper::compute_uniqueness(const Alignment& aln, const vector<MaximalExac
 }
 
 Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems, bool traceback, bool xdrop_alignment) {
-    sglib::HashGraph graph = cluster_subgraph_containing(*xindex, aln, mems, get_aligner());
+    bdsg::HashGraph graph = cluster_subgraph_containing(*xindex, aln, mems, get_aligner());
     Alignment aligned = align_maybe_flip(aln, graph, mems, false, traceback, false, xdrop_alignment);
     return aligned;
 }
@@ -3266,7 +3266,7 @@ bool Mapper::check_alignment(const Alignment& aln) {
     // assert that this == the alignment
     if (aln.path().mapping_size()) {
         // get the graph corresponding to the alignment path
-        sglib::HashGraph sub;
+        bdsg::HashGraph sub;
         for (int i = 0; i < aln.path().mapping_size(); ++ i) {
             auto& m = aln.path().mapping(i);
             if (m.has_position() && m.position().node_id()) {
@@ -3878,7 +3878,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
                             //cerr << "trying position " << pos << endl;
-                            sglib::HashGraph graph;
+                            bdsg::HashGraph graph;
                             algorithms::extract_context(*xindex, graph, xindex->get_handle(id(pos), is_rev(pos)), offset(pos),
                                                         band.sequence().size()*extend_fwd, true, false);
                             algorithms::extract_context(*xindex, graph, xindex->get_handle(id(pos), is_rev(pos)), offset(pos),
@@ -3896,7 +3896,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
                             //cerr << "trying position " << pos << endl;
-                            sglib::HashGraph graph;
+                            bdsg::HashGraph graph;
                             algorithms::extract_context(*xindex, graph, xindex->get_handle(id(pos), is_rev(pos)), offset(pos),
                                                         band.sequence().size()*extend_fwd, true, false);
                             algorithms::extract_context(*xindex, graph, xindex->get_handle(id(pos), is_rev(pos)), offset(pos),
@@ -3910,7 +3910,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
                             //cerr << "trying position " << pos << endl;
-                            sglib::HashGraph graph;
+                            bdsg::HashGraph graph;
                             algorithms::extract_context(*xindex, graph, xindex->get_handle(id(pos), is_rev(pos)), offset(pos),
                                                         band.sequence().size()*extend_fwd, true, false);
                             algorithms::extract_context(*xindex, graph, xindex->get_handle(id(pos), is_rev(pos)), offset(pos),
