@@ -461,22 +461,22 @@ int main_gaffe(int argc, char** argv) {
     minimizer_mapper.max_alignments = max_alignments;
 
     if (progress) {
-        cerr << "--cluster-score-threshold " << cluster_score << endl;
+        cerr << "--cluster-score " << cluster_score << endl;
     }
     minimizer_mapper.cluster_score_threshold = cluster_score;
 
     if (progress) {
-        cerr << "--cluster-coverage-threshold " << cluster_coverage << endl;
+        cerr << "--cluster-coverage " << cluster_coverage << endl;
     }
     minimizer_mapper.cluster_coverage_threshold = cluster_coverage;
 
     if (progress) {
-        cerr << "--extension-score-threshold " << extension_score << endl;
+        cerr << "--extension-score " << extension_score << endl;
     }
     minimizer_mapper.extension_score_threshold = extension_score;
 
     if (progress) {
-        cerr << "--extension-set-threshold " << extension_set << endl;
+        cerr << "--extension-set " << extension_set << endl;
     }
     minimizer_mapper.extension_set_score_threshold = extension_set;
 

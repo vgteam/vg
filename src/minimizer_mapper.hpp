@@ -57,6 +57,9 @@ public:
 
     /// How many extended clusters should we align, max?
     size_t max_alignments = 8;
+    
+    /// How many extensions should we try as seeds within a mapping location?
+    size_t max_local_extensions = numeric_limits<size_t>::max();
 
     //If a cluster's score is smaller than the best score of any cluster by more than
     //this much, then don't extend it

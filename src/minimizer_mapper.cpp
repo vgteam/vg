@@ -305,22 +305,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
             
             // Extend seed hits in the cluster into one or more gapless extensions
-            vector<GaplessExtension> extensions = extender.extend(seed_matchings, aln.sequence());
-            // Find the best scoring extension
-            vector<GaplessExtension> filtered_extensions;
-            int32_t best_extension_score = 0;
-            for (GaplessExtension& extension : extensions) {
-                best_extension_score = max(best_extension_score, extension.score);
-            }
-            //Keep only the extensions whose score is within extension_score_threshold
-            //of the best scoring extension
-            for (GaplessExtension& extension : extensions) {
-                if (extension_score_threshold == 0 || 
-                    extension.score > best_extension_score - extension_score_threshold) {
-                    filtered_extensions.push_back(std::move(extension));
-                }
-            }
-            cluster_extensions.emplace_back(std::move(filtered_extensions));
+            cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())));
             
             if (track_provenance) {
                 // Record with the funnel that the previous group became a group of this size.
@@ -742,7 +727,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
     
     // Handle each extension in the set
     process_until_threshold(extended_seeds, extension_path_scores,
-        0, 0, numeric_limits<size_t>::max(),
+        extension_score_threshold, 1, max_local_extensions,
         (function<double(size_t)>) [&](size_t extended_seed_num) {
        
             // This extended seed looks good enough.
