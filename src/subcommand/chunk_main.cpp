@@ -467,7 +467,7 @@ int main_chunk(int argc, char** argv) {
     // initialize chunkers
     vector<PathChunker> chunkers(threads);
     for (auto& chunker : chunkers) {
-        chunker.xg = xindex.get();
+        chunker.graph = xindex.get();
     }
     
     // When chunking GAMs, every thread gets its own cursor to seek into the input GAM.
