@@ -21,8 +21,8 @@ namespace vg {
 using namespace std;
 
 MinimizerMapper::MinimizerMapper(const GBWTGraph& graph, const MinimizerIndex& minimizer_index,
-     MinimumDistanceIndex& distance_index, const XG* xg_index) :
-    xg_index(xg_index), minimizer_index(minimizer_index),
+     MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph) :
+    path_graph(path_graph), minimizer_index(minimizer_index),
     distance_index(distance_index), gbwt_graph(graph),
     extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index) {
     
@@ -148,7 +148,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Tag seeds with correctness based on proximity along paths to the input read's refpos
         funnel.substage("correct");
       
-        if (xg_index == nullptr) {
+        if (path_graph == nullptr) {
             cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
             exit(1);
         }
@@ -159,8 +159,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             for (size_t i = 0; i < seeds.size(); i++) {
                 // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
-                auto offsets = algorithms::nearest_offsets_in_paths(xg_index, seeds[i], 100);
-                for (auto& hit_pos : offsets[xg_index->get_path_handle(true_pos.name())]) {
+                auto offsets = algorithms::nearest_offsets_in_paths(path_graph, seeds[i], 100);
+                for (auto& hit_pos : offsets[path_graph->get_path_handle(true_pos.name())]) {
                     // Look at all the ones on the path the read's true position is on.
                     if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
                         // Call this seed hit close enough to be correct
@@ -466,15 +466,15 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     // Stop the current substage
                     funnel.substage_stop();
                 }
-            } else if (do_chaining) {
+            } else if (do_dp) {
                 // We need to do chaining.
                 
                 if (track_provenance) {
                     funnel.substage("chain");
                 }
                 
-                // Do the chaining and compute an alignment into out.
-                chain_extended_seeds(aln, extensions, out);
+                // Do the DP and compute alignment into out 
+                find_optimal_tail_alignments(aln, extensions, out);
                 
                 if (track_provenance) {
                     // We're done chaining. Next alignment may not go through this substage.
@@ -608,8 +608,14 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     if (track_provenance) {
     
         // And with the number of results in play at each stage
-        funnel.for_each_stage([&](const string& stage, size_t result_count) {
-            set_annotation(mappings[0], "stage_" + stage + "_results", (double)result_count);
+        funnel.for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
+            // Save the number of items
+            set_annotation(mappings[0], "stage_" + stage + "_results", (double)result_sizes.size());
+            // Save the size of each item
+            vector<double> converted;
+            converted.reserve(result_sizes.size());
+            std::copy(result_sizes.begin(), result_sizes.end(), std::back_inserter(converted));
+            set_annotation(mappings[0], "stage_" + stage + "_sizes", converted);
         });
 
         if (track_correctness) {
@@ -781,62 +787,12 @@ bool MinimizerMapper::score_is_significant(int score_estimate, int best_score, i
     return false;
 }
 
-void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
+void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
 
 #ifdef debug
-    cerr << "Trying again to chain " << extended_seeds.size() << " extended seeds" << endl;
+    cerr << "Trying again find tail alignments for " << extended_seeds.size() << " extended seeds" << endl;
 #endif
 
-    // Find the paths between pairs of extended seeds that agree with haplotypes.
-    // We don't actually need the read sequence for this, just the read length for longest gap computation.
-    // The paths in the seeds know the hit length.
-    // We assume all overlapping hits are exclusive.
-    unordered_map<size_t, unordered_map<size_t, vector<Path>>> paths_between_seeds = find_connecting_paths(extended_seeds,
-        aln.sequence().size());
-        
-        
-    // Now we need to identify the sources and sinks in the reachability graph (again)
-    // TODO: keep from find_connecting_paths
-    unordered_set<size_t> source_extensions;
-    unordered_set<size_t> sink_extensions;
-    
-    for (size_t i = 0; i < extended_seeds.size(); i++) {
-        // start out assuming everything is a source and a sink
-        source_extensions.insert(i);
-        sink_extensions.insert(i);
-    }
-    
-    for (auto& from_and_dests : paths_between_seeds) {
-        // For each reachability edge from extension
-        if (from_and_dests.first == numeric_limits<size_t>::max()) {
-            // Skip edges from nowhere
-            continue;
-        }
-        
-        if ((from_and_dests.second.size() == 1 && !from_and_dests.second.count(numeric_limits<size_t>::max())) ||
-            (from_and_dests.second.size() > 1)) {
-            // Mark as not a sink if it goes anywhere other than out of the cluster 
-            sink_extensions.erase(from_and_dests.first);
-        }
-        
-        for (auto& to_and_paths : from_and_dests.second) {
-            // For everywhere we can get from here
-            if (to_and_paths.first == numeric_limits<size_t>::max()) {
-                // Discount going nowhere
-                continue;
-            }
-            
-            if (!to_and_paths.second.empty()) {
-                // If there are any actual paths, mark the edge to extension as
-                // reachable from somewhere else.
-                source_extensions.erase(to_and_paths.first);
-            }
-        }
-    }
-    
-    assert(!source_extensions.empty());
-    assert(!sink_extensions.empty());
-   
     // We're going to record source and sink path count distributions, for debugging
     vector<double> tail_path_counts;
     
@@ -861,252 +817,89 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
         }
     }
     
-    // Handle the leading/left tails
-    if (linear_tails) {
-        // Handle left tails as several parallel strings
+    // Handle left tails as a forest of trees
+   
+    // Get the forests of all left tails by extension they belong to
+    auto tails_by_extension = get_tail_forests(extended_seeds, aln.sequence().size(), true);
+   
+    for (auto& kv : tails_by_extension) {
+        // For each extension that has a nonempty tail
+        auto& source = kv.first;
+        auto& forest = kv.second;
+   
+        // Grab the part of the read sequence that comes before it
+        string before_sequence = aln.sequence().substr(0, extended_seeds[source].read_interval.first);
+        
+        // Do right-pinned alignment
+        pair<Path, int64_t> result = get_best_alignment_against_any_tree(forest, before_sequence,
+            extended_seeds[source].starting_position(gbwt_graph), false);
+
+        // Grab the best path in backing graph space (which may be empty)
+        Path& best_path = result.first;
+        // And its score
+        int64_t& best_score = result.second;
+        
+        // Put it in the MultipathAlignment
+        Subpath* s = mp.add_subpath();
+        *s->mutable_path() = std::move(best_path);
+        s->set_score(best_score);
+        
+        // And make the edge from it to the correct source
+        s->add_next(source);
         
 #ifdef debug
-        cerr << "Handle " << paths_between_seeds[numeric_limits<size_t>::max()].size() << " left tails linearly" << endl;
-#endif
-
-        for (auto& kv : paths_between_seeds[numeric_limits<size_t>::max()]) {
-            // For each extended seed that can come from something outside the cluster
-            const size_t& source = kv.first;
-            
-            // Grab the part of the read sequence that comes before it
-            string before_sequence = aln.sequence().substr(0, extended_seeds[source].read_interval.first);
-            
-            // Record that a source has this many incoming haplotypes to process.
-            tail_path_counts.push_back(kv.second.size());
-            // Against a sequence this long
-            tail_lengths.push_back(before_sequence.size());
-            
-            // Do right-pinned alignment
-            pair<Path, int64_t> result = get_best_alignment_against_any_path(kv.second, before_sequence,
-                extended_seeds[source].starting_position(gbwt_graph), true, false);
-
-            // Grab the best path in backing graph space (which may be empty)
-            Path& best_path = result.first;
-            // And its score
-            int64_t& best_score = result.second;
-            
-            // Put it in the MultipathAlignment
-            Subpath* s = mp.add_subpath();
-            *s->mutable_path() = std::move(best_path);
-            s->set_score(best_score);
-            
-            // And make the edge from it to the correct source
-            s->add_next(source);
-            
-#ifdef debug
-            cerr << "Add leading tail " << (mp.subpath_size() - 1) << " -> " << source << endl;
-#endif
-            
-            // And mark it as a start subpath
-            mp.add_start(mp.subpath_size() - 1);
-        }
-    } else {
-        // Handle left tails as a forest of trees
-       
-        // Get the forests of all left tails by extension they belong to
-        auto tails_by_extension = get_tail_forests(extended_seeds, aln.sequence().size(), paths_between_seeds, true);
-        
-#ifdef debug
-        cerr << "Handle " << tails_by_extension.size() << " left tail forests" << endl;
+        cerr << "Add leading tail " << (mp.subpath_size() - 1) << " -> " << source << endl;
 #endif
         
-        for (auto& kv : tails_by_extension) {
-            // For each source extension
-            const size_t& source = kv.first;
-            
-            // Grab the part of the read sequence that comes before it
-            string before_sequence = aln.sequence().substr(0, extended_seeds[source].read_interval.first);
-            
-            // Do right-pinned alignment
-            pair<Path, int64_t> result = get_best_alignment_against_any_tree(kv.second, before_sequence,
-                extended_seeds[source].starting_position(gbwt_graph), false);
-
-            // Grab the best path in backing graph space (which may be empty)
-            Path& best_path = result.first;
-            // And its score
-            int64_t& best_score = result.second;
-            
-            // Put it in the MultipathAlignment
-            Subpath* s = mp.add_subpath();
-            *s->mutable_path() = std::move(best_path);
-            s->set_score(best_score);
-            
-            // And make the edge from it to the correct source
-            s->add_next(source);
-            
-#ifdef debug
-            cerr << "Add leading tail " << (mp.subpath_size() - 1) << " -> " << source << endl;
-#endif
-            
-            // And mark it as a start subpath
-            mp.add_start(mp.subpath_size() - 1);
-        }
+        // And mark it as a start subpath
+        mp.add_start(mp.subpath_size() - 1);
     }
 
     // We must have somewhere to start.
     assert(mp.start_size() > 0);
 
-    for (auto& from_and_edges : paths_between_seeds) {
-        const size_t& from = from_and_edges.first;
-        if (from == numeric_limits<size_t>::max()) {
-            continue;
-        }
-        // Then for all the other from extended seeds
+    // Handle right tails as a forest of trees
 
-        // Work out where the extended seed ends in the read
-        size_t from_end = extended_seeds[from].read_interval.second;
-        
-        for (auto& to_and_paths : from_and_edges.second) {
-            const size_t& to = to_and_paths.first;
-            // For all the edges to other extended seeds
-            
-#ifdef debug
-            cerr << "Consider " << to_and_paths.second.size() << " paths between extended seeds " << to << " and " << from << endl;
-#endif
-
-            if (to == numeric_limits<size_t>::max()) {
-                // We can go to something outside the cluster
-                
-                // Do a bunch of left pinned alignments for the tails.
-                
-                // Find the sequence
-                string trailing_sequence = aln.sequence().substr(from_end);
-                
-                if (!trailing_sequence.empty()) {
-                    // There is actual trailing sequence to align on this escape path
-                    
-                    // Record that a sink has this many outgoing haplotypes to process.
-                    tail_path_counts.push_back(to_and_paths.second.size());
-                    // Against a sequence this size
-                    tail_lengths.push_back(trailing_sequence.size());
-
-                    // Do left-pinned alignment
-                    pair<Path, int64_t> result = get_best_alignment_against_any_path(to_and_paths.second, trailing_sequence,
-                        extended_seeds[from].tail_position(gbwt_graph), true, true);
-
-                    // Grab the best path in backing graph space (which may be empty)
-                    Path& best_path = result.first;
-                    // And its score
-                    int64_t& best_score = result.second;
-
-                    // Put it in the MultipathAlignment
-                    Subpath* s = mp.add_subpath();
-                    *s->mutable_path() = std::move(best_path);
-                    s->set_score(best_score);
-                    
-                    // And make the edge to hook it up
-                    mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
-                    
-#ifdef debug
-                    cerr << "Add trailing tail " << from << " -> " << (mp.subpath_size() - 1) << endl;
-#endif
-                }
-                
-                // If there's no sequence to align on the path going off to nowhere, don't do anything.
-            } else {
-                // Do alignments between from and to
-
-                // Find the sequence
-                assert(extended_seeds[to].read_interval.first >= from_end);
-                string intervening_sequence = aln.sequence().substr(from_end, extended_seeds[to].read_interval.first - from_end); 
-
-#ifdef debug
-                cerr << "Connect " << pb2json(extended_seeds[from].tail_position(gbwt_graph))
-                    << " and " << pb2json(extended_seeds[to].starting_position(gbwt_graph)) << endl;
-#endif
-
-                // Do un-pinned alignment
-                pair<Path, int64_t> result = get_best_alignment_against_any_path(to_and_paths.second, intervening_sequence,
-                    extended_seeds[from].tail_position(gbwt_graph), false, false);
-
-                // Grab the best path in backing graph space (which may be empty)
-                Path& best_path = result.first;
-                // And its score
-                int64_t& best_score = result.second;
-
-                // We may have an empty path. That's fine.
-
-                if (best_path.mapping_size() == 0 && intervening_sequence.empty()) {
-                    // We just need an edge from from to to
-#ifdef debug
-                    cerr << "Add direct edge " << from << " -> " << to << endl;
-#endif
-                    mp.mutable_subpath(from)->add_next(to);
-                } else {
-                    // We need to connect from and to with a Subpath with this path
-
-                    // We really should have gotten something
-                    assert(best_path.mapping_size() != 0);
-
-                    // Put it in the MultipathAlignment
-                    Subpath* s = mp.add_subpath();
-                    *s->mutable_path() = std::move(best_path);
-                    s->set_score(best_score);
-                    
-                    // And make the edges to hook it up
-                    s->add_next(to);
-                    mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
-                    
-#ifdef debug
-                    cerr << "Add material along edge " << from << " -> " << (mp.subpath_size() - 1) << " -> " << to << endl;
-#endif
-                    
-                }
-
-            }
-            
-        }
-
-    }
+    // Get the forests of all right tails by extension they belong to
+    tails_by_extension = get_tail_forests(extended_seeds, aln.sequence().size(), false);
     
-    if (!linear_tails) {
-        // Handle right tails as a forest of trees
-   
-        // Get the forests of all right tails by extension they belong to
-        auto tails_by_extension = get_tail_forests(extended_seeds, aln.sequence().size(), paths_between_seeds, false);
+    for (auto& kv : tails_by_extension) {
+        // For each extension that has a nonempty tail
+        auto& from = kv.first;
+        auto& forest = kv.second;
         
-        for (auto& kv : tails_by_extension) {
-            // For each source extension
-            const size_t& from = kv.first;
-            
 #ifdef debug
-            cerr << "Consider right tails for extension " << from << " with interval "
-                << extended_seeds[from].read_interval.first << " - " << extended_seeds[from].read_interval.second << endl;
+        cerr << "Consider right tails for extension " << from << " with interval "
+            << extended_seeds[from].read_interval.first << " - " << extended_seeds[from].read_interval.second << endl;
 #endif
-            
-            // Find the sequence
-            string trailing_sequence = aln.sequence().substr(extended_seeds[from].read_interval.second);
-            
-            // There should be actual trailing sequence to align on this escape path
-            assert(!trailing_sequence.empty());
-            
-            // Do left-pinned alignment
-            pair<Path, int64_t> result = get_best_alignment_against_any_tree(kv.second, trailing_sequence,
-                extended_seeds[from].tail_position(gbwt_graph), true);
+        
+        // Find the sequence
+        string trailing_sequence = aln.sequence().substr(extended_seeds[from].read_interval.second);
+        
+        // There should be actual trailing sequence to align on this escape path
+        assert(!trailing_sequence.empty());
+        
+        // Do left-pinned alignment
+        pair<Path, int64_t> result = get_best_alignment_against_any_tree(forest, trailing_sequence,
+            extended_seeds[from].tail_position(gbwt_graph), true);
 
-            // Grab the best path in backing graph space (which may be empty)
-            Path& best_path = result.first;
-            // And its score
-            int64_t& best_score = result.second;
-            
-            // Put it in the MultipathAlignment
-            Subpath* s = mp.add_subpath();
-            *s->mutable_path() = std::move(best_path);
-            s->set_score(best_score);
-            
-            // And make the edge to hook it up
-            mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
-            
+        // Grab the best path in backing graph space (which may be empty)
+        Path& best_path = result.first;
+        // And its score
+        int64_t& best_score = result.second;
+        
+        // Put it in the MultipathAlignment
+        Subpath* s = mp.add_subpath();
+        *s->mutable_path() = std::move(best_path);
+        s->set_score(best_score);
+        
+        // And make the edge to hook it up
+        mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
+        
 #ifdef debug
-            cerr << "Add trailing tail " << from << " -> " << (mp.subpath_size() - 1) << endl;
+        cerr << "Add trailing tail " << from << " -> " << (mp.subpath_size() - 1) << endl;
 #endif
-                
-        }
+            
     }
 
     // Then we take the best linearization of the full MultipathAlignment.
@@ -1155,7 +948,6 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const ve
                 // We might have extra read outside the graph. Handle leading insertions.
                 // We consider a pure softclip.
                 // We don't consider an empty sequence because if that were the case
-                // we would not have any paths_between_seeds entries for the dangling-left-sequence sentinel.
                 if (best_score < 0) {
                 
                     best_score = 0;
@@ -1241,20 +1033,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_path(const ve
             // Align, accounting for full length bonus
             
             if (pinned) {
-            
-                if (use_xdrop_for_tails) {
-#ifdef debug
-                    Alignment clone = current_alignment;
-                    get_regular_aligner()->align_pinned(clone, subgraph, subgraph.get_topological_order(), pin_left);
-#endif
-                    get_regular_aligner()->get_xdrop()->align_pinned(current_alignment, subgraph, subgraph.get_topological_order(), pin_left);
-#ifdef debug
-                    cerr << "Xdrop: " << pb2json(current_alignment) << endl;
-                    cerr << "Normal: " << pb2json(clone) << endl;
-#endif
-                } else {
-                    get_regular_aligner()->align_pinned(current_alignment, subgraph, subgraph.get_topological_order(), pin_left);
-                }
+                get_regular_aligner()->get_xdrop()->align_pinned(current_alignment, subgraph, subgraph.get_topological_order(), pin_left);
             } else {
                 get_regular_aligner()->align_global_banded(current_alignment, subgraph, 5, true);
             }
@@ -1340,21 +1119,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
             
             // Align, accounting for full length bonus.
             // We *always* do left-pinned alignment internally, since that's the shape of trees we get.
-            
-            
-            if (use_xdrop_for_tails) {
-#ifdef debug
-                Alignment clone = current_alignment;
-                get_regular_aligner()->align_pinned(clone, subgraph, subgraph.get_topological_order(), true);
-#endif
-                get_regular_aligner()->get_xdrop()->align_pinned(current_alignment, subgraph, subgraph.get_topological_order(), true);
-#ifdef debug
-                cerr << "Xdrop: " << pb2json(current_alignment) << endl;
-                cerr << "Normal: " << pb2json(clone) << endl;
-#endif
-            } else {
-                get_regular_aligner()->align_pinned(current_alignment, subgraph, subgraph.get_topological_order(), true);
-            }
+            get_regular_aligner()->get_xdrop()->align_pinned(current_alignment, subgraph, subgraph.get_topological_order(), true);
             
 #ifdef debug
             cerr << "\tScore: " << current_alignment.score() << endl;
@@ -1386,334 +1151,13 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
     return make_pair(best_path, best_score);
 }
 
-unordered_map<size_t, unordered_map<size_t, vector<Path>>>
-MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_seeds, size_t read_length) const {
-
-    // Now this will hold, for each extended seed, for each other
-    // reachable extended seed, the graph Paths that the
-    // intervening sequence needs to be aligned against in the
-    // graph.
-    unordered_map<size_t, unordered_map<size_t, vector<Path>>> to_return;
-
-    // All the extended seeds are forward in the read. So we index them by start.
-    // Maps from handle in the GBWT graph to offset on that orientation that an extension starts at and index of the extension.
-    unordered_map<handle_t, vector<pair<size_t, size_t>>> extensions_by_handle;
-
-    // We track which extended seeds are sources (nothing else can reach them)
-    unordered_set<size_t> sources;
-
-    for (size_t i = 0; i < extended_seeds.size(); i++) {
-        // For each extension
-
-        // Get the handle it is on
-        handle_t handle = extended_seeds[i].path.front();
-
-        // Record that this extension starts at this offset along that handle
-        extensions_by_handle[handle].emplace_back(extended_seeds[i].offset, i);
-
-        // Assume it is a source
-        sources.insert(i);
-
-#ifdef debug
-        auto pos = extended_seeds[i].starting_position(gbwt_graph);
-        cerr << "Extended seed " << i << " starts on node " << pos.node_id() << " " << pos.is_reverse()
-            << " at offset " << pos.offset() << " corresponding to read "
-            << extended_seeds[i].read_interval.first << " - " << extended_seeds[i].read_interval.second << endl;
-#endif
-    }
-
-    for (auto& kv : extensions_by_handle) {
-        // Sort everything on the same handle
-        std::sort(kv.second.begin(), kv.second.end(), [&](const pair<size_t, size_t>& a, const pair<size_t, size_t>& b) -> bool {
-            return a.first < b.first;
-        });
-    }
-
-    // For each seed in read order, walk out right in the haplotypes by the max length and see what other seeds we encounter.
-    // Remember the read bounds and graph Path we found, for later alignment.
-    for (size_t i = 0; i < extended_seeds.size(); i++) {
-        // For each starting seed
-
-        // Where do we cut the graph just after its end?
-        handle_t start_handle = extended_seeds[i].path.back();
-        Position cut_pos_graph = extended_seeds[i].tail_position(gbwt_graph);
-        // And the read?
-        size_t cut_pos_read = extended_seeds[i].read_interval.second;
-
-#ifdef debug
-        cerr << "Extended seed " << i << ": cut after on node " << cut_pos_graph.node_id() << " " << cut_pos_graph.is_reverse()
-            << " at point " << cut_pos_graph.offset() << " corresponding to read base " << cut_pos_read << endl;
-#endif
-
-        assert(cut_pos_graph.offset() >= 0);
-
-        // Decide if we need to actually do GBWT search, or if we can find a destination on the same node we ended on
-        bool do_gbwt_search = true;
-
-        // Look on the same graph node.
-        // See if we hit any other extensions on this node.
-        auto same_node_found = extensions_by_handle.find(start_handle);
-        if (same_node_found != extensions_by_handle.end()) {
-            // If we have extended seeds on this node
-            
-            for (auto& next_offset_and_index : same_node_found->second) {
-                // Scan them in order.
-                // TODO: Skip to after ourselves.
-                
-                if (extended_seeds[next_offset_and_index.second].read_interval.first >= cut_pos_read &&
-                    next_offset_and_index.first >= cut_pos_graph.offset()) { 
-                    
-                    // As soon as we find one that starts after we end in both the read and the node
-
-                    // Emit a connecting Path 
-                    Path connecting;
-
-                    if (next_offset_and_index.first > cut_pos_graph.offset()) {
-                        // There actually is intervening graph material
-                        Mapping* m = connecting.add_mapping();
-                        *m->mutable_position() = cut_pos_graph;
-                        Edit* e = m->add_edit();
-                        e->set_from_length(next_offset_and_index.first - m->position().offset());
-                        e->set_to_length(next_offset_and_index.first - m->position().offset());
-                    }
-
-                    // Emit that connection
-                    to_return[i][next_offset_and_index.second].emplace_back(std::move(connecting));
-
-                    // Record that the destination is not a source
-                    sources.erase(next_offset_and_index.second);
-
-                    // Don't look at any more destinations
-                    do_gbwt_search = false;
-                    break;
-                }
-            }
-        }
-
-        if (!do_gbwt_search) {
-            // Skip the GBWT search from this extended hit and try the next one
-            continue;
-        }
-
-        // How long should we search? It should be the longest detectable gap plus the remaining sequence.
-        size_t search_limit = get_regular_aligner()->longest_detectable_gap(cut_pos_read, read_length) + (read_length - cut_pos_read);
-
-        // What GBWT search state can we re-use from the extension?
-        // Each extension holds a bidirectional search state, and since we
-        // always extend right from the extension we want the forward
-        // single-direction state.
-        const gbwt::SearchState* right_state = reuse_gbwt_states ? &extended_seeds[i].state.forward : nullptr;
-
-        // Have we found a way to get to any other extended seeds yet?
-        bool reachable_extended_seeds = false;
-
-        // Search everything in the GBWT graph right from the end of the start extended seed, up to the limit.
-        explore_gbwt(cut_pos_graph, right_state, search_limit, [&](const ImmutablePath& here_path, const handle_t& there_handle) -> bool {
-            // When we encounter a new handle visited by haplotypes extending off of the last node in a Path
-
-            // See if we hit any other extensions on this next node
-            auto found = extensions_by_handle.find(there_handle);
-            if (found != extensions_by_handle.end()) {
-                // If we do
-                
-                for (auto& next_offset_and_index : found->second) {
-                    // Look at them in order along the node
-                    
-                    if (extended_seeds[next_offset_and_index.second].read_interval.first >= cut_pos_read) { 
-                        // As soon as we find one that starts in the read after our start extended seed ended
-
-                        // Extend the Path to connect to it.
-                        // TODO: Make these shared tail lists for better algorithmics
-                        ImmutablePath extended = here_path;
-                        
-                        if (next_offset_and_index.first > 0) {
-                            // There is actual material on this new node before the extended seed we have to hit.
-                            Mapping m; 
-                            m.mutable_position()->set_node_id(gbwt_graph.get_id(there_handle));
-                            m.mutable_position()->set_is_reverse(gbwt_graph.get_is_reverse(there_handle));
-                            Edit* e = m.add_edit();
-                            // Make sure it runs through the last base *before* the extended seed we are going for
-                            e->set_from_length(next_offset_and_index.first);
-                            e->set_to_length(next_offset_and_index.first);
-                            
-                            extended = extended.push_front(m);
-                        }
-
-                        // And emit that connection
-                        to_return[i][next_offset_and_index.second].emplace_back(to_path(extended));
-                        reachable_extended_seeds = true;
-
-                        // Record that the destination is not a source
-                        sources.erase(next_offset_and_index.second);
-
-                        // Don't look at any more destinations on this node, or
-                        // any extensions past this node of this search state.
-                        return false;
-                    }
-                }
-            }
-
-            // Otherwise we didn't hit anything we can stop at. Keep extending.
-            return true;
-        }, [&](const ImmutablePath& limit_path) {
-            // When we blow past the walk distance limit or hit a dead end
-            
-            if (cut_pos_read < read_length && !reachable_extended_seeds && linear_tails) {
-                // We have sequence to align and a way to escape and align it,
-                // and nowhere else we know of (yet) to go with it, and we want
-                // tails.
-                
-                // Save that as a tail path.
-                to_return[i][numeric_limits<size_t>::max()].emplace_back(to_path(limit_path));
-                // If we end up with paths anywhere else after all, we will destroy it, so we
-                // will only keep it for sinks.
-            }
-        });
-        
-        if (reachable_extended_seeds && linear_tails) {
-            // Make sure that if we can go anywhere else we *don't* consider wandering off to nowhere.
-            auto found = to_return[i].find(numeric_limits<size_t>::max());
-            if (to_return[i].size() > 1 && found != to_return[i].end()) {
-                // We have a going-off-to-nothing path and also a path to somewhere else.
-                // Don't go off to nothing.
-                to_return[i].erase(found);
-            }
-        }
-    }
-
-#ifdef debug
-    cerr << "After rightward extensions, have " << sources.size() << " sources" << endl;
-#endif
-
-    if (!linear_tails) {
-        // We have all the non-tail paths, which is what we need
-        return to_return;
-    }
-
-    // Otherwise we want tails.
-
-    // We need the paths *from* numeric_limits<size_t>::max() to sources.
-    // Luckily we know the sources.
-    for (const size_t& i : sources) {
-        // For each source
-        
-#ifdef debug
-        cerr << "Extended seed " << i << " is a source" << endl;
-#endif
-        
-        if (extended_seeds[i].read_interval.first > 0) {
-#ifdef debug
-            cerr << "\tIt is not at the start of the read, so there is a left tail" << endl;
-#endif
-
-            // Find its start
-            Position start = extended_seeds[i].starting_position(gbwt_graph);
-            
-#ifdef debug
-            cerr << "\tPosition read-forward to search left before: " << pb2json(start) << endl;
-#endif
-
-            // Flip it around to face left
-            start = reverse(start, gbwt_graph.get_length(gbwt_graph.get_handle(start.node_id())));
-            
-#ifdef debug
-            cerr << "\tPosition read-reverse to search right after: " << pb2json(start) << endl;
-#endif
-
-            // Now the search limit is all the read *before* the seed, plus the detectable gap
-            size_t search_limit = get_regular_aligner()->longest_detectable_gap(read_length, extended_seeds[i].read_interval.first) +
-                extended_seeds[i].read_interval.first;
-                
-            // And we need the GBWT state looking left
-            const gbwt::SearchState* left_state = reuse_gbwt_states ? &extended_seeds[i].state.backward : nullptr;
-
-            // Start another search, but going left.
-            explore_gbwt(start, left_state, search_limit, [&](const ImmutablePath& here_path, const handle_t& there_handle) -> bool {
-                // If we weren't reachable from anyone, nobody should be reachable from us going the other way.
-                // So always keep going.
-                return true;
-            }, [&](const ImmutablePath& limit_path) {
-                // We have this path going right from start and hitting the walk limit or the edge of the graph.
-
-                for (auto& mapping : limit_path) {
-                    // Make sure nothing has a negative offset before flipping.
-                    assert(mapping.position().offset() >= 0);
-                }
-
-                // Convert to Path and flip around
-                Path flipped = reverse_complement_path(to_path(limit_path), [&](id_t id) -> size_t {
-                    return gbwt_graph.get_length(gbwt_graph.get_handle(id));
-                });
-                
-                for (auto& mapping : flipped.mapping()) {
-                    // Make sure nothing has a negative offset after flipping.
-                    assert(mapping.position().offset() >= 0);
-                }
-
-                // Record that as a path from numeric_limits<size_t>::max() to i.
-                to_return[numeric_limits<size_t>::max()][i].emplace_back(std::move(flipped));
-            });
-            
-            assert(to_return[numeric_limits<size_t>::max()][i].size() > 0);
-        }
-    }
-    
-    // Now this should be filled in with all the connectivity, so return.
-    return to_return;
-    
-}
-
 unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(const vector<GaplessExtension>& extended_seeds,
-    size_t read_length, const unordered_map<size_t, unordered_map<size_t, vector<Path>>>& connecting_paths, bool left_tails) const {
+    size_t read_length, bool left_tails) const {
 
     // We will fill this in with all the trees we return, by parent extension.
     unordered_map<size_t, vector<TreeSubgraph>> to_return;
 
-    // First, find all the source/sink extensions we actually want to do.
-    unordered_set<size_t> tail_havers;
-    if (left_tails) {
-        for (size_t i = 0; i < extended_seeds.size(); i++) {
-            // We have a left tail if nothing in connecting_paths comes to us.
-        
-            // So everything has left tails to start with
-            if (extended_seeds[i].read_interval.first != 0) {
-                // As long as it has some read before it
-                tail_havers.insert(i);
-#ifdef debug
-                cerr << "Extension " << i << " running " << extended_seeds[i].read_interval.first
-                    << " - " << extended_seeds[i].read_interval.second << " may have a left tail" << endl;
-#endif
-            }
-        }
-        
-        for (auto& kv : connecting_paths) {
-            for (auto& dest_and_path : kv.second) {
-                // And then we remove things when they are visited.
-                // Note that we assume paths to/from
-                // numeric_limits<size_t>::max() (i.e. tail paths) don't
-                // appear.
-                tail_havers.erase(dest_and_path.first);
-            }
-        }
-    } else {
-        for (size_t i = 0; i < extended_seeds.size(); i++) {
-            // We might have a right tail if we go nowhere in connecting_paths
-            
-            auto found = connecting_paths.find(i);
-            if ((found == connecting_paths.end() || found->second.empty()) && extended_seeds[i].read_interval.second < read_length) {
-                // So if we go nowhere and actually have bases after us, add us
-                tail_havers.insert(i);
-                
-#ifdef debug
-                cerr << "Extension " << i << " running " << extended_seeds[i].read_interval.first
-                    << " - " << extended_seeds[i].read_interval.second << " may have a right tail in read of length " << read_length << endl;
-#endif
-                
-            }
-        }
-    }
-    
-    for (auto& extension_number : tail_havers) {
+    for (size_t extension_number = 0; extension_number < extended_seeds.size(); extension_number++) {
         // Now for each extension that can have tails, walk the GBWT in the appropriate direction
         
 #ifdef debug
@@ -1721,28 +1165,39 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
 #endif
 
         // TODO: Come up with a better way to do this with more accessors on the extension and less get_handle
-        // Get the Position reading out of the extnsion on the appropriate tail
+        // Get the Position reading out of the extension on the appropriate tail
         Position from;
         // And the length of that tail
         size_t tail_length;
+        // And the GBWT search state we want to start with
+        const gbwt::SearchState* base_state = nullptr;
         if (left_tails) {
             // Look right from start 
             from = extended_seeds[extension_number].starting_position(gbwt_graph);
             // And then flip to look the other way at the prev base
             from = reverse(from, gbwt_graph.get_length(gbwt_graph.get_handle(from.node_id(), false)));
-            
+           
+            // Use the search state going backward
+            base_state = &extended_seeds[extension_number].state.backward;
+           
             tail_length = extended_seeds[extension_number].read_interval.first;
         } else {
             // Look right from end
             from = extended_seeds[extension_number].tail_position(gbwt_graph);
             
+            // Use the search state going forward
+            base_state = &extended_seeds[extension_number].state.forward;
+            
             tail_length = read_length - extended_seeds[extension_number].read_interval.second;
         }
-        
-        if (tail_length > 0) {
-            // Make sure we at least have an empty forest
-            to_return.emplace(extension_number, vector<TreeSubgraph>());
+    
+        if (tail_length == 0) {
+            // Don't go looking for places to put no tail.
+            continue;
         }
+    
+        // Make sure we at least have an empty forest if we have any tail.
+        to_return.emplace(extension_number, vector<TreeSubgraph>());
         
         // This is one tree that we are filling in
         vector<pair<int64_t, handle_t>> tree;
@@ -1751,6 +1206,7 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
         list<int64_t> parent_stack;
         
         // Get the handle we are starting from
+        // TODO: is it cheaper to get this out of base_state? 
         handle_t start_handle = gbwt_graph.get_handle(from.node_id(), from.is_reverse());
         
         // Decide if the start node will end up included in the tree, or if we cut it all off with the offset.
@@ -1760,7 +1216,7 @@ unordered_map<size_t, vector<TreeSubgraph>> MinimizerMapper::get_tail_forests(co
         size_t search_limit = get_regular_aligner()->longest_detectable_gap(tail_length, read_length) + tail_length;
         
         // Do a DFS over the haplotypes in the GBWT out to that distance.
-        dfs_gbwt(start_handle, from.offset(), search_limit, [&](const handle_t& entered) {
+        dfs_gbwt(*base_state, from.offset(), search_limit, [&](const handle_t& entered) {
             // Enter a new handle.
             
             if (parent_stack.empty()) {
@@ -1830,173 +1286,6 @@ Path MinimizerMapper::to_path(const ImmutablePath& path) {
     return to_return;
 }
 
-void MinimizerMapper::explore_gbwt(const Position& from, const gbwt::SearchState* from_state,
-    size_t walk_distance,
-    const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
-    const function<void(const ImmutablePath&)>& limit_callback) const {
-   
-    // Get a handle to the node the from position is on, in the position's forward orientation
-    handle_t start_handle = gbwt_graph.get_handle(from.node_id(), from.is_reverse());
-    
-    // Delegate to the handle-based version
-    explore_gbwt(start_handle, from.offset(), from_state, walk_distance, visit_callback, limit_callback);
-    
-}
-
-void MinimizerMapper::explore_gbwt(handle_t from_handle, size_t from_offset, const gbwt::SearchState* from_state,
-    size_t walk_distance,
-    const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
-    const function<void(const ImmutablePath&)>& limit_callback) const {
-    
-#ifdef debug
-    cerr << "Exploring GBWT out from " << gbwt_graph.get_id(from_handle) << " " << gbwt_graph.get_is_reverse(from_handle)
-        << " + " << from_offset << " to distance " << walk_distance << endl;
-#endif
-    
-    // Holds the gbwt::SearchState we are at, and the ImmutablePath (backward)
-    // from the end of the starting seed up through the end of the node we just
-    // searched. The from_length of the path tracks our consumption of distance
-    // limit.
-    using traversal_state_t = pair<gbwt::SearchState, ImmutablePath>;
-
-    // Copy or construct a starting set of haplotypes
-    gbwt::SearchState start_state = from_state ? *from_state : gbwt_graph.get_state(from_handle);
-    
-    if (start_state.empty()) {
-        // No haplotypes even visit the first node. Have a 0-mapping dead end.
-        limit_callback(ImmutablePath());
-        return;
-    }
-
-    // The search state represents searching through the end of the node, so we have to consume that much search limit.
-
-    // Tack on how much search limit distance we consume by going to the end of
-    // the node. Our start position is a cut *between* bases, and we take everything after it.
-    // If the cut is at the offset of the whole length of the node, we take 0 bases.
-    // If it is at 0, we take all the bases in the node.
-    size_t distance_to_node_end = gbwt_graph.get_length(from_handle) - from_offset;    
-    
-    // And make a Path that represents the part of the node we're on that goes out to the end.
-    // This may be empty if the hit already stopped at the end of the node
-    ImmutablePath path_to_end;
-    if (distance_to_node_end != 0) {
-        // We didn't hit the end of the node already.
-
-        // Make a mapping that starts on the right side of the cut we started our search at.
-        Mapping m;
-        *m.mutable_position() = make_position(gbwt_graph.get_id(from_handle),
-            gbwt_graph.get_is_reverse(from_handle), from_offset);
-        m.mutable_position()->set_offset(m.position().offset());
-
-        // Make it the requested length of perfect match.
-        Edit* e = m.add_edit();
-        e->set_from_length(distance_to_node_end);
-        e->set_to_length(distance_to_node_end);
-        
-        // Put it in the list
-        path_to_end = path_to_end.push_front(m);
-    }
-   
-#ifdef debug   
-    cerr << "Starting traversal with";
-    for (auto& mapping : path_to_end) {
-        cerr << " " << pb2json(mapping);
-    }
-    cerr << " from " << gbwt_graph.get_id(from_handle) << " " << gbwt_graph.get_is_reverse(from_handle)
-        << " + " << from_offset << endl;
-#endif
-    
-    // Glom these together into a traversal state and queue it up.
-
-    // Holds a queue of search states to extend.
-    list<traversal_state_t> queue{{start_state, path_to_end}};
-    // Track queue size separately since getting it form the queue is O(n)
-    size_t queue_size = 1;
-    // Track queue high-water mark for debugging.
-    size_t queue_max = 1;
-    
-    
-    // Track how many times we hit the end/limit
-    size_t limit_hits = 0;
-    // And dead ends sweparately
-    size_t dead_ends = 0;
-
-    while (!queue.empty()) {
-        // While there are things in the queue
-        
-        // Record max size
-        queue_max = max(queue_max, queue_size);
-
-        // Grab one
-        traversal_state_t here(std::move(queue.front()));
-        queue.pop_front();
-        queue_size--;
-        gbwt::SearchState& here_state = here.first;
-        const ImmutablePath& here_path = here.second;
-        
-        // follow_paths on it
-        bool got_anywhere = false;
-        gbwt_graph.follow_paths(here_state, [&](const gbwt::SearchState& there_state) -> bool {
-            if (there_state.empty()) {
-                // Ignore places that no haplotypes go, and get the next place instead.
-                return true;
-            }
-            
-            // For each place it can go
-            handle_t there_handle = gbwt_graph.node_to_handle(there_state.node);
-            
-#ifdef debug
-            handle_t here_handle = gbwt_graph.node_to_handle(here_state.node);
-            cerr << "Saw GBWT edge " << gbwt_graph.get_id(here_handle) << " " << gbwt_graph.get_is_reverse(here_handle)
-                << " -> " << gbwt_graph.get_id(there_handle) << " " << gbwt_graph.get_is_reverse(there_handle) << endl;
-            assert(gbwt_graph.has_edge(here_handle, there_handle));
-#endif
-            
-            // Record that we got there
-            got_anywhere = true;
-
-            // Say we can go from here to there. Should we?
-            bool continue_extending = visit_callback(here_path, there_handle);
-
-            if (continue_extending) {
-                // Generate the path we take if we take up all of that node.
-                Mapping m;
-                m.mutable_position()->set_node_id(gbwt_graph.get_id(there_handle));
-                m.mutable_position()->set_is_reverse(gbwt_graph.get_is_reverse(there_handle));
-                Edit* e = m.add_edit();
-                e->set_from_length(gbwt_graph.get_length(there_handle));
-                e->set_to_length(gbwt_graph.get_length(there_handle));
-                
-                ImmutablePath extended = here_path.push_front(m);
-
-                // See if we can get to the end of the node without going outside the search length.
-                if (immutable_path_from_length(here_path) + gbwt_graph.get_length(there_handle) <= walk_distance) {
-                    // If so, continue the search
-                    queue.emplace_back(there_state, extended);
-                    queue_size++;
-                } else {
-                    // Report that, with this extension, we hit the limit.
-                    limit_callback(extended);
-                    limit_hits++;
-                }
-            }
-
-            // Look at other possible haplotypes from where we came from
-            return true;
-        });
-        
-        if (!got_anywhere) {
-            // We hit a dead end here. Report that.
-            limit_callback(here_path);
-            dead_ends++;
-        }
-    }
-    
-#ifdef debug
-    cerr << "Queue max: " << queue_max << " Limit hits: " << limit_hits << " Dead ends: " << dead_ends << endl;
-#endif
-}
-
 void MinimizerMapper::dfs_gbwt(const Position& from, size_t walk_distance,
     const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const {
    
@@ -2011,17 +1300,26 @@ void MinimizerMapper::dfs_gbwt(const Position& from, size_t walk_distance,
 void MinimizerMapper::dfs_gbwt(handle_t from_handle, size_t from_offset, size_t walk_distance,
     const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const {
     
+    // Turn from_handle into a SearchState for everything on it.
+    gbwt::SearchState start_state = gbwt_graph.get_state(from_handle);
+    
+    // Delegate to the state-based version
+    dfs_gbwt(start_state, from_offset, walk_distance, enter_handle, exit_handle);
+}
+    
+void MinimizerMapper::dfs_gbwt(const gbwt::SearchState& start_state, size_t from_offset, size_t walk_distance,
+    const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const {
+    
     // Holds the gbwt::SearchState we are at, and the distance we have consumed
     using traversal_state_t = pair<gbwt::SearchState, size_t>;
-
-    // Turn from_handle into a SearchState.
-    // TODO: Let a search state come in.
-    gbwt::SearchState start_state = gbwt_graph.get_state(from_handle);
     
     if (start_state.empty()) {
         // No haplotypes even visit the first node. Stop.
         return;
     }
+    
+    // Get the handle we are starting on
+    handle_t from_handle = gbwt_graph.node_to_handle(start_state.node);
 
     // The search state represents searching through the end of the node, so we have to consume that much search limit.
 

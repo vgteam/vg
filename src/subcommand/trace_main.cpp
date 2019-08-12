@@ -13,7 +13,7 @@ using namespace vg;
 using namespace std;
 using namespace vg::subcommand;
 
-using thread_t = vector<XG::ThreadMapping>;
+using thread_t = vector<gbwt::node_type>;
 
 void help_trace(char** argv) {
     cerr << "usage: " << argv[0] << " trace [options]" << endl
@@ -141,7 +141,7 @@ int main_trace(int argc, char** argv) {
   // trace out our graph and paths from the start node
   Graph trace_graph;
   map<string, int> haplotype_frequences;
-  trace_haplotypes_and_paths(xindex, gbwt_index.get(), start_node, extend_distance,
+  trace_haplotypes_and_paths(xindex, *gbwt_index.get(), start_node, extend_distance,
                              trace_graph, haplotype_frequences);
 
   // dump our graph to stdout

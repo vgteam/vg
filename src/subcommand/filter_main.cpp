@@ -281,7 +281,7 @@ int main_filter(int argc, char** argv) {
         // read the xg index
         xindex = vg::io::VPKG::load_one<XG>(xg_name);
     }
-    filter.xindex = xindex.get();
+    filter.graph = xindex.get();
     
     // Read in the alignments and filter them.
     get_input_file(optind, argc, argv, [&](istream& in) {

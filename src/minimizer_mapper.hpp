@@ -26,12 +26,12 @@ class MinimizerMapper : public AlignerClient {
 public:
 
     /**
-     * Construct a new MinimizerMapper using the given indexes. The XG index can be nullptr,
+     * Construct a new MinimizerMapper using the given indexes. The PathPositionhandleGraph can be nullptr,
      * as we only use it for correctness tracking.
      */
 
     MinimizerMapper(const GBWTGraph& graph, const MinimizerIndex& minimizer_index,
-         MinimumDistanceIndex& distance_index, const XG* xg_index = nullptr);
+         MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
      * Map the given read, and send output to the given AlignmentEmitter. May be run from any thread.
@@ -76,11 +76,7 @@ public:
 
     size_t max_multimaps = 1;
     size_t distance_limit = 1000;
-    bool do_chaining = true;
-    bool use_xdrop_for_tails = true;
-    bool linear_tails = false;
-    /// Use GBWT states from extensions to seed connectivity and tail searches.
-    bool reuse_gbwt_states = true;
+    bool do_dp = true;
     string sample_name;
     string read_group;
     
@@ -95,7 +91,7 @@ public:
     
 protected:
     // These are our indexes
-    const XG* xg_index; // Can be nullptr; only needed for correctness tracking.
+    const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const MinimizerIndex& minimizer_index;
     MinimumDistanceIndex& distance_index;
 
@@ -123,11 +119,11 @@ protected:
     bool score_is_significant(int score_estimate, int best_score, int second_best_score) const; 
     
     /**
-     * Operating on the given input alignment, chain together the given
-     * extended perfect-match seeds and produce an alignment into the given
-     * output Alignment object.
+     * Operating on the given input alignment, align the tails dangling off the
+     * given extended perfect-match seeds and produce an optimal alignment into
+     * the given output Alignment object.
      */
-    void chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const; 
+    void find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const; 
     
     /**
      * Find for each pair of extended seeds all the haplotype-consistent graph
@@ -153,32 +149,22 @@ protected:
         
         
     /**
-     * For gapless extensions that can't reach/be reached by anything in
-     * connecting_paths, get all the trees defining tails off the specified
-     * side of the gapless extension. Assumes that connecting_paths contains no
-     * tail entries itself (i.e. that linear_tails was false on the
-     * MinimizerMapper when find_connecting_paths computed it), but uses it to
-     * identify the source or sink extensions.
+     * Get all the trees defining tails off the specified side of each gapless
+     * extension.
      *
      * If the gapless extension starts or ends at a node boundary, there may be
      * multiple trees produced, each with a distinct root.
      *
-     * If the gapless extension abuts the edge of the read, no forests will be
-     * produced for it.
+     * If the gapless extension abuts the edge of the read, an empty forest
+     * will be produced.
      *
      * Each tree is represented as a TreeSubgraph over our gbwt_graph.
      *
      * If left_tails is true, the trees read out of the left sides of the
      * gapless extensions. Otherwise they read out of the right sides.
-     *
-     * Gapless extensions that are not sources or sinks get no map entries.
-     * Gapless extensions with dangling read sequence but no viable paths in
-     * the graph will at least get map entries with empty forests. Sources or
-     * sinks with no dangling sequence don't necessarily get map entries at
-     * all.
      */
     unordered_map<size_t, vector<TreeSubgraph>> get_tail_forests(const vector<GaplessExtension>& extended_seeds,
-        size_t read_length, const unordered_map<size_t, unordered_map<size_t, vector<Path>>>& connecting_paths, bool left_tails) const;
+        size_t read_length, bool left_tails) const;
         
     /**
      * Find the best alignment of the given sequence against any of the paths
@@ -234,42 +220,6 @@ protected:
     static Path to_path(const ImmutablePath& path);
 
     /**
-     * Given a Position, explore the GBWT graph out to the given maximum walk
-     * distance.
-     *
-     * If from_state is not null, uses that starting GBWT search state, which
-     * must be on the node that from is on and facking in the same orientation
-     * as from.
-     *
-     * Calls the visit callback with the list of Mappings being extended (in
-     * reverse order) and the handle it is being extended with.
-     *
-     * Only considers paths that visit at least one node after the node the
-     * from Position is on. The from Position cuts immediately before the
-     * first included base.
-     *
-     * If the callback returns false, that GBWT search state is not extended
-     * further.
-     *
-     * If the walk_distance limit is exceeded, or a dead end in the graph is
-     * hit, calls the limit callback with the list of Mappings (in reverse
-     * order) that passed the limit or hit the dead end.
-     */
-    void explore_gbwt(const Position& from, const gbwt::SearchState* from_state, 
-        size_t walk_distance, 
-        const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
-        const function<void(const ImmutablePath&)>& limit_callback) const;
-        
-    /**
-     * The same as explore_gbwt on a Position, but takes a handle in the
-     * backing gbwt_graph and an offset from the start of the handle instead.
-     */
-    void explore_gbwt(handle_t from_handle, size_t from_offset, const gbwt::SearchState* from_state,
-        size_t walk_distance,
-        const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
-        const function<void(const ImmutablePath&)>& limit_callback) const;
-    
-    /**
      * Run a DFS on valid haplotypes in the GBWT starting from the given
      * Position, and continuing up to the given number of bases.
      *
@@ -290,6 +240,14 @@ protected:
      * backing gbwt_graph and an offset from the start of the handle instead.
      */ 
     void dfs_gbwt(handle_t from_handle, size_t from_offset, size_t walk_distance,
+        const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const;
+        
+    /**
+     * The same as dfs_gbwt on a handle and an offset, but takes a
+     * gbwt::SearchState that defines only some haplotypes on a handle to start
+     * with.
+     */ 
+    void dfs_gbwt(const gbwt::SearchState& start_state, size_t from_offset, size_t walk_distance,
         const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const;
      
 };

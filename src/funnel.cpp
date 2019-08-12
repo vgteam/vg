@@ -196,10 +196,16 @@ size_t Funnel::latest() const {
     return stages.back().items.size() - 1;
 }
 
-void Funnel::for_each_stage(const function<void(const string&, size_t)>& callback) const {
+void Funnel::for_each_stage(const function<void(const string&, const vector<size_t>&)>& callback) const {
     for (auto& stage : stages) {
+        // Make a vector of item sizes
+        vector<size_t> item_sizes;
+        item_sizes.reserve(stage.items.size());
+        for (auto& item : stage.items) {
+            item_sizes.push_back(item.group_size);
+        }
         // Report the name and item count of each stage.
-        callback(stage.name, stage.items.size());
+        callback(stage.name, item_sizes);
     }
 }
 
