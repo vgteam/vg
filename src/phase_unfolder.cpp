@@ -35,28 +35,30 @@ void PhaseUnfolder::restore_paths(MutableHandleGraph& graph, bool show_progress)
         handle_t prev;
         bool first = true;
         this->xg_index.for_each_step_in_path(path, [&](const step_handle_t& step) {
-                handle_t handle = this->xg_index.get_handle_of_step(step);
-                vg::id_t id = this->xg_index.get_id(handle);
-                bool is_rev = this->xg_index.get_is_reverse(handle);
-                handle_t curr;
-                if (!graph.has_node(id)) {
-                    curr = graph.create_handle(this->xg_index.get_sequence(is_rev ? this->xg_index.flip(handle) : handle), id);
-                    if (is_rev) { curr = graph.flip(curr); }
-                } else {
-                    curr = graph.get_handle(id, is_rev);
+            handle_t handle = this->xg_index.get_handle_of_step(step);
+            vg::id_t id = this->xg_index.get_id(handle);
+            handle_t curr;
+            if (!graph.has_node(id)) {
+                curr = graph.create_handle(this->xg_index.get_sequence(this->xg_index.forward(handle)), id);
+                if (this->xg_index.get_is_reverse(handle)) {
+                    curr = graph.flip(curr);
                 }
-                if (first) {
-                    // nothing to on the first step
-                    first = false;
-                } else {
-                    edge_t candidate = make_pair(prev, curr);
-                    if (!graph.has_edge(candidate)) {
-                        graph.create_edge(candidate);
-                    }
+            }
+            else {
+                curr = graph.get_handle(id, this->xg_index.get_is_reverse(handle));
+            }
+            if (first) {
+                // nothing to on the first step
+                first = false;
+            } else {
+                edge_t candidate = make_pair(prev, curr);
+                if (!graph.has_edge(candidate)) {
+                    graph.create_edge(candidate);
                 }
-                prev = curr;
-            });
+            }
+            prev = curr;
         });
+    });
 
     if (show_progress) {
         std::cerr << "Restored graph: " << graph.get_node_count() << " nodes" << std::endl;
@@ -266,75 +268,85 @@ vg::id_t PhaseUnfolder::get_mapping(vg::id_t node) const {
 }
 
 std::list<VG> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bool show_progress) {
+    
     VG complement;
 
+    // checks whether the graph contains an edge
+    auto graph_has_edge = [&](const vg::id_t from_id, const vg::id_t to_id,
+                              const bool from_rev, const bool to_rev) {
+        if (graph.has_node(from_id) && graph.has_node(to_id)) {
+            return graph.has_edge(graph.get_handle(from_id, from_rev), graph.get_handle(to_id, to_rev));
+        }
+        return false;
+    };
+    
+    // checks whether an edge from the XG is in the graph
+    auto graph_has_xg_edge = [&](const handle_t& from, const handle_t& to) {
+        return graph_has_edge(xg_index.get_id(from), xg_index.get_id(to),
+                              xg_index.get_is_reverse(from), xg_index.get_is_reverse(to));
+    };
+    
+    // checks whether an edge from the GBWT is in the graph
+    auto graph_has_gbwt_edge = [&](const gbwt::node_type& from, const gbwt::node_type& to) {
+        return graph_has_edge(gbwt::Node::id(from), gbwt::Node::id(to),
+                              gbwt::Node::is_reverse(from), gbwt::Node::is_reverse(to));
+    };
+    
+    // takes a handle to the XG and returns the equivalent handle in the complement, making
+    // the node if necessary
+    auto get_or_make_complement_handle = [&](const handle_t& counterpart) {
+        if (complement.has_node(xg_index.get_id(counterpart))) {
+            return complement.get_handle(xg_index.get_id(counterpart),
+                                         xg_index.get_is_reverse(counterpart));
+        }
+        else {
+            return complement.create_handle(xg_index.get_sequence(xg_index.forward(counterpart)),
+                                            xg_index.get_id(counterpart));
+        }
+    };
+    
+    // takes an edge in the XG and ensures that it exists in the complement
+    auto make_complement_edge = [&](const handle_t& from, const handle_t& to) {
+        handle_t comp_from = get_or_make_complement_handle(from);
+        handle_t comp_to = get_or_make_complement_handle(to);
+        if (!complement.has_edge(comp_from, comp_to)) {
+            complement.create_edge(comp_from, comp_to);
+        }
+    };
+    
     // Add missing edges supported by XG paths.
     this->xg_index.for_each_path_handle([&](const path_handle_t& path) {
         handle_t prev;
         bool first = true;
         this->xg_index.for_each_step_in_path(path, [&](const step_handle_t& step) {
-                handle_t handle = this->xg_index.get_handle_of_step(step);
-                vg::id_t id = this->xg_index.get_id(handle);
-                bool is_rev = this->xg_index.get_is_reverse(handle);
-                handle_t curr;
-                if (!complement.has_node(id)) {
-                    curr = complement.create_handle(this->xg_index.get_sequence(is_rev ? this->xg_index.flip(handle) : handle), id);
-                    if (is_rev) curr = complement.flip(curr);
-                } else {
-                    curr = complement.get_handle(id, is_rev);
+            handle_t handle = this->xg_index.get_handle_of_step(step);
+            if (!first) {
+                if (!graph_has_xg_edge(prev, handle)) {
+                    make_complement_edge(prev, handle);
                 }
-                if (first) {
-                    // nothing to on the first step
-                    first = false;
-                } else {
-                    edge_t candidate = make_pair(prev, curr);
-                    if (!graph.has_edge(candidate.first, candidate.second)) {
-                        complement.create_edge(candidate.first, candidate.second);
-                    }
-                }
-                prev = curr;
-            });
+            }
+            else {
+                first = false;
+            }
+            prev = handle;
         });
+    });
 
     // Add missing edges supported by GBWT threads.
     for (gbwt::comp_type comp = 1; comp < this->gbwt_index.effective(); comp++) {
         gbwt::node_type gbwt_node = this->gbwt_index.toNode(comp);
-        /*
-        if (!complement.has_node(gbwt::Node::id(gbwt_node))) {
-            complement.create_handle(this->xg_index.get_sequence(this->xg_index.get_handle(gbwt::Node::id(gbwt_node))),
-                                     gbwt::Node::id(gbwt_node));
-        }
-        */
-        vg::id_t from_id = gbwt::Node::id(gbwt_node);
-        bool from_rev = gbwt::Node::is_reverse(gbwt_node);
-        handle_t from;
-        if (!complement.has_node(from_id)) {
-            from = complement.create_handle(this->xg_index.get_sequence(this->xg_index.get_handle(from_id)), from_id);
-            if (from_rev) { from = complement.flip(from); }
-        } else {
-            from = complement.get_handle(from_id, from_rev);
-        }
+        
         std::vector<gbwt::edge_type> outgoing = this->gbwt_index.edges(gbwt_node);
         for (gbwt::edge_type outedge : outgoing) {
             if (outedge.first == gbwt::ENDMARKER) {
                 continue;
             }
-            vg::id_t to_id = gbwt::Node::id(outedge.first);
-            bool to_rev = gbwt::Node::is_reverse(outedge.first);
-            handle_t to;
-            if (!complement.has_node(to_id)) {
-                to = complement.create_handle(this->xg_index.get_sequence(this->xg_index.get_handle(to_id)), to_id);
-                if (to_rev) { to = complement.flip(to); }
-            } else {
-                to = complement.get_handle(to_id, to_rev);
+            if (!graph_has_gbwt_edge(gbwt_node, outedge.first)) {
+                make_complement_edge(xg_index.get_handle(gbwt::Node::id(gbwt_node),
+                                                         gbwt::Node::is_reverse(gbwt_node)),
+                                     xg_index.get_handle(gbwt::Node::id(outedge.first),
+                                                         gbwt::Node::is_reverse(outedge.first)));
             }
-            complement.create_edge(from, to);
-            /*
-            if (!graph.has_edge(graph.get_handle(from_id, from_rev),
-                                graph.get_handle(to_id, to_rev))) {
-                complement.create_edge(from, to);
-            }
-            */
         }
     }
 
@@ -351,10 +363,10 @@ std::list<VG> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bo
 size_t PhaseUnfolder::unfold_component(MutableHandleGraph& component, MutableHandleGraph& graph, MutableHandleGraph& unfolded) {
     // Find the border nodes shared between the component and the graph.
     component.for_each_handle([&](const handle_t& handle) {
-            vg::id_t id = component.get_id(handle);
-            if (graph.has_node(id)) {
-                this->border.insert(id);
-            }
+        vg::id_t id = component.get_id(handle);
+        if (graph.has_node(id)) {
+            this->border.insert(id);
+        }
     });
 
     // Generate the paths starting from each border node.
@@ -364,8 +376,8 @@ size_t PhaseUnfolder::unfold_component(MutableHandleGraph& component, MutableHan
 
     // Generate the threads for each node.
     component.for_each_handle([&](const handle_t& handle) {
-            this->generate_threads(component, component.get_id(handle));
-        });
+        this->generate_threads(component, component.get_id(handle));
+    });
 
     auto insert_node = [&](gbwt::node_type node) {
         // create a new node
@@ -383,8 +395,6 @@ size_t PhaseUnfolder::unfold_component(MutableHandleGraph& component, MutableHan
         }
         insert_node(to);
         if (from != gbwt::ENDMARKER) {
-            assert(unfolded.has_node(gbwt::Node::id(from)));
-            assert(unfolded.has_node(gbwt::Node::id(to)));
             unfolded.create_edge(make_edge(unfolded, from, to));
         }
     }
@@ -415,65 +425,76 @@ void PhaseUnfolder::generate_paths(MutableHandleGraph& component, vg::id_t from)
 
     handle_t from_handle = this->xg_index.get_handle(from);
     this->xg_index.for_each_step_on_handle(from_handle, [&](const step_handle_t& _step) {
-            // Forward.
-            {
-                step_handle_t step = _step;
-                handle_t handle = this->xg_index.get_handle_of_step(step);
-                vg::id_t id = this->xg_index.get_id(handle);
-                bool is_rev = this->xg_index.get_is_reverse(handle);
-                gbwt::node_type prev = gbwt::Node::encode(id, is_rev);
-                path_type buffer(1, prev);
-                while (this->xg_index.has_next_step(step)) {
-                    step = this->xg_index.get_next_step(step);
-                    handle = this->xg_index.get_handle_of_step(step);
-                    id = this->xg_index.get_id(handle);
-                    is_rev = this->xg_index.get_is_reverse(handle);
-                    gbwt::node_type curr = gbwt::Node::encode(id, is_rev);
-                    edge_t candidate = make_edge(xg_index, prev, curr);
-                    if (!component.has_edge(candidate)) {
-                        break;  // Found a maximal path.
-                    }
-                    buffer.push_back(curr);
-                    if (this->border.find(gbwt::Node::id(curr)) != this->border.end()) {
-                        break;  // Found a border-to-border path.
-                    }
-                    prev = curr;
+        
+        // Forward.
+        {
+            step_handle_t step = _step;
+            handle_t handle = this->xg_index.get_handle_of_step(step);
+            vg::id_t id = this->xg_index.get_id(handle);
+            bool is_rev = this->xg_index.get_is_reverse(handle);
+            gbwt::node_type prev = gbwt::Node::encode(id, is_rev);
+            path_type buffer(1, prev);
+            while (this->xg_index.has_next_step(step)) {
+                step = this->xg_index.get_next_step(step);
+                handle = this->xg_index.get_handle_of_step(step);
+                id = this->xg_index.get_id(handle);
+                is_rev = this->xg_index.get_is_reverse(handle);
+                if (!component.has_node(id)) {
+                    break;  // Found a maximal path, no matching node.
                 }
-                bool to_border = (this->border.find(gbwt::Node::id(buffer.back())) != this->border.end());
-                this->reference_paths.push_back(buffer);
-                this->insert_path(buffer, true, to_border);
-            }
-
-            // Backward.
-            {
-                step_handle_t step = _step;
-                handle_t handle = this->xg_index.get_handle_of_step(step);
-                vg::id_t id = this->xg_index.get_id(handle);
-                bool is_rev = this->xg_index.get_is_reverse(handle);
-                gbwt::node_type prev = gbwt::Node::encode(id, is_rev);
-                path_type buffer(1, prev);
-                while (this->xg_index.has_previous_step(step)) {
-                    step = this->xg_index.get_previous_step(step);
-                    handle = this->xg_index.get_handle_of_step(step);
-                    id = this->xg_index.get_id(handle);
-                    is_rev = this->xg_index.get_is_reverse(handle);
-                    gbwt::node_type curr = gbwt::Node::encode(id, is_rev);
-                    edge_t candidate = make_edge(xg_index, prev, curr);
-                    if (!component.has_edge(candidate)) {
-                        break;  // Found a maximal path.
-                    }
-                    buffer.push_back(curr);
-                    if (this->border.find(gbwt::Node::id(curr)) != this->border.end()) {
-                        break;  // Found a border-to-border path.
-                    }
-                    prev = curr;
+                gbwt::node_type curr = gbwt::Node::encode(id, is_rev);
+                edge_t candidate = make_edge(component, prev, curr);
+                if (!component.has_edge(candidate)) {
+                    break;  // Found a maximal path, no matching edge.
                 }
-                bool to_border = (this->border.find(gbwt::Node::id(buffer.back())) != this->border.end());
-                this->reference_paths.push_back(buffer);
-                this->insert_path(buffer, true, to_border);
+                buffer.push_back(curr);
+                if (this->border.find(gbwt::Node::id(curr)) != this->border.end()) {
+                    break;  // Found a border-to-border path.
+                }
+                prev = curr;
             }
+            
+            bool to_border = (this->border.find(gbwt::Node::id(buffer.back())) != this->border.end());
+            this->reference_paths.push_back(buffer);
+            this->insert_path(buffer, true, to_border);
+        }
 
-        });
+        // Backward.
+        {
+            step_handle_t step = _step;
+            handle_t handle = this->xg_index.get_handle_of_step(step);
+            vg::id_t id = this->xg_index.get_id(handle);
+            bool is_rev = this->xg_index.get_is_reverse(handle);
+            gbwt::node_type next = gbwt::Node::encode(id, is_rev);
+            path_type buffer(1, next);
+            while (this->xg_index.has_previous_step(step)) {
+                step = this->xg_index.get_previous_step(step);
+                handle = this->xg_index.get_handle_of_step(step);
+                id = this->xg_index.get_id(handle);
+                is_rev = this->xg_index.get_is_reverse(handle);
+                if (!component.has_node(id)) {
+                    break;  // Found a maximal path, no matching node.
+                }
+                gbwt::node_type curr = gbwt::Node::encode(id, is_rev);
+                edge_t candidate = make_edge(component, curr, next);
+                if (!component.has_edge(candidate)) {
+                    break;  // Found a maximal path, no matching edge.
+                }
+                buffer.push_back(curr);
+                if (this->border.find(gbwt::Node::id(curr)) != this->border.end()) {
+                    break;  // Found a border-to-border path.
+                }
+                next = curr;
+            }
+            // we built this in reverse order since we were traversing backwards
+            reverse(buffer.begin(), buffer.end());
+            
+            bool to_border = (this->border.find(gbwt::Node::id(buffer.back())) != this->border.end());
+            this->reference_paths.push_back(buffer);
+            this->insert_path(buffer, true, to_border);
+        }
+
+    });
 }
 
 void PhaseUnfolder::generate_threads(MutableHandleGraph& component, vg::id_t from) {
