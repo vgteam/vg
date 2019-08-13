@@ -8,9 +8,9 @@
 
 namespace vg {
 
-PhaseUnfolder::PhaseUnfolder(const PathPositionHandleGraph& xg_index, const gbwt::GBWT& gbwt_index, vg::id_t next_node) :
-    xg_index(xg_index), gbwt_index(gbwt_index), mapping(next_node) {
-    assert(this->mapping.begin() > this->xg_index.max_node_id());
+PhaseUnfolder::PhaseUnfolder(const PathPositionHandleGraph& path_graph, const gbwt::GBWT& gbwt_index, vg::id_t next_node) :
+    path_graph(path_graph), gbwt_index(gbwt_index), mapping(next_node) {
+    assert(this->mapping.begin() > this->path_graph.max_node_id());
 }
 
 void PhaseUnfolder::unfold(MutableHandleGraph& graph, bool show_progress) {
@@ -31,21 +31,21 @@ void PhaseUnfolder::unfold(MutableHandleGraph& graph, bool show_progress) {
 }
 
 void PhaseUnfolder::restore_paths(MutableHandleGraph& graph, bool show_progress) const {
-    this->xg_index.for_each_path_handle([&](const path_handle_t& path) {
+    this->path_graph.for_each_path_handle([&](const path_handle_t& path) {
         handle_t prev;
         bool first = true;
-        this->xg_index.for_each_step_in_path(path, [&](const step_handle_t& step) {
-            handle_t handle = this->xg_index.get_handle_of_step(step);
-            vg::id_t id = this->xg_index.get_id(handle);
+        this->path_graph.for_each_step_in_path(path, [&](const step_handle_t& step) {
+            handle_t handle = this->path_graph.get_handle_of_step(step);
+            vg::id_t id = this->path_graph.get_id(handle);
             handle_t curr;
             if (!graph.has_node(id)) {
-                curr = graph.create_handle(this->xg_index.get_sequence(this->xg_index.forward(handle)), id);
-                if (this->xg_index.get_is_reverse(handle)) {
+                curr = graph.create_handle(this->path_graph.get_sequence(this->path_graph.forward(handle)), id);
+                if (this->path_graph.get_is_reverse(handle)) {
                     curr = graph.flip(curr);
                 }
             }
             else {
-                curr = graph.get_handle(id, this->xg_index.get_is_reverse(handle));
+                curr = graph.get_handle(id, this->path_graph.get_is_reverse(handle));
             }
             if (first) {
                 // nothing to on the first step
@@ -102,7 +102,7 @@ struct PathBranch {
 };
 
 template<class PathType>
-bool verify_path(const PathPositionHandleGraph& xg_index, const PathType& path, MutableHandleGraph& unfolded, const hash_map<vg::id_t, std::vector<vg::id_t>>& reverse_mapping) {
+bool verify_path(const PathPositionHandleGraph& path_graph, const PathType& path, MutableHandleGraph& unfolded, const hash_map<vg::id_t, std::vector<vg::id_t>>& reverse_mapping) {
 
     if (path_size(path) < 2) {
         return true;
@@ -147,7 +147,7 @@ bool verify_path(const PathPositionHandleGraph& xg_index, const PathType& path, 
                 }
             }
             gbwt::node_type next = gbwt::Node::encode(node_id, path_reverse(path, branch.offset + 1));
-            edge_t candidate = PhaseUnfolder::make_edge(xg_index, curr, next);
+            edge_t candidate = PhaseUnfolder::make_edge(unfolded, curr, next);
             if (!unfolded.has_edge(candidate)) {
                 break;
             }
@@ -188,7 +188,7 @@ size_t PhaseUnfolder::verify_paths(MutableHandleGraph& unfolded, bool show_progr
         gcsa::removeDuplicates(mapping.second, false);
     }
 
-    size_t total_paths = this->xg_index.get_path_count() + this->gbwt_index.sequences(), verified = 0, failures = 0;
+    size_t total_paths = this->path_graph.get_path_count() + this->gbwt_index.sequences(), verified = 0, failures = 0;
     std::set<vg::id_t> failed_threads;
     ProgressBar* progress = nullptr;
     size_t progress_step = std::max(total_paths / 100, static_cast<size_t>(32));
@@ -197,27 +197,45 @@ size_t PhaseUnfolder::verify_paths(MutableHandleGraph& unfolded, bool show_progr
         progress->Progressed(verified);
     }
 
-#pragma omp parallel for schedule(dynamic, 1)
-    for (size_t i = 0; i < total_paths; i++) {
-        bool successful = true;
-        if (i < this->xg_index.get_path_count()-1) {
-            vector<pair<vg::id_t, bool>> path;
-            this->xg_index.for_each_step_in_path(handlegraph::as_path_handle(i+1), [&](const step_handle_t& step) {
-                    handle_t handle = this->xg_index.get_handle_of_step(step);
-                    path.push_back(make_pair(this->xg_index.get_id(handle), this->xg_index.get_is_reverse(handle)));
+    
+#pragma omp parallel
+    {
+        this->path_graph.for_each_path_handle([&](const path_handle_t& path_handle) {
+#pragma omp task
+            {
+                vector<pair<vg::id_t, bool>> path;
+                this->path_graph.for_each_step_in_path(path_handle, [&](const step_handle_t& step) {
+                    handle_t handle = this->path_graph.get_handle_of_step(step);
+                    path.push_back(make_pair(this->path_graph.get_id(handle),
+                                             this->path_graph.get_is_reverse(handle)));
                 });
-            successful = verify_path(this->xg_index, path, unfolded, reverse_mapping);
-        } else {
-            path_type path = this->gbwt_index.extract(i - this->xg_index.get_path_count()); // XXX could be -1
-            successful = verify_path(this->xg_index, path, unfolded, reverse_mapping);
-        }
-        #pragma omp critical
+                bool successful = verify_path(this->path_graph, path, unfolded, reverse_mapping);
+#pragma omp critical
+                {
+                    if (!successful) {
+                        failures++;
+                    }
+                    verified++;
+                    if (show_progress && (verified % progress_step == 0 || verified >= total_paths)) {
+                        progress->Progressed(verified);
+                    }
+                }
+            }
+        });
+    }
+    
+    
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t i = 0; i < this->gbwt_index.sequences(); i++) {
+        
+        path_type path = this->gbwt_index.extract(i); // XXX could be -1
+        bool successful = verify_path(this->path_graph, path, unfolded, reverse_mapping);
+        
+#pragma omp critical
         {
             if (!successful) {
                 failures++;
-                if (i >= this->xg_index.get_path_count()) {
-                    failed_threads.insert(i - this->xg_index.get_path_count());
-                }
+                failed_threads.insert(i);
             }
             verified++;
             if (show_progress && (verified % progress_step == 0 || verified >= total_paths)) {
@@ -260,7 +278,7 @@ void PhaseUnfolder::read_mapping(const std::string& filename) {
     }
     this->mapping.load(in);
     in.close();
-    assert(this->mapping.begin() > this->xg_index.max_node_id());
+    assert(this->mapping.begin() > this->path_graph.max_node_id());
 }
 
 vg::id_t PhaseUnfolder::get_mapping(vg::id_t node) const {
@@ -280,10 +298,10 @@ std::list<VG> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bo
         return false;
     };
     
-    // checks whether an edge from the XG is in the graph
-    auto graph_has_xg_edge = [&](const handle_t& from, const handle_t& to) {
-        return graph_has_edge(xg_index.get_id(from), xg_index.get_id(to),
-                              xg_index.get_is_reverse(from), xg_index.get_is_reverse(to));
+    // checks whether an edge from the PathPositionHandleGraph is in the graph
+    auto graph_has_path_graph_edge = [&](const handle_t& from, const handle_t& to) {
+        return graph_has_edge(path_graph.get_id(from), path_graph.get_id(to),
+                              path_graph.get_is_reverse(from), path_graph.get_is_reverse(to));
     };
     
     // checks whether an edge from the GBWT is in the graph
@@ -292,16 +310,16 @@ std::list<VG> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bo
                               gbwt::Node::is_reverse(from), gbwt::Node::is_reverse(to));
     };
     
-    // takes a handle to the XG and returns the equivalent handle in the complement, making
-    // the node if necessary
+    // takes a handle to the PathPositionHandleGraph and returns the equivalent handle in
+    // the complement, making the node if necessary
     auto get_or_make_complement_handle = [&](const handle_t& counterpart) {
-        if (complement.has_node(xg_index.get_id(counterpart))) {
-            return complement.get_handle(xg_index.get_id(counterpart),
-                                         xg_index.get_is_reverse(counterpart));
+        if (complement.has_node(path_graph.get_id(counterpart))) {
+            return complement.get_handle(path_graph.get_id(counterpart),
+                                         path_graph.get_is_reverse(counterpart));
         }
         else {
-            return complement.create_handle(xg_index.get_sequence(xg_index.forward(counterpart)),
-                                            xg_index.get_id(counterpart));
+            return complement.create_handle(path_graph.get_sequence(path_graph.forward(counterpart)),
+                                            path_graph.get_id(counterpart));
         }
     };
     
@@ -315,13 +333,13 @@ std::list<VG> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bo
     };
     
     // Add missing edges supported by XG paths.
-    this->xg_index.for_each_path_handle([&](const path_handle_t& path) {
+    this->path_graph.for_each_path_handle([&](const path_handle_t& path) {
         handle_t prev;
         bool first = true;
-        this->xg_index.for_each_step_in_path(path, [&](const step_handle_t& step) {
-            handle_t handle = this->xg_index.get_handle_of_step(step);
+        this->path_graph.for_each_step_in_path(path, [&](const step_handle_t& step) {
+            handle_t handle = this->path_graph.get_handle_of_step(step);
             if (!first) {
-                if (!graph_has_xg_edge(prev, handle)) {
+                if (!graph_has_path_graph_edge(prev, handle)) {
                     make_complement_edge(prev, handle);
                 }
             }
@@ -342,10 +360,10 @@ std::list<VG> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bo
                 continue;
             }
             if (!graph_has_gbwt_edge(gbwt_node, outedge.first)) {
-                make_complement_edge(xg_index.get_handle(gbwt::Node::id(gbwt_node),
-                                                         gbwt::Node::is_reverse(gbwt_node)),
-                                     xg_index.get_handle(gbwt::Node::id(outedge.first),
-                                                         gbwt::Node::is_reverse(outedge.first)));
+                make_complement_edge(path_graph.get_handle(gbwt::Node::id(gbwt_node),
+                                                           gbwt::Node::is_reverse(gbwt_node)),
+                                     path_graph.get_handle(gbwt::Node::id(outedge.first),
+                                                           gbwt::Node::is_reverse(outedge.first)));
             }
         }
     }
@@ -382,8 +400,8 @@ size_t PhaseUnfolder::unfold_component(MutableHandleGraph& component, MutableHan
     auto insert_node = [&](gbwt::node_type node) {
         // create a new node
         if (!unfolded.has_node(gbwt::Node::id(node))) {
-            handle_t temp = this->xg_index.get_handle(this->get_mapping(gbwt::Node::id(node)));;
-            unfolded.create_handle(this->xg_index.get_sequence(temp), gbwt::Node::id(node));
+            handle_t temp = this->path_graph.get_handle(this->get_mapping(gbwt::Node::id(node)));;
+            unfolded.create_handle(this->path_graph.get_sequence(temp), gbwt::Node::id(node));
         }
     };
 
@@ -423,22 +441,22 @@ size_t PhaseUnfolder::unfold_component(MutableHandleGraph& component, MutableHan
 
 void PhaseUnfolder::generate_paths(MutableHandleGraph& component, vg::id_t from) {
 
-    handle_t from_handle = this->xg_index.get_handle(from);
-    this->xg_index.for_each_step_on_handle(from_handle, [&](const step_handle_t& _step) {
+    handle_t from_handle = this->path_graph.get_handle(from);
+    this->path_graph.for_each_step_on_handle(from_handle, [&](const step_handle_t& _step) {
         
         // Forward.
         {
             step_handle_t step = _step;
-            handle_t handle = this->xg_index.get_handle_of_step(step);
-            vg::id_t id = this->xg_index.get_id(handle);
-            bool is_rev = this->xg_index.get_is_reverse(handle);
+            handle_t handle = this->path_graph.get_handle_of_step(step);
+            vg::id_t id = this->path_graph.get_id(handle);
+            bool is_rev = this->path_graph.get_is_reverse(handle);
             gbwt::node_type prev = gbwt::Node::encode(id, is_rev);
             path_type buffer(1, prev);
-            while (this->xg_index.has_next_step(step)) {
-                step = this->xg_index.get_next_step(step);
-                handle = this->xg_index.get_handle_of_step(step);
-                id = this->xg_index.get_id(handle);
-                is_rev = this->xg_index.get_is_reverse(handle);
+            while (this->path_graph.has_next_step(step)) {
+                step = this->path_graph.get_next_step(step);
+                handle = this->path_graph.get_handle_of_step(step);
+                id = this->path_graph.get_id(handle);
+                is_rev = this->path_graph.get_is_reverse(handle);
                 if (!component.has_node(id)) {
                     break;  // Found a maximal path, no matching node.
                 }
@@ -462,16 +480,16 @@ void PhaseUnfolder::generate_paths(MutableHandleGraph& component, vg::id_t from)
         // Backward.
         {
             step_handle_t step = _step;
-            handle_t handle = this->xg_index.get_handle_of_step(step);
-            vg::id_t id = this->xg_index.get_id(handle);
-            bool is_rev = this->xg_index.get_is_reverse(handle);
+            handle_t handle = this->path_graph.get_handle_of_step(step);
+            vg::id_t id = this->path_graph.get_id(handle);
+            bool is_rev = this->path_graph.get_is_reverse(handle);
             gbwt::node_type next = gbwt::Node::encode(id, is_rev);
             path_type buffer(1, next);
-            while (this->xg_index.has_previous_step(step)) {
-                step = this->xg_index.get_previous_step(step);
-                handle = this->xg_index.get_handle_of_step(step);
-                id = this->xg_index.get_id(handle);
-                is_rev = this->xg_index.get_is_reverse(handle);
+            while (this->path_graph.has_previous_step(step)) {
+                step = this->path_graph.get_previous_step(step);
+                handle = this->path_graph.get_handle_of_step(step);
+                id = this->path_graph.get_id(handle);
+                is_rev = this->path_graph.get_is_reverse(handle);
                 if (!component.has_node(id)) {
                     break;  // Found a maximal path, no matching node.
                 }
@@ -584,8 +602,8 @@ void PhaseUnfolder::extend_path(const path_type& path) {
             const path_type& reference = this->reference_paths[ref];
             bool found = false;
             for (size_t i = 0; i < reference.size(); i++) {
-                edge_t candidate = make_edge(xg_index, reference[i], to_extend.front());
-                if (this->xg_index.has_edge(candidate.first, candidate.second)) {
+                edge_t candidate = make_edge(path_graph, reference[i], to_extend.front());
+                if (this->path_graph.has_edge(candidate.first, candidate.second)) {
                     to_extend.insert(to_extend.begin(), reference.begin(), reference.begin() + i + 1);
                     from_border = true;
                     found = true;
@@ -604,8 +622,8 @@ void PhaseUnfolder::extend_path(const path_type& path) {
             const path_type& reference = this->reference_paths[ref];
             bool found = false;
             for (size_t i = 0; i < reference.size(); i++) {
-                edge_t candidate = make_edge(xg_index, to_extend.back(), reference[i]);
-                if (this->xg_index.has_edge(candidate.first, candidate.second)) {
+                edge_t candidate = make_edge(path_graph, to_extend.back(), reference[i]);
+                if (this->path_graph.has_edge(candidate.first, candidate.second)) {
                     to_extend.insert(to_extend.end(), reference.begin() + i, reference.end());
                     to_border = true;
                     found = true;
