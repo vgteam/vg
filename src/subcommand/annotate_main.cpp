@@ -1,5 +1,6 @@
 #include "subcommand.hpp"
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include <vg/io/stream.hpp>

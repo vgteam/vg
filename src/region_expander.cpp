@@ -36,7 +36,6 @@ namespace vg {
         interval_subpath.emplace_back(node_id, is_rev);
         return_val[make_pair(node_id, is_rev)] = pair<uint64_t, uint64_t>(gff_record.start - at_pos,
                                                                           node_length);
-        step_handle_t path_back = xg_index->path_back(path);
         at_pos += node_length;
 
         while (at_pos <= gff_record.end) {
