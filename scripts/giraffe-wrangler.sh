@@ -53,7 +53,7 @@ THREAD_COUNT=32
 # TODO: this requires GNU mptemp
 WORK="$(mktemp -d)"
 
-if which perf 2>/dev/null ; then
+if which perf >/dev/null 2>&1 ; then
     # Record profile.
     # Do this first because perf is likely to be misconfigured and we want to fail fast.
     
@@ -111,7 +111,7 @@ BWA_RPS="$(echo "${REAL_READ_COUNT} / (${BWA_DOUBLE_TIME} - ${BWA_TIME}) / ${THR
 
 echo "==== Giraffe Wrangler Report for vg $(vg version -s) ===="
 
-if which perf 2>/dev/null ; then
+if which perf >/dev/null 2>&1 ; then
     # Output perf stuff
     mv "${WORK}/perf.data" ./perf.data
     mv "${WORK}/profile.svg" ./profile.svg
