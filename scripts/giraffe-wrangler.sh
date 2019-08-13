@@ -45,7 +45,7 @@ REAL_FASTQ="${1}"
 shift
 
 # Define the Giraffe parameters
-GIRAFFE_OPTS=(-s75 -u 0.1 -v 25 -w 5 -C 600)
+GIRAFFE_OPTS=(-s75 -u 0.1 -v 1 -w 5 -C 600)
 # And the thread count for everyone
 THREAD_COUNT=32
 
