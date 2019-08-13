@@ -17,6 +17,7 @@
 #include "../mapper.hpp"
 #include "../annotation.hpp"
 #include "../minimizer.hpp"
+#include "../xg.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include <vg/io/protobuf_emitter.hpp>

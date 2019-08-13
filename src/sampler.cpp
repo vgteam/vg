@@ -566,7 +566,7 @@ bool Sampler::is_valid(const Alignment& aln) {
 
 const string NGSSimulator::alphabet = "ACGT";
 
-NGSSimulator::NGSSimulator(PathPositionHandleGraph& xg_index,
+NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                            const string& ngs_fastq_file,
                            bool interleaved_fastq,
                            const vector<string>& source_paths_input,
@@ -579,7 +579,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& xg_index,
                            double error_multiplier,
                            bool retry_on_Ns,
                            size_t seed) :
-      xg_index(xg_index)
+      graph(graph)
     , node_cache(100)
     , edge_cache(100)
     , sub_poly_rate(substition_polymorphism_rate)
@@ -598,8 +598,8 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& xg_index,
     , source_paths(source_paths_input)
     , joint_initial_distr(seed - 1)
 {
-    xg_index.for_each_handle([&](const handle_t& handle) {
-            total_seq_length += xg_index.get_length(handle);
+    graph.for_each_handle([&](const handle_t& handle) {
+            total_seq_length += graph.get_length(handle);
         });
     
     if (!source_paths.empty() && !transcript_expressions.empty()) {
@@ -640,7 +640,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& xg_index,
     else if (!source_paths.empty()) {
         vector<size_t> path_sizes;
         for (const auto& source_path : source_paths) {
-            path_sizes.push_back(xg_index.get_path_length(xg_index.get_path_handle(source_path)));
+            path_sizes.push_back(graph.get_path_length(graph.get_path_handle(source_path)));
             start_pos_samplers.emplace_back(0, path_sizes.back() - 1);
         }
         path_sampler = vg::discrete_distribution<>(path_sizes.begin(), path_sizes.end());
@@ -649,7 +649,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& xg_index,
         vector<double> expression_values;
         for (const pair<string, double>& transcript_expression : transcript_expressions) {
             source_paths.push_back(transcript_expression.first);
-            start_pos_samplers.emplace_back(0, xg_index.get_path_length(xg_index.get_path_handle(transcript_expression.first)) - 1);
+            start_pos_samplers.emplace_back(0, graph.get_path_length(graph.get_path_handle(transcript_expression.first)) - 1);
             expression_values.push_back(transcript_expression.second);
         }
         path_sampler = vg::discrete_distribution<>(expression_values.begin(), expression_values.end());
@@ -773,7 +773,7 @@ Alignment NGSSimulator::sample_read() {
     apply_N_mask(*aln.mutable_sequence(), qual_and_masks.second);
     
     aln.set_name(get_read_name());
-    algorithms::annotate_with_initial_path_positions(xg_index, aln);
+    algorithms::annotate_with_initial_path_positions(graph, aln);
     return aln;
 }
 
@@ -858,7 +858,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         // guard against running off the end of nodes
         // XXX this should not be happening
         // it seems to occur in some graphs due to the behavior of advance_by_distance
-        if (vg::offset(pos) >= xg_index.get_length(xg_index.get_handle(id(pos)))) continue;
+        if (vg::offset(pos) >= graph.get_length(graph.get_handle(id(pos)))) continue;
 
         // align the second end starting at the walked position
         sample_read_internal(aln_pair.second, offset, is_reverse, pos, source_path); 
@@ -873,7 +873,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     
     // unreverse the second read in the pair
     aln_pair.second = reverse_complement_alignment(aln_pair.second, [&](id_t node_id) {
-            return xg_index.get_length(xg_index.get_handle(node_id));
+            return graph.get_length(graph.get_handle(node_id));
     });
     
     // mask out any of the sequence that we sampled to be an 'N'
@@ -883,8 +883,8 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     string name = get_read_name();
     aln_pair.first.set_name(name + "_1");
     aln_pair.second.set_name(name + "_2");
-    algorithms::annotate_with_initial_path_positions(xg_index, aln_pair.first);
-    algorithms::annotate_with_initial_path_positions(xg_index, aln_pair.second);
+    algorithms::annotate_with_initial_path_positions(graph, aln_pair.first);
+    algorithms::annotate_with_initial_path_positions(graph, aln_pair.second);
     return aln_pair;
 }
 
@@ -893,7 +893,7 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
    
     // Make sure we are starting inside the node
     // XXX this is broken
-    auto first_node_length = xg_index.get_length(xg_index.get_handle(id(curr_pos)));
+    auto first_node_length = graph.get_length(graph.get_handle(id(curr_pos)));
     if (vg::offset(curr_pos) >= first_node_length) {
         cerr << "somithgn wrong << " << vg::offset(curr_pos) << " " << first_node_length << endl;
         cerr << vg::id(curr_pos) << ":" << vg::is_rev(curr_pos) << ":" << vg::offset(curr_pos) << endl;
@@ -903,7 +903,7 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
     aln.clear_path();
     aln.clear_sequence();
     
-    char graph_char = xg_index.get_base(xg_index.get_handle(id(curr_pos), is_rev(curr_pos)), vg::offset(curr_pos));
+    char graph_char = graph.get_base(graph.get_handle(id(curr_pos), is_rev(curr_pos)), vg::offset(curr_pos));
     bool hit_end = false;
     
     // walk a path and generate a read sequence at the same time
@@ -1015,7 +1015,7 @@ bool NGSSimulator::advance(size_t& offset, bool& is_reverse, pos_t& pos, char& g
 bool NGSSimulator::advance_on_graph(pos_t& pos, char& graph_char) {
     
     // choose a next position at random
-    map<pos_t, char> next_pos_chars = algorithms::next_pos_chars(xg_index, pos);
+    map<pos_t, char> next_pos_chars = algorithms::next_pos_chars(graph, pos);
     if (next_pos_chars.empty()) {
         return true;
     }
@@ -1033,7 +1033,7 @@ bool NGSSimulator::advance_on_graph(pos_t& pos, char& graph_char) {
 }
 
 bool NGSSimulator::advance_on_path(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char, const string& source_path) {
-    size_t path_length = xg_index.get_path_length(xg_index.get_path_handle(source_path));
+    size_t path_length = graph.get_path_length(graph.get_path_handle(source_path));
     if (is_reverse) {
         // Go left on the path
         if (offset == 0) {
@@ -1051,10 +1051,10 @@ bool NGSSimulator::advance_on_path(size_t& offset, bool& is_reverse, pos_t& pos,
     }
     
     // Set position according to position on path
-    pos = position_at(&xg_index, source_path, offset, is_reverse);
+    pos = position_at(&graph, source_path, offset, is_reverse);
     
     // And look up the character
-    graph_char = xg_index.get_base(xg_index.get_handle(id(pos), is_rev(pos)), vg::offset(pos));
+    graph_char = graph.get_base(graph.get_handle(id(pos), is_rev(pos)), vg::offset(pos));
     
     return false;
 }
@@ -1071,12 +1071,12 @@ bool NGSSimulator::advance_by_distance(size_t& offset, bool& is_reverse, pos_t& 
 
 bool NGSSimulator::advance_on_graph_by_distance(pos_t& pos, size_t distance) {
     int64_t remaining = distance;
-    handle_t handle = xg_index.get_handle(id(pos), is_rev(pos));
-    int64_t node_length = xg_index.get_length(handle) - offset(pos);
+    handle_t handle = graph.get_handle(id(pos), is_rev(pos));
+    int64_t node_length = graph.get_length(handle) - offset(pos);
     while (remaining >= node_length) {
         remaining -= node_length;
         vector<handle_t> nexts;
-        xg_index.follow_edges(handle, false, [&](const handle_t& next) {
+        graph.follow_edges(handle, false, [&](const handle_t& next) {
                 nexts.push_back(next);
             });
         if (nexts.empty()) {
@@ -1084,11 +1084,11 @@ bool NGSSimulator::advance_on_graph_by_distance(pos_t& pos, size_t distance) {
         }
         size_t choice = vg::uniform_int_distribution<size_t>(0, nexts.size() - 1)(prng);
         handle = nexts[choice];
-        node_length = xg_index.get_length(handle);
+        node_length = graph.get_length(handle);
     }
 
-    get_id(pos) = xg_index.get_id(handle);
-    get_is_rev(pos) = xg_index.get_is_reverse(handle);
+    get_id(pos) = graph.get_id(handle);
+    get_is_rev(pos) = graph.get_is_reverse(handle);
     get_offset(pos) += remaining;
     
     return false;
@@ -1097,7 +1097,7 @@ bool NGSSimulator::advance_on_graph_by_distance(pos_t& pos, size_t distance) {
 bool NGSSimulator::advance_on_path_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance,
                                                const string& source_path) {
     
-    size_t path_length = xg_index.get_path_length(xg_index.get_path_handle(source_path));    
+    size_t path_length = graph.get_path_length(graph.get_path_handle(source_path));
     if (is_reverse) {
         // Go left on the path
         if (offset < distance) {
@@ -1115,7 +1115,7 @@ bool NGSSimulator::advance_on_path_by_distance(size_t& offset, bool& is_reverse,
     }
     
     // Set position according to position on path
-    pos = position_at(&xg_index, source_path, offset, is_reverse);
+    pos = position_at(&graph, source_path, offset, is_reverse);
     
     return false;
 }
@@ -1185,7 +1185,7 @@ pos_t NGSSimulator::walk_backwards(const Path& path, size_t distance) {
     }
     
     // Get the length of the node we landed on
-    auto node_length = xg_index.get_length(xg_index.get_handle(mapping_pos.node_id()));
+    auto node_length = graph.get_length(graph.get_handle(mapping_pos.node_id()));
     // The position we pick should not be past the end of the node.
     if (offset >= node_length) {
         cerr << pb2json(path) << endl;
@@ -1356,9 +1356,9 @@ pos_t NGSSimulator::sample_start_graph_pos() {
     assert(start_pos_samplers.size() == 1);
     size_t idx = start_pos_samplers[0](prng);
     
-    id_t id = dynamic_cast<VectorizableHandleGraph&>(xg_index).node_at_vector_offset(idx);
+    id_t id = dynamic_cast<VectorizableHandleGraph&>(graph).node_at_vector_offset(idx);
     bool rev = strand_sampler(prng);
-    size_t node_offset = idx - dynamic_cast<VectorizableHandleGraph&>(xg_index).node_vector_offset(id) - 1;
+    size_t node_offset = idx - dynamic_cast<VectorizableHandleGraph&>(graph).node_vector_offset(id) - 1;
     
     return make_pos_t(id, rev, node_offset);
 }
@@ -1370,7 +1370,7 @@ tuple<size_t, bool, pos_t, string> NGSSimulator::sample_start_path_pos() {
     // The start pos sampler hasd been set up in path space, 0-based
     size_t offset = start_pos_samplers[source_path_idx](prng);
     bool rev = strand_sampler(prng);
-    pos_t pos = position_at(&xg_index, source_path, offset, rev);
+    pos_t pos = position_at(&graph, source_path, offset, rev);
     
     return make_tuple(offset, rev, pos, source_path);
 }

@@ -4,6 +4,7 @@
 
 #include "catch.hpp"
 #include "haplotypes.hpp"
+#include "xg.hpp"
 
 #include <numeric>
 
@@ -96,11 +97,13 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   json2pb(SNP_proto_graph, SNP_graph_json.c_str(), SNP_graph_json.size());
   // Build the xg index
   vg::XG SNP_xg_index(SNP_proto_graph);
+  vg::path_handle_t SNP_ref_path_handle = SNP_xg_index.get_path_handle("reference");
   
   vg::Graph del_proto_graph;
   json2pb(del_proto_graph, del_graph_json.c_str(), del_graph_json.size());
   // Build the xg index
   vg::XG del_xg_index(del_proto_graph);
+  vg::path_handle_t del_ref_path_handle = del_xg_index.get_path_handle("reference");
   
   // NEGATIVE SNVs
   
@@ -158,11 +161,13 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   json2pb(long_proto_graph, long_graph_json.c_str(), long_graph_json.size());
   // Build the xg index
   vg::XG long_xg_index(long_proto_graph);
+  vg::path_handle_t long_ref_path_handle = long_xg_index.get_path_handle("reference");
   
   vg::Graph double_proto_graph;
   json2pb(double_proto_graph, double_graph_json.c_str(), double_graph_json.size());
   // Build the xg index
   vg::XG double_xg_index(double_proto_graph);
+  vg::path_handle_t double_ref_path_handle = double_xg_index.get_path_handle("reference");
 
   string matching_test_file = "matching_test.slls";
   ofstream slls_out;
@@ -171,19 +176,19 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   slls_out.close();  
   ifstream slls_in;
   slls_in.open(matching_test_file, ios::in);
-  haplo::linear_haplo_structure SNP_lin_DP(slls_in, -3, -2, SNP_xg_index, 1);
+  haplo::linear_haplo_structure SNP_lin_DP(slls_in, -3, -2, SNP_xg_index, SNP_ref_path_handle);
   slls_in.close();
   slls_in.open(matching_test_file, ios::in);
-  haplo::linear_haplo_structure del_lin_DP(slls_in, -3, -2, del_xg_index, 1);
+  haplo::linear_haplo_structure del_lin_DP(slls_in, -3, -2, del_xg_index, del_ref_path_handle);
   slls_in.close();
   slls_in.open(matching_test_file, ios::in);
-  haplo::linear_haplo_structure long_lin_DP(slls_in, -3, -2, long_xg_index, 1);
+  haplo::linear_haplo_structure long_lin_DP(slls_in, -3, -2, long_xg_index, long_ref_path_handle);
   slls_in.close();
   slls_in.open(matching_test_file, ios::in);
-  haplo::linear_haplo_structure double_lin_DP(slls_in, -3, -2, double_xg_index, 1);
+  haplo::linear_haplo_structure double_lin_DP(slls_in, -3, -2, double_xg_index, double_ref_path_handle);
   slls_in.close();
   slls_in.open(matching_test_file, ios::in);
-  haplo::linear_haplo_structure match_lin_DP(slls_in, -3, -2, SNP_xg_index, 1);
+  haplo::linear_haplo_structure match_lin_DP(slls_in, -3, -2, SNP_xg_index, SNP_ref_path_handle);
   slls_in.close();
   remove(matching_test_file.c_str());
   
@@ -194,7 +199,7 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   nslls_out.close();  
   ifstream nslls_in;
   nslls_in.open(nonmatching_test_file, ios::in);
-  haplo::linear_haplo_structure nonmatch_lin_DP(nslls_in, -3, -2, SNP_xg_index, 1);
+  haplo::linear_haplo_structure nonmatch_lin_DP(nslls_in, -3, -2, SNP_xg_index, SNP_ref_path_handle);
   nslls_in.close();
   remove(nonmatching_test_file.c_str());
 
