@@ -8,6 +8,7 @@ var searchData=
   ['id_5fto_5findex',['id_to_index',['../classvg_1_1XdropAligner.html#a5f85612e0c2b4ce232f8459ab106da74',1,'vg::XdropAligner']]],
   ['id_5fto_5fname',['id_to_name',['../classvg_1_1Paths.html#a75a67b0c836eb9a21ae0eee3a213d62c',1,'vg::Paths']]],
   ['id_5fto_5fnode_5findex',['id_to_node_index',['../structvg_1_1IndexedVG_1_1CacheEntry.html#aa83d17938b7e420d9c592707721eed35',1,'vg::IndexedVG::CacheEntry']]],
+  ['id_5fto_5frank',['id_to_rank',['../classVectorizer.html#aae03497d2de713a68c6d453d32f9cf4a',1,'Vectorizer']]],
   ['identity',['identity',['../structvg_1_1Alignment.html#a06341663199b9893a9f2b288a768cfe3',1,'vg::Alignment']]],
   ['identity_5fweight',['identity_weight',['../classvg_1_1Mapper.html#aabc9f9048a56b9b52fdf8d5271f7f60d',1,'vg::Mapper']]],
   ['ids',['ids',['../classvg_1_1XGPath.html#a453ab7906e62092fad678f9fb6142c18',1,'vg::XGPath']]],

@@ -439,5 +439,5 @@ var searchData=
   ['my_5fpath_5fposition_5fgraph',['my_path_position_graph',['../classvg_1_1Filter.html#af17db75bb83c6d2ad00b813a4812d30d',1,'vg::Filter']]],
   ['my_5fvectors',['my_vectors',['../classVectorizer.html#af370e810d055623deaa0bfaac120fe8d',1,'Vectorizer']]],
   ['my_5fvg',['my_vg',['../classvg_1_1Filter.html#ac849cd8534ba9b7eb7daa8485d6c9d45',1,'vg::Filter']]],
-  ['my_5fxg',['my_xg',['../classVectorizer.html#a76d387717ac2ad51a188b1ffbc9118f3',1,'Vectorizer']]]
+  ['my_5fxg',['my_xg',['../classVectorizer.html#adebb6c75ae3b7c1199143ab2f166d284',1,'Vectorizer']]]
 ];

@@ -96,8 +96,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a5e9bd2bf950b49e156b31af974bec0a0"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classVectorizer.html#a5e9bd2bf950b49e156b31af974bec0a0">Vectorizer</a> (<a class="el" href="classvg_1_1XG.html">XG</a> *x)</td></tr>
-<tr class="separator:a5e9bd2bf950b49e156b31af974bec0a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac6f2b56806bc2e8444492cb3d32f42be"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classVectorizer.html#ac6f2b56806bc2e8444492cb3d32f42be">Vectorizer</a> (const <a class="el" href="namespacevg.html#a2481be7fa8c46933b9b99108e4c797b3">PathPositionHandleGraph</a> *x)</td></tr>
+<tr class="separator:ac6f2b56806bc2e8444492cb3d32f42be"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9e7ee4e6f8a517a85b6e9ed785958104"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classVectorizer.html#a9e7ee4e6f8a517a85b6e9ed785958104">~Vectorizer</a> ()</td></tr>
 <tr class="separator:a9e7ee4e6f8a517a85b6e9ed785958104"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a88203fab4049c471c963135c4c52ce03"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classVectorizer.html#a88203fab4049c471c963135c4c52ce03">add_bv</a> (bit_vector v)</td></tr>
@@ -125,8 +125,10 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
-<tr class="memitem:a76d387717ac2ad51a188b1ffbc9118f3"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1XG.html">XG</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classVectorizer.html#a76d387717ac2ad51a188b1ffbc9118f3">my_xg</a></td></tr>
-<tr class="separator:a76d387717ac2ad51a188b1ffbc9118f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adebb6c75ae3b7c1199143ab2f166d284"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classVectorizer.html#adebb6c75ae3b7c1199143ab2f166d284">my_xg</a></td></tr>
+<tr class="separator:adebb6c75ae3b7c1199143ab2f166d284"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aae03497d2de713a68c6d453d32f9cf4a"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">vg::id_t</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classVectorizer.html#aae03497d2de713a68c6d453d32f9cf4a">id_to_rank</a></td></tr>
+<tr class="separator:aae03497d2de713a68c6d453d32f9cf4a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af370e810d055623deaa0bfaac120fe8d"><td class="memItemLeft" align="right" valign="top">vector&lt; bit_vector &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classVectorizer.html#af370e810d055623deaa0bfaac120fe8d">my_vectors</a></td></tr>
 <tr class="separator:af370e810d055623deaa0bfaac120fe8d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5702f38d3e6d29866e2135d29f7496fd"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classVectorizer.html#a5702f38d3e6d29866e2135d29f7496fd">my_names</a></td></tr>
@@ -139,14 +141,14 @@ Private Attributes</h2></td></tr>
 <tr class="separator:abc8fdb5dcd0ccc39c2b042633ef6820e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="a5e9bd2bf950b49e156b31af974bec0a0"></a>
+<a class="anchor" id="ac6f2b56806bc2e8444492cb3d32f42be"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">Vectorizer::Vectorizer </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1XG.html">XG</a> *&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a2481be7fa8c46933b9b99108e4c797b3">PathPositionHandleGraph</a> *&#160;</td>
           <td class="paramname"><em>x</em></td><td>)</td>
           <td></td>
         </tr>
@@ -388,6 +390,26 @@ template&lt;typename T &gt; </div>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a class="anchor" id="aae03497d2de713a68c6d453d32f9cf4a"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_map&lt;<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">vg::id_t</a>, size_t&gt; Vectorizer::id_to_rank</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a class="anchor" id="a5702f38d3e6d29866e2135d29f7496fd"></a>
 <div class="memitem">
 <div class="memproto">
@@ -428,7 +450,7 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a76d387717ac2ad51a188b1ffbc9118f3"></a>
+<a class="anchor" id="adebb6c75ae3b7c1199143ab2f166d284"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -436,7 +458,7 @@ template&lt;typename T &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classvg_1_1XG.html">XG</a>* Vectorizer::my_xg</td>
+          <td class="memname">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a>* Vectorizer::my_xg</td>
         </tr>
       </table>
   </td>

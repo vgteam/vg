@@ -47,7 +47,7 @@ var searchData=
   ['vectorizablehandlegraph',['VectorizableHandleGraph',['../namespacevg.html#a449aa64ac606119e59f71cecb8a3b218',1,'vg']]],
   ['vectorizablehandlegraph',['VectorizableHandleGraph',['../classhandlegraph_1_1VectorizableHandleGraph.html',1,'handlegraph']]],
   ['vectorize_5fmain_2ecpp',['vectorize_main.cpp',['../vectorize__main_8cpp.html',1,'']]],
-  ['vectorizer',['Vectorizer',['../classVectorizer.html',1,'Vectorizer'],['../classVectorizer.html#a5e9bd2bf950b49e156b31af974bec0a0',1,'Vectorizer::Vectorizer()']]],
+  ['vectorizer',['Vectorizer',['../classVectorizer.html',1,'Vectorizer'],['../classVectorizer.html#ac6f2b56806bc2e8444492cb3d32f42be',1,'Vectorizer::Vectorizer()']]],
   ['vectorizer_2ecpp',['vectorizer.cpp',['../vectorizer_8cpp.html',1,'']]],
   ['vectorizer_2ehpp',['vectorizer.hpp',['../vectorizer_8hpp.html',1,'']]],
   ['verbose',['verbose',['../classvg_1_1NestedTraversalFinder.html#a67980934b7315e90dcd63fa046b465b7',1,'vg::NestedTraversalFinder::verbose()'],['../classvg_1_1ReadFilter.html#a2ad1a1b72ee0b450fe79340451893cfa',1,'vg::ReadFilter::verbose()'],['../classvg_1_1SupportCaller.html#a16284074baabe10886ae5e33b2d0e165',1,'vg::SupportCaller::verbose()'],['../classvg_1_1RepresentativeTraversalFinder.html#a6af3519805d1115b006ad8b3bf2d3a3e',1,'vg::RepresentativeTraversalFinder::verbose()']]],
