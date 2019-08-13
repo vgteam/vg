@@ -11,6 +11,7 @@
 #include <vg/io/vpkg.hpp>
 #include "../multipath_mapper.hpp"
 #include "../path.hpp"
+#include "../xg.hpp"
 #include "../watchdog.hpp"
 
 //#define record_read_run_times
@@ -917,10 +918,8 @@ int main_mpmap(int argc, char** argv) {
         // TODO: we only support a single ref contig, and we use these
         // hardcoded mutation and recombination likelihoods
         
-        // What is the rank of our one and only reference path
-        auto xg_ref_rank = xg_index->path_rank(sublinearLS_ref_path);
-        
-        sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, *xg_index.get(), xg_ref_rank);
+        sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, *xg_index.get(),
+                                                 xg_index->get_path_handle(sublinearLS_ref_path));
         haplo_score_provider = new haplo::LinearScoreProvider(*sublinearLS);
     }
     // TODO: Allow using haplo::XGScoreProvider?

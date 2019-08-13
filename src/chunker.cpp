@@ -18,14 +18,14 @@ PathChunker::~PathChunker() {
 
 }
 
-void PathChunker::extract_subgraph(const Region& region, int context, int length,
-                                   bool forward_only, VG& subgraph, Region& out_region) {
+void PathChunker::extract_subgraph(const Region& region, int context, int length, bool forward_only,
+                                   VG& subgraph, Region& out_region) {
 
     // extract our path range into the graph
     Graph g;
     xg->for_path_range(region.seq, region.start, region.end, [&](int64_t id, bool) {
-            *g.add_node() = xg->node(id);
-        });
+        *g.add_node() = xg->node(id);
+    });
     
     // expand the context and get path information
     // if forward_only true, then we only go forward.
@@ -33,7 +33,7 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     if (length) {
         xg->expand_context(g, context, true, false, true, !forward_only);
     }
-        
+    
     // build the vg of the subgraph
     subgraph.extend(g);
     subgraph.remove_orphan_edges();

@@ -63,7 +63,7 @@ namespace vg {
         // Interface
         ////////////////////////////////////////////////////////////////////////
     
-        MultipathMapper(PathPositionHandleGraph* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
+        MultipathMapper(PathPositionHandleGraph* graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                         haplo::ScoreProvider* haplo_score_provider = nullptr, SnarlManager* snarl_manager = nullptr,
                         MinimumDistanceIndex* distance_index = nullptr);
         ~MultipathMapper();
