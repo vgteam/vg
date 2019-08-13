@@ -32,7 +32,7 @@ var searchData=
   ['ref_5fcall',['ref_call',['../classvg_1_1PileupAugmenter.html#aa7686c13a2d4054016cebfa912664baf',1,'vg::PileupAugmenter']]],
   ['ref_5fposition',['ref_position',['../structhaplo_1_1linear__haplo__structure_1_1SNVvector.html#a3bb99c89f3d0186e1291f0d16e004dcd',1,'haplo::linear_haplo_structure::SNVvector']]],
   ['refactor_5fsplit_5falignment',['refactor_split_alignment',['../classvg_1_1Filter.html#af5c53d7fa62dff67d24ff0daa4d5f925',1,'vg::Filter']]],
-  ['regionexpander',['RegionExpander',['../classvg_1_1RegionExpander.html#ab599f94c7b6603f4e840f60d7dc76af6',1,'vg::RegionExpander']]],
+  ['regionexpander',['RegionExpander',['../classvg_1_1RegionExpander.html#a42c0f501da7fabf0045f5c434b55f705',1,'vg::RegionExpander']]],
   ['register_5fbare_5floader',['register_bare_loader',['../classvg_1_1io_1_1Registry.html#adf16ce66a463a1d9a5165d516231924e',1,'vg::io::Registry']]],
   ['register_5fbare_5floader_5fsaver',['register_bare_loader_saver',['../classvg_1_1io_1_1Registry.html#aab501bb8db46d45e8b1946da37f0b382',1,'vg::io::Registry']]],
   ['register_5fbarrier',['register_barrier',['../classvg_1_1io_1_1StreamMultiplexer.html#acb05844bf345313fc1710db7f3610ac5',1,'vg::io::StreamMultiplexer']]],

@@ -9,7 +9,7 @@ var searchData=
   ['likelihoods',['likelihoods',['../classvg_1_1VG.html#ada5821862279a350885f5368a54a5cba',1,'vg::VG']]],
   ['likely_5fmate_5fpositions',['likely_mate_positions',['../classvg_1_1Mapper.html#a77e11337e9d2aed7a7ffdbb01e1ddd01',1,'vg::Mapper']]],
   ['likely_5fmismapping',['likely_mismapping',['../classvg_1_1MultipathMapper.html#a8a431478a23ced7402ef5bacc5414d21',1,'vg::MultipathMapper']]],
-  ['linear_5fhaplo_5fstructure',['linear_haplo_structure',['../structhaplo_1_1linear__haplo__structure.html#a290f0f790f12fd30ecffe5eba5aa7280',1,'haplo::linear_haplo_structure']]],
+  ['linear_5fhaplo_5fstructure',['linear_haplo_structure',['../structhaplo_1_1linear__haplo__structure.html#abde17ce1452b109275975bf0e4f2d51c',1,'haplo::linear_haplo_structure']]],
   ['linearscoreprovider',['LinearScoreProvider',['../classhaplo_1_1LinearScoreProvider.html#a096c19ba7e847bdeb344e79d487ba675',1,'haplo::LinearScoreProvider']]],
   ['list_5fhaplotypes',['list_haplotypes',['../namespacevg.html#a49c06960d6bc461b281de34fe7604dc7',1,'vg']]],
   ['ln_5fto_5flog10',['ln_to_log10',['../namespacevg.html#a664ec3301c226596ad971b97a8e1fa65',1,'vg']]],

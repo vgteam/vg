@@ -1173,6 +1173,10 @@ size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el
 <tr class="memitem:a89c2bb28b708cb4acf67eabfaa4b0168"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a89c2bb28b708cb4acf67eabfaa4b0168">flip_doubly_reversed_edges</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;graph)</td></tr>
 <tr class="memdesc:a89c2bb28b708cb4acf67eabfaa4b0168"><td class="mdescLeft">&#160;</td><td class="mdescRight">clean up doubly-reversed edges  <a href="#a89c2bb28b708cb4acf67eabfaa4b0168">More...</a><br/></td></tr>
 <tr class="separator:a89c2bb28b708cb4acf67eabfaa4b0168"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae968813905d72a9d49a1822b390cbe5d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae968813905d72a9d49a1822b390cbe5d">from_handle_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;from, <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;to)</td></tr>
+<tr class="separator:ae968813905d72a9d49a1822b390cbe5d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0eaa4d69a029a84c1d3028745c84bc4c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0eaa4d69a029a84c1d3028745c84bc4c">from_path_handle_graph</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;from, <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;to)</td></tr>
+<tr class="separator:a0eaa4d69a029a84c1d3028745c84bc4c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2d9774c4df98285526a427ba54e970ba"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2d9774c4df98285526a427ba54e970ba">trace_haplotypes_and_paths</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;source, const gbwt::GBWT &amp;haplotype_database, <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">vg::id_t</a> start_node, int extend_distance, <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;out_graph, map&lt; string, int &gt; &amp;out_thread_frequencies, bool expand_graph)</td></tr>
 <tr class="separator:a2d9774c4df98285526a427ba54e970ba"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae2d79bdac899f70214959ef92dbbad2f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae2d79bdac899f70214959ef92dbbad2f">output_haplotype_counts</a> (ostream &amp;annotation_ostream, vector&lt; pair&lt; <a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a>, int &gt;&gt; &amp;haplotype_list)</td></tr>
@@ -6469,6 +6473,32 @@ template&lt;class RandomIt &gt; </div>
 
 </div>
 </div>
+<a class="anchor" id="ae968813905d72a9d49a1822b390cbe5d"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::from_handle_graph </td>
+          <td>(</td>
+          <td class="paramtype">const HandleGraph &amp;&#160;</td>
+          <td class="paramname"><em>from</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">Graph &amp;&#160;</td>
+          <td class="paramname"><em>to</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a class="anchor" id="a83d1f079508a3ee8a2705773109a5a8e"></a>
 <div class="memitem">
 <div class="memproto">
@@ -6526,6 +6556,32 @@ template&lt;class RandomIt &gt; </div>
           <td></td>
           <td class="paramtype">const Position &amp;&#160;</td>
           <td class="paramname"><em>pos</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a0eaa4d69a029a84c1d3028745c84bc4c"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::from_path_handle_graph </td>
+          <td>(</td>
+          <td class="paramtype">const PathHandleGraph &amp;&#160;</td>
+          <td class="paramname"><em>from</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">Graph &amp;&#160;</td>
+          <td class="paramname"><em>to</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
