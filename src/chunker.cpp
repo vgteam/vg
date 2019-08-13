@@ -19,7 +19,6 @@ PathChunker::~PathChunker() {
 void PathChunker::extract_subgraph(const Region& region, int context, int length, bool forward_only,
                                    VG& subgraph, Region& out_region) {
     // extract our path range into the graph
-    Graph g;
     path_handle_t path_handle = graph->get_path_handle(region.seq);
     step_handle_t start_step = graph->get_step_at_position(path_handle, region.start);
     handle_t start_handle = graph->get_handle_of_step(start_step);
@@ -29,24 +28,27 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     step_handle_t end_plus_one_step = graph->has_next_step(end_step) ? graph->get_next_step(end_step) : graph->path_end(path_handle) ;
     for (step_handle_t step = start_step; step != end_plus_one_step; step = graph->get_next_step(step)) {
         handle_t step_handle = graph->get_handle_of_step(step);
-        Node node;
-        node.set_id(graph->get_id(step_handle));
-        node.set_sequence(graph->get_sequence(step_handle));
-        *g.add_node() = node;
+        if (graph->get_is_reverse(step_handle)) {
+            step_handle = graph->flip(step_handle);
+        }
+        if (!subgraph.has_node(graph->get_id(step_handle))) {
+            subgraph.create_handle(graph->get_sequence(step_handle), graph->get_id(step_handle));
+        }
     };
-    VG vg_g(g);
-
-    
     // expand the context and get path information
     // if forward_only true, then we only go forward.
-    algorithms::expand_subgraph_by_steps(*graph, vg_g, context, forward_only);
-    if (length) {
-        algorithms::expand_subgraph_by_length(*graph, vg_g, context, forward_only);
+    if (context > 0) {
+        algorithms::expand_subgraph_by_steps(*graph, subgraph, context, forward_only);
     }
-    algorithms::add_subpaths_to_subgraph(*graph, vg_g);
-
+    if (length > 0) {
+        algorithms::expand_subgraph_by_length(*graph, subgraph, context, forward_only);
+    }
+    else if (context == 0 && length == 0) {
+        algorithms::add_connecting_edges_to_subgraph(*graph, subgraph);
+    }
+    algorithms::add_subpaths_to_subgraph(*graph, subgraph);
+        
     // build the vg of the subgraph
-    subgraph.extend(vg_g);
     subgraph.remove_orphan_edges();
 
     // get our range endpoints before context expansion
@@ -57,11 +59,12 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     int64_t input_end_node = graph->get_id(end_handle);
 
     // replaces old xg position_in_path() to check node counts in path
-    function<vector<step_handle_t>(handle_t)> path_steps_of_handle = [&] (handle_t handle) {
-        vector<step_handle_t> node_steps = graph->steps_of_handle(handle);
+    function<vector<step_handle_t>(const PathHandleGraph&, handle_t, path_handle_t)> path_steps_of_handle =
+        [] (const PathHandleGraph& graph, handle_t handle, path_handle_t path_handle) {
+        vector<step_handle_t> node_steps = graph.steps_of_handle(handle);
         vector<step_handle_t> node_path_steps;
         for (auto step : node_steps) {
-            if (graph->get_path_handle_of_step(step) == path_handle) {
+            if (graph.get_path_handle_of_step(step) == path_handle) {
                 node_path_steps.push_back(step);
             }
         }
@@ -71,8 +74,8 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     // we have no direct way of getting our steps out of the subgraph, so we
     // go through node ids.  the problem is that cycles can introduce
     // ambiguity.  we check for that here (only to punt on it later)
-    vector<step_handle_t> start_node_path_steps = path_steps_of_handle(start_handle);
-    vector<step_handle_t> end_node_path_steps = path_steps_of_handle(end_handle);
+    vector<step_handle_t> start_node_path_steps = path_steps_of_handle(*graph, start_handle, path_handle);
+    vector<step_handle_t> end_node_path_steps = path_steps_of_handle(*graph, end_handle, path_handle);
     bool end_points_on_cycle = start_node_path_steps.size() > 1 || end_node_path_steps.size() > 1;
     
     // keep track of the edges in our original path
@@ -106,7 +109,7 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
                                                             prev_it->is_reverse());
                 handle_t cur_handle = subgraph.get_handle(cur_it->node_id(),
                                                           cur_it->is_reverse());
-                edge_t edge = subgraph.edge_handle(prev_handle, cur_handle);
+                edge_t edge = subgraph.edge_handle(cur_handle, prev_handle);
                 if (!path_edge_set.count(make_pair(make_pair(subgraph.get_id(edge.first), subgraph.get_is_reverse(edge.first)),
                                                    make_pair(subgraph.get_id(edge.second), subgraph.get_is_reverse(edge.second))))) {
                     break;
@@ -154,31 +157,38 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
 
     // Cut our graph so that our reference path end points are graph tips.  This will let the
     // snarl finder use the path to find telomeres.
+    path_handle_t sg_path_handle = subgraph.get_path_handle(region.seq);
     Node* start_node = subgraph.get_node(mappings.begin()->node_id());
-    if (rewrite_paths && path_steps_of_handle(subgraph.get_handle(start_node->id())).size() == 1) {
+    auto sg_start_steps = path_steps_of_handle(subgraph, subgraph.get_handle(start_node->id()), sg_path_handle); 
+    if (rewrite_paths && sg_start_steps.size() == 1) {
         if (!mappings.begin()->is_reverse() && subgraph.start_degree(start_node) != 0) {
             for (auto edge : subgraph.edges_to(start_node)) {
+                assert(false);
                 subgraph.destroy_edge(edge);
             }
         } else if (mappings.begin()->is_reverse() && subgraph.end_degree(start_node) != 0) {
             for (auto edge : subgraph.edges_from(start_node)) {
+                assert(false);
                 subgraph.destroy_edge(edge);
             }
         }
     }
     Node* end_node = subgraph.get_node(mappings.rbegin()->node_id());
-    if (rewrite_paths && path_steps_of_handle(subgraph.get_handle(end_node->id())).size() == 1) {
+    auto sg_end_steps = path_steps_of_handle(subgraph, subgraph.get_handle(end_node->id()), sg_path_handle); 
+    if (rewrite_paths && sg_end_steps.size() == 1) {
         if (!mappings.rbegin()->is_reverse() && subgraph.end_degree(end_node) != 0) {
             for (auto edge : subgraph.edges_from(end_node)) {
+                assert(false);
                 subgraph.destroy_edge(edge);
             }
         } else if (mappings.rbegin()->is_reverse() && subgraph.start_degree(end_node) != 0) {
             for (auto edge : subgraph.edges_to(end_node)) {
+                assert(false);
                 subgraph.destroy_edge(edge);
             }
         }
     }
-    
+
     // Sync our updated paths lists back into the Graph protobuf
     if (rewrite_paths) {
         subgraph.paths.rebuild_node_mapping();
@@ -237,15 +247,14 @@ set<pair<pair<id_t, bool>, pair<id_t, bool>>> PathChunker::get_path_edge_index(s
         edge_t edge = graph->edge_handle(graph->get_handle_of_step(step), graph->get_handle_of_step(next));
         path_edges.insert(make_pair(make_pair(graph->get_id(edge.first), graph->get_is_reverse(edge.first)),
                                     make_pair(graph->get_id(edge.second), graph->get_is_reverse(edge.second))));
+
     };
 
     // edges from left context
     int i = 0;
     for (step_handle_t step = start_step; graph->has_previous_step(step) && i <= context;
          step = graph->get_previous_step(step), ++i) {
-        if (graph->has_next_step(step)) {
-            add_edge(step);
-        }
+        add_edge(graph->get_previous_step(step));
     }
 
     // edges from range
