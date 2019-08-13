@@ -564,7 +564,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
 
     size_t winning_index;
-    double mapq = get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index);
+    // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
+    double mapq = (mappings.empty() || mappings.front().path().mapping_size() == 0) ? 0 : 
+        get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index);
     
 #ifdef debug
     cerr << "MAPQ is " << mapq << endl;
