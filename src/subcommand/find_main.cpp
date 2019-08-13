@@ -130,7 +130,6 @@ int main_find(int argc, char** argv) {
                 {"path", required_argument, 0, 'p'},
                 {"path-dag", required_argument, 0, 'E'},
                 {"position-in", required_argument, 0, 'P'},
-                {"rank-in", required_argument, 0, 'R'},
                 {"node-range", required_argument, 0, 'r'},
                 {"sorted-gam", required_argument, 0, 'l'},
                 {"alignments", no_argument, 0, 'a'},
@@ -142,13 +141,12 @@ int main_find(int argc, char** argv) {
                 {"max-mem", required_argument, 0, 'Y'},
                 {"min-mem", required_argument, 0, 'Z'},
                 {"paths-named", required_argument, 0, 'Q'},
-                {"approx-pos", required_argument, 0, 'X'},
                 {"list-paths", no_argument, 0, 'I'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:R:B:fDG:N:A:Y:Z:X:IQ:E:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:B:fDG:N:A:Y:Z:IQ:E:",
                          long_options, &option_index);
 
         // Detect the end of the options.
