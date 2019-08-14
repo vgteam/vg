@@ -2,31 +2,35 @@
 #include "vg.hpp"
 #include "haplotype_extracter.hpp"
 #include "json2pb.h"
-#include "xg.hpp"
+#include "graph.hpp"
 
 namespace vg {
 
 using namespace std;
 
-void trace_haplotypes_and_paths(vg::XG& index, const gbwt::GBWT* haplotype_database,
+void trace_haplotypes_and_paths(const PathHandleGraph& source, const gbwt::GBWT& haplotype_database,
                                 vg::id_t start_node, int extend_distance,
                                 Graph& out_graph,
                                 map<string, int>& out_thread_frequencies,
                                 bool expand_graph) {
   // get our haplotypes
-  XG::ThreadMapping n = {start_node, false};
-  vector<pair<thread_t,int> > haplotypes = haplotype_database ?
-    list_haplotypes(index, *haplotype_database, n, extend_distance) :
-    list_haplotypes(index, n, extend_distance);
+  gbwt::node_type n = gbwt::Node::encode(start_node, false);
+  vector<pair<thread_t,int> > haplotypes = list_haplotypes(source, haplotype_database, n, extend_distance);
 
 #ifdef debug
-  cerr << "Haplotype database " << haplotype_database << " produced " << haplotypes.size() << " haplotypes" << endl;
+  cerr << "Haplotype database " << &haplotype_database << " produced " << haplotypes.size() << " haplotypes" << endl;
 #endif
 
   if (expand_graph) {
-    // get our subgraph and "regular" paths by expanding forward
-    *out_graph.add_node() = index.node(start_node);
-    index.expand_context(out_graph, extend_distance, true, true, true, false);
+      // get our subgraph and "regular" paths by expanding forward
+      handle_t handle = source.get_handle(start_node);
+      bdsg::HashGraph extractor;
+      extractor.create_handle(source.get_sequence(handle), source.get_id(handle));
+      // TODO: is expanding only forward really the right behavior here?
+      algorithms::expand_context_with_paths(&source, &extractor, extend_distance, true, true, false);
+      
+      // Convert to Protobuf I guess
+      from_path_handle_graph(extractor, out_graph);
   }
 
   // add a frequency of 1 for each normal path
@@ -36,7 +40,7 @@ void trace_haplotypes_and_paths(vg::XG& index, const gbwt::GBWT* haplotype_datab
 
   // add our haplotypes to the subgraph, naming ith haplotype "thread_i"
   for (int i = 0; i < haplotypes.size(); ++i) {
-    Path p = path_from_thread_t(haplotypes[i].first, index);
+    Path p = path_from_thread_t(haplotypes[i].first, source);
     p.set_name("thread_" + to_string(i));
     out_thread_frequencies[p.name()] = haplotypes[i].second;
     *(out_graph.add_path()) = move(p);
@@ -45,13 +49,13 @@ void trace_haplotypes_and_paths(vg::XG& index, const gbwt::GBWT* haplotype_datab
 
 
 void output_haplotype_counts(ostream& annotation_ostream,
-            vector<pair<thread_t,int>>& haplotype_list, vg::XG& index) {
+            vector<pair<thread_t,int>>& haplotype_list) {
   for(int i = 0; i < haplotype_list.size(); i++) {
     annotation_ostream << i << "\t" << haplotype_list[i].second << endl;
   }
 }
 
-Graph output_graph_with_embedded_paths(vector<pair<thread_t,int>>& haplotype_list, vg::XG& index) {
+Graph output_graph_with_embedded_paths(vector<pair<thread_t,int>>& haplotype_list, const HandleGraph& source) {
   Graph g;
   set<int64_t> nodes;
   set<pair<int,int> > edges;
@@ -59,9 +63,9 @@ Graph output_graph_with_embedded_paths(vector<pair<thread_t,int>>& haplotype_lis
     add_thread_nodes_to_set(haplotype_list[i].first, nodes);
     add_thread_edges_to_set(haplotype_list[i].first, edges);
   }
-  construct_graph_from_nodes_and_edges(g, index, nodes, edges);
+  construct_graph_from_nodes_and_edges(g, source, nodes, edges);
   for(int i = 0; i < haplotype_list.size(); i++) {
-    Path p = path_from_thread_t(haplotype_list[i].first, index);
+    Path p = path_from_thread_t(haplotype_list[i].first, source);
     p.set_name(to_string(i));
     *(g.add_path()) = move(p);
   }
@@ -69,8 +73,8 @@ Graph output_graph_with_embedded_paths(vector<pair<thread_t,int>>& haplotype_lis
 }
  
 void output_graph_with_embedded_paths(ostream& subgraph_ostream,
-            vector<pair<thread_t,int>>& haplotype_list, vg::XG& index, bool json) {
-  Graph g = output_graph_with_embedded_paths(haplotype_list, index);
+            vector<pair<thread_t,int>>& haplotype_list, const HandleGraph& source, bool json) {
+  Graph g = output_graph_with_embedded_paths(haplotype_list, source);
 
   if (json) {
     subgraph_ostream << pb2json(g);
@@ -81,18 +85,21 @@ void output_graph_with_embedded_paths(ostream& subgraph_ostream,
   }
 }
 
-void thread_to_graph_spanned(thread_t& t, Graph& g, vg::XG& index) {
+void thread_to_graph_spanned(thread_t& t, Graph& g, const HandleGraph& source) {
   set<int64_t> nodes;
   set<pair<int,int> > edges;
-  nodes.insert(t[0].node_id);
+  nodes.insert(gbwt::Node::id(t[0]));
   for(int i = 1; i < t.size(); i++) {
-    nodes.insert(t[i].node_id);
-    edges.insert(make_pair(make_side(t[i-1].node_id,t[i-1].is_reverse),
-              make_side(t[i].node_id,t[i].is_reverse)));
-	}
- 	for (auto& n : nodes) {
-    *g.add_node() = index.node(n);
- 	}
+    nodes.insert(gbwt::Node::id(t[i]));
+    edges.insert(make_pair(make_side(gbwt::Node::id(t[i-1]),gbwt::Node::is_reverse(t[i-1])),
+              make_side(gbwt::Node::id(t[i]),gbwt::Node::is_reverse(t[i]))));
+  }
+  for (auto& n : nodes) {
+    handle_t handle = source.get_handle(n);
+    Node* node = g.add_node();
+    node->set_sequence(source.get_sequence(handle));
+    node->set_id(n);
+  }
   for (auto& e : edges) {
     Edge edge;
     edge.set_from(side_id(e.first));
@@ -105,22 +112,25 @@ void thread_to_graph_spanned(thread_t& t, Graph& g, vg::XG& index) {
 
 void add_thread_nodes_to_set(thread_t& t, set<int64_t>& nodes) {
   for(int i = 0; i < t.size(); i++) {
-    nodes.insert(t[i].node_id);
+    nodes.insert(gbwt::Node::id(t[i]));
   }
 }
 
 void add_thread_edges_to_set(thread_t& t, set<pair<int,int> >& edges) {
   for(int i = 1; i < t.size(); i++) {
-    edges.insert(make_pair(make_side(t[i-1].node_id,t[i-1].is_reverse),
-              make_side(t[i].node_id,t[i].is_reverse)));
+    edges.insert(make_pair(make_side(gbwt::Node::id(t[i-1]),gbwt::Node::is_reverse(t[i-1])),
+              make_side(gbwt::Node::id(t[i]),gbwt::Node::is_reverse(t[i]))));
   }
 }
 
-void construct_graph_from_nodes_and_edges(Graph& g, vg::XG& index,
+void construct_graph_from_nodes_and_edges(Graph& g, const HandleGraph& source,
             set<int64_t>& nodes, set<pair<int,int> >& edges) {
   for (auto& n : nodes) {
-	   *g.add_node() = index.node(n);
- 	}
+    handle_t handle = source.get_handle(n);
+    Node* node = g.add_node();
+    node->set_sequence(source.get_sequence(handle));
+    node->set_id(n);
+  }
   for (auto& e : edges) {
     Edge edge;
     edge.set_from(side_id(e.first));
@@ -131,19 +141,19 @@ void construct_graph_from_nodes_and_edges(Graph& g, vg::XG& index,
   }
 }
 
-Path path_from_thread_t(thread_t& t, vg::XG& index) {
+Path path_from_thread_t(thread_t& t, const HandleGraph& source) {
 	Path toReturn;
 	int rank = 1;
 	for(int i = 0; i < t.size(); i++) {
 		Mapping* mapping = toReturn.add_mapping();
 
         // Set up the position
-        mapping->mutable_position()->set_node_id(t[i].node_id);
-        mapping->mutable_position()->set_is_reverse(t[i].is_reverse);
+        mapping->mutable_position()->set_node_id(gbwt::Node::id(t[i]));
+        mapping->mutable_position()->set_is_reverse(gbwt::Node::is_reverse(t[i]));
 
         // Set up the edits
         Edit* e = mapping->add_edit();
-        size_t l = index.node_length(t[i].node_id);
+        size_t l = source.get_length(source.get_handle(gbwt::Node::id(t[i])));
         e->set_from_length(l);
         e->set_to_length(l);
 
@@ -154,149 +164,80 @@ Path path_from_thread_t(thread_t& t, vg::XG& index) {
     return toReturn;
 }
 
-vector<pair<thread_t,int> > list_haplotypes(vg::XG& index,
-            XG::ThreadMapping start_node, int extend_distance) {
-  vector<pair<thread_t,XG::ThreadSearchState> > search_intermediates;
-  vector<pair<thread_t,int> > search_results;
-  thread_t first_thread = {start_node};
-  XG::ThreadSearchState first_state;
-  index.extend_search(first_state,first_thread);
-  vector<Edge> edges = start_node.is_reverse ?
-            index.edges_on_start(start_node.node_id) :
-            index.edges_on_end(start_node.node_id);
-  for(int i = 0; i < edges.size(); i++) {
-    XG::ThreadMapping next_node;
-    next_node.node_id = edges[i].to();
-    next_node.is_reverse = edges[i].to_end();
-    XG::ThreadSearchState new_state = first_state;
-    thread_t t = {next_node};
-    index.extend_search(new_state, t);
-    thread_t new_thread = first_thread;
-    new_thread.push_back(next_node);
-    if(!new_state.is_empty()) {
-      search_intermediates.push_back(make_pair(new_thread,new_state));
-    }
-  }
-  while(search_intermediates.size() > 0) {
-    pair<thread_t,XG::ThreadSearchState> last = search_intermediates.back();
-    search_intermediates.pop_back();
-    int check_size = search_intermediates.size();
-    vector<Edge> edges = last.first.back().is_reverse ?
-              index.edges_on_start(last.first.back().node_id) :
-              index.edges_on_end(last.first.back().node_id);
-    if(edges.size() == 0) {
-      search_results.push_back(make_pair(last.first,last.second.count()));
-    } else {
-      for(int i = 0; i < edges.size(); i++) {
-        XG::ThreadMapping next_node;
-        next_node.node_id = edges[i].to();
-        next_node.is_reverse = edges[i].to_end();
-        XG::ThreadSearchState new_state = last.second;
-        thread_t next_thread = {next_node};
-        index.extend_search(new_state,next_thread);
-        thread_t new_thread = last.first;
-        new_thread.push_back(next_node);
-        if(!new_state.is_empty()) {
-          if(new_thread.size() >= extend_distance) {
-            search_results.push_back(make_pair(new_thread,new_state.count()));
-          } else {
-            search_intermediates.push_back(make_pair(new_thread,new_state));
-          }
-        }
-      }
-      if(check_size == search_intermediates.size() &&
-                last.first.size() < extend_distance - 1) {
-        search_results.push_back(make_pair(last.first,last.second.count()));
-      }
-    }
-  }
-  return search_results;
-}
-
-vector<pair<thread_t,int> > list_haplotypes(vg::XG& index, const gbwt::GBWT& haplotype_database,
-            XG::ThreadMapping start_node, int extend_distance) {
+vector<pair<thread_t,int> > list_haplotypes(const HandleGraph& source, const gbwt::GBWT& haplotype_database,
+            gbwt::node_type start_node, int extend_distance) {
 
 #ifdef debug
-  cerr << "Extracting haplotypes from GBWT" << endl;
+    cerr << "Extracting haplotypes from GBWT" << endl;
 #endif
 
-  vector<pair<thread_t,gbwt::SearchState> > search_intermediates;
-  vector<pair<thread_t,int> > search_results;
-  // We still keep our data as thread_ts full of xg ThreadMappings and convert on the fly.
-  thread_t first_thread = {start_node};
-  auto first_node = gbwt::Node::encode(start_node.node_id, start_node.is_reverse);
-  gbwt::SearchState first_state = haplotype_database.find(first_node);
+    vector<pair<thread_t,gbwt::SearchState> > search_intermediates;
+    vector<pair<thread_t,int> > search_results;
+    thread_t first_thread = {start_node};
+    gbwt::SearchState first_state = haplotype_database.find(start_node);
 #ifdef debug
-  cerr << "Start with state " << first_state << " for node " << gbwt::Node::id(first_node) << endl;
+    cerr << "Start with state " << first_state << " for node " << gbwt::Node::id(start_node) << endl;
 #endif
-  vector<Edge> edges = start_node.is_reverse ?
-            index.edges_on_start(start_node.node_id) :
-            index.edges_on_end(start_node.node_id);
-
-  // TODO: this is just most of the loop body repeated!
-  for(int i = 0; i < edges.size(); i++) {
-    XG::ThreadMapping next_node;
-    next_node.node_id = edges[i].to();
-    next_node.is_reverse = edges[i].to_end();
-    auto extend_node = gbwt::Node::encode(next_node.node_id, next_node.is_reverse);
-    auto new_state = haplotype_database.extend(first_state, extend_node);
+    
+    source.follow_edges(gbwt_to_handle(source, start_node), false, [&](const handle_t& next) {
+        auto extend_node = handle_to_gbwt(source, next);
+        auto new_state = haplotype_database.extend(first_state, extend_node);
 #ifdef debug
-    cerr << "Extend state " << first_state << " to " << new_state << " with " << gbwt::Node::id(extend_node) << endl;
+        cerr << "Extend state " << first_state << " to " << new_state << " with " << gbwt::Node::id(extend_node) << endl;
 #endif
-    thread_t new_thread = first_thread;
-    new_thread.push_back(next_node);
-    if(!new_state.empty()) {
-#ifdef debug
-      cerr << "\tGot " << new_state.size() << " results; extending more" << endl;
-#endif
-      search_intermediates.push_back(make_pair(new_thread,new_state));
-    }
-  }
-  while(search_intermediates.size() > 0) {
-    pair<thread_t,gbwt::SearchState> last = search_intermediates.back();
-    search_intermediates.pop_back();
-    int check_size = search_intermediates.size();
-    vector<Edge> edges = last.first.back().is_reverse ?
-              index.edges_on_start(last.first.back().node_id) :
-              index.edges_on_end(last.first.back().node_id);
-    if(edges.size() == 0) {
-#ifdef debug
-      cerr << "Hit end of graph on state " << last.second << endl;
-#endif
-      search_results.push_back(make_pair(last.first,last.second.size()));
-    } else {
-      for(int i = 0; i < edges.size(); i++) {
-        XG::ThreadMapping next_node;
-        next_node.node_id = edges[i].to();
-        next_node.is_reverse = edges[i].to_end();
-        auto extend_node = gbwt::Node::encode(next_node.node_id, next_node.is_reverse);
-        auto new_state = haplotype_database.extend(last.second, extend_node);
-#ifdef debug
-        cerr << "Extend state " << last.second << " to " << new_state << " with " << gbwt::Node::id(extend_node) << endl;
-#endif
-        thread_t new_thread = last.first;
-        new_thread.push_back(next_node);
+        thread_t new_thread = first_thread;
+        new_thread.push_back(extend_node);
         if(!new_state.empty()) {
-          if(new_thread.size() >= extend_distance) {
-#ifdef debug
-            cerr << "\tGot " << new_state.size() << " results at limit; emitting" << endl;
-#endif
-            search_results.push_back(make_pair(new_thread,new_state.size()));
-          } else {
 #ifdef debug
             cerr << "\tGot " << new_state.size() << " results; extending more" << endl;
 #endif
             search_intermediates.push_back(make_pair(new_thread,new_state));
-          }
         }
-      }
-      if(check_size == search_intermediates.size() &&
-                last.first.size() < extend_distance - 1) {
-        search_results.push_back(make_pair(last.first,last.second.size()));
-      }
+    });
+    
+    while(search_intermediates.size() > 0) {
+        auto last = search_intermediates.back();
+        search_intermediates.pop_back();
+        
+        int check_size = search_intermediates.size();
+        bool any_edges = false;
+        source.follow_edges(gbwt_to_handle(source, last.first.back()), false, [&](const handle_t& next) {
+            any_edges = true;
+            auto extend_node = handle_to_gbwt(source, next);
+            auto new_state = haplotype_database.extend(last.second, extend_node);
+#ifdef debug
+            cerr << "Extend state " << last.second << " to " << new_state << " with " << gbwt::Node::id(extend_node) << endl;
+#endif
+            thread_t new_thread = last.first;
+            new_thread.push_back(extend_node);
+            if(!new_state.empty()) {
+                if(new_thread.size() >= extend_distance) {
+#ifdef debug
+                    cerr << "\tGot " << new_state.size() << " results at limit; emitting" << endl;
+#endif
+                    search_results.push_back(make_pair(new_thread,new_state.size()));
+                }
+                else {
+#ifdef debug
+                    cerr << "\tGot " << new_state.size() << " results; extending more" << endl;
+#endif
+                    search_intermediates.push_back(make_pair(new_thread,new_state));
+                }
+            }
+        });
+        if (!any_edges) {
+#ifdef debug
+            cerr << "Hit end of graph on state " << last.second << endl;
+#endif
+            search_results.push_back(make_pair(last.first,last.second.size()));
+        }
+        else if (check_size == search_intermediates.size() &&
+                 last.first.size() < extend_distance - 1) {
+            search_results.push_back(make_pair(last.first,last.second.size()));
+        }
     }
-  }
-  return search_results;
+    
+    return search_results;
 }
 
 }

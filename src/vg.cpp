@@ -136,7 +136,7 @@ void VG::serialize(ostream& out) const {
     // to
     
     size_t num_records_per_chunk = 1000;
-    vg::io::ProtobufEmitter<Graph> emitter(out, 1);
+    vg::io::ProtobufEmitter<Graph> emitter(out, true, 1);
     
     // use this chunk as a buffer
     Graph chunk;
@@ -952,7 +952,7 @@ void VG::serialize_to_emitter(vg::io::ProtobufEmitter<Graph>& emitter, id_t chun
 void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
     // Make an emitter that serializes each chunk as its own group, like we did before using emitters.
     // This is good for indexing.
-    vg::io::ProtobufEmitter<Graph> emitter(out, 1);
+    vg::io::ProtobufEmitter<Graph> emitter(out, true, 1);
     serialize_to_emitter(emitter, chunk_size);
 }
 
@@ -1968,7 +1968,11 @@ void VG::expand_context_by_steps(VG& g, size_t steps, bool add_paths) {
                     }
                 }
             });
-        g.sync_paths();
+        g.paths.sort_by_mapping_rank();
+        g.paths.rebuild_mapping_aux();
+
+        // store paths in graph
+        g.paths.to_graph(g.graph);
     }
 }
 

@@ -34,6 +34,9 @@ void help_gbwt(char** argv) {
          << "threads:" << endl
          << "    -c, --count-threads    print the number of threads" << endl
          << "    -e, --extract FILE     extract threads in SDSL format to FILE" << endl
+         << "GBWTGraph construction:" << endl
+         << "    -g, --graph-name FILE  build a GBWT graph and serialize it to FILE (requires -x)" << endl
+         << "    -x, --xg-name FILE     use the sequences from the XG index in FILE" << endl
          << "metadata (use deps/gbwt/metadata_tool to modify):" << endl
          << "    -M, --metadata         print basic metadata" << endl
          << "    -C, --contigs          print the number of contigs" << endl
@@ -59,6 +62,7 @@ int main_gbwt(int argc, char** argv)
     bool metadata = false, contigs = false, haplotypes = false, samples = false, list_names = false, thread_names = false;
     bool load_index = false;
     string gbwt_output, thread_output;
+    string graph_output, xg_name;
     std::string to_remove;
 
     int c;
@@ -76,6 +80,10 @@ int main_gbwt(int argc, char** argv)
                 {"count-threads", no_argument, 0, 'c'},
                 {"extract", required_argument, 0, 'e'},
 
+                // GBWTGraph
+                {"graph-name", required_argument, 0, 'g'},
+                {"xg-name", required_argument, 0, 'x'},
+
                 // Metadata
                 {"metadata", no_argument, 0, 'M'},
                 {"contigs", no_argument, 0, 'C'},
@@ -90,7 +98,7 @@ int main_gbwt(int argc, char** argv)
             };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "mo:fpce:MCHSLTR:h?", long_options, &option_index);
+        c = getopt_long(argc, argv, "mo:fpce:g:x:MCHSLTR:h?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -121,6 +129,15 @@ int main_gbwt(int argc, char** argv)
         case 'e':
             thread_output = optarg;
             load_index = true;
+            break;
+
+        // GBWTGraph
+        case 'g':
+            graph_output = optarg;
+            load_index = true;
+            break;
+        case 'x':
+            xg_name = optarg;
             break;
 
         // Metadata
@@ -319,7 +336,7 @@ int main_gbwt(int argc, char** argv)
     if (load_index) {
         if (optind + 1 != argc) {
             cerr << "error: [vg gbwt] non-merge options require one input file" << endl;
-            return 1;
+            exit(1);
         }
         unique_ptr<gbwt::GBWT> index = vg::io::VPKG::load_one<gbwt::GBWT>(argv[optind]);
 
@@ -345,6 +362,21 @@ int main_gbwt(int argc, char** argv)
         // There are two sequences for each thread.
         if (count_threads) {
             cout << (index->sequences() / 2) << endl;
+        }
+
+        // Build and serialize GBWTGraph.
+        if (!graph_output.empty()) {
+            if (xg_name.empty()) {
+                cerr << "error: [vg gbwt] GBWTGraph construction requires XG index" << endl;
+                exit(1);
+            }
+            unique_ptr<PathPositionHandleGraph> xg_index = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
+            if (xg_index.get() == nullptr) {
+                cerr << "error: [vg gbwt] could not load XG index " << xg_name << endl;
+                exit(1);
+            }
+            GBWTGraph graph(*index, *xg_index);
+            vg::io::VPKG::save(graph, graph_output);
         }
 
         if (metadata) {

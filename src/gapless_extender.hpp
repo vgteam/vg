@@ -19,7 +19,8 @@ namespace vg {
  * A result of the gapless extension of a seed.
  * - The extension is a path starting from offset 'offset' of node path.front().
  * - Search state 'state' corresponds to the path.
- * - The extension covers semiopen interval 'read_interval' of the read.
+ * - The extension covers semiopen interval [read_interval.first, read_interval.second)
+ *   of the read.
  * - Vector 'mismatch_positions' contains the mismatching read positions in sorted order.
  * - 'score' is an alignment score (bigger is better).
  * - Flags 'left_full' and 'right_full' indicate whether the extension covers the

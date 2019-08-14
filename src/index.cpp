@@ -107,6 +107,7 @@ void Index::open(const std::string& dir, bool read_only) {
         s = rocksdb::DB::Open(db_options, name, &db);
     }
     if (!s.ok()) {
+        cerr << s.ToString();
         if (db) {
             delete db;
         }

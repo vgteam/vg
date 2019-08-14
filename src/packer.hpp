@@ -7,14 +7,14 @@
 #include <ctime>
 #include "omp.h"
 #include "lru_cache.h"
-#include "xg.hpp"
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
 #include "json2pb.h"
 #include "graph.hpp"
 #include "gcsa/internal.h"
-#include "xg_position.hpp"
+#include "sdsl/csa_wt.hpp"
+#include "sdsl/suffix_arrays.hpp"
 #include "utility.hpp"
 
 namespace vg {
@@ -24,9 +24,10 @@ using namespace sdsl;
 class Packer {
 public:
     Packer(void);
-    Packer(XG* xidx, size_t bin_size = 0, bool qual_adjust = false);
+    // graph must also implement VectorizableHandleGraph
+    Packer(const HandleGraph* graph, size_t bin_size = 0, bool qual_adjust = false);
     ~Packer(void);
-    XG* xgidx;
+    const HandleGraph* graph;
     void merge_from_files(const vector<string>& file_names);
     void merge_from_dynamic(vector<Packer*>& packers);
     void load_from_file(const string& file_name);
@@ -57,8 +58,8 @@ public:
 
     size_t edge_coverage(Edge& e) const;
     size_t edge_coverage(size_t i) const;
-    size_t edge_count(void) const;
     size_t edge_vector_size(void) const;
+    size_t edge_index(const Edge& e) const;
 private:
     void ensure_edit_tmpfiles_open(void);
     void close_edit_tmpfiles(void);

@@ -251,17 +251,17 @@ SupportCaller::PrimaryPath::PrimaryPath(SupportAugmentedGraph& augmented, const 
     // support in total (node length * aligned reads) does the primary path get?
     total_support = Support();
     for(auto& pointerAndSupport : augmented.node_supports) {
-        if(index.by_id.count(pointerAndSupport.first->id())) {
+        if(index.by_id.count(pointerAndSupport.first)) {
             // This is a primary path node. Add in the total read bases supporting it
-            total_support += pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
+            total_support += augmented.graph.get_length(augmented.graph.get_handle(pointerAndSupport.first)) * pointerAndSupport.second;
             
             // We also update the total for the appropriate bin
-            size_t bin = index.by_id[pointerAndSupport.first->id()].first / ref_bin_size;
+            size_t bin = index.by_id[pointerAndSupport.first].first / ref_bin_size;
             if (bin == binned_support.size()) {
                 --bin;
             }
             binned_support[bin] = binned_support[bin] + 
-                pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
+               augmented.graph.get_length(augmented.graph.get_handle(pointerAndSupport.first)) * pointerAndSupport.second;
         }
     }
     
@@ -542,7 +542,7 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
         // Grab this node's total support along its length
         // Make sure to only use half the support if the node is shared or none if its shared twice
         double shared_factor = 1. - 0.5 * (double) min(2UL, shared_nodes.count(node_id));
-        auto got_support = augmented.get_support(node) * node->sequence().size() * shared_factor;
+        auto got_support = augmented.get_support(node->id()) * node->sequence().size() * shared_factor;
         
         if (is_reverse) {
             // Put the support relative to the traversal's strand
@@ -566,7 +566,7 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
         }
         
         // And update its min support
-        min_supports[i] = support_min(min_supports[i], augmented.get_support(node) * shared_factor);
+        min_supports[i] = support_min(min_supports[i], augmented.get_support(node->id()) * shared_factor);
         
     }, [&](size_t i, NodeSide end1, NodeSide end2) {
         // This is an edge
@@ -580,7 +580,9 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
         // Count as 1 base worth for the total/average support
         // Make sure to only use half the support if the edge is shared
         double shared_factor = 1. - 0.5 * (double) min(2UL, shared_edges.count(edge));
-        auto got_support = (double)edge_size * augmented.get_support(edge) * shared_factor;
+        edge_t edge_handle = augmented.graph.edge_handle(augmented.graph.get_handle(end1.node, !end1.is_end),
+                                                         augmented.graph.get_handle(end2.node, end2.is_end));
+        auto got_support = (double)edge_size * augmented.get_support(edge_handle) * shared_factor;
 
         // Prevent averaging over SVs with 0 support, just because the reference part of the traversal has support
         if (edge_size > max_unsupported_edge_size && support_val(got_support) == 0) {
@@ -614,7 +616,7 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
         }
         
         // Min in its support
-        min_supports[i] = support_min(min_supports[i], augmented.get_support(edge) * shared_factor);        
+        min_supports[i] = support_min(min_supports[i], augmented.get_support(edge_handle) * shared_factor);        
     }, [&](size_t i, Snarl child, bool is_reverse) {
         // This is a child snarl, so get its max support.
         
@@ -632,7 +634,7 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
             // Claim this node for this child.
             coverage_counted.insert(node);
             
-            Support child_support = augmented.get_support(node);
+            Support child_support = augmented.get_support(node->id());
             
             // TODO: We can't tell which strand of a child snarl's contained
             // nodes corresponds to which strand of the child snarl. Just
@@ -642,7 +644,7 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
             child_support.set_reverse(average_support);
             
             // How many distinct reads must use the child, given the distinct reads on this node?
-            child_max = support_max(child_max, augmented.get_support(node));
+            child_max = support_max(child_max, augmented.get_support(node->id()));
             
             // Add in the node's size to the child
             child_size += node->sequence().size();
@@ -861,10 +863,15 @@ vector<Support> SupportCaller::get_inversion_supports(
 
             assert(edge1 != nullptr && edge2 != nullptr);
 
+            edge_t edge_handle1 = augmented.graph.edge_handle(augmented.graph.get_handle(edge1->from(), edge1->from_start()),
+                                                              augmented.graph.get_handle(edge1->to(), edge2->to_end()));
+            edge_t edge_handle2 = augmented.graph.edge_handle(augmented.graph.get_handle(edge2->from(), edge2->from_start()),
+                                                              augmented.graph.get_handle(edge2->to(), edge2->to_end()));
+
             if (longest_traversal_length > average_support_switch_threshold || use_average_support) {
-                inversion_supports[allele] = (augmented.get_support(edge1) + augmented.get_support(edge2) / 2);
+                inversion_supports[allele] = (augmented.get_support(edge_handle1) + augmented.get_support(edge_handle2) / 2);
             } else {
-                inversion_supports[allele] = min(augmented.get_support(edge1), augmented.get_support(edge2));
+                inversion_supports[allele] = min(augmented.get_support(edge_handle2), augmented.get_support(edge_handle2));
             }
         }
     }
@@ -2188,8 +2195,12 @@ void SupportCaller::call(
         };
         
         // we are genotyping a VCF.  load it and make sure we only traverse its alleles
+        vector<string> ref_path_names;
+        for (const auto& primary_path : primary_paths) {
+            ref_path_names.push_back(primary_path.first);
+        }
         traversal_finder = unique_ptr<TraversalFinder>(new VCFTraversalFinder(augmented.graph, site_manager,
-                                                                              variant_file, get_path_index,
+                                                                              variant_file, ref_path_names,
                                                                               ref_fasta.get(),
                                                                               ins_fasta.get(),
                                                                               skip_alt));
@@ -2198,13 +2209,25 @@ void SupportCaller::call(
 
     else {
         // Now start looking for traversals of the sites.
-        RepresentativeTraversalFinder* rep_trav_finder = new RepresentativeTraversalFinder(augmented, site_manager,
+        function<Support(id_t)> get_node_support = nullptr;
+        function<Support(edge_t)> get_edge_support = nullptr;
+        if (augmented.has_supports()) {
+            get_node_support = [&augmented](id_t node_id) {
+                return augmented.get_support(node_id);
+            };
+            get_edge_support = [&augmented](edge_t edge) {
+                return augmented.get_support(edge);
+            };
+        }
+        RepresentativeTraversalFinder* rep_trav_finder = new RepresentativeTraversalFinder(augmented.graph, site_manager,
                                                                                            max_search_depth,
                                                                                            max_search_width,
                                                                                            max_bubble_paths,
                                                                                            min_total_support_for_call,
                                                                                            min_total_support_for_call,
-                                                                                           get_path_index);
+                                                                                           get_path_index,
+                                                                                           get_node_support,
+                                                                                           get_edge_support);
         rep_trav_finder->other_orientation_timeout = max_inversion_size;
         traversal_finder = unique_ptr<TraversalFinder>(rep_trav_finder);
     }
@@ -2366,8 +2389,10 @@ void SupportCaller::call(
                 *path->add_mapping() = to_mapping(to_visit, augmented.graph);
                 
                 // Set the support
-                *locus.add_support() = augmented.edge_supports[e];
-                *locus.mutable_overall_support() = augmented.edge_supports[e];
+                edge_t edge_handle = augmented.graph.edge_handle(augmented.graph.get_handle(e->from(), e->from_start()),
+                                                                 augmented.graph.get_handle(e->to(), e->to_end()));
+                *locus.add_support() = augmented.get_support(edge_handle);
+                *locus.mutable_overall_support() = augmented.get_support(edge_handle);
                 
                 // Decide on the genotype
                 Genotype gt;
@@ -2450,10 +2475,12 @@ void SupportCaller::call(
                     // Fill in 
                     *path->add_mapping() = to_mapping(from_visit, augmented.graph);
                     *path->add_mapping() = to_mapping(to_visit, augmented.graph);
-                    
+
+                    edge_t crossed_handle = augmented.graph.edge_handle(augmented.graph.get_handle(crossed->from(), crossed->from_start()),
+                                                                        augmented.graph.get_handle(crossed->to(), crossed->to_end()));
                     // Set the support
-                    *locus.add_support() = augmented.get_support(crossed);
-                    *locus.mutable_overall_support() = augmented.get_support(crossed);
+                    *locus.add_support() = augmented.get_support(crossed_handle);
+                    *locus.mutable_overall_support() = augmented.get_support(crossed_handle);
                     
                     // Decide on the genotype of hom ref.
                     Genotype* gt = locus.add_genotype();

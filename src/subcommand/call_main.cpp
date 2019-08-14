@@ -15,6 +15,7 @@
 #include "../option.hpp"
 
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include "../support_caller.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
@@ -207,7 +208,7 @@ int main_call(int argc, char** argv) {
             cerr << "[vg call]: pack support (-P) requires xg index (-x)" << endl;
             return 1;
         }
-        unique_ptr<XG> xgidx = vg::io::VPKG::load_one<XG>(support_caller.xg_file_name);
+        unique_ptr<PathPositionHandleGraph> xgidx = vg::io::VPKG::load_one<PathPositionHandleGraph>(support_caller.xg_file_name);
         augmented_graph.load_pack_as_supports(support_caller.pack_file_name, xgidx.get());
         // make sure we're ignoring quality, as it's not read from the pack
         bool& usc = support_caller.use_support_count;

@@ -217,7 +217,7 @@ int main_construct(int argc, char** argv) {
 
         // Make an emitter that serializes the actual Graph objects, with buffering.
         // But just serialize one graph at a time in each group.
-        vg::io::ProtobufEmitter<Graph> emitter(cout, 1);
+        vg::io::ProtobufEmitter<Graph> emitter(cout, false, 1);
 
         // We need a callback to handle pieces of graph as they are produced.
         auto callback = [&](Graph& big_chunk) {

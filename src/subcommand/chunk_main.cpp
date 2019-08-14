@@ -522,7 +522,7 @@ int main_chunk(int argc, char** argv) {
         }
 
         // optionally trace our haplotypes
-        if (trace && subgraph) {
+        if (trace && subgraph && gbwt_index.get() != nullptr) {
             int64_t trace_start;
             int64_t trace_end;
             if (id_range) {
@@ -536,7 +536,7 @@ int main_chunk(int argc, char** argv) {
             }
             int64_t trace_steps = trace_end - trace_start;
             Graph g;
-            trace_haplotypes_and_paths(*xindex, gbwt_index.get(), trace_start, trace_steps,
+            trace_haplotypes_and_paths(*xindex, *gbwt_index.get(), trace_start, trace_steps,
                                        g, trace_thread_frequencies, false);
             subgraph->paths.for_each([&trace_thread_frequencies](const Path& path) {
                     trace_thread_frequencies[path.name()] = 1;});            

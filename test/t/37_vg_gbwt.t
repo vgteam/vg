@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 28
+plan tests 30
 
 
 # Build vg graphs for two chromosomes
@@ -15,7 +15,7 @@ vg ids -j x.vg y.vg
 
 
 # Chromosome X
-vg index -x x.xg -G x.gbwt -v small/xy2.vcf.gz x.vg
+vg index -G x.gbwt -v small/xy2.vcf.gz x.vg
 is $(vg gbwt -c x.gbwt) 2 "chromosome x: 2 threads"
 is $(vg gbwt -C x.gbwt) 1 "chromosome x: 1 contig"
 is $(vg gbwt -H x.gbwt) 2 "chromosome x: 2 haplotypes"
@@ -53,7 +53,7 @@ is $(vg gbwt -S xy2.gbwt) 1 "fast merge: 1 sample"
 cmp xy.gbwt xy2.gbwt
 is $? 0 "the merged indexes are identical"
 
-rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt x.xg
+rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt
 
 
 # Build a GBWT for paths
@@ -83,6 +83,16 @@ cmp x.bin x.extract
 is $? 0 "the thread files are identical"
 
 rm -f x.gbwt x.bin x.extract
+
+
+# Build and serialize GBWTGraph
+vg index -x x.xg -G x.gbwt -v small/xy2.vcf.gz x.vg
+vg gbwt -g x.gg -x x.xg x.gbwt
+is $? 0 "GBWTGraph construction was successful"
+vg view --extract-tag GBWTGraph x.gg > x.extracted.gg
+is $(md5sum x.extracted.gg | cut -f 1 -d\ ) 40400e50e1b9eec8915363e7775f693f "GBWTGraph was correctly serialized"
+
+rm -f x.xg x.gbwt x.gg x.extracted.gg
 
 
 rm -f x.vg y.vg

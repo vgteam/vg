@@ -18,11 +18,64 @@ void augment(MutablePathMutableHandleGraph* graph,
              function<void(Path&)> save_path_fn,
              bool break_at_ends,
              bool remove_softclips) {
+
+    function<void(function<void(Alignment&)>, bool)> iterate_gam =
+        [&gam_stream] (function<void(Alignment&)> aln_callback, bool reset_stream) {
+        if (reset_stream) {
+            gam_stream.clear();
+            gam_stream.seekg(0, ios_base::beg);
+        }
+        vg::io::for_each(gam_stream, aln_callback);
+    };
+
+    augment_impl(graph,
+                 iterate_gam,
+                 out_translations,
+                 gam_out_stream,
+                 save_path_fn,
+                 break_at_ends,
+                 remove_softclips);
+}
+
+void augment(MutablePathMutableHandleGraph* graph,
+             vector<Path>& path_vector,
+             vector<Translation>* out_translations,
+             ostream* gam_out_stream,
+             function<void(Path&)> save_path_fn,
+             bool break_at_ends,
+             bool remove_softclips) {
+    
+    function<void(function<void(Alignment&)>, bool)> iterate_gam =
+        [&path_vector] (function<void(Alignment&)> aln_callback, bool reset_stream) {
+        for (Path& path : path_vector) {
+            Alignment aln;
+            *aln.mutable_path() = path;
+            aln.set_name(path.name());
+            aln_callback(aln);
+        }
+    };
+
+    augment_impl(graph,
+                 iterate_gam,
+                 out_translations,
+                 gam_out_stream,
+                 save_path_fn,
+                 break_at_ends,
+                 remove_softclips);
+}
+
+void augment_impl(MutablePathMutableHandleGraph* graph,
+                  function<void(function<void(Alignment&)>, bool)> iterate_gam,
+                  vector<Translation>* out_translations,
+                  ostream* gam_out_stream,
+                  function<void(Path&)> save_path_fn,
+                  bool break_at_ends,
+                  bool remove_softclips) {
     // Collect the breakpoints
     unordered_map<id_t, set<pos_t>> breakpoints;
 
     // First pass: find the breakpoints
-    vg::io::for_each(gam_stream, (function<void(Alignment&)>)[&](Alignment& aln) {
+    iterate_gam((function<void(Alignment&)>)[&](Alignment& aln) {
 #ifdef debug
             cerr << pb2json(aln.path()) << endl;
 #endif
@@ -39,7 +92,7 @@ void augment(MutablePathMutableHandleGraph* graph,
             // Add in breakpoints from each path
             find_breakpoints(simplified_path, breakpoints, break_at_ends);
 
-        });
+        }, false);
 
     // Invert the breakpoints that are on the reverse strand
     breakpoints = forwardize_breakpoints(graph, breakpoints);
@@ -65,9 +118,7 @@ void augment(MutablePathMutableHandleGraph* graph,
     vector<Alignment> gam_buffer;
 
     // Second pass: add the nodes and edges
-    gam_stream.clear();
-    gam_stream.seekg(0, ios_base::beg);
-    vg::io::for_each(gam_stream, (function<void(Alignment&)>)[&](Alignment& aln) {
+    iterate_gam((function<void(Alignment&)>)[&](Alignment& aln) {
             if (remove_softclips) {
                 softclip_trim(aln);
             }
@@ -114,7 +165,7 @@ void augment(MutablePathMutableHandleGraph* graph,
                 gam_buffer.push_back(aln);
                 vg::io::write_buffered(*gam_out_stream, gam_buffer, 100);
             }
-        });
+    }, true);
     if (gam_out_stream != nullptr) {
         // Flush the buffer
         vg::io::write_buffered(*gam_out_stream, gam_buffer, 0);

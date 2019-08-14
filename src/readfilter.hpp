@@ -7,7 +7,7 @@
 #include <string>
 #include <regex>
 #include "vg.hpp"
-#include "xg.hpp"
+#include "handle.hpp"
 #include <vg/vg.pb.h>
 
 /** \file
@@ -69,8 +69,8 @@ public:
     /// Sometimes we only want a report, and not a filtered gam.  toggling off output
     /// speeds things up considerably.
     bool write_output = true;
-    /// An XG index is required for some filters (Note: ReadFilter doesn't own/free this)
-    XG* xindex = nullptr;
+    /// A HandleGraph is required for some filters (Note: ReadFilter doesn't own/free this)
+    const HandleGraph* graph = nullptr;
     /// Interleaved input
     bool interleaved = false;
     /// When outputting paired reads, fail the pair only if both (all) reads
@@ -153,7 +153,7 @@ public:
      *
      * MUST NOT be called with a null index.
      */
-    bool trim_ambiguous_ends(XG* index, Alignment& alignment, int k);
+    bool trim_ambiguous_ends(Alignment& alignment, int k);
     
 private:
 
@@ -169,15 +169,15 @@ private:
      * Trim only the end of the given alignment, leaving the start alone. Two
      * calls of this implement trim_ambiguous_ends above.
      */
-    bool trim_ambiguous_end(XG* index, Alignment& alignment, int k);
+    bool trim_ambiguous_end(Alignment& alignment, int k);
     
     /**
-     * Return false if the read only follows edges in the xg index, and true if
+     * Return false if the read only follows edges in the graph, and true if
      * the read is split (or just incorrect) and takes edges not in the index.
      *
-     * Throws an error if no XG index is specified.
+     * Throws an error if no graph is specified.
      */
-    bool is_split(XG* index, Alignment& alignment);
+    bool is_split(Alignment& alignment);
     
     /**
      * Based on the read name and paired-ness, compute the SAM-style QNAME and

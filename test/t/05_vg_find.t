@@ -5,36 +5,33 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 26
+plan tests 25
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
 
 vg index -x x.xg x.vg 2>/dev/null
 is $(vg find -x x.xg -p x:200-300 -c 2 | vg view - | grep CTACTGACAGCAGA | cut -f 2) 72 "a path can be queried from the xg index"
+# todo: I complain because context expansion no longer puts ranks in paths, so edge check does't see that path is discontinuous
 is $(vg find -x x.xg -n 203 -c 1 | vg view - | grep CTACCCAGGCCATTTTAAGTTTCCTGT | wc -l) 1 "a node near another can be obtained using context from the xg index"
 
 vg index -x x.xg -g x.gcsa -k 16 x.vg
 is $(( for seq in $(vg sim -l 50 -n 100 -x x.xg); do vg find -M $seq -g x.gcsa; done ) | jq length | grep ^1$ | wc -l) 100 "each perfect read contains one maximal exact match"
 
 vg index -x x.xg -g x.gcsa -k 16 x.vg
-is $(vg find -n 1 -n 3 -D -x x.xg ) 8 "vg find -D finds approximate distance between 2 adjacent nodes"
-is $(vg find -n 1 -n 2 -D -x x.xg ) 0 "vg find -D finds approximate distance between node and adjacent snp"
+is $(vg find -n 1 -n 3 -D -x x.xg ) 8 "vg find -D finds approximate distance between 2 adjacent node starts"
+is $(vg find -n 1 -n 2 -D -x x.xg ) 8 "vg find -D finds approximate distance between node start and adjacent snp"
 is $(vg find -n 17 -n 20 -D -x x.xg ) 7 "vg find -D jumps deletion"
-# The correct distance is 6 still from the SNP, but renumbering ref vs alt makes
-# the heuristic add 1 getting to the reference path
-# TODO: improve heuristic
-is $(vg find -n 16 -n 20 -D -x x.xg ) 19 "vg find -D jumps deletion from snp"
+is $(vg find -n 16 -n 20 -D -x x.xg ) 7 "vg find -D jumps deletion from other allele in snp"
 
 is $(vg find -n 2 -n 3 -c 1 -L -x x.xg | vg view -g - | grep "^S" | wc -l) 5 "vg find -L finds same number of nodes (with -c 1)"
 
-is $(vg find -r 6:2 -L -x x.xg | vg view -g - | grep S | wc -l) 3 "vg find -L works with -r "
+is $(vg find -r 6:5 -L -x x.xg | vg view -g - | grep S | wc -l) 3 "vg find -L works with -r.  it scans from start position of first node in range "
 
 rm -f x.idx x.xg x.gcsa x.gcsa.lcp x.vg
 
 vg index -x m.xg inverting/m.vg
-is $(vg find -n 174 -c 200 -L -x m.xg | vg view -g - | grep S | wc -l) 7 "vg find -L only follows alternating paths"
-is $(vg find -n 2308 -c 10 -L -x m.xg | vg view -g - | grep S | wc -l) 10 "vg find -L tracks length"
+is $(vg find -n 2308 -c 10 -L -x m.xg | vg view -g - | grep S | wc -l) 5 "vg find -L tracks length from start position of input node"
 is $(vg find -n 2315 -n 183 -n 176 -c 1 -L -x m.xg | vg view -g - | grep S | wc -l) 7 "vg find -L works with more than one input node"
 rm m.xg
 
