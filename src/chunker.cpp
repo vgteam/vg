@@ -163,12 +163,10 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     if (rewrite_paths && sg_start_steps.size() == 1) {
         if (!mappings.begin()->is_reverse() && subgraph.start_degree(start_node) != 0) {
             for (auto edge : subgraph.edges_to(start_node)) {
-                assert(false);
                 subgraph.destroy_edge(edge);
             }
         } else if (mappings.begin()->is_reverse() && subgraph.end_degree(start_node) != 0) {
             for (auto edge : subgraph.edges_from(start_node)) {
-                assert(false);
                 subgraph.destroy_edge(edge);
             }
         }
@@ -178,12 +176,10 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     if (rewrite_paths && sg_end_steps.size() == 1) {
         if (!mappings.rbegin()->is_reverse() && subgraph.end_degree(end_node) != 0) {
             for (auto edge : subgraph.edges_from(end_node)) {
-                assert(false);
                 subgraph.destroy_edge(edge);
             }
         } else if (mappings.rbegin()->is_reverse() && subgraph.start_degree(end_node) != 0) {
             for (auto edge : subgraph.edges_to(end_node)) {
-                assert(false);
                 subgraph.destroy_edge(edge);
             }
         }
