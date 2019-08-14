@@ -4,6 +4,8 @@
 #include "chunker.hpp"
 #include "algorithms/subgraph.hpp"
 
+//#define debug
+
 namespace vg {
 
 using namespace std;
@@ -24,6 +26,15 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     handle_t start_handle = graph->get_handle_of_step(start_step);
     step_handle_t end_step = graph->get_step_at_position(path_handle, region.end);    
     handle_t end_handle = graph->get_handle_of_step(end_step);
+
+#ifdef debug
+#pragma omp critical(cerr)
+    {
+        cerr << "extracting subgraph range for " << region.seq << ":" << region.start << "-" << region.end
+             << ", wich maps to handle range " << graph->get_id(start_handle) << ":" << graph->get_is_reverse(start_handle) << "-"
+             << graph->get_id(end_handle) << ":" << graph->get_is_reverse(end_handle) << endl;
+    }
+#endif
 
     step_handle_t end_plus_one_step = graph->has_next_step(end_step) ? graph->get_next_step(end_step) : graph->path_end(path_handle) ;
     for (step_handle_t step = start_step; step != end_plus_one_step; step = graph->get_next_step(step)) {
@@ -58,6 +69,13 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     int64_t input_start_node = graph->get_id(start_handle);
     int64_t input_end_node = graph->get_id(end_handle);
 
+#ifdef debug
+#pragma omp critical(cerr)
+    {
+        cerr << "Path range in expanded subgraph is " << *mappings.begin() << "-" << *mappings.rbegin() << endl;
+    }
+#endif
+
     // replaces old xg position_in_path() to check node counts in path
     function<vector<step_handle_t>(const PathHandleGraph&, handle_t, path_handle_t)> path_steps_of_handle =
         [] (const PathHandleGraph& graph, handle_t handle, path_handle_t path_handle) {
@@ -80,8 +98,11 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     
     // keep track of the edges in our original path
     set<pair<pair<id_t, bool>, pair<id_t, bool>>> path_edge_set =
-        get_path_edge_index(start_step, end_step, std::max(context, length));
-
+        // walking out with the context length (as supported below) won't always work as expansion
+        // can grab an arbitrary amount of path regardless of context.  so we load up the entire path:
+        // (todo: could sniff out limits from subgraph...)
+        get_path_edge_index(graph->path_begin(path_handle), graph->path_back(path_handle), std::max(context, length));
+    
     // the distance between them and the nodes in our input range
     size_t left_padding = 0;
     size_t right_padding = 0;
@@ -112,6 +133,13 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
                 edge_t edge = subgraph.edge_handle(cur_handle, prev_handle);
                 if (!path_edge_set.count(make_pair(make_pair(subgraph.get_id(edge.first), subgraph.get_is_reverse(edge.first)),
                                                    make_pair(subgraph.get_id(edge.second), subgraph.get_is_reverse(edge.second))))) {
+#ifdef debug
+#pragma omp critical(cerr)
+                    {
+                        cerr << "found discontinuity between when left scanning path in subgraph: " << *cur_it << " and " << *prev_it << endl;
+
+                    }
+#endif
                     break;
                 }
                 left_padding += cur_it->length;
@@ -129,6 +157,13 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
             edge_t edge = subgraph.edge_handle(prev_handle, cur_handle);
             if (!path_edge_set.count(make_pair(make_pair(subgraph.get_id(edge.first), subgraph.get_is_reverse(edge.first)),
                                                make_pair(subgraph.get_id(edge.second), subgraph.get_is_reverse(edge.second))))) {
+#ifdef debug
+#pragma omp critical(cerr)
+                    {
+                        cerr << "found discontinuity between when right scanning path in subgraph: " << *prev_it << " and " << *cur_it << endl;
+
+                    }
+#endif
                 break;
             }
             right_padding += cur_it->length;
@@ -163,10 +198,22 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     if (rewrite_paths && sg_start_steps.size() == 1) {
         if (!mappings.begin()->is_reverse() && subgraph.start_degree(start_node) != 0) {
             for (auto edge : subgraph.edges_to(start_node)) {
+#ifdef debug
+#pragma omp crticial(cerr)
+                {
+                    cerr << "clipping out edge " << pb2json(*edge) << " in order to make path start a tip" << endl;
+                }
+#endif
                 subgraph.destroy_edge(edge);
             }
         } else if (mappings.begin()->is_reverse() && subgraph.end_degree(start_node) != 0) {
             for (auto edge : subgraph.edges_from(start_node)) {
+#ifdef debug
+#pragma omp crticial(cerr)
+                {
+                    cerr << "clipping out edge " << pb2json(*edge) << " in order to make path start a tip" << endl;
+                }
+#endif
                 subgraph.destroy_edge(edge);
             }
         }
@@ -176,10 +223,22 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     if (rewrite_paths && sg_end_steps.size() == 1) {
         if (!mappings.rbegin()->is_reverse() && subgraph.end_degree(end_node) != 0) {
             for (auto edge : subgraph.edges_from(end_node)) {
+#ifdef debug
+#pragma omp crticial(cerr)
+                {
+                    cerr << "clipping out edge " << pb2json(*edge) << " in order to make path end a tip" << endl;
+                }
+#endif
                 subgraph.destroy_edge(edge);
             }
         } else if (mappings.rbegin()->is_reverse() && subgraph.start_degree(end_node) != 0) {
             for (auto edge : subgraph.edges_to(end_node)) {
+#ifdef debug
+#pragma omp crticial(cerr)
+                {
+                    cerr << "clipping out edge " << pb2json(*edge) << " in order to make path end a tip" << endl;
+                }
+#endif
                 subgraph.destroy_edge(edge);
             }
         }
@@ -243,7 +302,6 @@ set<pair<pair<id_t, bool>, pair<id_t, bool>>> PathChunker::get_path_edge_index(s
         edge_t edge = graph->edge_handle(graph->get_handle_of_step(step), graph->get_handle_of_step(next));
         path_edges.insert(make_pair(make_pair(graph->get_id(edge.first), graph->get_is_reverse(edge.first)),
                                     make_pair(graph->get_id(edge.second), graph->get_is_reverse(edge.second))));
-
     };
 
     // edges from left context
