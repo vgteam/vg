@@ -891,7 +891,7 @@ int main_mpmap(int argc, char** argv) {
     
     // Load required indexes
     
-    unique_ptr<XG> xg_index = vg::io::VPKG::load_one<XG>(xg_stream);
+    unique_ptr<PathPositionHandleGraph> xg_index = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_stream);
     unique_ptr<gcsa::GCSA> gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
     unique_ptr<gcsa::LCPArray> lcp_array = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     
@@ -1136,7 +1136,7 @@ int main_mpmap(int argc, char** argv) {
             else {
                 output_buf.emplace_back();
                 rev_comp_multipath_alignment(mp_aln_pair.second,
-                                             [&](vg::id_t node_id) { return xg_index->node_length(node_id); },
+                                             [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); },
                                              output_buf.back());
             }
 
@@ -1205,7 +1205,7 @@ int main_mpmap(int argc, char** argv) {
             // switch second read back to the opposite strand if necessary
             if (!same_strand) {
                 reverse_complement_alignment_in_place(&output_buf.back(),
-                                                      [&](vg::id_t node_id) { return xg_index->node_length(node_id); });
+                                                      [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); });
             }
             
             // label with read group and sample name
@@ -1271,7 +1271,7 @@ int main_mpmap(int argc, char** argv) {
         if (!same_strand) {
             // remove the path so we won't try to RC it (the path may not refer to this graph)
             alignment_2.clear_path();
-            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index->node_length(node_id); });
+            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); });
         }
                 
         vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;
@@ -1314,7 +1314,7 @@ int main_mpmap(int argc, char** argv) {
         
             // remove the path so we won't try to RC it (the path may not refer to this graph)
             alignment_2.clear_path();
-            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index->node_length(node_id); });
+            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); });
         }
         
         // Align independently
@@ -1399,7 +1399,7 @@ int main_mpmap(int argc, char** argv) {
                 // TODO: slightly wasteful, inelegant
                 if (!same_strand) {
                     reverse_complement_alignment_in_place(&aln_pair.second,
-                                                          [&](vg::id_t node_id) { return xg_index->node_length(node_id); });
+                                                          [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); });
                 }
                 do_paired_alignments(aln_pair.first, aln_pair.second);
             }
@@ -1415,7 +1415,7 @@ int main_mpmap(int argc, char** argv) {
                 // TODO: slightly wasteful, inelegant
                 if (!same_strand) {
                     reverse_complement_alignment_in_place(&aln_pair.second,
-                                                          [&](vg::id_t node_id) { return xg_index->node_length(node_id); });
+                                                          [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); });
                 }
                 do_independent_paired_alignments(aln_pair.first, aln_pair.second);
             }

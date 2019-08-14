@@ -72,7 +72,7 @@ public:
 
     //If an extension's score is smaller than the best extension's score by
     //more than this much, don't align it
-    int extension_score_threshold = 0;
+    int extension_score_threshold = 1;
 
     size_t max_multimaps = 1;
     size_t distance_limit = 1000;
@@ -111,12 +111,6 @@ protected:
      * Is not always an overestimate of the actual score.
      */
     int estimate_extension_group_score(const Alignment& aln, vector<GaplessExtension>& extended_seeds) const;
-    
-    /**
-     * Determine if a score estimate is significant enough to justify computing the real Alignment.
-     * Returns true if it might win or affect mapping quality, and false otherwise.
-     */
-    bool score_is_significant(int score_estimate, int best_score, int second_best_score) const; 
     
     /**
      * Operating on the given input alignment, align the tails dangling off the
@@ -166,23 +160,6 @@ protected:
     unordered_map<size_t, vector<TreeSubgraph>> get_tail_forests(const vector<GaplessExtension>& extended_seeds,
         size_t read_length, bool left_tails) const;
         
-    /**
-     * Find the best alignment of the given sequence against any of the paths
-     * defined in paths.
-     *
-     * If no mapping is possible, produce a pure insert at default_position.
-     *
-     * If pinned is true, pin the alignment on one end to the start or end of
-     * each path.
-     *
-     * When pinning, if pin_left is true, pin it on the left to the start of
-     * each path. Otherwise pin it on the right to the end.
-     *
-     * Returns alingments in gbwt_graph space.
-     */
-    pair<Path, size_t> get_best_alignment_against_any_path(const vector<Path>& paths, const string& sequence,
-        const Position& default_position, bool pinned, bool pin_left) const;
-    
     /**
      * Find the best alignment of the given sequence against any of the trees
      * provided in trees, where each tree is a TreeSubgraph over the GBWT
@@ -249,8 +226,93 @@ protected:
      */ 
     void dfs_gbwt(const gbwt::SearchState& start_state, size_t from_offset, size_t walk_distance,
         const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const;
+        
+    
+    /**
+     * Given a vector of items, a function to get the score of each, a
+     * score-difference-from-the-best cutoff, and a min and max processed item
+     * count, process items in descending score order by calling process_item
+     * with the item's number, until min_count items are processed and either
+     * max_count items are processed or the score difference threshold is hit
+     * (or we run out of items).
+     *
+     * If process_item returns false, the item is skipped and does not count
+     * against min_count or max_count.
+     *
+     * Call discard_item with the item's number for all remaining items.
+     */
+    template<typename Item, typename Score = double>
+    void process_until_threshold(const vector<Item>& items, const function<Score(size_t)>& get_score,
+        double threshold, size_t min_count, size_t max_count,
+        const function<bool(size_t)>& process_item, const function<void(size_t)>& discard_item);
+     
+    /**
+     * Same as the other process_until_threshold overload, except using a vector to supply scores.
+     */
+    template<typename Item, typename Score = double>
+    void process_until_threshold(const vector<Item>& items, const vector<Score>& scores,
+        double threshold, size_t min_count, size_t max_count,
+        const function<bool(size_t)>& process_item, const function<void(size_t)>& discard_item);
      
 };
+
+template<typename Item, typename Score>
+void MinimizerMapper::process_until_threshold(const vector<Item>& items, const function<Score(size_t)>& get_score,
+    double threshold, size_t min_count, size_t max_count,
+    const function<bool(size_t)>& process_item, const function<void(size_t)>& discard_item) {
+
+    // Sort item indexes by item score
+    vector<size_t> indexes_in_order;
+    indexes_in_order.reserve(items.size());
+    for (size_t i = 0; i < items.size(); i++) {
+        indexes_in_order.push_back(i);
+    }
+    
+    // Put the highest scores first
+    std::sort(indexes_in_order.begin(), indexes_in_order.end(), [&](const size_t& a, const size_t& b) -> bool {
+        // Return true if a must come before b, and false otherwise
+        return get_score(a) > get_score(b);
+    });
+
+    // Retain items only if their score is at least as good as this
+    double cutoff = items.size() == 0 ? 0 : get_score(indexes_in_order[0]) - threshold;
+    
+    // Count up non-skipped items for min_count and max_count
+    size_t unskipped = 0;
+    
+    // Go through the items in descending score order.
+    for (size_t i = 0; i < indexes_in_order.size() && unskipped < max_count ; i++) {
+        // Find the item we are talking about
+        size_t& item_num = indexes_in_order[i];
+        
+        if (unskipped < min_count || (threshold == 0 || get_score(item_num) > cutoff)) {
+            // Do we definitely want this one, or is its score sufficiently good?
+            
+            // If so, go do it.
+            // If it is not skipped, add it to the total number of unskipped items
+            unskipped += (size_t) process_item(item_num);
+        } else {
+            // If this score is insignificant, nothing past here is significant.
+            
+            // Say we aren't doing this one.
+            // We'll also say we aren't doing the rest.
+            discard_item(item_num);
+        }
+    }
+}
+
+template<typename Item, typename Score>
+void MinimizerMapper::process_until_threshold(const vector<Item>& items, const vector<Score>& scores,
+    double threshold, size_t min_count, size_t max_count,
+    const function<bool(size_t)>& process_item, const function<void(size_t)>& discard_item) {
+    
+    assert(scores.size() == items.size());
+    
+    process_until_threshold<Item, Score>(items, [&](size_t i) -> Score {
+        return scores.at(i);
+    }, threshold, min_count, max_count, process_item, discard_item);
+    
+}
 
 }
 

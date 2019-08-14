@@ -134,12 +134,12 @@ int main_pack(int argc, char** argv) {
 
     omp_set_num_threads(thread_count);
 
-    unique_ptr<XG> xgidx;
+    unique_ptr<PathPositionHandleGraph> xgidx;
     if (xg_name.empty()) {
         cerr << "No XG index given. An XG index must be provided." << endl;
         exit(1);
     } else {
-        xgidx = vg::io::VPKG::load_one<XG>(xg_name);
+        xgidx = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
     }
 
     // process input node list
