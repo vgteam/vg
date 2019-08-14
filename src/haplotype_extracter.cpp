@@ -2,6 +2,7 @@
 #include "vg.hpp"
 #include "haplotype_extracter.hpp"
 #include "json2pb.h"
+#include "graph.hpp"
 
 namespace vg {
 
@@ -29,32 +30,7 @@ void trace_haplotypes_and_paths(const PathHandleGraph& source, const gbwt::GBWT&
       algorithms::expand_context_with_paths(&source, &extractor, extend_distance, true, true, false);
       
       // Convert to Protobuf I guess
-      extractor.for_each_handle([&](const handle_t& h) {
-          Node* node = out_graph.add_node();
-          node->set_id(extractor.get_id(h));
-          node->set_sequence(extractor.get_sequence(h));
-      });
-      extractor.for_each_edge([&](const edge_t& e) {
-          Edge* edge = out_graph.add_edge();
-          edge->set_from(extractor.get_id(e.first));
-          edge->set_from_start(extractor.get_is_reverse(e.first));
-          edge->set_to(extractor.get_id(e.second));
-          edge->set_to_end(extractor.get_is_reverse(e.second));
-      });
-      extractor.for_each_path_handle([&](const path_handle_t& p) {
-          Path* path = out_graph.add_path();
-          path->set_name(extractor.get_path_name(p));
-          path->set_is_circular(extractor.get_is_circular(p));
-          int64_t rank = 1;
-          for (handle_t step : extractor.scan_path(p)) {
-              Mapping* mapping = path->add_mapping();
-              Position* position = mapping->mutable_position();
-              position->set_node_id(extractor.get_id(step));
-              position->set_is_reverse(extractor.get_is_reverse(step));
-              mapping->set_rank(rank);
-              ++rank;
-          }
-      });
+      from_path_handle_graph(extractor, out_graph);
   }
 
   // add a frequency of 1 for each normal path

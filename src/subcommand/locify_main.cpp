@@ -131,7 +131,7 @@ int main_locify(int argc, char** argv){
         return 1;
     }
     ifstream xgstream(xg_idx_name);
-    unique_ptr<XG> xgidx = vg::io::VPKG::load_one<XG>(xgstream);
+    unique_ptr<PathPositionHandleGraph> xgidx = vg::io::VPKG::load_one<PathPositionHandleGraph>(xgstream);
 
     std::function<vector<string>(string, char)> strsplit = [&](string x, char delim){
 
@@ -343,7 +343,7 @@ int main_locify(int argc, char** argv){
         if (forwardize) {
             if (aln.second.path().mapping_size() && aln.second.path().mapping(0).position().is_reverse()) {
                 output_buf.push_back(reverse_complement_alignment(aln.second,
-                                                                  [&xgidx](int64_t id) { return xgidx->node_length(id); }));
+                                                                  [&xgidx](int64_t id) { return xgidx->get_length(xgidx->get_handle(id)); }));
             } else {
                 output_buf.push_back(aln.second);
             }

@@ -31,7 +31,7 @@ void trace_haplotypes_and_paths(const PathHandleGraph& source,
                                 map<string, int>& out_thread_frequencies,
                                 bool expand_graph = true);
 
-// Turns an (xg-based) thread_t into a (vg-based) Path
+// Turns a (GBWT-based) thread_t into a (vg-based) Path
 Path path_from_thread_t(thread_t& t, const HandleGraph& source);
 
 // Lists all the sub-haplotypes of length extend_distance nodes starting at

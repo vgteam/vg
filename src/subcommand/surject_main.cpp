@@ -11,6 +11,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include "../utility.hpp"
@@ -179,9 +180,9 @@ int main_surject(int argc, char** argv) {
         }
     }
 
-    unique_ptr<XG> xgidx;
+    unique_ptr<PathPositionHandleGraph> xgidx;
     if (!xg_name.empty()) {
-        xgidx = vg::io::VPKG::load_one<XG>(xg_name);
+        xgidx = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
     } else {
         // We need an XG index for the rest of the algorithm
         cerr << "error[vg surject] XG index (-x) is required for surjection" << endl;
@@ -190,9 +191,9 @@ int main_surject(int argc, char** argv) {
 
     // if no paths were given take all of those in the index
     if (path_names.empty()) {
-        for (size_t i = 1; i <= xgidx->path_count; ++i) {
-            path_names.insert(xgidx->path_name(i));
-        }
+        xgidx->for_each_path_handle([&](path_handle_t path_handle) {
+                path_names.insert(xgidx->get_path_name(path_handle));
+            });
     }
 
     // Make a single therad-safe Surjector.
@@ -200,11 +201,9 @@ int main_surject(int argc, char** argv) {
     
     // Get the lengths of all the paths in the XG to populate the HTS headers
     map<string, int64_t> path_length;
-    int num_paths = xgidx->max_path_rank();
-    for (int i = 1; i <= num_paths; ++i) {
-        auto name = xgidx->path_name(i);
-        path_length[name] = xgidx->path_length(name);
-    }
+    xgidx->for_each_path_handle([&](path_handle_t path_handle) {
+            path_length[xgidx->get_path_name(path_handle)] = xgidx->get_path_length(path_handle);
+        });
    
     // Count our threads
     int thread_count = get_thread_count();

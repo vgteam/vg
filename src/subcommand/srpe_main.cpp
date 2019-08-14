@@ -17,6 +17,7 @@
 #include "../genotyper.hpp"
 #include "../path_index.hpp"
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include "../filter.hpp"
 #include "../utility.hpp"
 #include "../translator.hpp"
@@ -163,7 +164,7 @@ int main_srpe(int argc, char** argv){
     //gam_index_name = argv[++optind];
     graph_name = argv[++optind];
 
-    unique_ptr<XG> xg_ind;
+    unique_ptr<PathPositionHandleGraph> xg_ind;
     unique_ptr<gcsa::GCSA> gcsa_ind;
     unique_ptr<gcsa::LCPArray> lcp_ind;
     Index gamind;
@@ -171,7 +172,7 @@ int main_srpe(int argc, char** argv){
     vg::VG* graph;
 
     if (!xg_name.empty()){
-        xg_ind = vg::io::VPKG::load_one<XG>(xg_name);
+        xg_ind = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
         
         srpe.ff.set_my_path_position_graph(xg_ind.get());
     }

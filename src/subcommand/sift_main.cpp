@@ -30,7 +30,6 @@ void help_sift(char** argv){
         << "General Options: " << endl
         << "    -t / --threads  <MTHRDS>    number of OMP threads (not all algorithms are parallelized)." << endl
         //<< "    -v / --inverse      return the inverse of a query (like grep -v)"   << endl
-        << "    -x / --xg  <MYXG>   An XG index (for realignment of split reads)" << endl
         << "    -p / --paired       Input reads are paired-end" << endl
         << "    -R / --remap        Remap (locally) any soft-clipped, split, or discordant read pairs." << endl
         << "    -o / --output <PREFIX>" << endl
@@ -117,7 +116,7 @@ int main_sift(int argc, char** argv){
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hut:vx:gG:pRo:I:W:OCDc:s:q:d:i:aw:r1",
+        c = getopt_long (argc, argv, "hut:vgG:pRo:I:W:OCDc:s:q:d:i:aw:r1",
                 long_options, &option_index);
 
         // Detect the end of the options.

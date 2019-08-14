@@ -139,8 +139,8 @@ int main_minimizer(int argc, char** argv) {
     if (progress) {
         std::cerr << "Loading XG index " << xg_name << std::endl;
     }
-    std::unique_ptr<XG> xg_index;
-    xg_index = vg::io::VPKG::load_one<XG>(xg_name);
+    std::unique_ptr<PathPositionHandleGraph> xg_index;
+    xg_index = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
 
     // Minimizer index.
     std::unique_ptr<MinimizerIndex> index(new MinimizerIndex(kmer_length, window_length));

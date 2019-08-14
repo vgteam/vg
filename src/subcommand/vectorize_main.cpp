@@ -180,9 +180,9 @@ int main_vectorize(int argc, char** argv){
         }
     }
 
-    unique_ptr<XG> xg_index;
+    unique_ptr<PathPositionHandleGraph> xg_index;
     if (!xg_name.empty()) {
-        xg_index = vg::io::VPKG::load_one<XG>(xg_name);
+        xg_index = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
     }
     else{
         cerr << "No XG index given. An XG index must be provided." << endl;
@@ -223,9 +223,9 @@ int main_vectorize(int argc, char** argv){
     // write the header if needed
     if (format) {
         cout << "aln.name";
-        for (size_t i = 1; i <= xg_index->max_node_rank(); ++i) {
-            cout << "\tnode." << xg_index->rank_to_id(i);
-        }
+        xg_index->for_each_handle([&](handle_t handle) {
+                cout << "\tnode." << xg_index->get_id(handle);
+            });
         cout << endl;
     }
 

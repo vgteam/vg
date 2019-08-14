@@ -14,6 +14,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include "../readfilter.hpp"
 #include <vg/io/vpkg.hpp>
 
@@ -276,10 +277,10 @@ int main_filter(int argc, char** argv) {
     sort(filter.name_prefixes.begin(), filter.name_prefixes.end());
     
      // If the user gave us an XG index, we probably ought to load it up.
-    unique_ptr<XG> xindex;
+    unique_ptr<PathPositionHandleGraph> xindex;
     if (!xg_name.empty()) {
         // read the xg index
-        xindex = vg::io::VPKG::load_one<XG>(xg_name);
+        xindex = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
     }
     filter.graph = xindex.get();
     
