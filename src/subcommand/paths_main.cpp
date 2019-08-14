@@ -328,6 +328,7 @@ int main_paths(int argc, char** argv) {
                             }
                             cout << "\t" << path_length;
                         }
+                        cout << endl;
                     } else {
                         Path path = path_from_path_handle(*graph, path_handle);
                         if (extract_as_gam) {
