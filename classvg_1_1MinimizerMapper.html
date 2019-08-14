@@ -147,7 +147,7 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a4aa953562a49de5befd8c80ee5e84a22"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac47b8ebb0479d86727c97e37e7f103ee"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ac47b8ebb0479d86727c97e37e7f103ee">extension_set_score_threshold</a> = 0</td></tr>
 <tr class="separator:ac47b8ebb0479d86727c97e37e7f103ee"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adeff081b3c6a83ddfa7f620245b61fd0"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#adeff081b3c6a83ddfa7f620245b61fd0">extension_score_threshold</a> = 0</td></tr>
+<tr class="memitem:adeff081b3c6a83ddfa7f620245b61fd0"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#adeff081b3c6a83ddfa7f620245b61fd0">extension_score_threshold</a> = 1</td></tr>
 <tr class="separator:adeff081b3c6a83ddfa7f620245b61fd0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aede601962425752ec75ea1d890505357"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aede601962425752ec75ea1d890505357">max_multimaps</a> = 1</td></tr>
 <tr class="separator:aede601962425752ec75ea1d890505357"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -176,8 +176,6 @@ Protected Types</h2></td></tr>
 Protected Member Functions</h2></td></tr>
 <tr class="memitem:a6a485aa968767c54bc47fdff11bcdd76"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6a485aa968767c54bc47fdff11bcdd76">estimate_extension_group_score</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds) const </td></tr>
 <tr class="separator:a6a485aa968767c54bc47fdff11bcdd76"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a45beb55a9535a9b986506a48703613c9"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a45beb55a9535a9b986506a48703613c9">score_is_significant</a> (int score_estimate, int best_score, int second_best_score) const </td></tr>
-<tr class="separator:a45beb55a9535a9b986506a48703613c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2f8c43ce7e04292284d84fdde5e4e557"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2f8c43ce7e04292284d84fdde5e4e557">find_optimal_tail_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;out) const </td></tr>
 <tr class="separator:a2f8c43ce7e04292284d84fdde5e4e557"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4a67a89b962d336a62f1fac1274febf4"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; size_t, <br class="typebreak"/>
@@ -187,8 +185,6 @@ unordered_map&lt; size_t, vector<br class="typebreak"/>
 <tr class="memitem:a8be8aff3aa063d91f68f8ec82a8a2b42"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; size_t, vector<br class="typebreak"/>
 &lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a8be8aff3aa063d91f68f8ec82a8a2b42">get_tail_forests</a> (const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, size_t read_length, bool left_tails) const </td></tr>
 <tr class="separator:a8be8aff3aa063d91f68f8ec82a8a2b42"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a51a9a311f5dad119ef8402e49a90830a"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="structvg_1_1Path.html">Path</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a51a9a311f5dad119ef8402e49a90830a">get_best_alignment_against_any_path</a> (const vector&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;paths, const string &amp;sequence, const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;default_position, bool pinned, bool pin_left) const </td></tr>
-<tr class="separator:a51a9a311f5dad119ef8402e49a90830a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaf968bd30104207da51aaf9819345af7"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="structvg_1_1Path.html">Path</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aaf968bd30104207da51aaf9819345af7">get_best_alignment_against_any_tree</a> (const vector&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt; &amp;trees, const string &amp;sequence, const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;default_position, bool pin_left) const </td></tr>
 <tr class="separator:aaf968bd30104207da51aaf9819345af7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5efadba4b15b8f3e5d6ae1279387f529"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a5efadba4b15b8f3e5d6ae1279387f529">dfs_gbwt</a> (const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;from, size_t walk_distance, const function&lt; void(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;enter_handle, const function&lt; void(void)&gt; exit_handle) const </td></tr>
@@ -197,6 +193,12 @@ unordered_map&lt; size_t, vector<br class="typebreak"/>
 <tr class="separator:acd5978f5b80bc43ea763209eabc48382"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a68e2329c79fede97101df231f8318c12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a68e2329c79fede97101df231f8318c12">dfs_gbwt</a> (const gbwt::SearchState &amp;start_state, size_t from_offset, size_t walk_distance, const function&lt; void(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;enter_handle, const function&lt; void(void)&gt; exit_handle) const </td></tr>
 <tr class="separator:a68e2329c79fede97101df231f8318c12"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab9bd813e79700aab193e366c57ff9d79"><td class="memTemplParams" colspan="2">template&lt;typename Item , typename Score  = double&gt; </td></tr>
+<tr class="memitem:ab9bd813e79700aab193e366c57ff9d79"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab9bd813e79700aab193e366c57ff9d79">process_until_threshold</a> (const vector&lt; Item &gt; &amp;items, const function&lt; Score(size_t)&gt; &amp;get_score, double threshold, size_t min_count, size_t max_count, const function&lt; bool(size_t)&gt; &amp;process_item, const function&lt; void(size_t)&gt; &amp;discard_item)</td></tr>
+<tr class="separator:ab9bd813e79700aab193e366c57ff9d79"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6f233e2a7caac4522dabad5dd1b1f129"><td class="memTemplParams" colspan="2">template&lt;typename Item , typename Score  = double&gt; </td></tr>
+<tr class="memitem:a6f233e2a7caac4522dabad5dd1b1f129"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6f233e2a7caac4522dabad5dd1b1f129">process_until_threshold</a> (const vector&lt; Item &gt; &amp;items, const vector&lt; Score &gt; &amp;scores, double threshold, size_t min_count, size_t max_count, const function&lt; bool(size_t)&gt; &amp;process_item, const function&lt; void(size_t)&gt; &amp;discard_item)</td></tr>
+<tr class="separator:a6f233e2a7caac4522dabad5dd1b1f129"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:ab180631766b1e787e29dd202ad455d90 inherit pro_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#ab180631766b1e787e29dd202ad455d90">AlignerClient</a> (double <a class="el" href="classvg_1_1AlignerClient.html#a65428f092aaa5d894b709e247cf0121a">gc_content_estimate</a>=vg::default_gc_content)</td></tr>
 <tr class="separator:ab180631766b1e787e29dd202ad455d90 inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -566,63 +568,6 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a51a9a311f5dad119ef8402e49a90830a"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">pair&lt; <a class="el" href="structvg_1_1Path.html">Path</a>, size_t &gt; vg::MinimizerMapper::get_best_alignment_against_any_path </td>
-          <td>(</td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>paths</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>sequence</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;&#160;</td>
-          <td class="paramname"><em>default_position</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>pinned</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>pin_left</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Find the best alignment of the given sequence against any of the paths defined in paths.</p>
-<p>If no mapping is possible, produce a pure insert at default_position.</p>
-<p>If pinned is true, pin the alignment on one end to the start or end of each path.</p>
-<p>When pinning, if pin_left is true, pin it on the left to the start of each path. Otherwise pin it on the right to the end.</p>
-<p>Returns alingments in gbwt_graph space. </p>
-
-</div>
-</div>
 <a class="anchor" id="aaf968bd30104207da51aaf9819345af7"></a>
 <div class="memitem">
 <div class="memproto">
@@ -772,35 +717,61 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a45beb55a9535a9b986506a48703613c9"></a>
+<a class="anchor" id="ab9bd813e79700aab193e366c57ff9d79"></a>
 <div class="memitem">
 <div class="memproto">
+<div class="memtemplate">
+template&lt;typename Item , typename Score &gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::MinimizerMapper::score_is_significant </td>
+          <td class="memname">void vg::MinimizerMapper::process_until_threshold </td>
           <td>(</td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>score_estimate</em>, </td>
+          <td class="paramtype">const vector&lt; Item &gt; &amp;&#160;</td>
+          <td class="paramname"><em>items</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>best_score</em>, </td>
+          <td class="paramtype">const function&lt; Score(size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>get_score</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>second_best_score</em>&#160;</td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>threshold</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>min_count</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_count</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; bool(size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>process_item</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>discard_item</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td> const</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -809,7 +780,76 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Determine if a score estimate is significant enough to justify computing the real <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. Returns true if it might win or affect mapping quality, and false otherwise. </p>
+<p>Given a vector of items, a function to get the score of each, a score-difference-from-the-best cutoff, and a min and max processed item count, process items in descending score order by calling process_item with the item's number, until min_count items are processed and either max_count items are processed or the score difference threshold is hit (or we run out of items).</p>
+<p>If process_item returns false, the item is skipped and does not count against min_count or max_count.</p>
+<p>Call discard_item with the item's number for all remaining items. </p>
+
+</div>
+</div>
+<a class="anchor" id="a6f233e2a7caac4522dabad5dd1b1f129"></a>
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Item , typename Score &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MinimizerMapper::process_until_threshold </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; Item &gt; &amp;&#160;</td>
+          <td class="paramname"><em>items</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; Score &gt; &amp;&#160;</td>
+          <td class="paramname"><em>scores</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>threshold</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>min_count</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_count</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; bool(size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>process_item</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>discard_item</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Same as the other process_until_threshold overload, except using a vector to supply scores. </p>
 
 </div>
 </div>
@@ -956,7 +996,7 @@ Protected Attributes</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">int vg::MinimizerMapper::extension_score_threshold = 0</td>
+          <td class="memname">int vg::MinimizerMapper::extension_score_threshold = 1</td>
         </tr>
       </table>
 </div><div class="memdoc">
