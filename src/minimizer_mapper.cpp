@@ -21,7 +21,7 @@ namespace vg {
 using namespace std;
 
 MinimizerMapper::MinimizerMapper(const GBWTGraph& graph, const MinimizerIndex& minimizer_index,
-     MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph) :
+    MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph) :
     path_graph(path_graph), minimizer_index(minimizer_index),
     distance_index(distance_index), gbwt_graph(graph),
     extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index) {
@@ -724,8 +724,11 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
             aln.sequence().begin() + extended_seed.read_interval.first));
     }
     
-    // We will keep the winning alignment in out
-    out.set_score(0);
+    // We will keep the winning alignment here, in pieces
+    Path winning_left;
+    Path winning_middle;
+    Path winning_right;
+    size_t winning_score = 0;
     
     // Handle each extension in the set
     process_until_threshold(extended_seeds, extension_path_scores,
@@ -752,8 +755,8 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 string before_sequence = aln.sequence().substr(0, extended_seeds[extended_seed_num].read_interval.first);
                 
                 // Do right-pinned alignment
-                left_tail_result = get_best_alignment_against_any_tree(forest, before_sequence,
-                    extended_seeds[extended_seed_num].starting_position(gbwt_graph), false);
+                left_tail_result = std::move(get_best_alignment_against_any_tree(forest, before_sequence,
+                    extended_seeds[extended_seed_num].starting_position(gbwt_graph), false));
             }
             
             if (extended_seeds[extended_seed_num].read_interval.second != aln.sequence().size()) {
@@ -766,21 +769,22 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 string trailing_sequence = aln.sequence().substr(extended_seeds[extended_seed_num].read_interval.second);
         
                 // Do left-pinned alignment
-                right_tail_result = get_best_alignment_against_any_tree(forest, trailing_sequence,
-                    extended_seeds[extended_seed_num].tail_position(gbwt_graph), true);
+                right_tail_result = std::move(get_best_alignment_against_any_tree(forest, trailing_sequence,
+                    extended_seeds[extended_seed_num].tail_position(gbwt_graph), true));
             }
 
             // Compute total score
             size_t total_score = extension_path_scores[extended_seed_num] + left_tail_result.second + right_tail_result.second;
 
-            if (total_score > out.score() || out.score() == 0) {
+            if (total_score > winning_score || winning_score == 0) {
                 // This is the new best alignment seen so far.
                 
                 // Save the score
-                out.set_score(total_score);
-                // And compose the full path
-                *out.mutable_path() = concat_paths(concat_paths(left_tail_result.first, extension_paths[extended_seed_num]),
-                    right_tail_result.first); 
+                winning_score = total_score;
+                // And the path parts
+                winning_left = std::move(left_tail_result.first);
+                winning_middle = std::move(extension_paths[extended_seed_num]);
+                winning_right = std::move(right_tail_result.first);
             }
 
             return true;
@@ -788,8 +792,39 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
             // This extended seed isn't good enough by its own score.
         });
         
-    // Now the winning path and score over all extended seeds we looked at is in out.
-    
+    // Now we know the winning path and score. Move them over to out
+    out.set_score(winning_score);
+
+    // Concatenate the paths. We know there must be at least an edit boundary
+    // between each part, because the maximal extension doesn't end in a
+    // mismatch or indel and eats all matches.
+    // We also don't need to worry about jumps that skip intervening sequence.
+    *out.mutable_path() = std::move(winning_left);
+
+    for (auto* to_append : {&winning_middle, &winning_right}) {
+        // For each path to append
+        for (auto& mapping : *to_append->mutable_mapping()) {
+            // For each mapping to append
+            
+            if (mapping.position().offset() != 0 && out.path().mapping_size() > 0) {
+                // If we have a nonzero offset in our mapping, and we follow
+                // something, we must be continuing on from a previous mapping to
+                // the node.
+                assert(mapping.position().node_id() == out.path().mapping(out.path().mapping_size() - 1).position().node_id());
+
+                // Find that previous mapping
+                auto* prev_mapping = out.mutable_path()->mutable_mapping(out.path().mapping_size() - 1);
+                for (auto& edit : *mapping.mutable_edit()) {
+                    // Move over all the edits in this mapping onto the end of that one.
+                    *prev_mapping->add_edit() = std::move(edit);
+                }
+            } else {
+                // If we start at offset 0 or there's nothing before us, we need to just move the whole mapping
+                *out.mutable_path()->add_mapping() = std::move(mapping);
+            }
+        }
+    }
+
     // Compute the identity from the path.
     out.set_identity(identity(out.path()));
 }
