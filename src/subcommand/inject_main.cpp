@@ -85,7 +85,7 @@ int main_inject(int argc, char** argv) {
         cerr << "error[vg inject]: XG index (-x) is required" << endl;
         exit(1);
     }
-    auto xgidx = vg::io::VPKG::load_one<XG>(xg_name);
+    auto xgidx = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
 
     vg::io::ProtobufEmitter<Alignment> buf(cout);
     function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
