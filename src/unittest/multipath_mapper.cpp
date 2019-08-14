@@ -7,6 +7,7 @@
 #include <vg/vg.pb.h>
 #include "../multipath_mapper.hpp"
 #include "../build_index.hpp"
+#include "../xg.hpp"
 #include "catch.hpp"
 
 namespace vg {

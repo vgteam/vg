@@ -4,6 +4,7 @@
 
 #include "catch.hpp"
 #include "readfilter.hpp"
+#include "xg.hpp"
 
 namespace vg {
 namespace unittest {

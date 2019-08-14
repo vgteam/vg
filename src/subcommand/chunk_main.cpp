@@ -522,7 +522,7 @@ int main_chunk(int argc, char** argv) {
         }
 
         // optionally trace our haplotypes
-        if (trace && subgraph) {
+        if (trace && subgraph && gbwt_index.get() != nullptr) {
             int64_t trace_start;
             int64_t trace_end;
             if (id_range) {

@@ -1,5 +1,6 @@
 #include "subcommand.hpp"
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include <vg/io/stream.hpp>
@@ -30,9 +31,7 @@ void help_find(char** argv) {
          << "    -p, --path TARGET      find the node(s) in the specified path range(s) TARGET=path[:pos1[-pos2]]" << endl
          << "    -E, --path-dag TARGET  like -p, but gets any node in the partial order from pos1 to pos2, assumes id sorted DAG" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
-         << "    -R, --rank-in PATH     find the rank of the node (specified by -n) in the given path" << endl
          << "    -I, --list-paths       write out the path names in the index" << endl
-         << "    -X, --approx-pos ID    get the approximate position of this node" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
          << "    -G, --gam GAM          accumulate the graph touched by the alignments in the GAM" << endl
          << "alignments:" << endl
@@ -81,7 +80,6 @@ int main_find(int argc, char** argv) {
     vector<string> targets;
     string path_name;
     bool position_in = false;
-    bool rank_in = false;
     string range;
     string gcsa_in;
     string xg_name;
@@ -103,7 +101,6 @@ int main_find(int argc, char** argv) {
     vector<string> extract_thread_patterns;
     bool extract_paths = false;
     vector<string> extract_path_patterns;
-    vg::id_t approx_id = 0;
     bool list_path_names = false;
     bool path_dag = false;
 
@@ -134,7 +131,6 @@ int main_find(int argc, char** argv) {
                 {"path", required_argument, 0, 'p'},
                 {"path-dag", required_argument, 0, 'E'},
                 {"position-in", required_argument, 0, 'P'},
-                {"rank-in", required_argument, 0, 'R'},
                 {"node-range", required_argument, 0, 'r'},
                 {"sorted-gam", required_argument, 0, 'l'},
                 {"alignments", no_argument, 0, 'a'},
@@ -146,13 +142,12 @@ int main_find(int argc, char** argv) {
                 {"max-mem", required_argument, 0, 'Y'},
                 {"min-mem", required_argument, 0, 'Z'},
                 {"paths-named", required_argument, 0, 'Q'},
-                {"approx-pos", required_argument, 0, 'X'},
                 {"list-paths", no_argument, 0, 'I'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:R:B:fDG:N:A:Y:Z:X:IQ:E:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:B:fDG:N:A:Y:Z:IQ:E:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -228,11 +223,6 @@ int main_find(int argc, char** argv) {
             position_in = true;
             break;
 
-        case 'R':
-            path_name = optarg;
-            rank_in = true;
-            break;
-
         case 'c':
             context_size = parse<int>(optarg);
             break;
@@ -292,10 +282,6 @@ int main_find(int argc, char** argv) {
         case 'Q':
             extract_paths = true;
             extract_path_patterns.push_back(optarg);
-            break;
-
-        case 'X':
-            approx_id = parse<int>(optarg);
             break;
 
         case 'G':
@@ -360,9 +346,9 @@ int main_find(int argc, char** argv) {
         vindex->open_read_only(db_name);
     }
 
-    unique_ptr<XG> xindex;
+    unique_ptr<PathPositionHandleGraph> xindex;
     if (!xg_name.empty()) {
-        xindex = vg::io::VPKG::load_one<XG>(xg_name);
+        xindex = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
     }
     
     unique_ptr<GAMIndex> gam_index;
@@ -497,49 +483,46 @@ int main_find(int argc, char** argv) {
 
     if (!xg_name.empty()) {
         if (!node_ids.empty() && path_name.empty() && !pairwise_distance) {
-            // get the context of the node
-            vector<Graph> graphs;
-            set<vg::id_t> ids;
-            for (auto node_id : node_ids) ids.insert(node_id);
+            VG graph;
             for (auto node_id : node_ids) {
-                Graph g;
-                xindex->neighborhood(node_id, context_size, g, !use_length);
-                if (context_size == 0) {
-                    for (auto& edge : xindex->edges_of(node_id)) {
-                        // if both ends of the edge are in our targets, keep them
-                        if (ids.count(edge.to()) && ids.count(edge.from())) {
-                            *g.add_edge() = edge;
-                        }
-                    }
+                graph.create_handle(xindex->get_sequence(xindex->get_handle(node_id)), node_id);
+            }
+            if (context_size > 0) {
+                if (use_length) {
+                    algorithms::expand_subgraph_by_length(*xindex, graph, context_size);
+                } else {
+                    algorithms::expand_subgraph_by_steps(*xindex, graph, context_size);
                 }
-                graphs.push_back(g);
+            } else {
+                algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
             }
-            VG result_graph;
-            for (auto& graph : graphs) {
-                // Allow duplicate nodes and edges (from e.g. multiple -n options); silently collapse them.
-                result_graph.extend(graph);
-            }
-            result_graph.remove_orphan_edges();
+            algorithms::add_subpaths_to_subgraph(*xindex, graph);
+
+            graph.remove_orphan_edges();
             
             // Order the mappings by rank. TODO: how do we handle breaks between
             // different sections of a path with a single name?
-            result_graph.paths.sort_by_mapping_rank();
+            graph.paths.sort_by_mapping_rank();
             
             // return it
-            result_graph.serialize_to_ostream(cout);
+            graph.serialize_to_ostream(cout);
             // TODO: We're serializing graphs all with their own redundant EOF markers if we use multiple functions simultaneously.
         } else if (end_id != 0) {
-            for (auto& e : xindex->edges_on_end(end_id)) {
-                cout << (e.from_start() ? -1 : 1) * e.from() << "\t" <<  (e.to_end() ? -1 : 1) * e.to() << endl;
-            }
+            xindex->follow_edges(xindex->get_handle(end_id), false, [&](handle_t next) {
+                    edge_t e = xindex->edge_handle(xindex->get_handle(end_id, false), next);
+                    cout << (xindex->get_is_reverse(e.first) ? -1 : 1) * xindex->get_id(e.first) << "\t"
+                         << (xindex->get_is_reverse(e.second) ? -1 : 1) * xindex->get_id(e.second) << endl;
+                });
         } else if (start_id != 0) {
-            for (auto& e : xindex->edges_on_start(start_id)) {
-                cout << (e.from_start() ? -1 : 1) * e.from() << "\t" <<  (e.to_end() ? -1 : 1) * e.to() << endl;
-            }
+            xindex->follow_edges(xindex->get_handle(start_id), true, [&](handle_t next) {
+                    edge_t e = xindex->edge_handle(xindex->get_handle(start_id, true), next);
+                    cout << (xindex->get_is_reverse(e.first) ? -1 : 1) * xindex->get_id(e.first) << "\t"
+                         << (xindex->get_is_reverse(e.second) ? -1 : 1) * xindex->get_id(e.second) << endl;
+                });
         }
-        if (!node_ids.empty() && !path_name.empty() && !pairwise_distance && (position_in || rank_in)) {
+        if (!node_ids.empty() && !path_name.empty() && !pairwise_distance && position_in) {
             // Go get the positions of these nodes in this path
-            if (xindex->path_rank(path_name) == 0) {
+            if (xindex->has_path(path_name) == false) {
                 // This path doesn't exist, and we'll get a segfault or worse if
                 // we go look for positions in it.
                 cerr << "[vg find] error, path \"" << path_name << "\" not found in index" << endl;
@@ -548,12 +531,15 @@ int main_find(int argc, char** argv) {
             
             // Note: this isn't at all consistent with -P option with rocksdb, which couts a range
             // and then mapping, but need this info right now for scripts/chunked_call
+            path_handle_t path_handle = xindex->get_path_handle(path_name);
             for (auto node_id : node_ids) {
                 cout << node_id;
-                for (auto r : (position_in ? xindex->position_in_path(node_id, path_name)
-                               : xindex->node_ranks_in_path(node_id, path_name))) {
-                    cout << "\t" << r;
-                }
+                assert(position_in);
+                xindex->for_each_step_on_handle(xindex->get_handle(node_id), [&](step_handle_t step_handle) {
+                        if (xindex->get_path_handle_of_step(step_handle) == path_handle) {
+                            cout << "\t" << xindex->get_position_of_step(step_handle);
+                        }
+                    });
                 cout << endl;
             }
         }
@@ -565,72 +551,63 @@ int main_find(int argc, char** argv) {
             cout << algorithms::min_approx_path_distance(dynamic_cast<PathPositionHandleGraph*>(&*xindex), make_pos_t(node_ids[0], false, 0), make_pos_t(node_ids[1], false, 0), 1000) << endl;
             return 0;
         }
-        if (approx_id != 0) {
-            cout << xindex->node_vector_offset(approx_id) << endl;
-            return 0;
-        }
         if (list_path_names) {
-            size_t m = xindex->max_path_rank();
-            for (size_t i = 1; i <= m; ++i) {
-                cout << xindex->path_name(i) << endl;
-            }
+            xindex->for_each_path_handle([&](path_handle_t path_handle) {
+                    cout << xindex->get_path_name(path_handle) << endl;
+                });
         }
         if (!targets.empty()) {
-            Graph graph;
+            VG graph;
             for (auto& target : targets) {
                 // Grab each target region
                 string name;
                 int64_t start, end;
                 parse_region(target, name, start, end);
-                if(xindex->path_rank(name) == 0) {
+                if(xindex->has_path(name) == false) { 
                     // Passing a nonexistent path to get_path_range produces Undefined Behavior
                     cerr << "[vg find] error, path " << name << " not found in index" << endl;
                     exit(1);
                 }
+                path_handle_t path_handle = xindex->get_path_handle(name);
                 // no coordinates given, we do whole thing (0,-1)
                 if (start < 0 && end < 0) {
                     start = 0;
                 }
-                xindex->get_path_range(name, start, end, graph);
+                algorithms::extract_path_range(*xindex, path_handle, start, end, graph);
+                
                 if (path_dag) {
                     // find the start and end node of this
                     // and fill things in
                     int64_t id_start = std::numeric_limits<int64_t>::max();
                     int64_t id_end = 1;
-                    for (size_t i = 0; i < graph.node_size(); ++i) {
-                        int64_t id = graph.node(i).id();
-                        id_start = std::min(id_start, id);
-                        id_end = std::max(id_end, id);
-                    }
-                    xindex->get_id_range(id_start, id_end, graph);
+                    graph.for_each_handle([&](handle_t handle) {
+                            int64_t id = graph.get_id(handle);
+                            id_start = std::min(id_start, id);
+                            id_end = std::max(id_end, id);
+                        });
+                    algorithms::extract_id_range(*xindex, id_start, id_end, graph);
                 }
             }
             if (context_size > 0) {
-                xindex->expand_context(graph, context_size, true, !use_length);
-            } else {
-                set<vg::id_t> ids;
-                //for (auto node_id : node_ids) ids.insert(node_id);
-                for (size_t i = 0; i < graph.node_size(); ++i) {
-                    vg::id_t node_id = graph.node(i).id();
-                    ids.insert(node_id);
-                    for (auto& edge : xindex->edges_of(node_id)) {
-                        // if both ends of the edge are in our targets, keep them
-                        if (ids.count(edge.to()) && ids.count(edge.from())) {
-                            *graph.add_edge() = edge;
-                        }
-                    }
+                if (use_length) {
+                    algorithms::expand_subgraph_by_length(*xindex, graph, context_size);
+                } else {
+                    algorithms::expand_subgraph_by_steps(*xindex, graph, context_size);
                 }
+            } else {
+                algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
             }
-            VG vgg; vgg.extend(graph); // removes dupes
-            vgg.remove_orphan_edges();
+            algorithms::add_subpaths_to_subgraph(*xindex, graph);
+            
+            graph.remove_orphan_edges();
             // Order the mappings by rank. TODO: how do we handle breaks between
             // different sections of a path with a single name?
-            vgg.paths.sort_by_mapping_rank();
+            graph.paths.sort_by_mapping_rank();
             
-            vgg.serialize_to_ostream(cout);
+            graph.serialize_to_ostream(cout);
         }
         if (!range.empty()) {
-            Graph graph;
+            VG graph;
             int64_t id_start=0, id_end=0;
             vector<string> parts = split_delims(range, ":");
             if (parts.size() == 1) {
@@ -640,45 +617,54 @@ int main_find(int argc, char** argv) {
             convert(parts.front(), id_start);
             convert(parts.back(), id_end);
             if (!use_length) {
-                xindex->get_id_range(id_start, id_end, graph);
+                algorithms::extract_id_range(*xindex, id_start, id_end, graph);
             } else {
                 // treat id_end as length instead.
-                xindex->get_id_range_by_length(id_start, id_end, graph, true);
+                size_t length = 0;
+                int64_t found_id_end = id_start;
+                for (int64_t cur_id = id_start; length < id_end; ++cur_id) {
+                    if (!xindex->has_node(cur_id)) {
+                        break;
+                    }
+                    length += xindex->get_length(xindex->get_handle(cur_id));
+                    found_id_end = cur_id;
+                }
+                algorithms::extract_id_range(*xindex, id_start, found_id_end, graph);
             }
             if (context_size > 0) {
-                xindex->expand_context(graph, context_size, true, !use_length);
-            } else {
-                set<vg::id_t> ids;
-                //for (auto node_id : node_ids) ids.insert(node_id);
-                for (size_t i = 0; i < graph.node_size(); ++i) {
-                    vg::id_t node_id = graph.node(i).id();
-                    ids.insert(node_id);
-                    for (auto& edge : xindex->edges_of(node_id)) {
-                        // if both ends of the edge are in our targets, keep them
-                        if (ids.count(edge.to()) && ids.count(edge.from())) {
-                            *graph.add_edge() = edge;
-                        }
-                    }
+                if (use_length) {
+                    algorithms::expand_subgraph_by_length(*xindex, graph, context_size);
+                } else {
+                    algorithms::expand_subgraph_by_steps(*xindex, graph, context_size);
                 }
+            } else {
+                algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
             }
-            VG vgg; vgg.extend(graph); // removes dupes
-            vgg.remove_orphan_edges();
-            vgg.serialize_to_ostream(cout);
+            algorithms::add_subpaths_to_subgraph(*xindex, graph);
+
+            graph.remove_orphan_edges();
+            graph.serialize_to_ostream(cout);
         }
         if (extract_paths) {
-            vector<Path> paths;
             for (auto& pattern : extract_path_patterns) {
-                for (auto& p : xindex->paths_by_prefix(pattern)) {
-                    paths.push_back(p);
-                }
-            }
-            for(auto& path : paths) {
-                // We need a Graph for serialization purposes.
-                Graph g;
-                *(g.add_path()) = xindex->path(path.name());
-                // Dump the graph with its mappings. TODO: can we restrict these to
-                vector<Graph> gb = { g };
-                vg::io::write_buffered(cout, gb, 0);
+                xindex->for_each_path_handle([&](path_handle_t path_handle) {
+                        string path_name = xindex->get_path_name(path_handle);
+                        if (pattern.length() <= path_name.length() && path_name.compare(0, pattern.length(), pattern) == 0) {
+                            // We need a Graph for serialization purposes.
+                            Graph g;
+                            Path* path = g.add_path();
+                            path->set_name(path_name);
+                            for (handle_t handle : xindex->scan_path(path_handle)) {
+                                Mapping* mapping = path->add_mapping();
+                                Position* position = mapping->mutable_position();
+                                position->set_node_id(xindex->get_id(handle));
+                                position->set_is_reverse(xindex->get_is_reverse(handle));
+                            }
+                            // Dump the graph with its mappings. TODO: can we restrict these to
+                            vector<Graph> gb = { g };
+                            vg::io::write_buffered(cout, gb, 0);
+                        }
+                    });
             }
         }
         if (!gam_file.empty()) {
@@ -709,13 +695,14 @@ int main_find(int argc, char** argv) {
                 vg::io::for_each(in, lambda);
             }
             // now we have the nodes to get
-            Graph graph;
+            VG graph;
             for (auto& node : nodes) {
-                *graph.add_node() = xindex->node(node);
+                handle_t node_handle = xindex->get_handle(node);
+                graph.create_handle(xindex->get_sequence(node_handle), xindex->get_id(node_handle));
             }
-            xindex->expand_context(graph, max(1, context_size), true); // get connected edges
-            VG vgg; vgg.extend(graph);
-            vgg.serialize_to_ostream(cout);
+            algorithms::expand_subgraph_by_steps(*xindex, graph, max(1, context_size)); // get connected edges
+            algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
+            graph.serialize_to_ostream(cout);
         }
     } else if (!db_name.empty()) {
         if (!node_ids.empty() && path_name.empty()) {

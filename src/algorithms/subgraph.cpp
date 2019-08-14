@@ -95,7 +95,7 @@ void expand_subgraph_by_length(const HandleGraph& source, MutableHandleGraph& su
     subgraph.for_each_handle([&](const handle_t& h) {
             curr_handles.push_back(h);
         });
-    while (accumulated_length < length) {
+    while (accumulated_length < length && !curr_handles.empty()) {
         std::vector<handle_t> next_handles;
         for (auto& h : curr_handles) {
             handle_t old_h = source.get_handle(subgraph.get_id(h));
@@ -142,7 +142,7 @@ void expand_subgraph_to_length(const HandleGraph& source, MutableHandleGraph& su
             total_length += subgraph.get_length(h);
             curr_handles.push_back(h);
         });
-    while (total_length < length) {
+    while (total_length < length && !curr_handles.empty()) {
         std::vector<handle_t> next_handles;
         for (auto& h : curr_handles) {
             handle_t old_h = source.get_handle(subgraph.get_id(h));
@@ -246,6 +246,26 @@ void extract_id_range(const HandleGraph& source, const nid_t& id1, const nid_t& 
         if (!subgraph.has_node(i)) {
             subgraph.create_handle(source.get_sequence(source.get_handle(i)), i);
         }
+    }
+}
+
+void extract_path_range(const PathPositionHandleGraph& source, path_handle_t path_handle, int64_t start, int64_t end,
+                        MutableHandleGraph& subgraph) {
+    step_handle_t start_step = source.get_step_at_position(path_handle, start);
+    size_t start_position = source.get_position_of_step(start_step);
+    size_t size_needed = end < 0 ? numeric_limits<size_t>::max() : end - start + 1 + start - start_position;
+    size_t running_length = 0;
+    
+    for (step_handle_t cur_step = start_step; cur_step != source.path_end(path_handle) && running_length < size_needed;
+         cur_step = source.get_next_step(cur_step)) {
+        handle_t cur_handle = source.get_handle_of_step(cur_step);
+        subgraph.create_handle(source.get_sequence(cur_handle), source.get_id(cur_handle));
+        if (cur_step != start_step) {
+            handle_t prev_handle = source.get_handle_of_step(source.get_previous_step(cur_step));
+            subgraph.create_edge(subgraph.get_handle(source.get_id(prev_handle), source.get_is_reverse(prev_handle)),
+                                  subgraph.get_handle(source.get_id(cur_handle), source.get_is_reverse(cur_handle)));
+        }
+        running_length += source.get_length(cur_handle);
     }
 }
 

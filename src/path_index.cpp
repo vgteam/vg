@@ -150,7 +150,7 @@ PathIndex::PathIndex(const list<mapping_t>& mappings, VG& vg) {
 }
 
 PathIndex::PathIndex(const Path& path, const HandleGraph& graph) {
-    // Trace the given path in the given XG graph, collecting sequence
+    // Trace the given path in the given graph, collecting sequence
     
     // We're going to build the sequence string
     std::stringstream seq_stream;

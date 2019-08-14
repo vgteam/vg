@@ -6,6 +6,7 @@
 #include "json2pb.h"
 #include <vg/vg.pb.h>
 #include "../mapper.hpp"
+#include "../xg.hpp"
 #include "../build_index.hpp"
 #include "catch.hpp"
 #include "../algorithms/alignment_path_offsets.hpp"

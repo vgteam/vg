@@ -17,6 +17,7 @@
 #include "../genotyper.hpp"
 #include "../path_index.hpp"
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include "../filter.hpp"
 #include "../utility.hpp"
 #include "../translator.hpp"
