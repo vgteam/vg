@@ -53,7 +53,7 @@ THREAD_COUNT=32
 # TODO: this requires GNU mptemp
 WORK="$(mktemp -d)"
 
-if which perf 2>/dev/null ; then
+if which perf >/dev/null 2>&1 ; then
     # Record profile.
     # Do this first because perf is likely to be misconfigured and we want to fail fast.
     
@@ -81,9 +81,9 @@ vg annotate -p -x "${XG_INDEX}" -a "${WORK}/mapped-map.gam" >"${WORK}/annotated-
 CORRECT_COUNT="$(vg gamcompare -r 100 "${WORK}/annotated.gam" "${SIM_GAM}" 2>&1 >/dev/null | sed 's/[^0-9]//g')"
 CORRECT_COUNT_MAP="$(vg gamcompare -r 100 "${WORK}/annotated-map.gam" "${SIM_GAM}" 2>&1 >/dev/null | sed 's/[^0-9]//g')"
 
-# Compute identity
-MEAN_IDENTITY="$(vg view -aj "${WORK}/mapped.gam" | jq -c '.identity' | awk '{x+=$1} END {print x/NR}')"
-MEAN_IDENTITY_MAP="$(vg view -aj "${WORK}/mapped-map.gam" | jq -c '.identity' | awk '{x+=$1} END {print x/NR}')"
+# Compute identity of mapped reads
+MEAN_IDENTITY="$(vg view -aj "${WORK}/mapped.gam" | jq -c 'select(.path) | .identity' | awk '{x+=$1} END {print x/NR}')"
+MEAN_IDENTITY_MAP="$(vg view -aj "${WORK}/mapped-map.gam" | jq -c 'select(.path) | .identity' | awk '{x+=$1} END {print x/NR}')"
 
 # Compute loss stages
 vg view -aj "${WORK}/mapped.gam" | scripts/giraffe-facts.py "${WORK}/facts" >"${WORK}/facts.txt" 2>&1
@@ -111,7 +111,7 @@ BWA_RPS="$(echo "${REAL_READ_COUNT} / (${BWA_DOUBLE_TIME} - ${BWA_TIME}) / ${THR
 
 echo "==== Giraffe Wrangler Report for vg $(vg version -s) ===="
 
-if which perf 2>/dev/null ; then
+if which perf >/dev/null 2>&1 ; then
     # Output perf stuff
     mv "${WORK}/perf.data" ./perf.data
     mv "${WORK}/profile.svg" ./profile.svg
@@ -120,8 +120,8 @@ if which perf 2>/dev/null ; then
 fi
 
 # Print the report
-echo "Giraffe got ${CORRECT_COUNT} simulated reads correct with ${MEAN_IDENTITY} average identity"
-echo "Map got ${CORRECT_COUNT_MAP} simulated reads correct with ${MEAN_IDENTITY_MAP} average identity"
+echo "Giraffe got ${CORRECT_COUNT} simulated reads correct with ${MEAN_IDENTITY} average identity per mapped base"
+echo "Map got ${CORRECT_COUNT_MAP} simulated reads correct with ${MEAN_IDENTITY_MAP} average identity per mapped base"
 echo "Giraffe aligned real reads at ${GIRAFFE_RPS} reads/second vs. bwa-mem's ${BWA_RPS} reads/second on ${THREAD_COUNT} threads"
 
 cat "${WORK}/facts.txt"
