@@ -245,20 +245,20 @@ int main_sim(int argc, char** argv) {
         transcript_expressions = parse_rsem_expression_file(rsem_in);
     }
 
-    unique_ptr<XG> xgidx;
+    unique_ptr<PathPositionHandleGraph> xgidx;
     if (!xg_name.empty()) {
-        xgidx = vg::io::VPKG::load_one<XG>(xg_name);
+        xgidx = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
     }
     
     for (auto& path_name : path_names) {
-        if (xgidx->path_rank(path_name) == 0) {
+        if (xgidx->has_path(path_name) == false) {
             cerr << "[vg sim] error: path \""<< path_name << "\" not found in index" << endl;
             return 1;
         }
     }
     
     for (auto& transcript_expression : transcript_expressions) {
-        if (xgidx->path_rank(transcript_expression.first) == 0) {
+        if (xgidx->has_path(transcript_expression.first) == false) {
             cerr << "[vg sim] error: transcript path for \""<< transcript_expression.first << "\" not found in index" << endl;
             return 1;
         }
