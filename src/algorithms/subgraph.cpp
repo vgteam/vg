@@ -16,10 +16,12 @@ void expand_subgraph_by_steps(const HandleGraph& source, MutableHandleGraph& sub
                     handle_t x;
                     if (!subgraph.has_node(source.get_id(c))) {
                         x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
-                        if (source.get_is_reverse(c)) x = subgraph.flip(x);
                         next_handles.push_back(x);
                     } else {
                         x = subgraph.get_handle(source.get_id(c));
+                    }
+                    if (source.get_is_reverse(c)) {
+                        x = subgraph.flip(x);
                     }
                     if (!subgraph.has_edge(h, x)) {
                         subgraph.create_edge(h, x);
@@ -30,10 +32,12 @@ void expand_subgraph_by_steps(const HandleGraph& source, MutableHandleGraph& sub
                         handle_t x;
                         if (!subgraph.has_node(source.get_id(c))) {
                             x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
-                            if (source.get_is_reverse(c)) x = subgraph.flip(x);
                             next_handles.push_back(x);
                         } else {
                             x = subgraph.get_handle(source.get_id(c));
+                        }
+                        if (source.get_is_reverse(c)) {
+                            x = subgraph.flip(x);
                         }
                         if (!subgraph.has_edge(x, h)) {
                             subgraph.create_edge(x, h);
@@ -59,10 +63,12 @@ void expand_subgraph_to_node_count(const HandleGraph& source, MutableHandleGraph
                     handle_t x;
                     if (!subgraph.has_node(source.get_id(c))) {
                         x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
-                        if (source.get_is_reverse(c)) x = subgraph.flip(x);
                         next_handles.push_back(x);
                     } else {
                         x = subgraph.get_handle(source.get_id(c));
+                    }
+                    if (source.get_is_reverse(c)) {
+                        x = subgraph.flip(x);
                     }
                     if (!subgraph.has_edge(h, x)) {
                         subgraph.create_edge(h, x);
@@ -73,10 +79,12 @@ void expand_subgraph_to_node_count(const HandleGraph& source, MutableHandleGraph
                         handle_t x;
                         if (!subgraph.has_node(source.get_id(c))) {
                             x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
-                            if (source.get_is_reverse(c)) x = subgraph.flip(x);
                             next_handles.push_back(x);
                         } else {
                             x = subgraph.get_handle(source.get_id(c));
+                        }
+                        if (source.get_is_reverse(c)) {
+                            x = subgraph.flip(x);
                         }
                         if (!subgraph.has_edge(x, h)) {
                             subgraph.create_edge(x, h);
@@ -103,11 +111,13 @@ void expand_subgraph_by_length(const HandleGraph& source, MutableHandleGraph& su
                     handle_t x;
                     if (!subgraph.has_node(source.get_id(c))) {
                         x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
-                        if (source.get_is_reverse(c)) x = subgraph.flip(x);
                         next_handles.push_back(x);
                         accumulated_length += subgraph.get_length(x);
                     } else {
                         x = subgraph.get_handle(source.get_id(c));
+                    }
+                    if (source.get_is_reverse(c)) {
+                        x = subgraph.flip(x);
                     }
                     if (!subgraph.has_edge(h, x)) {
                         subgraph.create_edge(h, x);
@@ -118,11 +128,13 @@ void expand_subgraph_by_length(const HandleGraph& source, MutableHandleGraph& su
                         handle_t x;
                         if (!subgraph.has_node(source.get_id(c))) {
                             x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
-                            if (source.get_is_reverse(c)) x = subgraph.flip(x);
                             next_handles.push_back(x);
                             accumulated_length += subgraph.get_length(x);
                         } else {
                             x = subgraph.get_handle(source.get_id(c));
+                        }
+                        if (source.get_is_reverse(c)) {
+                            x = subgraph.flip(x);
                         }
                         if (!subgraph.has_edge(x, h)) {
                             subgraph.create_edge(x, h);
@@ -150,11 +162,13 @@ void expand_subgraph_to_length(const HandleGraph& source, MutableHandleGraph& su
                     handle_t x;
                     if (!subgraph.has_node(source.get_id(c))) {
                         x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
-                        if (source.get_is_reverse(c)) x = subgraph.flip(x);
                         next_handles.push_back(x);
                         total_length += subgraph.get_length(x);
                     } else {
                         x = subgraph.get_handle(source.get_id(c));
+                    }
+                    if (source.get_is_reverse(c)) {
+                        x = subgraph.flip(x);
                     }
                     if (!subgraph.has_edge(h, x)) {
                         subgraph.create_edge(h, x);
@@ -165,11 +179,13 @@ void expand_subgraph_to_length(const HandleGraph& source, MutableHandleGraph& su
                         handle_t x;
                         if (!subgraph.has_node(source.get_id(c))) {
                             x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
-                            if (source.get_is_reverse(c)) x = subgraph.flip(x);
                             next_handles.push_back(x);
                             total_length += subgraph.get_length(x);
                         } else {
                             x = subgraph.get_handle(source.get_id(c));
+                        }
+                        if (source.get_is_reverse(c)) {
+                            x = subgraph.flip(x);
                         }
                         if (!subgraph.has_edge(x, h)) {
                             subgraph.create_edge(x, h);
@@ -206,11 +222,13 @@ void extract_context(const HandleGraph& source, MutableHandleGraph& subgraph, co
                             handle_t x;
                             if (!subgraph.has_node(source.get_id(c))) {
                                 x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
-                                if (source.get_is_reverse(c)) x = subgraph.flip(x);
                                 total_length_fwd += subgraph.get_length(x);
                                 extended = true;
                             } else {
                                 x = subgraph.get_handle(source.get_id(c));
+                            }
+                            if (source.get_is_reverse(c)) {
+                                x = subgraph.flip(x);
                             }
                             if (!subgraph.has_edge(h, x)) {
                                 subgraph.create_edge(h, x);
@@ -224,11 +242,13 @@ void extract_context(const HandleGraph& source, MutableHandleGraph& subgraph, co
                             handle_t x;
                             if (!subgraph.has_node(source.get_id(c))) {
                                 x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));
-                                if (source.get_is_reverse(c)) x = subgraph.flip(x);
                                 total_length_rev += subgraph.get_length(x);
                                 extended = true;
                             } else {
                                 x = subgraph.get_handle(source.get_id(c));
+                            }
+                            if (source.get_is_reverse(c)) {
+                                x = subgraph.flip(x);
                             }
                             if (!subgraph.has_edge(x, h)) {
                                 subgraph.create_edge(x, h);
@@ -281,7 +301,7 @@ void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePath
                 source.for_each_step_position_on_handle(handle, [&](const step_handle_t& step, const bool& is_rev, const uint64_t& pos) {
                         path_handle_t path = source.get_path_handle_of_step(step);
                         std::string path_name = source.get_path_name(path);
-                        subpaths[path_name][pos] = h;
+                        subpaths[path_name][pos] = is_rev ? subgraph.flip(h) : h;
                         return true;
                     });
             }
