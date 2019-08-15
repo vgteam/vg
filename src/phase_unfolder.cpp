@@ -15,7 +15,7 @@ PhaseUnfolder::PhaseUnfolder(const PathPositionHandleGraph& path_graph, const gb
 
 void PhaseUnfolder::unfold(MutableHandleGraph& graph, bool show_progress) {
     std::list<VG> components = this->complement_components(graph, show_progress);
-
+    
     size_t haplotype_paths = 0;
     VG unfolded;
     for (MutableHandleGraph& component : components) {
@@ -26,7 +26,7 @@ void PhaseUnfolder::unfold(MutableHandleGraph& graph, bool show_progress) {
                   << unfolded.node_count() << " nodes, " << unfolded.edge_count() << " edges on "
                   << haplotype_paths << " paths" << std::endl;
     }
-
+    
     algorithms::extend(&unfolded, &graph);
 }
 
@@ -396,7 +396,7 @@ size_t PhaseUnfolder::unfold_component(MutableHandleGraph& component, MutableHan
     component.for_each_handle([&](const handle_t& handle) {
         this->generate_threads(component, component.get_id(handle));
     });
-
+    
     auto insert_node = [&](gbwt::node_type node) {
         // create a new node
         if (!unfolded.has_node(gbwt::Node::id(node))) {
@@ -443,7 +443,6 @@ void PhaseUnfolder::generate_paths(MutableHandleGraph& component, vg::id_t from)
 
     handle_t from_handle = this->path_graph.get_handle(from);
     this->path_graph.for_each_step_on_handle(from_handle, [&](const step_handle_t& _step) {
-        
         // Forward.
         {
             step_handle_t step = _step;
@@ -483,8 +482,8 @@ void PhaseUnfolder::generate_paths(MutableHandleGraph& component, vg::id_t from)
             handle_t handle = this->path_graph.get_handle_of_step(step);
             vg::id_t id = this->path_graph.get_id(handle);
             bool is_rev = this->path_graph.get_is_reverse(handle);
-            gbwt::node_type next = gbwt::Node::encode(id, is_rev);
-            path_type buffer(1, next);
+            gbwt::node_type prev = gbwt::Node::encode(id, !is_rev);
+            path_type buffer(1, prev);
             while (this->path_graph.has_previous_step(step)) {
                 step = this->path_graph.get_previous_step(step);
                 handle = this->path_graph.get_handle_of_step(step);
@@ -493,8 +492,8 @@ void PhaseUnfolder::generate_paths(MutableHandleGraph& component, vg::id_t from)
                 if (!component.has_node(id)) {
                     break;  // Found a maximal path, no matching node.
                 }
-                gbwt::node_type curr = gbwt::Node::encode(id, is_rev);
-                edge_t candidate = make_edge(component, curr, next);
+                gbwt::node_type curr = gbwt::Node::encode(id, !is_rev);
+                edge_t candidate = make_edge(component, prev, curr);
                 if (!component.has_edge(candidate)) {
                     break;  // Found a maximal path, no matching edge.
                 }
@@ -502,10 +501,8 @@ void PhaseUnfolder::generate_paths(MutableHandleGraph& component, vg::id_t from)
                 if (this->border.find(gbwt::Node::id(curr)) != this->border.end()) {
                     break;  // Found a border-to-border path.
                 }
-                next = curr;
+                prev = curr;
             }
-            // we built this in reverse order since we were traversing backwards
-            reverse(buffer.begin(), buffer.end());
             
             bool to_border = (this->border.find(gbwt::Node::id(buffer.back())) != this->border.end());
             this->reference_paths.push_back(buffer);
@@ -579,7 +576,6 @@ PhaseUnfolder::path_type canonical_orientation(const PhaseUnfolder::path_type& p
 }
 
 void PhaseUnfolder::extend_path(const path_type& path) {
-
     if (path.size() < 2) {
         return;
     }
@@ -652,7 +648,7 @@ void PhaseUnfolder::insert_path(const path_type& path, bool from_border, bool to
       the node and insert the mapping into the corresponding trie. Finally
       create a crossing edge between the full prefix and the full suffix.
     */
-
+    
     // Prefixes.
     gbwt::node_type from = to_insert.front();
     if (!from_border) {
