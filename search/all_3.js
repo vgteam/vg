@@ -178,7 +178,7 @@ var searchData=
   ['compare_5fmain_2ecpp',['compare_main.cpp',['../compare__main_8cpp.html',1,'']]],
   ['compiler',['COMPILER',['../classvg_1_1Version.html#a20177da26bdbb15b48bae0c20b02b273',1,'vg::Version']]],
   ['complement',['complement',['../classvg_1_1ReverseGraph.html#af2508e0ccbc9186701840c7630b7c505',1,'vg::ReverseGraph::complement()'],['../structvg_1_1ChainIterator.html#a6699e092f944e1c311b4bbdf2e2cbe38',1,'vg::ChainIterator::complement()']]],
-  ['complement_5fcomponents',['complement_components',['../classvg_1_1PhaseUnfolder.html#aa9f017a0cd422c1229edd25c0235e17a',1,'vg::PhaseUnfolder']]],
+  ['complement_5fcomponents',['complement_components',['../classvg_1_1PhaseUnfolder.html#a2d69a65af162a8728f6fb5df88b44b72',1,'vg::PhaseUnfolder']]],
   ['complement_5ffilter',['complement_filter',['../classvg_1_1ReadFilter.html#a7a22a82c55e23fca581060934d03935e',1,'vg::ReadFilter']]],
   ['component_5fpath_5fset_5fof_5fpath',['component_path_set_of_path',['../classvg_1_1PathComponentIndex.html#acfecfcd0941270d0811524d8b029dc53',1,'vg::PathComponentIndex']]],
   ['component_5fpath_5fsets',['component_path_sets',['../classvg_1_1PathComponentIndex.html#ac569cc4c6e7d19c65b82db1fe781cbb8',1,'vg::PathComponentIndex']]],

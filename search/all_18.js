@@ -10,13 +10,12 @@ var searchData=
   ['xg_2ecpp',['xg.cpp',['../xg_8cpp.html',1,'']]],
   ['xg_2ehpp',['xg.hpp',['../xg_8hpp.html',1,'']]],
   ['xg_5ffile_5fname',['xg_file_name',['../classvg_1_1SupportCaller.html#a7c006411b59c4b2b85c81ae593e018e4',1,'vg::SupportCaller']]],
-  ['xg_5findex',['xg_index',['../classvg_1_1PhaseUnfolder.html#a3abc4014489f0c2efacae587b6f34b4d',1,'vg::PhaseUnfolder']]],
   ['xg_5fmain_2ecpp',['xg_main.cpp',['../xg__main_8cpp.html',1,'']]],
   ['xg_5fpath_5fto_5fgbwt',['xg_path_to_gbwt',['../namespacevg.html#a4f66f9c598efc54292c0f59103ff3d81',1,'vg']]],
   ['xgformaterror',['XGFormatError',['../classvg_1_1XGFormatError.html',1,'vg']]],
   ['xgidx',['xgidx',['../classvg_1_1Sampler.html#a35bb39d138b576dd29e6652c3f170418',1,'vg::Sampler::xgidx()'],['../classvg_1_1Viz.html#a1c854dabf978e525e6fab1223927ab2c',1,'vg::Viz::xgidx()']]],
-  ['xgpath',['XGPath',['../classvg_1_1XGPath.html#a8017e25097d332d6a017c0c2895d4684',1,'vg::XGPath::XGPath(void)=default'],['../classvg_1_1XGPath.html#ac3adaea61a5eec5d3014077fccfdb80d',1,'vg::XGPath::XGPath(const string &amp;path_name, const vector&lt; trav_t &gt; &amp;path, bool is_circular, size_t node_count, XG &amp;graph, size_t *unique_member_count_out=nullptr)'],['../classvg_1_1XGPath.html#aaf92346c7d6d9a24c94fc4c1183f2d08',1,'vg::XGPath::XGPath(const XGPath &amp;other)=delete'],['../classvg_1_1XGPath.html#a215e41d18882d972a50bade8e7d0f2d8',1,'vg::XGPath::XGPath(XGPath &amp;&amp;other)=delete']]],
   ['xgpath',['XGPath',['../classvg_1_1XGPath.html',1,'vg']]],
+  ['xgpath',['XGPath',['../classvg_1_1XGPath.html#a8017e25097d332d6a017c0c2895d4684',1,'vg::XGPath::XGPath(void)=default'],['../classvg_1_1XGPath.html#ac3adaea61a5eec5d3014077fccfdb80d',1,'vg::XGPath::XGPath(const string &amp;path_name, const vector&lt; trav_t &gt; &amp;path, bool is_circular, size_t node_count, XG &amp;graph, size_t *unique_member_count_out=nullptr)'],['../classvg_1_1XGPath.html#aaf92346c7d6d9a24c94fc4c1183f2d08',1,'vg::XGPath::XGPath(const XGPath &amp;other)=delete'],['../classvg_1_1XGPath.html#a215e41d18882d972a50bade8e7d0f2d8',1,'vg::XGPath::XGPath(XGPath &amp;&amp;other)=delete']]],
   ['xindex',['xindex',['../classvg_1_1BaseMapper.html#a0afffd854c5bcf69e8bd1125de4c7267',1,'vg::BaseMapper']]],
   ['xsputn',['xsputn',['../classvg_1_1io_1_1fdoutbuf.html#a1eba1fc19d1c9100bc5eb98259cc914b',1,'vg::io::fdoutbuf']]]
 ];

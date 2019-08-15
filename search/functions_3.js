@@ -109,7 +109,7 @@ var searchData=
   ['compact_5fordered',['compact_ordered',['../classvg_1_1Transcriptome.html#a9084366eefa5e787e3f567156ab1ef87',1,'vg::Transcriptome']]],
   ['compact_5franks',['compact_ranks',['../classvg_1_1Paths.html#aaf065b12a8a942c96f6d88a2c6db7c8e',1,'vg::Paths']]],
   ['compare_5fkmers',['compare_kmers',['../classvg_1_1Index.html#aa64f755f8bc3e2d0c035179afde606c1',1,'vg::Index']]],
-  ['complement_5fcomponents',['complement_components',['../classvg_1_1PhaseUnfolder.html#aa9f017a0cd422c1229edd25c0235e17a',1,'vg::PhaseUnfolder']]],
+  ['complement_5fcomponents',['complement_components',['../classvg_1_1PhaseUnfolder.html#a2d69a65af162a8728f6fb5df88b44b72',1,'vg::PhaseUnfolder']]],
   ['component_5ftopological_5forder',['component_topological_order',['../classvg_1_1MEMClusterer_1_1HitGraph.html#a3d781e43df99ad3ce2b7e65af456f5f6',1,'vg::MEMClusterer::HitGraph']]],
   ['compute_5fborders_5fand_5fdimensions',['compute_borders_and_dimensions',['../classvg_1_1Viz.html#a8a9eb721a92953e9a3e84f45f1952a9c',1,'vg::Viz']]],
   ['compute_5fchains',['compute_chains',['../classvg_1_1SnarlManager.html#a50fd20deea9859d27991e276b224d7d5',1,'vg::SnarlManager']]],
