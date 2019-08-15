@@ -269,7 +269,6 @@ bool Paths::has_mapping(const string& name, int32_t rank) {
 }
 
 void Paths::append_mapping(const string& name, const mapping_t& m, bool warn_on_duplicates) {
-
     // get or create the path with this name
     list<mapping_t>& pt = get_create_path(name);
     // now if we haven't already supplied a mapping
@@ -1642,6 +1641,17 @@ const string mapping_sequence(const Mapping& mp, const Node& n) {
     return mapping_sequence(mp, node_seq);
 }
 
+// convert the path to a sequence
+string path_sequence(const HandleGraph& graph, const Path& path) {
+    string seq;
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        auto& m = path.mapping(i);
+        handle_t h = graph.get_handle(m.position().node_id(), m.position().is_reverse());
+        seq.append(graph.get_sequence(h));
+    }
+    return seq;
+}
+
 Mapping reverse_complement_mapping(const Mapping& m,
                                    const function<int64_t(id_t)>& node_length) {
     // Make a new reversed mapping
@@ -2348,5 +2358,31 @@ void remove_paths(Graph& graph, const function<bool(const string&)>& paths_to_ta
         *(graph.add_path()) = path;
     }
 }
+
+Path path_from_path_handle(const PathHandleGraph& graph, path_handle_t path_handle) {
+    Path path;
+    path.set_name(graph.get_path_name(path_handle));
+    size_t rank = 1;
+    for (handle_t handle : graph.scan_path(path_handle)) {
+        Mapping* mapping = path.add_mapping();
+        mapping->mutable_position()->set_node_id(graph.get_id(handle));
+        mapping->mutable_position()->set_is_reverse(graph.get_is_reverse(handle));
+        mapping->set_rank(rank++);
+        Edit* edit = mapping->add_edit();
+        edit->set_from_length(graph.get_length(handle));
+        edit->set_to_length(graph.get_length(handle));
+    }
+    return path;
+}
+
+// Wrap a Path in an Alignment
+Alignment alignment_from_path(const HandleGraph& graph, const Path& path) {
+    Alignment aln;
+    *aln.mutable_path() = path;
+    aln.set_name(aln.path().name());
+    aln.set_sequence(path_sequence(graph, path));
+    return aln;
+}
+
 
 }
