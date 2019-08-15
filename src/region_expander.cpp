@@ -20,6 +20,7 @@ namespace vg {
             cerr << "error [RegionExpander] cannot expand genomic interval, graph does not contain path with name: " << gff_record.sequence_id << endl;
             exit(1);
         }
+
         path_handle_t path_handle = graph->get_path_handle(gff_record.sequence_id);
         
         // walk along the path for the interval and add the corresponding nodes to the subgraph
@@ -36,6 +37,7 @@ namespace vg {
         return_val[make_pair(node_id, is_rev)] = pair<uint64_t, uint64_t>(gff_record.start - at_pos,
                                                                           node_length);
         at_pos += node_length;
+
         while (at_pos <= gff_record.end) {
             step = graph->get_next_step(step);
             handle = graph->get_handle_of_step(step);
@@ -45,7 +47,6 @@ namespace vg {
             
             interval_subpath.emplace_back(node_id, is_rev);
             return_val[make_pair(node_id, is_rev)] = pair<uint64_t, uint64_t>(0, node_length);
-            
             at_pos += node_length;
         }
         
