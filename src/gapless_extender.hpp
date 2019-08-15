@@ -141,9 +141,10 @@ public:
     /**
      * Try to improve the score of each extension by trimming mismatches from the flanks.
      * Do not trim full-length alignments with <= max_mismatches mismatches.
+     * Use the provided CachedGBWT or allocate a new one.
      * Note that extend() already calls this by default.
      */
-    void trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches = MAX_MISMATCHES) const;
+    void trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches = MAX_MISMATCHES, const gbwt::CachedGBWT* cache = nullptr) const;
 
     const GBWTGraph* graph;
     const Aligner*   aligner;
