@@ -197,33 +197,22 @@ size_t PhaseUnfolder::verify_paths(MutableHandleGraph& unfolded, bool show_progr
         progress->Progressed(verified);
     }
 
-    
-#pragma omp parallel
-    {
-        this->path_graph.for_each_path_handle([&](const path_handle_t& path_handle) {
-#pragma omp task
-            {
-                vector<pair<vg::id_t, bool>> path;
-                this->path_graph.for_each_step_in_path(path_handle, [&](const step_handle_t& step) {
-                    handle_t handle = this->path_graph.get_handle_of_step(step);
-                    path.push_back(make_pair(this->path_graph.get_id(handle),
-                                             this->path_graph.get_is_reverse(handle)));
-                });
-                bool successful = verify_path(this->path_graph, path, unfolded, reverse_mapping);
-#pragma omp critical
-                {
-                    if (!successful) {
-                        failures++;
-                    }
-                    verified++;
-                    if (show_progress && (verified % progress_step == 0 || verified >= total_paths)) {
-                        progress->Progressed(verified);
-                    }
-                }
-            }
+    this->path_graph.for_each_path_handle([&](const path_handle_t& path_handle) {
+        vector<pair<vg::id_t, bool>> path;
+        this->path_graph.for_each_step_in_path(path_handle, [&](const step_handle_t& step) {
+            handle_t handle = this->path_graph.get_handle_of_step(step);
+            path.push_back(make_pair(this->path_graph.get_id(handle),
+                                     this->path_graph.get_is_reverse(handle)));
         });
-    }
-    
+        bool successful = verify_path(this->path_graph, path, unfolded, reverse_mapping);
+        if (!successful) {
+            failures++;
+        }
+        verified++;
+        if (show_progress && (verified % progress_step == 0 || verified >= total_paths)) {
+            progress->Progressed(verified);
+        }
+    });
     
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t i = 0; i < this->gbwt_index.sequences(); i++) {
