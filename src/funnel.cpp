@@ -164,9 +164,22 @@ void Funnel::project_group(size_t prev_stage_item, size_t group_size) {
     get_item(latest()).group_size = group_size;
 }
 
-void Funnel::kill(size_t prev_stage_item) {
-    // TODO: kill is a no-op for now.
-    // We just don't project from it.
+void Funnel::fail(const string& filter, size_t prev_stage_item) {
+    // There must be a prev stage to project from
+    assert(stages.size() > 1);
+    auto& prev_stage = stages[stages.size() - 2];
+
+    // Record the item as having failed this filter
+    prev_stage.items[prev_stage_item].failed_filter = &filter;
+}
+
+void Funnel::pass(const string& filter, size_t prev_stage_item) {
+    // There must be a prev stage to project from
+    assert(stages.size() > 1);
+    auto& prev_stage = stages[stages.size() - 2];
+
+    // Record the item as having passed this filter
+    prev_stage.items[prev_stage_item].passed_filters.emplace_back(&filter);
 }
 
 void Funnel::score(size_t item, double score) {
@@ -206,6 +219,76 @@ void Funnel::for_each_stage(const function<void(const string&, const vector<size
         }
         // Report the name and item count of each stage.
         callback(stage.name, item_sizes);
+    }
+}
+
+void Funnel::for_each_filter(const function<void(const string&, const string&,
+    const FilterPerformance&, const FilterPerformance&)>& callback) const {
+    
+    for (auto& stage : stages) {
+        // Hold the names of all filters encountered
+        vector<const string*> filter_names;
+        // And the by-item and by-size performance stats.
+        vector<pair<FilterPerformance, FilterPerformance>> filter_performances;
+        
+        for (auto& item : stage.items) {
+            // For each item
+            size_t filter_index;
+            for (filter_index = 0; filter_index < item.passed_filters.size(); filter_index++) {
+                // For each filter it passed
+                if (filter_index >= filter_names.size()) {
+                    // If it is new
+                
+                    // Remember its name in the list of filters
+                    filter_names.push_back(item.passed_filters[filter_index]);
+                    
+                    // And give it an empty report
+                    filter_performances.emplace_back();
+                } else {
+                    // Make sure the name is correct
+                    assert(*filter_names[filter_index] == *item.passed_filters[filter_index]);
+                }
+                
+                // Record passing
+                filter_performances[filter_index].first.passing++;
+                filter_performances[filter_index].first.passing_correct += item.correct;
+                
+                filter_performances[filter_index].second.passing += item.group_size;
+                filter_performances[filter_index].second.passing_correct += item.correct ? item.group_size : 0;
+            }
+            
+            if (item.failed_filter != nullptr) {
+                // For the final, failed filter, if any
+                
+                if (filter_index >= filter_names.size()) {
+                    // If it is new
+                    
+                    // Remember its name in the list of filters
+                    filter_names.push_back(item.failed_filter);
+                    
+                    // And give it an empty report
+                    filter_performances.emplace_back();
+                } else {
+                    // Make sure the name is correct
+                    assert(*filter_names[filter_index] == *item.failed_filter);
+                }
+                
+                // Record failing
+                filter_performances[filter_index].first.failing++;
+                filter_performances[filter_index].first.failing_correct += item.correct;
+                
+                filter_performances[filter_index].second.failing += item.group_size;
+                filter_performances[filter_index].second.failing_correct += item.correct ? item.group_size : 0;
+            }
+        }
+        
+        // Now we have gone through the filters for this stage for every item.
+        
+        for (size_t i = 0; i < filter_names.size(); i++) {
+            // Report the results by filter.
+            callback(stage.name, *filter_names[i],
+                filter_performances[i].first, filter_performances[i].second);
+        }
     }
 }
 

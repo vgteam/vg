@@ -125,6 +125,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             if (track_provenance) {
                 // Record in the funnel that this minimizer gave rise to these seeds.
+                funnel.pass("hit-cap", minimizer_num);
                 funnel.expand(minimizer_num, hits);
             }
         } else {
@@ -132,7 +133,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             if (track_provenance) {
                 // Record in the funnel thast we rejected it
-                funnel.kill(minimizer_num);
+                funnel.fail("hit-cap", minimizer_num);
             }
         }
         
@@ -274,16 +275,21 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         [&](size_t cluster_num) {
             // Handle sufficiently good clusters in descending coverage order
             
+            if (track_provenance) {
+                funnel.pass("cluster-coverage-threshold", cluster_num);
+            }
+            
             // First check against the additional score filter
             if (cluster_score_threshold != 0 && cluster_score[cluster_num] < cluster_score_cutoff) {
                 //If the score isn't good enough, ignore this cluster
                 if (track_provenance) {
-                    funnel.kill(cluster_num);
+                    funnel.fail("cluster-score-threshold", cluster_num);
                 }
                 return false;
             }
             
             if (track_provenance) {
+                funnel.pass("cluster-score-threshold", cluster_num);
                 funnel.processing_input(cluster_num);
             }
 
@@ -335,7 +341,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         }, [&](size_t cluster_num) {
             // This cluster is not sufficiently good.
             if (track_provenance) {
-                funnel.kill(cluster_num);
+                funnel.fail("cluster-coverage-threshold", cluster_num);
             }
         });
         
@@ -390,6 +396,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             // Called in descending score order.
             
             if (track_provenance) {
+                funnel.pass("extension-set-score-threshold", extension_num);
                 funnel.processing_input(extension_num);
             }
             
@@ -456,7 +463,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         }, [&](size_t extension_num) {
             // This extension is not good enough.
             if (track_provenance) {
-                funnel.kill(extension_num);
+                funnel.fail("extension-set-score-threshold", extension_num);
             }
         });
     
@@ -497,6 +504,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         
         if (track_provenance) {
             // Tell the funnel
+            funnel.pass("max-multimaps", alignment_num);
             funnel.project(alignment_num);
             funnel.score(alignment_num, scores.back());
         }
@@ -509,7 +517,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         scores.emplace_back(alignments[alignment_num].score());
         
         if (track_provenance) {
-            funnel.kill(alignment_num);
+            funnel.fail("max-multimaps", alignment_num);
         }
     });
     
@@ -551,7 +559,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     if (track_provenance) {
     
-        // And with the number of results in play at each stage
+        // Annotate with the number of results in play at each stage
         funnel.for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
             // Save the number of items
             set_annotation(mappings[0], "stage_" + stage + "_results", (double)result_sizes.size());
@@ -561,11 +569,37 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             std::copy(result_sizes.begin(), result_sizes.end(), std::back_inserter(converted));
             set_annotation(mappings[0], "stage_" + stage + "_sizes", converted);
         });
-
+        
         if (track_correctness) {
             // And with the last stage at which we had any descendants of the correct seed hit locations
             set_annotation(mappings[0], "last_correct_stage", funnel.last_correct_stage());
         }
+        
+        // Annotate with the performances of all the filters
+        // We need to track filter number
+        size_t filter_num = 0;
+        funnel.for_each_filter([&](const string& stage, const string& filter,
+            const Funnel::FilterPerformance& by_count, const Funnel::FilterPerformance& by_size) {
+            
+            string filter_id = to_string(filter_num) + "_" + filter + "_" + stage;
+            
+            // Save the stats
+            set_annotation(mappings[0], "filter_" + filter_id + "_passed", (double) by_count.passing);
+            set_annotation(mappings[0], "filter_" + filter_id + "_failed", (double) by_count.failing);
+            
+            set_annotation(mappings[0], "filter_" + filter_id + "_passed_size", (double) by_size.passing);
+            set_annotation(mappings[0], "filter_" + filter_id + "_failed_size", (double) by_size.failing);
+            
+            if (track_correctness) {
+                set_annotation(mappings[0], "filter_" + filter_id + "_passed_correct", (double) by_count.passing_correct);
+                set_annotation(mappings[0], "filter_" + filter_id + "_failed_correct", (double) by_count.failing_correct);
+                
+                set_annotation(mappings[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
+                set_annotation(mappings[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
+            }
+            
+            filter_num++;
+        });
     }
     
     // Ship out all the aligned alignments
