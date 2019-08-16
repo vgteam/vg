@@ -110,7 +110,7 @@ gbwt::vector_type predecessors(const xg::XG& xg_index, const Path& path) {
     cerr << "Look for predecessors of node " << first_node << " " << is_reverse << " which is first in alt path" << endl;
 #endif
 
-    xg_index.follow_edges(xg_index.get_handle(first_node), true, [&] (handle_t next) {
+    xg_index.follow_edges(xg_index.get_handle(first_node), !is_reverse, [&] (handle_t next) {
             if (xg_index.get_id(next) != first_node) {
                 result.push_back(gbwt::Node::encode(xg_index.get_id(next), xg_index.get_is_reverse(next)));
             }
@@ -533,7 +533,15 @@ int main_index(int argc, char** argv) {
             return 1;
         }
         VGset graphs(file_names);
-        graphs.to_xg(*xg_index, false, Paths::is_alt, index_haplotypes ? &alt_paths : nullptr);
+        graphs.to_xg(*xg_index);
+        if (index_haplotypes) {
+            xg_index->for_each_path_handle([&](path_handle_t path_handle) {
+                    string path_name = xg_index->get_path_name(path_handle);
+                    if (Paths::is_alt(path_name)) {
+                        alt_paths[path_name] = path_from_path_handle(*xg_index, path_handle);
+                    }
+                });
+        }
         if (show_progress) {
             cerr << "Built base XG index" << endl;
         }
@@ -733,7 +741,7 @@ int main_index(int argc, char** argv) {
             xg_index->for_each_path_handle([&](path_handle_t path_handle) {
                     path_handles[path_rank++] = path_handle;
                 });
-            for (path_rank = 1; path_rank < path_handles.size(); ++path_rank) {
+            for (path_rank = 1; path_rank <= max_path_rank; path_rank++) {
                 string path_name = xg_index->get_path_name(path_handles[path_rank]);                    
                 string vcf_contig_name = path_to_vcf.count(path_name) ? path_to_vcf[path_name] : path_name;
                 if (show_progress) {
