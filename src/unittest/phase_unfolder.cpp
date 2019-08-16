@@ -63,7 +63,12 @@ void check_unfolded_edges(VG& vg_graph,
     SECTION("the duplicated edges must correspond to the right original edges") {
         std::multiset<std::pair<vg::id_t, vg::id_t>> found_edges;
         vg_graph.for_each_edge([&](Edge* edge) {
-            found_edges.insert(std::make_pair(unfolder.get_mapping(edge->from()), unfolder.get_mapping(edge->to())));
+            vg::id_t from_id = unfolder.get_mapping(edge->from());
+            vg::id_t to_id = unfolder.get_mapping(edge->to());
+            if (edge->from_start() && edge->to_end()) {
+                std::swap(from_id, to_id);
+            }
+            found_edges.emplace(from_id, to_id);
         });
         REQUIRE(found_edges == corresponding_edges);
     }
@@ -73,10 +78,15 @@ void check_unfolded_edges(VG& vg_graph,
             std::vector<Edge*> edges = vg_graph.edges_of(vg_graph.get_node(node));
             std::set<vg::id_t> predecessors, successors;
             for (Edge* edge : edges) {
-                if (edge->to() == node) {
-                    predecessors.insert(edge->from());
+                vg::id_t from_id = edge->from();
+                vg::id_t to_id = edge->to();
+                if (edge->from_start() && edge->to_end()) {
+                    std::swap(from_id, to_id);
+                }
+                if (to_id == node) {
+                    predecessors.insert(from_id);
                 } else {
-                    successors.insert(edge->to());
+                    successors.insert(to_id);
                 }
             }
             for (vg::id_t pred : predecessors) {

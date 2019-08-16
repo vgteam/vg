@@ -51,7 +51,9 @@ is "$(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -r '.path[] 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 mkdir x.chunk
 vg chunk -x x.xg -n 5 -b x.chunk/
-is $(cat x.chunk/*vg | vg view -V - 2>/dev/null | sort |  md5sum | cut -f 1 -d\ ) $(vg view x.vg | sort  | md5sum | cut -f 1 -d\ ) "n-chunking works and chunks over the full graph"
+# vg chunk no longer keeps ranks, so there's no way to stitch the path back together anymore!
+# we grep it out of the comparison
+is $(cat x.chunk/*vg | vg view -V - | grep -v P 2>/dev/null | sort |  md5sum | cut -f 1 -d\ ) $(vg view x.vg | grep -v P | sort  | md5sum | cut -f 1 -d\ ) "n-chunking works and chunks over the full graph"
 
 rm -rf x.sorted.gam x.sorted.gam.gai _chunk_test_bed.bed _chunk_test* x.chunk
 rm -f x.vg x.xg x.gbwt x.gam.json filter_chunk*.gam chunks.bed
