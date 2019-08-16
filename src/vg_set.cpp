@@ -75,12 +75,21 @@ int64_t VGset::merge_id_space(void) {
 }
 
 void VGset::to_xg(xg::XG& index) {
+
+    function<void(const string&, std::ifstream&)> check_stream = [&](const string&name, std::ifstream& in) {
+        if (name == "-"){
+            if (!in) throw ifstream::failure("vg_set: cannot read from stdin. Failed to open " + name);
+        }
+        
+        if (!in) throw ifstream::failure("failed to open " + name);
+    };
     
     // We need to recostruct full removed paths from fragmentary paths encountered in each chunk.
     // This maps from path name to all the Mappings in the path in the order we encountered them
     auto for_each_sequence = [&](const std::function<void(const std::string& seq, const nid_t& node_id)>& lambda) {
         for (auto& name : filenames) {
             std::ifstream in(name);
+            check_stream(name, in);
             vg::io::for_each(in, (function<void(Graph&)>)[&](Graph& graph) {
                     for (uint64_t i = 0; i < graph.node_size(); ++i) {
                         auto& node = graph.node(i);
@@ -93,6 +102,7 @@ void VGset::to_xg(xg::XG& index) {
     auto for_each_edge = [&](const std::function<void(const nid_t& from, const bool& from_rev, const nid_t& to, const bool& to_rev)>& lambda) {
         for (auto& name : filenames) {
             std::ifstream in(name);
+            check_stream(name, in);
             vg::io::for_each(in, (function<void(Graph&)>)[&](Graph& graph) {
                     for (uint64_t i = 0; i < graph.edge_size(); ++i) {
                         auto& edge = graph.edge(i);
@@ -107,6 +117,7 @@ void VGset::to_xg(xg::XG& index) {
     map<string, vector<pair<nid_t, bool>>> paths;
     for (auto& name : filenames) {
         std::ifstream in(name);
+        check_stream(name, in);
         vg::io::for_each(in, (function<void(Graph&)>)[&](Graph& graph) {
                 for (uint64_t i = 0; i < graph.path_size(); ++i) {
                     auto& path = graph.path(i);
