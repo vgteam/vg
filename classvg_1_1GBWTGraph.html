@@ -194,6 +194,25 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ae436bdd1f2f49d4b56943fef8c5fa669"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aeb6ed7d490890fe84e0d2d1be9758314"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#aeb6ed7d490890fe84e0d2d1be9758314">follow_paths</a> (gbwt::BidirectionalState state, bool backward, const std::function&lt; bool(const gbwt::BidirectionalState &amp;)&gt; &amp;iteratee) const </td></tr>
 <tr class="separator:aeb6ed7d490890fe84e0d2d1be9758314"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac62bf88fbc93798ac9855ddd12380749"><td class="memItemLeft" align="right" valign="top">gbwt::CachedGBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#ac62bf88fbc93798ac9855ddd12380749">get_cache</a> () const </td></tr>
+<tr class="memdesc:ac62bf88fbc93798ac9855ddd12380749"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return a cache for the GBWT index. Note: The cache is not thread-safe.  <a href="#ac62bf88fbc93798ac9855ddd12380749">More...</a><br/></td></tr>
+<tr class="separator:ac62bf88fbc93798ac9855ddd12380749"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0e255e6bb1cc6048dcb42082cef74451"><td class="memItemLeft" align="right" valign="top">gbwt::SearchState&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#a0e255e6bb1cc6048dcb42082cef74451">get_state</a> (const gbwt::CachedGBWT &amp;cache, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
+<tr class="memdesc:a0e255e6bb1cc6048dcb42082cef74451"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert handle_t to gbwt::SearchState.  <a href="#a0e255e6bb1cc6048dcb42082cef74451">More...</a><br/></td></tr>
+<tr class="separator:a0e255e6bb1cc6048dcb42082cef74451"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a279d1019852745c9e4752837e7368fd0"><td class="memItemLeft" align="right" valign="top">gbwt::BidirectionalState&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#a279d1019852745c9e4752837e7368fd0">get_bd_state</a> (const gbwt::CachedGBWT &amp;cache, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
+<tr class="memdesc:a279d1019852745c9e4752837e7368fd0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert handle_t to gbwt::BidirectionalState.  <a href="#a279d1019852745c9e4752837e7368fd0">More...</a><br/></td></tr>
+<tr class="separator:a279d1019852745c9e4752837e7368fd0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5cd94d1cc7a91d9007fc35d7a5b42b10"><td class="memItemLeft" align="right" valign="top">gbwt::SearchState&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#a5cd94d1cc7a91d9007fc35d7a5b42b10">find</a> (const gbwt::CachedGBWT &amp;cache, const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;path) const </td></tr>
+<tr class="memdesc:a5cd94d1cc7a91d9007fc35d7a5b42b10"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the search state corresponding to the vector of handles.  <a href="#a5cd94d1cc7a91d9007fc35d7a5b42b10">More...</a><br/></td></tr>
+<tr class="separator:a5cd94d1cc7a91d9007fc35d7a5b42b10"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a556ea37c3cf51f2d2bae9a4cc314cbc1"><td class="memItemLeft" align="right" valign="top">gbwt::BidirectionalState&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#a556ea37c3cf51f2d2bae9a4cc314cbc1">bd_find</a> (const gbwt::CachedGBWT &amp;cache, const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;path) const </td></tr>
+<tr class="memdesc:a556ea37c3cf51f2d2bae9a4cc314cbc1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the bidirectional search state corresponding to the vector of handles.  <a href="#a556ea37c3cf51f2d2bae9a4cc314cbc1">More...</a><br/></td></tr>
+<tr class="separator:a556ea37c3cf51f2d2bae9a4cc314cbc1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a93b4460f1835a832fa73da0b455513e1"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#a93b4460f1835a832fa73da0b455513e1">follow_paths</a> (const gbwt::CachedGBWT &amp;cache, gbwt::SearchState state, const std::function&lt; bool(const gbwt::SearchState &amp;)&gt; &amp;iteratee) const </td></tr>
+<tr class="separator:a93b4460f1835a832fa73da0b455513e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a058e82c728585f6221d8c7c1c5d07520"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#a058e82c728585f6221d8c7c1c5d07520">follow_paths</a> (const gbwt::CachedGBWT &amp;cache, gbwt::BidirectionalState state, bool backward, const std::function&lt; bool(const gbwt::BidirectionalState &amp;)&gt; &amp;iteratee) const </td></tr>
+<tr class="separator:a058e82c728585f6221d8c7c1c5d07520"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1HandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1HandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1HandleGraph.html">handlegraph::HandleGraph</a></td></tr>
 <tr class="memitem:a24fb796441c9ad8c870fdb716a82b305 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a24fb796441c9ad8c870fdb716a82b305">~HandleGraph</a> ()=default</td></tr>
 <tr class="separator:a24fb796441c9ad8c870fdb716a82b305 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -368,6 +387,34 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a556ea37c3cf51f2d2bae9a4cc314cbc1"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::BidirectionalState vg::GBWTGraph::bd_find </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::CachedGBWT &amp;&#160;</td>
+          <td class="paramname"><em>cache</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>path</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the bidirectional search state corresponding to the vector of handles. </p>
+
+</div>
+</div>
 <a class="anchor" id="a19466b63a304fbb0c39208d65b2300b7"></a>
 <div class="memitem">
 <div class="memproto">
@@ -433,6 +480,34 @@ Private Member Functions</h2></td></tr>
           <td class="paramtype">const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>path</em></td><td>)</td>
           <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the search state corresponding to the vector of handles. </p>
+
+</div>
+</div>
+<a class="anchor" id="a5cd94d1cc7a91d9007fc35d7a5b42b10"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::SearchState vg::GBWTGraph::find </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::CachedGBWT &amp;&#160;</td>
+          <td class="paramname"><em>cache</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>path</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -572,6 +647,78 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a93b4460f1835a832fa73da0b455513e1"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::GBWTGraph::follow_paths </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::CachedGBWT &amp;&#160;</td>
+          <td class="paramname"><em>cache</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">gbwt::SearchState&#160;</td>
+          <td class="paramname"><em>state</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; bool(const gbwt::SearchState &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>iteratee</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p><a class="el" href="structvg_1_1Visit.html" title="Describes a step of a walk through a Snarl either on a node or through a child Snarl. ">Visit</a> all successor states of this state and call iteratee for the state. Stop and return false if the iteratee returns false. Note that the state may be empty if no path continues to that node. </p>
+
+</div>
+</div>
+<a class="anchor" id="a058e82c728585f6221d8c7c1c5d07520"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::GBWTGraph::follow_paths </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::CachedGBWT &amp;&#160;</td>
+          <td class="paramname"><em>cache</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">gbwt::BidirectionalState&#160;</td>
+          <td class="paramname"><em>state</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>backward</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; bool(const gbwt::BidirectionalState &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>iteratee</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p><a class="el" href="structvg_1_1Visit.html" title="Describes a step of a walk through a Snarl either on a node or through a child Snarl. ">Visit</a> all predecessor/successor states of this state and call iteratee for the state. Stop and return false if the iteratee returns false. Note that the state may be empty if no path continues to that node. Each state corresponds to a path. Going backward extends the path left, while going extends it right. When going backward, the state is for the reverse orientation. </p>
+
+</div>
+</div>
 <a class="anchor" id="a7aa8eb55e6ac68544375fe89750a8d0e"></a>
 <div class="memitem">
 <div class="memproto">
@@ -669,6 +816,67 @@ Private Member Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Convert handle_t to gbwt::BidirectionalState. </p>
+
+</div>
+</div>
+<a class="anchor" id="a279d1019852745c9e4752837e7368fd0"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::BidirectionalState vg::GBWTGraph::get_bd_state </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::CachedGBWT &amp;&#160;</td>
+          <td class="paramname"><em>cache</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Convert handle_t to gbwt::BidirectionalState. </p>
+
+</div>
+</div>
+<a class="anchor" id="ac62bf88fbc93798ac9855ddd12380749"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::CachedGBWT vg::GBWTGraph::get_cache </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Return a cache for the GBWT index. Note: The cache is not thread-safe. </p>
 
 </div>
 </div>
@@ -879,6 +1087,42 @@ Private Member Functions</h2></td></tr>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
           <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Convert handle_t to gbwt::SearchState. </p>
+
+</div>
+</div>
+<a class="anchor" id="a0e255e6bb1cc6048dcb42082cef74451"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::SearchState vg::GBWTGraph::get_state </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::CachedGBWT &amp;&#160;</td>
+          <td class="paramname"><em>cache</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
         </tr>
       </table>
   </td>

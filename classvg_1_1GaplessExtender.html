@@ -119,8 +119,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:afa2a699dd6ccf1611e12b200df69c576"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a314b82cf64480ad15ef3123dd0f59880"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a314b82cf64480ad15ef3123dd0f59880">extend</a> (<a class="el" href="classvg_1_1GaplessExtender.html#a7ac1326772ac23e766774279d39e9c04">cluster_type</a> &amp;cluster, const std::string &amp;sequence, size_t max_mismatches=<a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>, bool trim_extensions=true) const </td></tr>
 <tr class="separator:a314b82cf64480ad15ef3123dd0f59880"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaf0419a320a6df71251bc9e8e409cb00"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#aaf0419a320a6df71251bc9e8e409cb00">trim</a> (std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extensions, size_t max_mismatches=<a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>) const </td></tr>
-<tr class="separator:aaf0419a320a6df71251bc9e8e409cb00"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4f53e37693fa89febbb29250c96c3890"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a4f53e37693fa89febbb29250c96c3890">trim</a> (std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extensions, size_t max_mismatches=<a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>, const gbwt::CachedGBWT *cache=nullptr) const </td></tr>
+<tr class="separator:a4f53e37693fa89febbb29250c96c3890"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
@@ -267,7 +267,7 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Find the best full-length alignment for the sequence within the cluster with at most max_mismatches mismatches. If that is not possible, find the set of highest-scoring maximal extensions of the seeds, allowing any number of mismatches in the seed node and max_mismatches / 2 mismatches on each flank. Flanks may have more mismatches if it does not bring the total beyond max_mismatches. Then call <a class="el" href="classvg_1_1GaplessExtender.html#aaf0419a320a6df71251bc9e8e409cb00">trim()</a> if trim_extensions i set. The extensions are sorted by their coordinates in the sequence. </p>
+<p>Find the best full-length alignment for the sequence within the cluster with at most max_mismatches mismatches. If that is not possible, find the set of highest-scoring maximal extensions of the seeds, allowing any number of mismatches in the seed node and max_mismatches / 2 mismatches on each flank. Flanks may have more mismatches if it does not bring the total beyond max_mismatches. Then call <a class="el" href="classvg_1_1GaplessExtender.html#a4f53e37693fa89febbb29250c96c3890">trim()</a> if trim_extensions i set. The extensions are sorted by their coordinates in the sequence. </p>
 
 </div>
 </div>
@@ -385,7 +385,7 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="aaf0419a320a6df71251bc9e8e409cb00"></a>
+<a class="anchor" id="a4f53e37693fa89febbb29250c96c3890"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -399,7 +399,13 @@ Static Public Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_mismatches</em> = <code><a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a></code>&#160;</td>
+          <td class="paramname"><em>max_mismatches</em> = <code><a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a></code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const gbwt::CachedGBWT *&#160;</td>
+          <td class="paramname"><em>cache</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -408,7 +414,7 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Try to improve the score of each extension by trimming mismatches from the flanks. Do not trim full-length alignments with &lt;= max_mismatches mismatches. Note that <a class="el" href="classvg_1_1GaplessExtender.html#a314b82cf64480ad15ef3123dd0f59880">extend()</a> already calls this by default. </p>
+<p>Try to improve the score of each extension by trimming mismatches from the flanks. Do not trim full-length alignments with &lt;= max_mismatches mismatches. Use the provided CachedGBWT or allocate a new one. Note that <a class="el" href="classvg_1_1GaplessExtender.html#a314b82cf64480ad15ef3123dd0f59880">extend()</a> already calls this by default. </p>
 
 </div>
 </div>

@@ -37,7 +37,7 @@ var searchData=
   ['wideningprng',['WideningPRNG',['../classvg_1_1WideningPRNG.html#a5437179a5230df00551a618df6bc4c53',1,'vg::WideningPRNG']]],
   ['wideningprng',['WideningPRNG',['../classvg_1_1WideningPRNG.html',1,'vg']]],
   ['widget',['WIDGET',['../namespacevg_1_1subcommand.html#a98d12492502a2d7f7c46386d2faed838afa639842a4d69790c890c94b80e27792',1,'vg::subcommand']]],
-  ['window_5flength',['window_length',['../classvg_1_1Filter.html#ad719ad4c073cbe1298c9911e1c1cb329',1,'vg::Filter::window_length()'],['../classvg_1_1MinimizerIndex.html#a5c8618f8d827022b935857a360e8d054',1,'vg::MinimizerIndex::WINDOW_LENGTH()']]],
+  ['window_5flength',['WINDOW_LENGTH',['../classvg_1_1MinimizerIndex.html#a5c8618f8d827022b935857a360e8d054',1,'vg::MinimizerIndex::WINDOW_LENGTH()'],['../classvg_1_1Filter.html#ad719ad4c073cbe1298c9911e1c1cb329',1,'vg::Filter::window_length()']]],
   ['window_5fof_5fid',['window_of_id',['../classvg_1_1StreamIndexBase.html#a320b27d89fbc1a74574cc00befe1e7fe',1,'vg::StreamIndexBase']]],
   ['window_5fshift',['WINDOW_SHIFT',['../classvg_1_1StreamIndexBase.html#abfcccdbb508967165d185181eb95588a',1,'vg::StreamIndexBase']]],
   ['window_5fsize',['window_size',['../classvg_1_1WindowedVcfBuffer.html#a898deb05050ba62533e294b7cf959fe3',1,'vg::WindowedVcfBuffer']]],
