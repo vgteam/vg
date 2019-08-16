@@ -15,7 +15,7 @@
 #include "../version.hpp"
 
 #include "../vg.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../indexed_vg.hpp"
 #include "../algorithms/extract_connecting_graph.hpp"
 #include "../algorithms/topological_sort.hpp"
@@ -117,7 +117,8 @@ int main_benchmark(int argc, char** argv) {
     const VG vg(vg_mut);
     
     // Get an XG for it
-    const XG xg_index(vg_mut.graph);
+    xg::XG xg_index;
+    xg_index.from_handle_graph(vg);
     
     // And an IndexedVG
     auto filename = temp_file::create();

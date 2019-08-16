@@ -203,7 +203,8 @@ TEST_CASE("Gapless extensions report correct positions", "[gapless_extender]") {
     // Build an XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index;
+    xg_index.from_handle_graph(VG(graph));
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
@@ -332,7 +333,8 @@ TEST_CASE("Full-length alignments", "[gapless_extender]") {
     // Build an XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index;
+    xg_index.from_handle_graph(VG(graph));
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
@@ -430,7 +432,8 @@ TEST_CASE("Partial alignments without trimming", "[gapless_extender]") {
     // Build an XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index;
+    xg_index.from_handle_graph(VG(graph));
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
@@ -559,7 +562,8 @@ TEST_CASE("Trimming mismatches", "[gapless_extender]") {
     // Build an XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index;
+    xg_index.from_handle_graph(VG(graph));
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();

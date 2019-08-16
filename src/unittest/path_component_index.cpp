@@ -7,6 +7,7 @@
 #include "catch.hpp"
 #include "path_component_index.hpp"
 #include "xg.hpp"
+#include "vg.hpp"
 #include "json2pb.h"
 #include <vg/vg.pb.h>
 
@@ -22,7 +23,8 @@ namespace unittest {
         json2pb(proto_graph, graph_json.c_str(), graph_json.size());
         
         // Build the xg index
-        XG xg_index(proto_graph);
+        xg::XG xg_index;
+        xg_index.from_handle_graph(VG(proto_graph));
         
         
         unordered_set<path_handle_t> comp_1;

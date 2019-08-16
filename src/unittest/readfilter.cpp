@@ -49,7 +49,8 @@ TEST_CASE("reads with ambiguous ends can be trimmed", "[filter]") {
     json2pb(chunk, graph_json.c_str(), graph_json.size());
     
     // Pass it over to XG
-    XG index(chunk);
+    xg::XG index;
+    index.from_handle_graph(VG(chunk));
     
     // Make a ReadFilter;
     ReadFilter filter;

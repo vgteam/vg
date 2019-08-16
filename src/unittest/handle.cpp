@@ -7,7 +7,7 @@
 
 #include "../handle.hpp"
 #include "../vg.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../json2pb.h"
 
 
@@ -147,7 +147,8 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
     vg.create_edge(n8, n9);
     
     // Make an xg out of it
-    XG xg_index(vg.graph);
+    xg::XG xg_index;
+    xg_index.from_handle_graph(vg);
     
     SECTION("Each graph exposes the right nodes") {
         
@@ -1693,7 +1694,8 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
     // also add the paths to the Protobuf graph so that they're XG'able
     vg.paths.to_graph(vg.graph);
     
-    XG xg_index(vg.graph);
+    xg::XG xg_index;
+    xg_index.from_handle_graph(vg);
     
     SECTION("Handles can find all paths") {
         

@@ -3,6 +3,9 @@
 #include "algorithms/topological_sort.hpp"
 #include "traversal_finder.hpp"
 #include "augment.hpp"
+#include "xg.hpp"
+
+using namespace xg;
 
 namespace vg {
 
@@ -69,7 +72,8 @@ void genotype_svs(VG* graph,
     if (refpath != ""){
         augment(graph, direct_ins, &transls);
 
-        XG xg_index(graph->graph); // Index the graph so deconstruct can get path positions
+        XG xg_index;
+        xg_index.from_handle_graph(*graph); // Index the graph so deconstruct can get path positions
         Deconstructor decon;
         CactusSnarlFinder finder(xg_index);
         SnarlManager snarl_manager = finder.find_snarls();

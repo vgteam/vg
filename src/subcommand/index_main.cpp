@@ -12,6 +12,7 @@
 
 #include "../vg.hpp"
 #include "../index.hpp"
+#include "xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include "../stream_index.hpp"
@@ -96,7 +97,7 @@ gbwt::vector_type path_to_gbwt(const Path& path) {
 }
 
 // Find all predecessor nodes of the path, ignoring self-loops.
-gbwt::vector_type predecessors(const XG& xg_index, const Path& path) {
+gbwt::vector_type predecessors(const xg::XG& xg_index, const Path& path) {
     gbwt::vector_type result;
     if (path.mapping_size() == 0) {
         return result;
@@ -108,18 +109,12 @@ gbwt::vector_type predecessors(const XG& xg_index, const Path& path) {
 #ifdef debug
     cerr << "Look for predecessors of node " << first_node << " " << is_reverse << " which is first in alt path" << endl;
 #endif
-    
-    auto pred_edges = (is_reverse ? xg_index.edges_on_end(first_node) : xg_index.edges_on_start(first_node));
-    for (auto& edge : pred_edges) {
-        if (edge.from() == edge.to()) {
-            continue; // Self-loop.
-        }
-        if (edge.from() == first_node) {  // Reverse the edge if it is from this node.
-            result.push_back(gbwt::Node::encode(edge.to(), !(edge.to_end())));
-        } else {
-            result.push_back(gbwt::Node::encode(edge.from(), edge.from_start()));
-        }
-    }
+
+    xg_index.follow_edges(xg_index.get_handle(first_node), true, [&] (handle_t next) {
+            if (xg_index.get_id(next) != first_node) {
+                result.push_back(gbwt::Node::encode(xg_index.get_id(next), xg_index.get_is_reverse(next)));
+            }
+        });
 
     return result;
 }
@@ -529,7 +524,7 @@ int main_index(int argc, char** argv) {
     }
 
     // Build XG
-    XG* xg_index = new XG();
+    xg::XG* xg_index = new xg::XG();
     map<string, Path> alt_paths;
     if (build_xg) {
         if (file_names.empty()) {
@@ -635,28 +630,30 @@ int main_index(int argc, char** argv) {
 
         // Store contig names.
         if (index_paths || index_haplotypes) {
-            for (size_t path_rank = 1; path_rank <= xg_index->max_path_rank(); path_rank++) {
-                contig_names.push_back(xg_index->path_name(path_rank));
-            }
+            xg_index->for_each_path_handle([&](path_handle_t path_handle) {
+                    contig_names.push_back(xg_index->get_path_name(path_handle));
+                });
         }
-
         // Convert paths to threads
-        if (index_paths) {
+            if (index_paths) {
             if (show_progress) {
                 cerr << "Converting paths to threads..." << endl;
             }
-            for (size_t path_rank = 1; path_rank <= xg_index->max_path_rank(); path_rank++) {
-                const XGPath& path = xg_index->get_path(xg_index->path_name(path_rank));
-                if (path.ids.size() == 0) {
-                    continue;
-                }
-                gbwt::vector_type buffer(path.ids.size());
-                for (size_t i = 0; i < path.ids.size(); i++) {
-                    buffer[i] = xg_path_to_gbwt(path, i);
-                }
-                store_thread(buffer);
-                store_thread_name(true_sample_offset, path_rank - 1, 0, 0);
-            }
+            int path_rank = 0;
+            xg_index->for_each_path_handle([&](path_handle_t path_handle) {
+                    ++path_rank;
+                    if (xg_index->is_empty(path_handle)) {
+                        return;
+                    }
+                    gbwt::vector_type buffer;
+                    buffer.reserve(xg_index->get_step_count(path_handle));
+                    for (handle_t handle : xg_index->scan_path(path_handle)) {
+                        buffer.push_back(gbwt::Node::encode(xg_index->get_id(handle), xg_index->get_is_reverse(handle)));
+                    }
+                    store_thread(buffer);
+                    store_thread_name(true_sample_offset, path_rank - 1, 0, 0);
+                });
+
             // GBWT metadata: We assume that the XG index contains the reference paths.
             sample_names.emplace_back("ref");
             haplotype_count++;
@@ -730,9 +727,14 @@ int main_index(int argc, char** argv) {
             }
 
             // Process each VCF contig corresponding to an XG path.
-            size_t max_path_rank = xg_index->max_path_rank();
-            for (size_t path_rank = 1; path_rank <= max_path_rank; path_rank++) {
-                string path_name = xg_index->path_name(path_rank);
+            size_t max_path_rank = xg_index->get_path_count();
+            size_t path_rank = 1;
+            vector<path_handle_t> path_handles(max_path_rank + 1);
+            xg_index->for_each_path_handle([&](path_handle_t path_handle) {
+                    path_handles[path_rank++] = path_handle;
+                });
+            for (path_rank = 1; path_rank < path_handles.size(); ++path_rank) {
+                string path_name = xg_index->get_path_name(path_handles[path_rank]);                    
                 string vcf_contig_name = path_to_vcf.count(path_name) ? path_to_vcf[path_name] : path_name;
                 if (show_progress) {
                     cerr << "Processing path " << path_name << " as VCF contig " << vcf_contig_name << endl;
@@ -740,14 +742,14 @@ int main_index(int argc, char** argv) {
                 string parse_file = parse_name + '_' + vcf_contig_name;
 
                 // Structures to parse the VCF file into.
-                const XGPath& path = xg_index->get_path(path_name);
-                gbwt::VariantPaths variants(path.ids.size());
+                const xg::XGPath& path = xg_index->get_path(path_name);
+                gbwt::VariantPaths variants(xg_index->get_step_count(xg_index->get_path_handle(path_name)));
                 variants.setSampleNames(sample_names);
                 variants.setContigName(path_name);
                 std::vector<gbwt::PhasingInformation> phasings;
 
                 // Add the reference to VariantPaths.
-                for (size_t i = 0; i < path.ids.size(); i++) {
+                for (size_t i = 0; i < variants.size(); i++) {
                     variants.appendToReference(xg_path_to_gbwt(path, i));
                 }
                 variants.indexReference();
@@ -783,7 +785,7 @@ int main_index(int argc, char** argv) {
                     // Skip variants with non-DNA sequence, as they are not included in the graph.
                     bool isDNA = allATGC(var.ref);
                     for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
-                         if (!allATGC(*a)) isDNA = false;
+                        if (!allATGC(*a)) isDNA = false;
                     }
                     if (!isDNA) {
                         continue;
@@ -820,7 +822,7 @@ int main_index(int argc, char** argv) {
                                     if (pred_pos != variants.invalid_position()) {
 #ifdef debug
                                         cerr << "Found predecessor node " << gbwt::Node::id(node) << " " << gbwt::Node::is_reverse(node)
-                                            << " occurring at valid pos " << pred_pos << endl;
+                                             << " occurring at valid pos " << pred_pos << endl;
 #endif
                                         candidate_pos = std::max(candidate_pos, pred_pos + 1);
                                         candidate_found = true;
@@ -878,8 +880,8 @@ int main_index(int argc, char** argv) {
                             was_diploid[sample] = current_phasings.back().diploid;
                             if(force_phasing) {
                                 current_phasings.back().forcePhased([&]() {
-                                   return random_bit(rng);
-                                });
+                                        return random_bit(rng);
+                                    });
                             }
                         }
                         phasings[batch].append(current_phasings);
@@ -919,19 +921,19 @@ int main_index(int argc, char** argv) {
                 } else {
                     for (size_t batch = 0; batch < phasings.size(); batch++) {
                         gbwt::generateHaplotypes(variants, phasings[batch],
-                            [&](gbwt::size_type sample) -> bool {
-                                return (excluded_samples.find(variant_file.sampleNames[sample]) == excluded_samples.end());
-                            },
-                            [&](const gbwt::Haplotype& haplotype) {
-                                store_thread(haplotype.path);
-                                store_thread_name(haplotype.sample + true_sample_offset - sample_range.first,
-                                                  path_rank - 1,
-                                                  haplotype.phase,
-                                                  haplotype.count);
-                            },
-                            [&](gbwt::size_type, gbwt::size_type) -> bool {
-                                return discard_overlaps;
-                            });
+                                                 [&](gbwt::size_type sample) -> bool {
+                                                     return (excluded_samples.find(variant_file.sampleNames[sample]) == excluded_samples.end());
+                                                 },
+                                                 [&](const gbwt::Haplotype& haplotype) {
+                                                     store_thread(haplotype.path);
+                                                     store_thread_name(haplotype.sample + true_sample_offset - sample_range.first,
+                                                                       path_rank - 1,
+                                                                       haplotype.phase,
+                                                                       haplotype.count);
+                                                 },
+                                                 [&](gbwt::size_type, gbwt::size_type) -> bool {
+                                                     return discard_overlaps;
+                                                 });
                         if (show_progress) {
                             cerr << "- Processed samples " << phasings[batch].offset() << " to " << (phasings[batch].offset() + phasings[batch].size() - 1) << endl;
                         }
@@ -943,24 +945,24 @@ int main_index(int argc, char** argv) {
             
             } // End of contigs.
             
-            if (warn_on_missing_variants && found_missing_variants > 0) {
-                cerr << "warning: [vg index] Found " << found_missing_variants << "/" << total_variants_processed
-                    << " variants in phasing VCF but not in graph! Do your graph and VCF match?" << endl;
-            }
-        } // End of haplotypes.
+        if (warn_on_missing_variants && found_missing_variants > 0) {
+            cerr << "warning: [vg index] Found " << found_missing_variants << "/" << total_variants_processed
+                 << " variants in phasing VCF but not in graph! Do your graph and VCF match?" << endl;
+        }
+    } // End of haplotypes.
         
-        // Write the threads to disk.
-        alt_paths.clear();
-        if (!parse_only) {
-            if (build_gbwt) {
-                gbwt_builder->finish();
-                gbwt_builder->index.metadata.setSamples(sample_names);
-                gbwt_builder->index.metadata.setHaplotypes(haplotype_count);
-                gbwt_builder->index.metadata.setContigs(contig_names);
-                if (show_progress) {
-                    cerr << "GBWT metadata: "; gbwt::operator<<(cerr, gbwt_builder->index.metadata); cerr << endl;
-                    cerr << "Saving GBWT to disk..." << endl;
-                }
+    // Write the threads to disk.
+    alt_paths.clear();
+    if (!parse_only) {
+        if (build_gbwt) {
+            gbwt_builder->finish();
+            gbwt_builder->index.metadata.setSamples(sample_names);
+            gbwt_builder->index.metadata.setHaplotypes(haplotype_count);
+            gbwt_builder->index.metadata.setContigs(contig_names);
+            if (show_progress) {
+                cerr << "GBWT metadata: "; gbwt::operator<<(cerr, gbwt_builder->index.metadata); cerr << endl;
+                cerr << "Saving GBWT to disk..." << endl;
+            }
                 
                 // Save encapsulated in a VPKG
                 vg::io::VPKG::save(gbwt_builder->index, gbwt_name);
@@ -1016,7 +1018,7 @@ int main_index(int argc, char** argv) {
                 
                 get_input_file(xg_name, [&](istream& xg_stream) {
                     // Load the XG
-                    auto xg = vg::io::VPKG::load_one<XG>(xg_stream);
+                    auto xg = vg::io::VPKG::load_one<xg::XG>(xg_stream);
                 
                     // Make an overlay on it to add source and sink nodes
                     // TODO: Don't use this directly; unify this code with VGset's code.
@@ -1229,7 +1231,7 @@ int main_index(int argc, char** argv) {
             if (file_names.empty() && !xg_name.empty()) {
                 
                 ifstream xg_stream(xg_name);
-                auto xg = vg::io::VPKG::load_one<XG>(xg_stream);
+                auto xg = vg::io::VPKG::load_one<xg::XG>(xg_stream);
 
                 // Create the MinimumDistanceIndex
                 MinimumDistanceIndex di (xg.get(), snarl_manager);
