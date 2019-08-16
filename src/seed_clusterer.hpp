@@ -138,7 +138,8 @@ class SnarlSeedClusterer {
 
             //Maps each node to a vector of the seeds that are contained in it
             //seeds are represented by indexes into the seeds vector
-            hash_map<id_t, vector<size_t>> node_to_seeds;
+            //The array is sorted.
+            vector<pair<id_t, size_t>> node_to_seeds;
 
             //Map from snarl (index into dist_index.snarl_indexes) i
             //to the netgraph nodes contained in the snarl as well as the 

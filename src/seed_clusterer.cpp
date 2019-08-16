@@ -1,5 +1,7 @@
 #include "seed_clusterer.hpp"
 
+#include <algorithm>
+
 //#define DEBUG 
 
 namespace vg {
@@ -99,18 +101,25 @@ cerr << endl << "New cluster calculation:" << endl;
                                                                snarl_to_nodes) const {
 
         // Assign each seed to a node.
+        tree_state.node_to_seeds.reserve(tree_state.seeds->size());
         for (size_t i = 0; i < tree_state.seeds->size(); i++) {
             id_t id = get_id(tree_state.seeds->at(i));
-            tree_state.node_to_seeds[id].push_back(i);
+            tree_state.node_to_seeds.emplace_back(id, i);
             //For each seed, assign it to a node and the node to a snarl 
         }
+        std::sort(tree_state.node_to_seeds.begin(), tree_state.node_to_seeds.end());
 
         // Assign each node to a snarl.
-        for (auto& node : tree_state.node_to_seeds) {
-            size_t snarl_i = dist_index.getPrimaryAssignment(node.first);
+        id_t prev_node = -1;
+        for (auto mapping : tree_state.node_to_seeds) {
+            if (mapping.first == prev_node) {
+                continue;
+            }
+            prev_node = mapping.first;
+            size_t snarl_i = dist_index.getPrimaryAssignment(mapping.first);
             size_t depth = dist_index.snarl_indexes[snarl_i].depth;
             snarl_to_nodes[depth][snarl_i].emplace_back(
-                     NetgraphNode(node.first, NODE), NodeClusters());
+                     NetgraphNode(mapping.first, NODE), NodeClusters());
         }
     }
 
@@ -252,7 +261,10 @@ cerr << endl << "New cluster calculation:" << endl;
          * and the shortest distance from any seed to the left and right sides 
          * of the node*/
 
-         vector<size_t>& seed_indices = tree_state.node_to_seeds[node_id];
+        auto seed_range_start = std::lower_bound(
+            tree_state.node_to_seeds.begin(),
+            tree_state.node_to_seeds.end(),
+            std::pair<id_t, size_t>(node_id, 0));
 
         //indices of union find group ids of clusters in this node
         NodeClusters node_clusters;
@@ -261,14 +273,14 @@ cerr << endl << "New cluster calculation:" << endl;
             //If the limit is greater than the node length, then all the 
             //seeds on this node must be in the same cluster
             
-            size_t group_id = seed_indices[0];
+            size_t group_id = seed_range_start->second;
 
-            for (size_t seed_i : seed_indices) {
+            for (auto iter = seed_range_start; iter != tree_state.node_to_seeds.end() && iter->first == node_id; ++iter) {
                 //For each seed on this node, add it to the cluster
                 //And find the shortest distance from any seed to both
                 //ends of the node
                 
-                pos_t seed = tree_state.seeds->at(seed_i); 
+                pos_t seed = tree_state.seeds->at(iter->second);
                 int64_t dist_left = is_rev(seed) ? node_length- get_offset(seed)
                                                  : get_offset(seed) + 1;
                 int64_t dist_right = is_rev(seed) ? get_offset(seed) + 1 
@@ -279,7 +291,7 @@ cerr << endl << "New cluster calculation:" << endl;
                 node_clusters.best_right = min_positive(dist_right, 
                                                       node_clusters.best_right);
 
-                tree_state.union_find_clusters.union_groups(group_id, seed_i);
+                tree_state.union_find_clusters.union_groups(group_id, iter->second);
 
             }
 
@@ -310,9 +322,9 @@ cerr << endl << "New cluster calculation:" << endl;
 
         //Create a vector of seeds with their offsets
         vector<pair<size_t, int64_t>> seed_offsets;
-        for ( size_t i : seed_indices) {
+        for (auto iter = seed_range_start; iter != tree_state.node_to_seeds.end() && iter->first == node_id; ++iter) {
             //For each seed, find its offset 
-            pos_t seed = tree_state.seeds->at(i); 
+            pos_t seed = tree_state.seeds->at(iter->second);
             int64_t offset = is_rev(seed) ? node_length - get_offset(seed) 
                                             : get_offset(seed) + 1;
 
@@ -321,7 +333,7 @@ cerr << endl << "New cluster calculation:" << endl;
             node_clusters.best_right = min_positive(node_length-offset+1,
                                                     node_clusters.best_right);
 
-            seed_offsets.emplace_back(i, offset);
+            seed_offsets.emplace_back(iter->second, offset);
                         
         }
         //Sort seeds by their position in the node 
