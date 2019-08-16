@@ -11,6 +11,7 @@
 #include "position.hpp"
 #include "xg.hpp"
 
+#include <gbwt/cached_gbwt.h>
 #include <gbwt/dynamic_gbwt.h>
 #include <sdsl/int_vector.hpp>
 
@@ -230,6 +231,41 @@ public:
     /// extends it right. When going backward, the state is for the reverse orientation.
     bool follow_paths(gbwt::BidirectionalState state, bool backward,
                       const std::function<bool(const gbwt::BidirectionalState&)>& iteratee) const;
+
+//------------------------------------------------------------------------------
+
+  // Cached GBWTGraph specific interface. Each thread must use a separate cache.
+
+  /// Return a cache for the GBWT index. Note: The cache is not thread-safe.
+  gbwt::CachedGBWT get_cache() const { return gbwt::CachedGBWT(*(this->index), false); }
+
+  /// Convert handle_t to gbwt::SearchState.
+  gbwt::SearchState get_state(const gbwt::CachedGBWT& cache, const handle_t& handle) const { return cache.find(handle_to_node(handle)); }
+
+  /// Convert handle_t to gbwt::BidirectionalState.
+  gbwt::BidirectionalState get_bd_state(const gbwt::CachedGBWT& cache, const handle_t& handle) const { return cache.bdFind(handle_to_node(handle)); }
+
+  /// Get the search state corresponding to the vector of handles.
+  gbwt::SearchState find(const gbwt::CachedGBWT& cache, const std::vector<handle_t>& path) const;
+
+  /// Get the bidirectional search state corresponding to the vector of handles.
+  gbwt::BidirectionalState bd_find(const gbwt::CachedGBWT& cache, const std::vector<handle_t>& path) const;
+
+  /// Visit all successor states of this state and call iteratee for the state.
+  /// Stop and return false if the iteratee returns false.
+  /// Note that the state may be empty if no path continues to that node.
+  bool follow_paths(const gbwt::CachedGBWT& cache, gbwt::SearchState state,
+                    const std::function<bool(const gbwt::SearchState&)>& iteratee) const;
+
+  /// Visit all predecessor/successor states of this state and call iteratee for the state.
+  /// Stop and return false if the iteratee returns false.
+  /// Note that the state may be empty if no path continues to that node.
+  /// Each state corresponds to a path. Going backward extends the path left, while going
+  /// extends it right. When going backward, the state is for the reverse orientation.
+  bool follow_paths(const gbwt::CachedGBWT& cache, gbwt::BidirectionalState state, bool backward,
+                    const std::function<bool(const gbwt::BidirectionalState&)>& iteratee) const;
+
+//------------------------------------------------------------------------------
 
 private:
     size_t node_offset(gbwt::node_type node) const { return node - this->index->firstNode(); }

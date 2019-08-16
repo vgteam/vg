@@ -211,7 +211,6 @@ id_t GBWTGraph::max_node_id() const {
     return next_id - 1;
 }
 
-// Using undocumented parts of the GBWT interface. --Jouni
 bool GBWTGraph::follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const {
 
     // Incoming edges correspond to the outgoing edges of the reverse node.
@@ -220,9 +219,12 @@ bool GBWTGraph::follow_edges_impl(const handle_t& handle, bool go_left, const st
         curr = gbwt::Node::reverse(curr);
     }
 
-    gbwt::CompressedRecord record = this->index->record(curr);
-    for (gbwt::rank_type outrank = 0; outrank < record.outdegree(); outrank++) {
-        gbwt::node_type next = record.successor(outrank);
+    // Cache the node.
+    gbwt::CachedGBWT cache(*(this->index), true);
+    gbwt::size_type cache_index = cache.findRecord(curr);
+
+    for (gbwt::rank_type outrank = 0; outrank < cache.outdegree(cache_index); outrank++) {
+        gbwt::node_type next = cache.successor(cache_index, outrank);
         if (next == gbwt::ENDMARKER) {
             continue;
         }
@@ -361,15 +363,47 @@ gbwt::BidirectionalState GBWTGraph::bd_find(const std::vector<handle_t>& path) c
     return result;
 }
 
-// Using undocumented parts of the GBWT interface. --Jouni
 bool GBWTGraph::follow_paths(gbwt::SearchState state, const std::function<bool(const gbwt::SearchState&)>& iteratee) const {
-    gbwt::CompressedRecord record = this->index->record(state.node);
-    for (gbwt::rank_type outrank = 0; outrank < record.outdegree(); outrank++) {
-        gbwt::node_type next_node = record.successor(outrank);
-        if (next_node == gbwt::ENDMARKER) {
+    gbwt::CachedGBWT cache(*(this->index), true);
+    return this->follow_paths(cache, state, iteratee);
+}
+
+bool GBWTGraph::follow_paths(gbwt::BidirectionalState state, bool backward, const std::function<bool(const gbwt::BidirectionalState&)>& iteratee) const {
+    gbwt::CachedGBWT cache(*(this->index), true);
+    return this->follow_paths(cache, state, backward, iteratee);
+}
+
+//------------------------------------------------------------------------------
+
+gbwt::SearchState GBWTGraph::find(const gbwt::CachedGBWT& cache, const std::vector<handle_t>& path) const {
+    if (path.empty()) {
+        return gbwt::SearchState();
+    }
+    gbwt::SearchState result = this->get_state(cache, path[0]);
+    for (size_t i = 1; i < path.size() && !result.empty(); i++) {
+        result = cache.extend(result, handle_to_node(path[i]));
+    }
+    return result;
+}
+
+gbwt::BidirectionalState GBWTGraph::bd_find(const gbwt::CachedGBWT& cache, const std::vector<handle_t>& path) const {
+    if (path.empty()) {
+        return gbwt::BidirectionalState();
+    }
+    gbwt::BidirectionalState result = this->get_bd_state(cache, path[0]);
+    for (size_t i = 1; i < path.size() && !result.empty(); i++) {
+        result = cache.bdExtendForward(result, handle_to_node(path[i]));
+    }
+    return result;
+}
+
+bool GBWTGraph::follow_paths(const gbwt::CachedGBWT& cache, gbwt::SearchState state, const std::function<bool(const gbwt::SearchState&)>& iteratee) const {
+    gbwt::size_type cache_index = cache.findRecord(state.node);
+    for (gbwt::rank_type outrank = 0; outrank < cache.outdegree(cache_index); outrank++) {
+        if (cache.successor(cache_index, outrank) == gbwt::ENDMARKER) {
             continue;
         }
-        gbwt::SearchState next_state(next_node, record.LF(state.range, next_node));
+        gbwt::SearchState next_state = cache.cachedExtend(state, cache_index, outrank);
         if (!iteratee(next_state)) {
             return false;
         }
@@ -378,27 +412,13 @@ bool GBWTGraph::follow_paths(gbwt::SearchState state, const std::function<bool(c
     return true;
 }
 
-// Using undocumented parts of the GBWT interface. --Jouni
-bool GBWTGraph::follow_paths(gbwt::BidirectionalState state, bool backward, const std::function<bool(const gbwt::BidirectionalState&)>& iteratee) const {
-    if (backward) {
-        state.flip();
-    }
-
-    gbwt::CompressedRecord record = this->index->record(state.forward.node);
-    for (gbwt::rank_type outrank = 0; outrank < record.outdegree(); outrank++) {
-        gbwt::node_type next_node = record.successor(outrank);
-        if (next_node == gbwt::ENDMARKER) {
+bool GBWTGraph::follow_paths(const gbwt::CachedGBWT& cache, gbwt::BidirectionalState state, bool backward, const std::function<bool(const gbwt::BidirectionalState&)>& iteratee) const {
+    gbwt::size_type cache_index = cache.findRecord(backward ? state.backward.node : state.forward.node);
+    for (gbwt::rank_type outrank = 0; outrank < cache.outdegree(cache_index); outrank++) {
+        if (cache.successor(cache_index, outrank) == gbwt::ENDMARKER) {
             continue;
         }
-        gbwt::size_type reverse_offset = 0;
-        gbwt::BidirectionalState next_state = state;
-        next_state.forward.node = next_node;
-        next_state.forward.range = record.bdLF(state.forward.range, next_node, reverse_offset);
-        next_state.backward.range.first += reverse_offset;
-        next_state.backward.range.second = next_state.backward.range.first + next_state.forward.size() - 1;
-        if (backward) {
-            next_state.flip();
-        }
+        gbwt::BidirectionalState next_state = (backward ? cache.cachedExtendBackward(state, cache_index, outrank) :  cache.cachedExtendForward(state, cache_index, outrank));
         if (!iteratee(next_state)) {
             return false;
         }
@@ -443,12 +463,16 @@ void for_each_haplotype_window(const GBWTGraph& graph, size_t window_size,
 
     // Traverse all starting nodes in parallel.
     graph.for_each_handle([&](const handle_t& h) -> bool {
+
+        // Get a GBWT cache.
+        gbwt::CachedGBWT cache = graph.get_cache();
+
         // Initialize the stack with both orientations.
         std::stack<GBWTTraversal> windows;
         size_t node_length = graph.get_length(h);
         for (bool is_reverse : { false, true }) {
             handle_t handle = (is_reverse ? graph.flip(h) : h);
-            gbwt::SearchState state = graph.get_state(handle);
+            gbwt::SearchState state = graph.get_state(cache, handle);
             if (state.empty()) {
                 continue;
             }
@@ -467,24 +491,21 @@ void for_each_haplotype_window(const GBWTGraph& graph, size_t window_size,
             }
 
             // Try to extend the window to all successor nodes.
-            // We are using undocumented parts of the GBWT interface. --Jouni
             bool extend_success = false;
-            gbwt::CompressedRecord record = graph.index->record(window.state.node);
-            for (gbwt::rank_type outrank = 0; outrank < record.outdegree(); outrank++) {
-                gbwt::node_type next_node = record.successor(outrank);
-                if (next_node == gbwt::ENDMARKER) {
+            gbwt::size_type cache_index = cache.findRecord(window.state.node);
+            for (gbwt::rank_type outrank = 0; outrank < cache.outdegree(cache_index); outrank++) {
+                if (cache.successor(cache_index, outrank) == gbwt::ENDMARKER) {
                     continue;
                 }
-                gbwt::range_type next_range = record.LF(window.state.range, next_node);
-                if (gbwt::Range::empty(next_range)) {
+                gbwt::SearchState next_state = cache.cachedExtend(window.state, cache_index, outrank);
+                if (next_state.empty()) {
                     continue;
                 }
-                handle_t next_handle = GBWTGraph::node_to_handle(next_node);
+                handle_t next_handle = GBWTGraph::node_to_handle(next_state.node);
                 GBWTTraversal next_window = window;
                 next_window.traversal.push_back(next_handle);
                 next_window.length += std::min(graph.get_length(next_handle), target_length - window.length);
-                next_window.state.node = next_node;
-                next_window.state.range = next_range;
+                next_window.state = next_state;
                 windows.push(next_window);
                 extend_success = true;
             }
