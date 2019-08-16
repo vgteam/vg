@@ -74,14 +74,7 @@ int64_t VGset::merge_id_space(void) {
     return max_node_id;
 }
 
-void VGset::to_xg(xg::XG& index, bool store_threads) {
-    // Send a predicate to match nothing
-    to_xg(index, store_threads, [](const string& ignored) {
-        return false;
-    });
-}
-
-void VGset::to_xg(xg::XG& index, bool store_threads, const function<bool(const string&)>& paths_to_take, map<string, Path>* removed_paths) {
+void VGset::to_xg(xg::XG& index) {
     
     // We need to recostruct full removed paths from fragmentary paths encountered in each chunk.
     // This maps from path name to all the Mappings in the path in the order we encountered them
