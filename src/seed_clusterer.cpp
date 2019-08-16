@@ -98,36 +98,19 @@ cerr << endl << "New cluster calculation:" << endl;
               vector<hash_map<size_t,vector<pair<NetgraphNode, NodeClusters>>>>&
                                                                snarl_to_nodes) const {
 
-        /* Find the nodes containing seeds and
-         * assign each node to a level in the snarl tree*/ 
-
+        // Assign each seed to a node.
         for (size_t i = 0; i < tree_state.seeds->size(); i++) {
+            id_t id = get_id(tree_state.seeds->at(i));
+            tree_state.node_to_seeds[id].push_back(i);
             //For each seed, assign it to a node and the node to a snarl 
+        }
 
-            pos_t pos = tree_state.seeds->at(i);
-            id_t id = get_id(pos);
-
-            size_t snarl_i = dist_index.getPrimaryAssignment(id);
-
-            const MinimumDistanceIndex::SnarlIndex* snarl_index =
-                                             &dist_index.snarl_indexes[snarl_i];
-            size_t depth = snarl_index->depth;
-
-            auto s = tree_state.node_to_seeds.find(id);
-            if (s != tree_state.node_to_seeds.end()) {
-                //If we've already found this node, just map the node to seed
-
-                s->second.push_back(i);
-
-            } else {
-                //If we haven't found this node yet, map node to seed
-                //and snarl (at the correct depth) to node
-
-                tree_state.node_to_seeds.emplace(id, vector<size_t>({i}));
-
-                snarl_to_nodes[depth][snarl_i].emplace_back(
-                         NetgraphNode(id, NODE), NodeClusters());
-            }
+        // Assign each node to a snarl.
+        for (auto& node : tree_state.node_to_seeds) {
+            size_t snarl_i = dist_index.getPrimaryAssignment(node.first);
+            size_t depth = dist_index.snarl_indexes[snarl_i].depth;
+            snarl_to_nodes[depth][snarl_i].emplace_back(
+                     NetgraphNode(node.first, NODE), NodeClusters());
         }
     }
 
