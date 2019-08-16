@@ -742,15 +742,14 @@ int main_index(int argc, char** argv) {
                 string parse_file = parse_name + '_' + vcf_contig_name;
 
                 // Structures to parse the VCF file into.
-                const xg::XGPath& path = xg_index->get_path(path_name);
                 gbwt::VariantPaths variants(xg_index->get_step_count(xg_index->get_path_handle(path_name)));
                 variants.setSampleNames(sample_names);
                 variants.setContigName(path_name);
                 std::vector<gbwt::PhasingInformation> phasings;
 
                 // Add the reference to VariantPaths.
-                for (size_t i = 0; i < variants.size(); i++) {
-                    variants.appendToReference(xg_path_to_gbwt(path, i));
+                for (handle_t handle : xg_index->scan_path(path_handles[path_rank])) {
+                    variants.appendToReference(gbwt::Node::encode(xg_index->get_id(handle), xg_index->get_is_reverse(handle)));
                 }
                 variants.indexReference();
 
