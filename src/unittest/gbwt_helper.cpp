@@ -6,7 +6,8 @@
 #include "../gbwt_helper.hpp"
 #include "../json2pb.h"
 #include "../utility.hpp"
-
+#include "xg.hpp"
+#include "vg.hpp"
 #include "catch.hpp"
 
 #include <set>
@@ -99,7 +100,7 @@ TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
 
     // Test an empty graph first.
     SECTION("we can build an empty GBWTGraph") {
-        XG empty_xg;
+        xg::XG empty_xg;
         gbwt::GBWT empty_gbwt;
         GBWTGraph empty_graph(empty_gbwt, empty_xg);
         REQUIRE(empty_graph.get_node_count() == 0);
@@ -108,7 +109,8 @@ TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
     // Build an XG index.
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index;
+    xg_index.from_handle_graph(VG(graph));
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
@@ -376,7 +378,8 @@ TEST_CASE("GBWTGraph serialization", "[gbwt_helper]") {
     // Build an XG index.
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index;
+    xg_index.from_handle_graph(VG(graph));
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
@@ -412,7 +415,8 @@ TEST_CASE("for_each_window() finds the correct windows with GBWT", "[gbwt_helper
     // Build an XG index.
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index;
+    xg_index.from_handle_graph(VG(graph));
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
@@ -478,7 +482,8 @@ TEST_CASE("for_each_window() finds the correct windows without GBWT", "[gbwt_hel
     // Build an XG index.
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index;
+    xg_index.from_handle_graph(VG(graph));
 
     // These are the windows the traversal should find.
     typedef std::pair<std::vector<handle_t>, std::string> kmer_type;

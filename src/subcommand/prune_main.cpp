@@ -20,6 +20,7 @@
 #include "../phase_unfolder.hpp"
 #include <vg/io/vpkg.hpp>
 #include "subcommand.hpp"
+#include "xg.hpp"
 
 #include <gbwt/gbwt.h>
 
@@ -300,7 +301,7 @@ int main_prune(int argc, char** argv) {
 
     // Handle the input.
     VG* graph;
-    XG xg_index;
+    xg::XG xg_index;
     unique_ptr<gbwt::GBWT> gbwt_index;
     get_input_file(optind, argc, argv, [&](std::istream& in) {
         graph = new VG(in);
@@ -313,7 +314,7 @@ int main_prune(int argc, char** argv) {
     // Remove the paths and build an XG index if needed.
     if (mode == mode_restore || mode == mode_unfold) {
         remove_paths(graph->graph, Paths::is_alt, nullptr);
-        xg_index.from_graph(graph->graph);
+        xg_index.from_handle_graph(*graph);
         if (show_progress) {
             std::cerr << "Built a temporary XG index" << std::endl;
         }

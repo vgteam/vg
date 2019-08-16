@@ -45,7 +45,7 @@ inline gbwt::node_type mapping_to_gbwt(const Mapping& mapping) {
 }
 
 /// Convert a node on XGPath to gbwt::node_type.
-inline gbwt::node_type xg_path_to_gbwt(const XGPath& path, size_t i) {
+inline gbwt::node_type xg_path_to_gbwt(const xg::XGPath& path, size_t i) {
     return gbwt::Node::encode(path.node(i), path.is_reverse(i));
 }
 

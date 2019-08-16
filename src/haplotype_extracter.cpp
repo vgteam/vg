@@ -8,6 +8,19 @@ namespace vg {
 
 using namespace std;
 
+static id_t side_id(int64_t side) {
+    return abs(side);
+}
+
+static bool side_is_end(int64_t side) {
+    return side < 0;
+}
+
+static int64_t make_side(id_t id, bool is_end) {
+    return !is_end ? id : -1 * id;
+}
+
+
 void trace_haplotypes_and_paths(const PathHandleGraph& source, const gbwt::GBWT& haplotype_database,
                                 vg::id_t start_node, int extend_distance,
                                 Graph& out_graph,

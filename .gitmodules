@@ -113,3 +113,12 @@
 [submodule "deps/libbdsg"]
 	path = deps/libbdsg
 	url = https://github.com/vgteam/libbdsg.git
+[submodule "deps/xg"]
+	path = deps/xg
+	url = https://github.com/vgteam/xg.git
+[submodule "deps/mmmultimap"]
+	path = deps/mmmultimap
+	url = https://github.com/ekg/mmmultimap.git
+[submodule "deps/ips4o"]
+	path = deps/ips4o
+	url = https://github.com/SaschaWitt/ips4o.git

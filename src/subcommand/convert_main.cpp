@@ -1,7 +1,7 @@
 #include "subcommand.hpp"
 #include "../vg.hpp"
 #include "../utility.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../convert_handle.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
@@ -107,7 +107,7 @@ int main_convert(int argc, char** argv) {
         } else if (graph_type == "packed") {
             return new bdsg::PackedGraph();
         } else if (graph_type == "xg") {
-            return new XG();
+            return new xg::XG();
         }
         return nullptr;
     };
@@ -125,7 +125,7 @@ int main_convert(int argc, char** argv) {
         dynamic_cast<SerializableHandleGraph*>(input_graph)->deserialize(input_path == "-" ? cin : input_stream);
     } else {
         //todo: XG::deserialize() doesn't work.  Need to go through vpkg
-        unique_ptr<XG> xindex = vg::io::VPKG::load_one<XG>(input_path);
+        unique_ptr<xg::XG> xindex = vg::io::VPKG::load_one<xg::XG>(input_path);
         delete input_graph;
         input_graph = xindex.release();
     }
