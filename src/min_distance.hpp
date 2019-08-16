@@ -53,14 +53,19 @@ class MinimumDistanceIndex {
     /// Distance includes only one of the positions. The distance from a 
     /// position to itself would be 1
     ///If there is no path between the two positions then the distance is -1
-    int64_t minDistance( pos_t pos1, pos_t pos2);
+    int64_t minDistance( pos_t pos1, pos_t pos2) const;
 
     ///Get a maximum distance bound between the positions, ignoring direction
     ///Returns a positive value even if the two nodes are unreachable
-    int64_t maxDistance(pos_t pos1, pos_t pos2);
+    int64_t maxDistance(pos_t pos1, pos_t pos2) const;
 
     ///Helper function to find the minimum value that is not -1
     static int64_t minPos(vector<int64_t> vals);
+
+    ///Helper function to find the minimum value that is not -1
+    static int64_t minPos(int64_t x, int64_t y) {
+        return static_cast<int64_t>(std::min(static_cast<uint64_t>(x), static_cast<uint64_t>(y)));
+    }
 
     ///print the distance index for debugging
     void printSelf();
@@ -102,19 +107,21 @@ class MinimumDistanceIndex {
             ///chains), or snarl boundaries.
             ///Rank 0 is the start node and rank num_nodes*2-1 is the end node,
             /// both pointing into the snarl
-            int64_t snarlDistance(size_t start, size_t end);
-
-
+            int64_t snarlDistance(size_t start, size_t end) const {
+                return int64_t(distances[index(start, end)]) - 1;
+            }
              
             ///Length of a node in the netgraph of the snarl
             ///If it is a node, then the length of the node. If it is a snarl or
             ///chain, then the shortest distance between the boundaries
             /// i is the rank of the node in the snarl
-            int64_t nodeLength(size_t i);
+            int64_t nodeLength(size_t i) const {
+                return distances[i / 2] - 1;
+            }
         
             ///Total length of the snarl-shortest distance from start to end
             ///including the lengths of boundary nodes
-            int64_t snarlLength();
+            int64_t snarlLength() const;
 
             ///Given distances from a position to either end of a node, find the
             ///shortest distance from that position to the start and end 
@@ -122,7 +129,7 @@ class MinimumDistanceIndex {
             ///node is the index of the node in the forward direction
             
             pair<int64_t, int64_t> distToEnds(size_t rank, 
-                                              int64_t distL, int64_t distR);
+                                              int64_t distL, int64_t distR) const;
 
             ///For use during construction,
             ///add the distance from start to end to the index
@@ -168,7 +175,7 @@ class MinimumDistanceIndex {
             bool is_unary_snarl;
 
             ///The index into distances for distance start->end
-            size_t index(size_t start, size_t end);
+            size_t index(size_t start, size_t end) const;
 
 
         friend class MinimumDistanceIndex;
@@ -208,11 +215,14 @@ class MinimumDistanceIndex {
             
             int64_t chainDistance(pair<size_t, bool> start, 
                                   pair<size_t, bool> end, int64_t startLen, 
-                                  int64_t endLen, bool check_loop=false);
+                                  int64_t endLen, bool check_loop=false) const;
 
 
             //Length of entire chain
-            int64_t chainLength();
+            int64_t chainLength() const {
+                //TODO: if there is a unary snarl then this should be -1
+                return prefix_sum[prefix_sum.size() - 1] - 1;
+            }
 
             void printSelf();
 
@@ -255,7 +265,7 @@ class MinimumDistanceIndex {
             /// in a looping chain by taking the extra loop
             int64_t loopDistance(pair<size_t, bool> start, 
                                   pair<size_t, bool> end, int64_t startLen, 
-                                  int64_t endLen);
+                                  int64_t endLen) const;
 
         friend class MinimumDistanceIndex;   
         friend class SnarlSeedClusterer;
@@ -372,18 +382,33 @@ class MinimumDistanceIndex {
     ///the direction of pos)
     
     tuple<int64_t, int64_t, pair<id_t, bool>> distToCommonAncestor(
-                pair<size_t, bool> common_ancestor, pos_t& pos, bool rev); 
+                pair<size_t, bool> common_ancestor, pos_t& pos, bool rev) const;
 
 
     //Get the index into chain_indexes/rank in chain of node i
-    size_t getPrimaryAssignment(id_t i);
-    size_t getPrimaryRank(id_t i);
+    size_t getPrimaryAssignment(id_t i) const {
+        return primary_snarl_assignments[i - min_node_id] - 1;
+    }
 
-    size_t getChainAssignment(id_t i);
-    size_t getChainRank(id_t i);
+    size_t getPrimaryRank(id_t i) const {
+        return primary_snarl_ranks[i - min_node_id] - 1;
+    }
 
-    size_t getSecondaryAssignment(id_t i);
-    size_t getSecondaryRank(id_t i);
+    size_t getChainAssignment(id_t i) const {
+        return chain_assignments[has_chain.rank(i - min_node_id)] - 1;
+    }
+
+    size_t getChainRank(id_t i) const {
+        return chain_ranks[has_chain.rank(i - min_node_id)] - 1;
+    }
+
+    size_t getSecondaryAssignment(id_t i) const {
+        return secondary_snarl_assignments[has_secondary_snarl.rank(i - min_node_id)] - 1;
+    }
+
+    size_t getSecondaryRank(id_t i) const {
+        return secondary_snarl_ranks[has_secondary_snarl.rank(i - min_node_id)] - 1;
+    }
 
 
     friend class SnarlIndex;

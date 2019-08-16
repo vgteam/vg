@@ -9,7 +9,7 @@ namespace vg {
     };
         
     vector<vector<size_t>> SnarlSeedClusterer::cluster_seeds ( 
-                  vector<pos_t> seeds, int64_t distance_limit ){
+                  vector<pos_t> seeds, int64_t distance_limit ) const {
         /* Given a vector of seeds and a limit, find a clustering of seeds where
          * seeds that are closer than the limit cluster together. 
          * Returns a vector of cluster assignments 
@@ -96,7 +96,7 @@ cerr << endl << "New cluster calculation:" << endl;
 
     void SnarlSeedClusterer::get_nodes( TreeState& tree_state,
               vector<hash_map<size_t,vector<pair<NetgraphNode, NodeClusters>>>>&
-                                                               snarl_to_nodes) {
+                                                               snarl_to_nodes) const {
 
         /* Find the nodes containing seeds and
          * assign each node to a level in the snarl tree*/ 
@@ -109,7 +109,7 @@ cerr << endl << "New cluster calculation:" << endl;
 
             size_t snarl_i = dist_index.getPrimaryAssignment(id);
 
-            MinimumDistanceIndex::SnarlIndex* snarl_index =
+            const MinimumDistanceIndex::SnarlIndex* snarl_index =
                                              &dist_index.snarl_indexes[snarl_i];
             size_t depth = snarl_index->depth;
 
@@ -132,7 +132,7 @@ cerr << endl << "New cluster calculation:" << endl;
     }
 
 
-    void SnarlSeedClusterer::cluster_snarls(TreeState& tree_state, size_t depth) {
+    void SnarlSeedClusterer::cluster_snarls(TreeState& tree_state, size_t depth) const {
 
         for (auto& kv : tree_state.snarl_to_nodes){
             //Go through each of the snarls at this level, cluster them,
@@ -208,7 +208,7 @@ cerr << endl << "New cluster calculation:" << endl;
         }
     }
 
-    void SnarlSeedClusterer::cluster_chains(TreeState& tree_state, size_t depth) {
+    void SnarlSeedClusterer::cluster_chains(TreeState& tree_state, size_t depth) const {
         for (auto& kv : tree_state.chain_to_snarls) {
             //For each chain at this level that has relevant child snarls in it,
             //find the clusters.
@@ -259,7 +259,7 @@ cerr << endl << "New cluster calculation:" << endl;
     }
     SnarlSeedClusterer::NodeClusters SnarlSeedClusterer::cluster_one_node(
                        TreeState& tree_state,
-                       id_t node_id, int64_t node_length) {
+                       id_t node_id, int64_t node_length) const {
 #ifdef DEBUG 
         cerr << "Finding clusters on node " << node_id << " which has length " <<
         node_length << endl;
@@ -409,7 +409,7 @@ cerr << endl << "New cluster calculation:" << endl;
 
 
     SnarlSeedClusterer::NodeClusters SnarlSeedClusterer::cluster_one_chain(
-                               TreeState& tree_state, size_t chain_index_i) {
+                               TreeState& tree_state, size_t chain_index_i) const {
         /*
          * Find all the clusters in the given chain
          */
@@ -919,7 +919,7 @@ cerr << "  Combining this cluster from the right" << endl;
 
 
     SnarlSeedClusterer::NodeClusters SnarlSeedClusterer::cluster_one_snarl(
-                    TreeState& tree_state, size_t snarl_index_i) {
+                    TreeState& tree_state, size_t snarl_index_i) const {
         /*Get the clusters on this snarl. 
          * Nodes have not yet been clustered */
         MinimumDistanceIndex::SnarlIndex& snarl_index = 
