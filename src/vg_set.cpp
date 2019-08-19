@@ -136,13 +136,18 @@ void VGset::to_xg(xg::XG& index) {
     auto for_each_path_element = [&](
         const std::function<void(const std::string& path_name,
                                  const nid_t& node_id, const bool& is_rev,
-                                 const std::string& cigar)>& lambda) {
+                                 const std::string& cigar,
+                                 bool is_empty)>& lambda) {
         for (auto& path : paths) {
             auto& path_name = path.first;
             auto& path_steps = path.second;
-            for (auto& step : path_steps) {
-                if (step.first) { // ids are > 0, so we skip anything that's not filled
-                    lambda(path_name, step.first, step.second, "");
+            if (path_steps.empty()) {
+                lambda(path_name, 0, false, "", true);
+            } else {
+                for (auto& step : path_steps) {
+                    if (step.first) { // ids are > 0, so we skip anything that's not filled
+                        lambda(path_name, step.first, step.second, "", false);
+                    }
                 }
             }
         }
