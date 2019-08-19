@@ -118,6 +118,10 @@ def make_stats(read):
     Additionally, each of these '_count_' stats has a '_size_' version,
     describing the total size of all items meeting the specified criteria (as
     opposed to the number of items).
+    
+    For the 'seed' stage, correctness information is not yet available, so only
+    the '_total' values will be defined. '_correct' values will be set to None
+    (instead of 0).
         
     Filters appear in the OrderedDict in an order corresponding to their filter
     number in the GAM.
@@ -150,6 +154,15 @@ def make_stats(read):
         # Record the filter being at this index if not known already
         filters_by_index[filter_num] = filter_name
         
+        if filter_stage == 'minimizer':
+            # Wer are filtering items produced by the minimizer stage.
+            # At the minimizer stage, correct and incorrect are not defined yet.
+            if filter_metric == 'correct':
+                # Make sure we didn't get any counts
+                assert filter_stat_value == 0
+                # None out the correct stat so we can detect this when making the table
+                filter_stat_value = None
+        
         # Record the stat value
         filter_stats[filter_name]['{}_{}_{}'.format(filter_status, filter_accounting, filter_metric)] = filter_stat_value
         
@@ -169,7 +182,10 @@ def add_in_stats(destination, addend):
     
     # Internally we're just recursive += on dicts.
     for k, v in addend.items():
-        if isinstance(v, dict):
+        if v is None:
+            # None will replace anything and propagate through
+            destination[k] = None
+        elif isinstance(v, dict):
             # Recurse into dict
             add_in_stats(destination[k], v)
         else:
@@ -552,7 +568,8 @@ def print_table(read_count, stats_total, out=sys.stdout):
     lost_header2 = "Lost"
     # How big a number will we need to hold?
     # Look at the reads lost at all filters
-    lost_reads = [stats_total[filter_name]['failed_count_correct'] for filter_name in stats_total.keys()]
+    # Account for None values for stages that don't have correctness defined yet.
+    lost_reads = [x for x in (stats_total[filter_name]['failed_count_correct'] for filter_name in stats_total.keys()) if x is not None]
     max_filter_stop = max(lost_reads)
     # How many correct reads are lost overall by filters?
     overall_lost = sum(lost_reads)
@@ -562,13 +579,12 @@ def print_table(read_count, stats_total, out=sys.stdout):
     headers2.append(lost_header2)
     header_widths.append(lost_width)
     
-    # And the incorrect result rejected count header
-    rejected_header = "Incorrect"
+    # And the total rejected count header
+    rejected_header = "Total"
     rejected_header2 = "Removed"
     # How big a number will we need to hold?
     # Look at the reads rejected at all filters
-    rejected_reads = [(stats_total[filter_name]['failed_count_total'] - stats_total[filter_name]['failed_count_correct'])
-        for filter_name in stats_total.keys()]
+    rejected_reads = [stats_total[filter_name]['failed_count_total'] for filter_name in stats_total.keys()]
     max_filter_stop = max(rejected_reads)
     # How many incorrect reads are rejected overall by filters?
     overall_rejected = sum(rejected_reads)
@@ -603,8 +619,13 @@ def print_table(read_count, stats_total, out=sys.stdout):
         # No reads are lost at the final stage.
         lost = stats_total[filter_name]['failed_count_correct']
         
-        # And reads that are (rightly) rejected
-        rejected = stats_total[filter_name]['failed_count_total'] - lost
+        # And reads that are rejected at all
+        rejected = stats_total[filter_name]['failed_count_total']
+        
+        if lost is None:
+            # Correctness is not defined yet.
+            # TODO: have a way to see if the correct mapping never shows up.
+            lost = 'N/A'
         
         row = [filter_name]
         align = 'c'
