@@ -639,7 +639,10 @@ int main_index(int argc, char** argv) {
         // Store contig names.
         if (index_paths || index_haplotypes) {
             xg_index->for_each_path_handle([&](path_handle_t path_handle) {
-                    contig_names.push_back(xg_index->get_path_name(path_handle));
+                    string path_name = xg_index->get_path_name(path_handle);
+                    if (!alt_paths.count(path_name)) {
+                        contig_names.push_back(path_name);
+                    }
                 });
         }
         // Convert paths to threads
@@ -735,14 +738,19 @@ int main_index(int argc, char** argv) {
             }
 
             // Process each VCF contig corresponding to an XG path.
-            size_t max_path_rank = xg_index->get_path_count();
-            size_t path_rank = 1;
-            vector<path_handle_t> path_handles(max_path_rank + 1);
+            vector<path_handle_t> path_handles;
+            // 1st pass: scan for all non-alt paths (they are handled separately)
             xg_index->for_each_path_handle([&](path_handle_t path_handle) {
-                    path_handles[path_rank++] = path_handle;
+                    if (!alt_paths.count(xg_index->get_path_name(path_handle))) {
+                        path_handles.push_back(path_handle);
+                    }
                 });
-            for (path_rank = 1; path_rank <= max_path_rank; path_rank++) {
-                string path_name = xg_index->get_path_name(path_handles[path_rank]);                    
+            size_t max_path_rank = path_handles.size();
+            for (size_t path_rank = 1; path_rank <= max_path_rank; path_rank++) {
+                string path_name = xg_index->get_path_name(path_handles[path_rank - 1]);
+                if (alt_paths.count(path_name)) {
+                    continue;
+                }
                 string vcf_contig_name = path_to_vcf.count(path_name) ? path_to_vcf[path_name] : path_name;
                 if (show_progress) {
                     cerr << "Processing path " << path_name << " as VCF contig " << vcf_contig_name << endl;
@@ -756,7 +764,7 @@ int main_index(int argc, char** argv) {
                 std::vector<gbwt::PhasingInformation> phasings;
 
                 // Add the reference to VariantPaths.
-                for (handle_t handle : xg_index->scan_path(path_handles[path_rank])) {
+                for (handle_t handle : xg_index->scan_path(path_handles[path_rank - 1])) {
                     variants.appendToReference(gbwt::Node::encode(xg_index->get_id(handle), xg_index->get_is_reverse(handle)));
                 }
                 variants.indexReference();
