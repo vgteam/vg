@@ -52,7 +52,7 @@ TEST_CASE("We can read and write XG", "[vpkg][handlegraph][xg]") {
     
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_handle_graph(VG(proto_graph));
+    xg_index.from_path_handle_graph(VG(proto_graph));
 
     stringstream ss;
     

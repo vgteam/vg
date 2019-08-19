@@ -87,7 +87,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
     
     // Pass it over to XG
     xg::XG index;
-    index.from_handle_graph(VG(chunk));
+    index.from_path_handle_graph(VG(chunk));
 
     PathChunker chunker(&index);
 

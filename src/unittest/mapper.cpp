@@ -47,7 +47,7 @@ TEST_CASE( "Mapper can map to a one-node graph", "[mapping][mapper]" ) {
     
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_handle_graph(graph);
+    xg_index.from_path_handle_graph(graph);
     
     // Make a multipath mapper to map against the graph.
     Mapper mapper(&xg_index, gcsaidx, lcpidx);
@@ -269,7 +269,7 @@ TEST_CASE( "Mapper finds optimal mapping for read starting with node-border MEM"
     
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_handle_graph(graph);
+    xg_index.from_path_handle_graph(graph);
     
     // Make a multipath mapper to map against the graph.
     Mapper mapper(&xg_index, gcsaidx, lcpidx);
@@ -337,7 +337,7 @@ TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][
     
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_handle_graph(graph);
+    xg_index.from_path_handle_graph(graph);
     
     // Make a multipath mapper to map against the graph.
     Mapper mapper(&xg_index, gcsaidx, lcpidx);

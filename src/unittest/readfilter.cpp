@@ -50,7 +50,7 @@ TEST_CASE("reads with ambiguous ends can be trimmed", "[filter]") {
     
     // Pass it over to XG
     xg::XG index;
-    index.from_handle_graph(VG(chunk));
+    index.from_path_handle_graph(VG(chunk));
     
     // Make a ReadFilter;
     ReadFilter filter;
