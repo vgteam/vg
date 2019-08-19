@@ -298,7 +298,7 @@ void MinimizerMapper::process_until_threshold(const vector<Item>& items, const f
         // Find the item we are talking about
         size_t& item_num = indexes_in_order[i];
         
-        if (threshold != 0 && get_score(item) <= cutoff) {
+        if (threshold != 0 && get_score(item_num) <= cutoff) {
             // Item would fail the score threshold
             
             if (unskipped < min_count) {

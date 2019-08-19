@@ -621,7 +621,7 @@ def print_table(read_count, stats_total, out=sys.stdout):
     row = [filter_overall]
     align = 'c'
     # Add the provenance columns
-    row += ['', overall_lost, overall_rejected]
+    row += ['', '', overall_lost, overall_rejected]
     align += 'rr'
     
     table.row(row, align)

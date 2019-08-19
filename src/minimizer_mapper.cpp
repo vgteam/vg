@@ -108,8 +108,24 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Select the minimizer if it is informative enough or if the total score
         // of the selected minimizers is not high enough.
         size_t hits = minimizer_index.count(minimizers[minimizer_num]);
+        
+        if (hits > hard_hit_cap) {
+            // Fail the hard hit cap filter
+        } else {
+            // Pass the hard hit cap filter
+            
+            if (selected_score + minimizer_score[minimizer_num] > target_score) {
+                // Fail the score filter
+            } else {
+                // Pass
+            }
+            
+            if (hits > hit_cap) {
+                //
+            }
+        }
+        
         if (hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
-
             // Locate the hits.
             for (auto& hit : minimizer_index.find(minimizers[minimizer_num])) {
                 // Reverse the hits for a reverse minimizer
@@ -125,15 +141,24 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             if (track_provenance) {
                 // Record in the funnel that this minimizer gave rise to these seeds.
-                funnel.pass("hit-cap", minimizer_num);
+                funnel.pass("hard-hit-cap", minimizer_num);
+                funnel.pass("hit-cap||score-fraction", minimizer_num);
                 funnel.expand(minimizer_num, hits);
             }
-        } else {
+        } else if (hits <= hard_hit_cap) {
+            // Passed hard hit cap but failed score fraction/normal hit cap
             rejected_count++;
             
             if (track_provenance) {
-                // Record in the funnel thast we rejected it
-                funnel.fail("hit-cap", minimizer_num);
+                funnel.pass("hard-hit-cap", minimizer_num);
+                funnel.fail("hit-cap||score-fraction", minimizer_num);
+            }
+        } else {
+            // Failed hard hit cap
+            rejected_count++;
+            
+             if (track_provenance) {
+                funnel.fail("hard-hit-cap", minimizer_num);
             }
         }
         
@@ -276,7 +301,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             // Handle sufficiently good clusters in descending coverage order
             
             if (track_provenance) {
-                funnel.pass("cluster-coverage-threshold", cluster_num);
+                funnel.pass("cluster-coverage", cluster_num);
                 funnel.pass("max-extensions", cluster_num);
             }
             
@@ -284,13 +309,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             if (cluster_score_threshold != 0 && cluster_score[cluster_num] < cluster_score_cutoff) {
                 //If the score isn't good enough, ignore this cluster
                 if (track_provenance) {
-                    funnel.fail("cluster-score-threshold", cluster_num);
+                    funnel.fail("cluster-score", cluster_num);
                 }
                 return false;
             }
             
             if (track_provenance) {
-                funnel.pass("cluster-score-threshold", cluster_num);
+                funnel.pass("cluster-score", cluster_num);
                 funnel.processing_input(cluster_num);
             }
 
@@ -327,13 +352,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         }, [&](size_t cluster_num) {
             // There are too many sufficiently good clusters
             if (track_provenance) {
-                funnel.pass("cluster-coverage-threshold", cluster_num);
+                funnel.pass("cluster-coverage", cluster_num);
                 funnel.fail("max-extensions", cluster_num);
             }
         }, [&](size_t cluster_num) {
             // This cluster is not sufficiently good.
             if (track_provenance) {
-                funnel.fail("cluster-coverage-threshold", cluster_num);
+                funnel.fail("cluster-coverage", cluster_num);
             }
         });
         
@@ -388,7 +413,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             // Called in descending score order.
             
             if (track_provenance) {
-                funnel.pass("extension-set-score-threshold", extension_num);
+                funnel.pass("extension-set", extension_num);
                 funnel.pass("max-alignments", extension_num);
                 funnel.processing_input(extension_num);
             }
@@ -456,13 +481,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         }, [&](size_t extension_num) {
             // This There are too many sufficiently good extensions
             if (track_provenance) {
-                funnel.pass("extension-set-score-threshold", extension_num);
+                funnel.pass("extension-set", extension_num);
                 funnel.fail("max-alignments", extension_num);
             }
         }, [&](size_t extension_num) {
             // This extension is not good enough.
             if (track_provenance) {
-                funnel.fail("extension-set-score-threshold", extension_num);
+                funnel.fail("extension-set", extension_num);
             }
         });
     
@@ -760,7 +785,7 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
 void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
 
 #ifdef debug
-    cerr << "Trying again find tail alignments for " << extended_seeds.size() << " extended seeds" << endl;
+    cerr << "Trying to find tail alignments for " << extended_seeds.size() << " extended seeds" << endl;
 #endif
 
     // Make paths for all the extensions
@@ -788,6 +813,14 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
         (function<double(size_t)>) [&](size_t extended_seed_num) {
        
             // This extended seed looks good enough.
+            
+            // TODO: We don't track this filter with the funnel because it
+            // operates within a single "item" (i.e. cluster/extension set).
+            // We track provenance at the item level, so throwing out wrong
+            // local alignments in a correct cluster would look like throwing
+            // out correct things.
+            // TODO: Revise how we track correctness and provenance to follow
+            // sub-cluster things.
        
             // We start with the path in extension_paths[extended_seed_num],
             // scored in extension_path_scores[extended_seed_num]
@@ -841,7 +874,11 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
 
             return true;
         }, [&](size_t extended_seed_num) {
+            // This extended seed is good enough by its own score, but we have too many.
+            // Do nothing
+        }, [&](size_t extended_seed_num) {
             // This extended seed isn't good enough by its own score.
+            // Do nothing
         });
         
     // Now we know the winning path and score. Move them over to out
