@@ -607,7 +607,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // We need to track filter number
         size_t filter_num = 0;
         funnel.for_each_filter([&](const string& stage, const string& filter,
-            const Funnel::FilterPerformance& by_count, const Funnel::FilterPerformance& by_size) {
+            const Funnel::FilterPerformance& by_count, const Funnel::FilterPerformance& by_size,
+            const vector<double>& filter_statistics_correct, const vector<double>& filter_statistics_non_correct) {
             
             string filter_id = to_string(filter_num) + "_" + filter + "_" + stage;
             
@@ -625,6 +626,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 set_annotation(mappings[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
                 set_annotation(mappings[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
             }
+            
+            // Save the correct and non-correct filter statistics, even if
+            // everything is non-correct because correctness isn't computed
+            set_annotation(mappings[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
+            set_annotation(mappings[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
             
             filter_num++;
         });

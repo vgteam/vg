@@ -16,6 +16,7 @@ import collections
 import itertools
 import json
 import random
+import math
 
 # We depend on our local histogram.py
 import histogram
@@ -110,10 +111,14 @@ def make_stats(read):
     A stats dict maps from filter name to a Counter of filter stats.
     The filter stats include:
         
-        - 'passed_count_total' which is the count of results passing the filter.
-        - 'failed_count_total' which is the count of results failing the filter.
-        - 'passed_count_correct' which is the count of correct results passing the filter.
-        - 'failed_count_correct' which is the count of correct results failing the filter.
+        - 'passed_count_total' which is the count of results passing the
+          filter.
+        - 'failed_count_total' which is the count of results failing the
+          filter.
+        - 'passed_count_correct' which is the count of correct results passing
+          the filter.
+        - 'failed_count_correct' which is the count of correct results failing
+          the filter.
         
     Additionally, each of these '_count_' stats has a '_size_' version,
     describing the total size of all items meeting the specified criteria (as
@@ -122,6 +127,17 @@ def make_stats(read):
     For the 'seed' stage, correctness information is not yet available, so only
     the '_total' values will be defined. '_correct' values will be set to None
     (instead of 0).
+    
+    The Counter for a filter also has sub-Counters embedded in it for
+    expressing distributions of filter statistic values, to assist in filter
+    design.
+    
+        - 'statistic_distribution_correct': statistic value counts for items
+          deemed correct
+        - 'statistic_distribution_noncorrect': statistic value counts for items
+          not deemed correct
+        
+    NaN values of the statistics are filtered out.
         
     Filters appear in the OrderedDict in an order corresponding to their filter
     number in the GAM.
@@ -138,33 +154,54 @@ def make_stats(read):
     
     for annot_name in annot.keys():
         # For each annotation
-        if not annot_name.startswith('filter_'):
-            # Skip the ones that aren't about filters
-            continue
+        if annot_name.startswith('filter_'):
+            # If it is an individual filter info item
             
-        # Names look like 'filter_2_cluster-score-threshold_cluster_passed_size_correct'
+            # Names look like 'filter_2_cluster-score-threshold_cluster_passed_size_correct'
+                
+            # Break into components on underscores
+            (_, filter_num, filter_name, filter_stage, filter_status, filter_accounting, filter_metric) = annot_name.split('_')
             
-        # Break into components on underscores
-        (_, filter_num, filter_name, filter_stage, filter_status, filter_accounting, filter_metric) = annot_name.split('_')
+            # Collect integers
+            filter_num = int(filter_num)
+            filter_stat_value = annot[annot_name]
+            
+            # Record the filter being at this index if not known already
+            filters_by_index[filter_num] = filter_name
+            
+            if filter_stage == 'minimizer':
+                # Wer are filtering items produced by the minimizer stage.
+                # At the minimizer stage, correct and incorrect are not defined yet.
+                if filter_metric == 'correct':
+                    # Make sure we didn't get any counts
+                    assert filter_stat_value == 0
+                    # None out the correct stat so we can detect this when making the table
+                    filter_stat_value = None
+            
+            # Record the stat value
+            filter_stats[filter_name]['{}_{}_{}'.format(filter_status, filter_accounting, filter_metric)] = filter_stat_value
         
-        # Collect integers
-        filter_num = int(filter_num)
-        filter_stat_value = annot[annot_name]
-        
-        # Record the filter being at this index if not known already
-        filters_by_index[filter_num] = filter_name
-        
-        if filter_stage == 'minimizer':
-            # Wer are filtering items produced by the minimizer stage.
-            # At the minimizer stage, correct and incorrect are not defined yet.
-            if filter_metric == 'correct':
-                # Make sure we didn't get any counts
-                assert filter_stat_value == 0
-                # None out the correct stat so we can detect this when making the table
-                filter_stat_value = None
-        
-        # Record the stat value
-        filter_stats[filter_name]['{}_{}_{}'.format(filter_status, filter_accounting, filter_metric)] = filter_stat_value
+        elif annot_name.startswith('filterstats_'):
+            # It is a whole collection of correct or not-necessarily-correct filter statistic distribution values, for plotting.
+            
+            # Break into components on underscores (correctness will be 'correct' or 'noncorrect'
+            (_, filter_num, filter_name, filter_stage, filter_correctness) = annot_name.split('_')
+            
+            distribution = collections.Counter()
+            
+            for item in annot[annot_name]:
+                # Parse all the statistic vlues
+                item = float(item)
+                
+                if math.isnan(item):
+                    # Discard NANs
+                    continue
+                    
+                # Count all instances of the same value
+                distribution[item] += 1
+                
+            # Save the statistic distribution
+            filter_stats[filter_name]['statistic_distribution_{}'.format(filter_correctness)] = distribution
         
     # Now put them all in this OrderedDict in order
     ordered_stats = collections.OrderedDict()
@@ -176,11 +213,10 @@ def make_stats(read):
 
 def add_in_stats(destination, addend):
     """
-    Add the addend stats dict into the destinatin stats dict.
+    Add the addend stats dict into the destination stats dict.
     Implements += for stats dicts.
     """
     
-    # Internally we're just recursive += on dicts.
     for k, v in addend.items():
         if v is None:
             # None will replace anything and propagate through
@@ -649,6 +685,57 @@ def print_table(read_count, stats_total, out=sys.stdout):
     
     # Close off table
     table.close()
+    
+def plot_filter_statistic_histograms(out_dir, stats_total):
+    """
+    For each filter in the stats dict, see if it has nonempty
+    'statistic_distribution_correct' and/or 'statistic_distribution_noncorrect'
+    Counters. Then if so, plot a histogram comparing correct and noncorrect
+    distributions, or just the noncorrect distribution if that is the only one
+    available (because correctness isn't known).
+    
+    Store histograms in out_dir.
+    """
+    
+    for filter_name in stats_total.keys():
+        correct_counter = stats_total[filter_name]['statistic_distribution_correct']
+        noncorrect_counter = stats_total[filter_name]['statistic_distribution_noncorrect']
+        
+        if not ((isinstance(correct_counter, dict) and len(correct_counter) > 0) or
+            (isinstance(noncorrect_counter, dict) and len(noncorrect_counter) > 0)):
+            
+            # No stats to plot
+            continue
+        
+        # Open a TSV file to draw a histogram from
+        tsv_path = os.path.join(options.outdir, 'stat_{}.tsv'.format(filter_name))
+        tsv = open(tsv_path, 'w')
+        
+        if isinstance(correct_counter, dict) and len(correct_counter) > 0:
+            # We have correct item stats.
+            for value, count in correct_counter.items():
+                # Output format: label, value, repeats
+                tsv.write('correct\t{}\t{}\n'.format(value, count))
+                
+        if isinstance(noncorrect_counter, dict) and len(noncorrect_counter) > 0:
+            # We have noncorrect item stats.
+            for value, count in noncorrect_counter.items():
+                # Output format: label, value, repeats
+                tsv.write('noncorrect\t{}\t{}\n'.format(value, count))
+              
+        tsv.close()
+        
+        # Now make the plot
+        svg_path = os.path.join(options.outdir, 'stat_{}.svg'.format(filter_name))
+        histogram.main(['histogram.py', tsv_path, '--save', svg_path,
+            '--title', '{} Statistic Histogram'.format(filter_name),
+            '--x_label',  'Statistic Value',
+            '--bins', '20',
+            '--y_label', 'Frequency',
+            '--legend_overlay', 'upper right',
+            '--categories', 'correct', 'noncorrect'])
+                
+            
 
 
 def main(args):
@@ -664,14 +751,12 @@ def main(args):
     
     # Make the output directory if it doesn't exist
     os.makedirs(options.outdir, exist_ok=True)
-    
+   
     # Make a place to total up all the stats
     stats_total = None 
     
     # Count all the reads
     read_count = 0
-    
-    
     
     for stats in (make_stats(read) for read in read_line_oriented_json(options.input)):
         # For the stats dict for each read
@@ -689,6 +774,9 @@ def main(args):
     
     # Print the table now in case plotting fails
     print_table(read_count, stats_total)
+    
+    # Make filter statistic histograms
+    plot_filter_statistic_histograms(options.outdir, stats_total)
     
 def entrypoint():
     """

@@ -5,6 +5,7 @@
 #include <vector>
 #include <unordered_map>
 #include <cassert>
+#include <cmath>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -93,13 +94,15 @@ public:
     /// Fail the given item from the previous stage on the given filter and do not project it through to this stage.
     /// Items which do not fail a filter must pass the filter and be projected to something.
     /// The filter name must survive the funnel, because a pointer to it will be stored.
-    void fail(const char* filter, size_t prev_stage_item);
+    /// Allows a statistic for the filtered-on value for the failing item to be recorded.
+    void fail(const char* filter, size_t prev_stage_item, double statistic = nan(""));
     
     /// Pass the given item from the previous stage through the given filter at this stage.
     /// Items which do not pass a filter must fail it.
     /// All items which pass filters must do so in the same order.
     /// The filter name must survive the funnel, because a pointer to it will be stored.
-    void pass(const char* filter, size_t prev_stage_item);
+    /// Allows a statistic for the filtered-on value for the passing item to be recorded.
+    void pass(const char* filter, size_t prev_stage_item, double statistic = nan(""));
     
     /// Assign the given score to the given item at the current stage.
     void score(size_t item, double score);
@@ -127,12 +130,15 @@ public:
         size_t failing_correct = 0;
     };
     
-    /// Call the given callback with filter name, performance report for items,
-    /// and performance report for total size of items.
+    /// Call the given callback with stage name, filter name, performance
+    /// report for items, performance report for total size of items, values
+    /// for correct items for the filter statistic, and values for incorrect
+    /// (or merely not known-correct) items for the filter statistic.
     /// Runs the callback for each stage and filter, in order. Only includes
     /// filters that were actually passed or failed by any items.
     void for_each_filter(const function<void(const string&, const string&,
-        const FilterPerformance&, const FilterPerformance&)>& callback) const;
+        const FilterPerformance&, const FilterPerformance&,
+        const vector<double>&, const vector<double>&)>& callback) const;
 
     /// Dump information from the Funnel as a dot-format Graphviz graph to the given stream.
     /// Illustrates stages and provenance.
@@ -169,8 +175,12 @@ protected:
         vector<size_t> prev_stage_items = {};
         /// What filters did the item pass at this stage, if any?
         vector<const char*> passed_filters = {};
-        /// What filter did the item finallt fail at at this stage, if any?
+        /// And what statistics did they have (or NaN)?
+        vector<double> passed_statistics = {};
+        /// What filter did the item finally fail at at this stage, if any?
         const char* failed_filter = nullptr;
+        /// And what statistic did it fail with (or NaN)?
+        double failed_statistic = nan("");
     };
     
     /// Represents a Stage which is a series of Items, which track their own provenance.
