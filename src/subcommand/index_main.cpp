@@ -640,20 +640,20 @@ int main_index(int argc, char** argv) {
         if (index_paths || index_haplotypes) {
             xg_index->for_each_path_handle([&](path_handle_t path_handle) {
                     string path_name = xg_index->get_path_name(path_handle);
-                    if (!alt_paths.count(path_name)) {
+                    if (!Paths::is_alt(path_name)) {
                         contig_names.push_back(path_name);
                     }
                 });
         }
         // Convert paths to threads
-            if (index_paths) {
+        if (index_paths) {
             if (show_progress) {
                 cerr << "Converting paths to threads..." << endl;
             }
             int path_rank = 0;
             xg_index->for_each_path_handle([&](path_handle_t path_handle) {
                     ++path_rank;
-                    if (xg_index->is_empty(path_handle)) {
+                    if (xg_index->is_empty(path_handle) || Paths::is_alt(xg_index->get_path_name(path_handle))) {
                         return;
                     }
                     gbwt::vector_type buffer;
@@ -748,7 +748,7 @@ int main_index(int argc, char** argv) {
             size_t max_path_rank = path_handles.size();
             for (size_t path_rank = 1; path_rank <= max_path_rank; path_rank++) {
                 string path_name = xg_index->get_path_name(path_handles[path_rank - 1]);
-                if (alt_paths.count(path_name)) {
+                if (Paths::is_alt(path_name)) {
                     continue;
                 }
                 string vcf_contig_name = path_to_vcf.count(path_name) ? path_to_vcf[path_name] : path_name;
