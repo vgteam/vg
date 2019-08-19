@@ -118,7 +118,7 @@ int main_benchmark(int argc, char** argv) {
     
     // Get an XG for it
     xg::XG xg_index;
-    xg_index.from_handle_graph(vg);
+    xg_index.from_path_handle_graph(vg);
     
     // And an IndexedVG
     auto filename = temp_file::create();
