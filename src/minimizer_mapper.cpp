@@ -584,15 +584,15 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             string filter_id = to_string(filter_num) + "_" + filter + "_" + stage;
             
             // Save the stats
-            set_annotation(mappings[0], "filter_" + filter_id + "_passed", (double) by_count.passing);
-            set_annotation(mappings[0], "filter_" + filter_id + "_failed", (double) by_count.failing);
+            set_annotation(mappings[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
+            set_annotation(mappings[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
             
-            set_annotation(mappings[0], "filter_" + filter_id + "_passed_size", (double) by_size.passing);
-            set_annotation(mappings[0], "filter_" + filter_id + "_failed_size", (double) by_size.failing);
+            set_annotation(mappings[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
+            set_annotation(mappings[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
             
             if (track_correctness) {
-                set_annotation(mappings[0], "filter_" + filter_id + "_passed_correct", (double) by_count.passing_correct);
-                set_annotation(mappings[0], "filter_" + filter_id + "_failed_correct", (double) by_count.failing_correct);
+                set_annotation(mappings[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
+                set_annotation(mappings[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
                 
                 set_annotation(mappings[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
                 set_annotation(mappings[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);

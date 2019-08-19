@@ -125,15 +125,10 @@ def make_stats(read, stages=STAGES):
     A stats dict maps from stage name to a dict of stage stats.
     The stage stats include:
         
-        - 'time' for just the stage.
-        - 'cumulative_time' for the stage and all prior stages.
-        - 'substage_time' for each substage, which is a dict from substage name to time.
         - 'correct_stop' which is the count of correct mappings that stop at this stage.
         - 'results' which is the count of results produced from this stage.
         
     All values are filled, even if 0 or not applicable.
-        
-    There is a special 'overall' stage, with just the 'time' key, recording the overall read time.
     """
     
     # This is the annotation dict from the read
@@ -142,22 +137,11 @@ def make_stats(read, stages=STAGES):
     # This is the stats dict we will fill in
     stats = {}
     
-    # This is the cumulative time accumulator
-    cumulative_time = 0.0
-    
     for stage in stages:
         # For each stage in order
         
         # Prepare stats for the stage
         stage_dict = {}
-        
-        # Grab its runtime from the read
-        stage_dict['time'] = annot.get(
-            'stage_' + stage + '_seconds', 0.0)
-            
-        # Add into and store the cumulative time
-        cumulative_time += stage_dict['time']
-        stage_dict['cumulative_time'] = cumulative_time
         
         # Grab its result count from the read
         stage_dict['results'] = int(annot.get(
@@ -172,22 +156,9 @@ def make_stats(read, stages=STAGES):
             # Reads that do not have correct seeds end at the minimizer stage
             stage_dict['correct_stop'] += 1
         
-        # Set up substage times
-        substage_time = {}
-        for substage in SUBSTAGES[stage]:
-            # For each substage it has, record substage time.
-            # TODO: no good way to iterate the substages provided in the file.
-            substage_time['substage'] = annot.get(
-                'stage_' + stage + '_' + substage + '_seconds', 0.0)
-        
-        stage_dict['substage_time'] = substage_time
-        
         # Save the stats for the stage
         stats[stage] = stage_dict
         
-    # Add the overall runtime
-    stats['overall'] = {'time': read.get('annotation', {}).get('map_seconds', 0.0)}
-    
     return stats
 
 def add_in_stats(destination, addend):
@@ -522,13 +493,12 @@ class Table(object):
         
         self.out.write('\n')
                 
-def print_table(read_count, stats_total, have_times, stages=STAGES, out=sys.stdout):
+def print_table(read_count, stats_total, stages=STAGES, out=sys.stdout):
     """
     Take the read count, and the accumulated total stats dict.
     
     Print a nicely formatted table to the given stream.
     
-    If have_times is false, elides the time and speed columns which would be full of NANs.
     """
     
     # Now do a table
@@ -552,26 +522,6 @@ def print_table(read_count, stats_total, have_times, stages=STAGES, out=sys.stdo
     headers.append(stage_header)
     headers2.append('')
     header_widths.append(stage_width)
-    
-    if have_times:
-        # How about the reads per second column
-        rps_header = "Reads/Second"
-        rps_header2 = "(cumulative)"
-        rps_width = max(len(rps_header), len(rps_header2))
-        
-        headers.append(rps_header)
-        headers2.append(rps_header2)
-        header_widths.append(rps_width)
-        
-        # And the time percent column
-        time_header = "Time"
-        time_header2 = "(%)"
-        # Make sure to leave room for "100%"
-        time_width = max(len(time_header), len(time_header2), 4)
-        
-        headers.append(time_header)
-        headers2.append(time_header2)
-        header_widths.append(time_width)
     
     # And the result count column (average)
     results_header = "Candidates"
@@ -609,22 +559,7 @@ def print_table(read_count, stats_total, have_times, stages=STAGES, out=sys.stdo
     table.line()
     
     
-    # Get the total overall time for all reads
-    overall_time = stats_total['overall']['time']
-    
     for stage in stages:
-        # Grab total cumulative time for this stage and all before
-        total_cumulative_time = stats_total[stage]['cumulative_time']
-        # Compute cumulative reads per second value
-        reads_per_second = read_count / total_cumulative_time if total_cumulative_time != 0 else float('NaN')
-        
-        # Grab total time for just this stage
-        stage_time = stats_total[stage]['time']
-        # And get the portion that is this stage out of all time
-        stage_portion = stage_time / overall_time if overall_time != 0 else float('NaN')
-        # And make a percent
-        stage_percent = stage_portion * 100
-        
         # Grab average results at this stage
         total_results = stats_total[stage]['results']
         average_results = total_results / read_count if read_count != 0 else float('NaN')
@@ -635,10 +570,6 @@ def print_table(read_count, stats_total, have_times, stages=STAGES, out=sys.stdo
         
         row = [stage]
         align = 'c'
-        if have_times:
-            # Include the time columns
-            row += ['{:.2f}'.format(reads_per_second), '{:.0f}%'.format(stage_percent)]
-            align += 'rr'
         # Add the provenance columns
         row += ['{:.2f}'.format(average_results), lost]
         align += 'rr'
@@ -648,16 +579,9 @@ def print_table(read_count, stats_total, have_times, stages=STAGES, out=sys.stdo
         
     table.line()
         
-    # And do overall reads per second
-    reads_per_second_overall = read_count / overall_time if overall_time != 0 else float('NaN')
-    
     # Compose the overall row
     row = [stage_overall]
     align = 'c'
-    if have_times:
-        # Include the time columns
-        row += ['{:.2f}'.format(reads_per_second_overall), '100%']
-        align += 'rr'
     # Add the provenance columns
     row += ['', overall_lost]
     align += 'rr'
@@ -682,36 +606,14 @@ def main(args):
     # Make the output directory if it doesn't exist
     os.makedirs(options.outdir, exist_ok=True)
     
-    # Open a TSV file to draw a histogram from
-    tsv_path = os.path.join(options.outdir, 'times.tsv')
-    tsv = open(tsv_path, 'w')
-    
     # Make a place to total up all the stats
     stats_total = make_stats({})
     
     # Count all the reads
     read_count = 0
     
-    # See if wa have any times actually.
-    # If they are all 0 (which they are now that we have ripped out timing) we
-    # can't actually draw the plot.
-    have_times = False
-    
     for stats in (make_stats(read) for read in read_line_oriented_json(options.input)):
         # For the stats dict for each read
-        
-        for stage in STAGES:
-            # For each stage, grab the cumulative time
-            cumulative_time = stats[stage]['cumulative_time']
-            
-            # Dump cumulative times to the TSV we will plot a histogram from
-            tsv.write('{}\t{}\n'.format(stage, cumulative_time))
-            
-            if cumulative_time > 0:
-                have_times = True
-        
-        # Also include total time
-        tsv.write('total\t{}\n'.format(stats['overall']['time']))
         
         # Sum up all the stats
         add_in_stats(stats_total, stats)
@@ -721,28 +623,9 @@ def main(args):
     
     # After processing all the reads
     
-    # Close the TSV
-    tsv.close()
+    # Print the table now in case plotting fails
+    print_table(read_count, stats_total)
     
-    # Print the table now in case histogram plotting fails
-    print_table(read_count, stats_total, have_times)
-    
-    if have_times:
-        # Plot the histogram
-        svg_path = os.path.join(options.outdir, 'times.svg')
-        histogram.main(['histogram.py', tsv_path, '--save', svg_path,
-            '--title', 'Runtime Histogram',
-            '--x_label',  'Time (seconds)',
-            '--line',
-            '--bins', '100',
-            '--log',
-            '--cumulative',
-            '--y_label', 'Cumulative Count',
-            '--legend_overlay', 'lower right',
-            '--categories', 'total'] + STAGES)
-        
-    
-   
 def entrypoint():
     """
     0-argument entry point for setuptools to call.
