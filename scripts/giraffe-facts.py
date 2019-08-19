@@ -708,7 +708,7 @@ def plot_filter_statistic_histograms(out_dir, stats_total):
             continue
         
         # Open a TSV file to draw a histogram from
-        tsv_path = os.path.join(options.outdir, 'stat_{}.tsv'.format(filter_name))
+        tsv_path = os.path.join(out_dir, 'stat_{}.tsv'.format(filter_name))
         tsv = open(tsv_path, 'w')
         
         if isinstance(correct_counter, dict) and len(correct_counter) > 0:
@@ -726,7 +726,7 @@ def plot_filter_statistic_histograms(out_dir, stats_total):
         tsv.close()
         
         # Now make the plot
-        svg_path = os.path.join(options.outdir, 'stat_{}.svg'.format(filter_name))
+        svg_path = os.path.join(out_dir, 'stat_{}.svg'.format(filter_name))
         histogram.main(['histogram.py', tsv_path, '--save', svg_path,
             '--title', '{} Statistic Histogram'.format(filter_name),
             '--x_label',  'Statistic Value',
