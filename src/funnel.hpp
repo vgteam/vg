@@ -93,13 +93,13 @@ public:
     /// Fail the given item from the previous stage on the given filter and do not project it through to this stage.
     /// Items which do not fail a filter must pass the filter and be projected to something.
     /// The filter name must survive the funnel, because a pointer to it will be stored.
-    void fail(const string& filter, size_t prev_stage_item);
+    void fail(const char* filter, size_t prev_stage_item);
     
     /// Pass the given item from the previous stage through the given filter at this stage.
     /// Items which do not pass a filter must fail it.
     /// All items which pass filters must do so in the same order.
     /// The filter name must survive the funnel, because a pointer to it will be stored.
-    void pass(const string& filter, size_t prev_stage_item);
+    void pass(const char* filter, size_t prev_stage_item);
     
     /// Assign the given score to the given item at the current stage.
     void score(size_t item, double score);
@@ -168,9 +168,9 @@ protected:
         /// What previous stage items were combined to make this one, if any?
         vector<size_t> prev_stage_items = {};
         /// What filters did the item pass at this stage, if any?
-        vector<const string*> passed_filters = {};
+        vector<const char*> passed_filters = {};
         /// What filter did the item finallt fail at at this stage, if any?
-        const string* failed_filter = nullptr;
+        const char* failed_filter = nullptr;
     };
     
     /// Represents a Stage which is a series of Items, which track their own provenance.

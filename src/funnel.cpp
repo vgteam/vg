@@ -1,6 +1,7 @@
 #include "funnel.hpp"
 
 #include <cassert>
+#include <cstring>
 
 /**
  * \file funnel.hpp: implementation of the Funnel class
@@ -164,22 +165,22 @@ void Funnel::project_group(size_t prev_stage_item, size_t group_size) {
     get_item(latest()).group_size = group_size;
 }
 
-void Funnel::fail(const string& filter, size_t prev_stage_item) {
+void Funnel::fail(const char* filter, size_t prev_stage_item) {
     // There must be a prev stage to project from
     assert(stages.size() > 1);
     auto& prev_stage = stages[stages.size() - 2];
 
     // Record the item as having failed this filter
-    prev_stage.items[prev_stage_item].failed_filter = &filter;
+    prev_stage.items[prev_stage_item].failed_filter = filter;
 }
 
-void Funnel::pass(const string& filter, size_t prev_stage_item) {
+void Funnel::pass(const char* filter, size_t prev_stage_item) {
     // There must be a prev stage to project from
     assert(stages.size() > 1);
     auto& prev_stage = stages[stages.size() - 2];
 
     // Record the item as having passed this filter
-    prev_stage.items[prev_stage_item].passed_filters.emplace_back(&filter);
+    prev_stage.items[prev_stage_item].passed_filters.emplace_back(filter);
 }
 
 void Funnel::score(size_t item, double score) {
@@ -227,7 +228,7 @@ void Funnel::for_each_filter(const function<void(const string&, const string&,
     
     for (auto& stage : stages) {
         // Hold the names of all filters encountered
-        vector<const string*> filter_names;
+        vector<const char*> filter_names;
         // And the by-item and by-size performance stats.
         vector<pair<FilterPerformance, FilterPerformance>> filter_performances;
         
@@ -246,7 +247,8 @@ void Funnel::for_each_filter(const function<void(const string&, const string&,
                     filter_performances.emplace_back();
                 } else {
                     // Make sure the name is correct
-                    assert(*filter_names[filter_index] == *item.passed_filters[filter_index]);
+                    // TODO: can we justy match on pointer value and not string value?
+                    assert(strcmp(filter_names[filter_index], item.passed_filters[filter_index]) == 0);
                 }
                 
                 // Record passing
@@ -270,7 +272,8 @@ void Funnel::for_each_filter(const function<void(const string&, const string&,
                     filter_performances.emplace_back();
                 } else {
                     // Make sure the name is correct
-                    assert(*filter_names[filter_index] == *item.failed_filter);
+                    // TODO: can we justy match on pointer value and not string value?
+                    assert(strcmp(filter_names[filter_index], item.failed_filter) == 0);
                 }
                 
                 // Record failing
@@ -286,7 +289,7 @@ void Funnel::for_each_filter(const function<void(const string&, const string&,
         
         for (size_t i = 0; i < filter_names.size(); i++) {
             // Report the results by filter.
-            callback(stage.name, *filter_names[i],
+            callback(stage.name, filter_names[i],
                 filter_performances[i].first, filter_performances[i].second);
         }
     }
