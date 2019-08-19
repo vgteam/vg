@@ -4,7 +4,7 @@
 
 """
 giraffe-facts.py: process a GAM file from the new minimizer-based mapper (vg
-gaffe AKA giraffe) and report runtime statistics by pipeline stage.
+gaffe AKA giraffe) and report runtime statistics by filter.
 """
 
 import argparse
@@ -19,21 +19,6 @@ import random
 
 # We depend on our local histogram.py
 import histogram
-
-# Define a constant list of all the stages, in order.
-STAGES = ['minimizer', 'seed', 'cluster', 'extend', 'align', 'winner']
-
-# And for each stage, all the substages.
-# Substages do not necessarily have an order, because you can enter and exit them multiple times.
-SUBSTAGES = {
-    'minimizer': {},
-    'seed': {'correct'},
-    'cluster': {'score'},
-    'extend': {'score'},
-    'align': {'direct', 'chain'},
-    'winner': {'mapq'}
-}
-    
 
 FACTS = ["Giraffes are the tallest living terrestrial animal.",
          "There are nine subspecies of giraffe, each occupying separate regions of Africa. Some researchers consider some subspecies to be separate species entirely.",
@@ -116,50 +101,65 @@ def parse_args(args):
         
     return parser.parse_args(args)
     
-def make_stats(read, stages=STAGES):
+def make_stats(read):
     """
-    Given a read dict parsed from JSON, compute a stats dict for the read.
+    Given a read dict parsed from JSON, compute a stats OrderedDict for the read.
     
     Run on an empty dict, makes a zero-value stats dict.
     
-    A stats dict maps from stage name to a dict of stage stats.
-    The stage stats include:
+    A stats dict maps from filter name to a Counter of filter stats.
+    The filter stats include:
         
-        - 'correct_stop' which is the count of correct mappings that stop at this stage.
-        - 'results' which is the count of results produced from this stage.
+        - 'passed_count_total' which is the count of results passing the filter.
+        - 'failed_count_total' which is the count of results failing the filter.
+        - 'passed_count_correct' which is the count of correct results passing the filter.
+        - 'failed_count_correct' which is the count of correct results failing the filter.
         
-    All values are filled, even if 0 or not applicable.
+    Additionally, each of these '_count_' stats has a '_size_' version,
+    describing the total size of all items meeting the specified criteria (as
+    opposed to the number of items).
+        
+    Filters appear in the OrderedDict in an order corresponding to their filter
+    number in the GAM.
     """
     
     # This is the annotation dict from the read
     annot = read.get('annotation', {})
     
-    # This is the stats dict we will fill in
-    stats = {}
+    # This will map from filter number int to filter name
+    filters_by_index = {}
     
-    for stage in stages:
-        # For each stage in order
+    # This will map from filter name to Counter of filter stats
+    filter_stats = collections.defaultdict(collections.Counter)
+    
+    for annot_name in annot.keys():
+        # For each annotation
+        if not annot_name.startswith('filter_'):
+            # Skip the ones that aren't about filters
+            continue
+            
+        # Names look like 'filter_2_cluster-score-threshold_cluster_passed_size_correct'
+            
+        # Break into components on underscores
+        (_, filter_num, filter_name, filter_stage, filter_status, filter_accounting, filter_metric) = annot_name.split('_')
         
-        # Prepare stats for the stage
-        stage_dict = {}
+        # Collect integers
+        filter_num = int(filter_num)
+        filter_stat_value = annot[annot_name]
         
-        # Grab its result count from the read
-        stage_dict['results'] = int(annot.get(
-            'stage_' + stage + '_results', 0))
+        # Record the filter being at this index if not known already
+        filters_by_index[filter_num] = filter_name
         
-        # No correct mappings end here
-        stage_dict['correct_stop'] = 0
-        if annot.get('last_correct_stage', None) == stage:
-            # Unless one does
-            stage_dict['correct_stop'] += 1
-        elif stage == 'minimizer' and annot.get('last_correct_stage', None) == 'none':
-            # Reads that do not have correct seeds end at the minimizer stage
-            stage_dict['correct_stop'] += 1
+        # Record the stat value
+        filter_stats[filter_name]['{}_{}_{}'.format(filter_status, filter_accounting, filter_metric)] = filter_stat_value
         
-        # Save the stats for the stage
-        stats[stage] = stage_dict
+    # Now put them all in this OrderedDict in order
+    ordered_stats = collections.OrderedDict()
+    for filter_index in sorted(filters_by_index.keys()):
+        filter_name = filters_by_index[filter_index]
+        ordered_stats[filter_name] = filter_stats[filter_name]
         
-    return stats
+    return ordered_stats
 
 def add_in_stats(destination, addend):
     """
@@ -493,13 +493,19 @@ class Table(object):
         
         self.out.write('\n')
                 
-def print_table(read_count, stats_total, stages=STAGES, out=sys.stdout):
+def print_table(read_count, stats_total, out=sys.stdout):
     """
     Take the read count, and the accumulated total stats dict.
     
     Print a nicely formatted table to the given stream.
     
     """
+    
+    if stats_total is None:
+        # Handle the empty case
+        assert(read_count == 0)
+        out.write('No reads.\n')
+        return
     
     # Now do a table
     
@@ -510,42 +516,67 @@ def print_table(read_count, stats_total, stages=STAGES, out=sys.stdout):
     # Column min widths from headers
     header_widths = []
     
-    # How long is the longest stage name
-    stage_width = max((len(x) for x in STAGES))
+    # How long is the longest filter name
+    filter_width = max((len(x) for x in stats_total.keys()))
     # Leave room for the header
-    stage_header = "Stage"
-    stage_width = max(stage_width, len(stage_header))
+    filter_header = "Filter"
+    filter_width = max(filter_width, len(filter_header))
     # And for the "Overall" entry
-    stage_overall = "Overall"
-    stage_width = max(stage_width, len(stage_overall))
+    filter_overall = "Overall"
+    filter_width = max(filter_width, len(filter_overall))
     
-    headers.append(stage_header)
+    headers.append(filter_header)
     headers2.append('')
-    header_widths.append(stage_width)
+    header_widths.append(filter_width)
     
-    # And the result count column (average)
-    results_header = "Candidates"
-    results_header2 = "(Avg.)"
-    results_width = max(len(results_header), len(results_header2))
+    # And the passing count columns (average)
+    passing_header = "Passing"
+    passing_header2 = "(Per Read)"
+    passing_width = max(len(passing_header), len(passing_header2))
     
-    headers.append(results_header)
-    headers2.append(results_header2)
-    header_widths.append(results_width)
+    headers.append(passing_header)
+    headers2.append(passing_header2)
+    header_widths.append(passing_width)
+    
+    # And the failing count columns (average)
+    failing_header = "Failing"
+    failing_header2 = "(Per Read)"
+    failing_width = max(len(failing_header), len(failing_header2))
+    
+    headers.append(failing_header)
+    headers2.append(failing_header2)
+    header_widths.append(failing_width)
     
     # And the correct result lost count header
     lost_header = "Correct"
     lost_header2 = "Lost"
     # How big a number will we need to hold?
-    # Look at the reads lost at all stages except final (because if you make it to the final stage nothing is lost)
-    lost_reads = [stats_total[stage]['correct_stop'] for stage in STAGES[:-1]]
-    max_stage_stop = max(lost_reads)
-    # How many reads are lost overall?
+    # Look at the reads lost at all filters
+    lost_reads = [stats_total[filter_name]['failed_count_correct'] for filter_name in stats_total.keys()]
+    max_filter_stop = max(lost_reads)
+    # How many correct reads are lost overall by filters?
     overall_lost = sum(lost_reads)
-    lost_width = max(len(lost_header), len(lost_header2), len(str(max_stage_stop)), len(str(overall_lost)))
+    lost_width = max(len(lost_header), len(lost_header2), len(str(max_filter_stop)), len(str(overall_lost)))
     
     headers.append(lost_header)
     headers2.append(lost_header2)
     header_widths.append(lost_width)
+    
+    # And the incorrect result rejected count header
+    rejected_header = "Incorrect"
+    rejected_header2 = "Rejected"
+    # How big a number will we need to hold?
+    # Look at the reads rejected at all filters
+    rejected_reads = [(stats_total[filter_name]['failed_count_total'] - stats_total[filter_name]['failed_count_correct'])
+        for filter_name in stats_total.keys()]
+    max_filter_stop = max(rejected_reads)
+    # How many incorrect reads are rejected overall by filters?
+    overall_rejected = sum(rejected_reads)
+    rejected_width = max(len(rejected_header), len(rejected_header2), len(str(max_filter_stop)), len(str(overall_rejected)))
+    
+    headers.append(rejected_header)
+    headers2.append(rejected_header2)
+    header_widths.append(rejected_width)
     
     # Start the table
     table = Table(header_widths)
@@ -559,31 +590,38 @@ def print_table(read_count, stats_total, stages=STAGES, out=sys.stdout):
     table.line()
     
     
-    for stage in stages:
-        # Grab average results at this stage
-        total_results = stats_total[stage]['results']
-        average_results = total_results / read_count if read_count != 0 else float('NaN')
+    for filter_name in stats_total.keys():
+        # Grab average results passing this filter per read
+        total_passing = stats_total[filter_name]['passed_count_total']
+        average_passing = total_passing / read_count if read_count != 0 else float('NaN')
+        
+        # Grab average results failing this filter per read
+        total_failing = stats_total[filter_name]['failed_count_total']
+        average_failing = total_failing / read_count if read_count != 0 else float('NaN')
         
         # Grab reads that are lost.
         # No reads are lost at the final stage.
-        lost = stats_total[stage]['correct_stop'] if stage != stages[-1] else '-'
+        lost = stats_total[filter_name]['failed_count_correct']
         
-        row = [stage]
+        # And reads that are (rightly) rejected
+        rejected = stats_total[filter_name]['failed_count_total'] - lost
+        
+        row = [filter_name]
         align = 'c'
         # Add the provenance columns
-        row += ['{:.2f}'.format(average_results), lost]
-        align += 'rr'
+        row += ['{:.2f}'.format(average_passing), '{:.2f}'.format(average_failing), lost, rejected]
+        align += 'rrrr'
         
-        # Output the final row
+        # Output the finished row
         table.row(row, align)
         
     table.line()
         
     # Compose the overall row
-    row = [stage_overall]
+    row = [filter_overall]
     align = 'c'
     # Add the provenance columns
-    row += ['', overall_lost]
+    row += ['', overall_lost, overall_rejected]
     align += 'rr'
     
     table.row(row, align)
@@ -607,16 +645,21 @@ def main(args):
     os.makedirs(options.outdir, exist_ok=True)
     
     # Make a place to total up all the stats
-    stats_total = make_stats({})
+    stats_total = None 
     
     # Count all the reads
     read_count = 0
     
+    
+    
     for stats in (make_stats(read) for read in read_line_oriented_json(options.input)):
         # For the stats dict for each read
         
-        # Sum up all the stats
-        add_in_stats(stats_total, stats)
+        if stats_total is None:
+            stats_total = stats
+        else:
+            # Sum up all the stats
+            add_in_stats(stats_total, stats)
         
         # Count the read
         read_count += 1
