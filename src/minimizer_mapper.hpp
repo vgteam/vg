@@ -239,12 +239,18 @@ protected:
      * If process_item returns false, the item is skipped and does not count
      * against min_count or max_count.
      *
-     * Call discard_item with the item's number for all remaining items.
+     * Call discard_item_by_count with the item's number for all remaining
+     * items that would pass the score threshold.
+     *
+     * Call discard_item_by_score with the item's number for all remaining
+     * items that would fail the score threshold.
      */
     template<typename Item, typename Score = double>
     void process_until_threshold(const vector<Item>& items, const function<Score(size_t)>& get_score,
         double threshold, size_t min_count, size_t max_count,
-        const function<bool(size_t)>& process_item, const function<void(size_t)>& discard_item);
+        const function<bool(size_t)>& process_item,
+        const function<void(size_t)>& discard_item_by_count,
+        const function<void(size_t)>& discard_item_by_score);
      
     /**
      * Same as the other process_until_threshold overload, except using a vector to supply scores.
@@ -252,14 +258,18 @@ protected:
     template<typename Item, typename Score = double>
     void process_until_threshold(const vector<Item>& items, const vector<Score>& scores,
         double threshold, size_t min_count, size_t max_count,
-        const function<bool(size_t)>& process_item, const function<void(size_t)>& discard_item);
+        const function<bool(size_t)>& process_item,
+        const function<void(size_t)>& discard_item_by_count,
+        const function<void(size_t)>& discard_item_by_score);
      
 };
 
 template<typename Item, typename Score>
 void MinimizerMapper::process_until_threshold(const vector<Item>& items, const function<Score(size_t)>& get_score,
     double threshold, size_t min_count, size_t max_count,
-    const function<bool(size_t)>& process_item, const function<void(size_t)>& discard_item) {
+    const function<bool(size_t)>& process_item,
+    const function<void(size_t)>& discard_item_by_count,
+    const function<void(size_t)>& discard_item_by_score) {
 
     // Sort item indexes by item score
     vector<size_t> indexes_in_order;
@@ -281,22 +291,38 @@ void MinimizerMapper::process_until_threshold(const vector<Item>& items, const f
     size_t unskipped = 0;
     
     // Go through the items in descending score order.
-    for (size_t i = 0; i < indexes_in_order.size() && unskipped < max_count ; i++) {
+    for (size_t i = 0; i < indexes_in_order.size(); i++) {
         // Find the item we are talking about
         size_t& item_num = indexes_in_order[i];
         
-        if (unskipped < min_count || (threshold == 0 || get_score(item_num) > cutoff)) {
-            // Do we definitely want this one, or is its score sufficiently good?
+        if (threshold != 0 && get_score(item) <= cutoff) {
+            // Item would fail the score threshold
             
-            // If so, go do it.
-            // If it is not skipped, add it to the total number of unskipped items
-            unskipped += (size_t) process_item(item_num);
+            if (unskipped < min_count) {
+                // But we need it to make up the minimum number.
+                
+                // Go do it.
+                // If it is not skipped by the user, add it to the total number
+                // of unskipped items, for min/max number accounting.
+                unskipped += (size_t) process_item(item_num);
+            } else {
+                // We will reject it for score
+                discard_item_by_score(item_num);
+            }
         } else {
-            // If this score is insignificant, nothing past here is significant.
+            // The item has a good enough score
             
-            // Say we aren't doing this one.
-            // We'll also say we aren't doing the rest.
-            discard_item(item_num);
+            if (unskipped < max_count) {
+                // We have room for it, so accept it.
+                
+                // Go do it.
+                // If it is not skipped by the user, add it to the total number
+                // of unskipped items, for min/max number accounting.
+                unskipped += (size_t) process_item(item_num);
+            } else {
+                // We are out of room! Reject for count.
+                discard_item_by_count(item_num);
+            }
         }
     }
 }
@@ -304,13 +330,15 @@ void MinimizerMapper::process_until_threshold(const vector<Item>& items, const f
 template<typename Item, typename Score>
 void MinimizerMapper::process_until_threshold(const vector<Item>& items, const vector<Score>& scores,
     double threshold, size_t min_count, size_t max_count,
-    const function<bool(size_t)>& process_item, const function<void(size_t)>& discard_item) {
+    const function<bool(size_t)>& process_item,
+    const function<void(size_t)>& discard_item_by_count,
+    const function<void(size_t)>& discard_item_by_score) {
     
     assert(scores.size() == items.size());
     
     process_until_threshold<Item, Score>(items, [&](size_t i) -> Score {
         return scores.at(i);
-    }, threshold, min_count, max_count, process_item, discard_item);
+    }, threshold, min_count, max_count, process_item, discard_item_by_count, discard_item_by_score);
     
 }
 

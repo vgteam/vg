@@ -277,6 +277,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             if (track_provenance) {
                 funnel.pass("cluster-coverage-threshold", cluster_num);
+                funnel.pass("max-extensions", cluster_num);
             }
             
             // First check against the additional score filter
@@ -339,6 +340,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             return true;
         }, [&](size_t cluster_num) {
+            // There are too many sufficiently good clusters
+            if (track_provenance) {
+                funnel.pass("cluster-coverage-threshold", cluster_num);
+                funnel.fail("max-extensions", cluster_num);
+            }
+        }, [&](size_t cluster_num) {
             // This cluster is not sufficiently good.
             if (track_provenance) {
                 funnel.fail("cluster-coverage-threshold", cluster_num);
@@ -397,6 +404,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             if (track_provenance) {
                 funnel.pass("extension-set-score-threshold", extension_num);
+                funnel.pass("max-alignments", extension_num);
                 funnel.processing_input(extension_num);
             }
             
@@ -461,6 +469,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             return true;
         }, [&](size_t extension_num) {
+            // This There are too many sufficiently good extensions
+            if (track_provenance) {
+                funnel.pass("extension-set-score-threshold", extension_num);
+                funnel.fail("max-alignments", extension_num);
+            }
+        }, [&](size_t extension_num) {
             // This extension is not good enough.
             if (track_provenance) {
                 funnel.fail("extension-set-score-threshold", extension_num);
@@ -511,7 +525,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         
         return true;
     }, [&](size_t alignment_num) {
-        // This alignment does not make it
+        // We already have enough alignments, although this one has a good score
         
         // Remember the score at its rank anyway
         scores.emplace_back(alignments[alignment_num].score());
@@ -519,6 +533,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         if (track_provenance) {
             funnel.fail("max-multimaps", alignment_num);
         }
+    }, [&](size_t alignment_num) {
+        // This alignment does not have a sufficiently good score
+        // Score threshold is 0; this should never happen
+        assert(false);
     });
     
     if (track_provenance) {

@@ -564,7 +564,7 @@ def print_table(read_count, stats_total, out=sys.stdout):
     
     # And the incorrect result rejected count header
     rejected_header = "Incorrect"
-    rejected_header2 = "Rejected"
+    rejected_header2 = "Removed"
     # How big a number will we need to hold?
     # Look at the reads rejected at all filters
     rejected_reads = [(stats_total[filter_name]['failed_count_total'] - stats_total[filter_name]['failed_count_correct'])
