@@ -564,7 +564,7 @@ int main_msga(int argc, char** argv) {
 
         if (debug) cerr << "building xg index" << endl;
         xgidx = new xg::XG();
-        xgidx->from_handle_graph(*graph);
+        xgidx->from_path_handle_graph(*graph);
 
         if (debug) cerr << "building GCSA2 index" << endl;
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info

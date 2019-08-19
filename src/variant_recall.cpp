@@ -73,7 +73,7 @@ void genotype_svs(VG* graph,
         augment(graph, direct_ins, &transls);
 
         XG xg_index;
-        xg_index.from_handle_graph(*graph); // Index the graph so deconstruct can get path positions
+        xg_index.from_path_handle_graph(*graph); // Index the graph so deconstruct can get path positions
         Deconstructor decon;
         CactusSnarlFinder finder(xg_index);
         SnarlManager snarl_manager = finder.find_snarls();

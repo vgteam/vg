@@ -719,7 +719,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 
                 // Generate an XG index
                 xg::XG xg_index;
-                xg_index.from_handle_graph(graph);
+                xg_index.from_path_handle_graph(graph);
 
                 // Generate a GCSA2 index
                 gcsa::GCSA* gcsa_index = nullptr;
