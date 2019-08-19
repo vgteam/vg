@@ -3647,7 +3647,7 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         Node* n0 = vg.create_node("A");
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         // the graph has no edges
         REQUIRE(algorithms::is_directed_acyclic(&vg));
@@ -3656,7 +3656,7 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         vg.create_edge(n0, n0, false, true);
                 
         xg::XG xg2;
-        xg2.from_handle_graph(vg);
+        xg2.from_path_handle_graph(vg);
                 
         // the graph has a reversing cycle, but no directed cycles
         REQUIRE(algorithms::is_directed_acyclic(&vg));
@@ -3665,7 +3665,7 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         vg.create_edge(n0, n0, true, false);
                 
         xg::XG xg3;
-        xg2.from_handle_graph(vg);
+        xg2.from_path_handle_graph(vg);
                 
         // the graph now has a directed cycle
         REQUIRE(!algorithms::is_directed_acyclic(&vg));
@@ -3696,7 +3696,7 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         vg.create_edge(n3, n6);
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(algorithms::is_directed_acyclic(&vg));
         REQUIRE(algorithms::is_directed_acyclic(&xg1));
@@ -3726,7 +3726,7 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         vg.create_edge(n3, n6);
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(algorithms::is_directed_acyclic(&vg));
         REQUIRE(algorithms::is_directed_acyclic(&xg1));
@@ -3756,7 +3756,7 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         vg.create_edge(n3, n6);
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(algorithms::is_directed_acyclic(&vg));
         REQUIRE(algorithms::is_directed_acyclic(&xg1));
@@ -3777,7 +3777,7 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         vg.create_edge(n2, n3, false, true);
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(algorithms::is_directed_acyclic(&vg));
         REQUIRE(algorithms::is_directed_acyclic(&xg1));
@@ -3796,7 +3796,7 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         vg.create_edge(n2, n0);
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(!algorithms::is_directed_acyclic(&vg));
         REQUIRE(!algorithms::is_directed_acyclic(&xg1));
@@ -3821,7 +3821,7 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         vg.create_edge(n2, n5);
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(!algorithms::is_directed_acyclic(&vg));
         REQUIRE(!algorithms::is_directed_acyclic(&xg1));
@@ -3838,7 +3838,7 @@ TEST_CASE("is_single_stranded() correctly identifies graphs with reversing edges
         Node* n0 = vg.create_node("A");
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(algorithms::is_single_stranded(&vg));
         REQUIRE(algorithms::is_single_stranded(&xg1));
@@ -3863,7 +3863,7 @@ TEST_CASE("is_single_stranded() correctly identifies graphs with reversing edges
         vg.create_edge(n2, n5);
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(algorithms::is_single_stranded(&vg));
         REQUIRE(algorithms::is_single_stranded(&xg1));
@@ -3890,7 +3890,7 @@ TEST_CASE("is_single_stranded() correctly identifies graphs with reversing edges
         vg.create_edge(n5, n0);
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(algorithms::is_single_stranded(&vg));
         REQUIRE(algorithms::is_single_stranded(&xg1));
@@ -3915,7 +3915,7 @@ TEST_CASE("is_single_stranded() correctly identifies graphs with reversing edges
         vg.create_edge(n5, n2, true, true);
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(algorithms::is_single_stranded(&vg));
         REQUIRE(algorithms::is_single_stranded(&xg1));
@@ -3940,7 +3940,7 @@ TEST_CASE("is_single_stranded() correctly identifies graphs with reversing edges
         vg.create_edge(n5, n2, true, true);
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(!algorithms::is_single_stranded(&vg));
         REQUIRE(!algorithms::is_single_stranded(&xg1));
@@ -3965,7 +3965,7 @@ TEST_CASE("is_single_stranded() correctly identifies graphs with reversing edges
         vg.create_edge(n5, n2, true, true);
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(!algorithms::is_single_stranded(&vg));
         REQUIRE(!algorithms::is_single_stranded(&xg1));
@@ -4001,7 +4001,7 @@ TEST_CASE("single_stranded_orientation() can identify orientations of nodes that
         Node* n0 = vg.create_node("A");
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
         REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
@@ -4026,7 +4026,7 @@ TEST_CASE("single_stranded_orientation() can identify orientations of nodes that
         vg.create_edge(n2, n5);
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
         REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
@@ -4053,7 +4053,7 @@ TEST_CASE("single_stranded_orientation() can identify orientations of nodes that
         vg.create_edge(n5, n0);
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
         REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
@@ -4078,7 +4078,7 @@ TEST_CASE("single_stranded_orientation() can identify orientations of nodes that
         vg.create_edge(n5, n2, true, true);
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
         REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
@@ -4105,7 +4105,7 @@ TEST_CASE("single_stranded_orientation() can identify orientations of nodes that
         vg.create_edge(n5, n0);
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
         REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
@@ -4130,7 +4130,7 @@ TEST_CASE("single_stranded_orientation() can identify orientations of nodes that
         vg.create_edge(n5, n2, true, true);
                 
         xg::XG xg1;
-        xg1.from_handle_graph(vg);
+        xg1.from_path_handle_graph(vg);
                 
         REQUIRE(algorithms::single_stranded_orientation(&vg).empty());
         REQUIRE(algorithms::single_stranded_orientation(&xg1).empty());
@@ -5536,7 +5536,7 @@ TEST_CASE("Jumping along paths works correctly", "[algorithms][mapping][jump]") 
     mapping->set_rank(7);
             
     xg::XG xg_index;
-    xg_index.from_handle_graph(VG(graph));
+    xg_index.from_path_handle_graph(VG(graph));
             
     SECTION("Distance jumping produces expected result when start position and jump position are on path") {
         vector<pos_t> jump_pos = algorithms::jump_along_closest_path(&xg_index,

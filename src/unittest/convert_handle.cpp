@@ -58,7 +58,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             xg::XG xg;
-            xg.from_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
             convert_handle_graph(&xg, &vg);
             
@@ -77,7 +77,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             xg::XG xg;
-            xg.from_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             
@@ -96,7 +96,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             xg::XG xg;
-            xg.from_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
             convert_handle_graph(&xg, &hg);
             
@@ -125,7 +125,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             xg::XG xg;
-            xg.from_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
             convert_handle_graph(&xg, &vg);
             
@@ -156,7 +156,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             xg::XG xg;
-            xg.from_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             
@@ -199,7 +199,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             xg::XG xg;
-            xg.from_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
             convert_handle_graph(&xg, &hg);
             
@@ -244,7 +244,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             xg::XG xg;
-            xg.from_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
             convert_handle_graph(&xg, &vg);
             
@@ -279,7 +279,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             xg::XG xg;
-            xg.from_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             
@@ -326,7 +326,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             xg::XG xg;
-            xg.from_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
             convert_handle_graph(&xg, &hg);
             
@@ -387,7 +387,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             xg::XG xg;
-            xg.from_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
             convert_path_handle_graph(&xg, &vg);
             
@@ -449,7 +449,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             xg::XG xg;
-            xg.from_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
             convert_path_handle_graph(&xg, &pg);
             
@@ -526,7 +526,7 @@ namespace vg {
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
             xg::XG xg;
-            xg.from_handle_graph(VG(proto_graph));
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
             convert_path_handle_graph(&xg, &hg);
             

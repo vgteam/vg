@@ -148,7 +148,7 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
     
     // Make an xg out of it
     xg::XG xg_index;
-    xg_index.from_handle_graph(vg);
+    xg_index.from_path_handle_graph(vg);
     
     SECTION("Each graph exposes the right nodes") {
         
@@ -1695,7 +1695,7 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
     vg.paths.to_graph(vg.graph);
     
     xg::XG xg_index;
-    xg_index.from_handle_graph(vg);
+    xg_index.from_path_handle_graph(vg);
     
     SECTION("Handles can find all paths") {
         

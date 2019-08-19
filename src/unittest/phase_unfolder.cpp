@@ -213,7 +213,7 @@ TEST_CASE("PhaseUnfolder can unfold XG paths", "[phaseunfolder][indexing]") {
     Graph graph_with_path;
     json2pb(graph_with_path, unfolder_graph_path.c_str(), unfolder_graph_path.size());
     xg::XG xg_index;
-    xg_index.from_handle_graph(VG(graph_with_path));
+    xg_index.from_path_handle_graph(VG(graph_with_path));
 
     // Build an empty GBWT index.
     gbwt::GBWT gbwt_index;
@@ -258,7 +258,7 @@ TEST_CASE("PhaseUnfolder can restore XG paths", "[phaseunfolder][indexing]") {
     Graph graph_with_path;
     json2pb(graph_with_path, unfolder_graph_path.c_str(), unfolder_graph_path.size());
     xg::XG xg_index;
-    xg_index.from_handle_graph(VG(graph_with_path));
+    xg_index.from_path_handle_graph(VG(graph_with_path));
 
     // Build an empty GBWT index.
     gbwt::GBWT gbwt_index;
@@ -302,7 +302,7 @@ TEST_CASE("PhaseUnfolder can unfold GBWT threads", "[phaseunfolder][indexing]") 
     Graph graph_without_path;
     json2pb(graph_without_path, unfolder_graph.c_str(), unfolder_graph.size());
     xg::XG xg_index;
-    xg_index.from_handle_graph(VG(graph_without_path));
+    xg_index.from_path_handle_graph(VG(graph_without_path));
 
     // Build a GBWT with three threads including a duplicate. We want to have
     // only one instance of short_path unfolded, but we want separate copies
@@ -369,7 +369,7 @@ TEST_CASE("PhaseUnfolder can unfold both XG paths and GBWT threads", "[phaseunfo
     Graph graph_with_path;
     json2pb(graph_with_path, unfolder_graph_path.c_str(), unfolder_graph_path.size());
     xg::XG xg_index;
-    xg_index.from_handle_graph(VG(graph_with_path));
+    xg_index.from_path_handle_graph(VG(graph_with_path));
 
     // Build a GBWT with three threads including a duplicate. We want to have
     // only one instance of short_path unfolded, but we want separate copies
@@ -504,7 +504,7 @@ TEST_CASE("PhaseUnfolder can merge shared prefixes and suffixes", "[phaseunfolde
     Graph simple_graph;
     json2pb(simple_graph, unfolder_graph_simple.c_str(), unfolder_graph_simple.size());
     xg::XG xg_index;
-    xg_index.from_handle_graph(VG(simple_graph));
+    xg_index.from_path_handle_graph(VG(simple_graph));
 
     // Build a GBWT with both possible threads.
     gbwt::vector_type upper_path {
@@ -569,7 +569,7 @@ TEST_CASE("PhaseUnfolder can extend short threads", "[phaseunfolder][indexing]")
     Graph simple_graph_with_path;
     json2pb(simple_graph_with_path, unfolder_graph_simple_path.c_str(), unfolder_graph_simple_path.size());
     xg::XG xg_index;
-    xg_index.from_handle_graph(VG(simple_graph_with_path));
+    xg_index.from_path_handle_graph(VG(simple_graph_with_path));
 
     // Build a GBWT for the fragment that is different from the reference.
     gbwt::vector_type short_fragment {

@@ -207,7 +207,7 @@ TEST_CASE("Target to alignment extraction", "[target-to-aln]") {
     mapping->set_rank(7);
     
     xg::XG xg_index;
-    xg_index.from_handle_graph(VG(graph));
+    xg_index.from_path_handle_graph(VG(graph));
     
     SECTION("Subpath getting gives us the expected 1bp alignment") {
         Alignment target = target_alignment(&xg_index, "path", 1, 2, "feature", false);

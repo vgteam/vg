@@ -24,7 +24,7 @@ namespace unittest {
         
         // Build the xg index
         xg::XG xg_index;
-        xg_index.from_handle_graph(VG(proto_graph));
+        xg_index.from_path_handle_graph(VG(proto_graph));
         
         
         unordered_set<path_handle_t> comp_1;

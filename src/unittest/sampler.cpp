@@ -36,7 +36,7 @@ TEST_CASE( "Sampler can sample from a 1-node graph", "[sampler]" ) {
     
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_handle_graph(graph);
+    xg_index.from_path_handle_graph(graph);
     
     // Define a sampler    
     Sampler sampler(&xg_index, 1337);
@@ -126,7 +126,7 @@ TEST_CASE( "position_at works", "[sampler]" ) {
     
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_handle_graph(graph);
+    xg_index.from_path_handle_graph(graph);
     
     SECTION( "position_at works on the forward strand of a forward node" ) {
         REQUIRE(position_at(&xg_index, "ref", 0, false) == make_pos_t(1, false, 0));
@@ -203,7 +203,7 @@ TEST_CASE( "Sampler can sample from a loop-containing path", "[sampler]" ) {
     
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_handle_graph(graph);
+    xg_index.from_path_handle_graph(graph);
     
     // Define a sampler    
     Sampler sampler(&xg_index, 1337);
@@ -267,7 +267,7 @@ TEST_CASE( "Sampler can across reversing edges", "[sampler]" ) {
     
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_handle_graph(graph);
+    xg_index.from_path_handle_graph(graph);
     
     // Define a sampler    
     Sampler sampler(&xg_index, 1337);

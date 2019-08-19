@@ -110,7 +110,7 @@ TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
     xg::XG xg_index;
-    xg_index.from_handle_graph(VG(graph));
+    xg_index.from_path_handle_graph(VG(graph));
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
@@ -379,7 +379,7 @@ TEST_CASE("GBWTGraph serialization", "[gbwt_helper]") {
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
     xg::XG xg_index;
-    xg_index.from_handle_graph(VG(graph));
+    xg_index.from_path_handle_graph(VG(graph));
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
@@ -416,7 +416,7 @@ TEST_CASE("for_each_window() finds the correct windows with GBWT", "[gbwt_helper
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
     xg::XG xg_index;
-    xg_index.from_handle_graph(VG(graph));
+    xg_index.from_path_handle_graph(VG(graph));
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
@@ -483,7 +483,7 @@ TEST_CASE("for_each_window() finds the correct windows without GBWT", "[gbwt_hel
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
     xg::XG xg_index;
-    xg_index.from_handle_graph(VG(graph));
+    xg_index.from_path_handle_graph(VG(graph));
 
     // These are the windows the traversal should find.
     typedef std::pair<std::vector<handle_t>, std::string> kmer_type;
