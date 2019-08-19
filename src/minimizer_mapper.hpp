@@ -57,6 +57,9 @@ public:
 
     /// How many extended clusters should we align, max?
     size_t max_alignments = 8;
+    
+    /// How many extensions should we try as seeds within a mapping location?
+    size_t max_local_extensions = numeric_limits<size_t>::max();
 
     //If a cluster's score is smaller than the best score of any cluster by more than
     //this much, then don't extend it
@@ -141,10 +144,10 @@ protected:
     unordered_map<size_t, unordered_map<size_t, vector<Path>>> find_connecting_paths(const vector<GaplessExtension>& extended_seeds,
         size_t read_length) const;
         
-        
     /**
-     * Get all the trees defining tails off the specified side of each gapless
-     * extension.
+     * Get all the trees defining tails off the specified side of the specified
+     * gapless extension. Should only be called if a tail on that side exists,
+     * or this is a waste of time.
      *
      * If the gapless extension starts or ends at a node boundary, there may be
      * multiple trees produced, each with a distinct root.
@@ -155,9 +158,9 @@ protected:
      * Each tree is represented as a TreeSubgraph over our gbwt_graph.
      *
      * If left_tails is true, the trees read out of the left sides of the
-     * gapless extensions. Otherwise they read out of the right sides.
+     * gapless extension. Otherwise they read out of the right side.
      */
-    unordered_map<size_t, vector<TreeSubgraph>> get_tail_forests(const vector<GaplessExtension>& extended_seeds,
+    vector<TreeSubgraph> get_tail_forest(const GaplessExtension& extended_seed,
         size_t read_length, bool left_tails) const;
         
     /**
@@ -250,7 +253,7 @@ protected:
         double threshold, size_t min_count, size_t max_count,
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
-        const function<void(size_t)>& discard_item_by_score);
+        const function<void(size_t)>& discard_item_by_score) const;
      
     /**
      * Same as the other process_until_threshold overload, except using a vector to supply scores.
@@ -260,7 +263,7 @@ protected:
         double threshold, size_t min_count, size_t max_count,
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
-        const function<void(size_t)>& discard_item_by_score);
+        const function<void(size_t)>& discard_item_by_score) const;
      
 };
 
@@ -269,7 +272,7 @@ void MinimizerMapper::process_until_threshold(const vector<Item>& items, const f
     double threshold, size_t min_count, size_t max_count,
     const function<bool(size_t)>& process_item,
     const function<void(size_t)>& discard_item_by_count,
-    const function<void(size_t)>& discard_item_by_score) {
+    const function<void(size_t)>& discard_item_by_score) const {
 
     // Sort item indexes by item score
     vector<size_t> indexes_in_order;
@@ -332,7 +335,7 @@ void MinimizerMapper::process_until_threshold(const vector<Item>& items, const v
     double threshold, size_t min_count, size_t max_count,
     const function<bool(size_t)>& process_item,
     const function<void(size_t)>& discard_item_by_count,
-    const function<void(size_t)>& discard_item_by_score) {
+    const function<void(size_t)>& discard_item_by_score) const {
     
     assert(scores.size() == items.size());
     
