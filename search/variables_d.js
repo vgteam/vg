@@ -58,6 +58,7 @@ var searchData=
   ['max_5fkeys',['max_keys',['../structvg_1_1MinimizerIndex_1_1Header.html#a645fc243221aae65fbee7535d6751f8d',1,'vg::MinimizerIndex::Header']]],
   ['max_5fload_5ffactor',['MAX_LOAD_FACTOR',['../classvg_1_1MinimizerIndex.html#a8a3e099d56a88f49dfd3ac653a698f14',1,'vg::MinimizerIndex']]],
   ['max_5flocal_5fdp_5fmultiple_5ffor_5ffilter',['max_local_dp_multiple_for_filter',['../classvg_1_1SupportCaller.html#a3f075288ed00491db3479a2717a595d8',1,'vg::SupportCaller']]],
+  ['max_5flocal_5fextensions',['max_local_extensions',['../classvg_1_1MinimizerMapper.html#a4e6142c1ccdde28230769e5a8b629d9f',1,'vg::MinimizerMapper']]],
   ['max_5fmapping_5fp_5fvalue',['max_mapping_p_value',['../classvg_1_1MultipathMapper.html#aa7656b2372ae8450e48a9db512ce309d',1,'vg::MultipathMapper']]],
   ['max_5fmapping_5fquality',['max_mapping_quality',['../classvg_1_1BaseMapper.html#a467884235c316072a1ed7136faa14be3',1,'vg::BaseMapper']]],
   ['max_5fmessage_5fsize',['MAX_MESSAGE_SIZE',['../classvg_1_1io_1_1MessageEmitter.html#a67ece9e5b7c411ccb40169b650e1f5ae',1,'vg::io::MessageEmitter::MAX_MESSAGE_SIZE()'],['../classvg_1_1io_1_1MessageIterator.html#a5b2b881e4032fb2ecfa8da35ad13e602',1,'vg::io::MessageIterator::MAX_MESSAGE_SIZE()']]],

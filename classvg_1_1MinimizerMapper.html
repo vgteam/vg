@@ -141,6 +141,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a6062b78a7f795cb2a585eb6695bde675"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6062b78a7f795cb2a585eb6695bde675">max_alignments</a> = 8</td></tr>
 <tr class="memdesc:a6062b78a7f795cb2a585eb6695bde675"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many extended clusters should we align, max?  <a href="#a6062b78a7f795cb2a585eb6695bde675">More...</a><br/></td></tr>
 <tr class="separator:a6062b78a7f795cb2a585eb6695bde675"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4e6142c1ccdde28230769e5a8b629d9f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4e6142c1ccdde28230769e5a8b629d9f">max_local_extensions</a> = numeric_limits&lt;size_t&gt;::max()</td></tr>
+<tr class="memdesc:a4e6142c1ccdde28230769e5a8b629d9f"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many extensions should we try as seeds within a mapping location?  <a href="#a4e6142c1ccdde28230769e5a8b629d9f">More...</a><br/></td></tr>
+<tr class="separator:a4e6142c1ccdde28230769e5a8b629d9f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a10276fc66be2c41c2ebebd78e1f643de"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a10276fc66be2c41c2ebebd78e1f643de">cluster_score_threshold</a> = 0</td></tr>
 <tr class="separator:a10276fc66be2c41c2ebebd78e1f643de"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4aa953562a49de5befd8c80ee5e84a22"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4aa953562a49de5befd8c80ee5e84a22">cluster_coverage_threshold</a> = 0</td></tr>
@@ -182,9 +185,8 @@ Protected Member Functions</h2></td></tr>
 unordered_map&lt; size_t, vector<br class="typebreak"/>
 &lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4a67a89b962d336a62f1fac1274febf4">find_connecting_paths</a> (const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, size_t read_length) const </td></tr>
 <tr class="separator:a4a67a89b962d336a62f1fac1274febf4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8be8aff3aa063d91f68f8ec82a8a2b42"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; size_t, vector<br class="typebreak"/>
-&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a8be8aff3aa063d91f68f8ec82a8a2b42">get_tail_forests</a> (const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, size_t read_length, bool left_tails) const </td></tr>
-<tr class="separator:a8be8aff3aa063d91f68f8ec82a8a2b42"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8f2b904734eed6973f064067dc691881"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a8f2b904734eed6973f064067dc691881">get_tail_forest</a> (const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;extended_seed, size_t read_length, bool left_tails) const </td></tr>
+<tr class="separator:a8f2b904734eed6973f064067dc691881"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaf968bd30104207da51aaf9819345af7"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="structvg_1_1Path.html">Path</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aaf968bd30104207da51aaf9819345af7">get_best_alignment_against_any_tree</a> (const vector&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt; &amp;trees, const string &amp;sequence, const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;default_position, bool pin_left) const </td></tr>
 <tr class="separator:aaf968bd30104207da51aaf9819345af7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5efadba4b15b8f3e5d6ae1279387f529"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a5efadba4b15b8f3e5d6ae1279387f529">dfs_gbwt</a> (const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;from, size_t walk_distance, const function&lt; void(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;enter_handle, const function&lt; void(void)&gt; exit_handle) const </td></tr>
@@ -193,12 +195,12 @@ unordered_map&lt; size_t, vector<br class="typebreak"/>
 <tr class="separator:acd5978f5b80bc43ea763209eabc48382"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a68e2329c79fede97101df231f8318c12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a68e2329c79fede97101df231f8318c12">dfs_gbwt</a> (const gbwt::SearchState &amp;start_state, size_t from_offset, size_t walk_distance, const function&lt; void(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;enter_handle, const function&lt; void(void)&gt; exit_handle) const </td></tr>
 <tr class="separator:a68e2329c79fede97101df231f8318c12"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab9bd813e79700aab193e366c57ff9d79"><td class="memTemplParams" colspan="2">template&lt;typename Item , typename Score  = double&gt; </td></tr>
-<tr class="memitem:ab9bd813e79700aab193e366c57ff9d79"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab9bd813e79700aab193e366c57ff9d79">process_until_threshold</a> (const vector&lt; Item &gt; &amp;items, const function&lt; Score(size_t)&gt; &amp;get_score, double threshold, size_t min_count, size_t max_count, const function&lt; bool(size_t)&gt; &amp;process_item, const function&lt; void(size_t)&gt; &amp;discard_item)</td></tr>
-<tr class="separator:ab9bd813e79700aab193e366c57ff9d79"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6f233e2a7caac4522dabad5dd1b1f129"><td class="memTemplParams" colspan="2">template&lt;typename Item , typename Score  = double&gt; </td></tr>
-<tr class="memitem:a6f233e2a7caac4522dabad5dd1b1f129"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6f233e2a7caac4522dabad5dd1b1f129">process_until_threshold</a> (const vector&lt; Item &gt; &amp;items, const vector&lt; Score &gt; &amp;scores, double threshold, size_t min_count, size_t max_count, const function&lt; bool(size_t)&gt; &amp;process_item, const function&lt; void(size_t)&gt; &amp;discard_item)</td></tr>
-<tr class="separator:a6f233e2a7caac4522dabad5dd1b1f129"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1a8ef21f04f4b24628fbd0d24ee8ede8"><td class="memTemplParams" colspan="2">template&lt;typename Item , typename Score  = double&gt; </td></tr>
+<tr class="memitem:a1a8ef21f04f4b24628fbd0d24ee8ede8"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a1a8ef21f04f4b24628fbd0d24ee8ede8">process_until_threshold</a> (const vector&lt; Item &gt; &amp;items, const function&lt; Score(size_t)&gt; &amp;get_score, double threshold, size_t min_count, size_t max_count, const function&lt; bool(size_t)&gt; &amp;process_item, const function&lt; void(size_t)&gt; &amp;discard_item) const </td></tr>
+<tr class="separator:a1a8ef21f04f4b24628fbd0d24ee8ede8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a52ef294dcdd9e93c6a55f105c2cd80e5"><td class="memTemplParams" colspan="2">template&lt;typename Item , typename Score  = double&gt; </td></tr>
+<tr class="memitem:a52ef294dcdd9e93c6a55f105c2cd80e5"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a52ef294dcdd9e93c6a55f105c2cd80e5">process_until_threshold</a> (const vector&lt; Item &gt; &amp;items, const vector&lt; Score &gt; &amp;scores, double threshold, size_t min_count, size_t max_count, const function&lt; bool(size_t)&gt; &amp;process_item, const function&lt; void(size_t)&gt; &amp;discard_item) const </td></tr>
+<tr class="separator:a52ef294dcdd9e93c6a55f105c2cd80e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:ab180631766b1e787e29dd202ad455d90 inherit pro_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#ab180631766b1e787e29dd202ad455d90">AlignerClient</a> (double <a class="el" href="classvg_1_1AlignerClient.html#a65428f092aaa5d894b709e247cf0121a">gc_content_estimate</a>=vg::default_gc_content)</td></tr>
 <tr class="separator:ab180631766b1e787e29dd202ad455d90 inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -619,7 +621,7 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a8be8aff3aa063d91f68f8ec82a8a2b42"></a>
+<a class="anchor" id="a8f2b904734eed6973f064067dc691881"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -627,10 +629,10 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">unordered_map&lt; size_t, vector&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt; &gt; vg::MinimizerMapper::get_tail_forests </td>
+          <td class="memname">vector&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt; vg::MinimizerMapper::get_tail_forest </td>
           <td>(</td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>extended_seeds</em>, </td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;&#160;</td>
+          <td class="paramname"><em>extended_seed</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -656,11 +658,11 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Get all the trees defining tails off the specified side of each gapless extension.</p>
+<p>Get all the trees defining tails off the specified side of the specified gapless extension. Should only be called if a tail on that side exists, or this is a waste of time.</p>
 <p>If the gapless extension starts or ends at a node boundary, there may be multiple trees produced, each with a distinct root.</p>
 <p>If the gapless extension abuts the edge of the read, an empty forest will be produced.</p>
 <p>Each tree is represented as a <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> over our gbwt_graph.</p>
-<p>If left_tails is true, the trees read out of the left sides of the gapless extensions. Otherwise they read out of the right sides. </p>
+<p>If left_tails is true, the trees read out of the left sides of the gapless extension. Otherwise they read out of the right side. </p>
 
 </div>
 </div>
@@ -717,7 +719,7 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ab9bd813e79700aab193e366c57ff9d79"></a>
+<a class="anchor" id="a1a8ef21f04f4b24628fbd0d24ee8ede8"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -771,7 +773,7 @@ template&lt;typename Item , typename Score &gt; </div>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td></td>
+          <td></td><td> const</td>
         </tr>
       </table>
   </td>
@@ -786,7 +788,7 @@ template&lt;typename Item , typename Score &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a6f233e2a7caac4522dabad5dd1b1f129"></a>
+<a class="anchor" id="a52ef294dcdd9e93c6a55f105c2cd80e5"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -840,7 +842,7 @@ template&lt;typename Item , typename Score &gt; </div>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td></td>
+          <td></td><td> const</td>
         </tr>
       </table>
   </td>
@@ -1090,6 +1092,20 @@ template&lt;typename Item , typename Score &gt; </div>
 </div><div class="memdoc">
 
 <p>How many clusters should we align? </p>
+
+</div>
+</div>
+<a class="anchor" id="a4e6142c1ccdde28230769e5a8b629d9f"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MinimizerMapper::max_local_extensions = numeric_limits&lt;size_t&gt;::max()</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>How many extensions should we try as seeds within a mapping location? </p>
 
 </div>
 </div>

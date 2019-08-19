@@ -267,7 +267,7 @@ var searchData=
   ['get_5fsupport_5fat',['get_support_at',['../classvg_1_1SupportCaller_1_1PrimaryPath.html#a575ecb45b163f306d50e8de434585b48',1,'vg::SupportCaller::PrimaryPath']]],
   ['get_5fsymbolic_5fbounds',['get_symbolic_bounds',['../classvg_1_1Constructor.html#a31a7837804bd45819ab249687a858fbb',1,'vg::Constructor']]],
   ['get_5ftables',['get_tables',['../classvg_1_1io_1_1Registry.html#aa9f3d682e2b43bfdc3fc30e252a716b9',1,'vg::io::Registry']]],
-  ['get_5ftail_5fforests',['get_tail_forests',['../classvg_1_1MinimizerMapper.html#a8be8aff3aa063d91f68f8ec82a8a2b42',1,'vg::MinimizerMapper']]],
+  ['get_5ftail_5fforest',['get_tail_forest',['../classvg_1_1MinimizerMapper.html#a8f2b904734eed6973f064067dc691881',1,'vg::MinimizerMapper']]],
   ['get_5fthread_5fcount',['get_thread_count',['../namespacevg.html#ade988dd38efaa705be15ba17500fe219',1,'vg']]],
   ['get_5fthread_5fstream',['get_thread_stream',['../classvg_1_1io_1_1StreamMultiplexer.html#a749ab082e0364d470d84978c9757ef76',1,'vg::io::StreamMultiplexer']]],
   ['get_5ftopological_5forder',['get_topological_order',['../classvg_1_1PathSubgraph.html#ad1c1c0577f7ed0a400ce1ace70ab3f6b',1,'vg::PathSubgraph::get_topological_order()'],['../classvg_1_1TreeSubgraph.html#a4ea00928f433b13027eb07cdeabf379f',1,'vg::TreeSubgraph::get_topological_order()']]],
