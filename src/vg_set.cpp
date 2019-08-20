@@ -121,7 +121,7 @@ void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_t
 
     // thanks to the silliness that is vg's graph chunking, we have to reconstitute our paths here
     // to make sure that they are constructed with the correct order
-    map<string, pair<vector<pair<nid_t, bool>>, bool>> paths;
+    map<string, pair<map<size_t, pair<nid_t, bool>>, bool>> paths;
     for (auto& name : filenames) {
         std::ifstream in(name);
         check_stream(name, in);
@@ -132,10 +132,8 @@ void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_t
                     auto& steps = steps_circ.first;
                     steps_circ.second = path.is_circular();
                     for (auto& mapping : path.mapping()) {
-                        if (mapping.rank() > steps.size()) {
-                            steps.resize(mapping.rank());
-                        }
-                        steps[mapping.rank()-1] = make_pair(mapping.position().node_id(),
+                        assert(mapping.rank() > 0);
+                        steps[mapping.rank()] = make_pair(mapping.position().node_id(),
                                                             mapping.position().is_reverse());
                     }
                 }
@@ -143,7 +141,7 @@ void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_t
     }
 
     // optionally filter out alt paths
-    vector<pair<string, pair<vector<pair<nid_t, bool>>, bool>>> kept_paths;
+    vector<pair<string, pair<map<size_t, pair<nid_t, bool>>, bool>>> kept_paths;
     for (auto& path : paths) {
         if (paths_to_take(path.first) == false) {
             kept_paths.push_back(make_pair(path.first, std::move(path.second)));
@@ -151,14 +149,11 @@ void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_t
             Path proto_path;
             proto_path.set_name(path.first);
             proto_path.set_is_circular(path.second.second);
-            size_t rank = 1;
             for (auto& step : path.second.first) {
-                if (step.first) {
-                    Mapping* mapping = proto_path.add_mapping();
-                    mapping->mutable_position()->set_node_id(step.first);
-                    mapping->mutable_position()->set_is_reverse(step.second);
-                    mapping->set_rank(rank++);
-                }
+                Mapping* mapping = proto_path.add_mapping();
+                mapping->mutable_position()->set_node_id(step.second.first);
+                mapping->mutable_position()->set_is_reverse(step.second.second);
+                mapping->set_rank(step.first);
             }
             (*removed_paths)[path.first] = std::move(proto_path);
         }
@@ -178,9 +173,7 @@ void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_t
                 lambda(path_name, 0, false, "", true, false);
             } else {
                 for (auto& step : path_steps) {
-                    if (step.first) { // ids are > 0, so we skip anything that's not filled
-                        lambda(path_name, step.first, step.second, "", false, path_circular);
-                    }
+                    lambda(path_name, step.second.first, step.second.second, "", false, path_circular);
                 }
             }
         }
