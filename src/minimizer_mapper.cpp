@@ -795,7 +795,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 // This is the new best alignment seen so far.
 
                 
-                if (winning_score == 0 || winning_left.mapping(0).position().node_id() 
+                if (winning_score != 0 && winning_left.mapping(0).position().node_id() 
                          != left_tail_result.first.mapping(0).position().node_id() &&
                    winning_right.mapping(winning_right.mapping_size() - 1).position().node_id() 
                          != right_tail_result.first.mapping(right_tail_result.first.mapping_size() - 1).position().node_id()) {
@@ -867,9 +867,9 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
         }
     }
     //Do the same for the second best
-    *second_best.mutable_path() = std::move(winning_left);
+    *second_best.mutable_path() = std::move(second_left);
 
-    for (auto* to_append : {&winning_middle, &winning_right}) {
+    for (auto* to_append : {&second_middle, &second_right}) {
         // For each path to append
         for (auto& mapping : *to_append->mutable_mapping()) {
             // For each mapping to append
