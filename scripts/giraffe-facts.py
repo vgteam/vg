@@ -711,14 +711,21 @@ def plot_filter_statistic_histograms(out_dir, stats_total):
         tsv_path = os.path.join(out_dir, 'stat_{}.tsv'.format(filter_name))
         tsv = open(tsv_path, 'w')
         
+        # Some stages don't have correctness annotation. So we track if we saw
+        # correct and noncorrect things to identify them.
+        have_correct = False
+        have_noncorrect = False
+        
         if isinstance(correct_counter, dict) and len(correct_counter) > 0:
             # We have correct item stats.
+            have_correct = True
             for value, count in correct_counter.items():
                 # Output format: label, value, repeats
                 tsv.write('correct\t{}\t{}\n'.format(value, count))
                 
         if isinstance(noncorrect_counter, dict) and len(noncorrect_counter) > 0:
             # We have noncorrect item stats.
+            have_noncorrect = True
             for value, count in noncorrect_counter.items():
                 # Output format: label, value, repeats
                 tsv.write('noncorrect\t{}\t{}\n'.format(value, count))
@@ -727,13 +734,19 @@ def plot_filter_statistic_histograms(out_dir, stats_total):
         
         # Now make the plot
         svg_path = os.path.join(out_dir, 'stat_{}.svg'.format(filter_name))
-        histogram.main(['histogram.py', tsv_path, '--save', svg_path,
+        
+        args = ['histogram.py', tsv_path, '--save', svg_path,
             '--title', '{} Statistic Histogram'.format(filter_name),
             '--x_label',  'Statistic Value',
             '--bins', '20',
-            '--y_label', 'Frequency',
-            '--legend_overlay', 'upper right',
-            '--categories', 'correct', 'noncorrect'])
+            '--y_label', 'Frequency']
+        if have_correct and have_noncorrect:
+            args.append('--legend_overlay')
+            args.append('best')
+            args.append('--categories')
+            args.append('correct')
+            args.append('noncorrect')
+        histogram.main(args)
                 
             
 
