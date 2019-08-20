@@ -186,8 +186,8 @@ TEST_CASE("We can build an xg index on a very nasty graph", "[xg]") {
             // We should just get node 1416
             REQUIRE(graph.graph.node_size() == 1);
             REQUIRE(graph.graph.node(0).id() == 1416);
-            // And the one dangling edge
-            REQUIRE(graph.graph.edge_size() == 1);
+            // And no dangling edges
+            REQUIRE(graph.graph.edge_size() == 0);
             for (size_t i = 0; i < graph.graph.edge_size(); i++) {
                 // All the edges should be normal
                 REQUIRE(graph.graph.edge(i).from_start() == false);
@@ -205,8 +205,8 @@ TEST_CASE("We can build an xg index on a very nasty graph", "[xg]") {
             REQUIRE(graph.graph.node(1).id() >= 1416);
             REQUIRE(graph.graph.node(1).id() <= 1417);
             REQUIRE(graph.graph.node(0).id() != graph.graph.node(1).id());
-            // And the one real and 2 dangling edges
-            REQUIRE(graph.graph.edge_size() == 3);
+            // And the one real and 0 dangling edges
+            REQUIRE(graph.graph.edge_size() == 1);
             for (size_t i = 0; i < graph.graph.edge_size(); i++) {
                 // All the edges should be normal
                 REQUIRE(graph.graph.edge(i).from_start() == false);
