@@ -114,14 +114,16 @@ void VGset::to_xg(xg::XG& index) {
 
     // thanks to the silliness that is vg's graph chunking, we have to reconstitute our paths here
     // to make sure that they are constructed with the correct order
-    map<string, vector<pair<nid_t, bool>>> paths;
+    map<string, pair<vector<pair<nid_t, bool>>, bool>> paths;
     for (auto& name : filenames) {
         std::ifstream in(name);
         check_stream(name, in);
         vg::io::for_each(in, (function<void(Graph&)>)[&](Graph& graph) {
                 for (uint64_t i = 0; i < graph.path_size(); ++i) {
                     auto& path = graph.path(i);
-                    auto& steps = paths[path.name()];
+                    auto& steps_circ = paths[path.name()];
+                    auto& steps = steps_circ.first;
+                    steps_circ.second = path.is_circular();
                     for (auto& mapping : path.mapping()) {
                         if (mapping.rank() > steps.size()) {
                             steps.resize(mapping.rank());
@@ -137,16 +139,17 @@ void VGset::to_xg(xg::XG& index) {
         const std::function<void(const std::string& path_name,
                                  const nid_t& node_id, const bool& is_rev,
                                  const std::string& cigar,
-                                 bool is_empty)>& lambda) {
+                                 bool is_empty, bool is_circular)>& lambda) {
         for (auto& path : paths) {
             auto& path_name = path.first;
-            auto& path_steps = path.second;
+            auto& path_steps = path.second.first;
+            bool path_circular = path.second.second;
             if (path_steps.empty()) {
-                lambda(path_name, 0, false, "", true);
+                lambda(path_name, 0, false, "", true, false);
             } else {
                 for (auto& step : path_steps) {
                     if (step.first) { // ids are > 0, so we skip anything that's not filled
-                        lambda(path_name, step.first, step.second, "", false);
+                        lambda(path_name, step.first, step.second, "", false, path_circular);
                     }
                 }
             }
