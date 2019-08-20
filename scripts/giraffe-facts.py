@@ -102,6 +102,32 @@ def parse_args(args):
         
     return parser.parse_args(args)
     
+def sniff_params(read):
+    """
+    Given a read dict parsed from JSON, compute a mapping parameter dict for the read.
+    
+    The read will have param_XXX annotations. Turn those into a dict from XXX to value.
+    
+    These should be the same for every read.
+    """
+    
+    # This is the annotation dict from the read
+    annot = read.get('annotation', {})
+    
+    # This is the params dict to fill in
+    params = {}
+    
+    for annot_name in annot.keys():
+        if annot_name.startswith('param_'):
+            # Split the param annotations on underscore
+            (_, param_name) = annot_name.split('_')
+            
+            # Save the values under the name
+            params[param_name] = annot[annot_name]
+    
+    return params
+    
+    
 def make_stats(read):
     """
     Given a read dict parsed from JSON, compute a stats OrderedDict for the read.
@@ -545,9 +571,10 @@ class Table(object):
         
         self.out.write('\n')
                 
-def print_table(read_count, stats_total, out=sys.stdout):
+def print_table(read_count, stats_total, params=None, out=sys.stdout):
     """
-    Take the read count, and the accumulated total stats dict.
+    Take the read count, the accumulated total stats dict, and an optional dict
+    of mapping parameters corresponding to values for filters.
     
     Print a nicely formatted table to the given stream.
     
@@ -568,8 +595,34 @@ def print_table(read_count, stats_total, out=sys.stdout):
     # Column min widths from headers
     header_widths = []
     
+    # Compute filter row headings
+    filter_headings = stats_total.keys()
+    
+    if params is not None:
+        # Annotate each filter with its parameter value
+        annotated_headings = []
+        for heading in filter_headings:
+            # For each filter
+            # It may be a compound thing||thing filter
+            parts = heading.split('||')
+            
+            # We will fill this with all the relevant filter cutoff values
+            filter_values = []
+            for part in parts:
+                if part in params:
+                    filter_values.append(params[part])
+                    
+            if len(filter_values) == 0:
+                # No parameters
+                annotated_headings.append(heading)
+            else:
+                # Annotate with the parameters
+                annotated_headings.append('{} ({})'.format(heading, ', '.join((str(x) for x in filter_values))))
+                
+        filter_headings = annotated_headings
+    
     # How long is the longest filter name
-    filter_width = max((len(x) for x in stats_total.keys()))
+    filter_width = max((len(x) for x in filter_headings))
     # Leave room for the header
     filter_header = "Filter"
     filter_width = max(filter_width, len(filter_header))
@@ -659,7 +712,7 @@ def print_table(read_count, stats_total, out=sys.stdout):
     table.line()
     
     
-    for filter_name in stats_total.keys():
+    for i, filter_name in enumerate(stats_total.keys()):
         # Grab average results passing this filter per read
         total_passing = stats_total[filter_name]['passed_count_total']
         average_passing = total_passing / read_count if read_count != 0 else float('NaN')
@@ -695,7 +748,7 @@ def print_table(read_count, stats_total, out=sys.stdout):
         except:
             recall = 'N/A'
         
-        row = [filter_name]
+        row = [filter_headings[i]]
         align = 'c'
         # Add the provenance columns
         row += ['{:.2f}'.format(average_passing), '{:.2f}'.format(average_failing), lost, rejected,
@@ -804,9 +857,17 @@ def main(args):
     # Count all the reads
     read_count = 0
     
-    for stats in (make_stats(read) for read in read_line_oriented_json(options.input)):
+    # Record mapping parameters from at least one read
+    params = None
+    
+    for read in read_line_oriented_json(options.input):
+    
+        if params is None:
+            # Go get the mapping parameters
+            params = sniff_params(read)
+    
         # For the stats dict for each read
-        
+        stats = make_stats(read)
         if stats_total is None:
             stats_total = stats
         else:
@@ -819,7 +880,7 @@ def main(args):
     # After processing all the reads
     
     # Print the table now in case plotting fails
-    print_table(read_count, stats_total)
+    print_table(read_count, stats_total, params)
     
     # Make filter statistic histograms
     plot_filter_statistic_histograms(options.outdir, stats_total)
