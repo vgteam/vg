@@ -25,7 +25,8 @@ void help_convert(char** argv) {
          << "output options:" << endl
          << "    -V, --vg-out           output in VG format [default]" << endl
          << "    -A, --hash-out         output in HashGraph format" << endl
-         << "    -P, --packed-out       output in PackedGraph format" << endl;
+         << "    -P, --packed-out       output in PackedGraph format" << endl
+         << "    -X, --xg-out           output in XG format" << endl;
 }
 
 int main_convert(int argc, char** argv) {
@@ -51,11 +52,12 @@ int main_convert(int argc, char** argv) {
             {"vg-out", no_argument, 0, 'V'},
             {"hash-out", no_argument, 0, 'A'},
             {"packed-out", no_argument, 0, 'P'},
+            {"xg-out", no_argument, 0, 'X'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hvxapxVAP",
+        c = getopt_long (argc, argv, "hvxapxVAPX",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -90,6 +92,10 @@ int main_convert(int argc, char** argv) {
         case 'P':
             output_format = "packed";
             break;
+        case 'X':
+            output_format = "xg";
+            break;
+
 
         default:
             abort();
@@ -131,16 +137,23 @@ int main_convert(int argc, char** argv) {
     }
     
 
-    // Make an empty output graph
-    MutablePathMutableHandleGraph* output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph_factory(output_format));
-    assert(output_graph != nullptr);
-    // Copy over the input graph
-    convert_path_handle_graph(input_graph, output_graph);
-    // Write the output graph to the stream
-    dynamic_cast<SerializableHandleGraph*>(output_graph)->serialize(cout);
 
+    if (output_format == "xg") {
+        // special logic because xg isn't mutable
+        xg::XG xg;
+        xg.from_path_handle_graph(*input_graph);
+        xg.serialize(cout);
+    } else {
+        // Make an empty output graph
+        MutablePathMutableHandleGraph* output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph_factory(output_format));
+        assert(output_graph != nullptr);
+        // Copy over the input graph
+        convert_path_handle_graph(input_graph, output_graph);
+        // Write the output graph to the stream
+        dynamic_cast<SerializableHandleGraph*>(output_graph)->serialize(cout);
+        delete output_graph;
+    }
     delete input_graph;
-    delete output_graph;
 
     return 0;
 }
