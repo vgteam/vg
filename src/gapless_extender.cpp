@@ -238,6 +238,9 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
         return result;
     }
 
+    // Allocate a GBWT record cache.
+    gbwt::CachedGBWT cache = this->graph->get_cache();
+
     // Find either the best extension for each seed or the best full-length alignment
     // for the entire cluster. If we have found a full-length alignment with
     // at most max_mismatches mismatches, we are no longer interested in extensions with
@@ -260,7 +263,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             size_t read_offset = get_read_offset(seed);
             size_t node_offset = get_node_offset(seed);
             GaplessExtension match {
-                { seed.first }, node_offset, this->graph->get_bd_state(seed.first),
+                { seed.first }, node_offset, this->graph->get_bd_state(cache, seed.first),
                 { read_offset, read_offset }, { },
                 static_cast<int32_t>(0), false, false,
                 false, false, static_cast<uint32_t>(0), static_cast<uint32_t>(0)
@@ -299,7 +302,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
 
             // Case 1: Extend to the right.
             if (!curr.right_maximal) {
-                this->graph->follow_paths(curr.state, false, [&](const gbwt::BidirectionalState& next_state) -> bool {
+                this->graph->follow_paths(cache, curr.state, false, [&](const gbwt::BidirectionalState& next_state) -> bool {
                     if (next_state.empty()) {
                         return true;
                     }
@@ -340,7 +343,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
 
             // Case 2: Extend to the left.
             else if (!curr.left_maximal) {
-                this->graph->follow_paths(curr.state, true, [&](const gbwt::BidirectionalState& next_state) -> bool {
+                this->graph->follow_paths(cache, curr.state, true, [&](const gbwt::BidirectionalState& next_state) -> bool {
                     if (next_state.empty()) {
                         return true;
                     }
@@ -409,7 +412,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
     remove_duplicates(result);
     find_mismatches(sequence, *(this->graph), result);
     if (trim_extensions) {
-        this->trim(result, max_mismatches);
+        this->trim(result, max_mismatches, &cache);
     }
 
     return result;
@@ -419,7 +422,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
 
 // Trim mismatches from the extension to maximize the score. Returns true if the
 // extension was trimmed.
-bool trim_mismatches(GaplessExtension& extension, const GBWTGraph& graph, const Aligner& aligner) {
+bool trim_mismatches(GaplessExtension& extension, const GBWTGraph& graph, const gbwt::CachedGBWT& cache, const Aligner& aligner) {
 
     if (extension.exact()) {
         return false;
@@ -512,7 +515,7 @@ bool trim_mismatches(GaplessExtension& extension, const GBWTGraph& graph, const 
     }
     if (head > 0 || tail < extension.path.size()) {
         in_place_subvector(extension.path, head, tail);
-        extension.state = graph.bd_find(extension.path);
+        extension.state = graph.bd_find(cache, extension.path);
     }
 
     // Trim the mismatches.
@@ -529,15 +532,28 @@ bool trim_mismatches(GaplessExtension& extension, const GBWTGraph& graph, const 
     return true;
 }
 
-void GaplessExtender::trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches) const {
+void GaplessExtender::trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches, const gbwt::CachedGBWT* cache) const {
+
+    // Allocate a cache if we were not provided with one.
+    bool free_cache = (cache == nullptr);
+    if (free_cache) {
+        cache = new gbwt::CachedGBWT(this->graph->get_cache());
+    }
+
     bool trimmed = false;
     for (GaplessExtension& extension : extensions) {
         if (!extension.full() || extension.mismatches() > max_mismatches) {
-            trimmed |= trim_mismatches(extension, *(this->graph), *(this->aligner));
+            trimmed |= trim_mismatches(extension, *(this->graph), *cache, *(this->aligner));
         }
     }
     if (trimmed) {
         remove_duplicates(extensions);
+    }
+
+    // Free the cache if we allocated it.
+    if (free_cache) {
+        delete cache;
+        cache = nullptr;
     }
 }
 

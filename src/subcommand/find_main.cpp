@@ -652,14 +652,7 @@ int main_find(int argc, char** argv) {
                         if (pattern.length() <= path_name.length() && path_name.compare(0, pattern.length(), pattern) == 0) {
                             // We need a Graph for serialization purposes.
                             Graph g;
-                            Path* path = g.add_path();
-                            path->set_name(path_name);
-                            for (handle_t handle : xindex->scan_path(path_handle)) {
-                                Mapping* mapping = path->add_mapping();
-                                Position* position = mapping->mutable_position();
-                                position->set_node_id(xindex->get_id(handle));
-                                position->set_is_reverse(xindex->get_is_reverse(handle));
-                            }
+                            *g.add_path() = path_from_path_handle(*xindex, path_handle);
                             // Dump the graph with its mappings. TODO: can we restrict these to
                             vector<Graph> gb = { g };
                             vg::io::write_buffered(cout, gb, 0);

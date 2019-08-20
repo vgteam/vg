@@ -259,6 +259,8 @@ bool path_is_simple_match(const Path& p);
 // convert the mapping to the particular node into the sequence implied by the mapping
 const string mapping_sequence(const Mapping& m, const string& node_seq);
 const string mapping_sequence(const Mapping& m, const Node& n);
+// convert the path to a sequence
+string path_sequence(const HandleGraph& graph, const Path& path);
 // Reverse-complement a Mapping and all the Edits in it. A function to get node
 // lengths is needed, because the mapping will need to count its position from
 // the other end of the node.
@@ -348,6 +350,11 @@ Path path_from_node_traversals(const list<NodeTraversal>& traversals);
 // Store them in the list unless it is nullptr.
 void remove_paths(Graph& graph, const function<bool(const string&)>& paths_to_take, std::list<Path>* matching);
 
+// Get a Path from a handle graph
+Path path_from_path_handle(const PathHandleGraph& graph, path_handle_t path_handle);
+
+// Wrap a Path in an Alignment
+Alignment alignment_from_path(const HandleGraph& graph, const Path& path);
 }
 
 #endif

@@ -62,7 +62,7 @@ void help_gaffe(char** argv) {
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
     << "  -s, --cluster-score INT       only extend clusters if they are within cluster-score of the best score" << endl
     << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within cluster-coverage of the best read coverage" << endl
-    << "  -v, --extension-score INT     only align extensions if their score is within extension-score of the best score" << endl
+    << "  -v, --extension-score INT     only align extensions if their score is within extension-score of the best score [1]" << endl
     << "  -w, --extension-set INT       only align extension sets if their score is within extension-set of the best score" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
@@ -113,7 +113,7 @@ int main_gaffe(int argc, char** argv) {
     //Throw away extension sets with scores that are this amount below the best
     double extension_set = 0;
     //Throw away extensions with scores that are this amount below the best
-    int extension_score = 0;
+    int extension_score = 1;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
@@ -461,22 +461,22 @@ int main_gaffe(int argc, char** argv) {
     minimizer_mapper.max_alignments = max_alignments;
 
     if (progress) {
-        cerr << "--cluster-score-threshold " << cluster_score << endl;
+        cerr << "--cluster-score " << cluster_score << endl;
     }
     minimizer_mapper.cluster_score_threshold = cluster_score;
 
     if (progress) {
-        cerr << "--cluster-coverage-threshold " << cluster_coverage << endl;
+        cerr << "--cluster-coverage " << cluster_coverage << endl;
     }
     minimizer_mapper.cluster_coverage_threshold = cluster_coverage;
 
     if (progress) {
-        cerr << "--extension-score-threshold " << extension_score << endl;
+        cerr << "--extension-score " << extension_score << endl;
     }
     minimizer_mapper.extension_score_threshold = extension_score;
 
     if (progress) {
-        cerr << "--extension-set-threshold " << extension_set << endl;
+        cerr << "--extension-set " << extension_set << endl;
     }
     minimizer_mapper.extension_set_score_threshold = extension_set;
 
