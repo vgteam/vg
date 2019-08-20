@@ -3665,7 +3665,7 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         vg.create_edge(n0, n0, true, false);
                 
         xg::XG xg3;
-        xg2.from_path_handle_graph(vg);
+        xg3.from_path_handle_graph(vg);
                 
         // the graph now has a directed cycle
         REQUIRE(!algorithms::is_directed_acyclic(&vg));

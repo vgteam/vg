@@ -47,7 +47,7 @@ void check_unfolded_nodes(VG& vg_graph,
     SECTION("the duplicated nodes should have the original sequences") {
         bool ok = true;
         vg_graph.for_each_node([&](Node* node) {
-            ok &= (node->sequence() == xg_index.get_sequence(xg_index.get_handle(node->id())));
+            ok &= (node->sequence() == xg_index.get_sequence(xg_index.get_handle(unfolder.get_mapping(node->id()))));
         });
         REQUIRE(ok);
     }
