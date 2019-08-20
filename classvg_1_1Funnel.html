@@ -102,6 +102,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1FilterPerformance.html">FilterPerformance</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1Item.html">Item</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents an <a class="el" href="structvg_1_1Funnel_1_1Item.html" title="Represents an Item whose provenance we track. ">Item</a> whose provenance we track.  <a href="structvg_1_1Funnel_1_1Item.html#details">More...</a><br/></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -152,12 +154,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a321b1e593102927ff8677214abce5592"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a321b1e593102927ff8677214abce5592">project_group</a> (size_t prev_stage_item, size_t group_size)</td></tr>
 <tr class="memdesc:a321b1e593102927ff8677214abce5592"><td class="mdescLeft">&#160;</td><td class="mdescRight">Project a single item from the previous stage to a new group item at the current stage, with the given size.  <a href="#a321b1e593102927ff8677214abce5592">More...</a><br/></td></tr>
 <tr class="separator:a321b1e593102927ff8677214abce5592"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5185e210a61afb63253baae3a1e30958"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a5185e210a61afb63253baae3a1e30958">kill</a> (size_t prev_stage_item)</td></tr>
-<tr class="separator:a5185e210a61afb63253baae3a1e30958"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa50640d642e54281c8861a2b42e25535"><td class="memTemplParams" colspan="2">template&lt;typename Iterator &gt; </td></tr>
-<tr class="memitem:aa50640d642e54281c8861a2b42e25535"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#aa50640d642e54281c8861a2b42e25535">kill_all</a> (Iterator prev_stage_items_begin, Iterator prev_stage_items_end)</td></tr>
-<tr class="memdesc:aa50640d642e54281c8861a2b42e25535"><td class="mdescLeft">&#160;</td><td class="mdescRight">Gill all the given items from the previous stage.  <a href="#aa50640d642e54281c8861a2b42e25535">More...</a><br/></td></tr>
-<tr class="separator:aa50640d642e54281c8861a2b42e25535"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a38e1d7d328fe8ea456c2631abffaebb4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a38e1d7d328fe8ea456c2631abffaebb4">fail</a> (const char *filter, size_t prev_stage_item, double statistic=nan(&quot;&quot;))</td></tr>
+<tr class="separator:a38e1d7d328fe8ea456c2631abffaebb4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aec19daea826d5951ecf1477769722d9a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#aec19daea826d5951ecf1477769722d9a">pass</a> (const char *filter, size_t prev_stage_item, double statistic=nan(&quot;&quot;))</td></tr>
+<tr class="separator:aec19daea826d5951ecf1477769722d9a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9cdacae4561ece776ba90e293299f930"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a9cdacae4561ece776ba90e293299f930">score</a> (size_t item, double score)</td></tr>
 <tr class="memdesc:a9cdacae4561ece776ba90e293299f930"><td class="mdescLeft">&#160;</td><td class="mdescRight">Assign the given score to the given item at the current stage.  <a href="#a9cdacae4561ece776ba90e293299f930">More...</a><br/></td></tr>
 <tr class="separator:a9cdacae4561ece776ba90e293299f930"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -171,6 +171,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:af460f1d8d1c76111c5fe65b2c6eea30e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#af460f1d8d1c76111c5fe65b2c6eea30e">for_each_stage</a> (const function&lt; void(const string &amp;, const vector&lt; size_t &gt; &amp;)&gt; &amp;callback) const </td></tr>
 <tr class="memdesc:af460f1d8d1c76111c5fe65b2c6eea30e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Call the given callback with stage name, and vector of result item sizes at that stage, for each stage.  <a href="#af460f1d8d1c76111c5fe65b2c6eea30e">More...</a><br/></td></tr>
 <tr class="separator:af460f1d8d1c76111c5fe65b2c6eea30e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab9b3123aca0738a085d27ca86d11b965"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#ab9b3123aca0738a085d27ca86d11b965">for_each_filter</a> (const function&lt; void(const string &amp;, const string &amp;, const <a class="el" href="structvg_1_1Funnel_1_1FilterPerformance.html">FilterPerformance</a> &amp;, const <a class="el" href="structvg_1_1Funnel_1_1FilterPerformance.html">FilterPerformance</a> &amp;, const vector&lt; double &gt; &amp;, const vector&lt; double &gt; &amp;)&gt; &amp;callback) const </td></tr>
+<tr class="separator:ab9b3123aca0738a085d27ca86d11b965"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab38eefb0fa53720d2ab80793a2c13762"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#ab38eefb0fa53720d2ab80793a2c13762">to_dot</a> (ostream &amp;out)</td></tr>
 <tr class="separator:ab38eefb0fa53720d2ab80793a2c13762"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -201,8 +203,8 @@ Protected Attributes</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Represents a record of an invocation of a pipeline for an input.</p>
-<p>Tracks the history of "lines" of data "item" provenance through a series of "stages".</p>
-<p>Lines are "introduced", and "project" from earlier stages to later stages, possibly "expanding" or "merging", until they are "killed" or reach the final stage. At each stage, items occur in a linear order and are identified by index.</p>
+<p>Tracks the history of "lines" of data "item" provenance through a series of "stages", containing a series of "filters".</p>
+<p>Lines are "introduced", and "project" from earlier stages to later stages, possibly "expanding" or "merging", until they "fail" a filter or reach the final stage. At each stage, items occur in a linear order and are identified by index.</p>
 <p>An item may be a "group", with a certain size.</p>
 <p>We also can assign scores to items at a stage. </p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
@@ -255,6 +257,56 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Expand the given item from the previous stage into the given number of new items at this stage. </p>
+
+</div>
+</div>
+<a class="anchor" id="a38e1d7d328fe8ea456c2631abffaebb4"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Funnel::fail </td>
+          <td>(</td>
+          <td class="paramtype">const char *&#160;</td>
+          <td class="paramname"><em>filter</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>prev_stage_item</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>statistic</em> = <code>nan(&quot;&quot;)</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Fail the given item from the previous stage on the given filter and do not project it through to this stage. Items which do not fail a filter must pass the filter and be projected to something. The filter name must survive the funnel, because a pointer to it will be stored. Allows a statistic for the filtered-on value for the failing item to be recorded. </p>
+
+</div>
+</div>
+<a class="anchor" id="ab9b3123aca0738a085d27ca86d11b965"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Funnel::for_each_filter </td>
+          <td>(</td>
+          <td class="paramtype">const function&lt; void(const string &amp;, const string &amp;, const <a class="el" href="structvg_1_1Funnel_1_1FilterPerformance.html">FilterPerformance</a> &amp;, const <a class="el" href="structvg_1_1Funnel_1_1FilterPerformance.html">FilterPerformance</a> &amp;, const vector&lt; double &gt; &amp;, const vector&lt; double &gt; &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>callback</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Call the given callback with stage name, filter name, performance report for items, performance report for total size of items, values for correct items for the filter statistic, and values for incorrect (or merely not known-correct) items for the filter statistic. Runs the callback for each stage and filter, in order. Only includes filters that were actually passed or failed by any items. </p>
 
 </div>
 </div>
@@ -319,53 +371,6 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a5185e210a61afb63253baae3a1e30958"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::Funnel::kill </td>
-          <td>(</td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>prev_stage_item</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Kill the given item from the previous stage and do not project it through to this stage. Items which are not killed must be projected to something. </p>
-
-</div>
-</div>
-<a class="anchor" id="aa50640d642e54281c8861a2b42e25535"></a>
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename Iterator &gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::Funnel::kill_all </td>
-          <td>(</td>
-          <td class="paramtype">Iterator&#160;</td>
-          <td class="paramname"><em>prev_stage_items_begin</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">Iterator&#160;</td>
-          <td class="paramname"><em>prev_stage_items_end</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Gill all the given items from the previous stage. </p>
-
-</div>
-</div>
 <a class="anchor" id="a5b0f230630e6d79c5031c2041bdf1efd"></a>
 <div class="memitem">
 <div class="memproto">
@@ -425,6 +430,39 @@ template&lt;typename Iterator &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Merge all the given item indexes from the previous stage into a new item at this stage. The new item will be a group, sized according to the number of previous items merged. </p>
+
+</div>
+</div>
+<a class="anchor" id="aec19daea826d5951ecf1477769722d9a"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Funnel::pass </td>
+          <td>(</td>
+          <td class="paramtype">const char *&#160;</td>
+          <td class="paramname"><em>filter</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>prev_stage_item</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>statistic</em> = <code>nan(&quot;&quot;)</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Pass the given item from the previous stage through the given filter at this stage. Items which do not pass a filter must fail it. All items which pass filters must do so in the same order. The filter name must survive the funnel, because a pointer to it will be stored. Allows a statistic for the filtered-on value for the passing item to be recorded. </p>
 
 </div>
 </div>

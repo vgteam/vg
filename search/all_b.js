@@ -27,8 +27,6 @@ var searchData=
   ['key_5ftype',['key_type',['../structvg_1_1mi_1_1CircularBuffer.html#a87e2a92650676b61cff2144e231203d3',1,'vg::mi::CircularBuffer::key_type()'],['../classvg_1_1MinimizerIndex.html#a3be3d20ad774fa4ba89bc3c1335f0d17',1,'vg::MinimizerIndex::key_type()']]],
   ['keynotfoundexception',['keyNotFoundException',['../classvg_1_1keyNotFoundException.html',1,'vg']]],
   ['keys',['keys',['../structvg_1_1MinimizerIndex_1_1Header.html#adc74a1a716ba0393580d0d0cffebc9cc',1,'vg::MinimizerIndex::Header']]],
-  ['kill',['kill',['../classvg_1_1Funnel.html#a5185e210a61afb63253baae3a1e30958',1,'vg::Funnel']]],
-  ['kill_5fall',['kill_all',['../classvg_1_1Funnel.html#aa50640d642e54281c8861a2b42e25535',1,'vg::Funnel']]],
   ['kmer',['kmer',['../structvg_1_1KmerPosition.html#a79c4fa6766d55a1fea8fdc00adab02b3',1,'vg::KmerPosition']]],
   ['kmer_2ecpp',['kmer.cpp',['../kmer_8cpp.html',1,'']]],
   ['kmer_2ehpp',['kmer.hpp',['../kmer_8hpp.html',1,'']]],

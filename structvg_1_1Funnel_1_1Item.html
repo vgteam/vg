@@ -112,6 +112,18 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a9ee7530fac67298fbcdb27f8280b4a14"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1Item.html#a9ee7530fac67298fbcdb27f8280b4a14">prev_stage_items</a> = {}</td></tr>
 <tr class="memdesc:a9ee7530fac67298fbcdb27f8280b4a14"><td class="mdescLeft">&#160;</td><td class="mdescRight">What previous stage items were combined to make this one, if any?  <a href="#a9ee7530fac67298fbcdb27f8280b4a14">More...</a><br/></td></tr>
 <tr class="separator:a9ee7530fac67298fbcdb27f8280b4a14"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a566978051c820d69d63e72763dc38b17"><td class="memItemLeft" align="right" valign="top">vector&lt; const char * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1Item.html#a566978051c820d69d63e72763dc38b17">passed_filters</a> = {}</td></tr>
+<tr class="memdesc:a566978051c820d69d63e72763dc38b17"><td class="mdescLeft">&#160;</td><td class="mdescRight">What filters did the item pass at this stage, if any?  <a href="#a566978051c820d69d63e72763dc38b17">More...</a><br/></td></tr>
+<tr class="separator:a566978051c820d69d63e72763dc38b17"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5ae29ab2e549daa3fa20626fd5d4fb59"><td class="memItemLeft" align="right" valign="top">vector&lt; double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1Item.html#a5ae29ab2e549daa3fa20626fd5d4fb59">passed_statistics</a> = {}</td></tr>
+<tr class="memdesc:a5ae29ab2e549daa3fa20626fd5d4fb59"><td class="mdescLeft">&#160;</td><td class="mdescRight">And what statistics did they have (or NaN)?  <a href="#a5ae29ab2e549daa3fa20626fd5d4fb59">More...</a><br/></td></tr>
+<tr class="separator:a5ae29ab2e549daa3fa20626fd5d4fb59"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac661e647007faace0ce5949268f0969d"><td class="memItemLeft" align="right" valign="top">const char *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1Item.html#ac661e647007faace0ce5949268f0969d">failed_filter</a> = nullptr</td></tr>
+<tr class="memdesc:ac661e647007faace0ce5949268f0969d"><td class="mdescLeft">&#160;</td><td class="mdescRight">What filter did the item finally fail at at this stage, if any?  <a href="#ac661e647007faace0ce5949268f0969d">More...</a><br/></td></tr>
+<tr class="separator:ac661e647007faace0ce5949268f0969d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a88e8b76d62aac942c29cfbefe38ec5ca"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1Item.html#a88e8b76d62aac942c29cfbefe38ec5ca">failed_statistic</a> = nan(&quot;&quot;)</td></tr>
+<tr class="memdesc:a88e8b76d62aac942c29cfbefe38ec5ca"><td class="mdescLeft">&#160;</td><td class="mdescRight">And what statistic did it fail with (or NaN)?  <a href="#a88e8b76d62aac942c29cfbefe38ec5ca">More...</a><br/></td></tr>
+<tr class="separator:a88e8b76d62aac942c29cfbefe38ec5ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Represents an <a class="el" href="structvg_1_1Funnel_1_1Item.html" title="Represents an Item whose provenance we track. ">Item</a> whose provenance we track. </p>
@@ -130,6 +142,34 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="ac661e647007faace0ce5949268f0969d"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const char* vg::Funnel::Item::failed_filter = nullptr</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>What filter did the item finally fail at at this stage, if any? </p>
+
+</div>
+</div>
+<a class="anchor" id="a88e8b76d62aac942c29cfbefe38ec5ca"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::Funnel::Item::failed_statistic = nan(&quot;&quot;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>And what statistic did it fail with (or NaN)? </p>
+
+</div>
+</div>
 <a class="anchor" id="a23706e46f9ebd56acbea3c612358bb79"></a>
 <div class="memitem">
 <div class="memproto">
@@ -139,6 +179,34 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a566978051c820d69d63e72763dc38b17"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt;const char*&gt; vg::Funnel::Item::passed_filters = {}</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>What filters did the item pass at this stage, if any? </p>
+
+</div>
+</div>
+<a class="anchor" id="a5ae29ab2e549daa3fa20626fd5d4fb59"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt;double&gt; vg::Funnel::Item::passed_statistics = {}</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>And what statistics did they have (or NaN)? </p>
 
 </div>
 </div>

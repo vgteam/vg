@@ -23,8 +23,6 @@ var searchData=
   ['key_5fprefix_5ffor_5fkmer',['key_prefix_for_kmer',['../classvg_1_1Index.html#ac1cf69b986649867350efdc859d58c1d',1,'vg::Index']]],
   ['key_5fprefix_5ffor_5fnode_5fpath',['key_prefix_for_node_path',['../classvg_1_1Index.html#ab949083766fa19ce514ae152bb1d41cb',1,'vg::Index']]],
   ['key_5fprefix_5ffor_5ftraversal',['key_prefix_for_traversal',['../classvg_1_1Index.html#adadacac4e1843a9f2515e2380618f11c',1,'vg::Index']]],
-  ['kill',['kill',['../classvg_1_1Funnel.html#a5185e210a61afb63253baae3a1e30958',1,'vg::Funnel']]],
-  ['kill_5fall',['kill_all',['../classvg_1_1Funnel.html#aa50640d642e54281c8861a2b42e25535',1,'vg::Funnel']]],
   ['kmer_5fentry_5fto_5fstring',['kmer_entry_to_string',['../classvg_1_1Index.html#a390728092e37532a1e36a417952e21b7',1,'vg::Index']]],
   ['kmer_5fmatches',['kmer_matches',['../classvg_1_1Index.html#a2cf8b8ad22bf41d6a30ac488ead6b52c',1,'vg::Index']]],
   ['kmer_5ft',['kmer_t',['../structvg_1_1kmer__t.html#a83d1946c92dcdc9c6adbc03b4da30312',1,'vg::kmer_t']]],
