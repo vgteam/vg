@@ -75,6 +75,13 @@ int64_t VGset::merge_id_space(void) {
 }
 
 void VGset::to_xg(xg::XG& index) {
+    // Send a predicate to match nothing
+    to_xg(index, [](const string& ignored) {
+        return false;
+    });
+}
+
+void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_take, map<string, Path>* removed_paths) {
 
     function<void(const string&, std::ifstream&)> check_stream = [&](const string&name, std::ifstream& in) {
         if (name == "-"){
@@ -135,12 +142,35 @@ void VGset::to_xg(xg::XG& index) {
             });
     }
 
+    // optionally filter out alt paths
+    vector<pair<string, pair<vector<pair<nid_t, bool>>, bool>>> kept_paths;
+    for (auto& path : paths) {
+        if (paths_to_take(path.first) == false) {
+            kept_paths.push_back(make_pair(path.first, std::move(path.second)));
+        } else if (removed_paths != nullptr) {
+            Path proto_path;
+            proto_path.set_name(path.first);
+            proto_path.set_is_circular(path.second.second);
+            size_t rank = 1;
+            for (auto& step : path.second.first) {
+                if (step.first) {
+                    Mapping* mapping = proto_path.add_mapping();
+                    mapping->mutable_position()->set_node_id(step.first);
+                    mapping->mutable_position()->set_is_reverse(step.second);
+                    mapping->set_rank(rank++);
+                }
+            }
+            (*removed_paths)[path.first] = std::move(proto_path);
+        }
+    }
+    paths.clear();
+
     auto for_each_path_element = [&](
         const std::function<void(const std::string& path_name,
                                  const nid_t& node_id, const bool& is_rev,
                                  const std::string& cigar,
                                  bool is_empty, bool is_circular)>& lambda) {
-        for (auto& path : paths) {
+        for (auto& path : kept_paths) {
             auto& path_name = path.first;
             auto& path_steps = path.second.first;
             bool path_circular = path.second.second;
@@ -155,9 +185,8 @@ void VGset::to_xg(xg::XG& index) {
             }
         }
     };
-
+    
     index.from_enumerators(for_each_sequence, for_each_edge, for_each_path_element, false);
-
 }
 
 void VGset::for_each_kmer_parallel(size_t kmer_size, const function<void(const kmer_t&)>& lambda) {
