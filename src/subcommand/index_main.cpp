@@ -42,6 +42,7 @@ void help_index(char** argv) {
          << "    -p, --progress         show progress" << endl
          << "xg options:" << endl
          << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of the graph(s), or read for GCSA indexing" << endl
+         << "    -L, --xg-alts          include alt paths in xg" << endl
          << "gbwt options:" << endl
          << "    -v, --vcf-phasing FILE generate threads from the haplotypes in the VCF file FILE" << endl
          << "    -W, --ignore-missing   don't warn when variants in the VCF are missing from the graph; silently skip them" << endl
@@ -184,6 +185,9 @@ int main_index(int argc, char** argv) {
     // Unused?
     bool compact = false;
 
+    // Include alt paths in xg
+    bool xg_alts = false;
+
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -197,6 +201,7 @@ int main_index(int argc, char** argv) {
             // XG
             {"xg-name", required_argument, 0, 'x'},
             {"thread-db", required_argument, 0, 'F'},
+            {"xg-alts", no_argument, 0, 'L'},
 
             // GBWT
             {"vcf-phasing", required_argument, 0, 'v'},
@@ -249,7 +254,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:v:We:TM:G:H:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCs:j:w:h",
+        c = getopt_long (argc, argv, "b:t:px:Lv:We:TM:G:H:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCs:j:w:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -273,6 +278,9 @@ int main_index(int argc, char** argv) {
         case 'x':
             build_xg = true;
             xg_name = optarg;
+            break;
+        case 'L':
+            xg_alts = true;
             break;
 
         // GBWT
@@ -533,8 +541,10 @@ int main_index(int argc, char** argv) {
             return 1;
         }
         VGset graphs(file_names);
-        graphs.to_xg(*xg_index);
-        if (index_haplotypes) {
+        graphs.to_xg(*xg_index, xg_alts ? [](const string&) {return false;} : Paths::is_alt, index_haplotypes ? &alt_paths : nullptr);
+        if (index_haplotypes && xg_alts) {
+            assert(alt_paths.empty());
+            // they weren't filtered in the above: re-extract here
             xg_index->for_each_path_handle([&](path_handle_t path_handle) {
                     string path_name = xg_index->get_path_name(path_handle);
                     if (Paths::is_alt(path_name)) {
