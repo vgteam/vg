@@ -380,9 +380,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             auto& extensions = cluster_extensions[extension_num];
             
-            // Get an Alignment out of it somehow, and throw it in.
-            alignments.emplace_back(aln);
-            Alignment& out = alignments.back();
+            // Get an Alignments best_ and second_best_extension of it somehow, and throw it in.
+            Alignment best_extension = aln;
+            Alignment second_best_extension = aln;
             
             if (extensions.size() == 1 && extensions[0].full()) {
                 // We got a full-length extension, so directly convert to an Alignment.
@@ -391,18 +391,19 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     funnel.substage("direct");
                 }
 
-                *out.mutable_path() = extensions.front().to_path(gbwt_graph, out.sequence());
+                *best_extension.mutable_path() = extensions.front().to_path(gbwt_graph, best_extension.sequence());
                 
                 // The score estimate is exact.
                 int alignment_score = cluster_extension_scores[extension_num];
                 
                 // Compute identity from mismatch count.
                 size_t mismatch_count = extensions[0].mismatches();
-                double identity = out.sequence().size() == 0 ? 0.0 : (out.sequence().size() - mismatch_count) / (double) out.sequence().size();
+                double identity = best_extension.sequence().size() == 0 ? 0.0 : (best_extension.sequence().size() - mismatch_count) / (double) best_extension.sequence().size();
                 
                 // Fill in the score and identity
-                out.set_score(alignment_score);
-                out.set_identity(identity);
+                best_extension.set_score(alignment_score);
+                best_extension.set_identity(identity);
+                alignments.push_back(move(best_extension));
                 
                 if (track_provenance) {
                     // Stop the current substage
@@ -415,8 +416,14 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     funnel.substage("chain");
                 }
                 
-                // Do the DP and compute alignment into out 
-                find_optimal_tail_alignments(aln, extensions, out);
+                // Do the DP and compute alignment into best_extension and
+                // second_best_extension, if there is a second best
+                find_optimal_tail_alignments(aln, extensions, best_extension, second_best_extension);
+
+                if (second_best_extension.score() != 0) {
+                    alignments.push_back(move(second_best_extension));
+                }
+                alignments.push_back(move(best_extension));
                 
                 if (track_provenance) {
                     // We're done chaining. Next alignment may not go through this substage.
@@ -424,14 +431,17 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 }
             } else {
                 // We would do chaining but it is disabled.
-                // Leave out unaligned
+                // Leave best_extension unaligned
             }
             
             
             if (track_provenance) {
                 // Record the Alignment and its score with the funnel
                 funnel.project(extension_num);
-                funnel.score(alignments.size() - 1, out.score());
+                if (second_best_extension.score() != 0) {
+                    funnel.score(alignments.size() - 2, second_best_extension.score());
+                }
+                funnel.score(alignments.size() - 1, best_extension.score());
                 
                 // We're done with this input item
                 funnel.processed_input();
@@ -705,7 +715,7 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
     
 }
 
-void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
+void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& best, Alignment& second_best) const {
 
 #ifdef debug
     cerr << "Trying again find tail alignments for " << extended_seeds.size() << " extended seeds" << endl;
@@ -729,6 +739,11 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
     Path winning_middle;
     Path winning_right;
     size_t winning_score = 0;
+
+    Path second_left;
+    Path second_middle;
+    Path second_right;
+    size_t second_score = 0;
     
     // Handle each extension in the set
     process_until_threshold(extended_seeds, extension_path_scores,
@@ -778,13 +793,39 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
 
             if (total_score > winning_score || winning_score == 0) {
                 // This is the new best alignment seen so far.
+
                 
+                if (winning_left.mapping(0).position().node_id() 
+                         != left_tail_result.first.mapping(0).position().node_id() &&
+                   winning_right.mapping(winning_right.mapping_size() - 1).position().node_id() 
+                         != right_tail_result.first.mapping(right_tail_result.first.mapping_size() - 1).position().node_id()) {
+                //The previous best scoring alignment replaces the second best
+                    second_score = winning_score;
+                    second_left = std::move(winning_left);
+                    second_middle = std::move(winning_middle);
+                    second_right = std::move(winning_right);
+                }
+
                 // Save the score
                 winning_score = total_score;
                 // And the path parts
                 winning_left = std::move(left_tail_result.first);
                 winning_middle = std::move(extension_paths[extended_seed_num]);
                 winning_right = std::move(right_tail_result.first);
+            } else if ((total_score > second_score || second_score == 0) &&
+                  (winning_left.mapping(0).position().node_id() 
+                         != left_tail_result.first.mapping(0).position().node_id() &&
+                   winning_right.mapping(winning_right.mapping_size() - 1).position().node_id() 
+                         != right_tail_result.first.mapping(right_tail_result.first.mapping_size() - 1).position().node_id())) {
+                // This is the new second best alignment seen so far and it is 
+                // different from the best alignment.
+                
+                // Save the score
+                second_score = total_score;
+                // And the path parts
+                second_left = std::move(left_tail_result.first);
+                second_middle = std::move(extension_paths[extended_seed_num]);
+                second_right = std::move(right_tail_result.first);
             }
 
             return true;
@@ -793,40 +834,67 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
         });
         
     // Now we know the winning path and score. Move them over to out
-    out.set_score(winning_score);
+    best.set_score(winning_score);
+    second_best.set_score(second_score);
 
     // Concatenate the paths. We know there must be at least an edit boundary
     // between each part, because the maximal extension doesn't end in a
     // mismatch or indel and eats all matches.
     // We also don't need to worry about jumps that skip intervening sequence.
-    *out.mutable_path() = std::move(winning_left);
+    *best.mutable_path() = std::move(winning_left);
 
     for (auto* to_append : {&winning_middle, &winning_right}) {
         // For each path to append
         for (auto& mapping : *to_append->mutable_mapping()) {
             // For each mapping to append
             
-            if (mapping.position().offset() != 0 && out.path().mapping_size() > 0) {
+            if (mapping.position().offset() != 0 && best.path().mapping_size() > 0) {
                 // If we have a nonzero offset in our mapping, and we follow
                 // something, we must be continuing on from a previous mapping to
                 // the node.
-                assert(mapping.position().node_id() == out.path().mapping(out.path().mapping_size() - 1).position().node_id());
+                assert(mapping.position().node_id() == best.path().mapping(best.path().mapping_size() - 1).position().node_id());
 
                 // Find that previous mapping
-                auto* prev_mapping = out.mutable_path()->mutable_mapping(out.path().mapping_size() - 1);
+                auto* prev_mapping = best.mutable_path()->mutable_mapping(best.path().mapping_size() - 1);
                 for (auto& edit : *mapping.mutable_edit()) {
                     // Move over all the edits in this mapping onto the end of that one.
                     *prev_mapping->add_edit() = std::move(edit);
                 }
             } else {
                 // If we start at offset 0 or there's nothing before us, we need to just move the whole mapping
-                *out.mutable_path()->add_mapping() = std::move(mapping);
+                *best.mutable_path()->add_mapping() = std::move(mapping);
+            }
+        }
+    }
+    //Do the same for the second best
+    *second_best.mutable_path() = std::move(winning_left);
+
+    for (auto* to_append : {&winning_middle, &winning_right}) {
+        // For each path to append
+        for (auto& mapping : *to_append->mutable_mapping()) {
+            // For each mapping to append
+            
+            if (mapping.position().offset() != 0 && second_best.path().mapping_size() > 0) {
+                // If we have a nonzero offset in our mapping, and we follow
+                // something, we must be continuing on from a previous mapping to
+                // the node.
+                assert(mapping.position().node_id() == second_best.path().mapping(second_best.path().mapping_size() - 1).position().node_id());
+
+                // Find that previous mapping
+                auto* prev_mapping = second_best.mutable_path()->mutable_mapping(second_best.path().mapping_size() - 1);
+                for (auto& edit : *mapping.mutable_edit()) {
+                    // Move over all the edits in this mapping onto the end of that one.
+                    *prev_mapping->add_edit() = std::move(edit);
+                }
+            } else {
+                // If we start at offset 0 or there's nothing before us, we need to just move the whole mapping
+                *second_best.mutable_path()->add_mapping() = std::move(mapping);
             }
         }
     }
 
     // Compute the identity from the path.
-    out.set_identity(identity(out.path()));
+    second_best.set_identity(identity(second_best.path()));
 }
 
 pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees,
