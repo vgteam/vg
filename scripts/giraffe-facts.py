@@ -583,7 +583,7 @@ def print_table(read_count, stats_total, out=sys.stdout):
     
     # And the passing count columns (average)
     passing_header = "Passing"
-    passing_header2 = "(Per Read)"
+    passing_header2 = "(/Read)"
     passing_width = max(len(passing_header), len(passing_header2))
     
     headers.append(passing_header)
@@ -592,7 +592,7 @@ def print_table(read_count, stats_total, out=sys.stdout):
     
     # And the failing count columns (average)
     failing_header = "Failing"
-    failing_header2 = "(Per Read)"
+    failing_header2 = "(/Read)"
     failing_width = max(len(failing_header), len(failing_header2))
     
     headers.append(failing_header)
@@ -600,8 +600,8 @@ def print_table(read_count, stats_total, out=sys.stdout):
     header_widths.append(failing_width)
     
     # And the correct result lost count header
-    lost_header = "Correct"
-    lost_header2 = "Lost"
+    lost_header = "Lost"
+    lost_header2 = ""
     # How big a number will we need to hold?
     # Look at the reads lost at all filters
     # Account for None values for stages that don't have correctness defined yet.
@@ -616,8 +616,8 @@ def print_table(read_count, stats_total, out=sys.stdout):
     header_widths.append(lost_width)
     
     # And the total rejected count header
-    rejected_header = "Total"
-    rejected_header2 = "Removed"
+    rejected_header = "Cut"
+    rejected_header2 = ""
     # How big a number will we need to hold?
     # Look at the reads rejected at all filters
     rejected_reads = [stats_total[filter_name]['failed_count_total'] for filter_name in stats_total.keys()]
@@ -629,6 +629,23 @@ def print_table(read_count, stats_total, out=sys.stdout):
     headers.append(rejected_header)
     headers2.append(rejected_header2)
     header_widths.append(rejected_width)
+    
+    # Now do precision and recall
+    # How should we format them?
+    pr_format = '{:.2f}'
+    precision_header = "P"
+    precision_header2 = ""
+    precision_width = max(len(precision_header), len(precision_header2), len(pr_format.format(1.0)), len('N/A'))
+    headers.append(precision_header)
+    headers2.append(precision_header2)
+    header_widths.append(precision_width)
+    recall_header = "R"
+    recall_header2 = ""
+    recall_width = max(len(recall_header), len(recall_header2), len(pr_format.format(1.0)), len('N/A'))
+    headers.append(recall_header)
+    headers2.append(recall_header2)
+    header_widths.append(recall_width)
+    
     
     # Start the table
     table = Table(header_widths)
@@ -662,12 +679,28 @@ def print_table(read_count, stats_total, out=sys.stdout):
             # Correctness is not defined yet.
             # TODO: have a way to see if the correct mapping never shows up.
             lost = 'N/A'
+            
+        # Compute precision
+        try:
+            precision = pr_format.format(stats_total[filter_name]['passed_count_correct'] /
+                stats_total[filter_name]['passed_count_total'])
+        except:
+            precision = 'N/A'
+        
+        # Compute recall
+        try:
+            recall = pr_format.format(stats_total[filter_name]['passed_count_correct'] / 
+                (stats_total[filter_name]['passed_count_correct'] +
+                stats_total[filter_name]['failed_count_correct']))
+        except:
+            recall = 'N/A'
         
         row = [filter_name]
         align = 'c'
         # Add the provenance columns
-        row += ['{:.2f}'.format(average_passing), '{:.2f}'.format(average_failing), lost, rejected]
-        align += 'rrrr'
+        row += ['{:.2f}'.format(average_passing), '{:.2f}'.format(average_failing), lost, rejected,
+            precision, recall]
+        align += 'rrrrrr'
         
         # Output the finished row
         table.row(row, align)
@@ -678,7 +711,7 @@ def print_table(read_count, stats_total, out=sys.stdout):
     row = [filter_overall]
     align = 'c'
     # Add the provenance columns
-    row += ['', '', overall_lost, overall_rejected]
+    row += ['', '', overall_lost, overall_rejected, '', '']
     align += 'rr'
     
     table.row(row, align)
