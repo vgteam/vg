@@ -813,7 +813,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 winning_middle = std::move(extension_paths[extended_seed_num]);
                 winning_right = std::move(right_tail_result.first);
             } else if ((total_score > second_score || second_score == 0) &&
-                  (winning_left.mapping(0).position().node_id() 
+                  (winning_score != 0 && winning_left.mapping(0).position().node_id() 
                          != left_tail_result.first.mapping(0).position().node_id() &&
                    winning_right.mapping(winning_right.mapping_size() - 1).position().node_id() 
                          != right_tail_result.first.mapping(right_tail_result.first.mapping_size() - 1).position().node_id())) {
