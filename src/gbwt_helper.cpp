@@ -583,13 +583,7 @@ gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths) {
     }
     builder.finish();
 
-    std::string filename = temp_file::create("gbwt");
-    sdsl::store_to_file(builder.index, filename);
-    gbwt::GBWT gbwt_index;
-    sdsl::load_from_file(gbwt_index, filename);
-    temp_file::remove(filename);
-
-    return gbwt_index;
+    return gbwt::GBWT(builder.index);
 }
 
 //------------------------------------------------------------------------------
