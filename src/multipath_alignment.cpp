@@ -9,7 +9,7 @@
 
 #include <type_traits>
 
-#define debug_multiple_tracebacks
+//#define debug_multiple_tracebacks
 //#define debug_verbose_validation
 
 using namespace std;
@@ -1080,26 +1080,27 @@ namespace vg {
             }
 #endif
             
-            if (queue.size() >= hard_max_size) {
-                return;
-            }
             
-            if (!get<0>(item).empty() || queue.size() < soft_max_size || (!queue.empty() && item < queue.max())) {
+            if ((!get<0>(item).empty() && queue.size() < hard_max_size)
+                || (queue.size() < soft_max_size && queue.size() < hard_max_size)
+                || (!queue.empty() && item < queue.max())) {
                 // The item belongs in the queue because it fits or it beats
                 // the current worst thing if present, or it's not eligible for removal.
                 queue.push(item);
 #ifdef debug_multiple_tracebacks
-                cerr << "Allow item into queue (" << queue.size() << "/" << soft_max_size << ")" << endl;
+                cerr << "Allow item into queue (" << queue.size() << "/" << soft_max_size << "," << hard_max_size << ")" << endl;
 #endif
                 
             }
             
-            while(!queue.empty() && queue.size() > soft_max_size && get<0>(queue.max()).empty()) {
+            while (!queue.empty()
+                   && (queue.size() > hard_max_size || queue.size() > soft_max_size)
+                   && (get<0>(queue.max()).empty() || queue.size() > hard_max_size)) {
                 // We have more possibilities than we need to consider, and
                 // some are eligible for removal. Get rid of the worst one.
                 queue.pop_max();
 #ifdef debug_multiple_tracebacks
-                cerr << "Remove worst from queue (" << queue.size() << "/" << soft_max_size << ")" << endl;
+                cerr << "Remove worst from queue (" << queue.size() << "/" << soft_max_size << "," << hard_max_size << ")" << endl;
 #endif
             }
         };
