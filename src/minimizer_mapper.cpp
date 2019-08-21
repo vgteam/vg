@@ -281,9 +281,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     vector<vector<GaplessExtension>> cluster_extensions;
     cluster_extensions.reserve(clusters.size());
     
-    // Always take the first two clusters, but filter the rest
     process_until_threshold(clusters, read_coverage_by_cluster,
-        cluster_coverage_threshold, 2, max_extensions,
+        cluster_coverage_threshold, 1, max_extensions,
         [&](size_t cluster_num) {
             // Handle sufficiently good clusters in descending coverage order
             
