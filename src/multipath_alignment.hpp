@@ -107,11 +107,12 @@ namespace vg {
     ///  Args:
     ///    multipath_aln     multipath alignment to find optimal paths through
     ///    score_provider    a haplo::ScoreProvider that supports incremental search over its haplotype database (such as a GBWTScoreProvider)
-    ///    count             maximum number of haplotype-inconsistent alignments to pad to
+    ///    soft_count        maximum number of haplotype-inconsistent alignments to pad to
+    ///    hard_count        maximum number of alignments, including haplotype-consistent (0 if no limit)
     ///    optimal_first     always compute and return first the optimal alignment, even if not haplotype-consistent
     ///
     vector<Alignment> haplotype_consistent_alignments(const MultipathAlignment& multipath_aln, const haplo::ScoreProvider& score_provider,
-        size_t count, bool optimal_first = false); 
+        size_t soft_count, size_t hard_count, bool optimal_first = false);
     
     /// Stores the reverse complement of a MultipathAlignment in another MultipathAlignment
     ///
