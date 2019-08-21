@@ -39,7 +39,7 @@
 	url = https://github.com/sparsehash/sparsehash.git
 [submodule "gfakluge"]
     path = deps/gfakluge
-    url = https://github.com/edawson/gfakluge.git
+    url = https://github.com/vgteam/gfakluge.git
 [submodule "deps/DYNAMIC"]
 	path = deps/DYNAMIC
 	url = https://github.com/vgteam/DYNAMIC
