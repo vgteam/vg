@@ -137,6 +137,7 @@ int main_mpmap(int argc, char** argv) {
     int max_single_end_map_attempts = 64;
     int max_rescue_attempts = 10;
     int population_max_paths = 10;
+    int population_paths_hard_cap = 1000;
     bool top_tracebacks = false;
     // How many distinct single path alignments should we look for in a multipath, for MAPQ?
     // TODO: create an option.
@@ -979,6 +980,7 @@ int main_mpmap(int argc, char** argv) {
     // Use population MAPQs when we have the right option combination to make that sensible.
     multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr && population_max_paths > 0);
     multipath_mapper.population_max_paths = population_max_paths;
+    multipath_mapper.population_paths_hard_cap = population_paths_hard_cap;
     multipath_mapper.top_tracebacks = top_tracebacks;
     multipath_mapper.recombination_penalty = recombination_penalty;
     multipath_mapper.always_check_population = always_check_population;

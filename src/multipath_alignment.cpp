@@ -802,7 +802,7 @@ namespace vg {
     }
    
     vector<Alignment> haplotype_consistent_alignments(const MultipathAlignment& multipath_aln, const haplo::ScoreProvider& score_provider,
-        size_t count, bool optimal_first) {
+        size_t soft_count, size_t hard_count, bool optimal_first) {
         
 #ifdef debug_multiple_tracebacks
         cerr << "Computing haplotype consistent alignments" << endl;
@@ -1065,34 +1065,42 @@ namespace vg {
         auto try_enqueue = [&](const tuple<SearchState, int32_t, step_list_t>& item) {
             // Work out how many things can be in the queue to compete to pad out the remaining return slots.
             // Make sure it doesn't try to go negative.
-            size_t max_size = count - std::min(count, to_return.size());
+            size_t soft_max_size = soft_count - std::min(soft_count, to_return.size());
+            size_t hard_max_size = hard_count ? hard_count - to_return.size() : numeric_limits<size_t>::max();
 
 #ifdef debug_multiple_tracebacks
-            if (!get<0>(item).empty()) {
+            if (queue.size() >= hard_max_size) {
+                cerr << "We've reached the hard cap on queue size -- even haplotype consistent are rejected" << endl;
+            } else if (!get<0>(item).empty()) {
                 cerr << "Item is haplotype-consistent and must be queued" << endl;
-            } else if (queue.size() < max_size) {
+            } else if (queue.size() < soft_max_size) {
                 cerr << "Item fits in queue" << endl;
             } else if (!queue.empty() && item < queue.max()) {
                 cerr << "Item beats worst thing in queue" << endl;
             }
 #endif
             
-            if (!get<0>(item).empty() || queue.size() < max_size || (!queue.empty() && item < queue.max())) {
+            
+            if ((!get<0>(item).empty() && queue.size() < hard_max_size)
+                || (queue.size() < soft_max_size && queue.size() < hard_max_size)
+                || (!queue.empty() && item < queue.max())) {
                 // The item belongs in the queue because it fits or it beats
                 // the current worst thing if present, or it's not eligible for removal.
                 queue.push(item);
 #ifdef debug_multiple_tracebacks
-                cerr << "Allow item into queue (" << queue.size() << "/" << max_size << ")" << endl;
+                cerr << "Allow item into queue (" << queue.size() << "/" << soft_max_size << "," << hard_max_size << ")" << endl;
 #endif
                 
             }
             
-            while(!queue.empty() && queue.size() > max_size && get<0>(queue.max()).empty()) {
+            while (!queue.empty()
+                   && (queue.size() > hard_max_size || queue.size() > soft_max_size)
+                   && (get<0>(queue.max()).empty() || queue.size() > hard_max_size)) {
                 // We have more possibilities than we need to consider, and
                 // some are eligible for removal. Get rid of the worst one.
                 queue.pop_max();
 #ifdef debug_multiple_tracebacks
-                cerr << "Remove worst from queue (" << queue.size() << "/" << max_size << ")" << endl;
+                cerr << "Remove worst from queue (" << queue.size() << "/" << soft_max_size << "," << hard_max_size << ")" << endl;
 #endif
             }
         };
