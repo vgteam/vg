@@ -1,7 +1,7 @@
 var searchData=
 [
   ['tables',['Tables',['../structvg_1_1io_1_1Registry_1_1Tables.html',1,'vg::io::Registry']]],
-  ['tag',['tag',['../structvg_1_1GBWTGraph_1_1Header.html#a6dcdbb53b34ef37f421f9a2df1c2bb7d',1,'vg::GBWTGraph::Header::tag()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a17e22f4ea8e69209b9aff2c00deb9ba4',1,'vg::io::ProtobufEmitter::tag()'],['../structvg_1_1GBWTGraph_1_1Header.html#a245b739ef1fccad2fb24364a20f5a903',1,'vg::GBWTGraph::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()']]],
+  ['tag',['TAG',['../structvg_1_1GBWTGraph_1_1Header.html#a245b739ef1fccad2fb24364a20f5a903',1,'vg::GBWTGraph::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()'],['../structvg_1_1GBWTGraph_1_1Header.html#a6dcdbb53b34ef37f421f9a2df1c2bb7d',1,'vg::GBWTGraph::Header::tag()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a17e22f4ea8e69209b9aff2c00deb9ba4',1,'vg::io::ProtobufEmitter::tag()']]],
   ['tag_5fcorrect',['tag_correct',['../classvg_1_1Funnel.html#a4e2ab6878393d0d9aaee56127844b06b',1,'vg::Funnel']]],
   ['tag_5fto_5floader',['tag_to_loader',['../structvg_1_1io_1_1Registry_1_1Tables.html#a965e60de0073226a98deef0757d7dfa8',1,'vg::io::Registry::Tables']]],
   ['tag_5fto_5fprotobuf',['tag_to_protobuf',['../structvg_1_1io_1_1Registry_1_1Tables.html#abac3d9be375a86c8f55e5777e97fe323',1,'vg::io::Registry::Tables']]],
@@ -136,7 +136,7 @@ var searchData=
   ['translate_5foriented_5fnode_5fids',['translate_oriented_node_ids',['../namespacevg.html#a2b0ba7a1d0cf7630b79d03ba0ab65c53',1,'vg']]],
   ['translation',['Translation',['../structvg_1_1Translation.html',1,'vg']]],
   ['translations',['translations',['../classvg_1_1Translator.html#aba17cd4fd008c2dbee1da376db1807be',1,'vg::Translator']]],
-  ['translator',['translator',['../structvg_1_1AugmentedGraph.html#a3ac035d37452eb611b943cfa4754d6c6',1,'vg::AugmentedGraph::translator()'],['../classvg_1_1Genotyper.html#ad14928554aace83524e80d8c109e17b2',1,'vg::Genotyper::translator()'],['../classvg_1_1Homogenizer.html#add991c227017ff02250cbaac2b81ca72',1,'vg::Homogenizer::translator()'],['../classvg_1_1Translator.html#ac23acdcea38566f2e68005eca4afff73',1,'vg::Translator::Translator(void)'],['../classvg_1_1Translator.html#aeab811097e483365bbd273efc4c4445e',1,'vg::Translator::Translator(istream &amp;in)'],['../classvg_1_1Translator.html#a99602b3868ae6f8f1efc6bf7adcde6f6',1,'vg::Translator::Translator(const vector&lt; Translation &gt; &amp;trans)']]],
+  ['translator',['Translator',['../classvg_1_1Translator.html#ac23acdcea38566f2e68005eca4afff73',1,'vg::Translator::Translator(void)'],['../classvg_1_1Translator.html#aeab811097e483365bbd273efc4c4445e',1,'vg::Translator::Translator(istream &amp;in)'],['../classvg_1_1Translator.html#a99602b3868ae6f8f1efc6bf7adcde6f6',1,'vg::Translator::Translator(const vector&lt; Translation &gt; &amp;trans)'],['../structvg_1_1AugmentedGraph.html#a3ac035d37452eb611b943cfa4754d6c6',1,'vg::AugmentedGraph::translator()'],['../classvg_1_1Genotyper.html#ad14928554aace83524e80d8c109e17b2',1,'vg::Genotyper::translator()'],['../classvg_1_1Homogenizer.html#add991c227017ff02250cbaac2b81ca72',1,'vg::Homogenizer::translator()']]],
   ['translator',['Translator',['../classvg_1_1Translator.html',1,'vg']]],
   ['translator_2ecpp',['translator.cpp',['../translator_8cpp.html',1,'']]],
   ['translator_2ehpp',['translator.hpp',['../translator_8hpp.html',1,'']]],
@@ -164,7 +164,7 @@ var searchData=
   ['travs_5ffrom',['travs_from',['../classvg_1_1VG.html#a34a493a0628857a3bfae181295ba541d',1,'vg::VG']]],
   ['travs_5fof',['travs_of',['../classvg_1_1VG.html#ae065082f817e9bc0e278cf71f31af1e2',1,'vg::VG']]],
   ['travs_5fto',['travs_to',['../classvg_1_1VG.html#a0a962957210c079fa242b383d5c65de3',1,'vg::VG']]],
-  ['tree',['Tree',['../structvg_1_1Tree.html#a2583e3d479b8b3fa66e8eb0065417934',1,'vg::Tree::Tree()'],['../classvg_1_1TreeSubgraph.html#a91ef2cd31f18ada628b0990faae105a1',1,'vg::TreeSubgraph::tree()']]],
+  ['tree',['tree',['../classvg_1_1TreeSubgraph.html#a91ef2cd31f18ada628b0990faae105a1',1,'vg::TreeSubgraph::tree()'],['../structvg_1_1Tree.html#a2583e3d479b8b3fa66e8eb0065417934',1,'vg::Tree::Tree()']]],
   ['tree',['Tree',['../structvg_1_1Tree.html',1,'vg']]],
   ['tree_5fdepth',['tree_depth',['../classvg_1_1MinimumDistanceIndex.html#a32b89d9850b59f0354be0bfa05774d4b',1,'vg::MinimumDistanceIndex']]],
   ['tree_5fsubgraph_2ecpp',['tree_subgraph.cpp',['../tree__subgraph_8cpp.html',1,'']]],
