@@ -39,7 +39,7 @@
 	url = https://github.com/sparsehash/sparsehash.git
 [submodule "gfakluge"]
     path = deps/gfakluge
-    url = https://github.com/edawson/gfakluge.git
+    url = https://github.com/vgteam/gfakluge.git
 [submodule "deps/DYNAMIC"]
 	path = deps/DYNAMIC
 	url = https://github.com/vgteam/DYNAMIC
@@ -113,3 +113,12 @@
 [submodule "deps/libbdsg"]
 	path = deps/libbdsg
 	url = https://github.com/vgteam/libbdsg.git
+[submodule "deps/xg"]
+	path = deps/xg
+	url = https://github.com/vgteam/xg.git
+[submodule "deps/mmmultimap"]
+	path = deps/mmmultimap
+	url = https://github.com/glennhickey/mmmultimap.git
+[submodule "deps/ips4o"]
+	path = deps/ips4o
+	url = https://github.com/vgteam/ips4o.git
