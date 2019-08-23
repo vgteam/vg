@@ -11,7 +11,8 @@
 //#define debug_algorithms
 //#define debug_component_index
 
-namespace vg {
+using namespace vg;
+namespace xg {
 
 using namespace handlegraph;
 
@@ -668,6 +669,132 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
 #endif
 
         }
+    };
+
+    // Get all the chunks via the callback, and have them called back to us.
+    // The other end handles figuring out how much to loop.
+    get_chunks(lambda);
+
+    // sort the node labels and remove any duplicates
+    std::sort(node_label.begin(), node_label.end());
+    node_label.erase(std::unique(node_label.begin(), node_label.end()), node_label.end());
+    for (auto& p : node_label) {
+        ++node_count;
+        seq_length += p.second.size();
+    }
+    
+    if (node_count == 0) {
+        // Catch the empty graph with a sensible message instead of an assert fail
+        cerr << "[xg] error: cannot build an xg index from an empty graph" << endl;
+        exit(1);
+    }
+
+    path_count = path_nodes.size();
+    
+    // sort the paths using mapping rank
+    // and remove duplicates
+    for (auto& p : path_nodes) {
+        vector<trav_t>& path = path_nodes[p.first];
+        if (!std::is_sorted(path.begin(), path.end(),
+                            [](const trav_t& m1, const trav_t& m2) { return trav_rank(m1) < trav_rank(m2); })) {
+            std::sort(path.begin(), path.end(),
+                      [](const trav_t& m1, const trav_t& m2) { return trav_rank(m1) < trav_rank(m2); });
+        }
+        auto last_unique = std::unique(path.begin(), path.end(),
+                                       [](const trav_t& m1, const trav_t& m2) {
+                                           return trav_rank(m1) == trav_rank(m2);
+                                       });
+        
+        if (last_unique != path.end()) {
+            cerr << "[xg] error: path " << p.first << " contains duplicate node ranks" << endl;
+            exit(1);
+        }
+    }
+
+    build(node_label, from_to, to_from, path_nodes, circular_paths, validate_graph,
+        print_graph);
+    
+}
+
+void XG::from_path_handle_graph(const PathHandleGraph& graph, bool validate_graph, bool print_graph) {
+
+    from_path_handle_graph_callback([&](function<void(const PathHandleGraph&)> handle_chunk) {
+        // There's only one chunk in this case.
+        handle_chunk(graph);
+    }, validate_graph, print_graph);
+
+}
+
+void XG::from_path_handle_graph_callback(function<void(function<void(const PathHandleGraph&)>)> get_chunks, 
+                                         bool validate_graph, bool print_graph) {
+
+    // temporaries for construction
+    vector<pair<id_t, string> > node_label;
+    // need to store node sides
+    unordered_map<side_t, vector<side_t> > from_to;
+    unordered_map<side_t, vector<side_t> > to_from;
+    // And the nodes on each path
+    map<string, vector<trav_t> > path_nodes;
+    // And which paths are circular
+    unordered_set<string> circular_paths;
+
+    // This takes in graph chunks and adds them into our temporary storage.
+    function<void(const PathHandleGraph&)> lambda = [this,
+                                                     &node_label,
+                                                     &from_to,
+                                                     &to_from,
+                                                     &path_nodes,
+                                                     &circular_paths](const PathHandleGraph& graph) {
+
+        graph.for_each_handle([&] (handle_t handle) {
+                node_label.push_back(make_pair(graph.get_id(handle), graph.get_sequence(handle)));
+            });
+        graph.for_each_edge([&] (edge_t edge) {
+                Edge e;
+                e.set_from(graph.get_id(edge.first));
+                e.set_from_start(graph.get_is_reverse(edge.first));
+                e.set_to(graph.get_id(edge.second));
+                e.set_to_end(graph.get_is_reverse(edge.second));
+                e = canonicalize(e);
+
+                bool new_from = from_to.find(make_side(e.from(), e.from_start())) == from_to.end();
+                bool new_edge = true;
+                if (!new_from) {
+                    side_t to_add = make_side(e.to(), e.to_end());
+                    for (auto& side : from_to[make_side(e.from(), e.from_start())]) {
+                        if (side == to_add) { new_edge = false; break; }
+                    }
+                }
+                if (new_edge) {
+                    ++edge_count;
+                    from_to[make_side(e.from(), e.from_start())].push_back(make_side(e.to(), e.to_end()));
+                    to_from[make_side(e.to(), e.to_end())].push_back(make_side(e.from(), e.from_start()));
+                }
+            });
+        graph.for_each_path_handle([&] (path_handle_t path_handle) {
+            const string& name = graph.get_path_name(path_handle);
+#ifdef VERBOSE_DEBUG
+            // Print out all the paths in the graph we are loading
+            cerr << "Path " << name << ": ";
+#endif
+            
+            if (graph.get_is_circular(path_handle)) {
+                // Remember the circular paths
+                circular_paths.insert(name);
+            }
+
+            vector<trav_t>& path = path_nodes[name];
+            size_t rank = 1;
+            for (handle_t handle : graph.scan_path(path_handle)) {
+                path.push_back(make_trav(graph.get_id(handle), graph.get_is_reverse(handle), rank++));
+#ifdef VERBOSE_DEBUG
+                cerr << graph.get_id(handle) * 2 + graph.get_is_reverse(handle) << "; ";
+#endif
+            }
+#ifdef VERBOSE_DEBUG
+            cerr << endl;
+#endif
+            });
     };
 
     // Get all the chunks via the callback, and have them called back to us.

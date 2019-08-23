@@ -9,7 +9,7 @@ plan tests 3
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 
-vg index c.vg -x c.xg
+vg convert -v c.vg -X > c.xg
 vg convert -x c.xg -V > c1.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
 cat <(vg view c1.vg | grep ^S | sort) <(vg view c1.vg | grep L | uniq | wc -l) <(vg paths -v c1.vg -E) > c1.info

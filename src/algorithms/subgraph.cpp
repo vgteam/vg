@@ -218,7 +218,7 @@ void extract_context(const HandleGraph& source, MutableHandleGraph& subgraph, co
             handle_t old_h = source.get_handle(subgraph.get_id(h));
             if (total_length_fwd < get_fwd) {
                 source.follow_edges(old_h, false, [&](const handle_t& c) {
-                        if (total_length_fwd >= get_fwd) {
+                        if (total_length_fwd < get_fwd) {
                             handle_t x;
                             if (!subgraph.has_node(source.get_id(c))) {
                                 x = subgraph.create_handle(source.get_sequence(source.get_is_reverse(c)?source.flip(c):c), source.get_id(c));

@@ -86,7 +86,8 @@ TEST_CASE("basic graph chunking", "[chunk]") {
     json2pb(chunk, graph_json.c_str(), graph_json.size());
     
     // Pass it over to XG
-    XG index(chunk);
+    xg::XG index;
+    index.from_path_handle_graph(VG(chunk));
 
     PathChunker chunker(&index);
 
