@@ -387,7 +387,6 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             else if (best_match < curr) {
                 best_match = std::move(curr);
                 if (best_match.full() && best_match.internal_score <= max_mismatches) {
-                    full_length_found = true;
                     full_length_mismatches = best_match.internal_score;
                     best_match_is_full_length = true;
                 }
@@ -395,13 +394,15 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
         }
 
         // Handle the best match.
-        if (best_match_is_full_length) {
+        if (best_match_is_full_length && !full_length_found) {
+            //If this is the first time we've found a full length alignment
             result.clear();
             result.push_back(best_match);
-            if (best_match.internal_score == 0) {
-                break;
-            }
-        } else if (!full_length_found && !best_match.empty()) {
+            full_length_found = true;
+        } else if (!best_match.empty() && 
+                  ((best_match_is_full_length && full_length_found) || 
+                   (!full_length_found && !best_match_is_full_length ))) {
+            //Keep either only full length alignments or the best extensions
             result.push_back(best_match);
         }
     }

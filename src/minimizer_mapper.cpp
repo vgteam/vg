@@ -384,27 +384,50 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             Alignment best_extension = aln;
             Alignment second_best_extension = aln;
             
-            if (extensions.size() == 1 && extensions[0].full()) {
-                // We got a full-length extension, so directly convert to an Alignment.
+            if (extensions[0].full()) {
+                // We got full-length extensions, so directly convert to an Alignment.
                 
                 if (track_provenance) {
                     funnel.substage("direct");
                 }
+                int best_score = 0;
+                int second_best_score = 0;
 
-                *best_extension.mutable_path() = extensions.front().to_path(gbwt_graph, best_extension.sequence());
+                for (auto& extension : extensions ) {
+                    // The score estimate is exact.
+                    int alignment_score = extension.score;
+                    //TODO: Also check if this alignment is different??? Unless the gapless extender already does that?
+                    if (best_score == 0 || alignment_score > best_score) {
+                        //Swap out second_best_extension
+                        second_best_extension = std::move(best_extension);
+                        //And replace best_extension with current one
+                        *best_extension.mutable_path() = extension.to_path(gbwt_graph, best_extension.sequence());
+                        
+                        
+                        // Compute identity from mismatch count.
+                        size_t mismatch_count = extension.mismatches();
+                        double identity = best_extension.sequence().size() == 0 ? 0.0 : (best_extension.sequence().size() - mismatch_count) / (double) best_extension.sequence().size();
+                        
+                        // Fill in the score and identity
+                        best_extension.set_score(alignment_score);
+                        best_extension.set_identity(identity);
+
+                    } else if (second_best_score == 0 || alignment_score > second_best_score) {
+                        *second_best_extension.mutable_path() = extension.to_path(gbwt_graph, best_extension.sequence());
+                        size_t mismatch_count = extension.mismatches();
+                        double identity = second_best_extension.sequence().size() == 0 ? 0.0 : (second_best_extension.sequence().size() - mismatch_count) / (double) second_best_extension.sequence().size();
+                        
+                        // Fill in the score and identity
+                        second_best_extension.set_score(alignment_score);
+                        second_best_extension.set_identity(identity);
+
+                    }
+                    alignments.push_back(std::move(best_extension));
+                    if (second_best_score != 0 ) {
+                        alignments.push_back(std::move(second_best_extension));
+                    }
                 
-                // The score estimate is exact.
-                int alignment_score = cluster_extension_scores[extension_num];
-                
-                // Compute identity from mismatch count.
-                size_t mismatch_count = extensions[0].mismatches();
-                double identity = best_extension.sequence().size() == 0 ? 0.0 : (best_extension.sequence().size() - mismatch_count) / (double) best_extension.sequence().size();
-                
-                // Fill in the score and identity
-                best_extension.set_score(alignment_score);
-                best_extension.set_identity(identity);
-                alignments.push_back(move(best_extension));
-                
+                }
                 if (track_provenance) {
                     // Stop the current substage
                     funnel.substage_stop();
