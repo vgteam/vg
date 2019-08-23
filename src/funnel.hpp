@@ -5,6 +5,7 @@
 #include <vector>
 #include <unordered_map>
 #include <cassert>
+#include <cmath>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -22,10 +23,10 @@ using namespace std;
  * Represents a record of an invocation of a pipeline for an input.
  *
  * Tracks the history of "lines" of data "item" provenance through a series of
- * "stages".
+ * "stages", containing a series of "filters".
  *
  * Lines are "introduced", and "project" from earlier stages to later stages,
- * possibly "expanding" or "merging", until they are "killed" or reach the
+ * possibly "expanding" or "merging", until they "fail" a filter or reach the
  * final stage. At each stage, items occur in a linear order and are identified
  * by index.
  *
@@ -90,13 +91,18 @@ public:
     /// Project a single item from the previous stage to a new group item at the current stage, with the given size.
     void project_group(size_t prev_stage_item, size_t group_size);
     
-    /// Kill the given item from the previous stage and do not project it through to this stage.
-    /// Items which are not killed must be projected to something.
-    void kill(size_t prev_stage_item);
+    /// Fail the given item from the previous stage on the given filter and do not project it through to this stage.
+    /// Items which do not fail a filter must pass the filter and be projected to something.
+    /// The filter name must survive the funnel, because a pointer to it will be stored.
+    /// Allows a statistic for the filtered-on value for the failing item to be recorded.
+    void fail(const char* filter, size_t prev_stage_item, double statistic = nan(""));
     
-    /// Gill all the given items from the previous stage.
-    template<typename Iterator>
-    void kill_all(Iterator prev_stage_items_begin, Iterator prev_stage_items_end);
+    /// Pass the given item from the previous stage through the given filter at this stage.
+    /// Items which do not pass a filter must fail it.
+    /// All items which pass filters must do so in the same order.
+    /// The filter name must survive the funnel, because a pointer to it will be stored.
+    /// Allows a statistic for the filtered-on value for the passing item to be recorded.
+    void pass(const char* filter, size_t prev_stage_item, double statistic = nan(""));
     
     /// Assign the given score to the given item at the current stage.
     void score(size_t item, double score);
@@ -114,6 +120,25 @@ public:
     
     /// Call the given callback with stage name, and vector of result item sizes at that stage, for each stage.
     void for_each_stage(const function<void(const string&, const vector<size_t>&)>& callback) const;
+    
+    /// Represents the performance of a filter, for either item counts or total item sizes.
+    /// Note that passing_correct and failing_correct will always be 0 if nothing is tagged correct.
+    struct FilterPerformance {
+        size_t passing = 0;
+        size_t failing = 0;
+        size_t passing_correct = 0;
+        size_t failing_correct = 0;
+    };
+    
+    /// Call the given callback with stage name, filter name, performance
+    /// report for items, performance report for total size of items, values
+    /// for correct items for the filter statistic, and values for incorrect
+    /// (or merely not known-correct) items for the filter statistic.
+    /// Runs the callback for each stage and filter, in order. Only includes
+    /// filters that were actually passed or failed by any items.
+    void for_each_filter(const function<void(const string&, const string&,
+        const FilterPerformance&, const FilterPerformance&,
+        const vector<double>&, const vector<double>&)>& callback) const;
 
     /// Dump information from the Funnel as a dot-format Graphviz graph to the given stream.
     /// Illustrates stages and provenance.
@@ -148,6 +173,14 @@ protected:
         bool correct = false;
         /// What previous stage items were combined to make this one, if any?
         vector<size_t> prev_stage_items = {};
+        /// What filters did the item pass at this stage, if any?
+        vector<const char*> passed_filters = {};
+        /// And what statistics did they have (or NaN)?
+        vector<double> passed_statistics = {};
+        /// What filter did the item finally fail at at this stage, if any?
+        const char* failed_filter = nullptr;
+        /// And what statistic did it fail with (or NaN)?
+        double failed_statistic = nan("");
     };
     
     /// Represents a Stage which is a series of Items, which track their own provenance.
@@ -204,15 +237,6 @@ void Funnel::merge_group(Iterator prev_stage_items_begin, Iterator prev_stage_it
     // Update its size
     get_item(index).group_size = get_item(index).prev_stage_items.size();
 }
-
-template<typename Iterator>
-void Funnel::kill_all(Iterator prev_stage_items_begin, Iterator prev_stage_items_end) {
-    for (; prev_stage_items_begin != prev_stage_items_end; ++prev_stage_items_begin) {
-        // Kill each thing between begin and end
-        kill(*prev_stage_items_begin);
-    }
-}
-
 
 }
 

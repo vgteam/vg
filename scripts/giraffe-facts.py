@@ -4,7 +4,7 @@
 
 """
 giraffe-facts.py: process a GAM file from the new minimizer-based mapper (vg
-gaffe AKA giraffe) and report runtime statistics by pipeline stage.
+gaffe AKA giraffe) and report runtime statistics by filter.
 """
 
 import argparse
@@ -16,24 +16,10 @@ import collections
 import itertools
 import json
 import random
+import math
 
 # We depend on our local histogram.py
 import histogram
-
-# Define a constant list of all the stages, in order.
-STAGES = ['minimizer', 'seed', 'cluster', 'extend', 'align', 'winner']
-
-# And for each stage, all the substages.
-# Substages do not necessarily have an order, because you can enter and exit them multiple times.
-SUBSTAGES = {
-    'minimizer': {},
-    'seed': {'correct'},
-    'cluster': {'score'},
-    'extend': {'score'},
-    'align': {'direct', 'chain'},
-    'winner': {'mapq'}
-}
-    
 
 FACTS = ["Giraffes are the tallest living terrestrial animal.",
          "There are nine subspecies of giraffe, each occupying separate regions of Africa. Some researchers consider some subspecies to be separate species entirely.",
@@ -116,89 +102,152 @@ def parse_args(args):
         
     return parser.parse_args(args)
     
-def make_stats(read, stages=STAGES):
+def sniff_params(read):
     """
-    Given a read dict parsed from JSON, compute a stats dict for the read.
+    Given a read dict parsed from JSON, compute a mapping parameter dict for the read.
     
-    Run on an empty dict, makes a zero-value stats dict.
+    The read will have param_XXX annotations. Turn those into a dict from XXX to value.
     
-    A stats dict maps from stage name to a dict of stage stats.
-    The stage stats include:
-        
-        - 'time' for just the stage.
-        - 'cumulative_time' for the stage and all prior stages.
-        - 'substage_time' for each substage, which is a dict from substage name to time.
-        - 'correct_stop' which is the count of correct mappings that stop at this stage.
-        - 'results' which is the count of results produced from this stage.
-        
-    All values are filled, even if 0 or not applicable.
-        
-    There is a special 'overall' stage, with just the 'time' key, recording the overall read time.
+    These should be the same for every read.
     """
     
     # This is the annotation dict from the read
     annot = read.get('annotation', {})
     
-    # This is the stats dict we will fill in
-    stats = {}
+    # This is the params dict to fill in
+    params = {}
     
-    # This is the cumulative time accumulator
-    cumulative_time = 0.0
-    
-    for stage in stages:
-        # For each stage in order
-        
-        # Prepare stats for the stage
-        stage_dict = {}
-        
-        # Grab its runtime from the read
-        stage_dict['time'] = annot.get(
-            'stage_' + stage + '_seconds', 0.0)
+    for annot_name in annot.keys():
+        if annot_name.startswith('param_'):
+            # Split the param annotations on underscore
+            (_, param_name) = annot_name.split('_')
             
-        # Add into and store the cumulative time
-        cumulative_time += stage_dict['time']
-        stage_dict['cumulative_time'] = cumulative_time
-        
-        # Grab its result count from the read
-        stage_dict['results'] = int(annot.get(
-            'stage_' + stage + '_results', 0))
-        
-        # No correct mappings end here
-        stage_dict['correct_stop'] = 0
-        if annot.get('last_correct_stage', None) == stage:
-            # Unless one does
-            stage_dict['correct_stop'] += 1
-        elif stage == 'minimizer' and annot.get('last_correct_stage', None) == 'none':
-            # Reads that do not have correct seeds end at the minimizer stage
-            stage_dict['correct_stop'] += 1
-        
-        # Set up substage times
-        substage_time = {}
-        for substage in SUBSTAGES[stage]:
-            # For each substage it has, record substage time.
-            # TODO: no good way to iterate the substages provided in the file.
-            substage_time['substage'] = annot.get(
-                'stage_' + stage + '_' + substage + '_seconds', 0.0)
-        
-        stage_dict['substage_time'] = substage_time
-        
-        # Save the stats for the stage
-        stats[stage] = stage_dict
-        
-    # Add the overall runtime
-    stats['overall'] = {'time': read.get('annotation', {}).get('map_seconds', 0.0)}
+            # Save the values under the name
+            params[param_name] = annot[annot_name]
     
-    return stats
+    return params
+    
+    
+def make_stats(read):
+    """
+    Given a read dict parsed from JSON, compute a stats OrderedDict for the read.
+    
+    Run on an empty dict, makes a zero-value stats dict.
+    
+    A stats dict maps from filter name to a Counter of filter stats.
+    The filter stats include:
+        
+        - 'passed_count_total' which is the count of results passing the
+          filter.
+        - 'failed_count_total' which is the count of results failing the
+          filter.
+        - 'passed_count_correct' which is the count of correct results passing
+          the filter.
+        - 'failed_count_correct' which is the count of correct results failing
+          the filter.
+        
+    Additionally, each of these '_count_' stats has a '_size_' version,
+    describing the total size of all items meeting the specified criteria (as
+    opposed to the number of items).
+    
+    For the 'seed' stage, correctness information is not yet available, so only
+    the '_total' values will be defined. '_correct' values will be set to None
+    (instead of 0).
+    
+    The Counter for a filter also has sub-Counters embedded in it for
+    expressing distributions of filter statistic values, to assist in filter
+    design.
+    
+        - 'statistic_distribution_correct': statistic value counts for items
+          deemed correct
+        - 'statistic_distribution_noncorrect': statistic value counts for items
+          not deemed correct
+        
+    NaN values of the statistics are filtered out.
+        
+    Filters appear in the OrderedDict in an order corresponding to their filter
+    number in the GAM.
+    """
+    
+    # This is the annotation dict from the read
+    annot = read.get('annotation', {})
+    
+    # This will map from filter number int to filter name
+    filters_by_index = {}
+    
+    # This will map from filter name to Counter of filter stats
+    filter_stats = collections.defaultdict(collections.Counter)
+    
+    for annot_name in annot.keys():
+        # For each annotation
+        if annot_name.startswith('filter_'):
+            # If it is an individual filter info item
+            
+            # Names look like 'filter_2_cluster-score-threshold_cluster_passed_size_correct'
+                
+            # Break into components on underscores
+            (_, filter_num, filter_name, filter_stage, filter_status, filter_accounting, filter_metric) = annot_name.split('_')
+            
+            # Collect integers
+            filter_num = int(filter_num)
+            filter_stat_value = annot[annot_name]
+            
+            # Record the filter being at this index if not known already
+            filters_by_index[filter_num] = filter_name
+            
+            if filter_stage == 'minimizer':
+                # Wer are filtering items produced by the minimizer stage.
+                # At the minimizer stage, correct and incorrect are not defined yet.
+                if filter_metric == 'correct':
+                    # Make sure we didn't get any counts
+                    assert filter_stat_value == 0
+                    # None out the correct stat so we can detect this when making the table
+                    filter_stat_value = None
+            
+            # Record the stat value
+            filter_stats[filter_name]['{}_{}_{}'.format(filter_status, filter_accounting, filter_metric)] = filter_stat_value
+        
+        elif annot_name.startswith('filterstats_'):
+            # It is a whole collection of correct or not-necessarily-correct filter statistic distribution values, for plotting.
+            
+            # Break into components on underscores (correctness will be 'correct' or 'noncorrect'
+            (_, filter_num, filter_name, filter_stage, filter_correctness) = annot_name.split('_')
+            
+            distribution = collections.Counter()
+            
+            for item in annot[annot_name]:
+                # Parse all the statistic vlues
+                item = float(item)
+                
+                if math.isnan(item):
+                    # Discard NANs
+                    continue
+                    
+                # Count all instances of the same value
+                distribution[item] += 1
+                
+            # Save the statistic distribution
+            filter_stats[filter_name]['statistic_distribution_{}'.format(filter_correctness)] = distribution
+        
+    # Now put them all in this OrderedDict in order
+    ordered_stats = collections.OrderedDict()
+    for filter_index in sorted(filters_by_index.keys()):
+        filter_name = filters_by_index[filter_index]
+        ordered_stats[filter_name] = filter_stats[filter_name]
+        
+    return ordered_stats
 
 def add_in_stats(destination, addend):
     """
-    Add the addend stats dict into the destinatin stats dict.
+    Add the addend stats dict into the destination stats dict.
     Implements += for stats dicts.
     """
     
-    # Internally we're just recursive += on dicts.
     for k, v in addend.items():
-        if isinstance(v, dict):
+        if v is None:
+            # None will replace anything and propagate through
+            destination[k] = None
+        elif isinstance(v, dict):
             # Recurse into dict
             add_in_stats(destination[k], v)
         else:
@@ -522,14 +571,20 @@ class Table(object):
         
         self.out.write('\n')
                 
-def print_table(read_count, stats_total, have_times, stages=STAGES, out=sys.stdout):
+def print_table(read_count, stats_total, params=None, out=sys.stdout):
     """
-    Take the read count, and the accumulated total stats dict.
+    Take the read count, the accumulated total stats dict, and an optional dict
+    of mapping parameters corresponding to values for filters.
     
     Print a nicely formatted table to the given stream.
     
-    If have_times is false, elides the time and speed columns which would be full of NANs.
     """
+    
+    if stats_total is None:
+        # Handle the empty case
+        assert(read_count == 0)
+        out.write('No reads.\n')
+        return
     
     # Now do a table
     
@@ -540,62 +595,110 @@ def print_table(read_count, stats_total, have_times, stages=STAGES, out=sys.stdo
     # Column min widths from headers
     header_widths = []
     
-    # How long is the longest stage name
-    stage_width = max((len(x) for x in STAGES))
+    # Compute filter row headings
+    filter_headings = stats_total.keys()
+    
+    if params is not None:
+        # Annotate each filter with its parameter value
+        annotated_headings = []
+        for heading in filter_headings:
+            # For each filter
+            # It may be a compound thing||thing filter
+            parts = heading.split('||')
+            
+            # We will fill this with all the relevant filter cutoff values
+            filter_values = []
+            for part in parts:
+                if part in params:
+                    filter_values.append(params[part])
+                    
+            if len(filter_values) == 0:
+                # No parameters
+                annotated_headings.append(heading)
+            else:
+                # Annotate with the parameters
+                annotated_headings.append('{} ({})'.format(heading, ', '.join((str(x) for x in filter_values))))
+                
+        filter_headings = annotated_headings
+    
+    # How long is the longest filter name
+    filter_width = max((len(x) for x in filter_headings))
     # Leave room for the header
-    stage_header = "Stage"
-    stage_width = max(stage_width, len(stage_header))
+    filter_header = "Filter"
+    filter_width = max(filter_width, len(filter_header))
     # And for the "Overall" entry
-    stage_overall = "Overall"
-    stage_width = max(stage_width, len(stage_overall))
+    filter_overall = "Overall"
+    filter_width = max(filter_width, len(filter_overall))
     
-    headers.append(stage_header)
+    headers.append(filter_header)
     headers2.append('')
-    header_widths.append(stage_width)
+    header_widths.append(filter_width)
     
-    if have_times:
-        # How about the reads per second column
-        rps_header = "Reads/Second"
-        rps_header2 = "(cumulative)"
-        rps_width = max(len(rps_header), len(rps_header2))
-        
-        headers.append(rps_header)
-        headers2.append(rps_header2)
-        header_widths.append(rps_width)
-        
-        # And the time percent column
-        time_header = "Time"
-        time_header2 = "(%)"
-        # Make sure to leave room for "100%"
-        time_width = max(len(time_header), len(time_header2), 4)
-        
-        headers.append(time_header)
-        headers2.append(time_header2)
-        header_widths.append(time_width)
+    # And the passing count columns (average)
+    passing_header = "Passing"
+    passing_header2 = "(/Read)"
+    passing_width = max(len(passing_header), len(passing_header2))
     
-    # And the result count column (average)
-    results_header = "Candidates"
-    results_header2 = "(Avg.)"
-    results_width = max(len(results_header), len(results_header2))
+    headers.append(passing_header)
+    headers2.append(passing_header2)
+    header_widths.append(passing_width)
     
-    headers.append(results_header)
-    headers2.append(results_header2)
-    header_widths.append(results_width)
+    # And the failing count columns (average)
+    failing_header = "Failing"
+    failing_header2 = "(/Read)"
+    failing_width = max(len(failing_header), len(failing_header2))
+    
+    headers.append(failing_header)
+    headers2.append(failing_header2)
+    header_widths.append(failing_width)
     
     # And the correct result lost count header
-    lost_header = "Correct"
-    lost_header2 = "Lost"
+    lost_header = "Lost"
+    lost_header2 = ""
     # How big a number will we need to hold?
-    # Look at the reads lost at all stages except final (because if you make it to the final stage nothing is lost)
-    lost_reads = [stats_total[stage]['correct_stop'] for stage in STAGES[:-1]]
-    max_stage_stop = max(lost_reads)
-    # How many reads are lost overall?
+    # Look at the reads lost at all filters
+    # Account for None values for stages that don't have correctness defined yet.
+    lost_reads = [x for x in (stats_total[filter_name]['failed_count_correct'] for filter_name in stats_total.keys()) if x is not None]
+    max_filter_stop = max(lost_reads)
+    # How many correct reads are lost overall by filters?
     overall_lost = sum(lost_reads)
-    lost_width = max(len(lost_header), len(lost_header2), len(str(max_stage_stop)), len(str(overall_lost)))
+    lost_width = max(len(lost_header), len(lost_header2), len(str(max_filter_stop)), len(str(overall_lost)))
     
     headers.append(lost_header)
     headers2.append(lost_header2)
     header_widths.append(lost_width)
+    
+    # And the total rejected count header
+    rejected_header = "Cut"
+    rejected_header2 = ""
+    # How big a number will we need to hold?
+    # Look at the reads rejected at all filters
+    rejected_reads = [stats_total[filter_name]['failed_count_total'] for filter_name in stats_total.keys()]
+    max_filter_stop = max(rejected_reads)
+    # How many incorrect reads are rejected overall by filters?
+    overall_rejected = sum(rejected_reads)
+    rejected_width = max(len(rejected_header), len(rejected_header2), len(str(max_filter_stop)), len(str(overall_rejected)))
+    
+    headers.append(rejected_header)
+    headers2.append(rejected_header2)
+    header_widths.append(rejected_width)
+    
+    # Now do precision and recall
+    # How should we format them?
+    pr_format = '{:.2f}'
+    precision_header = "P"
+    precision_header2 = ""
+    precision_width = max(len(precision_header), len(precision_header2), len(pr_format.format(1.0)), len('N/A'))
+    headers.append(precision_header)
+    headers2.append(precision_header2)
+    header_widths.append(precision_width)
+    recall_header = "R"
+    recall_header2 = ""
+    recall_width = max(len(recall_header), len(recall_header2), len(pr_format.format(1.0)), len('N/A'))
+    headers.append(recall_header)
+    headers2.append(recall_header2)
+    header_widths.append(recall_width)
+    
     
     # Start the table
     table = Table(header_widths)
@@ -609,63 +712,129 @@ def print_table(read_count, stats_total, have_times, stages=STAGES, out=sys.stdo
     table.line()
     
     
-    # Get the total overall time for all reads
-    overall_time = stats_total['overall']['time']
-    
-    for stage in stages:
-        # Grab total cumulative time for this stage and all before
-        total_cumulative_time = stats_total[stage]['cumulative_time']
-        # Compute cumulative reads per second value
-        reads_per_second = read_count / total_cumulative_time if total_cumulative_time != 0 else float('NaN')
+    for i, filter_name in enumerate(stats_total.keys()):
+        # Grab average results passing this filter per read
+        total_passing = stats_total[filter_name]['passed_count_total']
+        average_passing = total_passing / read_count if read_count != 0 else float('NaN')
         
-        # Grab total time for just this stage
-        stage_time = stats_total[stage]['time']
-        # And get the portion that is this stage out of all time
-        stage_portion = stage_time / overall_time if overall_time != 0 else float('NaN')
-        # And make a percent
-        stage_percent = stage_portion * 100
-        
-        # Grab average results at this stage
-        total_results = stats_total[stage]['results']
-        average_results = total_results / read_count if read_count != 0 else float('NaN')
+        # Grab average results failing this filter per read
+        total_failing = stats_total[filter_name]['failed_count_total']
+        average_failing = total_failing / read_count if read_count != 0 else float('NaN')
         
         # Grab reads that are lost.
         # No reads are lost at the final stage.
-        lost = stats_total[stage]['correct_stop'] if stage != stages[-1] else '-'
+        lost = stats_total[filter_name]['failed_count_correct']
         
-        row = [stage]
+        # And reads that are rejected at all
+        rejected = stats_total[filter_name]['failed_count_total']
+        
+        if lost is None:
+            # Correctness is not defined yet.
+            # TODO: have a way to see if the correct mapping never shows up.
+            lost = 'N/A'
+            
+        # Compute precision
+        try:
+            precision = pr_format.format(stats_total[filter_name]['passed_count_correct'] /
+                stats_total[filter_name]['passed_count_total'])
+        except:
+            precision = 'N/A'
+        
+        # Compute recall
+        try:
+            recall = pr_format.format(stats_total[filter_name]['passed_count_correct'] / 
+                (stats_total[filter_name]['passed_count_correct'] +
+                stats_total[filter_name]['failed_count_correct']))
+        except:
+            recall = 'N/A'
+        
+        row = [filter_headings[i]]
         align = 'c'
-        if have_times:
-            # Include the time columns
-            row += ['{:.2f}'.format(reads_per_second), '{:.0f}%'.format(stage_percent)]
-            align += 'rr'
         # Add the provenance columns
-        row += ['{:.2f}'.format(average_results), lost]
-        align += 'rr'
+        row += ['{:.2f}'.format(average_passing), '{:.2f}'.format(average_failing), lost, rejected,
+            precision, recall]
+        align += 'rrrrrr'
         
-        # Output the final row
+        # Output the finished row
         table.row(row, align)
         
     table.line()
         
-    # And do overall reads per second
-    reads_per_second_overall = read_count / overall_time if overall_time != 0 else float('NaN')
-    
     # Compose the overall row
-    row = [stage_overall]
+    row = [filter_overall]
     align = 'c'
-    if have_times:
-        # Include the time columns
-        row += ['{:.2f}'.format(reads_per_second_overall), '100%']
-        align += 'rr'
     # Add the provenance columns
-    row += ['', overall_lost]
+    row += ['', '', overall_lost, overall_rejected, '', '']
     align += 'rr'
     
     table.row(row, align)
     
     # Close off table
     table.close()
+    
+def plot_filter_statistic_histograms(out_dir, stats_total):
+    """
+    For each filter in the stats dict, see if it has nonempty
+    'statistic_distribution_correct' and/or 'statistic_distribution_noncorrect'
+    Counters. Then if so, plot a histogram comparing correct and noncorrect
+    distributions, or just the noncorrect distribution if that is the only one
+    available (because correctness isn't known).
+    
+    Store histograms in out_dir.
+    """
+    
+    for filter_name in stats_total.keys():
+        correct_counter = stats_total[filter_name]['statistic_distribution_correct']
+        noncorrect_counter = stats_total[filter_name]['statistic_distribution_noncorrect']
+        
+        if not ((isinstance(correct_counter, dict) and len(correct_counter) > 0) or
+            (isinstance(noncorrect_counter, dict) and len(noncorrect_counter) > 0)):
+            
+            # No stats to plot
+            continue
+        
+        # Open a TSV file to draw a histogram from
+        tsv_path = os.path.join(out_dir, 'stat_{}.tsv'.format(filter_name))
+        tsv = open(tsv_path, 'w')
+        
+        # Some stages don't have correctness annotation. So we track if we saw
+        # correct and noncorrect things to identify them.
+        have_correct = False
+        have_noncorrect = False
+        
+        if isinstance(correct_counter, dict) and len(correct_counter) > 0:
+            # We have correct item stats.
+            have_correct = True
+            for value, count in correct_counter.items():
+                # Output format: label, value, repeats
+                tsv.write('correct\t{}\t{}\n'.format(value, count))
+                
+        if isinstance(noncorrect_counter, dict) and len(noncorrect_counter) > 0:
+            # We have noncorrect item stats.
+            have_noncorrect = True
+            for value, count in noncorrect_counter.items():
+                # Output format: label, value, repeats
+                tsv.write('noncorrect\t{}\t{}\n'.format(value, count))
+              
+        tsv.close()
+        
+        # Now make the plot
+        svg_path = os.path.join(out_dir, 'stat_{}.svg'.format(filter_name))
+        
+        args = ['histogram.py', tsv_path, '--save', svg_path,
+            '--title', '{} Statistic Histogram'.format(filter_name),
+            '--x_label',  'Statistic Value',
+            '--bins', '20',
+            '--y_label', 'Frequency']
+        if have_correct and have_noncorrect:
+            args.append('--legend_overlay')
+            args.append('best')
+            args.append('--categories')
+            args.append('correct')
+            args.append('noncorrect')
+        histogram.main(args)
+                
+            
 
 
 def main(args):
@@ -681,68 +850,41 @@ def main(args):
     
     # Make the output directory if it doesn't exist
     os.makedirs(options.outdir, exist_ok=True)
-    
-    # Open a TSV file to draw a histogram from
-    tsv_path = os.path.join(options.outdir, 'times.tsv')
-    tsv = open(tsv_path, 'w')
-    
+   
     # Make a place to total up all the stats
-    stats_total = make_stats({})
+    stats_total = None 
     
     # Count all the reads
     read_count = 0
     
-    # See if wa have any times actually.
-    # If they are all 0 (which they are now that we have ripped out timing) we
-    # can't actually draw the plot.
-    have_times = False
+    # Record mapping parameters from at least one read
+    params = None
     
-    for stats in (make_stats(read) for read in read_line_oriented_json(options.input)):
+    for read in read_line_oriented_json(options.input):
+    
+        if params is None:
+            # Go get the mapping parameters
+            params = sniff_params(read)
+    
         # For the stats dict for each read
-        
-        for stage in STAGES:
-            # For each stage, grab the cumulative time
-            cumulative_time = stats[stage]['cumulative_time']
-            
-            # Dump cumulative times to the TSV we will plot a histogram from
-            tsv.write('{}\t{}\n'.format(stage, cumulative_time))
-            
-            if cumulative_time > 0:
-                have_times = True
-        
-        # Also include total time
-        tsv.write('total\t{}\n'.format(stats['overall']['time']))
-        
-        # Sum up all the stats
-        add_in_stats(stats_total, stats)
+        stats = make_stats(read)
+        if stats_total is None:
+            stats_total = stats
+        else:
+            # Sum up all the stats
+            add_in_stats(stats_total, stats)
         
         # Count the read
         read_count += 1
     
     # After processing all the reads
     
-    # Close the TSV
-    tsv.close()
+    # Print the table now in case plotting fails
+    print_table(read_count, stats_total, params)
     
-    # Print the table now in case histogram plotting fails
-    print_table(read_count, stats_total, have_times)
+    # Make filter statistic histograms
+    plot_filter_statistic_histograms(options.outdir, stats_total)
     
-    if have_times:
-        # Plot the histogram
-        svg_path = os.path.join(options.outdir, 'times.svg')
-        histogram.main(['histogram.py', tsv_path, '--save', svg_path,
-            '--title', 'Runtime Histogram',
-            '--x_label',  'Time (seconds)',
-            '--line',
-            '--bins', '100',
-            '--log',
-            '--cumulative',
-            '--y_label', 'Cumulative Count',
-            '--legend_overlay', 'lower right',
-            '--categories', 'total'] + STAGES)
-        
-    
-   
 def entrypoint():
     """
     0-argument entry point for setuptools to call.

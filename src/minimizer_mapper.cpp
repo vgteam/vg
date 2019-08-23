@@ -71,7 +71,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
     // Compute minimizer scores for all minimizers as 1 + ln(hard_hit_cap) - ln(hits).
     std::vector<double> minimizer_score(minimizers.size(), 0.0);
-    double target_score = 0.0;
+    double base_target_score = 0.0;
     for (size_t i = 0; i < minimizers.size(); i++) {
         size_t hits = minimizer_index.count(minimizers[i]);
         if (hits > 0) {
@@ -81,9 +81,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 minimizer_score[i] = 1.0;
             }
         }
-        target_score += minimizer_score[i];
+        base_target_score += minimizer_score[i];
     }
-    target_score *= minimizer_score_fraction;
+    double target_score = base_target_score * minimizer_score_fraction;
 
     // Sort the minimizers by score.
     std::vector<size_t> minimizers_in_order(minimizers.size());
@@ -108,8 +108,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Select the minimizer if it is informative enough or if the total score
         // of the selected minimizers is not high enough.
         size_t hits = minimizer_index.count(minimizers[minimizer_num]);
+        
         if (hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
-
             // Locate the hits.
             for (auto& hit : minimizer_index.find(minimizers[minimizer_num])) {
                 // Reverse the hits for a reverse minimizer
@@ -125,14 +125,24 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             if (track_provenance) {
                 // Record in the funnel that this minimizer gave rise to these seeds.
+                funnel.pass("hard-hit-cap", minimizer_num);
+                funnel.pass("hit-cap||score-fraction", minimizer_num, (selected_score + minimizer_score[minimizer_num]) / base_target_score);
                 funnel.expand(minimizer_num, hits);
             }
-        } else {
+        } else if (hits <= hard_hit_cap) {
+            // Passed hard hit cap but failed score fraction/normal hit cap
             rejected_count++;
             
             if (track_provenance) {
-                // Record in the funnel thast we rejected it
-                funnel.kill(minimizer_num);
+                funnel.pass("hard-hit-cap", minimizer_num);
+                funnel.fail("hit-cap||score-fraction", minimizer_num, (selected_score + minimizer_score[minimizer_num]) / base_target_score);
+            }
+        } else {
+            // Failed hard hit cap
+            rejected_count++;
+            
+             if (track_provenance) {
+                funnel.fail("hard-hit-cap", minimizer_num);
             }
         }
         
@@ -274,16 +284,22 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         [&](size_t cluster_num) {
             // Handle sufficiently good clusters in descending coverage order
             
+            if (track_provenance) {
+                funnel.pass("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
+                funnel.pass("max-extensions", cluster_num);
+            }
+            
             // First check against the additional score filter
             if (cluster_score_threshold != 0 && cluster_score[cluster_num] < cluster_score_cutoff) {
                 //If the score isn't good enough, ignore this cluster
                 if (track_provenance) {
-                    funnel.kill(cluster_num);
+                    funnel.fail("cluster-score", cluster_num, cluster_score[cluster_num]);
                 }
                 return false;
             }
             
             if (track_provenance) {
+                funnel.pass("cluster-score", cluster_num, cluster_score[cluster_num]);
                 funnel.processing_input(cluster_num);
             }
 
@@ -318,9 +334,15 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             return true;
         }, [&](size_t cluster_num) {
+            // There are too many sufficiently good clusters
+            if (track_provenance) {
+                funnel.pass("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
+                funnel.fail("max-extensions", cluster_num);
+            }
+        }, [&](size_t cluster_num) {
             // This cluster is not sufficiently good.
             if (track_provenance) {
-                funnel.kill(cluster_num);
+                funnel.fail("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
             }
         });
         
@@ -375,6 +397,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             // Called in descending score order.
             
             if (track_provenance) {
+                funnel.pass("extension-set", extension_num, cluster_extension_scores[extension_num]);
+                funnel.pass("max-alignments", extension_num);
                 funnel.processing_input(extension_num);
             }
             
@@ -472,9 +496,15 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             return true;
         }, [&](size_t extension_num) {
+            // There are too many sufficiently good extensions
+            if (track_provenance) {
+                funnel.pass("extension-set", extension_num, cluster_extension_scores[extension_num]);
+                funnel.fail("max-alignments", extension_num);
+            }
+        }, [&](size_t extension_num) {
             // This extension is not good enough.
             if (track_provenance) {
-                funnel.kill(extension_num);
+                funnel.fail("extension-set", extension_num, cluster_extension_scores[extension_num]);
             }
         });
     
@@ -515,20 +545,25 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         
         if (track_provenance) {
             // Tell the funnel
+            funnel.pass("max-multimaps", alignment_num);
             funnel.project(alignment_num);
             funnel.score(alignment_num, scores.back());
         }
         
         return true;
     }, [&](size_t alignment_num) {
-        // This alignment does not make it
+        // We already have enough alignments, although this one has a good score
         
         // Remember the score at its rank anyway
         scores.emplace_back(alignments[alignment_num].score());
         
         if (track_provenance) {
-            funnel.kill(alignment_num);
+            funnel.fail("max-multimaps", alignment_num);
         }
+    }, [&](size_t alignment_num) {
+        // This alignment does not have a sufficiently good score
+        // Score threshold is 0; this should never happen
+        assert(false);
     });
     
     if (track_provenance) {
@@ -569,7 +604,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     if (track_provenance) {
     
-        // And with the number of results in play at each stage
+        // Annotate with the number of results in play at each stage
         funnel.for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
             // Save the number of items
             set_annotation(mappings[0], "stage_" + stage + "_results", (double)result_sizes.size());
@@ -579,11 +614,54 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             std::copy(result_sizes.begin(), result_sizes.end(), std::back_inserter(converted));
             set_annotation(mappings[0], "stage_" + stage + "_sizes", converted);
         });
-
+        
         if (track_correctness) {
             // And with the last stage at which we had any descendants of the correct seed hit locations
             set_annotation(mappings[0], "last_correct_stage", funnel.last_correct_stage());
         }
+        
+        // Annotate with the performances of all the filters
+        // We need to track filter number
+        size_t filter_num = 0;
+        funnel.for_each_filter([&](const string& stage, const string& filter,
+            const Funnel::FilterPerformance& by_count, const Funnel::FilterPerformance& by_size,
+            const vector<double>& filter_statistics_correct, const vector<double>& filter_statistics_non_correct) {
+            
+            string filter_id = to_string(filter_num) + "_" + filter + "_" + stage;
+            
+            // Save the stats
+            set_annotation(mappings[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
+            set_annotation(mappings[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
+            
+            set_annotation(mappings[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
+            set_annotation(mappings[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
+            
+            if (track_correctness) {
+                set_annotation(mappings[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
+                set_annotation(mappings[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
+                
+                set_annotation(mappings[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
+                set_annotation(mappings[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
+            }
+            
+            // Save the correct and non-correct filter statistics, even if
+            // everything is non-correct because correctness isn't computed
+            set_annotation(mappings[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
+            set_annotation(mappings[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
+            
+            filter_num++;
+        });
+        
+        // Annotate with parameters used for the filters.
+        set_annotation(mappings[0], "param_hit-cap", (double) hit_cap);
+        set_annotation(mappings[0], "param_hard-hit-cap", (double) hard_hit_cap);
+        set_annotation(mappings[0], "param_score-fraction", (double) minimizer_score_fraction);
+        set_annotation(mappings[0], "param_max-extensions", (double) max_extensions);
+        set_annotation(mappings[0], "param_max-alignments", (double) max_alignments);
+        set_annotation(mappings[0], "param_cluster-score", (double) cluster_score_threshold);
+        set_annotation(mappings[0], "param_cluster-coverage", (double) cluster_coverage_threshold);
+        set_annotation(mappings[0], "param_extension-set", (double) extension_set_score_threshold);
+        set_annotation(mappings[0], "param_max-multimaps", (double) max_multimaps);
     }
     
     // Ship out all the aligned alignments
@@ -741,7 +819,7 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
 void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& best, Alignment& second_best) const {
 
 #ifdef debug
-    cerr << "Trying again find tail alignments for " << extended_seeds.size() << " extended seeds" << endl;
+    cerr << "Trying to find tail alignments for " << extended_seeds.size() << " extended seeds" << endl;
 #endif
 
     // Make paths for all the extensions
@@ -774,6 +852,14 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
         (function<double(size_t)>) [&](size_t extended_seed_num) {
        
             // This extended seed looks good enough.
+            
+            // TODO: We don't track this filter with the funnel because it
+            // operates within a single "item" (i.e. cluster/extension set).
+            // We track provenance at the item level, so throwing out wrong
+            // local alignments in a correct cluster would look like throwing
+            // out correct things.
+            // TODO: Revise how we track correctness and provenance to follow
+            // sub-cluster things.
        
             // We start with the path in extension_paths[extended_seed_num],
             // scored in extension_path_scores[extended_seed_num]
@@ -859,7 +945,11 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
 
             return true;
         }, [&](size_t extended_seed_num) {
+            // This extended seed is good enough by its own score, but we have too many.
+            // Do nothing
+        }, [&](size_t extended_seed_num) {
             // This extended seed isn't good enough by its own score.
+            // Do nothing
         });
         
     // Now we know the winning path and score. Move them over to out
