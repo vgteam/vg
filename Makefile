@@ -35,7 +35,7 @@ INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_S
 # Define libraries to link against. Make sure to always link statically against
 # htslib and libdeflate and Protobuf so that we can use position-dependent code
 # there for speed.
-LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) $(CWD)/$(LIB_DIR)/libvgio.a -lhandlegraph -lxg -lvcflib -lgssw -lssw $(CWD)/$(LIB_DIR)/libprotobuf.a -lsublinearLS $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -lstructures -lvw -lboost_program_options -lallreduce -lbdsg -latomic
+LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) $(CWD)/$(LIB_DIR)/libvgio.a -lhandlegraph -lvcflib -lgssw -lssw $(CWD)/$(LIB_DIR)/libprotobuf.a -lsublinearLS $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -lstructures -lvw -lboost_program_options -lallreduce -lbdsg
 # Use pkg-config to find Cairo and all the libs it uses
 LD_LIB_FLAGS += $(shell pkg-config --libs --static cairo jansson)
 
@@ -205,9 +205,6 @@ LIBDEFLATE_DIR:=deps/libdeflate
 LIBVGIO_DIR:=deps/libvgio
 LIBHANDLEGRAPH_DIR:=deps/libhandlegraph
 LIBBDSG_DIR:=deps/libbdsg
-XG_DIR:=deps/xg
-MMMULTIMAP_DIR=deps/mmmultimap
-IPS4O_DIR=deps/ips4o
 
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
@@ -246,7 +243,6 @@ LIB_DEPS += $(LIB_DIR)/libdeflate.a
 LIB_DEPS += $(LIB_DIR)/libvgio.a
 LIB_DEPS += $(LIB_DIR)/libhandlegraph.a
 LIB_DEPS += $(LIB_DIR)/libbdsg.a
-LIB_DEPS += $(LIB_DIR)/libxg.a
 ifneq ($(shell uname -s),Darwin)
     # On non-Mac (i.e. Linux), where ELF binaries are used, pull in libdw which
     # backward-cpp will use.
@@ -270,8 +266,6 @@ DEPS += $(INC_DIR)/sha1.hpp
 DEPS += $(INC_DIR)/progress_bar.hpp
 DEPS += $(INC_DIR)/backward.hpp
 DEPS += $(INC_DIR)/dozeu/dozeu.h
-DEPS += $(INC_DIR)/mmmultimap.hpp
-DEPS += $(INC_DIR)/ips4o.hpp
 DEPS += $(INC_DIR)/raptor2/raptor2.h
 
 # Only depend on these files for the final linking stage.	
@@ -348,13 +342,6 @@ $(LIB_DIR)/libsnappy.a: $(SNAPPY_DIR)/*.cc $(SNAPPY_DIR)/*.h
 $(LIB_DIR)/librocksdb.a: $(LIB_DIR)/libsnappy.a $(ROCKSDB_DIR)/db/*.cc $(ROCKSDB_DIR)/db/*.h
 	+. ./source_me.sh && cd $(ROCKSDB_DIR) && $(ROCKSDB_PORTABLE) DISABLE_JEMALLOC=1 $(MAKE) static_lib $(FILTER) && mv librocksdb.a $(CWD)/${LIB_DIR}/ && cp -r include/* $(CWD)/$(INC_DIR)/
 
-$(INC_DIR)/mmmultiset.hpp: $(MMMULTIMAP_DIR)/src/mmmultiset.hpp
-$(INC_DIR)/mmmultimap.hpp: $(MMMULTIMAP_DIR)/src/mmmultimap.hpp
-	+. ./source_me.sh && cp $(MMMULTIMAP_DIR)/src/mmmultimap.hpp $(MMMULTIMAP_DIR)/src/mmmultiset.hpp $(CWD)/$(INC_DIR)/
-
-$(INC_DIR)/ips4o.hpp: $(IPS4O_DIR)/ips4o.hpp $(IPS4O_DIR)/ips4o/*
-	+. ./source_me.sh && cp -r $(IPS4O_DIR)/ips4o* $(CWD)/$(INC_DIR)/
-
 $(INC_DIR)/gcsa/gcsa.h: $(LIB_DIR)/libgcsa2.a
 
 $(LIB_DIR)/libgcsa2.a: $(LIB_DIR)/libsdsl.a $(wildcard $(GCSA2_DIR)/*.cpp) $(wildcard $(GCSA2_DIR)/include/gcsa/*.h)
@@ -394,9 +381,6 @@ $(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_D
 
 $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp $(LIBHANDLEGRAPH_DIR)/src/*.cpp
 	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && cmake . && $(MAKE) $(FILTER) && cp libhandlegraph.a $(CWD)/$(LIB_DIR) && cp -r src/include/handlegraph $(CWD)/$(INC_DIR)
-
-$(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp
-	+. ./source_me.sh && cd $(XG_DIR) && cmake . && $(MAKE) $(FILTER) && cp lib/libxg.a $(CWD)/$(LIB_DIR) && cp -r src/*hpp $(CWD)/$(INC_DIR)
 
 # On Linux, libdeflate builds a .so.
 # On Mac, it *still* builds an so, which is just a dylib with .so extension.

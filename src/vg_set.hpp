@@ -39,11 +39,13 @@ public:
 
     /// Transforms to a succinct, queryable representation
     void to_xg(xg::XG& index);
-
     /// As above, except paths with names matching the given predicate are removed.
     /// They are returned separately by inserting them into the provided map if not null.
     void to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_take,
                map<string, Path>* removed_paths = nullptr);
+    /// As above, except paths with names matching the given regex are removed.
+    /// They are returned separately by inserting them into the provided map if not null.
+    void to_xg(xg::XG& index, const regex& paths_to_take, map<string, Path>* removed_paths = nullptr);
 
     // stores the nodes in the VGs identified by the filenames into the index
     void store_in_index(Index& index);
