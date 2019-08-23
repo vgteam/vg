@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.6"/>
-<title>vg: src/subcommand/xg_main.cpp File Reference</title>
+<title>vg: xg::XGFormatError Class Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -39,8 +39,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
     <ul class="tablist">
       <li><a href="index.html"><span>Main&#160;Page</span></a></li>
       <li><a href="namespaces.html"><span>Namespaces</span></a></li>
-      <li><a href="annotated.html"><span>Classes</span></a></li>
-      <li class="current"><a href="files.html"><span>Files</span></a></li>
+      <li class="current"><a href="annotated.html"><span>Classes</span></a></li>
+      <li><a href="files.html"><span>Files</span></a></li>
       <li>
         <div id="MSearchBox" class="MSearchBoxInactive">
         <span class="left">
@@ -61,8 +61,10 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
   <div id="navrow2" class="tabs2">
     <ul class="tablist">
-      <li><a href="files.html"><span>File&#160;List</span></a></li>
-      <li><a href="globals.html"><span>File&#160;Members</span></a></li>
+      <li><a href="annotated.html"><span>Class&#160;List</span></a></li>
+      <li><a href="classes.html"><span>Class&#160;Index</span></a></li>
+      <li><a href="hierarchy.html"><span>Class&#160;Hierarchy</span></a></li>
+      <li><a href="functions.html"><span>Class&#160;Members</span></a></li>
     </ul>
   </div>
 <!-- window showing the filter options -->
@@ -81,81 +83,29 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_b1dc13fd2e81df37222858fb506caeb7.html">src</a></li><li class="navelem"><a class="el" href="dir_3ff4e99aaeae0b01ccc9a89ced7a5a3c.html">subcommand</a></li>  </ul>
+<li class="navelem"><a class="el" href="namespacexg.html">xg</a></li><li class="navelem"><a class="el" href="classxg_1_1XGFormatError.html">XGFormatError</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
-  <div class="summary">
-<a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">xg_main.cpp File Reference</div>  </div>
+<div class="title">xg::XGFormatError Class Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;omp.h&gt;</code><br/>
-<code>#include &lt;unistd.h&gt;</code><br/>
-<code>#include &lt;iostream&gt;</code><br/>
-<code>#include &lt;fstream&gt;</code><br/>
-<code>#include &lt;getopt.h&gt;</code><br/>
-<code>#include &quot;<a class="el" href="subcommand_8hpp.html">subcommand.hpp</a>&quot;</code><br/>
-<code>#include &quot;sdsl/bit_vectors.hpp&quot;</code><br/>
-<code>#include &lt;vg/vg.pb.h&gt;</code><br/>
-<code>#include &quot;<a class="el" href="version_8hpp.html">../version.hpp</a>&quot;</code><br/>
-<code>#include &lt;<a class="el" href="stream_8hpp.html">vg/io/stream.hpp</a>&gt;</code><br/>
-<code>#include &lt;<a class="el" href="vpkg_8hpp.html">vg/io/vpkg.hpp</a>&gt;</code><br/>
-<code>#include &quot;<a class="el" href="xg_8hpp.html">../xg.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="region_8hpp.html">../region.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="convert__handle_8hpp.html">../convert_handle.hpp</a>&quot;</code><br/>
-</div><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
-Functions</h2></td></tr>
-<tr class="memitem:a90719e7a8b434bc062ceb5032cd196fa"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="xg__main_8cpp.html#a90719e7a8b434bc062ceb5032cd196fa">help_xg</a> (char **argv)</td></tr>
-<tr class="separator:a90719e7a8b434bc062ceb5032cd196fa"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a72f8150e2102cbbb72f65575fc42ee9b"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="xg__main_8cpp.html#a72f8150e2102cbbb72f65575fc42ee9b">main_xg</a> (int argc, char **argv)</td></tr>
-<tr class="separator:a72f8150e2102cbbb72f65575fc42ee9b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table>
-<h2 class="groupheader">Function Documentation</h2>
-<a class="anchor" id="a90719e7a8b434bc062ceb5032cd196fa"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void help_xg </td>
-          <td>(</td>
-          <td class="paramtype">char **&#160;</td>
-          <td class="paramname"><em>argv</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
 
-</div>
-</div>
-<a class="anchor" id="a72f8150e2102cbbb72f65575fc42ee9b"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int main_xg </td>
-          <td>(</td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>argc</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">char **&#160;</td>
-          <td class="paramname"><em>argv</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
+<p><code>#include &lt;xg.hpp&gt;</code></p>
+<div class="dynheader">
+Inheritance diagram for xg::XGFormatError:</div>
+<div class="dyncontent">
+ <div class="center">
+  <img src="classxg_1_1XGFormatError.png" usemap="#xg::XGFormatError_map" alt=""/>
+  <map id="xg::XGFormatError_map" name="xg::XGFormatError_map">
+</map>
+ </div></div>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Thrown when attempting to interpret invalid data as an <a class="el" href="classxg_1_1XG.html">XG</a> index. </p>
+</div><hr/>The documentation for this class was generated from the following file:<ul>
+<li>src/<a class="el" href="xg_8hpp.html">xg.hpp</a></li>
+</ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->

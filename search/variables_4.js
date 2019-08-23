@@ -23,7 +23,7 @@ var searchData=
   ['description',['description',['../classvg_1_1BaseOption.html#a4468cf61e5b31a06929303e91f096f6d',1,'vg::BaseOption::description()'],['../classvg_1_1subcommand_1_1Subcommand.html#ab74ec1dfb7410088f2a0fa0d368a34f9',1,'vg::subcommand::Subcommand::description()']]],
   ['diploid_5fprior_5flogprob',['diploid_prior_logprob',['../classvg_1_1Genotyper.html#ac748204c3fb19573569172ee57b1d082',1,'vg::Genotyper']]],
   ['directed_5facyclic_5fnet_5fgraph',['directed_acyclic_net_graph',['../structvg_1_1Snarl.html#a6cbd6de509a74e1ac363eb14c679b4de',1,'vg::Snarl']]],
-  ['directions',['directions',['../classvg_1_1XGPath.html#a7fc38679f32108c8d26632422f4d9c93',1,'vg::XGPath']]],
+  ['directions',['directions',['../classxg_1_1XGPath.html#a597a15c67381558989640a83e5047e75',1,'xg::XGPath']]],
   ['discordant_5finsert_5fsize',['discordant_insert_size',['../structvg_1_1Alignment.html#a5cf554f770c01df31d8b4046b3ed5f50',1,'vg::Alignment']]],
   ['dist_5findex',['dist_index',['../classvg_1_1SnarlSeedClusterer.html#ace2d2116219ae73c9b1b8900ae74877e',1,'vg::SnarlSeedClusterer']]],
   ['distance',['distance',['../classvg_1_1MEMClusterer_1_1HitEdge.html#a9792b646c0a3905c5b111d3a61d336f2',1,'vg::MEMClusterer::HitEdge']]],

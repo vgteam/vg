@@ -175,10 +175,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a6aab5ee175227d2f8c016d2522afaabb"><td class="memItemLeft" align="right" valign="top">const vector&lt; const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> * &gt; &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a6aab5ee175227d2f8c016d2522afaabb">top_level_snarls</a> () const </td></tr>
 <tr class="memdesc:a6aab5ee175227d2f8c016d2522afaabb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a reference to a vector with the roots of the <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes. ">Snarl</a> trees.  <a href="#a6aab5ee175227d2f8c016d2522afaabb">More...</a><br/></td></tr>
 <tr class="separator:a6aab5ee175227d2f8c016d2522afaabb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5271912ddac4073a02aa420e78fd9589"><td class="memItemLeft" align="right" valign="top">pair&lt; unordered_set&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &gt;<br class="typebreak"/>
+<tr class="memitem:a5271912ddac4073a02aa420e78fd9589"><td class="memItemLeft" align="right" valign="top">pair&lt; unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;<br class="typebreak"/>
 , unordered_set&lt; <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a5271912ddac4073a02aa420e78fd9589">shallow_contents</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, bool include_boundary_nodes) const </td></tr>
 <tr class="separator:a5271912ddac4073a02aa420e78fd9589"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2204490e685d9c423ef5f035903c340c"><td class="memItemLeft" align="right" valign="top">pair&lt; unordered_set&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &gt;<br class="typebreak"/>
+<tr class="memitem:a2204490e685d9c423ef5f035903c340c"><td class="memItemLeft" align="right" valign="top">pair&lt; unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;<br class="typebreak"/>
 , unordered_set&lt; <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a2204490e685d9c423ef5f035903c340c">deep_contents</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, bool include_boundary_nodes) const </td></tr>
 <tr class="separator:a2204490e685d9c423ef5f035903c340c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad139450efd81ac297e0b760173993890"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Visit.html">Visit</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#ad139450efd81ac297e0b760173993890">visits_left</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;visit, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *in_snarl) const </td></tr>
@@ -617,7 +617,7 @@ template&lt;typename SnarlIterator &gt; </div>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">pair&lt; unordered_set&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &gt;, unordered_set&lt; <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &gt; &gt; vg::SnarlManager::deep_contents </td>
+          <td class="memname">pair&lt; unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;, unordered_set&lt; <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &gt; &gt; vg::SnarlManager::deep_contents </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td>
           <td class="paramname"><em>snarl</em>, </td>
@@ -1184,7 +1184,7 @@ template&lt;typename SnarlIterator &gt; </div>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">pair&lt; unordered_set&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &gt;, unordered_set&lt; <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &gt; &gt; vg::SnarlManager::shallow_contents </td>
+          <td class="memname">pair&lt; unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;, unordered_set&lt; <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &gt; &gt; vg::SnarlManager::shallow_contents </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td>
           <td class="paramname"><em>snarl</em>, </td>
