@@ -7,9 +7,6 @@ RUN apt-get -qq update && apt-get -qq install -y curl wget pigz dstat pv jq samt
 # One dependency is bwa, for vg tests.
 COPY --from=quay.io/ucsc_cgl/bwa:0.7.15--a17c6544342330f6ea7a23a37d23273ab1c52d21 /usr/local/bin/bwa /usr/local/bin/bwa
 
-ADD deps/bwa_0.7.15-5_amd64.deb /tmp/bwa.deb
-RUN dpkg -i /tmp/bwa.deb
-
 FROM base AS build
 # install build apt dependencies
 # note: most vg apt dependencies are installed by "make get-deps" below
