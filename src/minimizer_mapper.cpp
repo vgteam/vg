@@ -280,7 +280,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     cluster_extensions.reserve(clusters.size());
     
     process_until_threshold(clusters, read_coverage_by_cluster,
-        0, 1, max_extensions,
+        cluster_coverage_threshold, 1, max_extensions,
         [&](size_t cluster_num) {
             // Handle sufficiently good clusters in descending coverage order
             
@@ -391,7 +391,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     // Go through the gapless extension groups in score order.
     process_until_threshold(cluster_extensions, cluster_extension_scores,
-        0, 2, max_alignments,
+        extension_set_score_threshold, 2, max_alignments,
         [&](size_t extension_num) {
             // This extension set is good enough.
             // Called in descending score order.
@@ -845,7 +845,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
     
     // Handle each extension in the set
     process_until_threshold(extended_seeds, extension_path_scores,
-        0, 1, max_local_extensions,
+        extension_score_threshold, 1, max_local_extensions,
         (function<double(size_t)>) [&](size_t extended_seed_num) {
        
             // This extended seed looks good enough.
