@@ -499,8 +499,8 @@ vector<Edit> Packer::edits_at_position(size_t i) const {
 }
 
 size_t Packer::edge_index(const Edge& e) const {
-    edge_t edge = make_pair(graph->get_handle(e.from(), e.from_start()),
-                            graph->get_handle(e.to(), e.to_end()));
+    edge_t edge = graph->edge_handle(graph->get_handle(e.from(), e.from_start()),
+                                     graph->get_handle(e.to(), e.to_end()));
     return dynamic_cast<const VectorizableHandleGraph*>(graph)->edge_index(edge);
 }
 
