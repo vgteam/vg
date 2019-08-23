@@ -42,17 +42,24 @@ using namespace vg::subcommand;
 
 
 void help_minimizer(char** argv) {
-    std::cerr << "usage: " << argv[0] << " minimizer [options] graph" << std::endl;
-    std::cerr << "Builds a minimizer index of the graph in the XG index." << std::endl;
+    std::cerr << "usage: " << argv[0] << " minimizer -g gbwt_name -i index_name [options] graph" << std::endl;
+    std::cerr << "Builds a minimizer index of the input graph, which can be any HandleGraph." << std::endl;
+    std::cerr << std::endl;
+    std::cerr << "Required options:" << std::endl;
+    std::cerr << "    -g, --gbwt-name X      use the GBWT index in file X" << std::endl;
+    std::cerr << "    -i, --index-name X     store the index to file X" << std::endl;
+    std::cerr << std::endl;
+    std::cerr << "Minimizer options:" << std::endl;
     std::cerr << "    -k, --kmer-length N    length of the kmers in the index (default: " << MinimizerIndex::KMER_LENGTH << ")" << std::endl;
     std::cerr << "    -w, --window-length N  index the smallest kmer in a window of N kmers (default: " << MinimizerIndex::WINDOW_LENGTH << ")" << std::endl;
-    std::cerr << "    -i, --index-name X     store the index to file X (required)" << std::endl;
+    std::cerr << std::endl;
+    std::cerr << "Other options:" << std::endl;
     std::cerr << "    -l, --load-index X     load the index from file X and insert the new kmers into it" << std::endl;
-    std::cerr << "                           (overrides --kmer-length, --window-length, and --max-occs)" << std::endl;
-    std::cerr << "    -g, --gbwt-name X      use the GBWT index in file X (required)" << std::endl;
-    std::cerr << "    -G, --gbwt-graph X     the input graph is a GBWTGraph" << std::endl;
+    std::cerr << "                           (overrides --kmer-length and --window-length)" << std::endl;
+    std::cerr << "    -G, --gbwt-graph       the input graph is a GBWTGraph" << std::endl;
     std::cerr << "    -p, --progress         show progress information" << std::endl;
     std::cerr << "    -t, --threads N        use N threads for index construction (default: " << omp_get_max_threads() << ")" << std::endl;
+    std::cerr << std::endl;
 }
 
 int main_minimizer(int argc, char** argv) {
@@ -75,11 +82,11 @@ int main_minimizer(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
         {
+            { "gbwt-name", required_argument, 0, 'g' },
+            { "index-name", required_argument, 0, 'i' },
             { "kmer-length", required_argument, 0, 'k' },
             { "window-length", required_argument, 0, 'w' },
-            { "index-name", required_argument, 0, 'i' },
             { "load-index", required_argument, 0, 'l' },
-            { "gbwt-name", required_argument, 0, 'g' },
             { "gbwt-graph", no_argument, 0, 'G' },
             { "progress", no_argument, 0, 'p' },
             { "threads", required_argument, 0, 't' },
@@ -87,25 +94,25 @@ int main_minimizer(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "k:w:i:l:g:Gpt:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "g:i:k:w:l:Gpt:h", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
         {
+        case 'g':
+            gbwt_name = optarg;
+            break;
+        case 'i':
+            index_name = optarg;
+            break;
         case 'k':
             kmer_length = parse<size_t>(optarg);
             break;
         case 'w':
             window_length = parse<size_t>(optarg);
             break;
-        case 'i':
-            index_name = optarg;
-            break;
         case 'l':
             load_index = optarg;
-            break;
-        case 'g':
-            gbwt_name = optarg;
             break;
         case 'G':
             is_gbwt_graph = true;
