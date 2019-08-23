@@ -446,11 +446,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                         second_best_extension.set_identity(identity);
 
                     }
-                    alignments.push_back(std::move(best_extension));
-                    if (second_best_score != 0 ) {
-                        alignments.push_back(std::move(second_best_extension));
-                    }
-                
                 }
                 if (track_provenance) {
                     // Stop the current substage
@@ -467,10 +462,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // second_best_extension, if there is a second best
                 find_optimal_tail_alignments(aln, extensions, best_extension, second_best_extension);
 
-                if (second_best_extension.score() != 0) {
-                    alignments.push_back(move(second_best_extension));
-                }
-                alignments.push_back(move(best_extension));
                 
                 if (track_provenance) {
                     // We're done chaining. Next alignment may not go through this substage.
@@ -482,13 +473,19 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
             
             
+            
+            if (second_best_extension.score() != 0) {
+                alignments.push_back(std::move(second_best_extension));
+            }
+            alignments.push_back(std::move(best_extension));
+
             if (track_provenance) {
                 // Record the Alignment and its score with the funnel
                 funnel.project(extension_num);
                 if (second_best_extension.score() != 0) {
-                    funnel.score(alignments.size() - 2, second_best_extension.score());
+                    funnel.score(alignments.size() - 2, alignments[alignments.size() - 2].score());
                 }
-                funnel.score(alignments.size() - 1, best_extension.score());
+                funnel.score(alignments.size() - 1, alignments.back().score());
                 
                 // We're done with this input item
                 funnel.processed_input();
