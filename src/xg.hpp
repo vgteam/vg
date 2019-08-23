@@ -34,7 +34,7 @@
 #include "dynamic.hpp"
 #endif
 
-namespace vg {
+namespace xg {
 
 using namespace std;
 using namespace sdsl;
@@ -92,13 +92,21 @@ public:
     
     void from_stream(istream& in, bool validate_graph = false,
         bool print_graph = false);
+
     void from_graph(Graph& graph, bool validate_graph = false,
         bool print_graph = false);
     // Load the graph by calling a function that calls us back with graph chunks.
     // The function passed in here is responsible for looping.
     void from_callback(function<void(function<void(Graph&)>)> get_chunks,
         bool validate_graph = false, bool print_graph = false);
-        
+
+    /// build the graph from another path handle graph
+    void from_path_handle_graph(const PathHandleGraph& graph, bool validate_graph = false,
+        bool print_graph = false);
+    /// handlegraphified version of from_callback().  same logic but ranks aren't processed
+    void from_path_handle_graph_callback(function<void(function<void(const PathHandleGraph&)>)> get_chunks,
+        bool validate_graph = false, bool print_graph = false);
+
     /// Actually build the graph
     /// Note that path_nodes is a map to make the output deterministic in path order.
     void build(vector<pair<id_t, string> >& node_label,

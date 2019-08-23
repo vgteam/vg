@@ -3212,7 +3212,8 @@ namespace vg {
                     // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
                     // Make sure to also always include the optimal alignment first, even if inconsistent.
                     // And also include up to population_max_paths non-consistent but hopefully scorable paths
-                    alignments = haplotype_consistent_alignments(multipath_alns[i], *haplo_score_provider, population_max_paths, true);
+                    alignments = haplotype_consistent_alignments(multipath_alns[i], *haplo_score_provider, population_max_paths,
+                                                                 population_paths_hard_cap, true);
                 } else {
                     // We will just find the top n best-alignment-scoring linearizations and hope some match haplotypes
                     alignments = optimal_alignments(multipath_alns[i], population_max_paths);
@@ -3524,8 +3525,10 @@ namespace vg {
                     // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
                     // Make sure to also always include the optimal alignment first, even if inconsistent.
                     // Also pad out with population_max_paths inconsistent or unscorable paths
-                    alignments[0] = haplotype_consistent_alignments(multipath_aln_pair.first, *haplo_score_provider, population_max_paths, true);
-                    alignments[1] = haplotype_consistent_alignments(multipath_aln_pair.second, *haplo_score_provider, population_max_paths, true);
+                    alignments[0] = haplotype_consistent_alignments(multipath_aln_pair.first, *haplo_score_provider, population_max_paths,
+                                                                    population_paths_hard_cap, true);
+                    alignments[1] = haplotype_consistent_alignments(multipath_aln_pair.second, *haplo_score_provider, population_max_paths,
+                                                                    population_paths_hard_cap, true);
                 } else {
                     // We will just find the top n best-alignment-scoring linearizations and hope some match haplotypes
                     alignments[0] = optimal_alignments(multipath_aln_pair.first, population_max_paths);

@@ -348,7 +348,8 @@ namespace unittest {
         mapping->mutable_position()->set_is_reverse(true);
         mapping->set_rank(7);
         
-        XG xg_index(graph);
+        xg::XG xg_index;
+        xg_index.from_path_handle_graph(VG(graph));
         PathOrientedDistanceMeasurer measurer(&xg_index);
         
         SECTION("Distance approxmation produces exactly correct path distances when positions are on path") {
