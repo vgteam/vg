@@ -316,7 +316,7 @@ void MinimizerMapper::process_until_threshold(const vector<Item>& items, const f
         } else {
             // The item has a good enough score
             
-            if (unskipped < max_count) {
+            if (true) {
                 // We have room for it, so accept it.
                 
                 // Go do it.
