@@ -285,7 +285,7 @@ void MinimizerMapper::process_until_threshold(const vector<Item>& items, const f
     size_t unskipped = 0;
     
     // Go through the items in descending score order.
-    for (size_t i = 0; i < indexes_in_order.size() && unskipped < max_count ; i++) {
+    for (size_t i = 0; i < indexes_in_order.size(); i++) {
         // Find the item we are talking about
         size_t& item_num = indexes_in_order[i];
         
