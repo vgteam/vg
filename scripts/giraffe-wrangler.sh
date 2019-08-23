@@ -46,9 +46,9 @@ shift
 
 GBWT_GRAPH=${XG_INDEX%.xg}.gg
 if [ -f "$GBWT_GRAPH" ]; then
-  GIRAFFE_GRAPH=(-g "${GBWT_GRAPH}")
+    GIRAFFE_GRAPH=(-g "${GBWT_GRAPH}")
 else
-  GIRAFFE_GRAPH=(-x "${XG_INDEX}")
+    GIRAFFE_GRAPH=(-x "${XG_INDEX}")
 fi
 
 # Define the Giraffe parameters
