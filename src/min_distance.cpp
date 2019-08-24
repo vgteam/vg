@@ -77,7 +77,7 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
 
     #ifdef debugIndex
     //Every node should be assigned to a snarl
-    for (SnarlIndex& si : snarl_indexes) {
+    for (const SnarlIndex& si : snarl_indexes) {
         assert (tree_depth >=
     }
     auto check_assignments = [&](const handle_t& h)-> bool {
@@ -566,7 +566,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
 
                             if (chain_assignments[chain_start-min_node_id]!= 0){
                                 //Length of chain has already been found
-                                ChainIndex& chain_dists = chain_indexes[
+                                const ChainIndex& chain_dists = chain_indexes[
                                   chain_assignments[chain_start-min_node_id]-1];
                                
                                 //Get the length of the node (chain)
@@ -617,7 +617,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                              start_in_chain, rev_in_snarl,
                                              false, depth + 1);
 
-                                ChainIndex& curr_chain_dists = chain_indexes[
+                                const ChainIndex& curr_chain_dists = chain_indexes[
                                   chain_assignments[chain_start-min_node_id]-1];
                                 if (get_start_of( *curr_chain).backward()
                                                  == curr_id.second) {
@@ -660,7 +660,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                             if (primary_snarl_assignments[snarl_id-min_node_id]
                                 != 0) {
                                 //Already found
-                                SnarlIndex& snarl_dists = snarl_indexes[
+                                const SnarlIndex& snarl_dists = snarl_indexes[
                                                   primary_snarl_assignments[
                                                        snarl_id-min_node_id]-1];
                                 node_len = snarl_dists.snarlLength();
@@ -712,7 +712,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                                  &curr_chain, start_in_chain,
                                                  rev_in_snarl, true, depth + 1);
 
-                                SnarlIndex& curr_snarl_dists = snarl_indexes[
+                                const SnarlIndex& curr_snarl_dists = snarl_indexes[
                                           primary_snarl_assignments[
                                                 snarl_id-min_node_id]-1];
 
@@ -876,7 +876,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
         if (!trivial_chain) {
             // Add to prefix sum the distance to the beginning and end of the 
             // last node in the current snarl
-            SnarlIndex& sd = snarl_indexes[snarl_assignment];
+            const SnarlIndex& sd = snarl_indexes[snarl_assignment];
 
             size_t num_nodes = snarl_indexes[snarl_assignment].num_nodes;
             int64_t dist = snarl_rev_in_chain
@@ -944,8 +944,8 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                     + sd.nodeLength(sd.num_nodes * 2 - 1);
 
 
-                int64_t loop_distance = minPos({rev_loop_dist, 
-                                                last_loop + dist_to_end});
+                int64_t loop_distance = minPos(rev_loop_dist,
+                                                last_loop + dist_to_end);
                chain_indexes[curr_chain_assignment].loop_rev[curr_chain_rank+1] = loop_distance + 1;
             }
         }
@@ -976,7 +976,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                 bool snarl_rev_in_chain = c->second;
     
                 //Snarl is the primary snarl of the first node in the chain
-                auto& sd = snarl_rev_in_chain ? 
+                auto& sd = snarl_rev_in_chain ?
                   snarl_indexes[getPrimaryAssignment(snarl->start().node_id())] :
                   snarl_indexes[getPrimaryAssignment(snarl->end().node_id())];
                 int64_t new_loop;
@@ -1051,7 +1051,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                     const Snarl* first_snarl = chain_start->first;
                     bool first_snarl_rev = chain_start->second;
                         
-                    SnarlIndex& sd_first = snarl_rev_in_chain ? 
+                    const SnarlIndex& sd_first = snarl_rev_in_chain ? 
                            snarl_indexes[primary_snarl_assignments[snarl_start_id-min_node_id]-1] :
                            snarl_indexes[primary_snarl_assignments[snarl_end_id-min_node_id]-1];
                     if (first_snarl_rev) {
@@ -1060,12 +1060,12 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                                     sd_first.num_nodes * 2 - 2);
                         new_dist = new_dist == -1 ? -1 : 
                            new_dist + sd_first.nodeLength(sd_first.num_nodes * 2 - 2);
-                        loop_dist_last = minPos({loop_dist_last, new_dist });
+                        loop_dist_last = minPos(loop_dist_last, new_dist);
                     } else {
                         int64_t new_dist = sd_first.snarlDistance(0, 1);
                         new_dist = new_dist == -1 ? -1 : 
                                               new_dist + sd_first.nodeLength(0);
-                        loop_dist_last = minPos({loop_dist_last, new_dist });
+                        loop_dist_last = minPos(loop_dist_last, new_dist);
    
                     }
                   
@@ -1108,8 +1108,8 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                sd.snarlDistance(0, sd.num_nodes * 2 - 2);
                 dist_start_end = dist_start_end == -1 ? -1 :
                         dist_start_end + sd.nodeLength(0);
-                int64_t loop_distance = minPos({fd_loop_dist, 
-                                  last_loop + dist_end_start + dist_start_end});
+                int64_t loop_distance = minPos(fd_loop_dist,
+                                  last_loop + dist_end_start + dist_start_end);
                 cd.loop_fd[curr_chain_rank] = loop_distance + 1;
             }           
           
@@ -1133,7 +1133,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
 //////////////////    Distance Calculations
 //
 
-int64_t MinimumDistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
+int64_t MinimumDistanceIndex::maxDistance(pos_t pos1, pos_t pos2) const {
     if (!include_maximum) {
         return -1;
     } else {
@@ -1159,7 +1159,7 @@ int64_t MinimumDistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
     }
 }
 
-int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
+int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) const {
     /*Minimum distance between positions not including the position itself*/
     
     int64_t shortest_distance = -1; 
@@ -1223,7 +1223,7 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
         } else {
             size_t snarl_assignment = getPrimaryAssignment(ancestor1.first);
             ancestors1.emplace(snarl_assignment, false );
-            SnarlIndex& si = snarl_indexes[snarl_assignment];
+            const SnarlIndex& si = snarl_indexes[snarl_assignment];
             ancestor1 = make_pair(si.parent_id, si.in_chain);
         }
     }
@@ -1259,7 +1259,7 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
                 common_ancestor = ancestor2;
                 break;
             }
-            SnarlIndex& si = snarl_indexes[snarl_assignment];
+            const SnarlIndex& si = snarl_indexes[snarl_assignment];
             ancestor2 = make_pair(si.parent_id, si.in_chain);
         }
     }
@@ -1302,12 +1302,12 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
         if (parent.second) {
             //If the parent is a chain and both snarl_tree_nodes are snarls
 
-            ChainIndex& chain_index = chain_indexes[
+            const ChainIndex& chain_index = chain_indexes[
                                            getChainAssignment(parent.first)]; 
 
             //If the two nodes are snarls in the common ancestor chain
             //find the distance between them in the chain
-            SnarlIndex& snarl_index1 = snarl_indexes[getPrimaryAssignment(
+            const SnarlIndex& snarl_index1 = snarl_indexes[getPrimaryAssignment(
                                  snarl_tree_node1.first)];
             size_t start_rank1 = getChainRank(snarl_index1.id_in_parent);
             size_t end_rank1 = start_rank1 + 1; 
@@ -1328,7 +1328,7 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
                 //If this is the lowest common ancestor, then there are two
                 //separate nodes that need to be found
                
-               SnarlIndex& snarl_index2 = snarl_indexes[
+               const SnarlIndex& snarl_index2 = snarl_indexes[
                              getPrimaryAssignment( snarl_tree_node2.first)];
                start_rank2 = getChainRank(snarl_index2.id_in_parent);
                end_rank2 = start_rank2+1; 
@@ -1428,8 +1428,8 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
             int64_t der1 = der == -1 || distR1 == -1? -1 : distR1 + der; 
             int64_t del1 = del == -1 || distL1 == -1? -1 : distL1 + del; 
  
-            distL1 = minPos({dsr1, dsl1});
-            distR1 = minPos({der1, del1}); 
+            distL1 = minPos(dsr1, dsl1);
+            distR1 = minPos(der1, del1);
 
             if (lowest_ancestor) {
                 //If the two snarl tree nodes are different, need to find 
@@ -1455,8 +1455,8 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
             int64_t der2 = der == -1 || distR2 == -1? -1 : distR2 + der; 
             int64_t del2 = del == -1 || distL2 == -1? -1 : distL2 + del; 
 
-            distL2 = minPos({dsr2, dsl2});
-            distR2 = minPos({der2, del2});
+            distL2 = minPos(dsr2, dsl2);
+            distR2 = minPos(der2, del2);
 
             snarl_tree_node1 = make_pair(chain_index.id_in_parent,
                                          chain_index.rev_in_parent);
@@ -1480,7 +1480,7 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
             //The two nodes are in the parent snarl
 
             size_t parent_snarl_index = getPrimaryAssignment(parent.first);
-            SnarlIndex& snarl_index = snarl_indexes[parent_snarl_index];
+            const SnarlIndex& snarl_index = snarl_indexes[parent_snarl_index];
 
             size_t rank1 = getPrimaryAssignment(snarl_tree_node1.first) 
                              == parent_snarl_index
@@ -1565,7 +1565,7 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
 };
 
 tuple<int64_t, int64_t, pair<id_t, bool>> MinimumDistanceIndex::distToCommonAncestor(
-          pair<size_t, bool> common_ancestor, pos_t& pos, bool rev){
+          pair<size_t, bool> common_ancestor, pos_t& pos, bool rev) const {
 
     /* Find the distance from pos to either end of a snarl tree node 
      * (snarl or chain) in common_ancestor snarl or chain
@@ -1582,7 +1582,7 @@ tuple<int64_t, int64_t, pair<id_t, bool>> MinimumDistanceIndex::distToCommonAnce
     
     size_t snarl_assignment = getPrimaryAssignment(node_id);
     size_t snarl_rank = getPrimaryRank(node_id);
-    SnarlIndex& snarl_index = snarl_indexes[snarl_assignment];
+    const SnarlIndex& snarl_index = snarl_indexes[snarl_assignment];
 
     int64_t offset = get_offset(pos);
     #ifdef debugDistance
@@ -1621,7 +1621,7 @@ cerr << distL << " " << distR << endl;
         //distances to the ends of each ancestor snarl/chain of the position
         if (parent.second) {
             //If the parent is a chain
-            ChainIndex& chain_index = chain_indexes[parent.first];
+            const ChainIndex& chain_index = chain_indexes[parent.first];
 
             size_t start_rank = getChainRank(node_id);
             size_t end_rank = start_rank + 1; 
@@ -1665,8 +1665,8 @@ cerr << distL << " " << distR << endl;
             der = der == -1 || distR == -1? -1 : distR + der;
             del = del == -1 || distL == -1? -1 : distL + del;
  
-            distL = minPos({dsr, dsl});
-            distR = minPos({der, del});
+            distL = minPos(dsr, dsl);
+            distR = minPos(der, del);
 
             node_id = chain_index.id_in_parent;
             node_rev = chain_index.rev_in_parent;
@@ -1681,7 +1681,7 @@ cerr << distL << " " << distR << endl;
         } else {
             //If the parent is a snarl
             
-            SnarlIndex& snarl_index = snarl_indexes[parent.first];
+            const SnarlIndex& snarl_index = snarl_indexes[parent.first];
             size_t node_rank = at_node 
                               ? getPrimaryRank(node_id) 
                               : getSecondaryRank(node_id);
@@ -1717,34 +1717,11 @@ int64_t MinimumDistanceIndex::minPos (vector<int64_t> vals) {
     /*return the minimum value in vals that is not -1, returns -1 if all
      values are -1 */
     return accumulate(vals.begin(), vals.end(), -1, 
-          [](int x, int y) {if (x==-1) {return y;} 
-                            else if (y == -1) {return x;}
-                            else {return min(x, y);}} 
-          ); 
+          [](int64_t x, int64_t y) {
+              return minPos(x, y);
+          });
    
 };
-
-
-
-size_t MinimumDistanceIndex::getPrimaryAssignment(id_t i) {
-    return primary_snarl_assignments[i-min_node_id]- 1;
-}
-size_t MinimumDistanceIndex::getPrimaryRank(id_t i) {
-    return primary_snarl_ranks[i-min_node_id] - 1;
-}
-size_t MinimumDistanceIndex::getChainAssignment(id_t i) {
-    return chain_assignments[has_chain.rank(i-min_node_id)] - 1;
-}
-size_t MinimumDistanceIndex::getChainRank(id_t i) {
-    return chain_ranks[has_chain.rank(i-min_node_id)] - 1;
-}
-size_t MinimumDistanceIndex::getSecondaryAssignment(id_t i) {
-    return secondary_snarl_assignments[has_secondary_snarl.rank(i-min_node_id)]
-            - 1;
-}
-size_t MinimumDistanceIndex::getSecondaryRank(id_t i) {
-    return secondary_snarl_ranks[has_secondary_snarl.rank(i-min_node_id)] - 1;
-}
 
 void MinimumDistanceIndex::printSelf() {
     //TODO: DOn't actually know the node ids when we're printing things out
@@ -1833,7 +1810,7 @@ void MinimumDistanceIndex::SnarlIndex::serialize(ostream& out) const {
 }
 
 
-size_t MinimumDistanceIndex::SnarlIndex::index(size_t start, size_t end) {
+size_t MinimumDistanceIndex::SnarlIndex::index(size_t start, size_t end) const {
     /*Get the index of dist from start to end in a snarl distance matrix
       given the node ids + direction */
       
@@ -1868,20 +1845,8 @@ void MinimumDistanceIndex::SnarlIndex::insertDistance(size_t start,
 
     distances[i] = dist + 1;
 }
-   
-int64_t MinimumDistanceIndex::SnarlIndex::snarlDistance(size_t start, size_t end) {
-    /*Distance between beginnings of two nodes start and end in snarl
-     * given their rank
-    */
-    size_t i = index(start, end);
-    return int64_t(distances[i])-1;
-}
-int64_t MinimumDistanceIndex::SnarlIndex::nodeLength(size_t i){
 
-    return distances[i/2] - 1;
-}
-
-int64_t MinimumDistanceIndex::SnarlIndex::snarlLength() {
+int64_t MinimumDistanceIndex::SnarlIndex::snarlLength() const {
     //Return the length of the snarl- dist from beginning of start to end of end
     int64_t dist = snarlDistance(0, num_nodes * 2 - 2);
     
@@ -1900,7 +1865,7 @@ int64_t MinimumDistanceIndex::SnarlIndex::snarlLength() {
 }
 
 pair<int64_t, int64_t> MinimumDistanceIndex::SnarlIndex::distToEnds(size_t rank, 
-                                                 int64_t distL, int64_t distR) {
+                                                 int64_t distL, int64_t distR) const {
     /* Given the distances to either end of a node, find the distances to 
        either end of the snarl
        Rev is true if the node is reversed in the snarl
@@ -1942,9 +1907,9 @@ pair<int64_t, int64_t> MinimumDistanceIndex::SnarlIndex::distToEnds(size_t rank,
     der = der == -1 || distR == -1? -1 : distR + der;
     del = del == -1 || distL == -1? -1 : distL + del;
 
-    int64_t dist_start = minPos({dsr, dsl});
+    int64_t dist_start = minPos(dsr, dsl);
 
-    int64_t dist_end = minPos({der, del});
+    int64_t dist_end = minPos(der, del);
 
     return make_pair(dist_start, dist_end);
 }
@@ -2034,7 +1999,7 @@ void MinimumDistanceIndex::ChainIndex::serialize(ostream& out) const {
 }
 int64_t MinimumDistanceIndex::ChainIndex::loopDistance(
          pair<size_t, bool> start, pair<size_t, bool> end, 
-         int64_t start_len, int64_t end_len) {
+         int64_t start_len, int64_t end_len) const {
 
     if (start.first == 0 ) {
         return chainDistance(make_pair(prefix_sum.size() - 2, start.second), 
@@ -2066,7 +2031,7 @@ int64_t MinimumDistanceIndex::ChainIndex::loopDistance(
 }
 int64_t MinimumDistanceIndex::ChainIndex::chainDistance(
          pair<size_t, bool> start, pair<size_t, bool> end, 
-         int64_t start_len, int64_t end_len, bool check_loop) {
+         int64_t start_len, int64_t end_len, bool check_loop) const {
 
     /*
      * Return the distance between the given node sides, except node side is
@@ -2083,39 +2048,39 @@ int64_t MinimumDistanceIndex::ChainIndex::chainDistance(
     if (!start.second && !end.second) {
         //If start and end are facing forward relative to the start of the chain
         if (start.first <= end.first) {
-            return minPos({loop_dist, end_sum - start_sum});
+            return minPos(loop_dist, end_sum - start_sum);
         } else {
             int64_t rev1 = loop_fd[start.first] - 1;
             int64_t rev2 = loop_rev[end.first] - 1;
 
             int64_t chain_dist = (start_sum + start_len) - (end_sum + end_len); 
-            return minPos({loop_dist, 
-                   (rev1 == -1 || rev2 == -1) ? -1 : chain_dist + rev1 + rev2});
+            return minPos(loop_dist,
+                   (rev1 == -1 || rev2 == -1) ? -1 : chain_dist + rev1 + rev2);
         }
 
     } else if (start.second && end.second ){
         //If start and end are both reversed relative to the start of the chain
         if (start.first >= end.first) {
-            return minPos({loop_dist, 
-                            (start_sum + start_len) - (end_sum + end_len)});
+            return minPos(loop_dist,
+                            (start_sum + start_len) - (end_sum + end_len));
             
         } else {
             int64_t rev1 = loop_rev[start.first] - 1;
             int64_t rev2 = loop_fd[end.first] - 1;
             int64_t chain_dist = end_sum - start_sum; 
-            return minPos({loop_dist, 
-                    (rev1 == -1 || rev2 == -1) ? -1 : chain_dist+ rev1 + rev2});
+            return minPos(loop_dist,
+                    (rev1 == -1 || rev2 == -1) ? -1 : chain_dist+ rev1 + rev2);
         }
     } else if (!start.second && end.second) {
         //Start is forward, end is reversed
         if (start.first <= end.first) {
             int64_t rev = loop_fd[end.first] - 1;
             int64_t chain_dist = end_sum - start_sum;
-            return minPos({loop_dist, rev == -1 ? -1 : rev + chain_dist });
+            return minPos(loop_dist, rev == -1 ? -1 : rev + chain_dist);
         } else {
             int64_t rev = loop_fd[start.first] - 1;
             int64_t chain_dist = (start_sum+start_len) - (end_sum+end_len);
-            return minPos({loop_dist, rev == -1 ? -1 : rev + chain_dist});
+            return minPos(loop_dist, rev == -1 ? -1 : rev + chain_dist);
         }
         
     } else {
@@ -2123,24 +2088,17 @@ int64_t MinimumDistanceIndex::ChainIndex::chainDistance(
         if (start.first <= end.first) {
             int64_t rev = loop_rev[start.first] - 1;
             int64_t chain_dist = end_sum - start_sum;
-            return minPos({loop_dist, rev == -1 ? -1 : rev + chain_dist});
+            return minPos(loop_dist, rev == -1 ? -1 : rev + chain_dist);
 
             
         } else {
             int64_t rev = loop_rev[end.first] - 1; 
             int64_t chain_dist = (start_sum+start_len) - (end_sum+end_len);
-            return minPos({loop_dist, rev == -1 ? -1 : rev + chain_dist});
+            return minPos(loop_dist, rev == -1 ? -1 : rev + chain_dist);
         }
     }
 }
 
-
-int64_t MinimumDistanceIndex::ChainIndex::chainLength() {
-
-    //Get the length of a chain including length of last node
-    //TODO: if there is a unary snarl then this should be -1
-    return prefix_sum[prefix_sum.size()-1] - 1 ;
-}
 
 void MinimumDistanceIndex::ChainIndex::printSelf() {
     //Print the contenst of ChainDistance
