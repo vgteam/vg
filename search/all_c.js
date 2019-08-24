@@ -100,7 +100,7 @@ var searchData=
   ['longest_5fdetectable_5fgap',['longest_detectable_gap',['../classvg_1_1GSSWAligner.html#a19fa8e1cb664992f69c8c97d3a6314c2',1,'vg::GSSWAligner::longest_detectable_gap(const Alignment &amp;alignment, const string::const_iterator &amp;read_pos) const '],['../classvg_1_1GSSWAligner.html#a7ca5f485b7f8923920b93a0957f7031f',1,'vg::GSSWAligner::longest_detectable_gap(size_t read_length, size_t read_pos) const '],['../classvg_1_1GSSWAligner.html#a1ea06f5d75e49017148c17e251567647',1,'vg::GSSWAligner::longest_detectable_gap(const Alignment &amp;alignment) const ']]],
   ['loop_5ffd',['loop_fd',['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#a0314d96f5ca74a8228a3cf4cee0895d3',1,'vg::MinimumDistanceIndex::ChainIndex']]],
   ['loop_5frev',['loop_rev',['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#ac445c4c447efcf671286680fe16b0549',1,'vg::MinimumDistanceIndex::ChainIndex']]],
-  ['loopdistance',['loopDistance',['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#acdbc48fa2e1e0ed4d2bd6dab139bdee9',1,'vg::MinimumDistanceIndex::ChainIndex']]],
+  ['loopdistance',['loopDistance',['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#a0956f79bd36828dd82212b6bf91fbf0d',1,'vg::MinimumDistanceIndex::ChainIndex']]],
   ['lower_5fbound',['lower_bound',['../structvg_1_1BREAKPOINT.html#a1b854b285738913830671a54ce0857f5',1,'vg::BREAKPOINT']]],
   ['lower_5fbound_5fheuristic',['lower_bound_heuristic',['../classvg_1_1TargetValueSearch.html#a93c1f2cb35452719dc87fb4ec8cf714e',1,'vg::TargetValueSearch']]],
   ['lru_5fcache_5fsize',['lru_cache_size',['../classvg_1_1Packer.html#a32572a24fe3c3b372e1ff24ec9720da0',1,'vg::Packer']]]

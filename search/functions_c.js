@@ -49,5 +49,5 @@ var searchData=
   ['logsum',['logsum',['../namespacehaplo_1_1haploMath.html#a5bc510bf3fca2eeaba726ababf32678f',1,'haplo::haploMath']]],
   ['logt',['logT',['../structhaplo_1_1haploMath_1_1RRMemo.html#ac74af8f5adda75809d2995a37ca79317',1,'haplo::haploMath::RRMemo']]],
   ['longest_5fdetectable_5fgap',['longest_detectable_gap',['../classvg_1_1GSSWAligner.html#a19fa8e1cb664992f69c8c97d3a6314c2',1,'vg::GSSWAligner::longest_detectable_gap(const Alignment &amp;alignment, const string::const_iterator &amp;read_pos) const '],['../classvg_1_1GSSWAligner.html#a7ca5f485b7f8923920b93a0957f7031f',1,'vg::GSSWAligner::longest_detectable_gap(size_t read_length, size_t read_pos) const '],['../classvg_1_1GSSWAligner.html#a1ea06f5d75e49017148c17e251567647',1,'vg::GSSWAligner::longest_detectable_gap(const Alignment &amp;alignment) const ']]],
-  ['loopdistance',['loopDistance',['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#acdbc48fa2e1e0ed4d2bd6dab139bdee9',1,'vg::MinimumDistanceIndex::ChainIndex']]]
+  ['loopdistance',['loopDistance',['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#a0956f79bd36828dd82212b6bf91fbf0d',1,'vg::MinimumDistanceIndex::ChainIndex']]]
 ];

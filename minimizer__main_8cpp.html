@@ -96,7 +96,6 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <code>#include &quot;<a class="el" href="minimizer_8hpp.html">../minimizer.hpp</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="subcommand_8hpp.html">subcommand.hpp</a>&quot;</code><br/>
 <code>#include &lt;<a class="el" href="vpkg_8hpp.html">vg/io/vpkg.hpp</a>&gt;</code><br/>
-<code>#include &lt;<a class="el" href="stream_8hpp.html">vg/io/stream.hpp</a>&gt;</code><br/>
 <code>#include &lt;iostream&gt;</code><br/>
 <code>#include &lt;vector&gt;</code><br/>
 <code>#include &lt;getopt.h&gt;</code><br/>
@@ -113,7 +112,7 @@ Functions</h2></td></tr>
 <div class="textblock"><p>Defines the "vg minimizer" subcommand, which builds the experimental minimizer index.</p>
 <p>The index contains the lexicographically smallest kmer in a window of w successive kmers and their reverse complements. If the kmer contains characters other than A, C, G, and T, it will not be indexed.</p>
 <p>By default, the index contains all minimizers in the graph. Option &ndash;max-occs can be used to specify the maximum number of occurrences for a kmer. Kmers more frequent than that will be removed from the index.</p>
-<p>The index contains either all minimizers or haplotype-consistent minimizers (option &ndash;gbwt-name). Indexing all minimizers from complex graph regions can take a long time (e.g. 65 hours vs 30 minutes for 1000GP), because many windows have the same minimizer. As the total number of minimizers is manageable (e.g. 2.1 billion vs. 1.4 billion for 1000GP), it should be possible to develop a better algorithm for finding the minimizers.</p>
+<p>The index contains either all haplotype-consistent minimizers. Indexing al minimizers from complex graph regions can take a long time (e.g. 65 hours vs 30 minutes for 1000GP), because many windows have the same minimizer. As the total number of minimizers is manageable (e.g. 2.1 billion vs. 1.4 billion for 1000GP), it should be possible to develop a better algorithm for finding the minimizers.</p>
 <p>A quick idea:</p>
 <ul>
 <li>For each node v, extract the subgraph for the windows starting in v.</li>

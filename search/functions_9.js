@@ -2,7 +2,7 @@ var searchData=
 [
   ['i',['I',['../structhaplo_1_1haplo__DP__rectangle.html#a90bf6b0298eccf61379f8aa980b8b6cf',1,'haplo::haplo_DP_rectangle']]],
   ['id',['id',['../namespacevg.html#a9f6602b7e7a46c19819c8f362147b315',1,'vg']]],
-  ['id_5fin_5fparent',['id_in_parent',['../structvg_1_1SnarlSeedClusterer_1_1NetgraphNode.html#a809cad1d5711a0b48a958089d5d1bdc6',1,'vg::SnarlSeedClusterer::NetgraphNode']]],
+  ['id_5fin_5fparent',['id_in_parent',['../structvg_1_1SnarlSeedClusterer_1_1NetgraphNode.html#a61d101fbffd706d213136d6741a89ec4',1,'vg::SnarlSeedClusterer::NetgraphNode']]],
   ['id_5fsort',['id_sort',['../classvg_1_1VG.html#ab1aecdffe7759a1e14248e00f2866b84',1,'vg::VG']]],
   ['id_5fto_5fprefix',['id_to_prefix',['../classvg_1_1StreamIndexBase.html#a4b0e44b8cb40b33c5ef4db47a8a89272',1,'vg::StreamIndexBase']]],
   ['id_5fto_5frank',['id_to_rank',['../classvg_1_1Viz.html#a2474cd8505ed561cd414648438fedb5e',1,'vg::Viz::id_to_rank()'],['../classxg_1_1XG.html#acc5e2413b28e3f5889436b3e9b0b528f',1,'xg::XG::id_to_rank()']]],
@@ -27,7 +27,7 @@ var searchData=
   ['incremental_5ffind',['incremental_find',['../classhaplo_1_1ScoreProvider.html#af61922be074a36b260041dab6bc97166',1,'haplo::ScoreProvider::incremental_find()'],['../classhaplo_1_1GBWTScoreProvider.html#ae9946793fee62c4aaa642e90b8cac76b',1,'haplo::GBWTScoreProvider::incremental_find()']]],
   ['incrementiter',['IncrementIter',['../structvg_1_1IncrementIter.html#a1231b6b6c0fde0c7ae6cf69b9cfe9a6b',1,'vg::IncrementIter']]],
   ['indegree',['indegree',['../classxg_1_1XG.html#a716a7ab746b0e6420aa48b597917fc04',1,'xg::XG']]],
-  ['index',['index',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a426ae848a0a7a40295a8789fd87a603d',1,'vg::MinimumDistanceIndex::SnarlIndex::index()'],['../classvg_1_1StreamIndex.html#a8ee1930510b5d02e9a00ba1a246ba146',1,'vg::StreamIndex::index()'],['../classvg_1_1Index.html#adb022550b02c2f07099f8543177cef51',1,'vg::Index::Index(void)'],['../classvg_1_1Index.html#a15127be3fa63cfa8e1f8639c7609f496',1,'vg::Index::Index(string &amp;name)']]],
+  ['index',['index',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#acc3c9bf32ea0fa83b0d037364b90fc16',1,'vg::MinimumDistanceIndex::SnarlIndex::index()'],['../classvg_1_1StreamIndex.html#a8ee1930510b5d02e9a00ba1a246ba146',1,'vg::StreamIndex::index()'],['../classvg_1_1Index.html#adb022550b02c2f07099f8543177cef51',1,'vg::Index::Index(void)'],['../classvg_1_1Index.html#a15127be3fa63cfa8e1f8639c7609f496',1,'vg::Index::Index(string &amp;name)']]],
   ['index_5fedge_5fby_5fnode_5fsides',['index_edge_by_node_sides',['../classvg_1_1VG.html#a53ff7033966852f5fb3852716cab21a9',1,'vg::VG']]],
   ['index_5fpositions',['index_positions',['../namespacevg.html#a3ad3588bcc84b46c6ed107e604f9128e',1,'vg']]],
   ['indexedvg',['IndexedVG',['../classvg_1_1IndexedVG.html#a89030b52047b0e005a5c86b7f9a206f6',1,'vg::IndexedVG::IndexedVG(string graph_filename)'],['../classvg_1_1IndexedVG.html#a4f034462276f6e3ed4b1ab86979d699c',1,'vg::IndexedVG::IndexedVG(IndexedVG &amp;&amp;other)=default'],['../classvg_1_1IndexedVG.html#a0972bd3bf8d93bfa8b41aff828aab070',1,'vg::IndexedVG::IndexedVG(const IndexedVG &amp;other)=delete']]],
