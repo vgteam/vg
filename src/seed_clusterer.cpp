@@ -298,9 +298,9 @@ cerr << endl << "New cluster calculation:" << endl;
                 node_clusters.best_right = min_not_minus_one(dist_right,
                                                       node_clusters.best_right);
 
-                tree_state.read_union_find.union_groups(group_id, seed_i);
+                tree_state.read_union_find.union_groups(group_id, iter->second);
                 if (tree_state.fragment_distance_limit != 0) {
-                    tree_state.fragment_union_find.union_groups(group_id, seed_i);
+                    tree_state.fragment_union_find.union_groups(group_id, iter->second);
                 }
 
             }
@@ -475,8 +475,8 @@ cerr << endl << "New cluster calculation:" << endl;
                     combined_group = new_combined_group;
 
                     dists = make_pair(
-                          min_positive(old_dists.first, dists.first),
-                          min_positive(old_dists.second, dists.second));
+                          min_not_minus_one(old_dists.first, dists.first),
+                          min_not_minus_one(old_dists.second, dists.second));
                     tree_state.read_cluster_dists[new_group] = dists;
                     tree_state.read_cluster_dists[combined_group] = dists;
 #ifdef DEBUG
@@ -915,7 +915,7 @@ cerr << "  Combining this cluster from the right" << endl;
                 int64_t d = tree_state.read_cluster_dists[i].second;
                 tree_state.read_cluster_dists[i].second = d == -1 ? -1
                                                              : d + dist_to_end;
-                chain_clusters.best_right = min_positive(chain_clusters.best_right,
+                chain_clusters.best_right = min_not_minus_one(chain_clusters.best_right,
                                             tree_state.read_cluster_dists[i].second);
             }
         }
@@ -1077,8 +1077,8 @@ cerr << "  Combining this cluster from the right" << endl;
                     }
                     snarl_clusters.cluster_heads.insert(new_g);
                     dists = make_pair(
-                                min_positive(dists.first, old_dists.first),
-                                min_positive(dists.second, old_dists.second));
+                                min_not_minus_one(dists.first, old_dists.first),
+                                min_not_minus_one(dists.second, old_dists.second));
                     tree_state.read_cluster_dists[new_g] = dists;
                     new_group = new_g;
                     combined_group = new_g;
@@ -1244,12 +1244,12 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                    && ((tree_state.fragment_distance_limit == 0 &&
                          MinimumDistanceIndex::minPos({dist_l_l, dist_l_r,
                             dist_r_l, dist_r_r})-2 <= tree_state.read_distance_limit
-                   && min_positive(curr_child_clusters.best_left, curr_child_clusters.best_right)-2
+                   && min_not_minus_one(curr_child_clusters.best_left, curr_child_clusters.best_right)-2
                                                 <= tree_state.read_distance_limit) ||
                        (tree_state.fragment_distance_limit != 0 &&
                             MinimumDistanceIndex::minPos({dist_l_l, dist_l_r,
                             dist_r_l, dist_r_r})-2 <= tree_state.fragment_distance_limit
-                   && min_positive(curr_child_clusters.best_left, curr_child_clusters.best_right)-2
+                   && min_not_minus_one(curr_child_clusters.best_left, curr_child_clusters.best_right)-2
                                                 <= tree_state.fragment_distance_limit)
                                                 )) {
                     //If the two nodes are reachable
