@@ -451,36 +451,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     // Stop the current substage
                     funnel.substage_stop();
                 }
-            } else if ( extensions.back().full() && do_dp) {
-                //If only the last extension was a full length alignment but all the others weren't
-                // do chaining only on the others
-                if (track_provenance) {
-                    funnel.substage("chain");
-                }
-
-                //Get the full length extension first
-                auto& extension = extensions.back();
-
-                int alignment_score = extension.score;
-                //And replace best_extension with current one
-                *best_extension.mutable_path() = extension.to_path(gbwt_graph, best_extension.sequence());
-
-                // Compute identity from mismatch count.
-                size_t mismatch_count = extension.mismatches();
-                double identity = best_extension.sequence().size() == 0 ? 0.0 : (best_extension.sequence().size() - mismatch_     count) / (double) best_extension.sequence().size();
-
-                // Fill in the score and identity
-                best_extension.set_score(alignment_score);
-                best_extension.set_identity(identity);
-
-                //Do chaining on the remaining alignments 
-                extensions.pop_back();
-                find_optimal_tail_alignments(aln, extensions, best_extension, second_best_extension);
-
-                if (track_provenance) {
-                    // We're done chaining. Next alignment may not go through this substage.
-                    funnel.substage_stop();
-                }
 
             } else if (do_dp) {
                 // We need to do chaining.
@@ -867,7 +837,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
     Path winning_left;
     Path winning_middle;
     Path winning_right;
-    size_t winning_score = best.score() == 0 ? 0 : std::numeric_limits<size_t>::max();
+    size_t winning_score = 0;
 
     Path second_left;
     Path second_middle;
