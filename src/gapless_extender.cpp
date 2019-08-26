@@ -413,14 +413,16 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
     if (full_length_found && result.size() < 2) {
         //If we found only one full length alignment, return it as well as all 
         // other alignments found
+        remove_duplicates(non_full_length_result);
         non_full_length_result.push_back(std::move(result.front()));
         result = std::move(non_full_length_result);
+    } else {
+        remove_duplicates(result);
     }
 
     // Remove duplicates, find mismatches, and trim mismatches to maximize score.
     // If we have a full-length alignment with sufficiently few mismatches, we do
     // not trim it.
-    remove_duplicates(result);
     find_mismatches(sequence, *(this->graph), result);
     if (trim_extensions) {
         this->trim(result, max_mismatches, &cache);
