@@ -410,11 +410,6 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             non_full_length_result.push_back(best_match);
         }
     }
-    if (full_length_found) {
-        cerr << "  Gapless extender found " << result.size() << " full length extensions" << endl;
-    } else {
-        cerr << "  Gapless extender found " << result.size() << " non-full length extension" << endl;
-    }
     if (full_length_found && result.size() < 2) {
         //If we found only one full length alignment, return it as well as all 
         // other alignments found
