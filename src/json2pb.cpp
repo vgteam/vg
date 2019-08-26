@@ -69,14 +69,25 @@ static json_t * _field2json(const Message& msg, const FieldDescriptor *field, si
 			jf = fmt(value);			\
 			break;					\
 		}
+        
+#define _CONVERT_AS_STRING(type, ctype, sfunc, afunc)		\
+		case FieldDescriptor::type: {			\
+			const ctype value = (repeated)?		\
+				ref->afunc(msg, field, index):	\
+				ref->sfunc(msg, field);		\
+            std::string quoted = std::to_string(value); \
+			jf = json_string(quoted.c_str());			\
+			break;					\
+		}
 
 		_CONVERT(CPPTYPE_DOUBLE, double, json_real, GetDouble, GetRepeatedDouble);
 		_CONVERT(CPPTYPE_FLOAT, double, json_real, GetFloat, GetRepeatedFloat);
-		_CONVERT(CPPTYPE_INT64, json_int_t, json_integer, GetInt64, GetRepeatedInt64);
-		_CONVERT(CPPTYPE_UINT64, json_int_t, json_integer, GetUInt64, GetRepeatedUInt64);
+		_CONVERT_AS_STRING(CPPTYPE_INT64, json_int_t, GetInt64, GetRepeatedInt64);
+		_CONVERT_AS_STRING(CPPTYPE_UINT64, json_int_t, GetUInt64, GetRepeatedUInt64);
 		_CONVERT(CPPTYPE_INT32, json_int_t, json_integer, GetInt32, GetRepeatedInt32);
 		_CONVERT(CPPTYPE_UINT32, json_int_t, json_integer, GetUInt32, GetRepeatedUInt32);
 		_CONVERT(CPPTYPE_BOOL, bool, json_boolean, GetBool, GetRepeatedBool);
+#undef _CONVERT_AS_STRING
 #undef _CONVERT
 		case FieldDescriptor::CPPTYPE_STRING: {
 			std::string scratch;
