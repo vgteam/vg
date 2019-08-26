@@ -35,7 +35,7 @@ INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_S
 # Define libraries to link against. Make sure to always link statically against
 # htslib and libdeflate and Protobuf so that we can use position-dependent code
 # there for speed.
-LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) $(CWD)/$(LIB_DIR)/libvgio.a -lhandlegraph -lvcflib -lgssw -lssw $(CWD)/$(LIB_DIR)/libprotobuf.a -lsublinearLS $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -lstructures -lvw -lboost_program_options -lallreduce -lbdsg
+LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) $(CWD)/$(LIB_DIR)/libvgio.a -lhandlegraph -lvcflib -lgssw -lssw -lprotobuf -lsublinearLS $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -lstructures -lvw -lboost_program_options -lallreduce -lbdsg
 # Use pkg-config to find Cairo and all the libs it uses
 LD_LIB_FLAGS += $(shell pkg-config --libs --static cairo jansson)
 
@@ -175,7 +175,6 @@ CONFIGURATION_OBJ =
 
 
 RAPTOR_DIR:=deps/raptor
-PROTOBUF_DIR:=deps/protobuf
 JEMALLOC_DIR:=deps/jemalloc
 LOCKFREE_MALLOC_DIR:=deps/lockfree-malloc
 SDSL_DIR:=deps/sdsl-lite
@@ -219,7 +218,6 @@ DEP_OBJ += $(OBJ_DIR)/Fasta.o
 # But that requires fancy ar scripting.
 # If you just pass them to ar it puts the library *file* in libvg where nothing can read it.
 LIB_DEPS =
-LIB_DEPS += $(LIB_DIR)/libprotobuf.a
 LIB_DEPS += $(LIB_DIR)/libsdsl.a
 LIB_DEPS += $(LIB_DIR)/libssw.a
 LIB_DEPS += $(LIB_DIR)/libsnappy.a
@@ -279,7 +277,7 @@ ifneq ($(shell uname -s),Darwin)
 	LD_LIB_FLAGS += -ljemalloc
 endif
 
-.PHONY: clean get-deps deps test set-path static docs .pre-build .check-environment .check-git .no-git
+.PHONY: clean get-deps deps test set-path static docs .pre-build .check-environment .check-git .no-git 
 
 $(BIN_DIR)/vg: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
 	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
@@ -293,7 +291,7 @@ $(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
 
 # We have system-level deps to install
 get-deps:
-	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev
+	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev
 
 # And we have submodule deps to build
 deps: $(DEPS)
@@ -312,13 +310,6 @@ ifeq ($(shell uname -s),Darwin)
 else
 	ln -s `which shuf` $(BIN_DIR)/shuf
 endif
-
-# Make sure we have protoc built, and the protobuf lib
-bin/protoc: $(LIB_DIR)/libprotobuf.a
-$(LIB_DIR)/libprotobuf.a: deps/protobuf/src/google/protobuf/*.cc
-	rm -rf $(LIB_DIR)/libprotobuf* $(LIB_DIR)/libprotoc*
-	rm -Rf include/google/protobuf/
-	+. ./source_me.sh && cd $(PROTOBUF_DIR) && ./autogen.sh && export DIST_LANG=cpp && ./configure --prefix="$(CWD)" $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install && export PATH=$(CWD)/bin:$$PATH
 
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/json2pb.h $(SRC_DIR)/vg.hpp
 	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(FILTER)
@@ -370,16 +361,18 @@ $(OBJ_DIR)/progress_bar.o: $(PROGRESS_BAR_DIR)/*.hpp $(PROGRESS_BAR_DIR)/*.cpp
 $(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
 	+. ./source_me.sh && cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER) && mv Fasta.o $(CWD)/$(OBJ_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
 
-# TODO: libvgio.so gets built to link against system-installed Protobuf .so, if the linker finds one when making libvgio.so.
-# It *shouldn't* do this, but cmake and pkg-config don't quite work right together inside libvgio's build process yet.
-# So we delete libvgio.so and always link statically against libvgio.a.
-# But we don't delete libvgio.dylib; Mac insists on it for some reason.
-# We also need to clear out the old Protobuf header in case Protobuf updated;
-# we don't want to accidentally build against it.
-$(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/libprotobuf.a $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp
+# We have this target to clean up the old Protobuf we used to have.
+# We can remove it after we no longer care about building properly on a dirty
+# build from vg versions that shipped Protobuf themselves.
+$(LIB_DIR)/cleaned_old_protobuf: $(wildcard $(LIB_DIR)/libproto*)
+	+rm -f $(LIB_DIR)/libproto* $(LIB_DIR)/pkgconfig/libproto* $(BIN_DIR)/protoc
+	+rm -Rf $(INC_DIR)/google/protobuf
+	+touch $(LIB_DIR)/cleaned_old_protobuf
+	
+$(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/cleaned_old_protobuf $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp
 	+rm -f $(CWD)/$(INC_DIR)/vg.pb.h $(CWD)/$(INC_DIR)/vg/vg.pb.h
 	+rm -Rf $(CWD)/$(INC_DIR)/vg/io/
-	+. ./source_me.sh && cd $(LIBVGIO_DIR) && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib . $(FILTER) && $(MAKE) clean && VERBOSE=1 $(MAKE) $(FILTER) && $(MAKE) install && rm -f $(CWD)/$(LIB_DIR)/libvgio.so
+	+. ./source_me.sh && cd $(LIBVGIO_DIR) && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib . $(FILTER) && $(MAKE) clean && VERBOSE=1 $(MAKE) $(FILTER) && $(MAKE) install 
 
 $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp $(LIBHANDLEGRAPH_DIR)/src/*.cpp
 	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && cmake . && $(MAKE) $(FILTER) && cp libhandlegraph.a $(CWD)/$(LIB_DIR) && cp -r src/include/handlegraph $(CWD)/$(INC_DIR)
@@ -653,7 +646,7 @@ clean-vg:
 	$(RM) -r $(OBJ_DIR)/*.o $(OBJ_DIR)/*.d
 	$(RM) -f $(INC_DIR)/vg_git_version.hpp $(INC_DIR)/vg_system_version.hpp
 
-clean: clean-rocksdb clean-protobuf clean-vcflib
+clean: clean-rocksdb clean-vcflib
 	$(RM) -r $(BIN_DIR)
 	$(RM) -r $(LIB_DIR)
 	$(RM) -r $(UNITTEST_OBJ_DIR)
@@ -691,11 +684,6 @@ clean-rocksdb:
 	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean
 	rm -f $(LIB_DIR)/librocksdb.a 
 	rm -rf $(INC_DIR)/rocksdb/
-
-clean-protobuf:
-	cd $(DEP_DIR) && cd protobuf && $(MAKE) clean
-	rm -f $(LIB_DIR)/libprotobuf.a
-	rm -rf $(INC_DIR)/google/protobuf/
 
 clean-vcflib:
 	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean
