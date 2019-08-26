@@ -18,6 +18,8 @@
 
 #include <google/protobuf/message.h>
 #include <google/protobuf/descriptor.h>
+#include <google/protobuf/util/json_util.h>
+#include <google/protobuf/struct.pb.h>
 
 #include <json2pb.h>
 
@@ -54,6 +56,7 @@ public:
 };
 
 static json_t * _pb2json(const Message& msg);
+static json_t * _struct2json(const google::protobuf::Struct& msg);
 static json_t * _field2json(const Message& msg, const FieldDescriptor *field, size_t index)
 {
 	const Reflection *ref = msg.GetReflection();
@@ -104,7 +107,11 @@ static json_t * _field2json(const Message& msg, const FieldDescriptor *field, si
 			const Message& mf = (repeated)?
 				ref->GetRepeatedMessage(msg, field, index):
 				ref->GetMessage(msg, field);
-			jf = _pb2json(mf);
+            if (mf.GetDescriptor()->full_name() == google::protobuf::Struct::descriptor()->full_name()) {
+                jf = _struct2json((const google::protobuf::Struct&) mf);
+            } else {
+			    jf = _pb2json(mf);
+            }
 			break;
 		}
 		case FieldDescriptor::CPPTYPE_ENUM: {
@@ -159,12 +166,41 @@ static json_t * _pb2json(const Message& msg)
 	return _auto.release();
 }
 
+static json_t * _struct2json(const google::protobuf::Struct& msg) {
+
+    // Cheat by making Protobuf serialize the struct instead of us having to walk it.
+    std::string buffer;
+    google::protobuf::util::JsonPrintOptions opts;
+    auto status = google::protobuf::util::MessageToJsonString(msg, &buffer, opts);
+    
+    if (!status.ok()) {
+        throw std::runtime_error("Could not serialize " + msg.GetTypeName() + ": " + status.ToString());
+    }
+    
+    // Now parse back
+    json_t *root;
+	json_error_t error;
+
+	root = json_loadb(buffer.c_str(), buffer.size(), 0, &error);
+
+	if (!root)
+		throw j2pb_error(std::string("Load failed: ") + error.text);
+
+	json_autoptr _auto(root);
+
+	if (!json_is_object(root))
+		throw j2pb_error("Malformed JSON: not an object");
+
+    return _auto.release();
+}
+
 static bool string2bool(const char* str) {
     // If the string is empty, *str == 0.
     return (*str == 't' || *str == 'T' || *str == 'y' || *str == 'Y' || (*str >= '1' && *str <= '9')); 
 }
 
 static void _json2pb(Message& msg, json_t *root);
+static void _json2struct(google::protobuf::Struct& msg, json_t *root);
 static void _json2field(Message &msg, const FieldDescriptor *field, json_t *jf)
 {
 	const Reflection *ref = msg.GetReflection();
@@ -216,7 +252,11 @@ static void _json2field(Message &msg, const FieldDescriptor *field, json_t *jf)
 			Message *mf = (repeated)?
 				ref->AddMessage(&msg, field):
 				ref->MutableMessage(&msg, field);
-			_json2pb(*mf, jf);
+            if (mf->GetDescriptor()->full_name() == google::protobuf::Struct::descriptor()->full_name()) {
+                _json2struct((google::protobuf::Struct&) *mf, jf);
+            } else {
+			    _json2pb(*mf, jf);
+            }
 			break;
 		}
 		case FieldDescriptor::CPPTYPE_ENUM: {
@@ -270,6 +310,27 @@ static void _json2pb(Message& msg, json_t *root)
 	}
 }
 
+static int json_dump_std_string(const char *buf, size_t size, void *data)
+{
+	std::string *s = (std::string *) data;
+	s->append(buf, size);
+	return 0;
+}
+
+static void _json2struct(google::protobuf::Struct& msg, json_t *root)
+{
+    // Serialize the JSON to a string again
+    std::string buf;
+	json_autoptr _auto(root);
+	json_dump_callback(root, json_dump_std_string, &buf, 0);
+    
+    // Parse it as a struct
+    auto status = google::protobuf::util::JsonStringToMessage(buf, &msg);
+    if (!status.ok()) {
+        throw std::runtime_error("Could not deserialize " + msg.GetTypeName() + ": " + status.ToString());
+    }
+}
+
 void json2pb(Message &msg, const char *buf, size_t size)
 {
 	json_t *root;
@@ -309,13 +370,6 @@ void json2pb(Message &msg, FILE *fp)
 void json2pb(Message &msg, const std::string& data)
 {
     json2pb(msg, data.c_str(), data.size());
-}
-
-int json_dump_std_string(const char *buf, size_t size, void *data)
-{
-	std::string *s = (std::string *) data;
-	s->append(buf, size);
-	return 0;
 }
 
 std::string pb2json(const Message &msg)
