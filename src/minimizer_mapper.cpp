@@ -467,7 +467,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
                 // Compute identity from mismatch count.
                 size_t mismatch_count = extension.mismatches();
-                double identity = best_extension.sequence().size() == 0 ? 0.0 : (best_extension.sequence().size() - mismatch_     count) / (double) best_extension.sequence().size();
+                double identity = best_extension.sequence().size() == 0 ? 0.0 : (best_extension.sequence().size() - mismatch_count) / (double) best_extension.sequence().size();
 
                 // Fill in the score and identity
                 best_extension.set_score(alignment_score);
