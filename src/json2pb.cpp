@@ -148,6 +148,11 @@ static json_t * _pb2json(const Message& msg)
 	return _auto.release();
 }
 
+static bool string2bool(const char* str) {
+    // If the string is empty, *str == 0.
+    return (*str == 't' || *str == 'T' || *str == 'y' || *str == 'Y' || (*str >= '1' && *str <= '9')); 
+}
+
 static void _json2pb(Message& msg, json_t *root);
 static void _json2field(Message &msg, const FieldDescriptor *field, json_t *jf)
 {
@@ -165,22 +170,26 @@ static void _json2field(Message &msg, const FieldDescriptor *field, json_t *jf)
 				ref->sfunc(&msg, field, value);	\
 		} while (0)
 
-#define _CONVERT(type, ctype, fmt, sfunc, afunc) 		\
+#define _CONVERT_WITH_STRING(type, ctype, fmt, fromstringfunc, sfunc, afunc) 		\
 		case FieldDescriptor::type: {			\
 			ctype value;				\
 			int r = json_unpack_ex(jf, &error, JSON_STRICT, fmt, &value); \
-			if (r) throw j2pb_error(field, std::string("Failed to unpack: ") + error.text); \
+            if (r) { \
+                if (!json_is_string(jf)) throw j2pb_error(field, std::string("Failed to unpack or view as string: ") + error.text); \
+			    const char * string_value = json_string_value(jf); \
+                value = fromstringfunc(string_value); \
+            } \
 			_SET_OR_ADD(sfunc, afunc, value);	\
 			break;					\
 		}
 
-		_CONVERT(CPPTYPE_DOUBLE, double, "F", SetDouble, AddDouble);
-		_CONVERT(CPPTYPE_FLOAT, double, "F", SetFloat, AddFloat);
-		_CONVERT(CPPTYPE_INT64, json_int_t, "I", SetInt64, AddInt64);
-		_CONVERT(CPPTYPE_UINT64, json_int_t, "I", SetUInt64, AddUInt64);
-		_CONVERT(CPPTYPE_INT32, json_int_t, "I", SetInt32, AddInt32);
-		_CONVERT(CPPTYPE_UINT32, json_int_t, "I", SetUInt32, AddUInt32);
-		_CONVERT(CPPTYPE_BOOL, int, "b", SetBool, AddBool);
+		_CONVERT_WITH_STRING(CPPTYPE_DOUBLE, double, "F", atof, SetDouble, AddDouble);
+		_CONVERT_WITH_STRING(CPPTYPE_FLOAT, double, "F", atof, SetFloat, AddFloat);
+		_CONVERT_WITH_STRING(CPPTYPE_INT64, json_int_t, "I", std::stoll, SetInt64, AddInt64);
+		_CONVERT_WITH_STRING(CPPTYPE_UINT64, json_int_t, "I", std::stoull, SetUInt64, AddUInt64);
+		_CONVERT_WITH_STRING(CPPTYPE_INT32, json_int_t, "I", atoi, SetInt32, AddInt32);
+		_CONVERT_WITH_STRING(CPPTYPE_UINT32, json_int_t, "I", std::stoul, SetUInt32, AddUInt32);
+		_CONVERT_WITH_STRING(CPPTYPE_BOOL, int, "b", string2bool, SetBool, AddBool);
 
 		case FieldDescriptor::CPPTYPE_STRING: {
 			if (!json_is_string(jf))
@@ -215,6 +224,9 @@ static void _json2field(Message &msg, const FieldDescriptor *field, json_t *jf)
 		}
 		default:
 			break;
+            
+#undef _CONVERT_WITH_STRING
+#undef _SET_OR_ADD
 	}
 }
 
