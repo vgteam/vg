@@ -1,5 +1,6 @@
 brew "jq"
 brew "jansson"
+brew "protobuf"
 brew "md5sha1sum"
 brew "samtools"
 brew "bison"

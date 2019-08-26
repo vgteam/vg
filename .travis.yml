@@ -3,7 +3,7 @@
 language: cpp
 compiler: gcc
 sudo: required
-dist: trusty
+dist: bionic
 # We have some shenanigans to let us cache submodules, and update changed files
 # without messing up mtimes and triggering rebuilds unnecessarily. Travis checks
 # out our submodules and then restores the cache over them. We move the cached
@@ -18,14 +18,14 @@ before_install:
   - rm -Rf deps
   # Keep the cached deps if the right compiler version was used.
   # Otherwise start fresh
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && -e deps_cached/gcc6 ]]; then mv deps_cached deps; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && -e "deps_cached/gcc$(gcc --dumpversion)" ]]; then mv deps_cached deps; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" && -e deps_cached/gcc6 ]]; then mv deps_cached deps; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "0" && -e deps_cached/clang ]]; then mv deps_cached deps; fi
   - (ls -lah deps/; ls -lah bin/; ls -lah lib/; ls -lah include/) || true
   - git submodule update --init --recursive
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-6 60 --slave /usr/bin/g++ g++ /usr/bin/g++-6; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch deps/gcc6; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch "deps/gcc$(gcc --dumpversion)"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
   # Travis can't always avtually use Homebrew to install our dependencies
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; brew bundle --verbose; fi
@@ -72,12 +72,8 @@ addons:
   homebrew:
     brewfile: true 
   apt:
-    sources:
-      - ubuntu-toolchain-r-test
     update: true
     packages: # Get all the current dependency packages in advance. We will still do make get-deps but it will do less work.
-      - gcc-6
-      - g++-6
       - bc 
       - rs 
       - jq
@@ -85,6 +81,7 @@ addons:
       - cmake
       - protobuf-compiler
       - libprotoc-dev
+      - libprotobuf-dev
       - libjansson-dev
       - libbz2-dev
       - libncurses5-dev
