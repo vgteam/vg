@@ -283,6 +283,11 @@ void json2pb(Message &msg, FILE *fp)
 	_json2pb(msg, root);
 }
 
+void json2pb(Message &msg, const std::string& data)
+{
+    json2pb(msg, data.c_str(), data.size());
+}
+
 int json_dump_std_string(const char *buf, size_t size, void *data)
 {
 	std::string *s = (std::string *) data;

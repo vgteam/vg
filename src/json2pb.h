@@ -19,6 +19,7 @@ class Message;
 
 void json2pb(google::protobuf::Message &msg, const char *buf, size_t size);
 void json2pb(google::protobuf::Message &msg, FILE *fp);
+void json2pb(google::protobuf::Message &msg, const std::string& data);
 std::string pb2json(const google::protobuf::Message &msg);
 
 
