@@ -24,7 +24,6 @@ before_install:
   - (ls -lah deps/; ls -lah bin/; ls -lah lib/; ls -lah include/) || true
   - git submodule update --init --recursive
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-6 60 --slave /usr/bin/g++ g++ /usr/bin/g++-6; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch "deps/gcc$(gcc --dumpversion)"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
   # Travis can't always avtually use Homebrew to install our dependencies
