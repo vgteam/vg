@@ -6,7 +6,7 @@
 #include "json2pb.h"
 #include <vg/vg.pb.h>
 #include "../mapper.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../build_index.hpp"
 #include "catch.hpp"
 #include "../algorithms/alignment_path_offsets.hpp"
@@ -46,7 +46,8 @@ TEST_CASE( "Mapper can map to a one-node graph", "[mapping][mapper]" ) {
     build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
-    XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(graph);
     
     // Make a multipath mapper to map against the graph.
     Mapper mapper(&xg_index, gcsaidx, lcpidx);
@@ -267,7 +268,8 @@ TEST_CASE( "Mapper finds optimal mapping for read starting with node-border MEM"
     build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
-    XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(graph);
     
     // Make a multipath mapper to map against the graph.
     Mapper mapper(&xg_index, gcsaidx, lcpidx);
@@ -334,7 +336,8 @@ TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][
     build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
-    XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(graph);
     
     // Make a multipath mapper to map against the graph.
     Mapper mapper(&xg_index, gcsaidx, lcpidx);

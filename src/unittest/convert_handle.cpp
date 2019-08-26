@@ -2,7 +2,7 @@
 #include "../convert_handle.hpp"
 #include "../handle.hpp"
 #include "../vg.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
@@ -13,14 +13,14 @@ namespace vg {
         using namespace std;
         
         TEST_CASE("convert_handle converter works on empty graph, xg to vg", "[handle][vg][xg]") {
-            XG xg;
+            xg::XG xg;
             VG vg;
             convert_handle_graph(&xg, &vg);
             REQUIRE(vg.node_count() == 0);
             REQUIRE(vg.edge_count() == 0);
         }
         TEST_CASE("convert_handle converter works on empty graph, xg to pg", "[handle][pg][xg]") {
-            XG xg;
+            xg::XG xg;
             bdsg::PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             REQUIRE(pg.get_node_count() == 0);
@@ -33,7 +33,7 @@ namespace vg {
             REQUIRE(edge_count == 0);
         }
         TEST_CASE("convert_handle converter works on empty graph, xg to hg", "[handle][hg][xg]") {
-            XG xg;
+            xg::XG xg;
             bdsg::HashGraph hg;
             convert_handle_graph(&xg, &hg);
             REQUIRE(hg.get_node_count() == 0);
@@ -57,7 +57,8 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            XG xg(proto_graph);
+            xg::XG xg;
+            xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
             convert_handle_graph(&xg, &vg);
             
@@ -75,7 +76,8 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            XG xg(proto_graph);
+            xg::XG xg;
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             
@@ -93,7 +95,8 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            XG xg(proto_graph);
+            xg::XG xg;
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
             convert_handle_graph(&xg, &hg);
             
@@ -121,7 +124,8 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            XG xg(proto_graph);
+            xg::XG xg;
+            xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
             convert_handle_graph(&xg, &vg);
             
@@ -151,7 +155,8 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            XG xg(proto_graph);
+            xg::XG xg;
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             
@@ -193,7 +198,8 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            XG xg(proto_graph);
+            xg::XG xg;
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
             convert_handle_graph(&xg, &hg);
             
@@ -237,12 +243,13 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            XG xg(proto_graph);
+            xg::XG xg;
+            xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
             convert_handle_graph(&xg, &vg);
             
-            REQUIRE(xg.node_sequence(1) == "GATT");
-            REQUIRE(xg.node_sequence(3) == "CGAT");
+            REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
+            REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(vg.get_node_count() == 4);
             REQUIRE(vg.edge_count() == 7);
@@ -271,12 +278,13 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            XG xg(proto_graph);
+            xg::XG xg;
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             
-            REQUIRE(xg.node_sequence(1) == "GATT");
-            REQUIRE(xg.node_sequence(3) == "CGAT");
+            REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
+            REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(pg.get_node_count() == 4);
             
@@ -317,12 +325,13 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            XG xg(proto_graph);
+            xg::XG xg;
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
             convert_handle_graph(&xg, &hg);
             
-            REQUIRE(xg.node_sequence(1) == "GATT");
-            REQUIRE(xg.node_sequence(3) == "CGAT");
+            REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
+            REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(hg.get_node_count() == 4);
             
@@ -377,14 +386,15 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            XG xg(proto_graph);
+            xg::XG xg;
+            xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
             convert_path_handle_graph(&xg, &vg);
             
             
             
-            REQUIRE(xg.node_sequence(1) == "GATT");
-            REQUIRE(xg.node_sequence(3) == "CGAT");
+            REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
+            REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(vg.get_node_count() == 4);
             REQUIRE(vg.edge_count() == 7);
@@ -438,14 +448,15 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            XG xg(proto_graph);
+            xg::XG xg;
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
             convert_path_handle_graph(&xg, &pg);
             
             
             
-            REQUIRE(xg.node_sequence(1) == "GATT");
-            REQUIRE(xg.node_sequence(3) == "CGAT");
+            REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
+            REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(pg.get_node_count() == 4);
 
@@ -514,14 +525,15 @@ namespace vg {
             Graph proto_graph;
             json2pb(proto_graph, graph_json.c_str(), graph_json.size());
             
-            XG xg(proto_graph);
+            xg::XG xg;
+            xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
             convert_path_handle_graph(&xg, &hg);
             
             
             
-            REQUIRE(xg.node_sequence(1) == "GATT");
-            REQUIRE(xg.node_sequence(3) == "CGAT");
+            REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
+            REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(hg.get_node_count() == 4);
             

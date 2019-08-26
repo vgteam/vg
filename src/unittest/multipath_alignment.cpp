@@ -726,7 +726,7 @@ namespace vg {
                 SECTION( "We can find the consistent suboptimal alignment" ) {
 
                     // get haplotype consistent alignments
-                    auto consistent = haplotype_consistent_alignments(multipath_aln, provider, 0);
+                    auto consistent = haplotype_consistent_alignments(multipath_aln, provider, 0, 0);
                     
                     // There should be just one alignment
                     REQUIRE(consistent.size() == 1);
@@ -746,7 +746,7 @@ namespace vg {
                 }
                 
                 SECTION( "We can find the optimal alignment when asked for it" ) {
-                    auto optimal_and_consistent = haplotype_consistent_alignments(multipath_aln, provider, 0, true);
+                    auto optimal_and_consistent = haplotype_consistent_alignments(multipath_aln, provider, 0, 0, true);
                     
                     // There should be two alignments
                     REQUIRE(optimal_and_consistent.size() == 2);
@@ -907,7 +907,7 @@ namespace vg {
                 haplo::GBWTScoreProvider<gbwt::DynamicGBWT> provider(gbwt_index);
 
                 // get haplotype consistent alignments
-                auto consistent = haplotype_consistent_alignments(multipath_aln, provider, 0);
+                auto consistent = haplotype_consistent_alignments(multipath_aln, provider, 0, 0);
                 
                 // There should be 3 alignments
                 REQUIRE(consistent.size() == 3);

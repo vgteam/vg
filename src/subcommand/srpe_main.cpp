@@ -17,7 +17,7 @@
 #include "../genotyper.hpp"
 #include "../path_index.hpp"
 #include "../vg.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../filter.hpp"
 #include "../utility.hpp"
 #include "../translator.hpp"
@@ -188,7 +188,7 @@ int main_srpe(int argc, char** argv){
             srpe.ff.lcp_ind = lcp_ind.get();
     }
     if (!xg_name.empty()){
-        xg_ind = vg::io::VPKG::load_one<XG>(xg_name);
+        xg_ind = vg::io::VPKG::load_one<xg::XG>(xg_name);
         
         srpe.ff.set_my_path_position_graph(xg_ind.get());
     }

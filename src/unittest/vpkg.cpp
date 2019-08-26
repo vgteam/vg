@@ -8,7 +8,7 @@
 #include "catch.hpp"
 
 #include <vg/io/vpkg.hpp>
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../seed_clusterer.hpp"
 #include "../json2pb.h"
 #include <gcsa/gcsa.h>
@@ -51,7 +51,8 @@ TEST_CASE("We can read and write XG", "[vpkg][handlegraph][xg]") {
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
     
     // Build the xg index
-    XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
 
     stringstream ss;
     
@@ -61,7 +62,7 @@ TEST_CASE("We can read and write XG", "[vpkg][handlegraph][xg]") {
         // There should be some data
         REQUIRE(ss.str().size() != 0);
         
-        unique_ptr<XG> loaded = vg::io::VPKG::load_one<XG>(ss);
+        unique_ptr<xg::XG> loaded = vg::io::VPKG::load_one<xg::XG>(ss);
         
         // Make sure we got something
         REQUIRE(loaded.get() != nullptr);
@@ -93,7 +94,7 @@ TEST_CASE("We can read and write XG", "[vpkg][handlegraph][xg]") {
         // There should be some data
         REQUIRE(ss.str().size() != 0);
         
-        unique_ptr<XG> loaded = vg::io::VPKG::load_one<XG>(ss);
+        unique_ptr<xg::XG> loaded = vg::io::VPKG::load_one<xg::XG>(ss);
         
         // Make sure we got something
         REQUIRE(loaded.get() != nullptr);
