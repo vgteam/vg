@@ -234,6 +234,7 @@ size_t interval_length(std::pair<size_t, size_t> interval) {
 std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, const std::string& sequence, size_t max_mismatches, bool trim_extensions) const {
 
     std::vector<GaplessExtension> result;
+    std::vector<GaplessExtension> non_full_length_result;
     if (this->graph == nullptr || this->aligner == nullptr || sequence.empty()) {
         return result;
     }
@@ -396,6 +397,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
         // Handle the best match.
         if (best_match_is_full_length && !full_length_found) {
             //If this is the first time we've found a full length alignment
+            non_full_length_result = std::move(result);
             result.clear();
             result.push_back(best_match);
             full_length_found = true;
@@ -404,7 +406,20 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                    (!full_length_found && !best_match_is_full_length ))) {
             //Keep either only full length alignments or the best extensions
             result.push_back(best_match);
+        } else if (full_length_found && !best_match_is_full_length) {
+            non_full_length_result.push_back(best_match);
         }
+    }
+    if (full_length_found) {
+        cerr << "  Gapless extender found " << result.size() << " full length extensions" << endl;
+    } else {
+        cerr << "  Gapless extender found " << result.size() << " non-full length extension" << endl;
+    }
+    if (full_length_found && result.size() < 2) {
+        //If we found only one full length alignment, return it as well as all 
+        // other alignments found
+        non_full_length_result.push_back(std::move(result.front()));
+        result = std::move(non_full_length_result);
     }
 
     // Remove duplicates, find mismatches, and trim mismatches to maximize score.
