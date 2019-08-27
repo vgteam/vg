@@ -89,7 +89,7 @@ int main_gaffe(int argc, char** argv) {
     string minimizer_name;
     string distance_name;
     // How close should two hits be to be in the same cluster?
-    size_t distance_limit = 1000;
+    size_t distance_limit = 200;
     size_t hit_cap = 10, hard_hit_cap = 300;
     double minimizer_score_fraction = 0.6;
     bool progress = false;
