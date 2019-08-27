@@ -192,14 +192,7 @@ LegacyCaller::LegacyCaller(const PathHandleGraph& graph,
         }
         // map snarl to the first reference path that spans it
         function<PathIndex*(const Snarl&)> get_path_index = [&](const Snarl& site) -> PathIndex* {
-            for (PathIndex* path_index : path_indexes) {
-                if (path_index->by_id.count(site.start().node_id()) &&
-                    path_index->by_id.count(site.end().node_id())) {
-                    // This path threads through this site
-                    return path_index;
-                }
-            }
-            return nullptr;
+            return find_index(site, path_indexes).second;
         };
         // initialize our traversal finder
         traversal_finder = new RepresentativeTraversalFinder(graph, snarl_manager,
@@ -241,6 +234,10 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
     if (is_vg) {
         // our graph is in VG format, so we've sorted this out in the constructor
         rep_trav_finder = traversal_finder;
+        get_path_index = [&](const Snarl& site) {
+            return find_index(site, path_indexes).second;
+        };
+        
     } else {
         // our graph isn't in VG format.  we are using a (hopefully temporary) workaround
         // of converting the subgraph into VG.
@@ -259,14 +256,7 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
             site_path_indexes.push_back(new PathIndex(vg_graph, ref_path));
         }
         get_path_index = [&](const Snarl& site) -> PathIndex* {
-            for (PathIndex* path_index : site_path_indexes) {
-                if (path_index->by_id.count(site.start().node_id()) &&
-                    path_index->by_id.count(site.end().node_id())) {
-                    // This path threads through this site
-                    return path_index;
-                }
-            }
-            return nullptr;
+            return find_index(site, site_path_indexes).second;
         };
         rep_trav_finder = new RepresentativeTraversalFinder(vg_graph, snarl_manager,
                                                             max_search_depth,
@@ -283,16 +273,20 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
                                                                     vg_graph.get_id(edge.second), vg_graph.get_is_reverse(edge.second));});
                                                             
     }
-        
-    // recursively genotype the site beginning here at the top level snarl
-    vector<SnarlTraversal> genotype = top_down_genotype(snarl, *rep_trav_finder, 2);
-        
-    // somehow make a variant from our genotype
-    for (int i = 0; i < genotype.size(); ++i) {
-        cerr << " genotype " << i << ": " << pb2json(genotype[i]) << endl;
-    }
 
+    PathIndex* path_index = get_path_index(snarl);
+    if (path_index != nullptr) {
+        // recursively genotype the site beginning here at the top level snarl
+        vector<SnarlTraversal> called_traversals = top_down_genotype(snarl, *rep_trav_finder, 2);
+    
+        // emit our vcf variant
+        if (!called_traversals.empty()) {
+            string path_name = find_index(snarl, is_vg ? path_indexes : site_path_indexes).first;
+            emit_variant(snarl, called_traversals, path_name);
+        }
+    }        
     if (!is_vg) {
+        // delete the temporary vg subgraph and traversal finder we created for this snarl
         delete rep_trav_finder;
         for (PathIndex* path_index : site_path_indexes) {
             delete path_index;
@@ -346,8 +340,7 @@ vector<SnarlTraversal> LegacyCaller::top_down_genotype(const Snarl& snarl, Trave
                     *genotype[1].add_visit() = traversal.visit(j);
                 }
             } else {
-                // recursively determine the traversal
-                cerr << "recursing on " << pb2json(traversal.visit(j).snarl()) << endl;
+                // recursively determine the traversal    
                 vector<SnarlTraversal> child_genotype = top_down_genotype(*snarl_manager.into_which_snarl(traversal.visit(j)),
                                                                           trav_finder, hom ? 2: 1);
                 bool back_to_back = j > 0 && traversal.visit(j - 1).node_id() == 0;
@@ -370,6 +363,49 @@ vector<SnarlTraversal> LegacyCaller::top_down_genotype(const Snarl& snarl, Trave
     return genotype;
 }
 
+void LegacyCaller::emit_variant(const Snarl& snarl, const vector<SnarlTraversal>& called_traversals, const string& ref_path_name) const {
+
+    // converet the traversals to strings and map them to a genotype
+    map<string, int> allele_to_gt;
+    for (int i = 0; i < called_traversals.size(); ++i) {
+        const SnarlTraversal& trav = called_traversals[i];
+        string allele;
+        for (int i = 0; i < trav.visit_size(); ++i) {
+            allele += graph.get_sequence(graph.get_handle(trav.visit(i).node_id(), trav.visit(i).backward()));
+        }
+        if (!allele_to_gt.count(allele)) {
+            allele_to_gt[allele] = allele_to_gt.size();
+        }
+    }
+
+    vcflib::Variant out_variant;
+    out_variant.sequenceName = ref_path_name;
+    out_variant.quality = 23;
+    out_variant.position = 0;
+    out_variant.id = ".";
+    for (auto& allele_gt : allele_to_gt) {
+        if (allele_gt.second == 0) {
+            out_variant.ref = allele_gt.first;
+        } else {
+            out_variant.alt.push_back(allele_gt.first);
+        }
+        out_variant.alleles.push_back(allele_gt.first);
+    }
+    out_variant.setVariantCallFile(output_vcf);
+    out_variant.filter = "PASS";
+    out_variant.updateAlleleIndexes();
+
+    // add the genotype
+    out_variant.format.push_back("GT");
+    auto& genotype_vector = out_variant.samples[sample_name]["GT"];
+    genotype_vector.push_back("0/0");
+
+    // add some info
+    snarl_caller.update_vcf_info(snarl, called_traversals, {0,0}, sample_name, out_variant);
+
+    cout << out_variant << endl;
+}
+
 bool LegacyCaller::is_traversable(const Snarl& snarl) {
     // we need this to be true all the way down to use the RepresentativeTraversalFinder on our snarl.
     bool ret = snarl.start_end_reachable() && snarl.directed_acyclic_net_graph();
@@ -380,6 +416,19 @@ bool LegacyCaller::is_traversable(const Snarl& snarl) {
         }
     }
     return ret;
+}
+
+pair<string, PathIndex*> LegacyCaller::find_index(const Snarl& snarl, const vector<PathIndex*> path_indexes) const {
+    assert(path_indexes.size() == ref_paths.size());
+    for (int i = 0; i < path_indexes.size(); ++i) {
+        PathIndex* path_index = path_indexes[i];
+        if (path_index->by_id.count(snarl.start().node_id()) &&
+            path_index->by_id.count(snarl.end().node_id())) {
+            // This path threads through this site
+            return make_pair(ref_paths[i], path_index);
+        }
+    }
+    return make_pair("", nullptr);
 }
 
 }

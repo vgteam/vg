@@ -123,8 +123,15 @@ protected:
     /// todo: can this be pushed to a more generic class? 
     vector<SnarlTraversal> top_down_genotype(const Snarl& snarl, TraversalFinder& trav_finder, int ploidy) const;
 
+    /// print a vcf variant 
+    void emit_variant(const Snarl& snarl, const vector<SnarlTraversal>& called_traversals, const string& ref_path_name) const;
+
     /// check if a site can be handled by the RepresentativeTraversalFinder
     bool is_traversable(const Snarl& snarl);
+
+    /// look up a path index for a site and return its name too
+    pair<string, PathIndex*> find_index(const Snarl& snarl, const vector<PathIndex*> path_indexes) const;
+
 
 protected:
 
