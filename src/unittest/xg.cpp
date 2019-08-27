@@ -213,8 +213,30 @@ TEST_CASE("We can build an xg index on a very nasty graph", "[xg]") {
                 REQUIRE(graph.graph.edge(i).to_end() == false);
             }
         }
+    }
+    
+    SECTION("Looking up steps by positions works") {
+        auto path = xg_index.get_path_handle("17");
         
+        step_handle_t found;
+        size_t first_found = 0;
         
+        for (size_t i = 0; i < 150; i++) {
+            // Scan a bunch of the path
+            step_handle_t found_here = xg_index.get_step_at_position(path, i);
+            if (i == 0 || found_here != found) {
+                if (i > 0) {
+                    // How long was the last thing we saw?
+                    size_t length = i - first_found;
+                    // Make sure it is right
+                    REQUIRE(length == xg_index.get_length(xg_index.get_handle_of_step(found)));
+                }
+                
+                // Remember what we saw here
+                found = found_here;
+                first_found = i;
+            }
+        }
     }
 
 }
