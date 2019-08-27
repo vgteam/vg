@@ -364,7 +364,8 @@ $(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
 # We have this target to clean up the old Protobuf we used to have.
 # We can remove it after we no longer care about building properly on a dirty
 # build from vg versions that shipped Protobuf themselves.
-$(LIB_DIR)/cleaned_old_protobuf: $(wildcard $(LIB_DIR)/libproto*) $(wildcard $(LIB_DIR)/pkgconfig/protobuf*)
+$(LIB_DIR)/cleaned_old_protobuf_v002: $(wildcard $(LIB_DIR)/libproto*) $(wildcard $(LIB_DIR)/pkgconfig/protobuf*)
+	+rm -f $(LIB_DIR)/cleaned_old_protobuf*
 	+rm -f $(LIB_DIR)/libproto* $(LIB_DIR)/pkgconfig/protobuf* $(BIN_DIR)/protoc
 	+rm -Rf $(INC_DIR)/google/protobuf deps/protobuf
 	+touch $(LIB_DIR)/cleaned_old_protobuf
