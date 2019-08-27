@@ -21,7 +21,7 @@ class SnarlSeedClusterer {
         //Returns a vector of clusters. Each cluster is a vector of
         //indices into seeds
         vector<vector<size_t>> cluster_seeds ( vector<pos_t> seeds,
-               int64_t distance_limit);
+               int64_t distance_limit) const;
     private:
 
         MinimumDistanceIndex& dist_index;
@@ -54,7 +54,7 @@ class SnarlSeedClusterer {
                 node_id(node_id), node_type(node_type) {
             }
 
-            id_t id_in_parent(MinimumDistanceIndex& dist_index) { 
+            id_t id_in_parent(MinimumDistanceIndex& dist_index) const { 
                 //Get the id of this node in the parent netgraph
                 switch (node_type) {
                 case NODE:
@@ -68,7 +68,7 @@ class SnarlSeedClusterer {
                 }
             }
 
-            size_t rank_in_parent(MinimumDistanceIndex& dist_index, id_t id) {
+            size_t rank_in_parent(MinimumDistanceIndex& dist_index, id_t id) const {
                 //Get the forward rank of this node in the parent's netgraph
                 //to look up distances
 
@@ -138,7 +138,8 @@ class SnarlSeedClusterer {
 
             //Maps each node to a vector of the seeds that are contained in it
             //seeds are represented by indexes into the seeds vector
-            hash_map<id_t, vector<size_t>> node_to_seeds;
+            //The array is sorted.
+            vector<pair<id_t, size_t>> node_to_seeds;
 
             //Map from snarl (index into dist_index.snarl_indexes) i
             //to the netgraph nodes contained in the snarl as well as the 
@@ -182,30 +183,30 @@ class SnarlSeedClusterer {
         void get_nodes( TreeState& tree_state,
                         vector<hash_map<size_t, 
                                   vector<pair<NetgraphNode, NodeClusters>>>>&
-                                                       snarl_to_nodes_by_level);
+                                                       snarl_to_nodes_by_level) const;
 
         //Cluster all the snarls at the current level and update the tree_state
         //to add each of the snarls to the parent level
-        void cluster_snarls(TreeState& tree_state, size_t depth);
+        void cluster_snarls(TreeState& tree_state, size_t depth) const;
 
         //Cluster all the chains at the current level
-        void cluster_chains(TreeState& tree_state, size_t depth);
+        void cluster_chains(TreeState& tree_state, size_t depth) const;
 
         //Given a node and the indices of seeds on that node, root, 
         //cluster the seeds
         NodeClusters cluster_one_node(TreeState& tree_state, 
-                                          id_t node_id, int64_t node_length); 
+                                          id_t node_id, int64_t node_length) const; 
 
         //Cluster the seeds in a chain given by chain_index_i, an index into
         //dist_index.chain_indexes
         NodeClusters cluster_one_chain(TreeState& tree_state,
-                                           size_t chain_index_i);
+                                           size_t chain_index_i) const;
 
         //Cluster the seeds in a snarl given by snarl_index_i, an index into
         //dist_index.snarl_indexes
         //rev is true if this snarl is reversed in its parent
         NodeClusters cluster_one_snarl(TreeState& tree_state,
-                                       size_t snarl_index_i) ;
+                                       size_t snarl_index_i) const;
 
 };
 }
