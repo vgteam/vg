@@ -219,6 +219,56 @@ TEST_CASE("We can build an xg index on a very nasty graph", "[xg]") {
 
 }
 
+TEST_CASE("We can build and scan an XG index for a problematic graph", "[xg]") {
+    string graph_json = R"(
+    {"node":[
+      {"id":1,"sequence":"AAA"},
+      {"id":2,"sequence":"C"},
+      {"id":3,"sequence":"G"},
+      {"id":5,"sequence":"T"},
+      {"id":4,"sequence":"AAA"}
+    ],
+    "edge":[
+      {"to":2,"from":1},
+      {"to":3,"from":1},
+      {"to":4,"from":2},
+      {"to":5,"from":3},
+      {"to":4,"from":5}
+    ],
+    "path":[
+      {"name":"reference","mapping":[
+        {"position":{"node_id":1},"rank":1},
+        {"position":{"node_id":2},"rank":2},
+        {"position":{"node_id":4},"rank":3}
+      ]}
+    ]}
+    )";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+
+    // Build the xg index (without any sorting)
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
+
+    REQUIRE(xg_index.get_node_count() == 5);
+    
+    // We will cross every edge from every node, so this should come to 2 * edge count.
+    size_t edge_obs_count = 0;
+    
+    xg_index.for_each_handle([&](const handle_t& here) {
+        xg_index.follow_edges(here, false, [&](const handle_t& there) {
+            edge_obs_count++;
+        });
+        xg_index.follow_edges(here, true, [&](const handle_t& there) {
+            edge_obs_count++;
+        });
+    });
+    
+    REQUIRE(edge_obs_count == 10);
+}
+
 TEST_CASE("We can build the xg index on a small graph with discontinuous node ids that don't start at 1", "[xg]") {
 
     string graph_json = R"(
