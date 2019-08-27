@@ -8,8 +8,9 @@ namespace vg {
 SnarlCaller::~SnarlCaller() {
 }
 
-SupportBasedSnarlCaller::SupportBasedSnarlCaller(const PathHandleGraph& graph) :
-    graph(graph) {
+SupportBasedSnarlCaller::SupportBasedSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager) :
+    graph(graph),
+    snarl_manager(snarl_manager) {
 }
 
 SupportBasedSnarlCaller::~SupportBasedSnarlCaller() {
@@ -21,8 +22,6 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
                                               const vector<SnarlTraversal>& traversals,
                                               int ref_trav_idx,
                                               int ploidy) {
-
-    assert(ploidy == 2);
 
 #ifdef debug
     cerr << "Support calling site " << pb2json(snarl) << endl;
@@ -113,8 +112,12 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
     cerr << total(second_best_support) << " vs " << min_total_support_for_call << endl;
 #endif
 
+    // Single ploidy case when doing recursive genotyping.  Just return the best allele
+    if (ploidy == 1) {
+        return {best_allele};
+    }
     // Call 1/2 : REF-Alt1/Alt2 even if Alt2 has only third best support
-    if (ploidy >= 2 &&
+    else if (ploidy >= 2 &&
         best_allele == ref_trav_idx && 
         third_best_allele > 0 &&
         get_bias(traversal_sizes, second_best_allele, third_best_allele, ref_trav_idx) *
@@ -298,11 +301,20 @@ int64_t SupportBasedSnarlCaller::get_edge_length(const edge_t& edge) const {
 }
 
 tuple<Support, Support, int> SupportBasedSnarlCaller::get_child_support(const Snarl& snarl) const {
-    // todo: do this properly (old caller used all nodes in child as proxy)
-    Support min_support;
-    Support avg_support;
-    int length = 1;
-    return std::tie(min_support, avg_support, length);
+    // port over old functionality from support caller
+    // todo: do we need to flag nodes as covered like it does?
+    pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(&snarl, graph, true);
+    Support child_max_support;
+    Support child_total_support;
+    size_t child_size = 0;
+    for (id_t node_id : contents.first) {
+        Support child_support = get_avg_node_support(node_id);
+        child_max_support = support_max(child_max_support, child_support);
+        child_size += graph.get_length(graph.get_handle(node_id));
+        child_total_support += child_support;
+    }
+    Support child_avg_support = child_total_support / child_size;
+    return std::tie(child_max_support, child_avg_support, child_size);
 }
 
 
@@ -338,7 +350,9 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
                     child_counts[visit.snarl()] = 1;
                 }
             }
-            if (i > 0) {
+            // note: there is no edge between adjacent snarls as they overlap
+            // on their endpoints. 
+            if (i > 0 && (trav.visit(i - 1).node_id() != 0 || trav.visit(i).node_id() != 0)) {
                 edge_t edge = to_edge(graph, trav.visit(i - 1), visit);
                 // Count the edge once
                 if (edge_counts.count(edge)) {
@@ -411,7 +425,7 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
             }
             share_count = 0;
             
-            if (visit_idx > 0) {
+            if (visit_idx > 0 && (trav.visit(visit_idx - 1).node_id() != 0 || trav.visit(visit_idx).node_id() != 0)) {
                 // get the edge support
                 edge_t edge = to_edge(graph, trav.visit(visit_idx - 1), visit);
                 min_support = get_edge_support(edge);
@@ -499,8 +513,8 @@ double SupportBasedSnarlCaller::get_bias(const vector<int>& traversal_sizes, int
     return bias_limit;
 }
 
-PackedSupportSnarlCaller::PackedSupportSnarlCaller(const Packer& packer) :
-    SupportBasedSnarlCaller(*dynamic_cast<const PathHandleGraph*>(packer.graph)),
+PackedSupportSnarlCaller::PackedSupportSnarlCaller(const Packer& packer, SnarlManager& snarl_manager) :
+    SupportBasedSnarlCaller(*dynamic_cast<const PathHandleGraph*>(packer.graph), snarl_manager),
     packer(packer) {
 }
 
@@ -508,11 +522,17 @@ PackedSupportSnarlCaller::~PackedSupportSnarlCaller() {
 }
 
 Support PackedSupportSnarlCaller::get_edge_support(const edge_t& edge) const {
+    return get_edge_support(graph.get_id(edge.first), graph.get_is_reverse(edge.first),
+                            graph.get_id(edge.second), graph.get_is_reverse(edge.second));
+}
+
+Support PackedSupportSnarlCaller::get_edge_support(id_t from, bool from_reverse,
+                                                   id_t to, bool to_reverse) const {
     Edge proto_edge;
-    proto_edge.set_from(graph.get_id(edge.first));
-    proto_edge.set_from_start(graph.get_is_reverse(edge.first));
-    proto_edge.set_to(graph.get_id(edge.second));
-    proto_edge.set_to_end(graph.get_is_reverse(edge.second));
+    proto_edge.set_from(from);
+    proto_edge.set_from_start(from_reverse);
+    proto_edge.set_to(to);
+    proto_edge.set_to_end(to_reverse);
     Support support;
     support.set_forward(packer.edge_coverage(proto_edge));
     return support;

@@ -45,11 +45,12 @@ public:
  */ 
 class SupportBasedSnarlCaller : public SnarlCaller {
 public:
-    SupportBasedSnarlCaller(const PathHandleGraph& graph);
+   SupportBasedSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager);
     virtual ~SupportBasedSnarlCaller();
 
     /// Support of an edge
     virtual Support get_edge_support(const edge_t& edge) const = 0;
+    virtual Support get_edge_support(id_t from, bool from_reverse, id_t to, bool to_reverse) const = 0;
 
     /// Effective length of an edge
     virtual int64_t get_edge_length(const edge_t& edge) const;
@@ -133,6 +134,8 @@ protected:
 
     const PathHandleGraph& graph;
 
+    SnarlManager& snarl_manager;
+
     // todo: background support
 
     
@@ -143,11 +146,12 @@ protected:
  */ 
 class PackedSupportSnarlCaller : public SupportBasedSnarlCaller {
 public:
-    PackedSupportSnarlCaller(const Packer& packer);
+    PackedSupportSnarlCaller(const Packer& packer, SnarlManager& snarl_manager);
     virtual ~PackedSupportSnarlCaller();
 
     /// Support of an edge
     virtual Support get_edge_support(const edge_t& edge) const;
+    virtual Support get_edge_support(id_t from, bool from_reverse, id_t to, bool to_reverse) const;
 
     /// Minimum support of a node
     virtual Support get_min_node_support(id_t node) const;

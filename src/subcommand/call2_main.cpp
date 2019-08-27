@@ -145,28 +145,6 @@ int main_call2(int argc, char** argv) {
             });
     }
 
-    unique_ptr<GraphCaller> graph_caller;
-    unique_ptr<SnarlCaller> snarl_caller;
-
-    // Make a Packed Support Caller
-    unique_ptr<Packer> packer;
-    if (!pack_filename.empty()) {
-        if (dynamic_cast<XG*>(graph.get()) == nullptr) {
-            cerr << "error [vg call]: Packed support option requires input graph in XG format" << endl;
-            return 1;
-        }
-        // Load our packed supports (they must have come from vg pack on graph)
-        packer = unique_ptr<Packer>(new Packer(dynamic_cast<XG*>(graph.get())));
-        packer->load_from_file(pack_filename);
-        PackedSupportSnarlCaller* packed_caller = new PackedSupportSnarlCaller(*packer);
-        snarl_caller = unique_ptr<SnarlCaller>(packed_caller);
-    }
-
-    if (!snarl_caller) {
-        cerr << "error [vg call]: pack file (-p) is required" << endl;
-        return 1;
-    }
-
     // Load or compute the snarls
     unique_ptr<SnarlManager> snarl_manager;    
     if (!snarl_filename.empty()) {
@@ -180,12 +158,34 @@ int main_call2(int argc, char** argv) {
         CactusSnarlFinder finder(*graph);
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls())));
     }
+    
+    unique_ptr<GraphCaller> graph_caller;
+    unique_ptr<SnarlCaller> snarl_caller;
 
-    // Genotype the VCF
+    // Make a Packed Support Caller
+    unique_ptr<Packer> packer;
+    if (!pack_filename.empty()) {
+        if (dynamic_cast<xg::XG*>(graph.get()) == nullptr) {
+            cerr << "error [vg call]: Packed support option requires input graph in XG format" << endl;
+            return 1;
+        }
+        // Load our packed supports (they must have come from vg pack on graph)
+        packer = unique_ptr<Packer>(new Packer(dynamic_cast<xg::XG*>(graph.get())));
+        packer->load_from_file(pack_filename);
+        PackedSupportSnarlCaller* packed_caller = new PackedSupportSnarlCaller(*packer, *snarl_manager);
+        snarl_caller = unique_ptr<SnarlCaller>(packed_caller);
+    }
+
+    if (!snarl_caller) {
+        cerr << "error [vg call]: pack file (-p) is required" << endl;
+        return 1;
+    }
+
     vcflib::VariantCallFile variant_file;
     unique_ptr<FastaReference> ref_fasta;
     unique_ptr<FastaReference> ins_fasta;
     if (!vcf_filename.empty()) {
+        // Genotype the VCF
         variant_file.parseSamples = false;
         variant_file.open(vcf_filename);
         if (!variant_file.is_open()) {
@@ -209,11 +209,12 @@ int main_call2(int argc, char** argv) {
                                                        ref_fasta.get(),
                                                        ins_fasta.get());
         graph_caller = unique_ptr<GraphCaller>(vcf_genotyper);
-    }
-
-    if (!graph_caller) {
-        cerr << "error [vg call]: vcf file (-v) is required" << endl;
-        return 1;
+    } else {
+        // de-novo caller (port of the old vg call code, which requires a support based caller)
+        LegacyCaller* legacy_caller = new LegacyCaller(*graph, *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
+                                                        *snarl_manager,
+                                                        sample_name, ref_paths);
+        graph_caller = unique_ptr<GraphCaller>(legacy_caller);
     }
 
     // Call the graph
