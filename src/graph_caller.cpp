@@ -173,7 +173,7 @@ string VCFGenotyper::vcf_header(const PathHandleGraph& graph, const vector<strin
 }
 
 
-LegacyCaller::LegacyCaller(const PathHandleGraph& graph,
+LegacyCaller::LegacyCaller(const PathPositionHandleGraph& graph,
                            SupportBasedSnarlCaller& snarl_caller,
                            SnarlManager& snarl_manager,
                            const string& sample_name,
@@ -277,12 +277,16 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
     PathIndex* path_index = get_path_index(snarl);
     if (path_index != nullptr) {
         // recursively genotype the site beginning here at the top level snarl
-        vector<SnarlTraversal> called_traversals = top_down_genotype(snarl, *rep_trav_finder, 2);
+        vector<SnarlTraversal> called_traversals;
+        // these integers map the called traversals to their positions in the list of all traversals
+        // of the top level snarl.  
+        vector<int> genotype;
+        std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, 2);
     
         // emit our vcf variant
         if (!called_traversals.empty()) {
             string path_name = find_index(snarl, is_vg ? path_indexes : site_path_indexes).first;
-            emit_variant(snarl, called_traversals, path_name);
+            emit_variant(snarl, *rep_trav_finder, called_traversals, genotype, path_name);
         }
     }        
     if (!is_vg) {
@@ -307,8 +311,7 @@ string LegacyCaller::vcf_header(const PathHandleGraph& graph, const vector<strin
     return header;
 }
 
-vector<SnarlTraversal> LegacyCaller::top_down_genotype(const Snarl& snarl, TraversalFinder& trav_finder, int ploidy) const {
-    vector<SnarlTraversal> genotype;
+pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::top_down_genotype(const Snarl& snarl, TraversalFinder& trav_finder, int ploidy) const {
 
     // get the traversals through the site
     vector<SnarlTraversal> traversals = trav_finder.find_traversals(snarl);
@@ -321,10 +324,13 @@ vector<SnarlTraversal> LegacyCaller::top_down_genotype(const Snarl& snarl, Trave
     // use our support caller to choose our genotype
     vector<int> trav_genotype = snarl_caller.genotype(snarl, traversals, 0, ploidy);
 
-    assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
-    // todo: handle non-call
-    
-    genotype.resize(ploidy);
+    if (trav_genotype.empty()) {
+        return make_pair(vector<SnarlTraversal>(), vector<int>());
+    }
+
+    assert(trav_genotype.size() == ploidy);
+
+    vector<SnarlTraversal> called_travs(ploidy);
 
     // do we have two paths going through a given traversal?  This is handled
     // as a special case below
@@ -335,62 +341,121 @@ vector<SnarlTraversal> LegacyCaller::top_down_genotype(const Snarl& snarl, Trave
         const SnarlTraversal& traversal = traversals[allele];
         for (int j = 0; j < traversal.visit_size(); ++j) {
             if (traversal.visit(j).node_id() > 0) {
-                *genotype[i].add_visit() = traversal.visit(j);
+                *called_travs[i].add_visit() = traversal.visit(j);
                 if (hom && i == 0) {
-                    *genotype[1].add_visit() = traversal.visit(j);
+                    *called_travs[1].add_visit() = traversal.visit(j);
                 }
             } else {
                 // recursively determine the traversal    
                 vector<SnarlTraversal> child_genotype = top_down_genotype(*snarl_manager.into_which_snarl(traversal.visit(j)),
-                                                                          trav_finder, hom ? 2: 1);
+                                                                          trav_finder, hom ? 2: 1).first;
+                if (child_genotype.empty()) {
+                    return make_pair(vector<SnarlTraversal>(), vector<int>());
+                }
                 bool back_to_back = j > 0 && traversal.visit(j - 1).node_id() == 0;
                 assert(!back_to_back || traversal.visit(j - 1).snarl().end() == traversal.visit(j).snarl().start());
 
-                // todo: handle empty case
                 for (int k = back_to_back ? 1 : 0; k < child_genotype[0].visit_size(); ++k) {
-                    *genotype[i].add_visit() = child_genotype[0].visit(k);
+                    *called_travs[i].add_visit() = child_genotype[0].visit(k);
                 }
                 if (hom) {
                     assert(child_genotype.size() == 2 && i == 0);
                     for (int k = back_to_back ? 1 : 0; k < child_genotype[1].visit_size(); ++k) {
-                        *genotype[1].add_visit() = child_genotype[1].visit(k);
+                        *called_travs[1].add_visit() = child_genotype[1].visit(k);
                     }
                 }
             }
         }
     }
 
-    return genotype;
+    return make_pair(called_travs, trav_genotype);
 }
 
-void LegacyCaller::emit_variant(const Snarl& snarl, const vector<SnarlTraversal>& called_traversals, const string& ref_path_name) const {
+SnarlTraversal LegacyCaller::get_reference_traversal(const Snarl& snarl, TraversalFinder& trav_finder) const {
 
-    // converet the traversals to strings and map them to a genotype
-    map<string, int> allele_to_gt;
-    for (int i = 0; i < called_traversals.size(); ++i) {
-        const SnarlTraversal& trav = called_traversals[i];
-        string allele;
-        for (int i = 0; i < trav.visit_size(); ++i) {
-            allele += graph.get_sequence(graph.get_handle(trav.visit(i).node_id(), trav.visit(i).backward()));
-        }
-        if (!allele_to_gt.count(allele)) {
-            allele_to_gt[allele] = allele_to_gt.size();
+    // get the ref traversal through the site
+    // todo: don't avoid so many traversal recomputations
+    SnarlTraversal traversal = trav_finder.find_traversals(snarl)[0];
+    SnarlTraversal out_traversal;
+
+    for (int i = 0; i < traversal.visit_size(); ++i) {
+        const Visit& visit = traversal.visit(i);
+        if (visit.node_id() != 0) {
+            *out_traversal.add_visit() = visit;
+        } else {
+            bool back_to_back = i > 0 && traversal.visit(i - 1).node_id() == 0;
+            SnarlTraversal child_ref = get_reference_traversal(*snarl_manager.into_which_snarl(visit), trav_finder);
+            for (int j = back_to_back ? 1 : 0; j < child_ref.visit_size(); ++j) {
+                *out_traversal.add_visit() = child_ref.visit(j);
+            }
         }
     }
+
+    return out_traversal;    
+}
+
+void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder, const vector<SnarlTraversal>& called_traversals,
+                                const vector<int>& genotype, const string& ref_path_name) const {
+    
+    // convert traversal to string
+    function<string(const SnarlTraversal&)> trav_string = [&](const SnarlTraversal& trav) {
+        string seq;
+        for (int i = 0; i < trav.visit_size(); ++i) {
+            seq += graph.get_sequence(graph.get_handle(trav.visit(i).node_id(), trav.visit(i).backward()));
+        }
+        return seq;
+    };
 
     vcflib::Variant out_variant;
+
+    // when calling alt/alt, the reference traversal doesn't end up in called_traversals.
+    // this should get changed, but in the meantime we add it back here (as we need it for
+    // the VCF output)
+    vector<SnarlTraversal> site_traversals;
+    vector<int> site_genotype;
+    for (int i = 0; i < genotype.size(); ++i) {
+        if (genotype[i] == 0) {
+            site_traversals.push_back(called_traversals[i]);
+            break;
+        }
+    }
+    if (site_traversals.empty()) {
+        site_traversals.push_back(get_reference_traversal(snarl, trav_finder));
+    }
+    out_variant.ref = trav_string(site_traversals[0]);
+    
+    // deduplicate alleles and compute the site traversals and genotype
+    map<string, int> allele_to_gt;    
+    allele_to_gt[out_variant.ref] = 0;    
+    for (int i = 0; i < genotype.size(); ++i) {
+        if (genotype[i] == 0) {
+            site_genotype.push_back(0);
+        } else {
+            string allele_string = trav_string(called_traversals[i]);
+            if (allele_to_gt.count(allele_string)) {
+                site_genotype.push_back(allele_to_gt[allele_string]);
+            } else {
+                site_traversals.push_back(called_traversals[i]);
+                site_genotype.push_back(allele_to_gt.size());
+                allele_to_gt[allele_string] = site_genotype.back();
+            }
+        }
+    }
+
+    out_variant.alt.resize(allele_to_gt.size() - 1);
+    out_variant.alleles.resize(allele_to_gt.size());
+    for (auto& allele_gt : allele_to_gt) {
+        if (allele_gt.second > 0) {
+            out_variant.alt[allele_gt.second - 1] = allele_gt.first;
+        }
+        out_variant.alleles[allele_gt.second] = allele_gt.first;
+    }
+
+    // fill out the rest of the variant
     out_variant.sequenceName = ref_path_name;
     out_variant.quality = 23;
-    out_variant.position = 0;
+    out_variant.position = get_ref_position(snarl, ref_path_name);
     out_variant.id = ".";
-    for (auto& allele_gt : allele_to_gt) {
-        if (allele_gt.second == 0) {
-            out_variant.ref = allele_gt.first;
-        } else {
-            out_variant.alt.push_back(allele_gt.first);
-        }
-        out_variant.alleles.push_back(allele_gt.first);
-    }
     out_variant.setVariantCallFile(output_vcf);
     out_variant.filter = "PASS";
     out_variant.updateAlleleIndexes();
@@ -398,12 +463,26 @@ void LegacyCaller::emit_variant(const Snarl& snarl, const vector<SnarlTraversal>
     // add the genotype
     out_variant.format.push_back("GT");
     auto& genotype_vector = out_variant.samples[sample_name]["GT"];
-    genotype_vector.push_back("0/0");
+    
+    stringstream vcf_gt;
+    for (int i = 0; i < site_genotype.size(); ++i) {
+        vcf_gt << site_genotype[i];
+        if (i != site_genotype.size() - 1) {
+            vcf_gt << "/";
+        }
+    }
+    genotype_vector.push_back(vcf_gt.str());
 
-    // add some info
-    snarl_caller.update_vcf_info(snarl, called_traversals, {0,0}, sample_name, out_variant);
+    // clean up the alleles to not have so man common prefixes
+    flatten_common_allele_ends(out_variant, true);
+    flatten_common_allele_ends(out_variant, false);
 
-    cout << out_variant << endl;
+    // add some support info
+    snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, sample_name, out_variant);
+
+    if (!out_variant.alt.empty()) {
+        cout << out_variant << endl;
+    }
 }
 
 bool LegacyCaller::is_traversable(const Snarl& snarl) {
@@ -429,6 +508,77 @@ pair<string, PathIndex*> LegacyCaller::find_index(const Snarl& snarl, const vect
         }
     }
     return make_pair("", nullptr);
+}
+
+size_t LegacyCaller::get_ref_position(const Snarl& snarl, const string& ref_path_name) const {
+    path_handle_t path_handle = graph.get_path_handle(ref_path_name);
+
+    handle_t start_handle = graph.get_handle(snarl.start().node_id(), snarl.start().backward());
+    vector<step_handle_t> start_steps;
+    graph.for_each_step_on_handle(start_handle, [&](step_handle_t step) {
+            if (graph.get_path_handle_of_step(step) == path_handle) {
+                start_steps.push_back(step);
+            }
+        });
+
+    handle_t end_handle = graph.get_handle(snarl.end().node_id(), snarl.end().backward());
+    vector<step_handle_t> end_steps;
+    graph.for_each_step_on_handle(end_handle, [&](step_handle_t step) {
+            if (graph.get_path_handle_of_step(step) == path_handle) {
+                end_steps.push_back(step);
+            }
+        });
+
+    assert(start_steps.size() > 0 && end_steps.size() > 0);
+    if (start_steps.size() > 1 || end_steps.size() > 1) {
+        throw runtime_error("cyclic reference path (" + ref_path_name +") not supported by caller");
+    }
+
+    return std::min(graph.get_position_of_step(start_steps[0]),
+                    graph.get_position_of_step(end_steps[0]));
+}
+
+void LegacyCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const {
+    if (variant.alt.size() == 0) {
+        return;
+    }
+    size_t min_len = variant.alleles[0].length();
+    for (int i = 1; i < variant.alleles.size(); ++i) {
+        min_len = std::min(min_len, variant.alleles[i].length());
+    }
+    // want to leave at least one in the reference position
+    if (!backward && min_len > 0) {
+        --min_len;
+    }
+
+    bool match = true;
+    int shared_prefix_len = 0;
+    for (int i = 0; i < min_len && match; ++i) {
+        char c1 = std::toupper(variant.alleles[0][!backward ? i : variant.alleles[0].length() - 1 - i]);
+        for (int j = 1; j < variant.alleles.size() && match; ++j) {
+            char c2 = std::toupper(variant.alleles[j][!backward ? i : variant.alleles[j].length() - 1 - i]);
+            match = c1 == c2;
+        }
+        if (match) {
+            ++shared_prefix_len;
+        }
+    }
+
+    if (!backward) {
+        variant.position += shared_prefix_len;
+    }
+    for (int i = 0; i < variant.alleles.size(); ++i) {
+        if (!backward) {
+            variant.alleles[i] = variant.alleles[i].substr(shared_prefix_len);
+        } else {
+            variant.alleles[i] = variant.alleles[i].substr(0, variant.alleles[i].length() - shared_prefix_len);
+        }
+        if (i == 0) {
+            variant.ref = variant.alleles[i];
+        } else {
+            variant.alt[i - 1] = variant.alleles[i];
+        }
+    }
 }
 
 }

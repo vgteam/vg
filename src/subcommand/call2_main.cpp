@@ -211,7 +211,8 @@ int main_call2(int argc, char** argv) {
         graph_caller = unique_ptr<GraphCaller>(vcf_genotyper);
     } else {
         // de-novo caller (port of the old vg call code, which requires a support based caller)
-        LegacyCaller* legacy_caller = new LegacyCaller(*graph, *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
+        LegacyCaller* legacy_caller = new LegacyCaller(*dynamic_cast<PathPositionHandleGraph*>(graph.get()),
+                                                       *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                                         *snarl_manager,
                                                         sample_name, ref_paths);
         graph_caller = unique_ptr<GraphCaller>(legacy_caller);

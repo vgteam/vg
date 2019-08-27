@@ -105,7 +105,7 @@ protected:
  */
 class LegacyCaller : public GraphCaller {
 public:
-    LegacyCaller(const PathHandleGraph& graph,
+    LegacyCaller(const PathPositionHandleGraph& graph,
                  SupportBasedSnarlCaller& snarl_caller,
                  SnarlManager& snarl_manager,
                  const string& sample_name,
@@ -121,10 +121,13 @@ protected:
 
     /// recursively genotype a snarl
     /// todo: can this be pushed to a more generic class? 
-    vector<SnarlTraversal> top_down_genotype(const Snarl& snarl, TraversalFinder& trav_finder, int ploidy) const;
+    pair<vector<SnarlTraversal>, vector<int>> top_down_genotype(const Snarl& snarl, TraversalFinder& trav_finder, int ploidy) const;
+    /// we need the reference traversal for VCF, but if the ref is not called, the above method won't find it. 
+    SnarlTraversal get_reference_traversal(const Snarl& snarl, TraversalFinder& trav_finder) const;
 
     /// print a vcf variant 
-    void emit_variant(const Snarl& snarl, const vector<SnarlTraversal>& called_traversals, const string& ref_path_name) const;
+    void emit_variant(const Snarl& snarl, TraversalFinder& trav_finder, const vector<SnarlTraversal>& called_traversals,
+                      const vector<int>& genotype, const string& ref_path_name) const;
 
     /// check if a site can be handled by the RepresentativeTraversalFinder
     bool is_traversable(const Snarl& snarl);
@@ -132,11 +135,16 @@ protected:
     /// look up a path index for a site and return its name too
     pair<string, PathIndex*> find_index(const Snarl& snarl, const vector<PathIndex*> path_indexes) const;
 
+    /// get the position of a snarl from our reference path using the PathPositionHandleGraph interface
+    size_t get_ref_position(const Snarl& snarl, const string& ref_path_name) const;
+
+    /// clean up the alleles to not share common prefixes / suffixes
+    void flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const;
 
 protected:
 
     /// the graph
-    const PathHandleGraph& graph;
+    const PathPositionHandleGraph& graph;
     /// non-vg inputs are converted into vg as-needed, at least until we get the
     /// traversal finding ported
     bool is_vg;
