@@ -2,25 +2,7 @@
 FROM ubuntu:18.04 AS base
 MAINTAINER vgteam
 
-# Install shared build and run dependencies
-RUN apt-get -qq update && apt-get -qq install -y curl wget pigz dstat pv jq samtools tabix parallel fontconfig-config
-# One dependency is bwa, for vg tests.
-COPY --from=quay.io/ucsc_cgl/bwa:0.7.15--a17c6544342330f6ea7a23a37d23273ab1c52d21 /usr/local/bin/bwa /usr/local/bin/bwa
-
 FROM base AS build
-# install build apt dependencies
-# note: most vg apt dependencies are installed by "make get-deps" below
-RUN apt-get -qq update && apt-get -qq install -y \
-    sudo \
-    bsdmainutils \
-    build-essential \
-    make \
-    git \
-    zlib1g-dev \
-    rs \
-    gdb \
-    time \
-    gawk
 
 # Copy vg build tree into place
 ADD . /vg
@@ -38,6 +20,24 @@ ENV PATH /vg/bin:$PATH
 ############################################################################################
 FROM build AS test
 
+# The test need BWA
+COPY --from=quay.io/ucsc_cgl/bwa:0.7.15--a17c6544342330f6ea7a23a37d23273ab1c52d21 /usr/local/bin/bwa /usr/local/bin/bwa
+
+# The tests need some extra packages.
+# TODO: Which of these can we remove?
+RUN apt-get -qq -y update && \
+    apt-get -qq -y upgrade && \
+    apt-get -qq -y install \
+    pigz \
+    dstat \
+    pv \
+    jq \
+    samtools \
+    tabix \
+    parallel \
+    fontconfig-config \
+    && apt-get -qq -y clean
+
 # Fail if any non-portable instructions were used
 RUN /bin/bash -e -c 'if objdump -d /vg/bin/vg | grep vperm2i128 ; then exit 1 ; else exit 0 ; fi'
 # Run tests in the middle so the final container that gets tagged is the run container.
@@ -47,10 +47,25 @@ RUN make test
 ############################################################################################
 FROM base AS run
 
-# We can't squash the run image with an automated build, but it isn't going to
-# have that many layers, or any replaced files.
 COPY --from=build /vg/bin/vg /vg/bin/vg
 COPY --from=build /vg/scripts /vg/scripts
+
+# Install packages which toil-vg needs to be available inside the image, for pipes
+# TODO: which of these can be removed?
+RUN apt-get -qq -y update && \
+    apt-get -qq -y upgrade && \
+    apt-get -qq -y install \
+    curl \
+    wget \
+    pigz \
+    dstat \
+    pv \
+    jq \
+    samtools \
+    tabix \
+    parallel \
+    fontconfig-config \
+    && apt-get -qq -y clean
 
 WORKDIR /vg
 ENV PATH /vg/bin:$PATH
