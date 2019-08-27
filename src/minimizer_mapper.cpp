@@ -408,7 +408,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             Alignment best_extension = aln;
             Alignment second_best_extension = aln;
             
-            if (extensions[0].full()) {
+            if (extensions.front().full()) {
                 // We got full-length extensions, so directly convert to an Alignment.
                 
                 if (track_provenance) {
@@ -451,8 +451,37 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     // Stop the current substage
                     funnel.substage_stop();
                 }
+
             } else if (do_dp) {
                 // We need to do chaining.
+                if (extensions.back().full()) {
+                    //If there is one full length alignment at the end of extensions:
+                    //Add the full length alignment to alignments then do dp on the rest
+
+                    Alignment full_length_extension = aln;
+
+                    auto& extension = extensions.back();
+                    int alignment_score = extension.score;
+                    *full_length_extension.mutable_path() = extension.to_path(gbwt_graph, best_extension.sequence());
+                    size_t mismatch_count = extension.mismatches();
+                    double identity = full_length_extension.sequence().size() == 0 ? 0.0 : (full_length_extension.sequence().size() - mismatch_count) / (double) full_length_extension.sequence().size();
+                    
+                    // Fill in the score and identity
+                    full_length_extension.set_score(alignment_score);
+                    full_length_extension.set_identity(identity);
+
+                    alignments.push_back(std::move(full_length_extension));
+                    extensions.pop_back();
+
+                    if (track_provenance) {
+                        // Record the Alignment and its score with the funnel
+                        funnel.project(extension_num);
+                        funnel.score(alignments.size() - 1, alignments.back().score());
+                        
+                        // We're done with this input item
+                        funnel.processed_input();
+                    }
+                }
                 
                 if (track_provenance) {
                     funnel.substage("chain");

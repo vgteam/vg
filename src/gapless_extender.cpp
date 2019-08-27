@@ -234,6 +234,7 @@ size_t interval_length(std::pair<size_t, size_t> interval) {
 std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, const std::string& sequence, size_t max_mismatches, bool trim_extensions) const {
 
     std::vector<GaplessExtension> result;
+    std::vector<GaplessExtension> result_full_length;
     if (this->graph == nullptr || this->aligner == nullptr || sequence.empty()) {
         return result;
     }
@@ -394,14 +395,10 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
         }
 
         // Handle the best match.
-        if (best_match_is_full_length && !full_length_found) {
+        if (best_match_is_full_length) {
             //If this is the first time we've found a full length alignment
-            result.clear();
-            result.push_back(best_match);
-            full_length_found = true;
-        } else if (!best_match.empty() && 
-                  ((best_match_is_full_length && full_length_found) || 
-                   (!full_length_found && !best_match_is_full_length ))) {
+            result_full_length.push_back(best_match);
+        } else if (!best_match.empty()) {
             //Keep either only full length alignments or the best extensions
             result.push_back(best_match);
         }
@@ -410,13 +407,39 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
     // Remove duplicates, find mismatches, and trim mismatches to maximize score.
     // If we have a full-length alignment with sufficiently few mismatches, we do
     // not trim it.
-    remove_duplicates(result);
-    find_mismatches(sequence, *(this->graph), result);
-    if (trim_extensions) {
-        this->trim(result, max_mismatches, &cache);
-    }
+    if (result_full_length.empty()) {
+        //If we found no full length alignments, return only result
+        remove_duplicates(result);
+        find_mismatches(sequence, *(this->graph), result);
+        if (trim_extensions) {
+            this->trim(result, max_mismatches, &cache);
+        }
 
-    return result;
+        return result;
+    } else if (result_full_length.size() == 1) {
+        //If there was only one full length alignment, return all others as
+        // well as the full length alignment
+        remove_duplicates(result);
+        find_mismatches(sequence, *(this->graph), result);
+        if (trim_extensions) {
+            this->trim(result, max_mismatches, &cache);
+        }
+        find_mismatches(sequence, *(this->graph), result_full_length);
+        if (trim_extensions) {
+            this->trim(result_full_length, max_mismatches, &cache);
+        }
+        result.push_back(std::move(result_full_length[0]));
+
+        return result;
+    } else {
+        remove_duplicates(result_full_length);
+        find_mismatches(sequence, *(this->graph), result_full_length);
+        if (trim_extensions) {
+            this->trim(result_full_length, max_mismatches, &cache);
+        }
+
+        return result_full_length;
+    }
 }
 
 //------------------------------------------------------------------------------
