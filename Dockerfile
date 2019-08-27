@@ -35,14 +35,25 @@ RUN . ./source_me.sh && make get-deps && CXXFLAGS=" -march=ivybridge " make -j$(
 
 ENV PATH /vg/bin:$PATH
 
+############################################################################################
+FROM build AS test
+
+# Fail if any non-portable instructions were used
+RUN /bin/bash -e -c 'if objdump -d /vg/bin/vg | grep vperm2i128 ; then exit 1 ; else exit 0 ; fi'
+# Run tests in the middle so the final container that gets tagged is the run container.
+RUN make test
+
+
+############################################################################################
 FROM base AS run
 
+# We can't squash the run image with an automated build, but it isn't going to
+# have that many layers, or any replaced files.
 COPY --from=build /vg/bin/vg /vg/bin/vg
 COPY --from=build /vg/scripts /vg/scripts
 
 WORKDIR /vg
 ENV PATH /vg/bin:$PATH
 
-FROM build AS test
-RUN make test
+
 
