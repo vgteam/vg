@@ -115,9 +115,10 @@ Classes</h2></td></tr>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a0d509b0a72cf8bc1345eef47b8b930b4"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#a0d509b0a72cf8bc1345eef47b8b930b4">SnarlSeedClusterer</a> (<a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> &amp;<a class="el" href="classvg_1_1SnarlSeedClusterer.html#ace2d2116219ae73c9b1b8900ae74877e">dist_index</a>)</td></tr>
 <tr class="separator:a0d509b0a72cf8bc1345eef47b8b930b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7da5bd7184e1c53973247f906e7b3a91"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#a7da5bd7184e1c53973247f906e7b3a91">cluster_seeds</a> (vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; seeds, int64_t distance_limit) const </td></tr>
-<tr class="memdesc:a7da5bd7184e1c53973247f906e7b3a91"><td class="mdescLeft">&#160;</td><td class="mdescRight">Given a vector of seeds (pos_t) and a distance limit,.  <a href="#a7da5bd7184e1c53973247f906e7b3a91">More...</a><br/></td></tr>
-<tr class="separator:a7da5bd7184e1c53973247f906e7b3a91"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abc20a62719acd1ac524eb00be3fd37b2"><td class="memItemLeft" align="right" valign="top">tuple&lt; vector&lt; vector&lt; size_t &gt;<br class="typebreak"/>
+ &gt;, vector&lt; vector&lt; size_t &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#abc20a62719acd1ac524eb00be3fd37b2">cluster_seeds</a> (vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; seeds, int64_t read_distance_limit, int64_t fragment_distance_limit=0) const </td></tr>
+<tr class="memdesc:abc20a62719acd1ac524eb00be3fd37b2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Given a vector of seeds (pos_t) and a distance limit,.  <a href="#abc20a62719acd1ac524eb00be3fd37b2">More...</a><br/></td></tr>
+<tr class="separator:abc20a62719acd1ac524eb00be3fd37b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-types"></a>
 Private Types</h2></td></tr>
@@ -341,12 +342,12 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a7da5bd7184e1c53973247f906e7b3a91"></a>
+<a class="anchor" id="abc20a62719acd1ac524eb00be3fd37b2"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt; vector&lt; size_t &gt; &gt; vg::SnarlSeedClusterer::cluster_seeds </td>
+          <td class="memname">tuple&lt; vector&lt; vector&lt; size_t &gt; &gt;, vector&lt; vector&lt; size_t &gt; &gt; &gt; vg::SnarlSeedClusterer::cluster_seeds </td>
           <td>(</td>
           <td class="paramtype">vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&#160;</td>
           <td class="paramname"><em>seeds</em>, </td>
@@ -355,7 +356,13 @@ Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>distance_limit</em>&#160;</td>
+          <td class="paramname"><em>read_distance_limit</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>fragment_distance_limit</em> = <code>0</code>&#160;</td>
         </tr>
         <tr>
           <td></td>

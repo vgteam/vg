@@ -29,7 +29,6 @@ var searchData=
   ['circular',['circular',['../classvg_1_1Paths.html#ad8af70b16e2280fba6e46418842229fa',1,'vg::Paths']]],
   ['close',['close',['../structhFILE__backend.html#a05451c7188f39b89854297cacc60106d',1,'hFILE_backend']]],
   ['cluster_5fcoverage_5fthreshold',['cluster_coverage_threshold',['../classvg_1_1MinimizerMapper.html#a4aa953562a49de5befd8c80ee5e84a22',1,'vg::MinimizerMapper']]],
-  ['cluster_5fdists',['cluster_dists',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#acc9d21286d9663e417f688b6ac606f0d',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['cluster_5fheads',['cluster_heads',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#a512c1a25d9d6f4d8641d4dd6002109a2',1,'vg::SnarlSeedClusterer::NodeClusters']]],
   ['cluster_5fscore_5fthreshold',['cluster_score_threshold',['../classvg_1_1MinimizerMapper.html#a10276fc66be2c41c2ebebd78e1f643de',1,'vg::MinimizerMapper']]],
   ['clusterer',['clusterer',['../classvg_1_1MinimizerMapper.html#a2420d8771bcc824f7e7d36dbe4531fcf',1,'vg::MinimizerMapper']]],

@@ -82,7 +82,7 @@ var searchData=
   ['cluster_5fone_5fchain',['cluster_one_chain',['../classvg_1_1SnarlSeedClusterer.html#a8f81d7a6590ec90c99bfe174c3d94bda',1,'vg::SnarlSeedClusterer']]],
   ['cluster_5fone_5fnode',['cluster_one_node',['../classvg_1_1SnarlSeedClusterer.html#a49b25123682a985e0c79991d10dfd04e',1,'vg::SnarlSeedClusterer']]],
   ['cluster_5fone_5fsnarl',['cluster_one_snarl',['../classvg_1_1SnarlSeedClusterer.html#a2c37bcc1ba897d48a43aa7aefce55c67',1,'vg::SnarlSeedClusterer']]],
-  ['cluster_5fseeds',['cluster_seeds',['../classvg_1_1SnarlSeedClusterer.html#a7da5bd7184e1c53973247f906e7b3a91',1,'vg::SnarlSeedClusterer']]],
+  ['cluster_5fseeds',['cluster_seeds',['../classvg_1_1SnarlSeedClusterer.html#abc20a62719acd1ac524eb00be3fd37b2',1,'vg::SnarlSeedClusterer']]],
   ['cluster_5fsnarls',['cluster_snarls',['../classvg_1_1SnarlSeedClusterer.html#a6be094a564fdb862c4fae3882954d1c2',1,'vg::SnarlSeedClusterer']]],
   ['cluster_5fsubgraph_5fcontaining',['cluster_subgraph_containing',['../namespacevg.html#ae9f1bd05c1d67c074797eded33151e88',1,'vg']]],
   ['cluster_5fsubgraph_5fwalk',['cluster_subgraph_walk',['../namespacevg.html#ac20a47954c6352afbd98da5b7d4f2d95',1,'vg']]],
