@@ -15,6 +15,7 @@ alignment_path_offsets(const PathPositionHandleGraph& graph,
         search_limit = aln.sequence().size();
     }
     unordered_map<path_handle_t, vector<pair<size_t, bool> > > offsets;
+    if (graph.get_path_count() == 0) return offsets;
     for (auto& mapping : aln.path().mapping()) {
         // How many bases does this Mapping cover over?
         size_t mapping_width = mapping_from_length(mapping);
