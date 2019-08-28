@@ -125,7 +125,7 @@ protected:
     /// Like above, but applied to ref / alt ratio (instead of alt / ref)
     double max_ref_het_bias = 4.5;
     /// Like the max het bias, but applies to novel indels.
-    double max_indel_het_bias =3;
+    double max_indel_het_bias = 6;
     /// what's the minimum ref or alt allele depth to give a PASS in the filter
     /// column? Also used as a min actual support for a second-best allele call
     size_t min_mad_for_filter = 1;
