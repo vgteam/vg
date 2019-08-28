@@ -191,7 +191,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     }
         
     // Cluster the seeds. Get sets of input seed indexes that go together.
-    vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit);
+    tuple<vector<vector<size_t>>,vector<vector<size_t>>> paired_clusters = clusterer.cluster_seeds(seeds, distance_limit);
+    vector<vector<size_t>> clusters = std::move(std::get<0>(paired_clusters));
     
     if (track_provenance) {
         funnel.substage("score");
@@ -268,7 +269,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                     
     // Retain clusters only if their score is better than this, in addition to the coverage cutoff
     double cluster_score_cutoff = cluster_score.size() == 0 ? 0 :
-                    *std::max_element(cluster_score.begin(), cluster_score.end()) - cluster_score_threshold;
+                    *std::max_element(cluster_score.begin(), cluster_score.end())
+                                    - cluster_score_threshold;
     
     if (track_provenance) {
         // Now we go from clusters to gapless extensions
