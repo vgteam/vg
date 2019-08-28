@@ -15,7 +15,7 @@ RUN echo build > /stage.txt
 RUN ls -lah /vg || echo "No vg directory exists yet"
 
 # Copy vg build tree into place
-ADD ./* /vg
+COPY ./* /vg/
 
 RUN ls -lah /vg || echo "No vg directory exists yet"
 
@@ -79,11 +79,11 @@ RUN echo run > /stage.txt
 
 RUN ls -lah /vg || echo "No vg directory exists yet"
 
-COPY --from=build /vg/bin/vg /vg/bin
+COPY --from=build /vg/bin/vg /vg/bin/
 
 RUN ls -lah /vg || echo "No vg directory exists yet"
 
-COPY --from=build /vg/scripts/* /vg/stripts
+COPY --from=build /vg/scripts/* /vg/stripts/
 
 RUN ls -lah /vg || echo "No vg directory exists yet"
 
