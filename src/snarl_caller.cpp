@@ -197,6 +197,7 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
     vector<SnarlTraversal> genotype_travs;
     set<int> allele_set;
     for (auto allele : genotype) {
+        assert(allele < traversals.size());
         if (!allele_set.count(allele)) {
             genotype_travs.push_back(traversals[allele]);
             allele_set.insert(allele);
@@ -392,12 +393,13 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
                                const Support& avg_support, int length, int share_count) {
         // apply the scaling
         double scale_factor = (exclusive_only && share_count > 0) ? 0. : 1. / (1. + share_count);
-        Support scaled_support_min = min_support * scale_factor;
-        Support scaled_support_avg = avg_support * scale_factor;
+        Support scaled_support_min = min_support * scale_factor * length;
+        Support scaled_support_avg = avg_support * scale_factor * length;
+
         tot_supports_min[trav_idx] += scaled_support_min;
         tot_supports_avg[trav_idx] += scaled_support_avg;
         tot_sizes[trav_idx] += length;
-        max_trav_size = std::max(length, max_trav_size);
+        max_trav_size = std::max(tot_sizes[trav_idx], max_trav_size);
         if (min_supports_min.size() <= trav_idx) {
             assert(min_supports_min.size() == trav_idx);
             min_supports_min.push_back(scaled_support_min);
@@ -432,7 +434,7 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
                     share_count = child_counts[visit.snarl()];
                 }
             }
-            if (count_end_nodes || (trav_idx > 0 && trav_idx < traversals.size() - 1)) {
+            if (count_end_nodes || (visit_idx > 0 && trav_idx < trav.visit_size() - 1)) {
                 update_support(trav_idx, min_support, avg_support, length, share_count);
             }
             share_count = 0;

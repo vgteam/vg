@@ -269,6 +269,7 @@ void Packer::add(const Alignment& aln, bool record_edits) {
     ensure_edit_tmpfiles_open();
     // count the nodes, edges, and edits
     Mapping prev_mapping;
+    bool has_prev_mapping = false;
     int prev_bq_total = 0;
     int prev_bq_count = 0;
     size_t position_in_read = 0;
@@ -279,10 +280,12 @@ void Packer::add(const Alignment& aln, bool record_edits) {
 #ifdef debug
             cerr << "Mapping has no position" << endl;
 #endif
+            has_prev_mapping = false;
             continue;
         }
         // skip nodes outside of our graph, assuming this may be a subgraph
         if (!graph->has_node(mapping.position().node_id())) {
+            has_prev_mapping = false;
             continue;
         }
         size_t i = position_in_basis(mapping.position());
@@ -323,7 +326,7 @@ void Packer::add(const Alignment& aln, bool record_edits) {
             }
         }
 
-        if (mi > 0 && prev_mapping.position().node_id() != mapping.position().node_id()) {
+        if (has_prev_mapping && prev_mapping.position().node_id() != mapping.position().node_id()) {
             // Note: we are effectively ignoring edits here.  So an edge is covered even
             // if there's a sub or indel at either of its ends in the path.  
             Edge e;
@@ -351,6 +354,7 @@ void Packer::add(const Alignment& aln, bool record_edits) {
         }            
 
         prev_mapping = mapping;
+        has_prev_mapping = true;
     }
 }
 

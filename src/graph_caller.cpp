@@ -111,9 +111,9 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
         // map our genotype back to the vcf
         for (int i = 0; i < variants.size(); ++i) {
             vector<int> vcf_alleles;
+            set<int> used_vcf_alleles;
             string vcf_genotype;
-            vector<SnarlTraversal> vcf_traversals;
-            
+            vector<SnarlTraversal> vcf_traversals(variants[i]->alleles.size());            
             if (trav_genotype.empty()) {
                 vcf_genotype = "./.";
             } else {
@@ -127,7 +127,17 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
                         vcf_genotype += "/";
                     }
                     vcf_alleles.push_back(vcf_allele);
-                    vcf_traversals.push_back(travs[trav_allele]);
+                    used_vcf_alleles.insert(vcf_allele);
+                    vcf_traversals[vcf_allele] = travs[trav_allele];
+                }
+                // add traversals that correspond to vcf genotypes that are not
+                // present in the traversal_genotypes
+                for (int j = 0; j < travs.size(); ++j) {
+                    int vcf_allele = alleles[j].second[i];
+                    if (!used_vcf_alleles.count(vcf_allele)) {
+                        vcf_traversals[vcf_allele] = travs[j];
+                        used_vcf_alleles.insert(vcf_allele);
+                    }
                 }
             }
             // create an output variant from the input one
