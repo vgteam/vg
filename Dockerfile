@@ -49,6 +49,8 @@ RUN apt-get -qq -y update && \
     samtools \
     tabix \
     parallel \
+    bsdmainutils \
+    rs \
     fontconfig-config
 
 # Fail if any non-portable instructions were used
