@@ -387,6 +387,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             else if (best_match < curr) {
                 best_match = std::move(curr);
                 if (best_match.full() && best_match.internal_score <= max_mismatches) {
+                    //TODO: Could take this out or find a way to use it but keep around more than one alignment
                     //full_length_mismatches = best_match.internal_score;
                     best_match_is_full_length = true;
                 }
