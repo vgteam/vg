@@ -295,6 +295,18 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
     }
 }
 
+void SupportBasedSnarlCaller::update_vcf_header(string& header) const {
+    header += "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">\n";
+    header += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">\n";
+    header += "##FORMAT=<ID=XADL,Number=1,Type=Float,Description=\"Likelihood of allelic depths for called alleles\">\n";
+    // We need this field to stratify on for VCF comparison. The info is in SB but vcfeval can't pull it out
+    header += "##FORMAT=<ID=XAAD,Number=1,Type=Integer,Description=\"Alt allele read count.\">\n";
+    header += "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">\n";
+    header += "##FILTER=<ID=lowad,Description=\"Variant does not meet minimum allele read support threshold of " +
+        std::to_string(min_mad_for_filter) + "\">\n";
+    header += "##FILTER=<ID=lowxadl,Description=\"Variant has AD log likelihood less than " +
+        std::to_string(min_ad_log_likelihood_for_filter) + "\">\n";
+}
 
 int64_t SupportBasedSnarlCaller::get_edge_length(const edge_t& edge) const {
     return 1;

@@ -37,7 +37,10 @@ public:
                                  const vector<SnarlTraversal>& traversals,
                                  const vector<int>& genotype,
                                  const string& sample_name,
-                                 vcflib::Variant& variant) = 0; 
+                                 vcflib::Variant& variant) = 0;
+
+    /// Define any header fields needed by the above
+    virtual void update_vcf_header(string& header) const = 0;
 };
 
 /**
@@ -76,6 +79,9 @@ public:
                                  const vector<int>& genotype,
                                  const string& sample_name,
                                  vcflib::Variant& variant);
+
+    /// Define any header fields needed by the above
+    virtual void update_vcf_header(string& header) const;
 
     /// Get the support of a traversal
     /// Child snarls are handled as in the old call code: their maximum support is used
