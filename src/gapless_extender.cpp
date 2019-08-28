@@ -420,15 +420,11 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
         //If there was only one full length alignment, return all others as
         // well as the full length alignment
         remove_duplicates(result);
+        result.push_back(std::move(result_full_length[0]));
         find_mismatches(sequence, *(this->graph), result);
         if (trim_extensions) {
             this->trim(result, max_mismatches, &cache);
         }
-        find_mismatches(sequence, *(this->graph), result_full_length);
-        if (trim_extensions) {
-            this->trim(result_full_length, max_mismatches, &cache);
-        }
-        result.push_back(std::move(result_full_length[0]));
 
         return result;
     } else {
