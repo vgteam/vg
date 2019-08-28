@@ -408,7 +408,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             Alignment best_extension = aln;
             Alignment second_best_extension = aln;
             
-            if (extensions.front().full() && (extensions.size < 2 || extensions[1].ful())) {
+            if (extensions.front().full() && (extensions.size() < 2 || extensions[1].ful())) {
                 // We got full-length extensions, so directly convert to an Alignment.
                 
                 if (track_provenance) {
