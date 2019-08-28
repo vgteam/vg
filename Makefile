@@ -14,6 +14,7 @@ LIB_DIR:=lib
 # INC_DIR must be a relative path
 INC_DIR:=include
 CWD:=$(shell pwd)
+CXX ?= g++
 
 EXE:=vg
 
