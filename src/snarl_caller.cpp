@@ -483,9 +483,16 @@ vector<int> SupportBasedSnarlCaller::get_traversal_sizes(const vector<SnarlTrave
     vector<int> sizes(traversals.size(), 0);
     for (int i = 0; i < traversals.size(); ++i) {
         for (int j = 0; j < traversals[i].visit_size(); ++j) {
-            // Note: we are not counting nested snarls
             if (traversals[i].visit(j).node_id() != 0) {
                 sizes[i] += graph.get_length(graph.get_handle(traversals[i].visit(j).node_id()));
+            } else {
+                // just summing up the snarl contents, which isn't a great heuristic but will
+                // help in some cases
+                pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(
+                    snarl_manager.into_which_snarl(traversals[i].visit(j)), graph, true);
+                for (id_t node_id : contents.first) {
+                    sizes[i] += graph.get_length(graph.get_handle(node_id));
+                }
             }
         }
     }
@@ -497,7 +504,7 @@ double SupportBasedSnarlCaller::get_bias(const vector<int>& traversal_sizes, int
                                          int second_best_trav, int ref_trav_idx) const {
     bool is_indel = ((best_trav >= 0 && traversal_sizes[best_trav] != traversal_sizes[ref_trav_idx]) ||
                      (second_best_trav >=0 && traversal_sizes[second_best_trav] != traversal_sizes[ref_trav_idx]));
-    
+
     double bias_limit = 1;
 
     if (best_trav >= 0 && second_best_trav >=0) {

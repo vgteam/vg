@@ -284,8 +284,12 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         vector<int> genotype;
         std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, 2);
     
-        // emit our vcf variant
         if (!called_traversals.empty()) {
+            // regenotype our top-level traversals now that we know they aren't nested, and we have a
+            // good idea of all the sizes
+            std::tie(called_traversals, genotype) = re_genotype(snarl, *rep_trav_finder, called_traversals, genotype, 2);
+
+            // emit our vcf variant
             string path_name = find_index(snarl, is_vg ? path_indexes : site_path_indexes).first;
             emit_variant(snarl, *rep_trav_finder, called_traversals, genotype, path_name);
         }
@@ -317,11 +321,6 @@ pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::top_down_genotype(const 
 
     // get the traversals through the site
     vector<SnarlTraversal> traversals = trav_finder.find_traversals(snarl);
-
-    cerr << "our representative traversals" << endl;
-    for (auto xx : traversals) {
-        cerr << "  " << pb2json(xx) << endl;
-    }
 
     // use our support caller to choose our genotype
     vector<int> trav_genotype = snarl_caller.genotype(snarl, traversals, 0, ploidy);
@@ -396,6 +395,48 @@ SnarlTraversal LegacyCaller::get_reference_traversal(const Snarl& snarl, Travers
     return out_traversal;    
 }
 
+pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::re_genotype(const Snarl& snarl, TraversalFinder& trav_finder,
+                                                                    const vector<SnarlTraversal>& in_traversals,
+                                                                    const vector<int>& in_genotype,
+                                                                    int ploidy) const {
+    assert(in_traversals.size() == in_genotype.size());
+
+    // create a set of unique traversal candidates that must include the reference first
+    vector<SnarlTraversal> rg_traversals;
+    // add our reference traversal to the front
+    for (int i = 0; i < in_traversals.size() && !rg_traversals.empty(); ++i) {
+        if (in_genotype[i] == 0) {
+            rg_traversals.push_back(in_traversals[i]);
+        }
+    }
+    if (rg_traversals.empty()) {
+        rg_traversals.push_back(get_reference_traversal(snarl, trav_finder));
+    }
+    set<int> gt_set = {0};
+    for (int i = 0; i < in_traversals.size(); ++i) {
+        if (!gt_set.count(in_genotype[i])) {
+            rg_traversals.push_back(in_traversals[i]);
+            gt_set.insert(in_genotype[i]);
+        }
+    }
+
+    // re-genotype the candidates
+    vector<int> rg_genotype = snarl_caller.genotype(snarl, rg_traversals, 0, ploidy);
+
+    // convert our output to something that emit_variant() will understand
+    // todo: this is needlessly inefficient and should be streamlined to operate
+    // directly on rg_traversals/rg_genotype once testing done
+    vector<SnarlTraversal> out_traversals;
+    vector<int> out_genotype;
+
+    for (int i = 0; i < rg_genotype.size(); ++i) {
+        out_traversals.push_back(rg_traversals[rg_genotype[i]]);
+        out_genotype.push_back(rg_genotype[i]);
+    }
+
+    return make_pair(out_traversals, out_genotype);
+}
+
 void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder, const vector<SnarlTraversal>& called_traversals,
                                 const vector<int>& genotype, const string& ref_path_name) const {
     
@@ -413,6 +454,8 @@ void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder
     // when calling alt/alt, the reference traversal doesn't end up in called_traversals.
     // this should get changed, but in the meantime we add it back here (as we need it for
     // the VCF output)
+    // udpate: the reference traversal will be there when re-genotyping, but we can leave this logic
+    // in case we want to ever add an option to toggle this.
     vector<SnarlTraversal> site_traversals;
     vector<int> site_genotype;
     for (int i = 0; i < genotype.size(); ++i) {
@@ -456,7 +499,7 @@ void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder
     // fill out the rest of the variant
     out_variant.sequenceName = ref_path_name;
     out_variant.quality = 23;
-    out_variant.position = get_ref_position(snarl, ref_path_name);
+    out_variant.position = get_ref_position(snarl, ref_path_name) + 1; // +1 to convert to 1-based VCF
     out_variant.id = ".";
     out_variant.setVariantCallFile(output_vcf);
     out_variant.filter = "PASS";

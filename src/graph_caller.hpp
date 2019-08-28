@@ -122,8 +122,17 @@ protected:
     /// recursively genotype a snarl
     /// todo: can this be pushed to a more generic class? 
     pair<vector<SnarlTraversal>, vector<int>> top_down_genotype(const Snarl& snarl, TraversalFinder& trav_finder, int ploidy) const;
+    
     /// we need the reference traversal for VCF, but if the ref is not called, the above method won't find it. 
     SnarlTraversal get_reference_traversal(const Snarl& snarl, TraversalFinder& trav_finder) const;
+
+    /// re-genotype output of top_down_genotype.  it may give slightly different results as
+    /// it's working with fully-defined traversals and can exactly determine lengths and supports
+    /// it will also make sure the reference traversal is in the beginning of the output
+    pair<vector<SnarlTraversal>, vector<int>> re_genotype(const Snarl& snarl, TraversalFinder& trav_finder,
+                                                          const vector<SnarlTraversal>& in_traversals,
+                                                          const vector<int>& in_genotype,
+                                                          int ploidy) const;
 
     /// print a vcf variant 
     void emit_variant(const Snarl& snarl, TraversalFinder& trav_finder, const vector<SnarlTraversal>& called_traversals,
