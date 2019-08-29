@@ -414,43 +414,39 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 if (track_provenance) {
                     funnel.substage("direct");
                 }
-                int best_score = 0;
-                int second_best_score = 0;
+                *best_extension.mutable_path() = extensions.front().to_path(gbwt_graph, best_extension.sequence());
 
-                for (auto& extension : extensions ) {
+                // The score estimate is exact.
+                int alignment_score = extensions.front().score;
+                
+                 // Compute identity from mismatch count.
+                 size_t mismatch_count = extensions.front().mismatches();
+                 double identity = best_extension.sequence().size() == 0 ? 0.0 : (best_extension.sequence().size() - mismatch_count) / (double) best_extension.sequence().size();
+
+                // Fill in the score and identity
+                best_extension.set_score(alignment_score);
+                best_extension.set_identity(identity);
+
+                if (extensions.size() > 1) {
+                    //If there is another full length extension, this will be the second best one
+                    *second_best_extension.mutable_path() = extensions.back().to_path(gbwt_graph, second_best_extension.sequence());
+    
                     // The score estimate is exact.
-                    int alignment_score = extension.score;
-                    //TODO: Also check if this alignment is different??? Unless the gapless extender already does that?
-                    if (best_score == 0 || alignment_score > best_score) {
-                        //Swap out second_best_extension
-                        second_best_extension = std::move(best_extension);
-                        //And replace best_extension with current one
-                        *best_extension.mutable_path() = extension.to_path(gbwt_graph, best_extension.sequence());
-                        
-                        
-                        // Compute identity from mismatch count.
-                        size_t mismatch_count = extension.mismatches();
-                        double identity = best_extension.sequence().size() == 0 ? 0.0 : (best_extension.sequence().size() - mismatch_count) / (double) best_extension.sequence().size();
-                        
-                        // Fill in the score and identity
-                        best_extension.set_score(alignment_score);
-                        best_extension.set_identity(identity);
-
-                    } else if (second_best_score == 0 || alignment_score > second_best_score) {
-                        *second_best_extension.mutable_path() = extension.to_path(gbwt_graph, best_extension.sequence());
-                        size_t mismatch_count = extension.mismatches();
-                        double identity = second_best_extension.sequence().size() == 0 ? 0.0 : (second_best_extension.sequence().size() - mismatch_count) / (double) second_best_extension.sequence().size();
-                        
-                        // Fill in the score and identity
-                        second_best_extension.set_score(alignment_score);
-                        second_best_extension.set_identity(identity);
-
-                    }
+                    int alignment_score = extensions.back().score;
+                    
+                     // Compute identity from mismatch count.
+                     size_t mismatch_count = extensions.back().mismatches();
+                     double identity = second_best_extension.sequence().size() == 0 ? 0.0 : (second_best_extension.sequence().size() - mismatch_count) / (double) second_best_extension.sequence().size();
+    
+                    // Fill in the score and identity
+                    second_best_extension.set_score(alignment_score);
+                    second_best_extension.set_identity(identity);
                 }
                 if (track_provenance) {
                     // Stop the current substage
                     funnel.substage_stop();
                 }
+
             } else if (do_dp) {
                 // We need to do chaining.
                 
