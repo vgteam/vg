@@ -669,9 +669,13 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
     if (extended_seeds.empty()) {
         // TODO: We should never see an empty group of extensions
         return 0;
-    } else if (extended_seeds.size() == 1 && extended_seeds.front().full()) {
+    } else if (extended_seeds.front().full()) {
         // This is a full length match. We already have the score.
-        return extended_seeds.front().score;
+        int score = 0;
+        for (auto& extension : extended_seeds) {
+            score += extension.score;
+        }
+        return score;
     } else {
         // This is a collection of one or more non-full-length extended seeds.
         
