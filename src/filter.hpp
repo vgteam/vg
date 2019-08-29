@@ -10,7 +10,6 @@
 #include <math.h>
 #include "vg.hpp"
 #include "mapper.hpp"
-#include "xg.hpp"
 #include <vg/vg.pb.h>
 
 /** \file

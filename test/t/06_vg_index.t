@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 56
+plan tests 62
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -45,6 +45,13 @@ is $? 0 "building a GBWT index of a graph with haplotypes"
 vg index -x x.xg x.vg
 is $? 0 "building an XG index of a graph with haplotypes"
 
+is $(vg paths -x x.xg -L | wc -l) 1 "xg index does not contain alt paths by default"
+
+vg index -x x-ap.xg x.vg -L
+is $? 0 "building an XG index of a graph with haplotypes and alt paths included"
+
+is $(vg paths -x x-ap.xg -L | wc -l) $(vg paths -v x.vg -L | wc -l) "xg index does contains alt paths with index -L"
+
 vg index -g x.gcsa x.vg
 is $? 0 "building a GCSA index of a graph with haplotypes"
 
@@ -53,6 +60,14 @@ is $? 0 "building all indexes at once"
 
 cmp x.xg x2.xg && cmp x.gbwt x2.gbwt && cmp x.gcsa x2.gcsa && cmp x.gcsa.lcp x2.gcsa.lcp
 is $? 0 "the indexes are identical"
+
+vg index -x x2-ap.xg -G x2-ap.gbwt -v small/x.vcf.gz -g x2-ap.gcsa x.vg -L
+is $? 0 "building all indexes at once, while leaving alt paths in xg"
+
+cmp x.gbwt x2-ap.gbwt && cmp x.gcsa x2-ap.gcsa && cmp x.gcsa.lcp x2-ap.gcsa.lcp
+is $? 0 "the indexes are identical with -L"
+
+is $(vg paths -x x2-ap.xg -L | wc -l) $(vg paths -v x.vg -L | wc -l) "xg index does contains alt paths with index -L all at once"
 
 # Build the same GBWT indirectly from a VCF parse
 vg index -v small/x.vcf.gz -e parse x.vg
@@ -72,8 +87,9 @@ is $? 0 "samples can be excluded from haplotype indexing"
 is $(vg gbwt -c empty.gbwt) 0 "excluded samples were not included in the GBWT index"
 
 rm -f x.vg
-rm -f x.xg x.gbwtx.gcsa x.gcsa.lcp
+rm -f x.xg x-ap.xg x.gbwtx.gcsa x.gcsa.lcp
 rm -f x2.xg x2.gbwt x2.gcsa x2.gcsa.lcp
+rm -f x2-ap.xg x2-ap.gbwt x2-ap.gcsa x2-ap.gcsa.lcp
 rm -f parse_x parse_x_0_1 parse_x.gbwt x.bare.gbwt
 rm -f empty.gbwt
 

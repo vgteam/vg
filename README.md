@@ -144,6 +144,8 @@ The simplest thing to do with `vg` is to build a graph and align to it. At prese
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 ```
 
+Note that to build a graph, an index of the VCF file is required. The VCF index file can be generated using the `tabix` command provided by SAMtools (e.g. `tabix -p vcf x.vcf.gz` on the command line).
+
 ### Viewing, conversion
 
 `vg view` provides a way to convert the graph into various formats:

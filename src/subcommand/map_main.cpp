@@ -1,5 +1,6 @@
 #include "subcommand.hpp"
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include "../surjector.hpp"
@@ -636,7 +637,7 @@ int main_map(int argc, char** argv) {
     gcsa::TempFile::setDirectory(temp_file::get_dir());
 
     // Load up our indexes.
-    unique_ptr<XG> xgidx;
+    unique_ptr<PathPositionHandleGraph> xgidx;
     unique_ptr<gcsa::GCSA> gcsa;
     unique_ptr<gcsa::LCPArray> lcp;
     unique_ptr<gbwt::GBWT> gbwt;
@@ -655,7 +656,7 @@ int main_map(int argc, char** argv) {
         if(debug) {
             cerr << "Loading xg index " << xg_name << "..." << endl;
         }
-        xgidx = vg::io::VPKG::load_one<XG>(xg_stream);
+        xgidx = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_stream);
     }
 
     ifstream gcsa_stream(gcsa_name);
@@ -721,11 +722,9 @@ int main_map(int argc, char** argv) {
 
     // Look up all the path info we need for the HTSlib header, in case we output to HTS format.
     map<string, int64_t> path_length;
-    int num_paths = xgidx->max_path_rank();
-    for (int i = 1; i <= num_paths; ++i) {
-        auto name = xgidx->path_name(i);
-        path_length[name] = xgidx->path_length(name);
-    }
+    xgidx->for_each_path_handle([&](path_handle_t path_handle) {
+            path_length[xgidx->get_path_name(path_handle)] = xgidx->get_path_length(path_handle);
+        });
 
     // Set up output to an emitter that will handle serialization
     unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count);

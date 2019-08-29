@@ -17,6 +17,7 @@
 #include "../mapper.hpp"
 #include "../annotation.hpp"
 #include "../minimizer.hpp"
+#include "../xg.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include <vg/io/protobuf_emitter.hpp>
@@ -177,7 +178,7 @@ int main_cluster(int argc, char** argv) {
     }
     
     // create in-memory objects
-    unique_ptr<XG> xg_index = vg::io::VPKG::load_one<XG>(xg_name);
+    unique_ptr<PathPositionHandleGraph> xg_index = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
     unique_ptr<gcsa::GCSA> gcsa_index;
     unique_ptr<gcsa::LCPArray> lcp_index;
     if (!gcsa_name.empty()) {
@@ -268,7 +269,8 @@ int main_cluster(int argc, char** argv) {
             // Cluster the seeds. Get sets of input seed indexes that go together.
             // Make sure to time it.
             std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit);
+            tuple<vector<vector<size_t>>,vector<vector<size_t>>> paired_clusters = clusterer.cluster_seeds(seeds, distance_limit);
+            vector<vector<size_t>> clusters = std::move(std::get<0>(paired_clusters));
             std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
             

@@ -63,7 +63,7 @@ namespace vg {
         // Interface
         ////////////////////////////////////////////////////////////////////////
     
-        MultipathMapper(PathPositionHandleGraph* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
+        MultipathMapper(PathPositionHandleGraph* graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                         haplo::ScoreProvider* haplo_score_provider = nullptr, SnarlManager* snarl_manager = nullptr,
                         MinimumDistanceIndex* distance_index = nullptr);
         ~MultipathMapper();
@@ -136,6 +136,7 @@ namespace vg {
         // disambiguate. This lets us get an accurate count of scorable reads.
         bool always_check_population = false;
         size_t population_max_paths = 10;
+        size_t population_paths_hard_cap = 1000;
         bool top_tracebacks = false;
         // Note that, like the haplotype scoring code, we work with recombiantion penalties in exponent form.
         double recombination_penalty = 20.7; // 20.7 = 9 * 2.3

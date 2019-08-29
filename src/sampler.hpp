@@ -148,7 +148,7 @@ public:
     /// distribution. The simulation can also be restricted to named paths in the graph.
     /// Alternatively, it can match an expression profile. However, it cannot be simulateously
     /// restricted to paths and to an expression profile.
-    NGSSimulator(PathPositionHandleGraph& xg_index,
+    NGSSimulator(PathPositionHandleGraph& graph,
                  const string& ngs_fastq_file,
                  bool interleaved_fastq = false,
                  const vector<string>& source_paths = {},
@@ -282,7 +282,7 @@ private:
     /// A distribution for the joint initial qualities of a read pair
     MarkovDistribution<pair<uint8_t, bool>, pair<pair<uint8_t, bool>, pair<uint8_t, bool>>> joint_initial_distr;
     
-    PathPositionHandleGraph& xg_index;
+    PathPositionHandleGraph& graph;
     
     LRUCache<id_t, Node> node_cache;
     LRUCache<id_t, vector<Edge> > edge_cache;
