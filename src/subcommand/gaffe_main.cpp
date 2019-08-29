@@ -113,7 +113,7 @@ int main_gaffe(int argc, char** argv) {
     //Throw away extension sets with scores that are this amount below the best
     double extension_set = 0;
     //Throw away extensions with scores that are this amount below the best
-    int extension_score = 1;
+    int extension_score = 0;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
