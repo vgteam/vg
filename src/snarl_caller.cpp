@@ -50,7 +50,7 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
     vector<int> skips = {best_allele};
     for (int i = 0; i < secondary_exclusive_supports.size(); ++i) {
         double bias = get_bias(traversal_sizes, i, best_allele, ref_trav_idx);
-        if (support_val(secondary_exclusive_supports[i]) * bias * 2.0 <= support_val(supports[best_allele])) {
+        if (i != best_allele && support_val(secondary_exclusive_supports[i]) * bias * 2.0 <= support_val(supports[best_allele])) {
             skips.push_back(i);
         }
     }
@@ -380,31 +380,38 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
     // pass 2: get the supports
     // we compute the various combinations of min/avg node/trav supports as we don't know which
     // we will need until all the sizes are known
-    vector<Support> min_supports_min; // use min node support
-    vector<Support> min_supports_avg; // use avg node support
+    Support max_support;
+    max_support.set_forward(numeric_limits<int>::max());
+    vector<Support> min_supports_min(traversals.size(), max_support); // use min node support
+    vector<Support> min_supports_avg(traversals.size(), max_support); // use avg node support
+    vector<bool> has_support(traversals.size(), false);
     vector<Support> tot_supports_min(traversals.size()); // weighted by lengths, using min node support
     vector<Support> tot_supports_avg(traversals.size()); // weighted by lengths, using avg node support
     vector<int> tot_sizes(traversals.size(), 0); // to compute average from to_supports;
+    vector<int> tot_sizes_all(traversals.size(), 0); // as above, but includes excluded lengths
     int max_trav_size = 0; // size of longest traversal
 
     bool count_end_nodes = false; // toggle to include snarl ends
 
     auto update_support = [&] (int trav_idx, const Support& min_support,
                                const Support& avg_support, int length, int share_count) {
+        // keep track of overall size of longest traversal
+        tot_sizes_all[trav_idx] += length;
+        max_trav_size = std::max(tot_sizes_all[trav_idx], max_trav_size);
+        
         // apply the scaling
         double scale_factor = (exclusive_only && share_count > 0) ? 0. : 1. / (1. + share_count);
-        Support scaled_support_min = min_support * scale_factor * length;
-        Support scaled_support_avg = avg_support * scale_factor * length;
+        
+        // when looking at exclusive support, we don't normalize by skipped lengths
+        if (scale_factor != 0 || !exclusive_only) {
+            has_support[trav_idx] = true;
+            Support scaled_support_min = min_support * scale_factor * length;
+            Support scaled_support_avg = avg_support * scale_factor * length;
 
-        tot_supports_min[trav_idx] += scaled_support_min;
-        tot_supports_avg[trav_idx] += scaled_support_avg;
-        tot_sizes[trav_idx] += length;
-        max_trav_size = std::max(tot_sizes[trav_idx], max_trav_size);
-        if (min_supports_min.size() <= trav_idx) {
-            assert(min_supports_min.size() == trav_idx);
-            min_supports_min.push_back(scaled_support_min);
-            min_supports_avg.push_back(scaled_support_avg);
-        } else {
+            tot_supports_min[trav_idx] += scaled_support_min;
+            tot_supports_avg[trav_idx] += scaled_support_avg;
+            tot_sizes[trav_idx] += length;
+            
             min_supports_min[trav_idx] = support_min(min_supports_min[trav_idx], scaled_support_min);
             min_supports_avg[trav_idx] = support_min(min_supports_avg[trav_idx], scaled_support_avg);
         }
@@ -449,6 +456,14 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
                 }
                 update_support(trav_idx, min_support, min_support, length, share_count);
             }
+        }
+    }
+
+    // correct for case where no exclusive support found
+    for (int i = 0; i < min_supports_min.size(); ++i) {
+        if (!has_support[i]) {
+            min_supports_min[i] = Support();
+            min_supports_avg[i] = Support();
         }
     }
 
