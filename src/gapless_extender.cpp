@@ -246,10 +246,12 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
     // at most max_mismatches mismatches, we are no longer interested in extensions with
     // at least that many mismatches.
     bool full_length_found = false;
+    //Keep track of the best and second best extensions and their mismatch counts
     uint32_t full_length_mismatches = std::numeric_limits<uint32_t>::max();
     uint32_t second_full_length_mismatches = std::numeric_limits<uint32_t>::max();
     GaplessExtension best_full_length;
     GaplessExtension second_best_full_length;
+
     for (seed_type seed : cluster) {
         GaplessExtension best_match {
             { }, static_cast<size_t>(0), gbwt::BidirectionalState(),
@@ -389,7 +391,14 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             // Case 3: Maximal extension with a better score than the best extension so far.
             else if (best_match < curr) {
                 best_match = std::move(curr);
-                if (best_match.full() && best_match.internal_score <= max_mismatches) {
+                if (best_match.full() && best_match.internal_score <= max_mismatches 
+                    && (!full_length_found || 
+                        (best_match.read_interval != best_full_length.read_interval 
+                          && best_match.state != best_full_length.state )) ) {
+                    //If this is a full length match with fewer than max_mismatches
+                    // and we either haven't seen a full length match before or 
+                    // this is better than the previous best full length match
+                    
                     if (best_match.internal_score < full_length_mismatches) {
                         //If this is better than the previous best
                         second_full_length_mismatches = full_length_mismatches;
@@ -397,6 +406,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                         full_length_mismatches = best_match.internal_score;
                         best_full_length = std::move(best_match);
                     } else if (best_match.internal_score < second_full_length_mismatches) {
+                        //If this is better than the previous second best
                         second_full_length_mismatches = best_match.internal_score;
                         second_best_full_length = std::move(best_match);
                     }
