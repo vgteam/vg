@@ -2,12 +2,22 @@
 FROM ubuntu:18.04 AS base
 MAINTAINER vgteam
 
+RUN echo base > /stage.txt
+
 WORKDIR /vg
+
+RUN ls -lah /vg || echo "No vg directory exists yet"
 
 FROM base AS build
 
+RUN echo build > /stage.txt
+
+RUN ls -lah /vg || echo "No vg directory exists yet"
+
 # Copy vg build tree into place
 COPY . /vg
+
+RUN ls -lah /vg || echo "No vg directory exists yet"
 
 # Install the base packages needed to let vg install packages.
 # Make sure this runs after vg sources are imported so vg will always have an
@@ -33,6 +43,8 @@ ENV PATH /vg/bin:$PATH
 
 ############################################################################################
 FROM build AS test
+
+RUN echo test > /stage.txt
 
 # The test need BWA
 COPY --from=quay.io/ucsc_cgl/bwa:0.7.15--a17c6544342330f6ea7a23a37d23273ab1c52d21 /usr/local/bin/bwa /usr/local/bin/bwa
@@ -63,9 +75,17 @@ RUN make test
 ############################################################################################
 FROM base AS run
 
+RUN echo run > /stage.txt
+
+RUN ls -lah /vg || echo "No vg directory exists yet"
+
 COPY --from=build /vg/bin/vg /vg/bin/
 
+RUN ls -lah /vg || echo "No vg directory exists yet"
+
 COPY --from=build /vg/scripts/* /vg/scripts/
+
+RUN ls -lah /vg || echo "No vg directory exists yet"
 
 # Install packages which toil-vg needs to be available inside the image, for pipes
 # TODO: which of these can be removed?
