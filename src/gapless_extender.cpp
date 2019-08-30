@@ -241,17 +241,12 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
     // Allocate a GBWT record cache.
     gbwt::CachedGBWT cache = this->graph->get_cache();
 
-    // Find either the best extension for each seed or the two best full-length alignments
-    // for the entire cluster. If we have found two full-length alignment with
+    // Find either the best extension for each seed or the best full-length alignment
+    // for the entire cluster. If we have found a full-length alignment with
     // at most max_mismatches mismatches, we are no longer interested in extensions with
     // at least that many mismatches.
     bool full_length_found = false;
-    //Keep track of the best and second best extensions and their mismatch counts
     uint32_t full_length_mismatches = std::numeric_limits<uint32_t>::max();
-    uint32_t second_full_length_mismatches = std::numeric_limits<uint32_t>::max();
-    GaplessExtension best_full_length;
-    GaplessExtension second_best_full_length;
-
     for (seed_type seed : cluster) {
         GaplessExtension best_match {
             { }, static_cast<size_t>(0), gbwt::BidirectionalState(),
@@ -274,7 +269,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                 false, false, static_cast<uint32_t>(0), static_cast<uint32_t>(0)
             };
             match_initial(match, sequence, this->graph->get_sequence_view(seed.first), this->aligner);
-            if (match.internal_score >= second_full_length_mismatches) {
+            if (match.internal_score >= full_length_mismatches) {
                 continue;
             }
             if (match.read_interval.first == 0) {
@@ -295,14 +290,14 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
         while (!extensions.empty()) {
             GaplessExtension curr = extensions.top();
             extensions.pop();
-            if (curr.internal_score >= second_full_length_mismatches) {
+            if (curr.internal_score >= full_length_mismatches) {
                 continue;
             }
             // Always allow at least max_mismatches / 2 mismatches in the current flank.
             uint32_t mismatch_limit = std::max(
                 static_cast<uint32_t>(max_mismatches + 1),
                 static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
-            mismatch_limit = std::min(mismatch_limit, second_full_length_mismatches);
+            mismatch_limit = std::min(mismatch_limit, full_length_mismatches);
             bool found_extension = false;
 
             // Case 1: Extend to the right.
@@ -391,34 +386,23 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             // Case 3: Maximal extension with a better score than the best extension so far.
             else if (best_match < curr) {
                 best_match = std::move(curr);
-                if (best_match.full() && best_match.internal_score <= max_mismatches 
-                    && (!full_length_found || 
-                        (best_match.read_interval != best_full_length.read_interval 
-                          && best_match.state != best_full_length.state )) ) {
-                    //If this is a full length match with fewer than max_mismatches
-                    // and we either haven't seen a full length match before or 
-                    // this is better than the previous best full length match
-                    
-                    if (best_match.internal_score < full_length_mismatches) {
-                        //If this is better than the previous best
-                        second_full_length_mismatches = full_length_mismatches;
-                        second_best_full_length = std::move(best_full_length);
-                        full_length_mismatches = best_match.internal_score;
-                        best_full_length = std::move(best_match);
-                    } else if (best_match.internal_score < second_full_length_mismatches) {
-                        //If this is better than the previous second best
-                        second_full_length_mismatches = best_match.internal_score;
-                        second_best_full_length = std::move(best_match);
-                    }
-                    full_length_found = true;
+                if (best_match.full() && best_match.internal_score <= max_mismatches) {
+                    //TODO: Could take this out or find a way to use it but keep around more than one alignment
+                    //full_length_mismatches = best_match.internal_score;
                     best_match_is_full_length = true;
                 }
             }
         }
 
         // Handle the best match.
-        if (!best_match.empty() &&
-                   (!full_length_found && !best_match_is_full_length )) {
+        if (best_match_is_full_length && !full_length_found) {
+            //If this is the first time we've found a full length alignment
+            result.clear();
+            result.push_back(best_match);
+            full_length_found = true;
+        } else if (!best_match.empty() && 
+                  ((best_match_is_full_length && full_length_found) || 
+                   (!full_length_found && !best_match_is_full_length ))) {
             //Keep either only full length alignments or the best extensions
             result.push_back(best_match);
         }
@@ -427,12 +411,6 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
     // Remove duplicates, find mismatches, and trim mismatches to maximize score.
     // If we have a full-length alignment with sufficiently few mismatches, we do
     // not trim it.
-    if (full_length_found) {
-        //If we've found a full length alignment
-        result.clear();
-        result.push_back(best_full_length);
-        result.push_back(second_best_full_length);
-    }
     remove_duplicates(result);
     find_mismatches(sequence, *(this->graph), result);
     if (trim_extensions) {
