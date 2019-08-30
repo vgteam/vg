@@ -58,6 +58,8 @@ rm -f giab.vg giab.xg giab.gcsa
 #is $(vg find -M ACGTGCCGTTAGCCAGTGGGTTAG -R 10 -Z 10 -f -x s.xg -g s.gcsa) '[["ACGTGCCGTTAGCCAGTGGGTTAG",["3:11"]],["AGCCAGTGGGTTA",["1:0","2:0"]]]' "we can find the same (sufficiently long) sub-MEMs the hard de-duplication case with the fast sub-MEM option"
 #rm -rf s.vg s.xg s.gcsa*
 
+rm -Rf x.db
+
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
 vg map -x x.xg -g x.gcsa -T small/x-s1337-n100.reads >x.gam
