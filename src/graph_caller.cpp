@@ -569,7 +569,10 @@ void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder
     snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, sample_name, out_variant);
 
     if (!out_variant.alt.empty()) {
-        cout << out_variant << endl;
+#pragma omp critical(cout)
+        {
+            cout << out_variant << endl;
+        }
     }
 }
 
