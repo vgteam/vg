@@ -109,7 +109,8 @@ public:
                  SupportBasedSnarlCaller& snarl_caller,
                  SnarlManager& snarl_manager,
                  const string& sample_name,
-                 const vector<string>& ref_paths = {});
+                 const vector<string>& ref_paths = {},
+                 const vector<size_t>& ref_path_offsets = {});
 
     virtual ~LegacyCaller();
 
@@ -145,7 +146,8 @@ protected:
     pair<string, PathIndex*> find_index(const Snarl& snarl, const vector<PathIndex*> path_indexes) const;
 
     /// get the position of a snarl from our reference path using the PathPositionHandleGraph interface
-    size_t get_ref_position(const Snarl& snarl, const string& ref_path_name) const;
+    /// the bool is true if the snarl's backward on the path
+    pair<size_t, bool> get_ref_position(const Snarl& snarl, const string& ref_path_name) const;
 
     /// clean up the alleles to not share common prefixes / suffixes
     void flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const;
@@ -174,6 +176,9 @@ protected:
 
     /// keep track of the reference paths
     vector<string> ref_paths;
+
+    /// keep track of offsets in the reference paths
+    map<string, size_t> ref_offsets;
 
     /// Tuning
 

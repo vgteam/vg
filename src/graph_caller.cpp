@@ -188,11 +188,16 @@ LegacyCaller::LegacyCaller(const PathPositionHandleGraph& graph,
                            SupportBasedSnarlCaller& snarl_caller,
                            SnarlManager& snarl_manager,
                            const string& sample_name,
-                           const vector<string>& ref_paths) :
+                           const vector<string>& ref_paths,
+                           const vector<size_t>& ref_path_offsets) :
     GraphCaller(snarl_caller, snarl_manager, out_stream),
     graph(graph),
     sample_name(sample_name),
     ref_paths(ref_paths) {
+
+    for (int i = 0; i < ref_paths.size(); ++i) {
+        ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
+    }
     
     is_vg = dynamic_cast<const VG*>(&graph) != nullptr;
     if (is_vg) {
@@ -287,6 +292,13 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
 
     PathIndex* path_index = get_path_index(snarl);
     if (path_index != nullptr) {
+        string path_name = find_index(snarl, is_vg ? path_indexes : site_path_indexes).first;
+
+        // orient the snarl along the reference path
+        if (get_ref_position(snarl, path_name).second == true) {
+            snarl_manager.flip(&snarl);
+        }
+
         // recursively genotype the site beginning here at the top level snarl
         vector<SnarlTraversal> called_traversals;
         // these integers map the called traversals to their positions in the list of all traversals
@@ -300,7 +312,6 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
             std::tie(called_traversals, genotype) = re_genotype(snarl, *rep_trav_finder, called_traversals, genotype, 2);
 
             // emit our vcf variant
-            string path_name = find_index(snarl, is_vg ? path_indexes : site_path_indexes).first;
             emit_variant(snarl, *rep_trav_finder, called_traversals, genotype, path_name);
         }
     }        
@@ -334,7 +345,6 @@ pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::top_down_genotype(const 
 
     // use our support caller to choose our genotype
     vector<int> trav_genotype = snarl_caller.genotype(snarl, traversals, 0, ploidy);
-
     if (trav_genotype.empty()) {
         return make_pair(vector<SnarlTraversal>(), vector<int>());
     }
@@ -350,6 +360,7 @@ pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::top_down_genotype(const 
     for (int i = 0; i < trav_genotype.size() && (!hom || i < 1); ++i) {
         int allele = trav_genotype[i];
         const SnarlTraversal& traversal = traversals[allele];
+        Visit prev_end;
         for (int j = 0; j < traversal.visit_size(); ++j) {
             if (traversal.visit(j).node_id() > 0) {
                 *called_travs[i].add_visit() = traversal.visit(j);
@@ -357,14 +368,20 @@ pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::top_down_genotype(const 
                     *called_travs[1].add_visit() = traversal.visit(j);
                 }
             } else {
-                // recursively determine the traversal    
-                vector<SnarlTraversal> child_genotype = top_down_genotype(*snarl_manager.into_which_snarl(traversal.visit(j)),
-                                                                          trav_finder, hom ? 2: 1).first;
+                // recursively determine the traversal
+                const Snarl* into_snarl = snarl_manager.into_which_snarl(traversal.visit(j));
+                bool flipped = traversal.visit(j).backward();
+                if (flipped) {
+                    // we're always processing our snarl from start to end, so make sure
+                    // it lines up with the parent (note that we've oriented the root along the ref path)
+                    snarl_manager.flip(into_snarl);
+                }
+                vector<SnarlTraversal> child_genotype = top_down_genotype(*into_snarl,
+                                                                          trav_finder, hom ? 2: 1).first;                
                 if (child_genotype.empty()) {
                     return make_pair(vector<SnarlTraversal>(), vector<int>());
                 }
-                bool back_to_back = j > 0 && traversal.visit(j - 1).node_id() == 0;
-                assert(!back_to_back || traversal.visit(j - 1).snarl().end() == traversal.visit(j).snarl().start());
+                bool back_to_back = j > 0 && traversal.visit(j - 1).node_id() == 0 && prev_end == into_snarl->start();
 
                 for (int k = back_to_back ? 1 : 0; k < child_genotype[0].visit_size(); ++k) {
                     *called_travs[i].add_visit() = child_genotype[0].visit(k);
@@ -374,6 +391,11 @@ pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::top_down_genotype(const 
                     for (int k = back_to_back ? 1 : 0; k < child_genotype[1].visit_size(); ++k) {
                         *called_travs[1].add_visit() = child_genotype[1].visit(k);
                     }
+                }
+                prev_end = into_snarl->end();
+                if (flipped) {
+                    // leave our snarl like we found it
+                    snarl_manager.flip(into_snarl);
                 }
             }
         }
@@ -389,19 +411,29 @@ SnarlTraversal LegacyCaller::get_reference_traversal(const Snarl& snarl, Travers
     SnarlTraversal traversal = trav_finder.find_traversals(snarl)[0];
     SnarlTraversal out_traversal;
 
+    Visit prev_end;
     for (int i = 0; i < traversal.visit_size(); ++i) {
         const Visit& visit = traversal.visit(i);
         if (visit.node_id() != 0) {
             *out_traversal.add_visit() = visit;
         } else {
-            bool back_to_back = i > 0 && traversal.visit(i - 1).node_id() == 0;
-            SnarlTraversal child_ref = get_reference_traversal(*snarl_manager.into_which_snarl(visit), trav_finder);
+            const Snarl* into_snarl = snarl_manager.into_which_snarl(visit);
+            if (visit.backward()) {
+                snarl_manager.flip(into_snarl);
+            }
+            bool back_to_back = i > 0 && traversal.visit(i - 1).node_id() == 0 && prev_end == into_snarl->start();
+
+            SnarlTraversal child_ref = get_reference_traversal(*into_snarl, trav_finder);
             for (int j = back_to_back ? 1 : 0; j < child_ref.visit_size(); ++j) {
                 *out_traversal.add_visit() = child_ref.visit(j);
             }
+            prev_end = into_snarl->end();
+            if (visit.backward()) {
+                // leave our snarl like we found it
+                snarl_manager.flip(into_snarl);
+            }
         }
     }
-
     return out_traversal;    
 }
 
@@ -509,7 +541,8 @@ void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder
     // fill out the rest of the variant
     out_variant.sequenceName = ref_path_name;
     out_variant.quality = 23;
-    out_variant.position = get_ref_position(snarl, ref_path_name) + 1; // +1 to convert to 1-based VCF
+    // +1 to convert to 1-based VCF
+    out_variant.position = get_ref_position(snarl, ref_path_name).first + ref_offsets.find(ref_path_name)->second + 1; 
     out_variant.id = ".";
     out_variant.setVariantCallFile(output_vcf);
     out_variant.filter = "PASS";
@@ -529,8 +562,8 @@ void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder
     genotype_vector.push_back(vcf_gt.str());
 
     // clean up the alleles to not have so man common prefixes
-    flatten_common_allele_ends(out_variant, true);
     flatten_common_allele_ends(out_variant, false);
+    flatten_common_allele_ends(out_variant, true);
 
     // add some support info
     snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, sample_name, out_variant);
@@ -565,7 +598,7 @@ pair<string, PathIndex*> LegacyCaller::find_index(const Snarl& snarl, const vect
     return make_pair("", nullptr);
 }
 
-size_t LegacyCaller::get_ref_position(const Snarl& snarl, const string& ref_path_name) const {
+pair<size_t, bool> LegacyCaller::get_ref_position(const Snarl& snarl, const string& ref_path_name) const {
     path_handle_t path_handle = graph.get_path_handle(ref_path_name);
 
     handle_t start_handle = graph.get_handle(snarl.start().node_id(), snarl.start().backward());
@@ -589,8 +622,11 @@ size_t LegacyCaller::get_ref_position(const Snarl& snarl, const string& ref_path
         throw runtime_error("cyclic reference path (" + ref_path_name +") not supported by caller");
     }
 
-    return std::min(graph.get_position_of_step(start_steps[0]),
-                    graph.get_position_of_step(end_steps[0]));
+    size_t start_position = graph.get_position_of_step(start_steps[0]);
+    size_t end_position = graph.get_position_of_step(end_steps[0]);
+    bool backward = end_position < start_position;
+
+    return make_pair(backward ? end_position : start_position, backward);
 }
 
 void LegacyCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const {
@@ -602,7 +638,7 @@ void LegacyCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool bac
         min_len = std::min(min_len, variant.alleles[i].length());
     }
     // want to leave at least one in the reference position
-    if (!backward && min_len > 0) {
+    if (min_len > 0) {
         --min_len;
     }
 

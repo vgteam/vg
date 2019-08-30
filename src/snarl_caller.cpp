@@ -195,12 +195,12 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
     /// (we're doing this a second time to fit the (unnecessarily modular?) interface where vcf
     ///  info is updated independently of calling)
     vector<SnarlTraversal> genotype_travs;
-    set<int> allele_set;
+    map<int, int> allele_map; // map allele from "genotype" to position in "genotype_travs"/"allele_supports"
     for (auto allele : genotype) {
         assert(allele < traversals.size());
-        if (!allele_set.count(allele)) {
+        if (!allele_map.count(allele)) {
             genotype_travs.push_back(traversals[allele]);
-            allele_set.insert(allele);
+            allele_map[allele] = genotype_travs.size() - 1;
         }
     }
     vector<int> shared_travs;
@@ -208,7 +208,7 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
         shared_travs.push_back(0);
     }
     vector<Support> allele_supports = get_traversal_set_support(genotype_travs, shared_travs, false);
-    
+
     // Set up the depth format field
     variant.format.push_back("DP");
     // And allelic depth
@@ -227,9 +227,11 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
     double min_site_support = allele_supports.size() > 0 ? INFINITY : 0;
 
     if (!allele_supports.empty()) { //only add info if we made a call
-        for (int allele : allele_set) {
+        for (auto allele_pair : allele_map) {
+            int genotype_allele = allele_pair.first;
+            int allele_supports_idx = allele_pair.second;
             // For all the alleles we are using, look at the support.
-            auto& support = allele_supports[allele];
+            auto& support = allele_supports[allele_supports_idx];
                 
             // Set up allele-specific stats for the allele
             variant.samples[sample_name]["AD"].push_back(std::to_string((int64_t)round(total(support))));
@@ -237,7 +239,7 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
             // Sum up into total depth
             total_support += support;
                 
-            if (allele != 0) {
+            if (genotype_allele != 0) {
                 // It's not the primary reference allele
                 alt_support += support;
             }
@@ -250,13 +252,13 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
             
     // Find the binomial bias between the called alleles, if multiple were called.
     double ad_log_likelihood = INFINITY;
-    if (allele_set.size() == 2) {
+    if (allele_map.size() == 2) {
         int best_allele = genotype[0];
         int second_best_allele = genotype[1];
         // How many of the less common one do we have?
-        size_t successes = round(total(allele_supports[second_best_allele]));
+        size_t successes = round(total(allele_supports[allele_map[second_best_allele]]));
         // Out of how many chances
-        size_t trials = successes + (size_t) round(total(allele_supports[best_allele]));
+        size_t trials = successes + (size_t) round(total(allele_supports[allele_map[best_allele]]));
                 
         assert(trials >= successes);
                 
@@ -441,7 +443,7 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
                     share_count = child_counts[visit.snarl()];
                 }
             }
-            if (count_end_nodes || (visit_idx > 0 && trav_idx < trav.visit_size() - 1)) {
+            if (count_end_nodes || (visit_idx > 0 && visit_idx < trav.visit_size() - 1)) {
                 update_support(trav_idx, min_support, avg_support, length, share_count);
             }
             share_count = 0;
