@@ -37,7 +37,7 @@ RUN apt-get -qq -y update && \
 # Since we build and run protoc, we need ivybridge or later to actually build the container.
 # But we then don't depend on the build host's architecture
 RUN sed -i s/march=native/march=ivybridge/ deps/sdsl-lite/CMakeLists.txt
-RUN make get-deps && . ./source_me.sh && env && CXXFLAGS=" -march=ivybridge " make -j$(nproc) && make static && strip bin/vg
+RUN make get-deps && . ./source_me.sh && env && make include/vg_git_version.hpp && CXXFLAGS=" -march=ivybridge " make -j$(nproc) && make static && strip bin/vg
 
 ENV PATH /vg/bin:$PATH
 
