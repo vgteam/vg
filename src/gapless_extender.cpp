@@ -392,11 +392,11 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                     //TODO: Could take this out or find a way to use it but keep around more than one alignment
                     if (best_match.internal_score < full_length_mismatches){
                         //If this is better than the previous best
-                        second_full_length_mismatches = full_length_mismatches;
+                        //second_full_length_mismatches = full_length_mismatches;
                         full_length_mismatches = best_match.internal_score;
                     } else if (best_match.internal_score < second_full_length_mismatches) {
 
-                        second_full_length_mismatches = best_match.internal_score;
+                        //second_full_length_mismatches = best_match.internal_score;
                     }
                     best_match_is_full_length = true;
                 }
