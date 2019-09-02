@@ -54,9 +54,7 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
         cerr << "trav " << i << " exclusive support " << support_val(secondary_exclusive_supports[i])
              << " * 2bias= " << (bias * 2.0) << " vs " << support_val(supports[best_allele]) << endl;
 #endif
-        cerr <<  "COMP VILE "<<  (support_val(secondary_exclusive_supports[i]) * bias * 2.0) << endl;
         if (i != best_allele && support_val(secondary_exclusive_supports[i]) * bias * 2.0 <= support_val(supports[best_allele])) {
-            cerr << "skipping" << endl;
             skips.push_back(i);
         }
     }
@@ -71,7 +69,8 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
     if (second_best_allele != -1) {
         // prune out traversals whose exclusive support relative to second best doesn't pass cut
         vector<Support> tertiary_exclusive_supports = get_traversal_set_support(traversals, {second_best_allele}, true, ref_trav_idx);
-        skips = {best_allele, second_best_allele};
+        skips.push_back(best_allele);
+        skips.push_back(second_best_allele);
         for (int i = 0; i < tertiary_exclusive_supports.size(); ++i) {
             double bias = get_bias(traversal_sizes, i, second_best_allele, ref_trav_idx);
             if (support_val(tertiary_exclusive_supports[i]) * bias * 2.0 <= support_val(supports[second_best_allele])) {
@@ -104,8 +103,9 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
     }
                             
 #ifdef debug
-    cerr << best_allele << ", " << best_support << " and "
-         << second_best_allele << ", " << second_best_support << endl;
+    cerr << "best allele=" << best_allele << ", best sup=" << best_support << " and "
+         << "2nd_best_allele=" << second_best_allele << ", 2nd best sup=" << second_best_support << " and "
+         << "3rd_best_allele=" << third_best_allele << ", 3rd best sup=" << third_best_support << endl;
         
     if (support_val(second_best_support) > 0) {
         cerr << "Bias: (limit " << get_bias(traversal_sizes, best_allele, second_best_allele, ref_trav_idx)  << "):"
