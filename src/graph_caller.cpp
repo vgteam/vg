@@ -48,9 +48,17 @@ string GraphCaller::vcf_header(const PathHandleGraph& graph, const vector<string
     stringstream ss;
     ss << "##fileformat=VCFv4.2" << endl;
     for (auto contig : contigs) {
-        size_t length = 0;
-        for (handle_t handle : graph.scan_path(graph.get_path_handle(contig))) {
-            length += graph.get_length(handle);
+        path_handle_t path_handle = graph.get_path_handle(contig);
+        string path_name = graph.get_path_name(path_handle);
+        size_t length;
+        if (ref_lengths.count(path_name)) {
+            // length override provided
+            length = ref_lengths.find(path_name)->second;
+        } else {
+            length = 0;
+            for (handle_t handle : graph.scan_path(graph.get_path_handle(contig))) {
+                length += graph.get_length(handle);
+            }
         }
         ss << "##contig=<ID=" << contig << ",length=" << length << ">" << endl;
     }
@@ -71,7 +79,8 @@ VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
     input_vcf(variant_file),
     sample_name(sample_name),
     traversal_finder(graph, snarl_manager, variant_file, ref_paths, ref_fasta, ins_fasta) {
-    
+
+    scan_contig_lengths();    
 }
 
 VCFGenotyper::~VCFGenotyper() {
@@ -183,13 +192,40 @@ string VCFGenotyper::vcf_header(const PathHandleGraph& graph, const vector<strin
     return header;
 }
 
+void VCFGenotyper::scan_contig_lengths() {
+
+    // copied from dumpContigsFromHeader.cpp in vcflib
+    vector<string> headerLines = split(input_vcf.header, "\n");
+    for(vector<string>::iterator it = headerLines.begin(); it != headerLines.end(); it++) {
+        if((*it).substr(0,8) == "##contig"){
+            string contigInfo = (*it).substr(10, (*it).length() -11);
+            vector<string> info = split(contigInfo, ",");
+            string id;
+            int64_t length = -1;
+            for(vector<string>::iterator sub = info.begin(); sub != info.end(); sub++) {
+                vector<string> subfield = split((*sub), "=");
+                if(subfield[0] == "ID"){
+                    id = subfield[1];
+                }
+                if(subfield[0] == "length"){
+                    length = parse<int>(subfield[1]);
+                }
+            }
+            if (!id.empty() && length >= 0) {
+                ref_lengths[id] = length;
+            }
+        }
+    }
+}
+
 
 LegacyCaller::LegacyCaller(const PathPositionHandleGraph& graph,
                            SupportBasedSnarlCaller& snarl_caller,
                            SnarlManager& snarl_manager,
                            const string& sample_name,
                            const vector<string>& ref_paths,
-                           const vector<size_t>& ref_path_offsets) :
+                           const vector<size_t>& ref_path_offsets,
+                           const vector<size_t>& ref_path_lengths) :
     GraphCaller(snarl_caller, snarl_manager, out_stream),
     graph(graph),
     sample_name(sample_name),
@@ -197,6 +233,9 @@ LegacyCaller::LegacyCaller(const PathPositionHandleGraph& graph,
 
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
+    }
+    for (int i = 0; i < ref_path_lengths.size(); ++i) {
+        ref_lengths[ref_paths[i]] = ref_path_lengths[i];
     }
     
     is_vg = dynamic_cast<const VG*>(&graph) != nullptr;

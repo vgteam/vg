@@ -35,6 +35,7 @@ void help_call(char** argv) {
        << "    -r, --snarls FILE       Snarls (from vg snarls) to avoid recomputing." << endl
        << "    -p, --ref-path NAME     Reference path to call on (multipile allowed.  defaults to all paths)" << endl
        << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
+       << "    -l, --ref-length N      Override length of reference in the contig field of output VCF" << endl
        << "    -t, --threads N         number of threads to use" << endl;
 }    
 
@@ -48,6 +49,7 @@ int main_call(int argc, char** argv) {
     string ins_fasta_filename;
     vector<string> ref_paths;
     vector<size_t> ref_path_offsets;
+    vector<size_t> ref_path_lengths;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -62,6 +64,7 @@ int main_call(int argc, char** argv) {
             {"snarls", required_argument, 0, 'r'},
             {"ref-path", required_argument, 0, 'p'},
             {"ref-offset", required_argument, 0, 'o'},
+            {"ref-length", required_argument, 0, 'l'},
             {"threads", required_argument, 0, 't'},
             {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
@@ -69,7 +72,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:v:f:i:s:r:p:o:t:h",
+        c = getopt_long (argc, argv, "k:v:f:i:s:r:p:o:l:t:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -102,6 +105,9 @@ int main_call(int argc, char** argv) {
         case 'o':
             ref_path_offsets.push_back(parse<int>(optarg));
             break;
+        case 'l':
+            ref_path_lengths.push_back(parse<int>(optarg));
+            break;            
         case 't':
         {
             int num_threads = parse<int>(optarg);
@@ -143,13 +149,19 @@ int main_call(int argc, char** argv) {
     }
     // Check our offsets
     if (ref_path_offsets.size() != 0 && ref_path_offsets.size() != ref_paths.size()) {
-        cerr << "error [vg call]: when using -o, the name number paths must be given with -p" << endl;
+        cerr << "error [vg call]: when using -o, the same number paths must be given with -p" << endl;
         return 1;
     }
     if (!ref_path_offsets.empty() && !vcf_filename.empty()) {
         cerr << "error [vg call]: -o cannot be used with -v" << endl;
         return 1;
     }
+    // Check our ref lengths
+    if (ref_path_lengths.size() != 0 && ref_path_lengths.size() != ref_paths.size()) {
+        cerr << "error [vg call]: when using -l, the same number paths must be given with -p" << endl;
+        return 1;
+    }
+
     // No paths specified: use them all
     if (ref_paths.empty()) {
         graph->for_each_path_handle([&](path_handle_t path_handle) {
@@ -229,7 +241,7 @@ int main_call(int argc, char** argv) {
         LegacyCaller* legacy_caller = new LegacyCaller(*dynamic_cast<PathPositionHandleGraph*>(graph.get()),
                                                        *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                                        *snarl_manager,
-                                                       sample_name, ref_paths, ref_path_offsets);
+                                                       sample_name, ref_paths, ref_path_offsets, ref_path_lengths);
         graph_caller = unique_ptr<GraphCaller>(legacy_caller);
     }
 

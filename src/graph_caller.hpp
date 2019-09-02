@@ -51,6 +51,9 @@ protected:
     /// Where all output written
     ostream& out_stream;
 
+    /// keep track of lengths of the reference paths (for overriding VCF output when input is a subpath)
+    map<string, size_t> ref_lengths;
+
 };
 
 /**
@@ -76,6 +79,8 @@ public:
 
 protected:
 
+    /// munge out the contig lengths from the VCF header
+    virtual void scan_contig_lengths();
 
 protected:
 
@@ -110,7 +115,8 @@ public:
                  SnarlManager& snarl_manager,
                  const string& sample_name,
                  const vector<string>& ref_paths = {},
-                 const vector<size_t>& ref_path_offsets = {});
+                 const vector<size_t>& ref_path_offsets = {},
+                 const vector<size_t>& ref_path_lengths = {});
 
     virtual ~LegacyCaller();
 

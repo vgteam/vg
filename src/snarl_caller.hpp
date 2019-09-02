@@ -56,7 +56,7 @@ public:
     virtual Support get_edge_support(id_t from, bool from_reverse, id_t to, bool to_reverse) const = 0;
 
     /// Effective length of an edge
-    virtual int64_t get_edge_length(const edge_t& edge) const;
+    virtual int64_t get_edge_length(const edge_t& edge, const unordered_map<id_t, size_t>& ref_offsets) const;
 
     /// Minimum support of a node
     virtual Support get_min_node_support(id_t node) const = 0;
@@ -89,10 +89,10 @@ public:
 
     /// Get the support of a set of traversals.  Any support overlapping traversals in shared_travs
     /// will have their support split.  If exclusive_only is true, then any split support gets
-    /// rounded down to 0
+    /// rounded down to 0.  if the ref_trav_idx is given, it will be used for computing (deletion) edge lengths
     virtual vector<Support> get_traversal_set_support(const vector<SnarlTraversal>& traversals,
                                                       const vector<int>& shared_travs,
-                                                      bool exclusive_only) const;
+                                                      bool exclusive_only, int ref_trav_idx = -1) const;
 
     /// Get the total length of all nodes in the traversal
     virtual vector<int> get_traversal_sizes(const vector<SnarlTraversal>& traversals) const;
@@ -110,6 +110,10 @@ protected:
     ///  see tuning parameters below)
     double get_bias(const vector<int>& traversal_sizes, int best_trav,
                     int second_best_trav, int ref_trav_idx) const;
+
+    /// get a map of the beginning of a node (in forward orientation) on a traversal
+    /// used for up-weighting large deletion edges in complex snarls with average support
+    unordered_map<id_t, size_t> get_ref_offsets(const SnarlTraversal& ref_trav) const;
 
     /// Tuning
 

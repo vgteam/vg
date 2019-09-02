@@ -31,7 +31,7 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
     vector<int> traversal_sizes = get_traversal_sizes(traversals);
 
     // get the supports of each traversal independently
-    vector<Support> supports = get_traversal_set_support(traversals, {}, false);
+    vector<Support> supports = get_traversal_set_support(traversals, {}, false, ref_trav_idx);
     int best_allele = get_best_support(supports, {});
 
 #ifdef debug
@@ -46,16 +46,22 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
 
     // we prune out traversals whose exclusive support (structure that is not shared with best traversal)
     // doesn't meet a certain cutoff
-    vector<Support> secondary_exclusive_supports = get_traversal_set_support(traversals, {best_allele}, true);    
+    vector<Support> secondary_exclusive_supports = get_traversal_set_support(traversals, {best_allele}, true, ref_trav_idx);    
     vector<int> skips = {best_allele};
     for (int i = 0; i < secondary_exclusive_supports.size(); ++i) {
         double bias = get_bias(traversal_sizes, i, best_allele, ref_trav_idx);
+#ifdef debug
+        cerr << "trav " << i << " exclusive support " << support_val(secondary_exclusive_supports[i])
+             << " * 2bias= " << (bias * 2.0) << " vs " << support_val(supports[best_allele]) << endl;
+#endif
+        cerr <<  "COMP VILE "<<  (support_val(secondary_exclusive_supports[i]) * bias * 2.0) << endl;
         if (i != best_allele && support_val(secondary_exclusive_supports[i]) * bias * 2.0 <= support_val(supports[best_allele])) {
+            cerr << "skipping" << endl;
             skips.push_back(i);
         }
     }
     // get the supports of each traversal in light of best
-    vector<Support> secondary_supports = get_traversal_set_support(traversals, {best_allele}, false);
+    vector<Support> secondary_supports = get_traversal_set_support(traversals, {best_allele}, false, ref_trav_idx);
     int second_best_allele = get_best_support(secondary_supports, {skips});
 
     // get the supports of each traversal in light of second best
@@ -64,7 +70,7 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
     int third_best_allele = -1;
     if (second_best_allele != -1) {
         // prune out traversals whose exclusive support relative to second best doesn't pass cut
-        vector<Support> tertiary_exclusive_supports = get_traversal_set_support(traversals, {second_best_allele}, true);
+        vector<Support> tertiary_exclusive_supports = get_traversal_set_support(traversals, {second_best_allele}, true, ref_trav_idx);
         skips = {best_allele, second_best_allele};
         for (int i = 0; i < tertiary_exclusive_supports.size(); ++i) {
             double bias = get_bias(traversal_sizes, i, second_best_allele, ref_trav_idx);
@@ -72,7 +78,7 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
                 skips.push_back(i);
             }
         }
-        tertiary_supports = get_traversal_set_support(traversals, {second_best_allele}, false);
+        tertiary_supports = get_traversal_set_support(traversals, {second_best_allele}, false, ref_trav_idx);
         third_best_allele = get_best_support(tertiary_supports, skips);
     }
 
@@ -196,6 +202,7 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
     ///  info is updated independently of calling)
     vector<SnarlTraversal> genotype_travs;
     map<int, int> allele_map; // map allele from "genotype" to position in "genotype_travs"/"allele_supports"
+    int genotype_travs_ref_idx = -1;
     for (auto allele : genotype) {
         assert(allele < traversals.size());
         if (!allele_map.count(allele)) {
@@ -207,7 +214,8 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
     if (genotype.size() >= 2 && genotype[0] != genotype[1]) {
         shared_travs.push_back(0);
     }
-    vector<Support> allele_supports = get_traversal_set_support(genotype_travs, shared_travs, false);
+    int ref_trav_idx = allele_map.count(0) ? allele_map[0] : -1;
+    vector<Support> allele_supports = get_traversal_set_support(genotype_travs, shared_travs, false, ref_trav_idx);
 
     // Set up the depth format field
     variant.format.push_back("DP");
@@ -311,8 +319,29 @@ void SupportBasedSnarlCaller::update_vcf_header(string& header) const {
         std::to_string(min_ad_log_likelihood_for_filter) + "\">\n";
 }
 
-int64_t SupportBasedSnarlCaller::get_edge_length(const edge_t& edge) const {
-    return 1;
+int64_t SupportBasedSnarlCaller::get_edge_length(const edge_t& edge, const unordered_map<id_t, size_t>& ref_offsets) const {
+    int len = -1;
+    // use our reference traversal to try to come up with a deletion length for our edge
+    // idea: if our edge corresponds to a huge deltion, it should be weighted accordingly
+    auto s_it = ref_offsets.find(graph.get_id(edge.first));
+    auto e_it = ref_offsets.find(graph.get_id(edge.second));
+    if (s_it != ref_offsets.end() && e_it != ref_offsets.end()) {
+        size_t start_offset = s_it->second;
+        if (!graph.get_is_reverse(edge.first)) {
+            start_offset += graph.get_length(edge.first);
+        }
+        size_t end_offset = e_it->second;
+        if (graph.get_is_reverse(edge.second)) {
+            end_offset += graph.get_length(edge.second);
+        }
+        if (start_offset > end_offset) {
+            std::swap(start_offset, end_offset);
+        }
+        len = end_offset - start_offset;
+    }
+    // try to normalize so edges and nodes are roughly equally weighted
+    len = std::max((double)len, (graph.get_length(edge.first) + graph.get_length(edge.second)) / 2.);
+    return std::max(len, 1);
 }
 
 tuple<Support, Support, int> SupportBasedSnarlCaller::get_child_support(const Snarl& snarl) const {
@@ -339,7 +368,8 @@ Support SupportBasedSnarlCaller::get_traversal_support(const SnarlTraversal& tra
 
 vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<SnarlTraversal>& traversals,
                                                                    const vector<int>& shared_travs,
-                                                                   bool exclusive_only) const {
+                                                                   bool exclusive_only,
+                                                                   int ref_trav_idx) const {
 
     // pass 1: how many times have we seen a node or edge
     unordered_map<id_t, int> node_counts;
@@ -377,6 +407,13 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
                 }
             }
         }
+    }
+
+    // pass 1.5: get index for looking up deletion edge lengths (so far we aren't dependent
+    // on having anything but a path handle graph, so we index on the fly)
+    unordered_map<id_t, size_t> ref_offsets;
+    if (ref_trav_idx >= 0) {
+        ref_offsets = get_ref_offsets(traversals[ref_trav_idx]);
     }
 
     // pass 2: get the supports
@@ -452,7 +489,7 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
                 // get the edge support
                 edge_t edge = to_edge(graph, trav.visit(visit_idx - 1), visit);
                 min_support = get_edge_support(edge);
-                length = get_edge_length(edge);
+                length = get_edge_length(edge, ref_offsets);
                 if (edge_counts.count(edge)) {
                     share_count = edge_counts[edge];
                 }
@@ -549,6 +586,24 @@ double SupportBasedSnarlCaller::get_bias(const vector<int>& traversal_sizes, int
         }
     }
     return bias_limit;
+}
+
+unordered_map<id_t, size_t> SupportBasedSnarlCaller::get_ref_offsets(const SnarlTraversal& ref_trav) const {
+    unordered_map<id_t, size_t> ref_offsets;
+    size_t offset = 0;
+    for (int i = 0; i < ref_trav.visit_size(); ++i) {
+        const Visit& visit = ref_trav.visit(i);
+        if (visit.node_id() != 0) {
+            if (visit.backward()) {
+                offset += graph.get_length(graph.get_handle(visit.node_id()));
+                ref_offsets[visit.node_id()] = offset;
+            } else {
+                ref_offsets[visit.node_id()] = offset;
+                offset += graph.get_length(graph.get_handle(visit.node_id()));
+            }
+        }
+    }
+    return ref_offsets;
 }
 
 PackedSupportSnarlCaller::PackedSupportSnarlCaller(const Packer& packer, SnarlManager& snarl_manager) :
