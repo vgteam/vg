@@ -426,6 +426,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                         second_best_extension = std::move(best_extension);
                         //And replace best_extension with current one
                         *best_extension.mutable_path() = extension.to_path(gbwt_graph, best_extension.sequence());
+                        second_best_score = best_score;
                         
                         
                         // Compute identity from mismatch count.
@@ -435,6 +436,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                         // Fill in the score and identity
                         best_extension.set_score(alignment_score);
                         best_extension.set_identity(identity);
+                        best_score = alignment_score;
 
                     } else if (second_best_score == 0 || alignment_score > second_best_score) {
                         *second_best_extension.mutable_path() = extension.to_path(gbwt_graph, best_extension.sequence());
@@ -444,6 +446,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                         // Fill in the score and identity
                         second_best_extension.set_score(alignment_score);
                         second_best_extension.set_identity(identity);
+                        second_best_score = alignment_score;
 
                     }
                 }
