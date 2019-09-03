@@ -420,7 +420,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 for (auto& extension : extensions ) {
                     // The score estimate is exact.
                     int alignment_score = extension.score;
-                    //TODO: Also check if this alignment is different??? Unless the gapless extender already does that?
                     if (best_score == 0 || alignment_score > best_score) {
                         //Swap out second_best_extension
                         second_best_extension = std::move(best_extension);
@@ -680,7 +679,7 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
         for (auto& extension : extended_seeds) {
             best_score = max(best_score, extension.score);
         }
-        return 2*best_score;
+        return best_score;
     } else {
         // This is a collection of one or more non-full-length extended seeds.
         
@@ -693,7 +692,6 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
         // flank bases that aren't universal mismatches, mismatch count for
         // those that are.
         int score_estimate = 0;
-        int best_score = 0;
         
         // We use a sweep line algorithm.
         // This records the last base to be covered by the current sweep line.
@@ -766,7 +764,6 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
             
             while (unentered < extended_seeds.size() && extended_seeds[unentered].read_interval.first == sweep_line) {
                 // Bring in anything that starts here
-                best_score = max(best_score, extended_seeds[unentered].score);
                 end_heap.emplace_back(extended_seeds[unentered].read_interval.second, unentered);
                 std::push_heap(end_heap.begin(), end_heap.end());
                 unentered++;
@@ -814,7 +811,8 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
         // TODO: should we apply full length bonuses?
         
         // When we get here, the score estimate is finished.
-        return score_estimate + best_score;
+        //TODO: 6 = gap_open, maybe a better way of getting this value
+        return score_estimate - extended_seeds.size() * 6;
     }
     
 }
