@@ -52,9 +52,9 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
         double bias = get_bias(traversal_sizes, i, best_allele, ref_trav_idx);
 #ifdef debug
         cerr << "trav " << i << " exclusive support " << support_val(secondary_exclusive_supports[i])
-             << " * 2bias= " << (bias * 2.0) << " vs " << support_val(supports[best_allele]) << endl;
+             << " * bias " << bias << " vs " << support_val(supports[best_allele]) << endl;
 #endif
-        if (i != best_allele && support_val(secondary_exclusive_supports[i]) * bias * 2.0 <= support_val(supports[best_allele])) {
+        if (i != best_allele && support_val(secondary_exclusive_supports[i]) * bias <= support_val(supports[best_allele])) {
             skips.push_back(i);
         }
     }
@@ -73,7 +73,7 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
         skips.push_back(second_best_allele);
         for (int i = 0; i < tertiary_exclusive_supports.size(); ++i) {
             double bias = get_bias(traversal_sizes, i, second_best_allele, ref_trav_idx);
-            if (support_val(tertiary_exclusive_supports[i]) * bias * 2.0 <= support_val(supports[second_best_allele])) {
+            if (support_val(tertiary_exclusive_supports[i]) * bias <= support_val(supports[second_best_allele])) {
                 skips.push_back(i);
             }
         }
@@ -448,7 +448,6 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
             tot_supports_min[trav_idx] += scaled_support_min;
             tot_supports_avg[trav_idx] += scaled_support_avg;
             tot_sizes[trav_idx] += length;
-            
             min_supports_min[trav_idx] = support_min(min_supports_min[trav_idx], scaled_support_min);
             min_supports_avg[trav_idx] = support_min(min_supports_avg[trav_idx], scaled_support_avg);
         }
