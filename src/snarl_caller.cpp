@@ -339,8 +339,6 @@ int64_t SupportBasedSnarlCaller::get_edge_length(const edge_t& edge, const unord
         }
         len = end_offset - start_offset;
     }
-    // try to normalize so edges and nodes are roughly equally weighted
-    len = std::max((double)len, (graph.get_length(edge.first) + graph.get_length(edge.second)) / 2.);
     return std::max(len, 1);
 }
 
