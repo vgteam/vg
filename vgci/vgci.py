@@ -281,7 +281,7 @@ class VGCITest(TestCase):
         if interleaved:
             opts += '--interleaved '
         if multipath:
-            opts += '--multipath '
+            opts += '--mapper mpmap '
         if misc_opts:
             opts += ' {} '.format(misc_opts)
         if genotype:
@@ -1096,7 +1096,6 @@ class VGCITest(TestCase):
         # OOM-ing.
         cmd += ['--calling_mem', '8G']
         cmd += ['--call_chunk_cores', str(min(6, self.cores))]
-        cmd += ['--gam_index_cores', str(min(4, self.cores))]
         cmd += ['--maxCores', str(self.cores)]
         cmd += self._toil_vg_io_opts() 
         if self.container:
