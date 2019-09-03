@@ -398,8 +398,11 @@ $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp
 
 # The xg repo has a cmake build system based all around external projects, and
 # we need it to use our installed versions of everything instead.
-$(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp
-	+. ./source_me.sh && cd $(XG_DIR) && cmake . && $(MAKE) $(FILTER) && cp lib/libxg.a $(CWD)/$(LIB_DIR) && cp -r src/*hpp $(CWD)/$(INC_DIR)
+$(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp $(INC_DIR)/mmmultimap.hpp $(INC_DIR)/ips4o.hpp $(INC_DIR)/gfakluge.hpp $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/libsdsl.a 
+	+rm -f $@
+	+cp -r $(XG_DIR)/src/*.hpp $(CWD)/$(INC_DIR)
+	+. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -c -o $(XG_DIR)/xg.o $(XG_DIR)/src/xg.cpp $(FILTER)
+	+ar rs $@ $(XG_DIR)/xg.o
 
 # On Linux, libdeflate builds a .so.
 # On Mac, it *still* builds an so, which is just a dylib with .so extension.
