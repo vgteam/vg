@@ -654,6 +654,8 @@ class VGCITest(TestCase):
                                      [],
                                      plan.gcsa_file_ids,
                                      plan.gbwt_file_ids,
+                                     [],
+                                     [],
                                      plan.id_range_file_ids,
                                      plan.snarl_file_ids,
                                      plan.vg_file_ids, 
