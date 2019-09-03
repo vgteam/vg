@@ -21,7 +21,7 @@
 #include <vg/io/stream.hpp>
 #include "nested_traversal_finder.hpp"
 
-//#define debug
+#define debug
 
 namespace vg {
 
@@ -1106,11 +1106,15 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(
         cerr << total(second_best_support) << " vs " << min_total_support_for_call << endl;
 #endif
 
+        cerr << "top check " << best_allele << " " << third_best_allele << " " << is_indel_ma_3
+             << " -> " << max_indel_ma_bias << " *  " << bias_multiple  << " * " <<  support_val(third_best_support)
+             << " >= " << support_val(best_support) <<endl;
+
         // Call 1/2 : REF-Alt1/Alt2 even if Alt2 has only third best support
         if (copy_budget >= 2 &&
             best_allele == 0 && 
             third_best_allele > 0 &&
-            is_indel_ma_3 &&
+            //is_indel_ma_3 &&
             max_indel_ma_bias * bias_multiple * support_val(third_best_support) >= support_val(best_support) &&
             total(second_best_support) > min_total_support_for_call &&
             total(third_best_support) > min_total_support_for_call) {
@@ -1523,6 +1527,8 @@ void SupportCaller::emit_variant(map<string, string>& contig_names_by_path_name,
     // after the shared prefix.
     size_t variation_start = min(primary_path.get_index().by_id.at(site->start().node_id()).first,
                                  primary_path.get_index().by_id.at(site->end().node_id()).first);
+
+    cerr << "getting variation start " << variation_start << " from " << pb2json(*site) << endl;
         
     // Keep track of the alleles that actually need to go in the VCF:
     // ref, best, and second-best (if any), some of which may overlap.
