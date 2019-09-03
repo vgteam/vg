@@ -607,8 +607,8 @@ void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder
     genotype_vector.push_back(vcf_gt.str());
 
     // clean up the alleles to not have so man common prefixes
-    flatten_common_allele_ends(out_variant, false);
     flatten_common_allele_ends(out_variant, true);
+    flatten_common_allele_ends(out_variant, false);
 
     // add some support info
     snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, sample_name, out_variant);
