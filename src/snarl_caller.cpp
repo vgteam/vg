@@ -454,21 +454,21 @@ vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<
         // keep track of overall size of longest traversal
         tot_sizes_all[trav_idx] += length;
         max_trav_size = std::max(tot_sizes_all[trav_idx], max_trav_size);
-        
+
         // apply the scaling
         double scale_factor = (exclusive_only && share_count > 0) ? 0. : 1. / (1. + share_count);
         
         // when looking at exclusive support, we don't normalize by skipped lengths
         if (scale_factor != 0 || !exclusive_only) {
             has_support[trav_idx] = true;
-            Support scaled_support_min = min_support * scale_factor * length;
-            Support scaled_support_avg = avg_support * scale_factor * length;
+            Support scaled_support_min = min_support * scale_factor;
+            Support scaled_support_avg = avg_support * scale_factor;
 
             tot_supports_min[trav_idx] += scaled_support_min;
-            tot_supports_avg[trav_idx] += scaled_support_avg;
+            tot_supports_avg[trav_idx] += scaled_support_avg * length;
             tot_sizes[trav_idx] += length;
             min_supports_min[trav_idx] = support_min(min_supports_min[trav_idx], scaled_support_min);
-            min_supports_avg[trav_idx] = support_min(min_supports_avg[trav_idx], scaled_support_avg);
+            min_supports_avg[trav_idx] = support_min(min_supports_avg[trav_idx], scaled_support_avg * length);
         }
     };
 
