@@ -124,12 +124,12 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
     }
     // Call 1/2 : REF-Alt1/Alt2 even if Alt2 has only third best support
     else if (ploidy >= 2 &&
-        best_allele == ref_trav_idx && 
-        third_best_allele > 0 &&
-        get_bias(traversal_sizes, second_best_allele, third_best_allele, ref_trav_idx) *
-        support_val(third_best_support) >= support_val(best_support) &&
-        total(second_best_support) > min_total_support_for_call &&
-        total(third_best_support) > min_total_support_for_call) {
+             third_best_allele > 0 &&
+             best_allele == ref_trav_idx && 
+             get_bias(traversal_sizes, second_best_allele, third_best_allele, ref_trav_idx) *
+             support_val(third_best_support) >= support_val(best_support) &&
+             total(second_best_support) > min_total_support_for_call &&
+             total(third_best_support) > min_total_support_for_call) {
         // There's a second best allele and third best allele, and it's not too biased to call,
         // and both alleles exceed the minimum to call them present, and the
         // second-best and third-best alleles have enough support that it won't torpedo the
@@ -141,6 +141,25 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
         // Say both are present
         genotype = {second_best_allele, third_best_allele};
     }
+    // Call 1/2 : REF-Alt1/Alt2 even if Alt2 has only third best support (but ref is second best)
+    else if (ploidy >= 2 &&
+             third_best_allele > 0 &&
+             second_best_allele == ref_trav_idx && 
+             get_bias(traversal_sizes, best_allele, third_best_allele, ref_trav_idx) *
+             support_val(third_best_support) >= support_val(second_best_support) &&
+             total(best_support) > min_total_support_for_call &&
+             total(third_best_support) > min_total_support_for_call) {
+        // There's a second best allele and third best allele, and it's not too biased to call,
+        // and both alleles exceed the minimum to call them present, and the
+        // second-best and third-best alleles have enough support that it won't torpedo the
+        // variant.
+            
+#ifdef debug
+        cerr << "Call as second best/third best" << endl;
+#endif
+        // Say both are present
+        genotype = {best_allele, third_best_allele};
+    }    
     else if (ploidy >= 2 &&
              second_best_allele != -1 &&
              get_bias(traversal_sizes, best_allele, second_best_allele, ref_trav_idx) *
