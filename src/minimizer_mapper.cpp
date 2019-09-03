@@ -20,7 +20,7 @@ namespace vg {
 
 using namespace std;
 
-MinimizerMapper::MinimizerMapper(const GBWTGraph& graph, const MinimizerIndex& minimizer_index,
+MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::MinimizerIndex& minimizer_index,
     MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph) :
     path_graph(path_graph), minimizer_index(minimizer_index),
     distance_index(distance_index), gbwt_graph(graph),
@@ -54,7 +54,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     vector<pos_t> seeds;
     
     // This will hold all the minimizers in the query
-    vector<MinimizerIndex::minimizer_type> minimizers;
+    vector<gbwtgraph::MinimizerIndex::minimizer_type> minimizers;
     // And either way this will map from seed to minimizer that generated it
     vector<size_t> seed_to_source;
     
@@ -1211,11 +1211,6 @@ void MinimizerMapper::dfs_gbwt(const gbwt::SearchState& start_state, size_t from
             
             gbwt_graph.follow_paths(here_state, [&](const gbwt::SearchState& there_state) -> bool {
                 // For each next state
-                
-                if (there_state.empty()) {
-                    // If it is empty, don't do it
-                    return true;
-                }
                 
                 // Otherwise, do it with the new distance value.
                 // Don't hide the root on any child subtrees; only the top root can need hiding.

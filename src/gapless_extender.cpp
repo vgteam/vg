@@ -1,4 +1,5 @@
 #include "gapless_extender.hpp"
+#include "gbwt_helper.hpp"
 
 #include <algorithm>
 #include <queue>
@@ -15,7 +16,7 @@ constexpr size_t GaplessExtender::MAX_MISMATCHES;
 
 //------------------------------------------------------------------------------
 
-Position GaplessExtension::starting_position(const GBWTGraph& graph) const {
+Position GaplessExtension::starting_position(const gbwtgraph::GBWTGraph& graph) const {
     Position position;
     if (this->empty()) {
         return position;
@@ -28,7 +29,7 @@ Position GaplessExtension::starting_position(const GBWTGraph& graph) const {
     return position;
 }
 
-Position GaplessExtension::tail_position(const GBWTGraph& graph) const {
+Position GaplessExtension::tail_position(const gbwtgraph::GBWTGraph& graph) const {
     Position position;
     if (this->empty()) {
         return position;
@@ -41,7 +42,7 @@ Position GaplessExtension::tail_position(const GBWTGraph& graph) const {
     return position;
 }
 
-size_t GaplessExtension::tail_offset(const GBWTGraph& graph) const {
+size_t GaplessExtension::tail_offset(const gbwtgraph::GBWTGraph& graph) const {
     size_t result = this->offset + this->length();
     for (size_t i = 0; i + 1 < this->path.size(); i++) {
         result -= graph.get_length(this->path[i]);
@@ -49,7 +50,7 @@ size_t GaplessExtension::tail_offset(const GBWTGraph& graph) const {
     return result;
 }
 
-Path GaplessExtension::to_path(const GBWTGraph& graph, const std::string& sequence) const {
+Path GaplessExtension::to_path(const gbwtgraph::GBWTGraph& graph, const std::string& sequence) const {
 
     Path result;
 
@@ -95,7 +96,7 @@ GaplessExtender::GaplessExtender() :
 {
 }
 
-GaplessExtender::GaplessExtender(const GBWTGraph& graph, const Aligner& aligner) :
+GaplessExtender::GaplessExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner) :
     graph(&graph), aligner(&aligner)
 {
 }
@@ -204,7 +205,7 @@ void remove_duplicates(std::vector<GaplessExtension>& result) {
 }
 
 // Realign the extensions to find the mismatching positions.
-void find_mismatches(const std::string& seq, const GBWTGraph& graph, std::vector<GaplessExtension>& result) {
+void find_mismatches(const std::string& seq, const gbwtgraph::GBWTGraph& graph, std::vector<GaplessExtension>& result) {
     for (GaplessExtension& extension : result) {
         if (extension.internal_score == 0) {
             continue;
@@ -303,10 +304,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             // Case 1: Extend to the right.
             if (!curr.right_maximal) {
                 this->graph->follow_paths(cache, curr.state, false, [&](const gbwt::BidirectionalState& next_state) -> bool {
-                    if (next_state.empty()) {
-                        return true;
-                    }
-                    handle_t handle = GBWTGraph::node_to_handle(next_state.forward.node);
+                    handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(next_state.forward.node);
                     GaplessExtension next {
                         { }, curr.offset, next_state,
                         curr.read_interval, { },
@@ -344,10 +342,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             // Case 2: Extend to the left.
             else if (!curr.left_maximal) {
                 this->graph->follow_paths(cache, curr.state, true, [&](const gbwt::BidirectionalState& next_state) -> bool {
-                    if (next_state.empty()) {
-                        return true;
-                    }
-                    handle_t handle = GBWTGraph::node_to_handle(gbwt::Node::reverse(next_state.backward.node));
+                    handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(gbwt::Node::reverse(next_state.backward.node));
                     size_t node_length = this->graph->get_length(handle);
                     GaplessExtension next {
                         { }, node_length, next_state,
@@ -422,7 +417,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
 
 // Trim mismatches from the extension to maximize the score. Returns true if the
 // extension was trimmed.
-bool trim_mismatches(GaplessExtension& extension, const GBWTGraph& graph, const gbwt::CachedGBWT& cache, const Aligner& aligner) {
+bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::GBWTGraph& graph, const gbwt::CachedGBWT& cache, const Aligner& aligner) {
 
     if (extension.exact()) {
         return false;
