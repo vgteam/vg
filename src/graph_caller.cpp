@@ -89,6 +89,12 @@ VCFGenotyper::~VCFGenotyper() {
 
 bool VCFGenotyper::call_snarl(const Snarl& snarl) {
 
+    // could be that our graph is a subgraph of the graph the snarls were computed from
+    // so bypass snarls we can't process
+    if (!graph.has_node(snarl.start().node_id()) || !graph.has_node(snarl.end().node_id())) {
+        return false;
+    }
+    
     // get our traversals out of the finder
     vector<pair<SnarlTraversal, vector<int>>> alleles;
     vector<vcflib::Variant*> variants;
@@ -617,7 +623,8 @@ void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder
 
 bool LegacyCaller::is_traversable(const Snarl& snarl) {
     // we need this to be true all the way down to use the RepresentativeTraversalFinder on our snarl.
-    bool ret = snarl.start_end_reachable() && snarl.directed_acyclic_net_graph();
+    bool ret = snarl.start_end_reachable() && snarl.directed_acyclic_net_graph() &&
+       graph.has_node(snarl.start().node_id()) && graph.has_node(snarl.end().node_id());
     if (ret == true) {
         const vector<const Snarl*>& children = snarl_manager.children_of(&snarl);
         for (int i = 0; i < children.size() && ret; ++i) {
