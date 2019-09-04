@@ -314,7 +314,11 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         algorithms::expand_context_with_paths(&graph, &vg_graph, 1);
         // and index them
         for (auto& ref_path : ref_paths) {
-            site_path_indexes.push_back(new PathIndex(vg_graph, ref_path));
+            if (vg_graph.has_path(ref_path)) {
+                site_path_indexes.push_back(new PathIndex(vg_graph, ref_path));
+            } else {
+                site_path_indexes.push_back(nullptr);
+            }
         }
         get_path_index = [&](const Snarl& site) -> PathIndex* {
             return find_index(site, site_path_indexes).second;
@@ -638,7 +642,8 @@ pair<string, PathIndex*> LegacyCaller::find_index(const Snarl& snarl, const vect
     assert(path_indexes.size() == ref_paths.size());
     for (int i = 0; i < path_indexes.size(); ++i) {
         PathIndex* path_index = path_indexes[i];
-        if (path_index->by_id.count(snarl.start().node_id()) &&
+        if (path_index != nullptr &&
+            path_index->by_id.count(snarl.start().node_id()) &&
             path_index->by_id.count(snarl.end().node_id())) {
             // This path threads through this site
             return make_pair(ref_paths[i], path_index);
