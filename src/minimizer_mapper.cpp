@@ -364,8 +364,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         }
         
         auto& extensions = cluster_extensions[i];
-        // Count the matches suggested by the group and use that as a score.
-        cluster_extension_scores.push_back(estimate_extension_group_score(aln, extensions));
+        // Work out the score of the best chain of extensions, accounting for gaps/overlaps in the read only
+        // TODO: Get these score values from the AlignerClient API
+        cluster_extension_scores.push_back(score_extension_group(aln, extensions, 6, 1));
         
         if (track_provenance) {
             // Record the score with the funnel
@@ -642,7 +643,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
 }
 
-int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector<GaplessExtension>& extended_seeds) const {
+int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, const vector<GaplessExtension>& extended_seeds) const {
     if (extended_seeds.empty()) {
         // TODO: We should never see an empty group of extensions
         return 0;
@@ -783,6 +784,137 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
         return score_estimate;
     }
     
+}
+
+int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<GaplessExtension>& extended_seeds,
+    int gap_open_penalty, int gap_extend_penalty) const {
+        
+    if (extended_seeds.empty()) {
+        // TODO: We should never see an empty group of extensions
+        return 0;
+    } else if (extended_seeds.size() == 1 && extended_seeds.front().full()) {
+        // This is a full length match. We already have the score.
+        return extended_seeds.front().score;
+    } else {
+        // This is a collection of one or more non-full-length extended seeds.
+        
+        if (aln.sequence().size() == 0) {
+            // No score here
+            return 0;
+        }
+        
+        // We use a sweep line algorithm to find relevant points along the read: extension starts or ends.
+        // This records the last base to be covered by the current sweep line.
+        int64_t sweep_line = 0;
+        // This records the first base not covered by the last sweep line.
+        int64_t last_sweep_line = 0;
+        
+        // And we track the next unentered gapless extension
+        size_t unentered = 0;
+        
+        // Extensions we are in are in this min-heap of past-end position and gapless extension number.
+        vector<pair<size_t, size_t>> end_heap;
+        // The heap uses this comparator
+        auto compare = [](const pair<size_t, size_t>& a, const pair<size_t, size_t>& b) {
+            // Return true if a must come later in the heap than b
+            return a.first > b.first;
+        };
+        
+        // We track the best score for a chain reaching the position before this one and ending in a gap.
+        // We never let it go below 0.
+        // Will be 0 when there's no gap that can be open
+        int best_gap_score = 0;
+        
+        // We track the score for the best chain ending with each gapless extension
+        vector<int> best_chain_score(extended_seeds.size(), 0);
+        
+        // And we're after the best score overall that we can reach when an extension ends
+        int best_past_ending_score_ever = 0;
+        
+        while(last_sweep_line <= aln.sequence().size()) {
+            // We are processed through the position before last_sweep_line.
+            
+            // Find a place for sweep_line to go
+            
+            // Find the next seed start
+            int64_t next_seed_start = numeric_limits<int64_t>::max();
+            if (unentered < extended_seeds.size()) {
+                next_seed_start = extended_seeds[unentered].read_interval.first;
+            }
+            
+            // Find the next seed end
+            int64_t next_seed_end = numeric_limits<int64_t>::max();
+            if (!end_heap.empty()) {
+                next_seed_end = end_heap.front().first;
+            }
+            
+            // Whichever is closer between those points and the end, do that.
+            sweep_line = min(min(next_seed_end, next_seed_start), (int64_t) aln.sequence().size());
+            
+            // So now we're only interested in things that happen at sweep_line.
+            
+            // Compute the distance from the previous sweep line position
+            // Make sure to account for last_sweep_line's semantics as the next unswept base.
+            int sweep_distance = sweep_line - last_sweep_line + 1;
+            
+            // We need to track the score of the best thing that past-ended here
+            int best_past_ending_score_here = 0;
+            
+            while(!end_heap.empty() && end_heap.front().first == sweep_line) {
+                // Find anything that past-ends here
+                size_t past_ending = end_heap.front().second;
+                
+                // Mix it into the score
+                best_past_ending_score_here = std::max(best_past_ending_score_here, best_chain_score[past_ending]);
+                std::pop_heap(end_heap.begin(), end_heap.end());
+                
+                // Remove it from the end-tracking heap
+                end_heap.pop_back();
+            }
+            
+            // Mix that into the best score overall
+            best_past_ending_score_ever = std::max(best_past_ending_score_ever, best_past_ending_score_here);
+            
+            if (sweep_line == aln.sequence().size()) {
+                // We don't need to think about gaps or backtracking anymore since everything has ended
+                break;
+            }
+            
+            // The best way to end 1 before here in a gap is either:
+            
+            if (best_gap_score != 0) {
+                // Best way to end 1 before our last sweep line position with a gap, plus distance times gap extend penalty
+                best_gap_score -= sweep_distance * gap_extend_penalty;
+            }
+            
+            // Best way to end 1 before here with an actual extension, plus the gap open part of the gap open penalty.
+            // (Will never be taken over an actual adjacency)
+            best_gap_score = std::max(0, std::max(best_gap_score, best_past_ending_score_here - (gap_open_penalty - gap_extend_penalty)));
+            
+            while (unentered < extended_seeds.size() && extended_seeds[unentered].read_interval.first == sweep_line) {
+                // For each thing that starts here
+                
+                // Compute its chain score
+                best_chain_score[unentered] = std::max(best_gap_score, best_past_ending_score_here) + extended_seeds[unentered].score;
+                
+                // Add it to the end finding heap
+                end_heap.emplace_back(extended_seeds[unentered].read_interval.second, unentered);
+                std::push_heap(end_heap.begin(), end_heap.end());
+                // Advance and check the next thing to start
+                unentered++;
+            }
+            
+            // Move last_sweep_line to sweep_line.
+            // We need to add 1 since last_sweep_line is the next *un*included base
+            last_sweep_line = sweep_line + 1;
+        }
+        
+        // When we get here, we've seen the end of every extension and so we
+        // have the best score at the end of any of them.
+        return best_past_ending_score_ever;
+    }
+
+
 }
 
 void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
