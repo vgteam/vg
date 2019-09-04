@@ -787,7 +787,7 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, const 
 }
 
 int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<GaplessExtension>& extended_seeds,
-    int gap_open_penalty, int gap_extend_penalty) const {
+    int gap_open_penalty, int gap_extend_penalty) {
         
     if (extended_seeds.empty()) {
         // TODO: We should never see an empty group of extensions
