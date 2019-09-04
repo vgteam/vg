@@ -180,8 +180,9 @@ static json_t * _struct2json(const google::protobuf::Struct& msg) {
     // Now parse back
     json_t *root;
 	json_error_t error;
-
 	root = json_loadb(buffer.c_str(), buffer.size(), 0, &error);
+    
+    // No need to keep the buffer around after the JSON is parsed, which is good because it is a local.
 
 	if (!root)
 		throw j2pb_error(std::string("Load failed: ") + error.text);
@@ -319,9 +320,10 @@ static int json_dump_std_string(const char *buf, size_t size, void *data)
 
 static void _json2struct(google::protobuf::Struct& msg, json_t *root)
 {
+    // Don't take ownership of the root
+
     // Serialize the JSON to a string again
     std::string buf;
-	json_autoptr _auto(root);
 	json_dump_callback(root, json_dump_std_string, &buf, 0);
     
     // Parse it as a struct
