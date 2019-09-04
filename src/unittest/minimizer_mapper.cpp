@@ -63,15 +63,39 @@ TEST_CASE("MinimizerMapper::score_extension_group works", "[giraffe][mapping]") 
         to_score.back().read_interval.second = 10;
         to_score.back().score = 9;
         
+        SECTION("Score of one 9-base extension is 9") {
+            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 9);
+        }
+        
         to_score.emplace_back();
-        to_score.back().read_interval.first = 11;
-        to_score.back().read_interval.second = 20;
+        to_score.back().read_interval.first = 10;
+        to_score.back().read_interval.second = 19;
         to_score.back().score = 9;
+        
+        SECTION("Score of two 9-base extensions abutting is 18") {
+            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 18);
+        }
+        
+        to_score.back().read_interval.first++;
+        to_score.back().read_interval.second++;
         
         SECTION("Score of two 9-base extensions separated by a 1-base gap is 12") {
             REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 12);
         }
         
+        to_score.back().read_interval.first++;
+        to_score.back().read_interval.second++;
+        
+        SECTION("Score of two 9-base extensions separated by a 2-base gap is 11") {
+            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 11);
+        }
+        
+        to_score.back().read_interval.first -= 3;
+        to_score.back().read_interval.second -= 3;
+        
+        SECTION("Score of two 9-base extensions with a 1-base ovealap is 12") {
+            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 11);
+        }
     }
 }
 
