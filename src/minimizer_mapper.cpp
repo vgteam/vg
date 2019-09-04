@@ -728,14 +728,14 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, const 
             
             while(!end_heap.empty() && end_heap.front().first == sweep_line) {
                 // Take out anything that past-ends here
-                std::pop_heap(end_heap.begin(), end_heap.end());
+                std::pop_heap(end_heap.begin(), end_heap.end(), compare);
                 end_heap.pop_back();
             }
             
             while (unentered < extended_seeds.size() && extended_seeds[unentered].read_interval.first == sweep_line) {
                 // Bring in anything that starts here
                 end_heap.emplace_back(extended_seeds[unentered].read_interval.second, unentered);
-                std::push_heap(end_heap.begin(), end_heap.end());
+                std::push_heap(end_heap.begin(), end_heap.end(), compare);
                 unentered++;
             }
             
@@ -815,7 +815,7 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
         // Extensions we are in are in this min-heap of past-end position and gapless extension number.
         vector<pair<size_t, size_t>> end_heap;
         // The heap uses this comparator
-        auto compare = [](const pair<size_t, size_t>& a, const pair<size_t, size_t>& b) {
+        auto min_heap_on_first = [](const pair<size_t, size_t>& a, const pair<size_t, size_t>& b) {
             // Return true if a must come later in the heap than b
             return a.first > b.first;
         };
@@ -830,6 +830,22 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
         
         // And we're after the best score overall that we can reach when an extension ends
         int best_past_ending_score_ever = 0;
+        
+        // Overlaps are more complicated.
+        // We need a heap of all the extensions for which we have seen the
+        // start and that we can thus overlap.
+        // We filter things at the top of the heap if their past-end positions
+        // have occurred.
+        // So we store pairs of score we get backtracking to the current
+        // position, and past-end position for the thing we are backtracking
+        // from.
+        vector<pair<int, size_t>> overlap_heap;
+        // We can just use the standard max-heap comparator
+        
+        // We encode the score relative to a counter that we increase by the
+        // gap extend every base we go through, so we don't need to update and
+        // re-sort the heap.
+        int overlap_score_offset = 0;
         
         while(last_sweep_line <= aln.sequence().size()) {
             // We are processed through the position before last_sweep_line.
@@ -866,9 +882,9 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
                 
                 // Mix it into the score
                 best_past_ending_score_here = std::max(best_past_ending_score_here, best_chain_score[past_ending]);
-                std::pop_heap(end_heap.begin(), end_heap.end());
                 
                 // Remove it from the end-tracking heap
+                std::pop_heap(end_heap.begin(), end_heap.end(), min_heap_on_first);
                 end_heap.pop_back();
             }
             
@@ -878,6 +894,26 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
             if (sweep_line == aln.sequence().size()) {
                 // We don't need to think about gaps or backtracking anymore since everything has ended
                 break;
+            }
+            
+            // Update the overlap score offset by removing some gap extends from it.
+            overlap_score_offset += sweep_distance * gap_extend_penalty;
+            
+            // The best way to backtrack to here is whatever is on top of the heap, if anything, that doesn't past-end here.
+            int best_overlap_score = 0;
+            while (!overlap_heap.empty()) {
+                // While there is stuff on the heap
+                if (overlap_heap.front().second <= sweep_line) {
+                    // We are already past this thing, so drop it
+                    std::pop_heap(overlap_heap.begin(), overlap_heap.end());
+                    overlap_heap.pop_back();
+                } else {
+                    // This is at the top of the heap and we aren't past it
+                    // Decode and use its score offset if we only backtrack to here.
+                    best_overlap_score = overlap_heap.front().first + overlap_score_offset;
+                    // Stop looking in the heap
+                    break;
+                }
             }
             
             // The best way to end 1 before here in a gap is either:
@@ -895,11 +931,25 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
                 // For each thing that starts here
                 
                 // Compute its chain score
-                best_chain_score[unentered] = std::max(best_gap_score, best_past_ending_score_here) + extended_seeds[unentered].score;
+                best_chain_score[unentered] = std::max(best_overlap_score,
+                    std::max(best_gap_score, best_past_ending_score_here)) + extended_seeds[unentered].score;
+                
+                // Compute its backtrack-to-here score and add it to the backtracking heap
+                // We want how far we would have had to have backtracked to be
+                // able to preceed the base we are at now, where this thing
+                // starts.
+                size_t extension_length = extended_seeds[unentered].read_interval.second - extended_seeds[unentered].read_interval.first;
+                int raw_overlap_score = best_chain_score[unentered] - gap_open_penalty - gap_extend_penalty * extension_length;
+                int encoded_overlap_score = raw_overlap_score - overlap_score_offset;
+                
+                // Stick it in the heap
+                overlap_heap.emplace_back(encoded_overlap_score, extended_seeds[unentered].read_interval.second);
+                std::push_heap(overlap_heap.begin(), overlap_heap.end());
                 
                 // Add it to the end finding heap
                 end_heap.emplace_back(extended_seeds[unentered].read_interval.second, unentered);
-                std::push_heap(end_heap.begin(), end_heap.end());
+                std::push_heap(end_heap.begin(), end_heap.end(), min_heap_on_first);
+                
                 // Advance and check the next thing to start
                 unentered++;
             }
