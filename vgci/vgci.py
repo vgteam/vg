@@ -1212,7 +1212,7 @@ class VGCITest(TestCase):
                             os.path.join(giab, 'HG002_GRCh37_GIAB_highconf_CG-IllFB-IllGATKHC-Ion-10X'
                                          '-SOLID_CHROM1-22_v.3.3.2_highconf_noinconsistent.bed'),                            
                             self._input('hs37d5_chr21.fa.gz'),
-                            0.025)
+                            0.035)
             
     @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(600)
