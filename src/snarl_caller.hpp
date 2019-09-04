@@ -139,10 +139,10 @@ protected:
     double min_ad_log_likelihood_for_filter = -9;
     /// Use average instead of minimum support when determining a traversal's support
     /// its node and edge supports.
-    size_t average_traversal_support_switch_threshold = 10;
+    size_t average_traversal_support_switch_threshold = 50;
     /// Use average instead of minimum support when determining a node's support
     /// its position supports.
-    size_t average_node_support_switch_threshold = 10;
+    size_t average_node_support_switch_threshold = 50;
 
     const PathHandleGraph& graph;
 
