@@ -480,15 +480,20 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 second_best_extension.score() > best_extension.score() * 0.5) {
                 //If there is a second extension and its score is at least half of the best score
                 alignments.push_back(std::move(second_best_extension));
-            }
+
+                if (track_provenance) {
+    
+                    funnel.project(extension_num);
+                    funnel.score(alignments.size() - 1, alignments.back().score());
+                    // We're done with this input item
+                    funnel.processed_input();
+                }
+
             alignments.push_back(std::move(best_extension));
 
             if (track_provenance) {
-                // Record the Alignment and its score with the funnel
+
                 funnel.project(extension_num);
-                if (second_best_extension.score() != 0) {
-                    funnel.score(alignments.size() - 2, alignments[alignments.size() - 2].score());
-                }
                 funnel.score(alignments.size() - 1, alignments.back().score());
                 
                 // We're done with this input item
