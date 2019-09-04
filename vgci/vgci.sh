@@ -30,7 +30,7 @@ KEEP_INTERMEDIATE_FILES=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@5947af96d806daebd56894b63fc82595a30f545f"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@399e695176e59b76724d777da37a0a810ad57b83"
 # What toil should we install?
 # Could be something like "toil[aws,mesos]==3.13.0"
 # or "git+https://github.com/adamnovak/toil.git@2b696bec34fa1381afdcf187456571d2b41f3842#egg=toil[aws,mesos]"
