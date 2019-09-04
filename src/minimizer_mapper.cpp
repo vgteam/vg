@@ -488,6 +488,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     // We're done with this input item
                     funnel.processed_input();
                 }
+            }
 
             alignments.push_back(std::move(best_extension));
 
