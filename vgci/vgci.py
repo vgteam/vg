@@ -49,7 +49,7 @@ class VGCITest(TestCase):
         self.workdir = tempfile.mkdtemp()
 
         # for checking calling f1
-        self.f1_threshold = 0.005
+        self.f1_threshold = 0.015
         # What (additional) portion of reads are allowed to get worse scores
         # when moving to a more inclusive reference?
         self.worse_threshold = 0.005
