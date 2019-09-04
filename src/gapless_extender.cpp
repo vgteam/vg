@@ -119,7 +119,7 @@ void in_place_subvector(std::vector<Element>& vec, size_t head, size_t tail) {
 
 // Match the initial node, assuming that read_offset or node_offset is 0.
 // Updates score, internal_score, and old_score but does not consider full-length bonuses.
-void match_initial(GaplessExtension& match, const std::string& seq, std::pair<const char*, size_t> target, const Aligner* aligner) {
+void match_initial(GaplessExtension& match, const std::string& seq, gbwtgraph::GBWTGraph::view_type target, const Aligner* aligner) {
     size_t node_offset = match.offset;
     while (match.read_interval.second < seq.length() && node_offset < target.second) {
         if (seq[match.read_interval.second] != target.first[node_offset]) {
@@ -137,7 +137,7 @@ void match_initial(GaplessExtension& match, const std::string& seq, std::pair<co
 // Match forward but stop before the mismatch count reaches the limit.
 // Updates score and internal_score but does not consider full-length bonuses.
 // Returns the tail offset (the number of characters matched).
-size_t match_forward(GaplessExtension& match, const std::string& seq, std::pair<const char*, size_t> target, uint32_t mismatch_limit, const Aligner* aligner) {
+size_t match_forward(GaplessExtension& match, const std::string& seq, gbwtgraph::GBWTGraph::view_type target, uint32_t mismatch_limit, const Aligner* aligner) {
     size_t node_offset = 0;
     while (match.read_interval.second < seq.length() && node_offset < target.second) {
         if (seq[match.read_interval.second] != target.first[node_offset]) {
@@ -158,7 +158,7 @@ size_t match_forward(GaplessExtension& match, const std::string& seq, std::pair<
 // Match forward but stop before the mismatch count reaches the limit.
 // Starts from the offset in the match and updates it.
 // Updates score and internal_score but does not consider full-length bonuses.
-void match_backward(GaplessExtension& match, const std::string& seq, std::pair<const char*, size_t> target, uint32_t mismatch_limit, const Aligner* aligner) {
+void match_backward(GaplessExtension& match, const std::string& seq, gbwtgraph::GBWTGraph::view_type target, uint32_t mismatch_limit, const Aligner* aligner) {
     while (match.read_interval.first > 0 && match.offset > 0) {
         if (seq[match.read_interval.first - 1] != target.first[match.offset - 1]) {
             if (match.internal_score + 1 >= mismatch_limit) {
@@ -213,7 +213,7 @@ void find_mismatches(const std::string& seq, const gbwtgraph::GBWTGraph& graph, 
         extension.mismatch_positions.reserve(extension.internal_score);
         size_t node_offset = extension.offset, read_offset = extension.read_interval.first;
         for (const handle_t& handle : extension.path) {
-            std::pair<const char*, size_t> target = graph.get_sequence_view(handle);
+            gbwtgraph::GBWTGraph::view_type target = graph.get_sequence_view(handle);
             while (node_offset < target.second && read_offset < extension.read_interval.second) {
                 if (target.first[node_offset] != seq[read_offset]) {
                     extension.mismatch_positions.push_back(read_offset);
