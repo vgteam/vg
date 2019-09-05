@@ -90,6 +90,12 @@ ifeq ($(shell uname -s),Darwin)
     else
         CXXFLAGS += -fopenmp
     endif
+
+    # Travis needs -latomic for the GCC build on Mac, but this flag seems to break every other build
+    ifeq ($(strip $(shell $(CXX) -latomic /dev/null -o/dev/null 2>&1 | grep latomic | wc -l)), 0)
+        # We're on Mac and the compiler doesn't complain about latomic, so use it
+        LD_LIB_FLAGS += -latomic
+    endif
 	
     # Note shared libraries are dylibs
     SHARED_SUFFIX = dylib
