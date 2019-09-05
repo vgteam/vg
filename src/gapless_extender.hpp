@@ -127,7 +127,7 @@ public:
     }
 
     /**
-     * Find the best full-length alignment for the sequence within the cluster with
+     * Find all full-length alignments for the sequence within the cluster with
      * at most max_mismatches mismatches.
      * If that is not possible, find the set of highest-scoring maximal extensions
      * of the seeds, allowing any number of mismatches in the seed node and

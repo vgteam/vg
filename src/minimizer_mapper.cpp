@@ -97,6 +97,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Select the minimizers we use for seeds.
     size_t rejected_count = 0;
     double selected_score = 0.0;
+    size_t minimizer_occurrence_limit = minimizers.size() == 0 ? hard_hit_cap  : 
+                                        hard_hit_cap + minimizer_index.count(minimizers[minimizers_in_order[0]]);
     for (size_t i = 0; i < minimizers.size(); i++) {
         size_t minimizer_num = minimizers_in_order[i];
 
@@ -109,7 +111,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // of the selected minimizers is not high enough.
         size_t hits = minimizer_index.count(minimizers[minimizer_num]);
         
-        if (hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
+        if (hits <= hit_cap || (hits <= minimizer_occurrence_limit && selected_score + minimizer_score[minimizer_num] <= target_score)) {
             // Locate the hits.
             for (auto& hit : minimizer_index.find(minimizers[minimizer_num])) {
                 // Reverse the hits for a reverse minimizer
@@ -126,10 +128,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             if (track_provenance) {
                 // Record in the funnel that this minimizer gave rise to these seeds.
                 funnel.pass("hard-hit-cap", minimizer_num);
-                funnel.pass("hit-cap||score-fraction", minimizer_num, (selected_score + minimizer_score[minimizer_num]) / base_target_score);
+                funnel.pass("hit-cap||score-fraction", minimizer_num, selected_score  / base_target_score);
                 funnel.expand(minimizer_num, hits);
             }
-        } else if (hits <= hard_hit_cap) {
+        } else if (hits <= minimizer_occurrence_limit) {
             // Passed hard hit cap but failed score fraction/normal hit cap
             rejected_count++;
             
