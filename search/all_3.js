@@ -27,7 +27,6 @@ var searchData=
   ['calculateminindex',['calculateMinIndex',['../classvg_1_1MinimumDistanceIndex.html#a6668b09f77ad09bd7cb269246dc0461d',1,'vg::MinimumDistanceIndex']]],
   ['calibrate_5fmismapping_5fdetection',['calibrate_mismapping_detection',['../classvg_1_1MultipathMapper.html#aeedf2b5ed6093154c18ef1c24911e40f',1,'vg::MultipathMapper']]],
   ['call',['call',['../classvg_1_1SupportCaller.html#a17d18dd922c1cc6b0432fa64c20fc0c5',1,'vg::SupportCaller']]],
-  ['call2_5fmain_2ecpp',['call2_main.cpp',['../call2__main_8cpp.html',1,'']]],
   ['call_5fbase_5fpileup',['call_base_pileup',['../classvg_1_1PileupAugmenter.html#ab6c96b586a33ede31811403a8731946d',1,'vg::PileupAugmenter']]],
   ['call_5fcat',['call_cat',['../classvg_1_1PileupAugmenter.html#a8004caccfe01abf58f82e7d54db5348f',1,'vg::PileupAugmenter']]],
   ['call_5fedge_5fpileup',['call_edge_pileup',['../classvg_1_1PileupAugmenter.html#a6d9b03a4da58b65ab06444189eb27ca1',1,'vg::PileupAugmenter']]],
