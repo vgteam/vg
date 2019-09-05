@@ -97,8 +97,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Select the minimizers we use for seeds.
     size_t rejected_count = 0;
     double selected_score = 0.0;
-    size_t minimizer_occurrence_limit = minimizers.size() == 0 ? hard_hit_cap  : 
-                                        hard_hit_cap + minimizer_index.count(minimizers[minimizers_in_order[0]]);
     for (size_t i = 0; i < minimizers.size(); i++) {
         size_t minimizer_num = minimizers_in_order[i];
 
@@ -111,7 +109,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // of the selected minimizers is not high enough.
         size_t hits = minimizer_index.count(minimizers[minimizer_num]);
         
-        if (hits <= hit_cap || (hits <= minimizer_occurrence_limit && selected_score + minimizer_score[minimizer_num] <= target_score)) {
+        if ( hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
             // Locate the hits.
             for (auto& hit : minimizer_index.find(minimizers[minimizer_num])) {
                 // Reverse the hits for a reverse minimizer
@@ -131,26 +129,30 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 funnel.pass("hit-cap||score-fraction", minimizer_num, selected_score  / base_target_score);
                 funnel.expand(minimizer_num, hits);
             }
-        } else if (hits <= minimizer_occurrence_limit) {
-            // Passed hard hit cap but failed score fraction/normal hit cap
-            rejected_count++;
+        } else {
+            //If this minimizer fails the filters, take half of the hits as seeds
+
+            // Locate the hits.
+            for ( size_t j = 0 ; j < hits / 2 ; j++ ) {
+                // Reverse the hits for a reverse minimizer
+                auto& hit = minimizer_index.find(minimizers[minimizer_num])[j];
+                if (minimizers[minimizer_num].is_reverse) {
+                    size_t node_length = gbwt_graph.get_length(gbwt_graph.get_handle(id(hit)));
+                    hit = reverse_base_pos(hit, node_length);
+                }
+                // For each position, remember it and what minimizer it came from
+                seeds.push_back(hit);
+                seed_to_source.push_back(minimizer_num);
+            }
+            selected_score += minimizer_score[minimizer_num];
             
             if (track_provenance) {
+                // Record in the funnel that this minimizer gave rise to these seeds.
                 funnel.pass("hard-hit-cap", minimizer_num);
-                funnel.fail("hit-cap||score-fraction", minimizer_num, (selected_score + minimizer_score[minimizer_num]) / base_target_score);
+                funnel.pass("hit-cap||score-fraction", minimizer_num, selected_score  / base_target_score);
+                funnel.expand(minimizer_num, hits / 2);
             }
-        } else {
-            // Failed hard hit cap
-            rejected_count++;
-            
-             if (track_provenance) {
-                funnel.fail("hard-hit-cap", minimizer_num);
-            }
-        }
-        
-        if (track_provenance) {
-            // Say we're done with this input item
-            funnel.processed_input();
+
         }
     }
 
