@@ -21,7 +21,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-void help_call(char** argv) {
+void help_call2(char** argv) {
   cerr << "usage: " << argv[0] << " call [options] <graph> > output.vcf" << endl
        << "Call variants or genotype known variants" << endl
        << endl
@@ -34,12 +34,10 @@ void help_call(char** argv) {
        << "    -s, --sample NAME       Sample name [default=SAMPLE]" << endl
        << "    -r, --snarls FILE       Snarls (from vg snarls) to avoid recomputing." << endl
        << "    -p, --ref-path NAME     Reference path to call on (multipile allowed.  defaults to all paths)" << endl
-       << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
-       << "    -l, --ref-length N      Override length of reference in the contig field of output VCF" << endl
        << "    -t, --threads N         number of threads to use" << endl;
 }    
 
-int main_call(int argc, char** argv) {
+int main_call2(int argc, char** argv) {
 
     string pack_filename;
     string vcf_filename;
@@ -48,8 +46,6 @@ int main_call(int argc, char** argv) {
     string ref_fasta_filename;
     string ins_fasta_filename;
     vector<string> ref_paths;
-    vector<size_t> ref_path_offsets;
-    vector<size_t> ref_path_lengths;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -63,8 +59,6 @@ int main_call(int argc, char** argv) {
             {"sample", required_argument, 0, 's'},            
             {"snarls", required_argument, 0, 'r'},
             {"ref-path", required_argument, 0, 'p'},
-            {"ref-offset", required_argument, 0, 'o'},
-            {"ref-length", required_argument, 0, 'l'},
             {"threads", required_argument, 0, 't'},
             {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
@@ -72,7 +66,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:v:f:i:s:r:p:o:l:t:h",
+        c = getopt_long (argc, argv, "k:v:f:i:s:r:p:t:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -102,12 +96,6 @@ int main_call(int argc, char** argv) {
         case 'p':
             ref_paths.push_back(optarg);
             break;
-        case 'o':
-            ref_path_offsets.push_back(parse<int>(optarg));
-            break;
-        case 'l':
-            ref_path_lengths.push_back(parse<int>(optarg));
-            break;            
         case 't':
         {
             int num_threads = parse<int>(optarg);
@@ -121,7 +109,7 @@ int main_call(int argc, char** argv) {
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
-            help_call(argv);
+            help_call2(argv);
             exit(1);
             break;
         default:
@@ -130,7 +118,7 @@ int main_call(int argc, char** argv) {
     }
 
     if (argc <= 2) {
-        help_call(argv);
+        help_call2(argv);
         return 1;
     }
 
@@ -147,21 +135,6 @@ int main_call(int argc, char** argv) {
             return 1;
         }
     }
-    // Check our offsets
-    if (ref_path_offsets.size() != 0 && ref_path_offsets.size() != ref_paths.size()) {
-        cerr << "error [vg call]: when using -o, the same number paths must be given with -p" << endl;
-        return 1;
-    }
-    if (!ref_path_offsets.empty() && !vcf_filename.empty()) {
-        cerr << "error [vg call]: -o cannot be used with -v" << endl;
-        return 1;
-    }
-    // Check our ref lengths
-    if (ref_path_lengths.size() != 0 && ref_path_lengths.size() != ref_paths.size()) {
-        cerr << "error [vg call]: when using -l, the same number paths must be given with -p" << endl;
-        return 1;
-    }
-
     // No paths specified: use them all
     if (ref_paths.empty()) {
         graph->for_each_path_handle([&](path_handle_t path_handle) {
@@ -240,8 +213,8 @@ int main_call(int argc, char** argv) {
         // de-novo caller (port of the old vg call code, which requires a support based caller)
         LegacyCaller* legacy_caller = new LegacyCaller(*dynamic_cast<PathPositionHandleGraph*>(graph.get()),
                                                        *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
-                                                       *snarl_manager,
-                                                       sample_name, ref_paths, ref_path_offsets, ref_path_lengths);
+                                                        *snarl_manager,
+                                                        sample_name, ref_paths);
         graph_caller = unique_ptr<GraphCaller>(legacy_caller);
     }
 
@@ -253,5 +226,5 @@ int main_call(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_call("call", "call variants", PIPELINE, 5, main_call);
+static Subcommand vg_call2("call2", "call2 variants", PIPELINE, 5, main_call2);
 
