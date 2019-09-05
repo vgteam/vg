@@ -1,7 +1,8 @@
 var searchData=
 [
   ['pack',['pack',['../structhandlegraph_1_1number__bool__packing.html#af5082dc39a2f308585402bd19de0caa8',1,'handlegraph::number_bool_packing']]],
-  ['packer',['Packer',['../classvg_1_1Packer.html#a23ca736ab7fa0690ae575aa1d7a4de73',1,'vg::Packer::Packer(void)'],['../classvg_1_1Packer.html#ab45b08bc72199d969576f8934c96fefc',1,'vg::Packer::Packer(const HandleGraph *graph, size_t bin_size=0, bool qual_adjust=false)']]],
+  ['packedsupportsnarlcaller',['PackedSupportSnarlCaller',['../classvg_1_1PackedSupportSnarlCaller.html#a72481f192a9d438e33f079293c846055',1,'vg::PackedSupportSnarlCaller']]],
+  ['packer',['Packer',['../classvg_1_1Packer.html#a23ca736ab7fa0690ae575aa1d7a4de73',1,'vg::Packer::Packer(void)'],['../classvg_1_1Packer.html#ad21fb60f6376aa123f471c3fa8137be1',1,'vg::Packer::Packer(const HandleGraph *graph, size_t bin_size=0, bool qual_adjust=false, int min_mapq=0, int min_baseq=0)']]],
   ['pair_5fclusters',['pair_clusters',['../classvg_1_1MEMClusterer.html#a4e84dd599bb8dc4341cbed2fd1de1ed0',1,'vg::MEMClusterer::pair_clusters()'],['../classvg_1_1OrientedDistanceClusterer.html#a41e57b46abd69532d53855499d5042eb',1,'vg::OrientedDistanceClusterer::pair_clusters()'],['../classvg_1_1TVSClusterer.html#a1477ce3367e036c0ecc101e1518b49b9',1,'vg::TVSClusterer::pair_clusters()'],['../classvg_1_1MinDistanceClusterer.html#af561001a20cc91adc6238f74edca6480',1,'vg::MinDistanceClusterer::pair_clusters()']]],
   ['pair_5fconsistent',['pair_consistent',['../classvg_1_1Mapper.html#ad3a62e0a91818c4e20508ab2a0f47fa5',1,'vg::Mapper']]],
   ['pair_5ffrom_5fedge',['pair_from_edge',['../classvg_1_1NodeSide.html#ad48cc3d977ad0f6ffc5ce1034cbbae65',1,'vg::NodeSide::pair_from_edge(Edge *e)'],['../classvg_1_1NodeSide.html#a97eed27ab7b77be54b68062b780a9f36',1,'vg::NodeSide::pair_from_edge(const Edge &amp;e)']]],

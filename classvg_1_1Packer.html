@@ -105,8 +105,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a23ca736ab7fa0690ae575aa1d7a4de73"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a23ca736ab7fa0690ae575aa1d7a4de73">Packer</a> (void)</td></tr>
 <tr class="separator:a23ca736ab7fa0690ae575aa1d7a4de73"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab45b08bc72199d969576f8934c96fefc"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#ab45b08bc72199d969576f8934c96fefc">Packer</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *<a class="el" href="classvg_1_1Packer.html#a52ac5f2ff5549fe1b296efc53204e94f">graph</a>, size_t <a class="el" href="classvg_1_1Packer.html#a528fbf835285899061cd6947e163976d">bin_size</a>=0, bool <a class="el" href="classvg_1_1Packer.html#a08679bd0da43f583ad81fcb3ed409cb2">qual_adjust</a>=false)</td></tr>
-<tr class="separator:ab45b08bc72199d969576f8934c96fefc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad21fb60f6376aa123f471c3fa8137be1"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#ad21fb60f6376aa123f471c3fa8137be1">Packer</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *<a class="el" href="classvg_1_1Packer.html#a52ac5f2ff5549fe1b296efc53204e94f">graph</a>, size_t <a class="el" href="classvg_1_1Packer.html#a528fbf835285899061cd6947e163976d">bin_size</a>=0, bool <a class="el" href="classvg_1_1Packer.html#a08679bd0da43f583ad81fcb3ed409cb2">qual_adjust</a>=false, int <a class="el" href="classvg_1_1Packer.html#aedf965f252590443a09c0e900d379620">min_mapq</a>=0, int <a class="el" href="classvg_1_1Packer.html#ae5ed5ea9f7cc39f0888c81953d58b8d8">min_baseq</a>=0)</td></tr>
+<tr class="separator:ad21fb60f6376aa123f471c3fa8137be1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a65a8bbaf02215e1e8c4f1385101ffbd4"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a65a8bbaf02215e1e8c4f1385101ffbd4">~Packer</a> (void)</td></tr>
 <tr class="separator:a65a8bbaf02215e1e8c4f1385101ffbd4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af857449c08a56dd66c6a4bc0402231cb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#af857449c08a56dd66c6a4bc0402231cb">merge_from_files</a> (const vector&lt; string &gt; &amp;file_names)</td></tr>
@@ -229,8 +229,12 @@ Private Attributes</h2></td></tr>
 <tr class="separator:acffc9465bdaa0bb770372edf788aad48"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0d1336853823c62812b2009e80085800"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a0d1336853823c62812b2009e80085800">delim2</a> = '\xfe'</td></tr>
 <tr class="separator:a0d1336853823c62812b2009e80085800"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a08679bd0da43f583ad81fcb3ed409cb2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a08679bd0da43f583ad81fcb3ed409cb2">qual_adjust</a></td></tr>
+<tr class="memitem:a08679bd0da43f583ad81fcb3ed409cb2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a08679bd0da43f583ad81fcb3ed409cb2">qual_adjust</a> = false</td></tr>
 <tr class="separator:a08679bd0da43f583ad81fcb3ed409cb2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aedf965f252590443a09c0e900d379620"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#aedf965f252590443a09c0e900d379620">min_mapq</a> = 0</td></tr>
+<tr class="separator:aedf965f252590443a09c0e900d379620"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae5ed5ea9f7cc39f0888c81953d58b8d8"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#ae5ed5ea9f7cc39f0888c81953d58b8d8">min_baseq</a> = 0</td></tr>
+<tr class="separator:ae5ed5ea9f7cc39f0888c81953d58b8d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a05408599203b0639909f4eacf9a31d28"><td class="memItemLeft" align="right" valign="top">LRUCache&lt; pair&lt; int, int &gt;, int &gt; *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a05408599203b0639909f4eacf9a31d28">quality_cache</a></td></tr>
 <tr class="separator:a05408599203b0639909f4eacf9a31d28"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -258,7 +262,7 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ab45b08bc72199d969576f8934c96fefc"></a>
+<a class="anchor" id="ad21fb60f6376aa123f471c3fa8137be1"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -278,7 +282,19 @@ Static Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>qual_adjust</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>qual_adjust</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>min_mapq</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>min_baseq</em> = <code>0</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1416,6 +1432,46 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="ae5ed5ea9f7cc39f0888c81953d58b8d8"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::Packer::min_baseq = 0</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="aedf965f252590443a09c0e900d379620"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::Packer::min_mapq = 0</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a class="anchor" id="a3e753cd974d4411036081d252b6eb7bf"></a>
 <div class="memitem">
 <div class="memproto">
@@ -1444,7 +1500,7 @@ Static Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::Packer::qual_adjust</td>
+          <td class="memname">bool vg::Packer::qual_adjust = false</td>
         </tr>
       </table>
   </td>

@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['legacycaller',['LegacyCaller',['../classvg_1_1LegacyCaller.html',1,'vg']]],
   ['linear_5fhaplo_5fstructure',['linear_haplo_structure',['../structhaplo_1_1linear__haplo__structure.html',1,'haplo']]],
   ['linearscoreprovider',['LinearScoreProvider',['../classhaplo_1_1LinearScoreProvider.html',1,'haplo']]],
   ['linearunrepresentable',['linearUnrepresentable',['../classhaplo_1_1linear__haplo__structure_1_1linearUnrepresentable.html',1,'haplo::linear_haplo_structure']]],

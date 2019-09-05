@@ -124,7 +124,9 @@ var searchData=
   ['help_5faugment',['help_augment',['../augment__main_8cpp.html#a7cf03aa52fd6e8d75e480d4d0632b71c',1,'augment_main.cpp']]],
   ['help_5fbenchmark',['help_benchmark',['../benchmark__main_8cpp.html#a1e3da44e3dcc6fea154d15a1986ade1b',1,'benchmark_main.cpp']]],
   ['help_5fbugs',['help_bugs',['../bugs__main_8cpp.html#a415dbec22babc1cbced301243fab6404',1,'bugs_main.cpp']]],
-  ['help_5fcall',['help_call',['../call__main_8cpp.html#a638feac131a293ed2bc399aa50d7c3cc',1,'call_main.cpp']]],
+  ['help_5fcall',['help_call',['../call__main_8cpp.html#ab92ccd67b3c20b7be7c46281c4cabfb3',1,'call_main.cpp']]],
+  ['help_5fcall2',['help_call2',['../call2__main_8cpp.html#a3096573762d6818c08a771db399e9762',1,'call2_main.cpp']]],
+  ['help_5fcall_5fold',['help_call_old',['../call__main__old_8cpp.html#a2caeb59fb6056e5d4ea6bb4225e6b716',1,'call_main_old.cpp']]],
   ['help_5fchunk',['help_chunk',['../chunk__main_8cpp.html#a502600dcc3e4e15a338642fe554fbf8d',1,'chunk_main.cpp']]],
   ['help_5fcircularize',['help_circularize',['../circularize__main_8cpp.html#a0613e20e02d0fbb56d7270a7b268ffb3',1,'circularize_main.cpp']]],
   ['help_5fcluster',['help_cluster',['../cluster__main_8cpp.html#a4099bc0f1cb9fecb87c903e578ff2a17',1,'cluster_main.cpp']]],
@@ -190,10 +192,10 @@ var searchData=
   ['hit_5fcap',['hit_cap',['../classvg_1_1MinimizerMapper.html#a1097206776713f059fca80f221b8478c',1,'vg::MinimizerMapper']]],
   ['hit_5fmax',['hit_max',['../classvg_1_1BaseMapper.html#a29b8cec81cc68e9d90405c42fbc8ef64',1,'vg::BaseMapper']]],
   ['hit_5ft',['hit_t',['../classvg_1_1MEMClusterer.html#a679c48e684ac52020fb363aa946037c7',1,'vg::MEMClusterer']]],
-  ['hitedge',['HitEdge',['../classvg_1_1MEMClusterer_1_1HitEdge.html',1,'vg::MEMClusterer']]],
   ['hitedge',['HitEdge',['../classvg_1_1MEMClusterer_1_1HitEdge.html#adfc12ed7c93d550e05882555d0004235',1,'vg::MEMClusterer::HitEdge::HitEdge(size_t to_idx, int32_t weight, int64_t distance)'],['../classvg_1_1MEMClusterer_1_1HitEdge.html#a16766cbf34e0ec89d8bbdcd7f9d42988',1,'vg::MEMClusterer::HitEdge::HitEdge()=default']]],
-  ['hitgraph',['HitGraph',['../classvg_1_1MEMClusterer_1_1HitGraph.html',1,'vg::MEMClusterer']]],
+  ['hitedge',['HitEdge',['../classvg_1_1MEMClusterer_1_1HitEdge.html',1,'vg::MEMClusterer']]],
   ['hitgraph',['HitGraph',['../classvg_1_1MEMClusterer_1_1HitGraph.html#af8b973948228e8cb287a166af90dcd96',1,'vg::MEMClusterer::HitGraph']]],
+  ['hitgraph',['HitGraph',['../classvg_1_1MEMClusterer_1_1HitGraph.html',1,'vg::MEMClusterer']]],
   ['hitnode',['HitNode',['../classvg_1_1MEMClusterer_1_1HitNode.html#a3156b62ac2208fdac8d0b12475011472',1,'vg::MEMClusterer::HitNode::HitNode(const MaximalExactMatch &amp;mem, pos_t start_pos, int32_t score)'],['../classvg_1_1MEMClusterer_1_1HitNode.html#aaeb6e6e2bb1c2ce2cda76adce19a40d6',1,'vg::MEMClusterer::HitNode::HitNode()=default']]],
   ['hitnode',['HitNode',['../classvg_1_1MEMClusterer_1_1HitNode.html',1,'vg::MEMClusterer']]],
   ['homogenize',['homogenize',['../classvg_1_1Homogenizer.html#ad555283b137168bebff0a2777318eaff',1,'vg::Homogenizer::homogenize(vg::VG *graph, PathPositionHandleGraph *path_graph, gcsa::GCSA *gcsa_index, gcsa::LCPArray *lcp_index, Paths p, int kmer_size)'],['../classvg_1_1Homogenizer.html#a297210f67119909167b96872ddb36e62',1,'vg::Homogenizer::homogenize(vg::VG *graph, PathPositionHandleGraph *path_graph, gcsa::GCSA *gcsa_index, gcsa::LCPArray *lcp_index, vg::Index reads_index)']]],
@@ -206,6 +208,6 @@ var searchData=
   ['hts_5ffor_5feach_5fparallel',['hts_for_each_parallel',['../namespacevg.html#a7c0d37c85747f2bce6ba3356a813524a',1,'vg::hts_for_each_parallel(string &amp;filename, function&lt; void(Alignment &amp;)&gt; lambda, const PathPositionHandleGraph *graph)'],['../namespacevg.html#a59c6c494c2e7663fb14e40c978b4f9e5',1,'vg::hts_for_each_parallel(string &amp;filename, function&lt; void(Alignment &amp;)&gt; lambda)']]],
   ['hts_5fmode',['hts_mode',['../classvg_1_1HTSAlignmentEmitter.html#a153522a68e1a526fb794753ab666f840',1,'vg::HTSAlignmentEmitter']]],
   ['hts_5fstring_5fheader',['hts_string_header',['../namespacevg.html#a03de4dcf9bfbc8ef1735076da3b922cc',1,'vg']]],
-  ['htsalignmentemitter',['HTSAlignmentEmitter',['../classvg_1_1HTSAlignmentEmitter.html',1,'vg']]],
-  ['htsalignmentemitter',['HTSAlignmentEmitter',['../classvg_1_1HTSAlignmentEmitter.html#a5d299e0ff9007ffe22286c886d1ec669',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads)'],['../classvg_1_1HTSAlignmentEmitter.html#a0c76946bf064ecac88e21a2467ea2410',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(const HTSAlignmentEmitter &amp;other)=delete'],['../classvg_1_1HTSAlignmentEmitter.html#a780156f43d54cf16906948ad8286c20f',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(HTSAlignmentEmitter &amp;&amp;other)=delete']]]
+  ['htsalignmentemitter',['HTSAlignmentEmitter',['../classvg_1_1HTSAlignmentEmitter.html#a5d299e0ff9007ffe22286c886d1ec669',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads)'],['../classvg_1_1HTSAlignmentEmitter.html#a0c76946bf064ecac88e21a2467ea2410',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(const HTSAlignmentEmitter &amp;other)=delete'],['../classvg_1_1HTSAlignmentEmitter.html#a780156f43d54cf16906948ad8286c20f',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(HTSAlignmentEmitter &amp;&amp;other)=delete']]],
+  ['htsalignmentemitter',['HTSAlignmentEmitter',['../classvg_1_1HTSAlignmentEmitter.html',1,'vg']]]
 ];

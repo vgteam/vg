@@ -11,6 +11,7 @@ var searchData=
   ['rank_5fin_5fparent',['rank_in_parent',['../structvg_1_1SnarlSeedClusterer_1_1NetgraphNode.html#adca7e6e00e0e40d8f1104f3fc646f35b',1,'vg::SnarlSeedClusterer::NetgraphNode']]],
   ['rank_5fto_5fid',['rank_to_id',['../classxg_1_1XG.html#a8d19ce6227588602947bd8deff30ae6c',1,'xg::XG']]],
   ['rarevariantsimplifier',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html#a08cf82d7c40db195176b9bf177a50e32',1,'vg::RareVariantSimplifier']]],
+  ['re_5fgenotype',['re_genotype',['../classvg_1_1LegacyCaller.html#a17a9662cae2fa31454f3efda73162cbd',1,'vg::LegacyCaller']]],
   ['read_5fcoverage',['read_coverage',['../classvg_1_1MultipathMapper.html#aad3de01816bc0be9ac9f6474c15087af',1,'vg::MultipathMapper']]],
   ['read_5fcoverage_5fz_5fscore',['read_coverage_z_score',['../classvg_1_1MultipathMapper.html#ac5398224011f7ed5f8f200e801b515a6',1,'vg::MultipathMapper']]],
   ['read_5fmapping',['read_mapping',['../classvg_1_1PhaseUnfolder.html#adbf93e421183b64f73276639c3c23dfb',1,'vg::PhaseUnfolder']]],

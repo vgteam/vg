@@ -17,6 +17,7 @@ var searchData=
   ['gffrecord',['GFFRecord',['../structvg_1_1GFFRecord.html',1,'vg']]],
   ['graph',['Graph',['../structvg_1_1Graph.html',1,'vg']]],
   ['graph_5fpos_5fs',['graph_pos_s',['../structvg_1_1XdropAligner_1_1graph__pos__s.html',1,'vg::XdropAligner']]],
+  ['graphcaller',['GraphCaller',['../classvg_1_1GraphCaller.html',1,'vg']]],
   ['graphsynchronizer',['GraphSynchronizer',['../classvg_1_1GraphSynchronizer.html',1,'vg']]],
   ['growth',['Growth',['../structvg_1_1FlowSort_1_1Growth.html',1,'vg::FlowSort']]],
   ['gsswaligner',['GSSWAligner',['../classvg_1_1GSSWAligner.html',1,'vg']]]

@@ -30,5 +30,7 @@ var searchData=
   ['update_5freverse_5fkey',['update_reverse_key',['../namespacevg_1_1mi.html#a86934da07a7585e614b93af771c44c52',1,'vg::mi']]],
   ['update_5fscore_5fvector',['update_score_vector',['../structhaplo_1_1haplo__DP__column.html#a40859e4ede0d3829b5e7dca9a89af660',1,'haplo::haplo_DP_column']]],
   ['update_5fstate',['update_state',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#afb76a0ce92c750ae8cb12eaf2c0ae7fd',1,'vg::BandedGlobalAligner::BABuilder']]],
+  ['update_5fvcf_5fheader',['update_vcf_header',['../classvg_1_1SnarlCaller.html#a7fb3205d6e94505aadf0c9944fac7eb4',1,'vg::SnarlCaller::update_vcf_header()'],['../classvg_1_1SupportBasedSnarlCaller.html#a42c44dae396995577c679b0b3ab22449',1,'vg::SupportBasedSnarlCaller::update_vcf_header()']]],
+  ['update_5fvcf_5finfo',['update_vcf_info',['../classvg_1_1SnarlCaller.html#ad0315e74aa5ea9df9820aa1000bd0291',1,'vg::SnarlCaller::update_vcf_info()'],['../classvg_1_1SupportBasedSnarlCaller.html#a0a1e45e1eff5208d489115539d621384',1,'vg::SupportBasedSnarlCaller::update_vcf_info()']]],
   ['used_5fbins_5fof_5frange',['used_bins_of_range',['../classvg_1_1StreamIndexBase.html#a5fe0982b8a0927205b3e57d65d642aa3',1,'vg::StreamIndexBase']]]
 ];

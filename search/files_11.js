@@ -11,6 +11,8 @@ var searchData=
   ['simplify_5fmain_2ecpp',['simplify_main.cpp',['../simplify__main_8cpp.html',1,'']]],
   ['small_5fsnarl_5fsimplifier_2ecpp',['small_snarl_simplifier.cpp',['../small__snarl__simplifier_8cpp.html',1,'']]],
   ['small_5fsnarl_5fsimplifier_2ehpp',['small_snarl_simplifier.hpp',['../small__snarl__simplifier_8hpp.html',1,'']]],
+  ['snarl_5fcaller_2ecpp',['snarl_caller.cpp',['../snarl__caller_8cpp.html',1,'']]],
+  ['snarl_5fcaller_2ehpp',['snarl_caller.hpp',['../snarl__caller_8hpp.html',1,'']]],
   ['snarls_2ecpp',['snarls.cpp',['../snarls_8cpp.html',1,'']]],
   ['snarls_2ehpp',['snarls.hpp',['../snarls_8hpp.html',1,'']]],
   ['snarls_5fmain_2ecpp',['snarls_main.cpp',['../snarls__main_8cpp.html',1,'']]],

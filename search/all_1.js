@@ -231,7 +231,9 @@ var searchData=
   ['augmented',['augmented',['../classvg_1_1NestedTraversalFinder.html#a313111e30533ab2a685d7c9e112a6b22',1,'vg::NestedTraversalFinder']]],
   ['augmentedgraph',['AugmentedGraph',['../structvg_1_1AugmentedGraph.html',1,'vg']]],
   ['available_5fshort_5foptions',['available_short_options',['../classvg_1_1ConfigurableParser.html#a529443bfe60e0ab272166ccc15991ce2',1,'vg::ConfigurableParser']]],
+  ['average_5fnode_5fsupport_5fswitch_5fthreshold',['average_node_support_switch_threshold',['../classvg_1_1SupportBasedSnarlCaller.html#a7f3ab178f80140739466574d4524b1e3',1,'vg::SupportBasedSnarlCaller']]],
   ['average_5fsupport_5fswitch_5fthreshold',['average_support_switch_threshold',['../classvg_1_1SupportCaller.html#ad3826a4f33deff50ad7d35c0b121e95c',1,'vg::SupportCaller']]],
+  ['average_5ftraversal_5fsupport_5fswitch_5fthreshold',['average_traversal_support_switch_threshold',['../classvg_1_1SupportBasedSnarlCaller.html#a8c75daf50553712dbba8f2327fafa1c3',1,'vg::SupportBasedSnarlCaller']]],
   ['avg_5fnode_5flength',['avg_node_length',['../classvg_1_1BaseMapper.html#ad77c0e853fcfc715a15b8852b8b4f388',1,'vg::BaseMapper']]],
   ['avg_5fqual_5ffilter',['avg_qual_filter',['../classvg_1_1Filter.html#a3401568683899d1ebe2bcaf971a8374e',1,'vg::Filter']]],
   ['avgsup',['avgSup',['../namespacevg.html#aca4ff62f183c00e91085c2fa24559077',1,'vg']]]

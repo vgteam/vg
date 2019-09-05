@@ -11,7 +11,7 @@ var searchData=
   ['int_5fitvl_5ft',['int_itvl_t',['../structhaplo_1_1int__itvl__t.html',1,'haplo']]],
   ['intervalbitfield',['IntervalBitfield',['../structvg_1_1IntervalBitfield.html',1,'vg']]],
   ['item',['Item',['../structvg_1_1Funnel_1_1Item.html',1,'vg::Funnel']]],
-  ['iterator',['iterator',['../classvg_1_1PhasedGenome_1_1iterator.html',1,'vg::PhasedGenome']]],
+  ['iterator',['iterator',['../classvg_1_1ShuffledPairs_1_1iterator.html',1,'vg::ShuffledPairs']]],
   ['iterator',['iterator',['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html',1,'handlegraph::PathForEachSocket']]],
-  ['iterator',['iterator',['../classvg_1_1ShuffledPairs_1_1iterator.html',1,'vg::ShuffledPairs']]]
+  ['iterator',['iterator',['../classvg_1_1PhasedGenome_1_1iterator.html',1,'vg::PhasedGenome']]]
 ];
