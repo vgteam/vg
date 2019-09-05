@@ -49,7 +49,7 @@ class VGCITest(TestCase):
         self.workdir = tempfile.mkdtemp()
 
         # for checking calling f1
-        self.f1_threshold = 0.005
+        self.f1_threshold = 0.015
         # What (additional) portion of reads are allowed to get worse scores
         # when moving to a more inclusive reference?
         self.worse_threshold = 0.005
@@ -1212,7 +1212,7 @@ class VGCITest(TestCase):
                             os.path.join(giab, 'HG002_GRCh37_GIAB_highconf_CG-IllFB-IllGATKHC-Ion-10X'
                                          '-SOLID_CHROM1-22_v.3.3.2_highconf_noinconsistent.bed'),                            
                             self._input('hs37d5_chr21.fa.gz'),
-                            0.025)
+                            0.035)
             
     @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(600)

@@ -735,7 +735,10 @@ inline Mapping to_mapping(const Visit& visit, const HandleGraph& vg);
     
 /// Copies the boundary Visits from one Snarl into another
 inline void transfer_boundary_info(const Snarl& from, Snarl& to);
-    
+
+/// Make an edge_t from a pair of visits
+edge_t to_edge(const handlegraph::HandleGraph& graph, const Visit& v1, const Visit& v2);
+
 // We need some Visit operators
     
 /**
