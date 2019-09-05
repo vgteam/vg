@@ -132,17 +132,21 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         } else {
             //If this minimizer fails the filters, take half of the hits as seeds
 
-            // Locate the hits.
-            for ( size_t j = 0 ; j < hits / 2 ; j++ ) {
-                // Reverse the hits for a reverse minimizer
-                auto& hit = minimizer_index.find(minimizers[minimizer_num])[j];
-                if (minimizers[minimizer_num].is_reverse) {
-                    size_t node_length = gbwt_graph.get_length(gbwt_graph.get_handle(id(hit)));
-                    hit = reverse_base_pos(hit, node_length);
+            bool include = true;
+            size_t hit_count = 0;
+            for (auto& hit : minimizer_index.find(minimizers[minimizer_num])) {
+                if (include) {
+                    // Reverse the hits for a reverse minimizer
+                    if (minimizers[minimizer_num].is_reverse) {
+                        size_t node_length = gbwt_graph.get_length(gbwt_graph.get_handle(id(hit)));
+                        hit = reverse_base_pos(hit, node_length);
+                    }
+                    // For each position, remember it and what minimizer it came from
+                    seeds.push_back(hit);
+                    seed_to_source.push_back(minimizer_num);
+                    hit_count++;
                 }
-                // For each position, remember it and what minimizer it came from
-                seeds.push_back(hit);
-                seed_to_source.push_back(minimizer_num);
+                include = !include;
             }
             selected_score += minimizer_score[minimizer_num];
             
@@ -150,7 +154,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // Record in the funnel that this minimizer gave rise to these seeds.
                 funnel.pass("hard-hit-cap", minimizer_num);
                 funnel.pass("hit-cap||score-fraction", minimizer_num, selected_score  / base_target_score);
-                funnel.expand(minimizer_num, hits / 2);
+                funnel.expand(minimizer_num, hit_count);
             }
 
         }
