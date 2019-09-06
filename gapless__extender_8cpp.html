@@ -93,6 +93,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="gapless__extender_8hpp.html">gapless_extender.hpp</a>&quot;</code><br/>
+<code>#include &quot;<a class="el" href="gbwt__helper_8hpp.html">gbwt_helper.hpp</a>&quot;</code><br/>
 <code>#include &lt;algorithm&gt;</code><br/>
 <code>#include &lt;queue&gt;</code><br/>
 <code>#include &lt;set&gt;</code><br/>
@@ -108,20 +109,20 @@ Functions</h2></td></tr>
 <tr class="memitem:a62239efefb85e451fcec6519644186d1"><td class="memTemplParams" colspan="2">template&lt;class Element &gt; </td></tr>
 <tr class="memitem:a62239efefb85e451fcec6519644186d1"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a62239efefb85e451fcec6519644186d1">vg::in_place_subvector</a> (std::vector&lt; Element &gt; &amp;vec, size_t head, size_t tail)</td></tr>
 <tr class="separator:a62239efefb85e451fcec6519644186d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab9cb20c6cd2b65c332b568498f650b32"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab9cb20c6cd2b65c332b568498f650b32">vg::match_initial</a> (GaplessExtension &amp;match, const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, const Aligner *aligner)</td></tr>
-<tr class="separator:ab9cb20c6cd2b65c332b568498f650b32"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a24bca086f8959bef56e9f9b1b61ec55e"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a24bca086f8959bef56e9f9b1b61ec55e">vg::match_forward</a> (GaplessExtension &amp;match, const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, uint32_t mismatch_limit, const Aligner *aligner)</td></tr>
-<tr class="separator:a24bca086f8959bef56e9f9b1b61ec55e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8f97daad99d1c39dcc4ae86658a1f77b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8f97daad99d1c39dcc4ae86658a1f77b">vg::match_backward</a> (GaplessExtension &amp;match, const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, uint32_t mismatch_limit, const Aligner *aligner)</td></tr>
-<tr class="separator:a8f97daad99d1c39dcc4ae86658a1f77b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a84c81c66c04cdf6c3fbf565ce34bba73"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a84c81c66c04cdf6c3fbf565ce34bba73">vg::match_initial</a> (GaplessExtension &amp;match, const std::string &amp;seq, gbwtgraph::GBWTGraph::view_type target, const Aligner *aligner)</td></tr>
+<tr class="separator:a84c81c66c04cdf6c3fbf565ce34bba73"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2e1ee66d0984e58f16769e5f8c5282b4"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2e1ee66d0984e58f16769e5f8c5282b4">vg::match_forward</a> (GaplessExtension &amp;match, const std::string &amp;seq, gbwtgraph::GBWTGraph::view_type target, uint32_t mismatch_limit, const Aligner *aligner)</td></tr>
+<tr class="separator:a2e1ee66d0984e58f16769e5f8c5282b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a864e86c490c9b4252290642f8cfd8617"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a864e86c490c9b4252290642f8cfd8617">vg::match_backward</a> (GaplessExtension &amp;match, const std::string &amp;seq, gbwtgraph::GBWTGraph::view_type target, uint32_t mismatch_limit, const Aligner *aligner)</td></tr>
+<tr class="separator:a864e86c490c9b4252290642f8cfd8617"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5d00fa3c72ac473353496aab96965e60"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5d00fa3c72ac473353496aab96965e60">vg::remove_duplicates</a> (std::vector&lt; GaplessExtension &gt; &amp;result)</td></tr>
 <tr class="separator:a5d00fa3c72ac473353496aab96965e60"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2de1f3e3b42d42ba03e4d0b94b10c279"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2de1f3e3b42d42ba03e4d0b94b10c279">vg::find_mismatches</a> (const std::string &amp;seq, const GBWTGraph &amp;graph, std::vector&lt; GaplessExtension &gt; &amp;result)</td></tr>
-<tr class="separator:a2de1f3e3b42d42ba03e4d0b94b10c279"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a26bf49f79287eca58277d2562e9fe957"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a26bf49f79287eca58277d2562e9fe957">vg::find_mismatches</a> (const std::string &amp;seq, const gbwtgraph::GBWTGraph &amp;graph, std::vector&lt; GaplessExtension &gt; &amp;result)</td></tr>
+<tr class="separator:a26bf49f79287eca58277d2562e9fe957"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9467900ec651b93d47190413208cdf6f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9467900ec651b93d47190413208cdf6f">vg::interval_length</a> (std::pair&lt; size_t, size_t &gt; interval)</td></tr>
 <tr class="separator:a9467900ec651b93d47190413208cdf6f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a085e6bb48e678e17dbaa1b91fddcf1ec"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a085e6bb48e678e17dbaa1b91fddcf1ec">vg::trim_mismatches</a> (GaplessExtension &amp;extension, const GBWTGraph &amp;graph, const gbwt::CachedGBWT &amp;cache, const Aligner &amp;aligner)</td></tr>
-<tr class="separator:a085e6bb48e678e17dbaa1b91fddcf1ec"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae6de478625fd88a0872f08b4d90a3da7"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae6de478625fd88a0872f08b4d90a3da7">vg::trim_mismatches</a> (GaplessExtension &amp;extension, const gbwtgraph::GBWTGraph &amp;graph, const gbwt::CachedGBWT &amp;cache, const Aligner &amp;aligner)</td></tr>
+<tr class="separator:ae6de478625fd88a0872f08b4d90a3da7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

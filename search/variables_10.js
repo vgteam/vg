@@ -2,10 +2,7 @@ var searchData=
 [
   ['p_5fvalue_5fmemo',['p_value_memo',['../classvg_1_1MultipathMapper.html#aa6e45b752367bcc299b3427d2edd3e54',1,'vg::MultipathMapper']]],
   ['pack_5ffile_5fname',['pack_file_name',['../classvg_1_1SupportCaller.html#a8568b0cb2e9d2a2b6926d189a7fcead9',1,'vg::SupportCaller']]],
-  ['pack_5fmask',['PACK_MASK',['../classvg_1_1MinimizerIndex.html#ae26dc69203bd164564dac2aa50f2896e',1,'vg::MinimizerIndex']]],
   ['pack_5fnames',['pack_names',['../classvg_1_1Viz.html#abb3fd61d416351930f2e7399e6f6001b',1,'vg::Viz']]],
-  ['pack_5fto_5fchar',['PACK_TO_CHAR',['../classvg_1_1MinimizerIndex.html#a206d19a5b294cba9fff2942d8078ab7c',1,'vg::MinimizerIndex']]],
-  ['pack_5fwidth',['PACK_WIDTH',['../classvg_1_1MinimizerIndex.html#aab58139bacde30cd243acb542f658885',1,'vg::MinimizerIndex']]],
   ['packer',['packer',['../classvg_1_1PackedSupportSnarlCaller.html#a97af038a395322059ce5dea52d88ce54',1,'vg::PackedSupportSnarlCaller']]],
   ['packs',['packs',['../classvg_1_1Viz.html#a350ea478ececb5f19170b16cf1539726',1,'vg::Viz']]],
   ['pair_5frescue_5fhang_5fthreshold',['pair_rescue_hang_threshold',['../classvg_1_1Mapper.html#a92e1f4de4e6ce576e09005713d1c1cd1',1,'vg::Mapper']]],
@@ -58,7 +55,6 @@ var searchData=
   ['pn_5fbv_5fselect',['pn_bv_select',['../classxg_1_1XG.html#a2e61e80fc038eb31714fe7d38d47d1b3',1,'xg::XG']]],
   ['pn_5fcsa',['pn_csa',['../classxg_1_1XG.html#a5f64aa73007619feb2abece0fd07d73a',1,'xg::XG']]],
   ['pn_5fiv',['pn_iv',['../classxg_1_1XG.html#ad28835c1778e2b0719bfe6378b0d2afc',1,'xg::XG']]],
-  ['pointer',['pointer',['../unionvg_1_1MinimizerIndex_1_1value__type.html#aa20d8fc11156ab5456b36f7127cc3422',1,'vg::MinimizerIndex::value_type']]],
   ['polyploid_5fprior_5fsuccess_5flogprob',['polyploid_prior_success_logprob',['../classvg_1_1Genotyper.html#a97aef0fe84f0514e17e2ec8e00162225',1,'vg::Genotyper']]],
   ['population_5fmax_5fpaths',['population_max_paths',['../classvg_1_1MultipathMapper.html#adfb100b024b23e3e94a31ea41d0b1ac8',1,'vg::MultipathMapper']]],
   ['population_5fpaths_5fhard_5fcap',['population_paths_hard_cap',['../classvg_1_1MultipathMapper.html#aa9d339059fb2f60d192935126c82dbed',1,'vg::MultipathMapper']]],

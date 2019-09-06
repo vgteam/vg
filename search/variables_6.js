@@ -17,7 +17,6 @@ var searchData=
   ['filter_5fon_5fall',['filter_on_all',['../classvg_1_1ReadFilter.html#acc075968b0c08ed7ad4f2cb0a837ef95',1,'vg::ReadFilter']]],
   ['first',['first',['../structvg_1_1FeatureSet_1_1Feature.html#ade37c17b95cc0314dc381e93b04ff7b4',1,'vg::FeatureSet::Feature']]],
   ['fixed_5ffragment_5fmodel',['fixed_fragment_model',['../classvg_1_1FragmentLengthStatistics.html#a8c3c6bfb99c7cef159520adb58be271d',1,'vg::FragmentLengthStatistics']]],
-  ['flags',['flags',['../structvg_1_1GBWTGraph_1_1Header.html#a71266f791e8894c9159dd146081d4c29',1,'vg::GBWTGraph::Header::flags()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a057627288bb5008172fe61159352be60',1,'vg::MinimizerIndex::Header::flags()']]],
   ['flank_5frange',['flank_range',['../classvg_1_1VariantAdder.html#a1761b88c30f6fc8e9e40a99d6f66d9dd',1,'vg::VariantAdder']]],
   ['flat',['flat',['../classvg_1_1Constructor.html#a2def54af1f72ad07cf84ff26fbbcc398',1,'vg::Constructor']]],
   ['flat_5fnode',['flat_node',['../structhaplo_1_1haplo__DP__rectangle.html#a5c211ab946bf46fc45b1815482fd790a',1,'haplo::haplo_DP_rectangle']]],

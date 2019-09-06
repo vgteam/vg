@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['w',['w',['../classvg_1_1MinimizerIndex.html#a5630bef68a98414984b8d8dcaa58520e',1,'vg::MinimizerIndex']]],
   ['wabbitize',['wabbitize',['../classVectorizer.html#ae4c3627b5c8ec7b066f5735ca6dfb3f1',1,'Vectorizer']]],
   ['walk_5fbackwards',['walk_backwards',['../classvg_1_1NGSSimulator.html#aff7ec570f2361e525db4363bf0e5a2d2',1,'vg::NGSSimulator']]],
   ['walk_5ft',['walk_t',['../structvg_1_1walk__t.html#ad7a131cb934419dc90103ce2483fc02b',1,'vg::walk_t']]],

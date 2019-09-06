@@ -1,9 +1,8 @@
 var searchData=
 [
-  ['tag',['TAG',['../structvg_1_1GBWTGraph_1_1Header.html#a245b739ef1fccad2fb24364a20f5a903',1,'vg::GBWTGraph::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()'],['../structvg_1_1GBWTGraph_1_1Header.html#a6dcdbb53b34ef37f421f9a2df1c2bb7d',1,'vg::GBWTGraph::Header::tag()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a17e22f4ea8e69209b9aff2c00deb9ba4',1,'vg::io::ProtobufEmitter::tag()']]],
+  ['tag',['tag',['../classvg_1_1io_1_1ProtobufEmitter.html#a17e22f4ea8e69209b9aff2c00deb9ba4',1,'vg::io::ProtobufEmitter']]],
   ['tag_5fto_5floader',['tag_to_loader',['../structvg_1_1io_1_1Registry_1_1Tables.html#a965e60de0073226a98deef0757d7dfa8',1,'vg::io::Registry::Tables']]],
   ['tag_5fto_5fprotobuf',['tag_to_protobuf',['../structvg_1_1io_1_1Registry_1_1Tables.html#abac3d9be375a86c8f55e5777e97fe323',1,'vg::io::Registry::Tables']]],
-  ['tail',['tail',['../structvg_1_1mi_1_1CircularBuffer.html#ac7232c53ef7237c4c6ea202df32bc938',1,'vg::mi::CircularBuffer']]],
   ['task_5fname',['task_name',['../structvg_1_1Watchdog_1_1thread__state__t.html#a797bf67f4267c5ffeda247c041f7cd14',1,'vg::Watchdog::thread_state_t']]],
   ['telomere_5fpair',['telomere_pair',['../structvg_1_1SwapHaplotypesCommand.html#a6a5922c2e74c8227f07631fd2f8cc5f9',1,'vg::SwapHaplotypesCommand']]],
   ['telomeres',['telomeres',['../classvg_1_1GenomeState.html#a2e1564254538fec6438c931a5263ab8a',1,'vg::GenomeState']]],
@@ -51,7 +50,7 @@ var searchData=
   ['translations',['translations',['../classvg_1_1Translator.html#aba17cd4fd008c2dbee1da376db1807be',1,'vg::Translator']]],
   ['translator',['translator',['../structvg_1_1AugmentedGraph.html#a3ac035d37452eb611b943cfa4754d6c6',1,'vg::AugmentedGraph::translator()'],['../classvg_1_1Genotyper.html#ad14928554aace83524e80d8c109e17b2',1,'vg::Genotyper::translator()'],['../classvg_1_1Homogenizer.html#add991c227017ff02250cbaac2b81ca72',1,'vg::Homogenizer::translator()']]],
   ['trav_5ffinder',['trav_finder',['../classvg_1_1Deconstructor.html#ab2c8f173c8de2b4ecb6f2af8fbfbbb08',1,'vg::Deconstructor']]],
-  ['traversal',['traversal',['../structvg_1_1GBWTTraversal.html#abc5a7ae88f80dea62d268c1d5b17227d',1,'vg::GBWTTraversal::traversal()'],['../classvg_1_1mapping__t.html#a9ef6e5278c0ac9ce077ea2c8e0902674',1,'vg::mapping_t::traversal()']]],
+  ['traversal',['traversal',['../classvg_1_1mapping__t.html#a9ef6e5278c0ac9ce077ea2c8e0902674',1,'vg::mapping_t']]],
   ['traversal_5falg',['traversal_alg',['../classvg_1_1Genotyper.html#a5b040c1636f479b52dbdb641e82f74dd',1,'vg::Genotyper']]],
   ['traversal_5ffinder',['traversal_finder',['../classvg_1_1VCFGenotyper.html#afa0dd907b77ec7bd5d33f972c06ab131',1,'vg::VCFGenotyper::traversal_finder()'],['../classvg_1_1LegacyCaller.html#ada2c8e9befb0cbe8043779758468664a',1,'vg::LegacyCaller::traversal_finder()'],['../classvg_1_1SmallSnarlSimplifier.html#aaf858ca21b486fe45acbf92a4cbea5ba',1,'vg::SmallSnarlSimplifier::traversal_finder()']]],
   ['tree',['tree',['../classvg_1_1TreeSubgraph.html#a91ef2cd31f18ada628b0990faae105a1',1,'vg::TreeSubgraph']]],

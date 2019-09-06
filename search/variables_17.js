@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['w',['w',['../structvg_1_1mi_1_1CircularBuffer.html#aa81bf4bb0269556a3efe2dd7b98aae1e',1,'vg::mi::CircularBuffer::w()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2b542039bca049dbf1693af05f5344cc',1,'vg::MinimizerIndex::Header::w()']]],
   ['wabbit_5fmap',['wabbit_map',['../classVectorizer.html#abc8fdb5dcd0ccc39c2b042633ef6820e',1,'Vectorizer']]],
   ['wait_5ffor_5fregion',['wait_for_region',['../classvg_1_1GraphSynchronizer.html#a7f9e68c4e2172bc4a5c7040272a59d38',1,'vg::GraphSynchronizer']]],
   ['warn_5fon_5flowercase',['warn_on_lowercase',['../classvg_1_1Constructor.html#a9da8d803e6e0c0be942ca2ecc35e9267',1,'vg::Constructor']]],
@@ -12,7 +11,7 @@ var searchData=
   ['weight',['weight',['../classvg_1_1MEMChainModelVertex.html#ad73c85aeb85dde48dd3201260720956b',1,'vg::MEMChainModelVertex::weight()'],['../classvg_1_1MEMClusterer_1_1HitEdge.html#a5e9984583bd37a31e8b172fea582e6fd',1,'vg::MEMClusterer::HitEdge::weight()'],['../classvg_1_1AlignmentChainModelVertex.html#a874c1b3121234990ab1c1519921b9c6c',1,'vg::AlignmentChainModelVertex::weight()']]],
   ['whole_5falignment_5fcutoff',['whole_alignment_cutoff',['../classvg_1_1VariantAdder.html#ab40df39042e4ce4fee3eeea919be1c96',1,'vg::VariantAdder']]],
   ['whole_5fgraph_5flock',['whole_graph_lock',['../classvg_1_1GraphSynchronizer.html#aa1a7be56b29656fa604b44b37e134c80',1,'vg::GraphSynchronizer']]],
-  ['window_5flength',['window_length',['../classvg_1_1Filter.html#ad719ad4c073cbe1298c9911e1c1cb329',1,'vg::Filter::window_length()'],['../classvg_1_1MinimizerIndex.html#a5c8618f8d827022b935857a360e8d054',1,'vg::MinimizerIndex::WINDOW_LENGTH()']]],
+  ['window_5flength',['window_length',['../classvg_1_1Filter.html#ad719ad4c073cbe1298c9911e1c1cb329',1,'vg::Filter']]],
   ['window_5fshift',['WINDOW_SHIFT',['../classvg_1_1StreamIndexBase.html#abfcccdbb508967165d185181eb95588a',1,'vg::StreamIndexBase']]],
   ['window_5fsize',['window_size',['../classvg_1_1WindowedVcfBuffer.html#a898deb05050ba62533e294b7cf959fe3',1,'vg::WindowedVcfBuffer']]],
   ['window_5fto_5fstart',['window_to_start',['../classvg_1_1StreamIndexBase.html#a47fab2baab7953595105558d0fcba4e2',1,'vg::StreamIndexBase']]],

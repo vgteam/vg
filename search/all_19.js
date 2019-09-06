@@ -51,7 +51,6 @@ var searchData=
   ['_7ememoizinggraph',['~MemoizingGraph',['../classvg_1_1MemoizingGraph.html#a7b70d3665f07afcce593013fd4d27170',1,'vg::MemoizingGraph']]],
   ['_7emessageemitter',['~MessageEmitter',['../classvg_1_1io_1_1MessageEmitter.html#ae9fa66759101257b58f38ec4f54dabfa',1,'vg::io::MessageEmitter']]],
   ['_7emindistanceclusterer',['~MinDistanceClusterer',['../classvg_1_1MinDistanceClusterer.html#aad8582c4649a2f7b66631dd7c9850304',1,'vg::MinDistanceClusterer']]],
-  ['_7eminimizerindex',['~MinimizerIndex',['../classvg_1_1MinimizerIndex.html#a90623e1902f23cbf0d543439d3bf981f',1,'vg::MinimizerIndex']]],
   ['_7emsaconverter',['~MSAConverter',['../classvg_1_1MSAConverter.html#a3b731a1e51d01aecae26e789fe06b788',1,'vg::MSAConverter']]],
   ['_7emultipathalignmentgraph',['~MultipathAlignmentGraph',['../classvg_1_1MultipathAlignmentGraph.html#a85e2932360f805d5c6353cd25e377e5d',1,'vg::MultipathAlignmentGraph']]],
   ['_7emultipathmapper',['~MultipathMapper',['../classvg_1_1MultipathMapper.html#aae4b40b1c3c0668b884ae3247779f188',1,'vg::MultipathMapper']]],

@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['value_5ftype',['value_type',['../unionvg_1_1MinimizerIndex_1_1value__type.html',1,'vg::MinimizerIndex']]],
   ['variantadder',['VariantAdder',['../classvg_1_1VariantAdder.html',1,'vg']]],
   ['vcfbuffer',['VcfBuffer',['../classvg_1_1VcfBuffer.html',1,'vg']]],
   ['vcfgenotyper',['VCFGenotyper',['../classvg_1_1VCFGenotyper.html',1,'vg']]],

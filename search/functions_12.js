@@ -47,7 +47,6 @@ var searchData=
   ['register_5fprotobuf',['register_protobuf',['../classvg_1_1io_1_1Registry.html#ae4880fe254039bfe44b73b9050ce0abc',1,'vg::io::Registry']]],
   ['register_5fsaver',['register_saver',['../classvg_1_1io_1_1Registry.html#a1bba520da840207b627aface669b80c6',1,'vg::io::Registry']]],
   ['regularize',['regularize',['../classvg_1_1SnarlManager.html#ae5015eacc04d12d02ef5196fb23f3075',1,'vg::SnarlManager']]],
-  ['rehash',['rehash',['../classvg_1_1MinimizerIndex.html#aba7fd5fccdf1a98bb53b2dc73406a13f',1,'vg::MinimizerIndex']]],
   ['relative_5forientation',['relative_orientation',['../namespacexg.html#a7f07f5b9c54d98a39c76b0d20db0a652',1,'xg']]],
   ['remap',['remap',['../classvg_1_1Filter.html#a66768cd6584270f71d190d525c99a9c4',1,'vg::Filter::remap(Alignment &amp;aln)'],['../classvg_1_1Filter.html#aea9d6813e578a5957131fa6c4c8eff52',1,'vg::Filter::remap(string seq)'],['../classvg_1_1Homogenizer.html#a0ad18f7ec95dbeb681a147f3ae7c621f',1,'vg::Homogenizer::remap()']]],
   ['remember_5fkmer_5fsize',['remember_kmer_size',['../classvg_1_1Index.html#a314fdb721b7cc6831d95528fc34c75a0',1,'vg::Index']]],

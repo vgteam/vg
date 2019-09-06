@@ -1,9 +1,8 @@
 var searchData=
 [
   ['v',['v',['../structvg_1_1TreeNode.html#aa4855443d5325cd35ff3d1d5a6855190',1,'vg::TreeNode']]],
-  ['value',['value',['../unionvg_1_1MinimizerIndex_1_1value__type.html#afb14fd65b15dd7f69335bb8b12ccab7c',1,'vg::MinimizerIndex::value_type::value()'],['../classvg_1_1BaseOption.html#aa74c66fcf0f363ce08bb6e5060fd42e5',1,'vg::BaseOption::value()'],['../classvg_1_1io_1_1MessageIterator.html#a698864a67e1e721c06a97875f6cbcbde',1,'vg::io::MessageIterator::value()'],['../classvg_1_1io_1_1ProtobufIterator.html#aa66494ab08ee29d36b1aa04f0213f566',1,'vg::io::ProtobufIterator::value()']]],
+  ['value',['value',['../classvg_1_1BaseOption.html#aa74c66fcf0f363ce08bb6e5060fd42e5',1,'vg::BaseOption::value()'],['../classvg_1_1io_1_1MessageIterator.html#a698864a67e1e721c06a97875f6cbcbde',1,'vg::io::MessageIterator::value()'],['../classvg_1_1io_1_1ProtobufIterator.html#aa66494ab08ee29d36b1aa04f0213f566',1,'vg::io::ProtobufIterator::value()']]],
   ['value_5fat',['value_at',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a2146c37988fd520600d806d1606f0f3f',1,'vg::NGSSimulator::MarkovDistribution']]],
-  ['values',['values',['../structvg_1_1MinimizerIndex_1_1Header.html#aec1df70e1002abd5dd7cb2bb08cfeaa6',1,'vg::MinimizerIndex::Header']]],
   ['var',['var',['../namespacevg.html#afe7fae89b379b5411189ac0ac74b2dd4',1,'vg']]],
   ['variant_5falts',['variant_alts',['../structvg_1_1VG_1_1Plan.html#ad2b28e3a651018396d6c0a1b3377e161',1,'vg::VG::Plan']]],
   ['variant_5ffile',['variant_file',['../classvg_1_1SupportCaller.html#a74478df30c0c02519b875bef8b946d71',1,'vg::SupportCaller']]],
@@ -16,7 +15,7 @@ var searchData=
   ['vars_5fper_5fchunk',['vars_per_chunk',['../classvg_1_1Constructor.html#a7cc8ae0e38492082ba8e886ea174944f',1,'vg::Constructor']]],
   ['vcf_5fto_5ffasta_5frenames',['vcf_to_fasta_renames',['../classvg_1_1NameMapper.html#afd130381fc9ad1a930932e672fda80d1',1,'vg::NameMapper']]],
   ['verbose',['verbose',['../classvg_1_1NestedTraversalFinder.html#a67980934b7315e90dcd63fa046b465b7',1,'vg::NestedTraversalFinder::verbose()'],['../classvg_1_1ReadFilter.html#a2ad1a1b72ee0b450fe79340451893cfa',1,'vg::ReadFilter::verbose()'],['../classvg_1_1SupportCaller.html#a16284074baabe10886ae5e33b2d0e165',1,'vg::SupportCaller::verbose()'],['../classvg_1_1RepresentativeTraversalFinder.html#a6af3519805d1115b006ad8b3bf2d3a3e',1,'vg::RepresentativeTraversalFinder::verbose()']]],
-  ['version',['version',['../structvg_1_1GBWTGraph_1_1Header.html#aa127a2aa6e53ac36d64959a8e2ca8b0b',1,'vg::GBWTGraph::Header::version()'],['../structvg_1_1MinimizerIndex_1_1Header.html#ad9a8e41f6689456029399e62d93457e4',1,'vg::MinimizerIndex::Header::version()'],['../structvg_1_1GBWTGraph_1_1Header.html#a752483451f658a16f9fc3af4341ea9f1',1,'vg::GBWTGraph::Header::VERSION()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a45e53e20bed956dd9fa9cc158767181f',1,'vg::MinimizerIndex::Header::VERSION()'],['../classvg_1_1Version.html#a06ae288f165de69ddbfdec65c217d222',1,'vg::Version::VERSION()']]],
+  ['version',['VERSION',['../classvg_1_1Version.html#a06ae288f165de69ddbfdec65c217d222',1,'vg::Version']]],
   ['vg',['vg',['../classvg_1_1FlowSort.html#abd481c5b9e6c9c5aeaf846652dd3c76f',1,'vg::FlowSort']]],
   ['vg_5ffilename',['vg_filename',['../classvg_1_1IndexedVG.html#a0399d7902920da48ad515ef358aa65e0',1,'vg::IndexedVG']]],
   ['visit',['visit',['../structvg_1_1SnarlTraversal.html#aff14559c1e4fb55bdf87320f3a4ee636',1,'vg::SnarlTraversal']]]

@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['w',['w',['../structvg_1_1mi_1_1CircularBuffer.html#aa81bf4bb0269556a3efe2dd7b98aae1e',1,'vg::mi::CircularBuffer::w()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2b542039bca049dbf1693af05f5344cc',1,'vg::MinimizerIndex::Header::w()'],['../classvg_1_1MinimizerIndex.html#a5630bef68a98414984b8d8dcaa58520e',1,'vg::MinimizerIndex::w()']]],
   ['wabbit_5fmap',['wabbit_map',['../classVectorizer.html#abc8fdb5dcd0ccc39c2b042633ef6820e',1,'Vectorizer']]],
   ['wabbitize',['wabbitize',['../classVectorizer.html#ae4c3627b5c8ec7b066f5735ca6dfb3f1',1,'Vectorizer']]],
   ['wait_5ffor_5fregion',['wait_for_region',['../classvg_1_1GraphSynchronizer.html#a7f9e68c4e2172bc4a5c7040272a59d38',1,'vg::GraphSynchronizer']]],
@@ -37,7 +36,7 @@ var searchData=
   ['wideningprng',['WideningPRNG',['../classvg_1_1WideningPRNG.html#a5437179a5230df00551a618df6bc4c53',1,'vg::WideningPRNG']]],
   ['wideningprng',['WideningPRNG',['../classvg_1_1WideningPRNG.html',1,'vg']]],
   ['widget',['WIDGET',['../namespacevg_1_1subcommand.html#a98d12492502a2d7f7c46386d2faed838afa639842a4d69790c890c94b80e27792',1,'vg::subcommand']]],
-  ['window_5flength',['window_length',['../classvg_1_1Filter.html#ad719ad4c073cbe1298c9911e1c1cb329',1,'vg::Filter::window_length()'],['../classvg_1_1MinimizerIndex.html#a5c8618f8d827022b935857a360e8d054',1,'vg::MinimizerIndex::WINDOW_LENGTH()']]],
+  ['window_5flength',['window_length',['../classvg_1_1Filter.html#ad719ad4c073cbe1298c9911e1c1cb329',1,'vg::Filter']]],
   ['window_5fof_5fid',['window_of_id',['../classvg_1_1StreamIndexBase.html#a320b27d89fbc1a74574cc00befe1e7fe',1,'vg::StreamIndexBase']]],
   ['window_5fshift',['WINDOW_SHIFT',['../classvg_1_1StreamIndexBase.html#abfcccdbb508967165d185181eb95588a',1,'vg::StreamIndexBase']]],
   ['window_5fsize',['window_size',['../classvg_1_1WindowedVcfBuffer.html#a898deb05050ba62533e294b7cf959fe3',1,'vg::WindowedVcfBuffer']]],

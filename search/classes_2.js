@@ -5,7 +5,6 @@ var searchData=
   ['cactussnarlfinder',['CactusSnarlFinder',['../classvg_1_1CactusSnarlFinder.html',1,'vg']]],
   ['chainindex',['ChainIndex',['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html',1,'vg::MinimumDistanceIndex']]],
   ['chainiterator',['ChainIterator',['../structvg_1_1ChainIterator.html',1,'vg']]],
-  ['circularbuffer',['CircularBuffer',['../structvg_1_1mi_1_1CircularBuffer.html',1,'vg::mi']]],
   ['colors',['Colors',['../classvg_1_1Colors.html',1,'vg']]],
   ['configurable',['Configurable',['../classvg_1_1Configurable.html',1,'vg']]],
   ['configurableparser',['ConfigurableParser',['../classvg_1_1ConfigurableParser.html',1,'vg']]],
