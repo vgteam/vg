@@ -108,15 +108,6 @@ protected:
     SnarlSeedClusterer clusterer;
     
     /**
-     * Estimate the score it may be possible to achieve using the given group of GaplessExtensions.
-     * Supports single full-length extensions and groups that need chaining.
-     * May reorder the input extended_seeds vector if it is not sorted in read space.
-     * Is not always an overestimate of the actual score.
-     * Input extended seeds must be sorted by start position.
-     */
-    int estimate_extension_group_score(const Alignment& aln, const vector<GaplessExtension>& extended_seeds) const;
-    
-    /**
      * Score the given group of gapless extensions. Determines the best score
      * that can be obtained by chaining extensions together, using the given
      * gap open and gap extend penalties to charge for either overlaps or gaps
