@@ -97,6 +97,63 @@ TEST_CASE("MinimizerMapper::score_extension_group works", "[giraffe][mapping]") 
             REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 11);
         }
     }
+    
+    SECTION("Many possibly overlapping extensions work") {
+    
+        to_score.emplace_back();
+        to_score.back().read_interval.first = 0;
+        to_score.back().read_interval.second = 1;
+        to_score.back().score = 1;
+    
+        for (size_t i = 0; i < 35; i++) {
+        
+            to_score.emplace_back();
+            to_score.back().read_interval.first = i + 1;
+            to_score.back().read_interval.second = i + 1 + 30;
+            to_score.back().score = 30;
+        
+        }
+    
+        
+        
+        SECTION("Score of one 1-base extensions and 2 30-base extensions is 61") {
+            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 61);
+        }
+        
+        to_score.emplace_back();
+        to_score.back().read_interval.first = 28;
+        to_score.back().read_interval.second = 28 + 45;
+        to_score.back().score = 45;
+        
+        // Sort by read interval as is required
+        std::sort(to_score.begin(), to_score.end(), [](const GaplessExtension& a, const GaplessExtension& b) {
+            return (a.read_interval.first < b.read_interval.first) ||
+                (a.read_interval.first == b.read_interval.first && a.read_interval.second < b.read_interval.second);
+        });
+        
+        SECTION("Score of one 1-base extension, a 30-base extension, a backtrack of 4, and a 45-base extension is correct") {
+            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == (31 + 45 - 6 - 3));
+        }
+        
+        
+        for (size_t i = 3; i < 29; i++) {
+             to_score.emplace_back();
+            to_score.back().read_interval.first = i;
+            to_score.back().read_interval.second = i + 15;
+            to_score.back().score = 15;
+        }
+        
+        // Sort by read interval as is required
+        std::sort(to_score.begin(), to_score.end(), [](const GaplessExtension& a, const GaplessExtension& b) {
+            return (a.read_interval.first < b.read_interval.first) ||
+                (a.read_interval.first == b.read_interval.first && a.read_interval.second < b.read_interval.second);
+        });
+        
+        SECTION("Score of one 1-base extension, a 30-base extension, a backtrack of 4, and a 45-base extension is not distracted") {
+            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == (31 + 45 - 6 - 3));
+        }
+    
+    }
 }
 
 
