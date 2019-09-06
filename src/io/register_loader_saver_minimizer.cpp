@@ -6,7 +6,7 @@
 #include <vg/io/registry.hpp>
 #include "register_loader_saver_minimizer.hpp"
 
-#include "../minimizer.hpp"
+#include <gbwtgraph/minimizer.h>
 
 namespace vg {
 
@@ -16,15 +16,15 @@ using namespace std;
 using namespace vg::io;
 
 void register_loader_saver_minimizer() {
-    Registry::register_bare_loader_saver<MinimizerIndex>("MinimizerIndex", [](istream& input) -> void* {
-        MinimizerIndex* index = new MinimizerIndex();
-        index->load(input);
+    Registry::register_bare_loader_saver<gbwtgraph::MinimizerIndex>("MinimizerIndex", [](istream& input) -> void* {
+        gbwtgraph::MinimizerIndex* index = new gbwtgraph::MinimizerIndex();
+        index->deserialize(input);
         
         // Return the index so the caller owns it.
         return static_cast<void*>(index);
     }, [](const void* index_void, ostream& output) {
         assert(index_void != nullptr);
-        static_cast<const MinimizerIndex*>(index_void)->serialize(output);
+        static_cast<const gbwtgraph::MinimizerIndex*>(index_void)->serialize(output);
     });
 }
 
