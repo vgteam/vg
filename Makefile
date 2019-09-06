@@ -89,6 +89,21 @@ ifeq ($(shell uname -s),Darwin)
         INCLUDE_FLAGS += -I/opt/local/include/libomp
     else
         CXXFLAGS += -fopenmp
+
+        # The compiler is (probably?) GNU GCC
+        # On Mac, we need to make sure to configure it to use libc++ like
+        # Clang, and not GNU libstdc++.
+        # Otherwise, we won't be able to use any C++ system libraries from
+        # Homebrew or Macports, which will be built against libc++.
+
+        # See https://stackoverflow.com/q/22228208
+
+        # TODO: ID compiler more reliably instead of depending on it not having OpenMP...
+
+        # Find includes using Clang
+        LIBCXX_INCLUDES := $(shell clang++ -print-search-dirs | perl -ne 's{^libraries: =(.*)}{$1/../../../} && print')
+        # Use them and libc++ and not the normal standard library
+        CXXFLAGS := -isystem $(LIBCXX_INCLUDES)/include/c++/v1 -nostdinc++ -nodefaultlibs -lc -lc++ -lc++abi -lgcc_s.1 -Wl,-no_compact_unwind $(CXXFLAGS)
     endif
 	
     # Note shared libraries are dylibs
@@ -121,6 +136,9 @@ else
     END_STATIC = -Wl,-Bdynamic
 	
 endif
+
+# Propagate CXXFLAGS to child makes and other build processes
+export CXXFLAGS
 
 # These libs need to come after libdw if used, because libdw depends on them
 LD_LIB_FLAGS += -ldl -llzma
