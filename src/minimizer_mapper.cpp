@@ -72,7 +72,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Compute minimizer scores for all minimizers as 1 + ln(hard_hit_cap) - ln(hits).
     std::vector<double> minimizer_score(minimizers.size(), 0.0);
     double base_target_score = 0.0;
-    size_t fewest_hits = numeric_limits<size_t>::max()
+    size_t fewest_hits = numeric_limits<size_t>::max();
     for (size_t i = 0; i < minimizers.size(); i++) {
         size_t hits = minimizer_index.count(minimizers[i]);
         fewest_hits = min(fewest_hits, hits); 
