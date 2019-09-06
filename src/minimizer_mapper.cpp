@@ -72,8 +72,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Compute minimizer scores for all minimizers as 1 + ln(hard_hit_cap) - ln(hits).
     std::vector<double> minimizer_score(minimizers.size(), 0.0);
     double base_target_score = 0.0;
+    size_t fewest_hits = numeric_limits<size_t>::max()
     for (size_t i = 0; i < minimizers.size(); i++) {
         size_t hits = minimizer_index.count(minimizers[i]);
+        fewest_hits = min(fewest_hits, hits); 
         if (hits > 0) {
             if (hits <= hard_hit_cap) {
                 minimizer_score[i] = 1.0 + std::log(hard_hit_cap) - std::log(hits);
@@ -109,7 +111,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // of the selected minimizers is not high enough.
         size_t hits = minimizer_index.count(minimizers[minimizer_num]);
         
-        if ( hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
+        if ( hits <= hit_cap || ((hits <= hard_hit_cap || fewest_hits > hard_hit_cap) && selected_score + minimizer_score[minimizer_num] <= target_score)) {
             // Locate the hits.
             for (auto& hit : minimizer_index.find(minimizers[minimizer_num])) {
                 // Reverse the hits for a reverse minimizer
@@ -136,7 +138,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             if (track_provenance) {
                 funnel.pass("hard-hit-cap", minimizer_num);
                 funnel.fail("hit-cap||score-fraction", minimizer_num, (selected_score + minimizer_score[minimizer_num]) / base_target_score);
-
             }
         } else {
             // Failed hard hit cap
