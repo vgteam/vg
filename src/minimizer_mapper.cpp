@@ -365,8 +365,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         
         auto& extensions = cluster_extensions[i];
         // Work out the score of the best chain of extensions, accounting for gaps/overlaps in the read only
-        // TODO: Get these score values from the AlignerClient API
-        cluster_extension_scores.push_back(score_extension_group(aln, extensions, 6, 1));
+        cluster_extension_scores.push_back(score_extension_group(aln, extensions,
+            get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension));
         
         if (track_provenance) {
             // Record the score with the funnel
