@@ -5,6 +5,8 @@
 #include "../packer.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+#include <handlegraph/handle_graph.hpp>
+#include <bdsg/vectorizable_overlays.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -15,7 +17,7 @@ using namespace vg::subcommand;
 void help_pack(char** argv) {
     cerr << "usage: " << argv[0] << " pack [options]" << endl
          << "options:" << endl
-         << "    -x, --xg FILE          use this basis graph" << endl
+         << "    -x, --xg FILE          use this basis graph (any format accepted, does not have to be xg)" << endl
          << "    -o, --packs-out FILE   write compressed coverage packs to this output file" << endl
          << "    -i, --packs-in FILE    begin by summing coverage packs from each provided FILE" << endl
          << "    -g, --gam FILE         read alignments from this file (could be '-' for stdin)" << endl
@@ -29,6 +31,7 @@ void help_pack(char** argv) {
          << "    -Q, --min-mapq N       ignore reads with MAPQ < N and positions with base quality < N [default: 0]" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
+
 
 int main_pack(int argc, char** argv) {
 
@@ -136,12 +139,35 @@ int main_pack(int argc, char** argv) {
 
     omp_set_num_threads(thread_count);
 
-    unique_ptr<PathPositionHandleGraph> xgidx;
+    unique_ptr<HandleGraph> handle_graph;
+    unique_ptr<VectorizableHandleGraph> vec_graph;
+    HandleGraph* graph = nullptr;
     if (xg_name.empty()) {
-        cerr << "No XG index given. An XG index must be provided." << endl;
+        cerr << "error [vg pack]: No basis graph given. One must be provided with -x." << endl;
         exit(1);
     } else {
-        xgidx = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
+        handle_graph = vg::io::VPKG::load_one<HandleGraph>(xg_name);
+    }
+
+    // switch over to the vectorizable interface, creating an overlay if necessary
+    // "handle_graph" shouldn't be used after this
+    VectorizableHandleGraph* vectorizable_graph = dynamic_cast<VectorizableHandleGraph*>(handle_graph.get());
+    if (vectorizable_graph != nullptr) {
+        handle_graph.release();
+    } else {
+        vectorizable_graph = new bdsg::VectorizableOverlay(handle_graph.get());
+    }
+    vec_graph = unique_ptr<VectorizableHandleGraph>(vectorizable_graph);
+    graph = dynamic_cast<HandleGraph*>(vec_graph.get());
+
+    if (gam_in.empty() && packs_in.empty()) {
+        cerr << "error [vg pack]: Input must be provided with -g or -i" << endl;
+        exit(1);
+    }
+
+    if (packs_out.empty() && write_table == false && write_edge_table == false) {
+        cerr << "error [vg pack]: Output must be selected with -o, -d or -D" << endl;
+        exit(1);
     }
 
     // process input node list
@@ -163,7 +189,7 @@ int main_pack(int argc, char** argv) {
 
     // todo one packer per thread and merge
 
-    vg::Packer packer(xgidx.get(), bin_size, qual_adjust, min_mapq, min_baseq);
+    vg::Packer packer(graph, bin_size, qual_adjust, min_mapq, min_baseq);
     if (packs_in.size() == 1) {
         packer.load_from_file(packs_in.front());
     } else if (packs_in.size() > 1) {
@@ -176,7 +202,7 @@ int main_pack(int argc, char** argv) {
             packers.push_back(&packer);
         } else {
             for (size_t i = 0; i < thread_count; ++i) {
-                packers.push_back(new Packer(xgidx.get(), bin_size, qual_adjust, min_mapq, min_baseq));
+                packers.push_back(new Packer(graph, bin_size, qual_adjust, min_mapq, min_baseq));
             }
         }
         std::function<void(Alignment&)> lambda = [&packer,&record_edits,&packers](Alignment& aln) {
