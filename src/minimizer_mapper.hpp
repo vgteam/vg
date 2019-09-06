@@ -7,7 +7,6 @@
  */
 
 #include "aligner.hpp"
-#include "minimizer.hpp"
 #include "alignment_emitter.hpp"
 #include "gapless_extender.hpp"
 #include "snarls.hpp"
@@ -16,6 +15,7 @@
 #include "tree_subgraph.hpp"
 #include "algorithms/nearest_offsets_in_paths.hpp"
 
+#include <gbwtgraph/minimizer.h>
 #include <structures/immutable_list.hpp>
 
 namespace vg {
@@ -30,7 +30,7 @@ public:
      * as we only use it for correctness tracking.
      */
 
-    MinimizerMapper(const GBWTGraph& graph, const MinimizerIndex& minimizer_index,
+    MinimizerMapper(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::MinimizerIndex& minimizer_index,
          MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
@@ -95,11 +95,11 @@ public:
 protected:
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
-    const MinimizerIndex& minimizer_index;
+    const gbwtgraph::MinimizerIndex& minimizer_index;
     MinimumDistanceIndex& distance_index;
 
     /// This is our primary graph.
-    const GBWTGraph& gbwt_graph;
+    const gbwtgraph::GBWTGraph& gbwt_graph;
     
     /// We have a gapless extender to extend seed hits in haplotype space.
     GaplessExtender extender;

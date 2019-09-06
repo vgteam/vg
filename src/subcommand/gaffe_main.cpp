@@ -17,12 +17,13 @@
 #include "../seed_clusterer.hpp"
 #include "../mapper.hpp"
 #include "../annotation.hpp"
-#include "../minimizer.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include "../alignment_emitter.hpp"
 #include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
+
+#include <gbwtgraph/minimizer.h>
 
 //#define USE_CALLGRIND
 
@@ -403,7 +404,7 @@ int main_gaffe(int argc, char** argv) {
     if (progress) {
         cerr << "Loading minimizer index " << minimizer_name << endl;
     }
-    unique_ptr<MinimizerIndex> minimizer_index = vg::io::VPKG::load_one<MinimizerIndex>(minimizer_name);
+    unique_ptr<gbwtgraph::MinimizerIndex> minimizer_index = vg::io::VPKG::load_one<gbwtgraph::MinimizerIndex>(minimizer_name);
 
     if (progress) {
         cerr << "Loading distance index " << distance_name << endl;
@@ -414,17 +415,17 @@ int main_gaffe(int argc, char** argv) {
     //unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     
     // Build or load the GBWTGraph.
-    unique_ptr<GBWTGraph> gbwt_graph = nullptr;
+    unique_ptr<gbwtgraph::GBWTGraph> gbwt_graph = nullptr;
     if (graph_name.empty()) {
         if (progress) {
             cerr << "Building GBWTGraph" << endl;
         }
-        gbwt_graph.reset(new GBWTGraph(*gbwt_index, *xg_index));
+        gbwt_graph.reset(new gbwtgraph::GBWTGraph(*gbwt_index, *xg_index));
     } else {
         if (progress) {
             cerr << "Loading GBWTGraph " << graph_name << endl;
         }
-        gbwt_graph = vg::io::VPKG::load_one<GBWTGraph>(graph_name);
+        gbwt_graph = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(graph_name);
         gbwt_graph->set_gbwt(*gbwt_index);
     }
 

@@ -36,7 +36,7 @@ INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_S
 # Define libraries to link against. Make sure to always link statically against
 # htslib and libdeflate and Protobuf so that we can use position-dependent code
 # there for speed.
-LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) $(CWD)/$(LIB_DIR)/libvgio.a -lhandlegraph -lvcflib -lgssw -lssw $(CWD)/$(LIB_DIR)/libprotobuf.a -lsublinearLS $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -lstructures -lvw -lboost_program_options -lallreduce -lbdsg
+LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) $(CWD)/$(LIB_DIR)/libvgio.a -lhandlegraph -lvcflib -lgssw -lssw $(CWD)/$(LIB_DIR)/libprotobuf.a -lsublinearLS $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lpthread -ljansson -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -lstructures -lvw -lboost_program_options -lallreduce -lbdsg
 # Use pkg-config to find Cairo and all the libs it uses
 LD_LIB_FLAGS += $(shell pkg-config --libs --static cairo jansson)
 
@@ -184,6 +184,7 @@ SNAPPY_DIR:=deps/snappy
 ROCKSDB_DIR:=deps/rocksdb
 GCSA2_DIR:=deps/gcsa2
 GBWT_DIR:=deps/gbwt
+GBWTGRAPH_DIR=deps/gbwtgraph
 PROGRESS_BAR_DIR:=deps/progress_bar
 FASTAHACK_DIR:=deps/fastahack
 FERMI_DIR:=deps/fermi-lite
@@ -227,6 +228,7 @@ LIB_DEPS += $(LIB_DIR)/libsnappy.a
 LIB_DEPS += $(LIB_DIR)/librocksdb.a
 LIB_DEPS += $(LIB_DIR)/libgcsa2.a
 LIB_DEPS += $(LIB_DIR)/libgbwt.a
+LIB_DEPS += $(LIB_DIR)/libgbwtgraph.a
 LIB_DEPS += $(LIB_DIR)/libhts.a
 LIB_DEPS += $(LIB_DIR)/libvcflib.a
 LIB_DEPS += $(LIB_DIR)/libgssw.a
@@ -259,6 +261,7 @@ endif
 DEPS = $(LIB_DEPS)
 DEPS += $(INC_DIR)/gcsa/gcsa.h
 DEPS += $(INC_DIR)/gbwt/dynamic_gbwt.h
+DEPS += $(INC_DIR)/gbwtgraph/gbwtgraph.h
 DEPS += $(INC_DIR)/lru_cache.h
 DEPS += $(INC_DIR)/dynamic.hpp
 DEPS += $(INC_DIR)/sparsehash/sparse_hash_map
@@ -360,6 +363,15 @@ ifeq ($(shell uname -s),Darwin)
 	+. ./source_me.sh && cp -r $(GBWT_DIR)/include/gbwt $(CWD)/$(INC_DIR)/ && cd $(GBWT_DIR) && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) $(FILTER) && mv libgbwt.a $(CWD)/$(LIB_DIR)
 else
 	+. ./source_me.sh && cp -r $(GBWT_DIR)/include/gbwt $(CWD)/$(INC_DIR)/ && cd $(GBWT_DIR) && $(MAKE) $(FILTER) && mv libgbwt.a $(CWD)/$(LIB_DIR)
+endif
+
+$(INC_DIR)/gbwtgraph/gbwtgraph.h: $(LIB_DIR)/libgbwtgraph.a
+
+$(LIB_DIR)/libgbwtgraph.a: $(LIB_DIR)/libgbwt.a $(LIB_DIR)/libsdsl.a $(wildcard $(GBWTGRAPH_DIR)/*.cpp) $(wildcard $(GBWTGRAPH_DIR)/include/gbwtgraph/*.h)
+ifeq ($(shell uname -s),Darwin)
+	+. ./source_me.sh && cp -r $(GBWTGRAPH_DIR)/include/gbwtgraph $(CWD)/$(INC_DIR)/ && cd $(GBWTGRAPH_DIR) && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) $(FILTER) && mv libgbwtgraph.a $(CWD)/$(LIB_DIR)
+else
+	+. ./source_me.sh && cp -r $(GBWTGRAPH_DIR)/include/gbwtgraph $(CWD)/$(INC_DIR)/ && cd $(GBWTGRAPH_DIR) && $(MAKE) $(FILTER) && mv libgbwtgraph.a $(CWD)/$(LIB_DIR)
 endif
 
 $(INC_DIR)/progress_bar.hpp: $(PROGRESS_BAR_DIR)/progress_bar.hpp
@@ -670,6 +682,7 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	cd $(DEP_DIR) && cd fastahack && $(MAKE) clean
 	cd $(DEP_DIR) && cd gcsa2 && $(MAKE) clean
 	cd $(DEP_DIR) && cd gbwt && $(MAKE) clean
+	cd $(DEP_DIR) && cd gbwtgraph && $(MAKE) clean
 	cd $(DEP_DIR) && cd gssw && $(MAKE) clean
 	cd $(DEP_DIR) && cd ssw && cd src && $(MAKE) clean
 	cd $(DEP_DIR) && cd progress_bar && $(MAKE) clean
