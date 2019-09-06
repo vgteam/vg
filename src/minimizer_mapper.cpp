@@ -109,7 +109,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // of the selected minimizers is not high enough.
         size_t hits = minimizer_index.count(minimizers[minimizer_num]);
         
-        if ( hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score+0.000001)) {
+        if ( hits <= hit_cap || (double) i <= (double) minimizers.size() * (2.0/3.0) || 
+            (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score+0.000001)) {
             // Locate the hits.
             for (auto& hit : minimizer_index.find(minimizers[minimizer_num])) {
                 // Reverse the hits for a reverse minimizer
