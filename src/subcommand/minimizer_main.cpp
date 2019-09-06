@@ -24,9 +24,6 @@
  *   minimizers can start.
  */
 
-#include "../gapless_extender.hpp"
-#include "../gbwt_helper.hpp"
-#include "../minimizer.hpp"
 #include "subcommand.hpp"
 
 #include <vg/io/vpkg.hpp>
@@ -36,6 +33,12 @@
 
 #include <getopt.h>
 #include <omp.h>
+
+#include <gbwtgraph/gbwtgraph.h>
+#include <gbwtgraph/minimizer.h>
+
+#include "../handle.hpp"
+#include "../utility.hpp"
 
 using namespace vg;
 using namespace vg::subcommand;
@@ -50,8 +53,8 @@ void help_minimizer(char** argv) {
     std::cerr << "    -i, --index-name X     store the index to file X" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Minimizer options:" << std::endl;
-    std::cerr << "    -k, --kmer-length N    length of the kmers in the index (default: " << MinimizerIndex::KMER_LENGTH << ")" << std::endl;
-    std::cerr << "    -w, --window-length N  index the smallest kmer in a window of N kmers (default: " << MinimizerIndex::WINDOW_LENGTH << ")" << std::endl;
+    std::cerr << "    -k, --kmer-length N    length of the kmers in the index (default: " << gbwtgraph::MinimizerIndex::KMER_LENGTH << ")" << std::endl;
+    std::cerr << "    -w, --window-length N  index the smallest kmer in a window of N kmers (default: " << gbwtgraph::MinimizerIndex::WINDOW_LENGTH << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -l, --load-index X     load the index from file X and insert the new kmers into it" << std::endl;
@@ -70,8 +73,8 @@ int main_minimizer(int argc, char** argv) {
     }
 
     // Command-line options.
-    size_t kmer_length = MinimizerIndex::KMER_LENGTH;
-    size_t window_length = MinimizerIndex::WINDOW_LENGTH;
+    size_t kmer_length = gbwtgraph::MinimizerIndex::KMER_LENGTH;
+    size_t window_length = gbwtgraph::MinimizerIndex::WINDOW_LENGTH;
     std::string index_name, load_index, gbwt_name, graph_name;
     bool is_gbwt_graph = false;
     bool progress = false;
@@ -154,12 +157,12 @@ int main_minimizer(int argc, char** argv) {
     std::unique_ptr<gbwt::GBWT> gbwt_index(vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name));
 
     // GBWTGraph.
-    std::unique_ptr<GBWTGraph> gbwt_graph;
+    std::unique_ptr<gbwtgraph::GBWTGraph> gbwt_graph;
     if (is_gbwt_graph) {
         if (progress) {
             std::cerr << "Loading GBWTGraph " << graph_name << std::endl;
         }
-        gbwt_graph = vg::io::VPKG::load_one<GBWTGraph>(graph_name);
+        gbwt_graph = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(graph_name);
         gbwt_graph->set_gbwt(*gbwt_index);
     } else {
         if (progress) {
@@ -169,77 +172,23 @@ int main_minimizer(int argc, char** argv) {
         if (progress) {
             std::cerr << "Building GBWTGraph" << std::endl;
         }
-        gbwt_graph.reset(new GBWTGraph(*gbwt_index, *input_graph));
+        gbwt_graph.reset(new gbwtgraph::GBWTGraph(*gbwt_index, *input_graph));
     }
 
     // Minimizer index.
-    std::unique_ptr<MinimizerIndex> index(new MinimizerIndex(kmer_length, window_length));
+    std::unique_ptr<gbwtgraph::MinimizerIndex> index(new gbwtgraph::MinimizerIndex(kmer_length, window_length));
     if (!load_index.empty()) {
         if (progress) {
             std::cerr << "Loading MinimizerIndex " << load_index << std::endl;
         }
-        index = vg::io::VPKG::load_one<MinimizerIndex>(load_index);
+        index = vg::io::VPKG::load_one<gbwtgraph::MinimizerIndex>(load_index);
     }
-
-    // Minimizer caching.
-    std::vector<std::vector<std::pair<MinimizerIndex::minimizer_type, pos_t>>> cache(threads);
-    constexpr size_t MINIMIZER_CACHE_SIZE = 1024;
-    auto flush_cache = [&](int thread_id) {
-        gbwt::removeDuplicates(cache[thread_id], false);
-        #pragma omp critical (minimizer_index)
-        {
-            for (auto& hit : cache[thread_id]) {
-                index->insert(hit.first, hit.second);
-            }
-        }
-        cache[thread_id].clear();
-    };
 
     // Build the index.
     if (progress) {
         std::cerr << "Building MinimizerIndex" << std::endl;
     }
-    auto lambda = [&](const std::vector<handle_t>& traversal, const std::string& seq) {
-        std::vector<MinimizerIndex::minimizer_type> minimizers = index->minimizers(seq);
-        auto iter = traversal.begin();
-        size_t node_start = 0;
-        int thread_id = omp_get_thread_num();
-        for (MinimizerIndex::minimizer_type& minimizer : minimizers) {
-            if (minimizer.empty()) {
-                continue;
-            }
-            // Find the node covering minimizer starting position.
-            size_t node_length = gbwt_graph->get_length(*iter);
-            while (node_start + node_length <= minimizer.offset) {
-                node_start += node_length;
-                ++iter;
-                node_length = gbwt_graph->get_length(*iter);
-            }
-            pos_t pos { gbwt_graph->get_id(*iter), gbwt_graph->get_is_reverse(*iter), minimizer.offset - node_start };
-            if (minimizer.is_reverse) {
-                pos = reverse_base_pos(pos, node_length);
-            }
-            if (!MinimizerIndex::valid_offset(pos)) {
-                #pragma omp critical (cerr)
-                {
-                    std::cerr << "error: [vg minimizer] node offset " << offset(pos) << " is too large" << std::endl;
-                }
-                std::exit(EXIT_FAILURE);
-            }
-            cache[thread_id].emplace_back(minimizer, pos);
-        }
-        if (cache[thread_id].size() >= MINIMIZER_CACHE_SIZE) {
-            flush_cache(thread_id);
-        }
-    };
-    // We do a lot of redundant work by traversing both orientations and finding almost the same minimizers
-    // in each orientation. If we consider only the windows starting in forward (reverse) orientation,
-    // we may skip windows that cross from a reverse node to a forward node (from a forward node to a
-    // reverse node).
-    for_each_haplotype_window(*gbwt_graph, index->k() + index->w() - 1, lambda, (threads > 1));
-    for (int thread_id = 0; thread_id < threads; thread_id++) {
-        flush_cache(thread_id);
-    }
+    gbwtgraph::index_haplotypes(*gbwt_graph, *index);
     gbwt_graph.reset(nullptr);
     gbwt_index.reset(nullptr);
 
