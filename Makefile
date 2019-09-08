@@ -213,8 +213,8 @@ LIBVGIO_DIR:=deps/libvgio
 LIBHANDLEGRAPH_DIR:=deps/libhandlegraph
 LIBBDSG_DIR:=deps/libbdsg
 XG_DIR:=deps/xg
-MMMULTIMAP_DIR=deps/mmmultimap
-IPS4O_DIR=deps/ips4o
+MMMULTIMAP_DIR=deps/xg/mmmultimap-prefix/src/mmmultimap
+IPS4O_DIR=deps/xg/ips4o-prefix/src/ips4o
 
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
