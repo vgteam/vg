@@ -53,12 +53,10 @@ ifeq ($(shell uname -s),Darwin)
         # Use /opt/local/lib if present
         LD_LIB_FLAGS += -L/opt/local/lib
     endif
-
     ifeq ($(shell if [ -d /usr/local/lib ];then echo 1;else echo 0;fi), 1)
         # Use /usr/local/lib if present.
         LD_LIB_FLAGS += -L/usr/local/lib
     endif
-    
     ifeq ($(shell if [ -d /usr/local/include ];then echo 1;else echo 0;fi), 1)
         # Use /usr/local/include to the end of the include search path.
         INCLUDE_FLAGS += -I /usr/local/include
@@ -95,12 +93,10 @@ ifeq ($(shell uname -s),Darwin)
     else
         CXXFLAGS += -fopenmp
     endif
-	
     # Note shared libraries are dylibs
     SHARED_SUFFIX = dylib
-    
     # Define options to start and end static linking of libraries.
-	# We don't actually do any static linking on Mac, so we leave these empty.
+    # We don't actually do any static linking on Mac, so we leave these empty.
     START_STATIC =
     END_STATIC =
 
@@ -117,14 +113,11 @@ else
 
     # We get OpenMP the normal way, using whatever the compiler knows about
     CXXFLAGS += -fopenmp
-	
     # Note shared libraries are so files
     SHARED_SUFFIX = so
-    
-	# Define options to start and end static linking of libraries on GNU ld
+    # Define options to start and end static linking of libraries on GNU ld
     START_STATIC = -Wl,-Bstatic
     END_STATIC = -Wl,-Bdynamic
-	
 endif
 
 # These libs need to come after libdw if used, because libdw depends on them
@@ -213,8 +206,8 @@ LIBVGIO_DIR:=deps/libvgio
 LIBHANDLEGRAPH_DIR:=deps/libhandlegraph
 LIBBDSG_DIR:=deps/libbdsg
 XG_DIR:=deps/xg
-MMMULTIMAP_DIR=deps/xg/mmmultimap-prefix/src/mmmultimap
-IPS4O_DIR=deps/xg/ips4o-prefix/src/ips4o
+MMMULTIMAP_DIR=deps/xg/build/mmmultimap-prefix/src/mmmultimap
+IPS4O_DIR=deps/xg/build/ips4o-prefix/src/ips4o
 
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
@@ -288,7 +281,7 @@ DEPS += $(INC_DIR)/raptor2/raptor2.h
 LINK_DEPS =
 
 ifneq ($(shell uname -s),Darwin)
-	# Use jemalloc
+    # Use jemalloc
 	LINK_DEPS += $(LIB_DIR)/libjemalloc.a
 	LD_LIB_FLAGS += -ljemalloc
 endif
@@ -417,7 +410,7 @@ $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp
 # The xg repo has a cmake build system based all around external projects, and
 # we need it to use our installed versions of everything instead.
 $(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp
-	+. ./source_me.sh && cd $(XG_DIR) && cmake . && $(MAKE) $(FILTER) && cp lib/libxg.a $(CWD)/$(LIB_DIR) && cp -r src/*hpp $(CWD)/$(INC_DIR)
+	+. ./source_me.sh && cd $(XG_DIR) && cmake -H. -Bbuild && cd build && $(MAKE) $(FILTER) && cd - && cp lib/libxg.a $(CWD)/$(LIB_DIR) && cp -r src/*hpp $(CWD)/$(INC_DIR)
 
 # On Linux, libdeflate builds a .so.
 # On Mac, it *still* builds an so, which is just a dylib with .so extension.
@@ -430,10 +423,10 @@ ifeq ($(shell uname -s),Darwin)
 	+mv $(LIB_DIR)/libdeflate.so $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX)
 	+install_name_tool -id $(CWD)/$(LIB_DIR)/libdeflate.$(SHARED_SUFFIX) $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX)
 endif
-	
+
 $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDEFLATE_DIR)/lib/*/*.h $(LIBDEFLATE_DIR)/lib/*.c $(LIBDEFLATE_DIR)/lib/*/*.c
 	+. ./source_me.sh && cd $(LIBDEFLATE_DIR) && V=1 $(MAKE) $(FILTER) && cp libdeflate.a $(CWD)/$(LIB_DIR) && cp libdeflate.h $(CWD)/$(INC_DIR)
-	
+
 # We build htslib after libdeflate so it can use libdeflate
 # We have to do a full build in order to install, to get the pkg-config file so libvgio can link against it.
 # We also have to have the shared libdeflate or we will get complaints that the static one is not position independent.
@@ -502,7 +495,7 @@ $(INC_DIR)/raptor2/raptor2.h: $(LIB_DIR)/libraptor2.a $(RAPTOR_DIR)/build/*
 
 $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STRUCTURES_DIR)/src/*.cpp $(STRUCTURES_DIR)/Makefile 
 	+. ./source_me.sh && cd $(STRUCTURES_DIR) && $(MAKE) clean && $(MAKE) lib/libstructures.a $(FILTER) && cp lib/libstructures.a $(CWD)/$(LIB_DIR)/ && cp -r src/include/structures $(CWD)/$(INC_DIR)/
-    
+
 # To build libvw we need to point it at our Boost, but then configure decides
 # it needs to build vwdll, which depends on codecvt, which isn't actually
 # shipped in the GCC 4.9 STL. So we hack vwdll AKA libvw_c_wrapper out of the
@@ -533,7 +526,7 @@ $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
 
 $(INC_DIR)/backward.hpp: $(BACKWARD_CPP_DIR)/backward.hpp
 	+cp $(BACKWARD_CPP_DIR)/backward.hpp $(CWD)/$(INC_DIR)/
-	
+
 $(INC_DIR)/dozeu/dozeu.h: $(DOZEU_DIR)/*.h
 	+mkdir -p $(CWD)/$(INC_DIR)/dozeu && cp $(DOZEU_DIR)/*.h $(CWD)/$(INC_DIR)/dozeu/
 
@@ -577,13 +570,13 @@ $(LIB_DIR)/libbdsg.a: $(LIBBDSG_DIR)/src/*.cpp $(LIBBDSG_DIR)/include/bdsg/*.hpp
 GIT_VERSION_FILE_DEPS =
 # Decide if .git exists and needs to be watched
 ifeq ($(shell if [ -d .git ]; then echo present; else echo absent; fi),present)
-	# If so, try and make a git version file
+    # If so, try and make a git version file
 	GIT_VERSION_FILE_DEPS = .check-git
 else
-	# Just use the version file we have, if any
+    # Just use the version file we have, if any
 	GIT_VERSION_FILE_DEPS = .no-git
 endif
- 
+
 # Build a real git version file.
 # If it's not the same as the old one, replace the old one.
 # If it is the same, do nothing and don't rebuild dependent targets.
@@ -591,15 +584,14 @@ endif
 	@echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags 2>/dev/null || echo git-error)\"" > $(INC_DIR)/vg_git_version.hpp.tmp
 	@diff $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp >/dev/null || cp $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp
 	@rm -f $(INC_DIR)/vg_git_version.hpp.tmp
-	
+
 # Make sure the version file exists, if we weren't given one in our tarball
 .no-git:
 	@if [ ! -e $(INC_DIR)/vg_git_version.hpp ]; then \
 		touch $(INC_DIR)/vg_git_version.hpp; \
 	fi;
- 
+
 $(INC_DIR)/vg_git_version.hpp: $(GIT_VERSION_FILE_DEPS)
-	
 # Build an environment version file with this phony target.
 # If it's not the same as the old one, replace the old one.
 # If it is the same, do nothing and don't rebuild dependent targets.
@@ -644,7 +636,7 @@ $(SUBCOMMAND_OBJ): $(SUBCOMMAND_OBJ_DIR)/%.o : $(SUBCOMMAND_SRC_DIR)/%.cpp $(SUB
 $(UNITTEST_OBJ): $(UNITTEST_OBJ_DIR)/%.o : $(UNITTEST_SRC_DIR)/%.cpp $(UNITTEST_OBJ_DIR)/%.d $(DEPS)
 	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -c -o $@ $< $(FILTER)
 	@touch $@
-        
+
 # Use a fake rule to build .d files, so we don't complain if they don't exist.
 $(OBJ_DIR)/%.d: ;
 $(ALGORITHMS_OBJ_DIR)/%.d: ;
@@ -717,8 +709,8 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	cd $(DEP_DIR) && cd libhandlegraph && $(MAKE) clean
 	cd $(DEP_DIR) && cd libvgio && $(MAKE) clean 
 	cd $(DEP_DIR) && cd raptor && cd build && find . -not \( -name '.gitignore' -or -name 'pkg.m4' \) -delete
-	# lru_cache is never built because it is header-only.
-	# bash-tap is never built either.
+    # lru_cache is never built because it is header-only.
+    # bash-tap is never built either.
 
 clean-rocksdb:
 	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean
