@@ -713,8 +713,8 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	cd $(DEP_DIR) && cd libhandlegraph && $(MAKE) clean
 	cd $(DEP_DIR) && cd libvgio && $(MAKE) clean 
 	cd $(DEP_DIR) && cd raptor && cd build && find . -not \( -name '.gitignore' -or -name 'pkg.m4' \) -delete
-    # lru_cache is never built because it is header-only.
-    # bash-tap is never built either.
+    # lru_cache is never built because it is header-only
+    # bash-tap is never built either
 
 clean-rocksdb:
 	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean
