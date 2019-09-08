@@ -406,6 +406,8 @@ $(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp
 # The xg repo has a cmake build system based all around external project, which we will need to consider
 # as it currently requires multiple header files to include xg, due to various templated libraries we use.
 $(INC_DIR)/mmmultiset.hpp $(INC_DIR)/mmmultimap.hpp $(INC_DIR)/ips4o.hpp: $(LIB_DIR)/libxg.a
+	+. ./source_me.sh && cp $(XG_DIR)/build/mmmultimap-prefix/src/mmmultimap/src/*.hpp $(INC_DIR)
+	+. ./source_me.sh && cp -r $(XG_DIR)/build/ips4o-prefix/src/ips4o/ips4o.hpp $(XG_DIR)/build/ips4o-prefix/src/ips4o/ips4o $(INC_DIR)
 
 # On Linux, libdeflate builds a .so.
 # On Mac, it *still* builds an so, which is just a dylib with .so extension.
