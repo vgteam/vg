@@ -422,9 +422,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 for (auto& extension : extensions ) {
                     // The score estimate is exact.
 
-                    if (best_extension.path.front() != extension.path.front() || best_extension.path.back() != extension.path.back()) {
+                    if (best_score == 0 || best_extension.path.front() != extension.path.front() || best_extension.path.back() != extension.path.back()) {
                         int alignment_score = extension.score;
-                        if (best_score == 0 || (alignment_score > best_score)) {
+                        if (alignment_score > best_score) {
                             //If there is not best extension yet or the score is better than the best extension and this is not the same as the best
                             //Swap out second_best_extension
                             second_best_extension = std::move(best_extension);
@@ -433,7 +433,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                             best_score = alignment_score;
                             best_extension = std::move(extension);
 
-                        } else if (second_best_score == 0 || alignment_score > second_best_score) {
+                        } else if (alignment_score > second_best_score) {
                             second_best_extension = std::move(extension);
                             second_best_score = alignment_score;
 
