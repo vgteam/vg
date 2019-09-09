@@ -564,7 +564,7 @@ $(INC_DIR)/ips4o.hpp: $(IPS4O_DIR)/ips4o.hpp $(IPS4O_DIR)/ips4o/*
 
 # The xg repo has a cmake build system based all around external projects, and
 # we need it to use our installed versions of everything instead.
-$(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp $(INC_DIR)/mmmultimap.hpp $(INC_DIR)/ips4o.hpp $(INC_DIR)/gfakluge.hpp 
+$(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp $(INC_DIR)/mmmultimap.hpp $(INC_DIR)/ips4o.hpp $(INC_DIR)/gfakluge.hpp $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/libsdsl.a
 	+rm -f $@
 	+cp -r $(XG_DIR)/src/*.hpp $(CWD)/$(INC_DIR)
 	+. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -c -o $(XG_DIR)/xg.o $(XG_DIR)/src/xg.cpp $(FILTER)
