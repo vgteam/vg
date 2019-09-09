@@ -20,13 +20,13 @@ is $? 0 "default parameters"
 vg minimizer -t 1 -i x.mi -g x.gbwt x.xg
 is $? 0 "single-threaded construction"
 vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
-is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 3b747e7a5295257df113784eacc2cd45 "construction is deterministic"
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 6d173d906b6eead5074f1d7a26464e7c "construction is deterministic"
 
 # Minimizer parameters
 vg minimizer -t 1 -k 7 -w 3 -i x.mi -g x.gbwt x.xg
 is $? 0 "minimizer parameters"
 vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
-is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 9d819f92070083eb887ec6326ab79bcc "setting -k -w works correctly"
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) fd3cea04319fe9ff7eb623788be4b31e "setting -k -w works correctly"
 # FIXME
 
 # Construction from GBWTGraph
@@ -34,7 +34,7 @@ vg gbwt -x x.xg -g x.gg x.gbwt
 vg minimizer -t 1 -g x.gbwt -G -i x.mi x.gg
 is $? 0 "construction from GBWTGraph"
 vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
-is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 3b747e7a5295257df113784eacc2cd45 "construction is deterministic"
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 6d173d906b6eead5074f1d7a26464e7c "construction is deterministic"
 
 rm -f x.vg x.xg x.gbwt x.mi x.extracted.mi x.gg
 
@@ -52,7 +52,7 @@ is $? 0 "multiple graphs: first"
 vg minimizer -t 1 -l x.mi -i xy.mi -g y.gbwt y.xg
 is $? 0 "multiple graphs: second"
 vg view --extract-tag MinimizerIndex xy.mi > xy.extracted.mi
-is $(md5sum xy.extracted.mi | cut -f 1 -d\ ) f44ea421242d99d2c429220b68e78c29 "construction is deterministic"
+is $(md5sum xy.extracted.mi | cut -f 1 -d\ ) f64285d9aeca03551c1a8a48e4c3f654 "construction is deterministic"
 
 rm -f x.vg y.vg
 rm -f x.xg y.xg
