@@ -59,6 +59,6 @@ var searchData=
   ['tumor_5fsupports',['tumor_supports',['../structvg_1_1BREAKPOINT.html#a66f75cad38b9fa5a3aab6b09b7a4ef8a',1,'vg::BREAKPOINT']]],
   ['tvs',['tvs',['../classvg_1_1TVSClusterer.html#ad59ad1a2a88d40a980a7b7fb2cc18a0d',1,'vg::TVSClusterer']]],
   ['type',['type',['../structvg_1_1GFFRecord.html#a0cc4e99f9e73fafafa9be311151ef0d7',1,'vg::GFFRecord::type()'],['../structvg_1_1Snarl.html#a9490890cd7fff85dc32a25cb58d471f6',1,'vg::Snarl::type()']]],
-  ['type_5fto_5fbare_5floader',['type_to_bare_loader',['../structvg_1_1io_1_1Registry_1_1Tables.html#a448ff335e485b7939df9a9d7774d015b',1,'vg::io::Registry::Tables']]],
+  ['type_5fto_5fbare_5floaders',['type_to_bare_loaders',['../structvg_1_1io_1_1Registry_1_1Tables.html#ad4c4147e455c6f3b54a1dea294fc6d03',1,'vg::io::Registry::Tables']]],
   ['type_5fto_5fsaver',['type_to_saver',['../structvg_1_1io_1_1Registry_1_1Tables.html#af3921832709101fdc87cfca00da3f2bf',1,'vg::io::Registry::Tables']]]
 ];

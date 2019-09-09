@@ -67,7 +67,7 @@ var searchData=
   ['find_5fallele_5ftraversals',['find_allele_traversals',['../classvg_1_1VCFTraversalFinder.html#ad660814265b5989408dace8da768edfe',1,'vg::VCFTraversalFinder']]],
   ['find_5fbackbone',['find_backbone',['../classvg_1_1RepresentativeTraversalFinder.html#aacdab17c6c32685e0ed3f8f0c221453e',1,'vg::RepresentativeTraversalFinder']]],
   ['find_5fbanded_5fpaths',['find_banded_paths',['../classvg_1_1BandedGlobalAligner.html#adfad0975f34dcf90211d239ee6c126a8',1,'vg::BandedGlobalAligner']]],
-  ['find_5fbare_5floader',['find_bare_loader',['../classvg_1_1io_1_1Registry.html#ade27037ec2bf98c6cf21628bb5a5b6f0',1,'vg::io::Registry']]],
+  ['find_5fbare_5floaders',['find_bare_loaders',['../classvg_1_1io_1_1Registry.html#a1de8ee65356b2649499fa63e8c5673a6',1,'vg::io::Registry']]],
   ['find_5fbest_5ftraversals',['find_best_traversals',['../classvg_1_1SupportCaller.html#abfd7e51e300c2fe08c5ae08043197786',1,'vg::SupportCaller']]],
   ['find_5fbreakpoints',['find_breakpoints',['../namespacevg.html#a24e2a2fd382d2e28a13b8bf96a01cf7c',1,'vg']]],
   ['find_5fbubble',['find_bubble',['../classvg_1_1NestedTraversalFinder.html#ad9fd7aef8b98fdc56b429e4613113c6f',1,'vg::NestedTraversalFinder::find_bubble()'],['../classvg_1_1RepresentativeTraversalFinder.html#ad8cc120dc63491eadfdc7b00cd1dc519',1,'vg::RepresentativeTraversalFinder::find_bubble()']]],

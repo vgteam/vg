@@ -121,6 +121,9 @@ Static Public Member Functions</h2></td></tr>
 <tr class="memitem:aab501bb8db46d45e8b1946da37f0b382"><td class="memTemplParams" colspan="2">template&lt;typename Handled , typename... Bases&gt; </td></tr>
 <tr class="memitem:aab501bb8db46d45e8b1946da37f0b382"><td class="memTemplItemLeft" align="right" valign="top">static void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#aab501bb8db46d45e8b1946da37f0b382">register_bare_loader_saver</a> (const string &amp;tag, <a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a> loader, <a class="el" href="namespacevg_1_1io.html#af8c1fde642062992c5179d67196ee4f2">bare_save_function_t</a> saver)</td></tr>
 <tr class="separator:aab501bb8db46d45e8b1946da37f0b382"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad3f16de5d24cb503429d358e2af8c831"><td class="memTemplParams" colspan="2">template&lt;typename Handled , typename... Bases&gt; </td></tr>
+<tr class="memitem:ad3f16de5d24cb503429d358e2af8c831"><td class="memTemplItemLeft" align="right" valign="top">static void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#ad3f16de5d24cb503429d358e2af8c831">register_bare_loader_saver_with_magic</a> (const string &amp;tag, const string &amp;magic, <a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a> loader, <a class="el" href="namespacevg_1_1io.html#af8c1fde642062992c5179d67196ee4f2">bare_save_function_t</a> saver)</td></tr>
+<tr class="separator:ad3f16de5d24cb503429d358e2af8c831"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4985634eed56438635dfbe0999103305"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#a4985634eed56438635dfbe0999103305">is_valid_tag</a> (const string &amp;tag)</td></tr>
 <tr class="separator:a4985634eed56438635dfbe0999103305"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9ccb7ac94bdb24687992af702d387620"><td class="memTemplParams" colspan="2">template&lt;typename Message &gt; </td></tr>
@@ -132,9 +135,10 @@ Static Public Member Functions</h2></td></tr>
 <tr class="memitem:a7414063ac702dd6cbe8a7149a49be922"><td class="memTemplParams" colspan="2">template&lt;typename Want &gt; </td></tr>
 <tr class="memitem:a7414063ac702dd6cbe8a7149a49be922"><td class="memTemplItemLeft" align="right" valign="top">static const <a class="el" href="namespacevg_1_1io.html#a645533291ad3ae31bd8db73e51b3ac31">load_function_t</a> *&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#a7414063ac702dd6cbe8a7149a49be922">find_loader</a> (const string &amp;tag)</td></tr>
 <tr class="separator:a7414063ac702dd6cbe8a7149a49be922"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ade27037ec2bf98c6cf21628bb5a5b6f0"><td class="memTemplParams" colspan="2">template&lt;typename Want &gt; </td></tr>
-<tr class="memitem:ade27037ec2bf98c6cf21628bb5a5b6f0"><td class="memTemplItemLeft" align="right" valign="top">static const <a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a> *&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#ade27037ec2bf98c6cf21628bb5a5b6f0">find_bare_loader</a> ()</td></tr>
-<tr class="separator:ade27037ec2bf98c6cf21628bb5a5b6f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1de8ee65356b2649499fa63e8c5673a6"><td class="memTemplParams" colspan="2">template&lt;typename Want &gt; </td></tr>
+<tr class="memitem:a1de8ee65356b2649499fa63e8c5673a6"><td class="memTemplItemLeft" align="right" valign="top">static const vector&lt; pair<br class="typebreak"/>
+&lt; <a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a>, string &gt; &gt; *&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#a1de8ee65356b2649499fa63e8c5673a6">find_bare_loaders</a> ()</td></tr>
+<tr class="separator:a1de8ee65356b2649499fa63e8c5673a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acfad8c6a18a1443150d0818fe1a14857"><td class="memTemplParams" colspan="2">template&lt;typename Have &gt; </td></tr>
 <tr class="memitem:acfad8c6a18a1443150d0818fe1a14857"><td class="memTemplItemLeft" align="right" valign="top">static const pair&lt; string, <br class="typebreak"/>
 <a class="el" href="namespacevg_1_1io.html#a161bd20a13c1fd9993bcddd7ea3cbe57">save_function_t</a> &gt; *&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#acfad8c6a18a1443150d0818fe1a14857">find_saver</a> ()</td></tr>
@@ -154,9 +158,9 @@ Static Private Member Functions</h2></td></tr>
 <tr class="memitem:a82c329d405f2dc83880623561a10962f"><td class="memTemplParams" colspan="2">template&lt;typename Handled , typename... Bases&gt; </td></tr>
 <tr class="memitem:a82c329d405f2dc83880623561a10962f"><td class="memTemplItemLeft" align="right" valign="top">static void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#a82c329d405f2dc83880623561a10962f">register_loader</a> (const string &amp;tag, <a class="el" href="namespacevg_1_1io.html#a645533291ad3ae31bd8db73e51b3ac31">load_function_t</a> loader)</td></tr>
 <tr class="separator:a82c329d405f2dc83880623561a10962f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adf16ce66a463a1d9a5165d516231924e"><td class="memTemplParams" colspan="2">template&lt;typename Handled &gt; </td></tr>
-<tr class="memitem:adf16ce66a463a1d9a5165d516231924e"><td class="memTemplItemLeft" align="right" valign="top">static void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#adf16ce66a463a1d9a5165d516231924e">register_bare_loader</a> (<a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a> loader)</td></tr>
-<tr class="separator:adf16ce66a463a1d9a5165d516231924e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaf8339640cdf9162563246a1e136b57f"><td class="memTemplParams" colspan="2">template&lt;typename Handled , typename... Bases&gt; </td></tr>
+<tr class="memitem:aaf8339640cdf9162563246a1e136b57f"><td class="memTemplItemLeft" align="right" valign="top">static void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#aaf8339640cdf9162563246a1e136b57f">register_bare_loader</a> (<a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a> loader, const string &amp;prefix=&quot;&quot;)</td></tr>
+<tr class="separator:aaf8339640cdf9162563246a1e136b57f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1bba520da840207b627aface669b80c6"><td class="memTemplParams" colspan="2">template&lt;typename Handled &gt; </td></tr>
 <tr class="memitem:a1bba520da840207b627aface669b80c6"><td class="memTemplItemLeft" align="right" valign="top">static void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#a1bba520da840207b627aface669b80c6">register_saver</a> (const string &amp;tag, <a class="el" href="namespacevg_1_1io.html#a161bd20a13c1fd9993bcddd7ea3cbe57">save_function_t</a> saver)</td></tr>
 <tr class="separator:a1bba520da840207b627aface669b80c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -196,7 +200,7 @@ template&lt;typename Message &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="ade27037ec2bf98c6cf21628bb5a5b6f0"></a>
+<a class="anchor" id="a1de8ee65356b2649499fa63e8c5673a6"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -206,7 +210,7 @@ template&lt;typename Want &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const <a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a> * vg::io::Registry::find_bare_loader </td>
+          <td class="memname">const vector&lt; pair&lt; <a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a>, string &gt; &gt; * vg::io::Registry::find_bare_loaders </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td></td>
@@ -218,7 +222,7 @@ template&lt;typename Want &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Look up the appropriate loader function to use to load an object of the given type from a bare stream. If there is one registered, return a pointer to it. The caller has to call it and cast the result to the right type. If there isn't, returns nullptr. </p>
+<p>Look up the appropriate loader functions to use to load an object of the given type from a bare stream. If there are any registered, return a pointer to a vector of functions and their possibly empty stream prefixes that they require. The caller has to call the appropriate function and and cast the result to the right type. If there are no functions available, returns nullptr. </p>
 
 </div>
 </div>
@@ -374,11 +378,11 @@ template&lt;typename Message &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="adf16ce66a463a1d9a5165d516231924e"></a>
+<a class="anchor" id="aaf8339640cdf9162563246a1e136b57f"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename Handled &gt; </div>
+template&lt;typename Handled , typename... Bases&gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
@@ -387,8 +391,18 @@ template&lt;typename Handled &gt; </div>
           <td class="memname">void vg::io::Registry::register_bare_loader </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a>&#160;</td>
-          <td class="paramname"><em>loader</em></td><td>)</td>
+          <td class="paramname"><em>loader</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>prefix</em> = <code>&quot;&quot;</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -397,7 +411,7 @@ template&lt;typename Handled &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Register a load function for loading a type from non-type-tagged-message "bare" streams. Can only work on a single preselected type when loading from a bare stream. </p>
+<p>Register a load function for loading the given types from non-type-tagged-message "bare" streams witht he given possibly empty prefix, which is retained in the stream data. </p>
 
 </div>
 </div>
@@ -441,6 +455,55 @@ template&lt;typename Handled , typename... Bases&gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Register a loading function and a saving function with the given tag for the given object type and list of base classes. The functions operate on bare streams; conversion to type-tagged messages of chunks of stream data is performed automatically. The load function will also be registered to load from non-type-tagged-message-format files, when trying to load the actual handled type, for backward compatibility. </p>
+
+</div>
+</div>
+<a class="anchor" id="ad3f16de5d24cb503429d358e2af8c831"></a>
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Handled , typename... Bases&gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::Registry::register_bare_loader_saver_with_magic </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>tag</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>magic</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a>&#160;</td>
+          <td class="paramname"><em>loader</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacevg_1_1io.html#af8c1fde642062992c5179d67196ee4f2">bare_save_function_t</a>&#160;</td>
+          <td class="paramname"><em>saver</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Like <a class="el" href="classvg_1_1io_1_1Registry.html#aab501bb8db46d45e8b1946da37f0b382">register_bare_loader_saver()</a>, except that additionally the function will be used when attempting to load any of the base classes when the file begins with the specified magic bytes. </p>
 
 </div>
 </div>

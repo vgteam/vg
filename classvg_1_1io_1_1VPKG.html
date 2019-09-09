@@ -165,6 +165,8 @@ Static Private Member Functions</h2></td></tr>
 &lt; T &gt;::value, unique_ptr&lt; T &gt;<br class="typebreak"/>
  &gt;::type&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a843dc5afd6bef8eab9a11e5c6291fd54">make_default_or_null</a> ()</td></tr>
 <tr class="separator:a843dc5afd6bef8eab9a11e5c6291fd54"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afa8e994cf10b1916c3d32081bdd545dd"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#afa8e994cf10b1916c3d32081bdd545dd">sniff_magic</a> (istream &amp;stream, const string &amp;magic)</td></tr>
+<tr class="separator:afa8e994cf10b1916c3d32081bdd545dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Interface for reading/writing type-tagged files.</p>
@@ -531,6 +533,41 @@ template&lt;typename Have &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="afa8e994cf10b1916c3d32081bdd545dd"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::io::VPKG::sniff_magic </td>
+          <td>(</td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>stream</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>magic</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Return true of the given stream starts with the given magic number prefix, and false otherwise. Returns the stream to its initial position regardless of the result. </p>
 
 </div>
 </div>
