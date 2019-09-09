@@ -74,19 +74,8 @@ ifeq ($(shell uname -s),Darwin)
         # The compiler only needs to do the preprocessing
         CXXFLAGS += -Xpreprocessor -fopenmp
 
-        ifeq ($(shell if [ -d /opt/local/lib/libomp ];then echo 1;else echo 0;fi), 1)
-            # Use /opt/local/lib/libomp if present, because Macports installs libomp there.
-            # Brew is supposed to put it somewhere the compiler can find it by default.
-            LD_LIB_FLAGS += -L/opt/local/lib/libomp
-            # And we need to find the includes. Homebrew puts them in the normal place
-            # but Macports hides them in "libomp"
-            INCLUDE_FLAGS += -I/opt/local/include/libomp
-        endif
-
         # We also need to link it
         LD_LIB_FLAGS += -lomp
-        # And we need to find the includes. Homebrew puts them in the normal place but macports hides them in "libomp"
-        INCLUDE_FLAGS += -I/opt/local/include/libomp
     else
         CXXFLAGS += -fopenmp
 
@@ -104,8 +93,24 @@ ifeq ($(shell uname -s),Darwin)
         LIBCXX_INCLUDES := $(shell clang++ -print-search-dirs | perl -ne 's{^libraries: =(.*)}{$$1/../../../} && print')
         # Use them and libc++ and not the normal standard library
         CXXFLAGS := -isystem $(LIBCXX_INCLUDES)/include/c++/v1 -nostdinc++ -nodefaultlibs -lc -lc++ -lc++abi -lgcc_s.1 -Wl,-no_compact_unwind $(CXXFLAGS)
+
+        # Make sure to use the right libgomp to go with libomp
+        LD_LIB_FLAGS += -lomp -lgomp.1
     endif
 	
+    ifeq ($(shell if [ -d /opt/local/lib/libomp ];then echo 1;else echo 0;fi), 1)
+        # Use /opt/local/lib/libomp if present, because Macports installs libomp there.
+        # Brew is supposed to put it somewhere the compiler can find it by default.
+        LD_LIB_FLAGS += -L/opt/local/lib/libomp
+        # And we need to find the includes. Homebrew puts them in the normal place
+        # but Macports hides them in "libomp"
+        INCLUDE_FLAGS += -I/opt/local/include/libomp
+    endif
+
+    # And we need to find the includes for OMP. Homebrew puts them in the
+    # normal place but macports hides them in "libomp"
+    INCLUDE_FLAGS += -I/opt/local/include/libomp
+
     # We care about building only for the current machine. If we do something
     # more restrictive we can have trouble inlining parts of the standard
     # library that were built for something less restrictive.
