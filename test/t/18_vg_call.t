@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 4
+plan tests 6
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -74,5 +74,23 @@ is "${LESS_SIX}" "1" "Fewer than 6 differences between called and true SV genoty
 
 rm -f HGSVC_alts.vg HGSVC_alts.xg HGSVC_alts.pack HGSVC.vcf baseline_gts.txt gts.txt
 
+vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
+vg index -x x.xg x.vg
+vg sim -s 1 -n 1000 -l 150 -x x.xg -a > sim.gam
+vg pack -x x.xg -g sim.gam -o x.xg.cx
+vg pack -x x.vg -g sim.gam -o x.vg.cx
+vg snarls x.xg > x.snarls
+vg call x.xg -k x.xg.cx -r x.snarls -t 1 > x.xg.vcf
+vg call x.vg -k x.vg.cx -r x.snarls -t 1 > x.vg.vcf
+diff x.xg.vcf x.vg.vcf
+is "$?" 0 "call output same on vg as xg"
+
+vg call x.xg -k x.xg.cx -r x.snarls -t 1 -v tiny/tiny.vcf.gz > x.xg.gt.vcf
+vg call x.vg -k x.vg.cx -r x.snarls -t 1 -v tiny/tiny.vcf.gz > x.vg.gt.vcf
+
+diff x.xg.gt.vcf x.vg.gt.vcf
+is "$?" 0 "call output same on vg as xg"
+
+rm -f x.vg x.xg sim.gam x.xg.cx x.vg.cx x.xg.vcf x.vg.vcf x.xg.gt.vcf x.vg.gt.vcf
 
 
