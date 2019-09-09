@@ -28,7 +28,7 @@ include $(wildcard $(SUBCOMMAND_OBJ_DIR)/*.d)
 include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
 
 # We don't ask for -fopenmp here because how we get it can depend on the compiler.
-CXXFLAGS := -O3 -Werror=return-type -std=c++14 -ggdb -g -MMD -MP -msse4.2 $(CXXFLAGS)
+CXXFLAGS := -O3 -Werror=return-type -std=c++14 -ggdb -g -MMD -MP $(CXXFLAGS)
 
 # Set include flags. All -I options need to go in here, so the first directory listed is genuinely searched first.
 INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib $(shell pkg-config --cflags cairo jansson)
@@ -106,6 +106,11 @@ ifeq ($(shell uname -s),Darwin)
         CXXFLAGS := -isystem $(LIBCXX_INCLUDES)/include/c++/v1 -nostdinc++ -nodefaultlibs -lc -lc++ -lc++abi -lgcc_s.1 -Wl,-no_compact_unwind $(CXXFLAGS)
     endif
 	
+    # We care about building only for the current machine. If we do something
+    # more restrictive we can have trouble inlining parts of the standard
+    # library that were built for something less restrictive.
+    CXXFLAGS += -march=native
+
     # Note shared libraries are dylibs
     SHARED_SUFFIX = dylib
     
@@ -127,6 +132,9 @@ else
 
     # We get OpenMP the normal way, using whatever the compiler knows about
     CXXFLAGS += -fopenmp
+
+    # We care about building for SSE4.2 only and not AVX, to have vaguely portable binaries
+    CXXFLAGS += -msse4.2
 	
     # Note shared libraries are so files
     SHARED_SUFFIX = so

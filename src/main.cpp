@@ -44,8 +44,11 @@ void vg_help(char** argv) {
  }
 
 // We make sure to compile main for the lowest common denominator architecture.
-// This works on GCC and Clang. But we have to decalre main and then define it.
+// This works on GCC and Clang. But we have to declare main and then define it.
+// This *doesn't* work on Mac with GNU GCC and Apple libc++, so we exclude that combination.
+#if (!defined(__GNUC__) || !defined(_LIBCPP_VERSION) || !defined(__APPLE__))
 int main(int argc, char *argv[]) __attribute__((__target__("arch=x86-64")));
+#endif
 
 int main(int argc, char *argv[]) {
 
