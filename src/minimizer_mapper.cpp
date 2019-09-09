@@ -712,6 +712,7 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
             // Find the next seed end
             int64_t next_seed_end = numeric_limits<int64_t>::max();
             if (!end_heap.empty()) {
+                // Top of heap is guaranteed to be at the front
                 next_seed_end = end_heap.front().first;
             }
             
@@ -727,14 +728,14 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
             
             while(!end_heap.empty() && end_heap.front().first == sweep_line) {
                 // Take out anything that past-ends here
-                std::pop_heap(end_heap.begin(), end_heap.end());
+                std::pop_heap(end_heap.begin(), end_heap.end(), compare);
                 end_heap.pop_back();
             }
             
             while (unentered < extended_seeds.size() && extended_seeds[unentered].read_interval.first == sweep_line) {
                 // Bring in anything that starts here
                 end_heap.emplace_back(extended_seeds[unentered].read_interval.second, unentered);
-                std::push_heap(end_heap.begin(), end_heap.end());
+                std::push_heap(end_heap.begin(), end_heap.end(), compare);
                 unentered++;
             }
             
