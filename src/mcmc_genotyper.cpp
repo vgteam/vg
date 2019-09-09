@@ -21,16 +21,18 @@ namespace vg {
 
         // set a flag for invalid contents so a message it observed 
         bool invalid_contents = false;
+        bool return_genome = true;
 
         // generate initial value
         unique_ptr<PhasedGenome> genome = generate_initial_guess();
-        double max_likelihood = 0;
+        
+        double max_likelihood = 0.0;
+        double current_likelihood = 0.0;
 
         unique_ptr<PhasedGenome> optimal;
         
         // build markov chain using Metropolis-Hastings
-        for(int i = 1; i<= n_iterations; i++){
-            genome->print_phased_genome();
+        for(int i = 0; i< n_iterations; i++){
             
             // holds the previous sample allele
             double x_prev = log_target(*genome, reads);
@@ -54,18 +56,26 @@ namespace vg {
 
                 // calculate likelihood ratio of posterior distribution 
                 double likelihood_ratio = exp(log_base*(x_new - x_prev));
-
-                double current_likelihood = 0.0;
-                // save the phased genome with the highest likelihood
-                current_likelihood = log_base*(x_new - x_prev);
-                cerr << "current likelihood" << current_likelihood << endl;
-                cerr << "max likelihood" << max_likelihood << endl;
+                
+                //cerr << "total score of new genome "<< x_new << endl;
+                //cerr << "total score of prev genome "<< x_prev << endl;
+                //cerr << "likelihood ratio            " << likelihood_ratio << endl;
+                //cerr << "prev log likelihood         " << current_likelihood << endl;
+                double factor  = (x_new - x_prev);
+                
+                current_likelihood += log_base*factor;
+                //cerr << "log base " << log_base << endl;
+                //cerr << "factor " << factor << endl;
+                //cerr << "current log likelihood      " << current_likelihood << endl;
+                //cerr << "max likelihood              " << max_likelihood << endl;
+                //cerr<< endl;
+                
+                
                 if (current_likelihood > max_likelihood){
                     max_likelihood = current_likelihood;
                     optimal = unique_ptr<PhasedGenome>(new PhasedGenome(*genome));
-
+                    return_genome = false;
                 }
-                //cerr << "loop " << i << endl;
 
                 // calculate acceptance probability 
                 double acceptance_probability = min(1.0, likelihood_ratio);
@@ -73,26 +83,30 @@ namespace vg {
                 // if u~U(0,1) > alpha, discard new allele and keep previous 
                 if(generate_continuous_uniform(0.0,1.0) > acceptance_probability){ 
                     genome->set_allele(modified_site, old_allele.begin(), old_allele.end(), modified_haplo); 
-                }        
+                }         
             }
+        } 
+
+        if(invalid_contents || return_genome){
+            // for graphs without snarls 
+            return std::move(genome); 
+        }else{
+            return std::move(optimal); 
         }
-    
-        return std::move(genome); 
 
     }   
     double MCMCGenotyper::log_target(PhasedGenome& phased_genome, const vector<MultipathAlignment>& reads)const{
         
         // sum of scores given the reads aligned on the haplotype 
         int32_t sum_scores = 0; 
-        cerr << "***************" <<endl; 
+        
         // get scores for mp alignments 
         for(MultipathAlignment mp : reads){
             identify_start_subpaths(mp);
-            
             sum_scores += phased_genome.optimal_score_on_genome(mp, graph);
-            cerr << "sequence " << mp.sequence() << " has score of  " << phased_genome.optimal_score_on_genome(mp, graph) <<endl;
+            
         } 
-        cerr << "***************" <<endl;
+        
         return sum_scores;
     }
 
