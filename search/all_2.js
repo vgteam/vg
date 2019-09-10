@@ -125,7 +125,6 @@ var searchData=
   ['buffer_5fsize',['buffer_size',['../classvg_1_1ReadFilter.html#ad5aa58e55aa8546d0e555a90b7b1ac1a',1,'vg::ReadFilter']]],
   ['bufsize',['bufSize',['../classvg_1_1io_1_1fdinbuf.html#ae20c45d02cdacbc8a27b61ac41eb8f6f',1,'vg::io::fdinbuf']]],
   ['bugs_5fmain_2ecpp',['bugs_main.cpp',['../bugs__main_8cpp.html',1,'']]],
-  ['build',['build',['../classxg_1_1XG.html#ad0068b117608c59e052f5adaf3663784',1,'xg::XG']]],
   ['build_5fedge_5findexes',['build_edge_indexes',['../classvg_1_1VG.html#a3fb2cb59474393ac822847033f185d17',1,'vg::VG']]],
   ['build_5fedge_5findexes_5fno_5finit_5fsize',['build_edge_indexes_no_init_size',['../classvg_1_1VG.html#af63d4a22a3baa5b21623128b81a14872',1,'vg::VG']]],
   ['build_5fgcsa_5flcp',['build_gcsa_lcp',['../namespacevg.html#a34b89433618346e971606020965b10ed',1,'vg']]],

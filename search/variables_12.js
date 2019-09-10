@@ -1,10 +1,8 @@
 var searchData=
 [
   ['r',['R',['../structhaplo_1_1haplo__DP__rectangle.html#a93bec5529e8477c30fca8118e3e44f5f',1,'haplo::haplo_DP_rectangle']]],
-  ['r_5fiv',['r_iv',['../classxg_1_1XG.html#af67f0d0c4b8cebe28ff76f8d66bad297',1,'xg::XG']]],
   ['range',['range',['../classvg_1_1MaximalExactMatch.html#a8652369dde83e159dd8c5638745a749c',1,'vg::MaximalExactMatch']]],
   ['rank',['rank',['../classvg_1_1mapping__t.html#a8f97d898f658a36c3046b8fcc2c846ff',1,'vg::mapping_t::rank()'],['../classvg_1_1PhasedGenome_1_1iterator.html#ab8b58edefb4cb58e014344c6010eec62',1,'vg::PhasedGenome::iterator::rank()'],['../structvg_1_1Mapping.html#a9ad71eb17b88b2cdd00cee8476e6c7b3',1,'vg::Mapping::rank()']]],
-  ['ranks',['ranks',['../classxg_1_1XGPath.html#a5daf03c711975a109429920d5df40334',1,'xg::XGPath']]],
   ['read',['read',['../structhFILE__backend.html#adf91120be1f313fbac4ccf8e70ec4f3c',1,'hFILE_backend']]],
   ['read_5fcluster_5fdists',['read_cluster_dists',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a6fb1b360c46cab3e5a644b3e75eb2698',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['read_5fdistance_5flimit',['read_distance_limit',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#af59339f1c91bfbb88324acddcff222c1',1,'vg::SnarlSeedClusterer::TreeState']]],

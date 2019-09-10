@@ -1,9 +1,6 @@
 var searchData=
 [
   ['offset',['offset',['../structvg_1_1GaplessExtension.html#a713e8ef2aad7aa94ae4ef91fbe83e159',1,'vg::GaplessExtension::offset()'],['../structvg_1_1PathBranch.html#ad07bed1fbba0e7c94c218f285c2e51cd',1,'vg::PathBranch::offset()'],['../structvg_1_1Position.html#a1244220d4c8ae90633fd7a7e361d309a',1,'vg::Position::offset()']]],
-  ['offsets',['offsets',['../classxg_1_1XGPath.html#a68ff3492845d876329b9a6a3381ced86',1,'xg::XGPath']]],
-  ['offsets_5frank',['offsets_rank',['../classxg_1_1XGPath.html#a1d3b3643614f6f4e6f5e9e834c8ff2fd',1,'xg::XGPath']]],
-  ['offsets_5fselect',['offsets_select',['../classxg_1_1XGPath.html#aca3ba6a17c469b812c67bf978c0e02c1',1,'xg::XGPath']]],
   ['old_5fnode',['old_node',['../classhaplo_1_1hDP__gbwt__graph__accessor.html#ac101c3ba66f96fa569c1de71bf6c51fe',1,'haplo::hDP_gbwt_graph_accessor']]],
   ['old_5fscore',['old_score',['../structvg_1_1GaplessExtension.html#a868af12d5411848f3b8e0e682d053337',1,'vg::GaplessExtension']]],
   ['option_5foffsets',['option_offsets',['../classvg_1_1Configurable.html#a6c5fb72d68761ab4b157c817259164a5',1,'vg::Configurable']]],
@@ -28,7 +25,7 @@ var searchData=
   ['output_5fsvg',['output_svg',['../classvg_1_1Viz.html#a82a23ca5a5a6ababff6176743247be04',1,'vg::Viz']]],
   ['output_5ftabbed',['output_tabbed',['../classVectorizer.html#a7be5208d3a51438a989dd406fb808fd9',1,'Vectorizer']]],
   ['output_5fvcf',['output_vcf',['../classvg_1_1VCFGenotyper.html#a0c5e572ace09d46cfbe96f14116b6519',1,'vg::VCFGenotyper::output_vcf()'],['../classvg_1_1LegacyCaller.html#ae78fc536bfc58d0be52c623ac18bb654',1,'vg::LegacyCaller::output_vcf()']]],
-  ['output_5fversion',['OUTPUT_VERSION',['../classvg_1_1StreamIndexBase.html#ad8e4be116b6b053e08a4221da069a092',1,'vg::StreamIndexBase::OUTPUT_VERSION()'],['../classxg_1_1XG.html#abb5bdf6d3612b6e93db96a36954a4882',1,'xg::XG::OUTPUT_VERSION()']]],
+  ['output_5fversion',['OUTPUT_VERSION',['../classvg_1_1StreamIndexBase.html#ad8e4be116b6b053e08a4221da069a092',1,'vg::StreamIndexBase']]],
   ['outvcf',['outvcf',['../classvg_1_1Deconstructor.html#a2e5fb57f7e5ada44e566ce4ec1bc72c3',1,'vg::Deconstructor']]],
   ['overall_5fsupport',['overall_support',['../structvg_1_1Locus.html#a04ac3427a7318a28984c8114cd216675',1,'vg::Locus']]],
   ['overlap',['overlap',['../structvg_1_1Edge.html#aafdc39a954fd8de9dc3850ad9ecb9ade',1,'vg::Edge']]],

@@ -39,7 +39,6 @@ var searchData=
   ['break_5fend',['break_end',['../structvg_1_1NodeDivider.html#a34c7addcced6efc6f7c06e98c7008d99',1,'vg::NodeDivider']]],
   ['breakend_5ffilter',['breakend_filter',['../classvg_1_1Filter.html#ab590f8b51e20860f1af0e40ca22932be',1,'vg::Filter']]],
   ['brute_5fforce_5falt_5ftraversals',['brute_force_alt_traversals',['../classvg_1_1VCFTraversalFinder.html#a31598f482dd2d5dbdc06e273ffc18204',1,'vg::VCFTraversalFinder']]],
-  ['build',['build',['../classxg_1_1XG.html#ad0068b117608c59e052f5adaf3663784',1,'xg::XG']]],
   ['build_5fedge_5findexes',['build_edge_indexes',['../classvg_1_1VG.html#a3fb2cb59474393ac822847033f185d17',1,'vg::VG']]],
   ['build_5fedge_5findexes_5fno_5finit_5fsize',['build_edge_indexes_no_init_size',['../classvg_1_1VG.html#af63d4a22a3baa5b21623128b81a14872',1,'vg::VG']]],
   ['build_5fgcsa_5flcp',['build_gcsa_lcp',['../namespacevg.html#a34b89433618346e971606020965b10ed',1,'vg']]],

@@ -118,7 +118,5 @@ var searchData=
   ['_7evgalignmentemitter',['~VGAlignmentEmitter',['../classvg_1_1VGAlignmentEmitter.html#a9c3828b842b37d0fd53f918cdeddc119',1,'vg::VGAlignmentEmitter']]],
   ['_7eviz',['~Viz',['../classvg_1_1Viz.html#ab63af6e73d13224a8a96f0d776cfd248',1,'vg::Viz']]],
   ['_7ewatchdog',['~Watchdog',['../classvg_1_1Watchdog.html#a58772622205b1e7c103612e518a6c995',1,'vg::Watchdog']]],
-  ['_7exdropaligner',['~XdropAligner',['../classvg_1_1XdropAligner.html#aaa342dfcc4afb1448b98857fd216044a',1,'vg::XdropAligner']]],
-  ['_7exg',['~XG',['../classxg_1_1XG.html#a1670ddfeb5c9c5f04cd14fe725eb0cfd',1,'xg::XG']]],
-  ['_7exgpath',['~XGPath',['../classxg_1_1XGPath.html#a831bd85ed9f0db9154a1a8e3b0ad69fd',1,'xg::XGPath']]]
+  ['_7exdropaligner',['~XdropAligner',['../classvg_1_1XdropAligner.html#aaa342dfcc4afb1448b98857fd216044a',1,'vg::XdropAligner']]]
 ];
