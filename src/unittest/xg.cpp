@@ -8,6 +8,7 @@
 #include "vg.hpp"
 #include "xg.hpp"
 #include "graph.hpp"
+#include "algorithms/subgraph.hpp"
 #include <stdio.h>
 
 namespace vg {
@@ -27,9 +28,12 @@ TEST_CASE("We can build an xg index on a nice graph", "[xg]") {
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
     
     // Build the xg index
-    XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
 
-    Graph graph = xg_index.graph_context_id(make_pos_t(1, false, 0), 100);
+    VG vg_graph;
+    algorithms::extract_context(xg_index, vg_graph, xg_index.get_handle(1), 0, 100);
+    Graph& graph = vg_graph.graph;
     sort_by_id_dedup_and_clean(graph);
 
     REQUIRE(graph.node_size() == 2);
@@ -51,9 +55,12 @@ TEST_CASE("We can build an xg index on a nasty graph", "[xg]") {
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
     
     // Build the xg index
-    XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
 
-    Graph graph = xg_index.graph_context_id(make_pos_t(1, false, 0), 100);
+    VG vg_graph;
+    algorithms::extract_context(xg_index, vg_graph, xg_index.get_handle(1), 0, 100);
+    Graph& graph = vg_graph.graph;
     sort_by_id_dedup_and_clean(graph);
 
     REQUIRE(graph.node_size() == 2);
@@ -161,53 +168,127 @@ TEST_CASE("We can build an xg index on a very nasty graph", "[xg]") {
 
     sort_by_id_dedup_and_clean(proto_graph);
     // Build the xg index
-    XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
 
     SECTION("Context extraction gets something") {
-        Graph graph = xg_index.graph_context_id(make_pos_t(1420, false, 0), 30);
-        REQUIRE(graph.node_size() > 0);
+        VG graph;
+        algorithms::extract_context(xg_index, graph, xg_index.get_handle(1420), 0, 30);
+        REQUIRE(graph.get_node_count() > 0);
     }
     
     SECTION("Extracting path ranges works as expected") {
-        Graph graph;
+        VG graph;
         
         SECTION("We can extract within a single node") {
-            xg_index.get_path_range("17", 5, 15, graph, false);
+            algorithms::extract_path_range(xg_index, xg_index.get_path_handle("17"), 5, 15, graph);
             
             // We should just get node 1416
-            REQUIRE(graph.node_size() == 1);
-            REQUIRE(graph.node(0).id() == 1416);
-            // And the one dangling edge
-            REQUIRE(graph.edge_size() == 1);
-            for (size_t i = 0; i < graph.edge_size(); i++) {
+            REQUIRE(graph.graph.node_size() == 1);
+            REQUIRE(graph.graph.node(0).id() == 1416);
+            // And no dangling edges
+            REQUIRE(graph.graph.edge_size() == 0);
+            for (size_t i = 0; i < graph.graph.edge_size(); i++) {
                 // All the edges should be normal
-                REQUIRE(graph.edge(i).from_start() == false);
-                REQUIRE(graph.edge(i).to_end() == false);
+                REQUIRE(graph.graph.edge(i).from_start() == false);
+                REQUIRE(graph.graph.edge(i).to_end() == false);
             }
         }
         
         SECTION("We can extract across two nodes") {
-            xg_index.get_path_range("17", 5, 40, graph, false);
+            algorithms::extract_path_range(xg_index, xg_index.get_path_handle("17"), 5, 40, graph);
             
             // We should just get node 1416 and 1417
-            REQUIRE(graph.node_size() == 2);
-            REQUIRE(graph.node(0).id() >= 1416);
-            REQUIRE(graph.node(0).id() <= 1417);
-            REQUIRE(graph.node(1).id() >= 1416);
-            REQUIRE(graph.node(1).id() <= 1417);
-            REQUIRE(graph.node(0).id() != graph.node(1).id());
-            // And the one real and 2 dangling edges
-            REQUIRE(graph.edge_size() == 3);
-            for (size_t i = 0; i < graph.edge_size(); i++) {
+            REQUIRE(graph.graph.node_size() == 2);
+            REQUIRE(graph.graph.node(0).id() >= 1416);
+            REQUIRE(graph.graph.node(0).id() <= 1417);
+            REQUIRE(graph.graph.node(1).id() >= 1416);
+            REQUIRE(graph.graph.node(1).id() <= 1417);
+            REQUIRE(graph.graph.node(0).id() != graph.graph.node(1).id());
+            // And the one real and 0 dangling edges
+            REQUIRE(graph.graph.edge_size() == 1);
+            for (size_t i = 0; i < graph.graph.edge_size(); i++) {
                 // All the edges should be normal
-                REQUIRE(graph.edge(i).from_start() == false);
-                REQUIRE(graph.edge(i).to_end() == false);
+                REQUIRE(graph.graph.edge(i).from_start() == false);
+                REQUIRE(graph.graph.edge(i).to_end() == false);
             }
         }
+    }
+    
+    SECTION("Looking up steps by positions works") {
+        auto path = xg_index.get_path_handle("17");
         
+        step_handle_t found;
+        size_t first_found = 0;
         
+        for (size_t i = 0; i < 150; i++) {
+            // Scan a bunch of the path
+            step_handle_t found_here = xg_index.get_step_at_position(path, i);
+            if (i == 0 || found_here != found) {
+                if (i > 0) {
+                    // How long was the last thing we saw?
+                    size_t length = i - first_found;
+                    // Make sure it is right
+                    REQUIRE(length == xg_index.get_length(xg_index.get_handle_of_step(found)));
+                }
+                
+                // Remember what we saw here
+                found = found_here;
+                first_found = i;
+            }
+        }
     }
 
+}
+
+TEST_CASE("We can build and scan an XG index for a problematic graph", "[xg]") {
+    string graph_json = R"(
+    {"node":[
+      {"id":1,"sequence":"AAA"},
+      {"id":2,"sequence":"C"},
+      {"id":3,"sequence":"G"},
+      {"id":5,"sequence":"T"},
+      {"id":4,"sequence":"AAA"}
+    ],
+    "edge":[
+      {"to":2,"from":1},
+      {"to":3,"from":1},
+      {"to":4,"from":2},
+      {"to":5,"from":3},
+      {"to":4,"from":5}
+    ],
+    "path":[
+      {"name":"reference","mapping":[
+        {"position":{"node_id":1},"rank":1},
+        {"position":{"node_id":2},"rank":2},
+        {"position":{"node_id":4},"rank":3}
+      ]}
+    ]}
+    )";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+
+    // Build the xg index (without any sorting)
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
+
+    REQUIRE(xg_index.get_node_count() == 5);
+    
+    // We will cross every edge from every node, so this should come to 2 * edge count.
+    size_t edge_obs_count = 0;
+    
+    xg_index.for_each_handle([&](const handle_t& here) {
+        xg_index.follow_edges(here, false, [&](const handle_t& there) {
+            edge_obs_count++;
+        });
+        xg_index.follow_edges(here, true, [&](const handle_t& there) {
+            edge_obs_count++;
+        });
+    });
+    
+    REQUIRE(edge_obs_count == 10);
 }
 
 TEST_CASE("We can build the xg index on a small graph with discontinuous node ids that don't start at 1", "[xg]") {
@@ -224,113 +305,17 @@ TEST_CASE("We can build the xg index on a small graph with discontinuous node id
 
     sort_by_id_dedup_and_clean(proto_graph);
     // Build the xg index
-    XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
 
-    Graph graph = xg_index.graph_context_id(make_pos_t(10, false, 0), 100);
+    VG vg_graph;
+    algorithms::extract_context(xg_index, vg_graph, xg_index.get_handle(10), 0, 100);
+    Graph& graph = vg_graph.graph;
     sort_by_id_dedup_and_clean(graph);
 
     REQUIRE(graph.node_size() == 2);
     REQUIRE(graph.edge_size() == 1);
 
-
-}
-
-TEST_CASE("Target to alignment extraction", "[xg-target-to-aln]") {
-
-    VG vg;
-            
-    Node* n0 = vg.create_node("CGA");
-    Node* n1 = vg.create_node("TTGG");
-    Node* n2 = vg.create_node("CCGT");
-    Node* n3 = vg.create_node("C");
-    Node* n4 = vg.create_node("GT");
-    Node* n5 = vg.create_node("GATAA");
-    Node* n6 = vg.create_node("CGG");
-    Node* n7 = vg.create_node("ACA");
-    Node* n8 = vg.create_node("GCCG");
-    Node* n9 = vg.create_node("A");
-    Node* n10 = vg.create_node("C");
-    Node* n11 = vg.create_node("G");
-    Node* n12 = vg.create_node("T");
-    Node* n13 = vg.create_node("A");
-    Node* n14 = vg.create_node("C");
-    Node* n15 = vg.create_node("C");
-            
-    vg.create_edge(n0, n1);
-    vg.create_edge(n2, n0, true, true);
-    vg.create_edge(n1, n3);
-    vg.create_edge(n2, n3);
-    vg.create_edge(n3, n4, false, true);
-    vg.create_edge(n4, n5, true, false);
-    vg.create_edge(n5, n6);
-    vg.create_edge(n8, n6, false, true);
-    vg.create_edge(n6, n7, false, true);
-    vg.create_edge(n7, n9, true, true);
-    vg.create_edge(n9, n10, true, false);
-    vg.create_edge(n10, n11, false, false);
-    vg.create_edge(n12, n11, false, true);
-    vg.create_edge(n13, n12, false, false);
-    vg.create_edge(n14, n13, true, false);
-    vg.create_edge(n15, n14, true, true);
-            
-    Graph graph = vg.graph;
-            
-    Path* path = graph.add_path();
-    path->set_name("path");
-    Mapping* mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n0->id());
-    mapping->set_rank(1);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n2->id());
-    mapping->set_rank(2);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n3->id());
-    mapping->set_rank(3);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n4->id());
-    mapping->mutable_position()->set_is_reverse(true);
-    mapping->set_rank(4);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n5->id());
-    mapping->set_rank(5);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n6->id());
-    mapping->set_rank(6);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n8->id());
-    mapping->mutable_position()->set_is_reverse(true);
-    mapping->set_rank(7);
-            
-    XG xg_index(graph);
-
-    SECTION("Subpath getting gives us the expected 1bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 1, 2, "feature", false);
-        REQUIRE(alignment_from_length(target) == 2 - 1);
-    }
-
-    SECTION("Subpath getting gives us the expected 10bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 10, 20, "feature", false);
-        REQUIRE(alignment_from_length(target) == 20 - 10);
-    }
-
-    SECTION("Subpath getting gives us the expected 14bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 0, 14, "feature", false);
-        REQUIRE(alignment_from_length(target) == 14);
-    }
-
-    SECTION("Subpath getting gives us the expected 21bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 0, 21, "feature", false);
-        REQUIRE(alignment_from_length(target) == 21);
-    }
-
-    SECTION("Subpath getting gives us the expected inverted 7bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 0, 7, "feature", true);
-        REQUIRE(alignment_from_length(target) == 7);
-        REQUIRE(target.path().mapping(0).position().node_id() == n2->id());
-        REQUIRE(target.path().mapping(1).position().node_id() == n0->id());
-        REQUIRE(target.path().mapping(0).position().is_reverse() == true);
-        REQUIRE(target.path().mapping(1).position().is_reverse() == true);
-    }
 
 }
 
@@ -347,7 +332,8 @@ TEST_CASE("Looping over XG handles in parallel works", "[xg]") {
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
     
     // Build the xg index
-    XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
 
     size_t count = 0;
 

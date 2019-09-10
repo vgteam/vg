@@ -79,8 +79,8 @@ int main_dotplot(int argc, char** argv) {
         cerr << "[vg dotplot] Error: an xg index is required" << endl;
         exit(1);
     } else {
-        unique_ptr<XG> xindex;
-        xindex = vg::io::VPKG::load_one<XG>(xg_file);
+        unique_ptr<PathPositionHandleGraph> xindex;
+        xindex = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_file);
     
         cout << "query.name" << "\t"
              << "query.pos" << "\t"
@@ -89,7 +89,7 @@ int main_dotplot(int argc, char** argv) {
              << "target.pos" << endl;
         xindex->for_each_handle([&](const handle_t& h) {
                 vg::id_t id = xindex->get_id(h);
-                for (size_t i = 0; i < xindex->node_length(id); ++i) {
+                for (size_t i = 0; i < xindex->get_length(xindex->get_handle(id)); ++i) {
                     pos_t p = make_pos_t(id, false, i);
                     map<string, vector<pair<size_t, bool> > > offsets = algorithms::offsets_in_paths(&(*xindex), p);
                     // cross the offsets in output

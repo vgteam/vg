@@ -149,8 +149,8 @@ PathIndex::PathIndex(const list<mapping_t>& mappings, VG& vg) {
     
 }
 
-PathIndex::PathIndex(const Path& path, const XG& index) {
-    // Trace the given path in the given XG graph, collecting sequence
+PathIndex::PathIndex(const Path& path, const HandleGraph& graph) {
+    // Trace the given path in the given graph, collecting sequence
     
     // We're going to build the sequence string
     std::stringstream seq_stream;
@@ -174,7 +174,7 @@ PathIndex::PathIndex(const Path& path, const XG& index) {
             #pragma omp critical (cerr)
             std::cerr << "Node " << mapping.position().node_id() << " rank " << mapping.rank()
                 << " starts at base " << path_base << " with "
-                << index.node_sequence(mapping.position().node_id()) << std::endl;
+                << graph.get_sequence(graph.get_handle(mapping.position().node_id())) << std::endl;
 #endif
             
             // Make sure ranks are monotonically increasing along the path, or
@@ -191,7 +191,7 @@ PathIndex::PathIndex(const Path& path, const XG& index) {
         node_occurrences[mapping.position().node_id()].push_back(by_start.find(path_base));
     
         // Find the node's sequence
-        std::string node_sequence = index.node_sequence(mapping.position().node_id());
+        std::string node_sequence = graph.get_sequence(graph.get_handle(mapping.position().node_id()));
     
         while(path_base == 0 && node_sequence.size() > 0 &&
             (node_sequence[0] != 'A' && node_sequence[0] != 'T' && node_sequence[0] != 'C' &&
@@ -230,7 +230,7 @@ PathIndex::PathIndex(const Path& path, const XG& index) {
     
     // Record the length of the last mapping's node, since there's no next mapping to work it out from
     last_node_length = path.mapping_size() > 0 ?
-        index.node_length(path.mapping(path.mapping_size() - 1).position().node_id()) :
+        graph.get_length(graph.get_handle(path.mapping(path.mapping_size() - 1).position().node_id())) :
         0;
     
     // Create the actual reference sequence we will use
@@ -262,15 +262,24 @@ PathIndex::PathIndex(VG& vg, const string& path_name, bool extract_sequence) {
     }
 }
 
-PathIndex::PathIndex(const XG& index, const string& path_name, bool extract_sequence) {
+PathIndex::PathIndex(const PathHandleGraph& graph, const string& path_name, bool extract_sequence) {
     // Make sure the path is present
-    assert(index.path_rank(path_name) != 0);
+    assert(graph.has_path(path_name));
+    
+    // Make a Protobuf path object
+    Path path;
+    for (handle_t handle : graph.scan_path(graph.get_path_handle(path_name))) {
+        Mapping* mapping = path.add_mapping();
+        Position* position = mapping->mutable_position();
+        position->set_node_id(graph.get_id(handle));
+        position->set_is_reverse(graph.get_is_reverse(handle));
+    }
     
     if (extract_sequence) {
         // Constructor dispatch hack
-        *this = PathIndex(index.path(path_name), index);
+        *this = PathIndex(path, graph);
     } else {
-        *this = PathIndex(index.path(path_name));
+        *this = PathIndex(path);
     }
 }
 

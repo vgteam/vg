@@ -14,7 +14,8 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../mapper.hpp"
+#include "../xg.hpp"
+#include "../aligner.hpp"
 #include "../sampler.hpp"
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/vpkg.hpp>
@@ -244,20 +245,20 @@ int main_sim(int argc, char** argv) {
         transcript_expressions = parse_rsem_expression_file(rsem_in);
     }
 
-    unique_ptr<XG> xgidx;
+    unique_ptr<PathPositionHandleGraph> xgidx;
     if (!xg_name.empty()) {
-        xgidx = vg::io::VPKG::load_one<XG>(xg_name);
+        xgidx = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
     }
     
     for (auto& path_name : path_names) {
-        if (xgidx->path_rank(path_name) == 0) {
+        if (xgidx->has_path(path_name) == false) {
             cerr << "[vg sim] error: path \""<< path_name << "\" not found in index" << endl;
             return 1;
         }
     }
     
     for (auto& transcript_expression : transcript_expressions) {
-        if (xgidx->path_rank(transcript_expression.first) == 0) {
+        if (xgidx->has_path(transcript_expression.first) == false) {
             cerr << "[vg sim] error: transcript path for \""<< transcript_expression.first << "\" not found in index" << endl;
             return 1;
         }
@@ -268,14 +269,6 @@ int main_sim(int argc, char** argv) {
         // Make an emitter to emit Alignments
         aln_emitter = unique_ptr<vg::io::ProtobufEmitter<Alignment>>(new vg::io::ProtobufEmitter<Alignment>(cout));
     }
-
-    // Make a Mapper to score reads, with the default parameters
-    Mapper rescorer(xgidx.get(), nullptr, nullptr);
-    // We define a function to score a generated alignment under the mapper
-    auto rescore = [&] (Alignment& aln) {
-        // Score using exact distance.
-        aln.set_score(rescorer.score_alignment(aln, false));
-    };
     
     if (fastq_name.empty()) {
         // Use the fixed error rate sampler
@@ -283,17 +276,12 @@ int main_sim(int argc, char** argv) {
         // Make a sample to sample reads with
         Sampler sampler(xgidx.get(), seed_val, forward_only, reads_may_contain_Ns, path_names, transcript_expressions);
         
-        // Make a Mapper to score reads, with the default parameters
-        Mapper rescorer(xgidx.get(), nullptr, nullptr);
-        // Override the "default" full length bonus, just like every other subcommand that uses a mapper ends up doing.
-        // TODO: is it safe to change the default?
-        rescorer.set_alignment_scores(default_match, default_mismatch, default_gap_open, default_gap_extension, default_full_length_bonus);
-        // Include the full length bonuses if requested.
-        rescorer.strip_bonuses = strip_bonuses;
-        // We define a function to score a generated alignment under the mapper
+        Aligner rescorer(default_match, default_mismatch, default_gap_open, default_gap_extension, default_full_length_bonus);
+
+        // We define a function to score a using the aligner
         auto rescore = [&] (Alignment& aln) {
             // Score using exact distance.
-            aln.set_score(rescorer.score_alignment(aln, false));
+            aln.set_score(rescorer.score_ungapped_alignment(aln, strip_bonuses));
         };
         
         size_t max_iter = 1000;

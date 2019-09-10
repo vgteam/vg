@@ -12,9 +12,9 @@ namespace vg {
 
 using namespace std;
     
-    Surjector::Surjector(const XG* xg_index) : xindex(xg_index) {
-        if (!xindex) {
-            cerr << "error:[Surjector] Failed to provide an XG index to the Surjector" << endl;
+    Surjector::Surjector(const PathPositionHandleGraph* graph) : graph(graph) {
+        if (!graph) {
+            cerr << "error:[Surjector] Failed to provide an graph to the Surjector" << endl;
         }
     }
     
@@ -64,14 +64,14 @@ using namespace std;
             }
         }
 
-        // translate the path names into ranks for the XG and path hanles
+        // translate the path names and path handles
         unordered_set<path_handle_t> surjection_path_handles;
         for (const string& path_name : path_names) {
-            surjection_path_handles.insert(xindex->get_path_handle(path_name));
+            surjection_path_handles.insert(graph->get_path_handle(path_name));
         }
         
         // make an overlay that will memoize the results of some expensive XG operations
-        MemoizingGraph memoizing_graph(xindex);
+        MemoizingGraph memoizing_graph(graph);
         
         // get the chunks of the aligned path that overlap the ref path
         auto path_overlapping_anchors = extract_overlapping_paths(&memoizing_graph, source, surjection_path_handles);
@@ -79,7 +79,7 @@ using namespace std;
 #ifdef debug_anchored_surject
         cerr << "got path overlapping segments" << endl;
         for (const auto& path_record : path_overlapping_anchors) {
-            cerr << "path " << xindex->get_path_name(path_record.first) << endl;
+            cerr << "path " << graph->get_path_name(path_record.first) << endl;
             for (auto& anchor : path_record.second) {
                 cerr << "\t read[" << (anchor.first.first - source.sequence().begin()) << ":" << (anchor.first.second - source.sequence().begin()) << "] : ";
                 for (auto iter = anchor.first.first; iter != anchor.first.second; iter++) {
@@ -95,7 +95,7 @@ using namespace std;
         unordered_map<path_handle_t, Alignment> path_surjections;
         for (pair<const path_handle_t, vector<path_chunk_t>>& path_record : path_overlapping_anchors) {
 #ifdef debug_anchored_surject
-            cerr << "found overlaps on path " << xindex->get_path_name(path_record.first) << ", performing surjection" << endl;
+            cerr << "found overlaps on path " << graph->get_path_name(path_record.first) << ", performing surjection" << endl;
 #endif
             
             // find the interval of the ref path we need to consider
@@ -153,7 +153,7 @@ using namespace std;
 #endif
             
 #ifdef debug_validate_anchored_multipath_alignment
-            if (!validate_multipath_alignment(mp_aln, *xindex)) {
+            if (!validate_multipath_alignment(mp_aln, *graph)) {
                 cerr << "WARNING: multipath alignment for surjection of " << source.name() << " failed to validate" << endl;
             }
 #endif
@@ -343,7 +343,7 @@ using namespace std;
                 
                 if (first_pos.is_reverse() != graph->get_is_reverse(graph->get_handle_of_step(step))) {
                     size_t path_offset = graph->get_position_of_step(step) + graph->get_length(first_handle) - first_pos.offset();
-                    interval.second = max(interval.second, min(path_offset + left_overhang, path_length));
+                    interval.second = max(interval.second, min(path_offset + left_overhang, path_length - 1));
                 }
                 else {
                     size_t path_offset = graph->get_position_of_step(step) + first_pos.offset();
@@ -379,7 +379,7 @@ using namespace std;
                 }
                 else {
                     size_t path_offset = graph->get_position_of_step(step) + first_pos.offset() + mapping_to_length(final_mapping);
-                    interval.second = max(interval.second, min(path_offset + right_overhang, path_length));
+                    interval.second = max(interval.second, min(path_offset + right_overhang, path_length - 1));
                 }
             }
         }

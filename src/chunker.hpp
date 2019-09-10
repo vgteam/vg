@@ -24,10 +24,10 @@ class PathChunker {
 
 public:
    
-    // xg index used for all path splitting and subgraphing operations
-    XG* xg;
+    // graph used for all path splitting and subgraphing operations
+    const PathPositionHandleGraph* graph;
 
-    PathChunker(XG* xg = NULL);
+    PathChunker(const PathPositionHandleGraph* graph = NULL);
     ~PathChunker();
 
     /** Extract subgraph corresponding to given path region into its 
@@ -47,6 +47,12 @@ public:
      */
     void extract_id_range(vg::id_t start, vg::id_t end, int context, int length, bool forward_only,
                          VG& subgraph, Region& out_region);
+
+    /**
+     * Get a set of all edges in the graph along a path region (to check for discontinuities later on)
+     */ 
+    set<pair<pair<id_t, bool>, pair<id_t, bool>>> get_path_edge_index(step_handle_t start_step,
+                                                                      step_handle_t end_step, int context) const;
 
 };
 

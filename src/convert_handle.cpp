@@ -5,7 +5,7 @@ using namespace std;
         
         assert(converted->get_node_count() == 0);
         
-        // If xg is a null pointer, throw a runtime error
+        // If converting or converted is a null pointer, throw a runtime error
         if (converting == nullptr) {
             throw runtime_error("There is no graph to convert from");
         }
@@ -13,7 +13,7 @@ using namespace std;
             throw runtime_error("There is no graph to convert to");
         }
 
-        // Iterate through each handle in xg and create the same handle in mutable graph
+        // Iterate through each handles in graph and create the same handle in mutable graph
         converting->for_each_handle([&](const handle_t& here) {
             // Get the id of the graph handle
             id_t converting_id = converting->get_id(here);

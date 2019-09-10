@@ -17,12 +17,13 @@
 #include "../seed_clusterer.hpp"
 #include "../mapper.hpp"
 #include "../annotation.hpp"
-#include "../minimizer.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include "../alignment_emitter.hpp"
 #include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
+
+#include <gbwtgraph/minimizer.h>
 
 //#define USE_CALLGRIND
 
@@ -62,12 +63,9 @@ void help_gaffe(char** argv) {
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
     << "  -s, --cluster-score INT       only extend clusters if they are within cluster-score of the best score" << endl
     << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within cluster-coverage of the best read coverage" << endl
-    << "  -v, --extension-score INT     only align extensions if their score is within extension-score of the best score" << endl
+    << "  -v, --extension-score INT     only align extensions if their score is within extension-score of the best score [1]" << endl
     << "  -w, --extension-set INT       only align extension sets if their score is within extension-set of the best score" << endl
-    << "  -O, --no-chaining             disable seed chaining and all gapped alignment" << endl
-    << "  -l, --linear-tails            align tails as individual linear alignments instead of POA trees" << endl
-    << "  -S, --gssw                    use GSSW alignment for tails instead of xdrop" << endl
-    << "  --discard-gbwt-states         rebuild fresh GBWT search states for conenctivity and tail searches" << endl
+    << "  -O, --no-dp                   disable all gapped alignment" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
@@ -82,7 +80,6 @@ int main_gaffe(int argc, char** argv) {
         return 1;
     }
 
-    #define OPT_DISCARD_GBWT_STATES 1000
     #define OPT_TRACK_PROVENANCE 1001
     #define OPT_TRACK_CORRECTNESS 1002
 
@@ -98,13 +95,7 @@ int main_gaffe(int argc, char** argv) {
     double minimizer_score_fraction = 0.6;
     bool progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
-    bool do_chaining = true;
-    // Should we do individual linear tail alignments instead of tree-shaped ones?
-    bool linear_tails = false;
-    // Should we use the xdrop aligner for aligning tails?
-    bool use_xdrop_for_tails = true;
-    // Should we discard GBWT search states?
-    bool discard_gbwt_states = false;
+    bool do_dp = true;
     // What GAMs should we realign?
     vector<string> gam_filenames;
     // What FASTQs should we align.
@@ -123,7 +114,7 @@ int main_gaffe(int argc, char** argv) {
     //Throw away extension sets with scores that are this amount below the best
     double extension_set = 0;
     //Throw away extensions with scores that are this amount below the best
-    int extension_score = 0;
+    int extension_score = 1;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
@@ -164,10 +155,7 @@ int main_gaffe(int argc, char** argv) {
             {"extension-score", required_argument, 0, 'v'},
             {"extension-set", required_argument, 0, 'w'},
             {"score-fraction", required_argument, 0, 'F'},
-            {"no-chaining", no_argument, 0, 'O'},
-            {"linear-tails", no_argument, 0, 'l'},
-            {"gssw", no_argument, 0, 'S'},
-            {"discard-gbwt-states", no_argument, 0, OPT_DISCARD_GBWT_STATES},
+            {"no-dp", no_argument, 0, 'O'},
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
             {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
             {"threads", required_argument, 0, 't'},
@@ -175,7 +163,7 @@ int main_gaffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:w:OlSt:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:w:Ot:",
                          long_options, &option_index);
 
 
@@ -342,20 +330,9 @@ int main_gaffe(int argc, char** argv) {
                     extension_set = score;
                 }
                 break;
+                
             case 'O':
-                do_chaining = false;
-                break;
-                
-            case 'l':
-                linear_tails = true;
-                break;
-                
-            case 'S':
-                use_xdrop_for_tails = false;
-                break;
-                
-            case OPT_DISCARD_GBWT_STATES:
-                discard_gbwt_states = true;
+                do_dp = false;
                 break;
                 
             case OPT_TRACK_PROVENANCE:
@@ -408,7 +385,6 @@ int main_gaffe(int argc, char** argv) {
         exit(1);
     }
     
-    
     if (distance_name.empty()) {
         cerr << "error:[vg gaffe] Mapping requires a distance index (-d)" << endl;
         exit(1);
@@ -418,7 +394,7 @@ int main_gaffe(int argc, char** argv) {
     if (progress && !xg_name.empty()) {
         cerr << "Loading XG index " << xg_name << endl;
     }
-    unique_ptr<XG> xg_index = (xg_name.empty() ? nullptr : vg::io::VPKG::load_one<XG>(xg_name));
+    unique_ptr<PathPositionHandleGraph> xg_index = (xg_name.empty() ? nullptr : vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name));
 
     if (progress) {
         cerr << "Loading GBWT index " << gbwt_name << endl;
@@ -428,7 +404,7 @@ int main_gaffe(int argc, char** argv) {
     if (progress) {
         cerr << "Loading minimizer index " << minimizer_name << endl;
     }
-    unique_ptr<MinimizerIndex> minimizer_index = vg::io::VPKG::load_one<MinimizerIndex>(minimizer_name);
+    unique_ptr<gbwtgraph::MinimizerIndex> minimizer_index = vg::io::VPKG::load_one<gbwtgraph::MinimizerIndex>(minimizer_name);
 
     if (progress) {
         cerr << "Loading distance index " << distance_name << endl;
@@ -439,17 +415,17 @@ int main_gaffe(int argc, char** argv) {
     //unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     
     // Build or load the GBWTGraph.
-    unique_ptr<GBWTGraph> gbwt_graph = nullptr;
+    unique_ptr<gbwtgraph::GBWTGraph> gbwt_graph = nullptr;
     if (graph_name.empty()) {
         if (progress) {
             cerr << "Building GBWTGraph" << endl;
         }
-        gbwt_graph.reset(new GBWTGraph(*gbwt_index, *xg_index));
+        gbwt_graph.reset(new gbwtgraph::GBWTGraph(*gbwt_index, *xg_index));
     } else {
         if (progress) {
             cerr << "Loading GBWTGraph " << graph_name << endl;
         }
-        gbwt_graph = vg::io::VPKG::load_one<GBWTGraph>(graph_name);
+        gbwt_graph = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(graph_name);
         gbwt_graph->set_gbwt(*gbwt_index);
     }
 
@@ -486,29 +462,29 @@ int main_gaffe(int argc, char** argv) {
     minimizer_mapper.max_alignments = max_alignments;
 
     if (progress) {
-        cerr << "--cluster-score-threshold " << cluster_score << endl;
+        cerr << "--cluster-score " << cluster_score << endl;
     }
     minimizer_mapper.cluster_score_threshold = cluster_score;
 
     if (progress) {
-        cerr << "--cluster-coverage-threshold " << cluster_coverage << endl;
+        cerr << "--cluster-coverage " << cluster_coverage << endl;
     }
     minimizer_mapper.cluster_coverage_threshold = cluster_coverage;
 
     if (progress) {
-        cerr << "--extension-score-threshold " << extension_score << endl;
+        cerr << "--extension-score " << extension_score << endl;
     }
     minimizer_mapper.extension_score_threshold = extension_score;
 
     if (progress) {
-        cerr << "--extension-set-threshold " << extension_set << endl;
+        cerr << "--extension-set " << extension_set << endl;
     }
     minimizer_mapper.extension_set_score_threshold = extension_set;
 
-    if (progress && !do_chaining) {
-        cerr << "--no-chaining " << endl;
+    if (progress && !do_dp) {
+        cerr << "--no-dp " << endl;
     }
-    minimizer_mapper.do_chaining = do_chaining;
+    minimizer_mapper.do_dp = do_dp;
 
     if (progress) {
         cerr << "--max-multimaps " << max_multimaps << endl;
@@ -520,21 +496,6 @@ int main_gaffe(int argc, char** argv) {
     }
     minimizer_mapper.distance_limit = distance_limit;
     
-    if (progress && linear_tails) {
-        cerr << "--linear-tails " << endl;
-    }
-    minimizer_mapper.linear_tails = linear_tails;
-    
-    if (progress && !use_xdrop_for_tails) {
-        cerr << "--gssw " << endl;
-    }
-    minimizer_mapper.use_xdrop_for_tails = use_xdrop_for_tails;
-    
-    if (progress && discard_gbwt_states) {
-        cerr << "--discard-gbwt-states" << endl;
-    }
-    minimizer_mapper.reuse_gbwt_states = !discard_gbwt_states;
-
     if (progress && track_provenance) {
         cerr << "--track-provenance " << endl;
     }

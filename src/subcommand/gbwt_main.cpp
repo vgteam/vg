@@ -16,6 +16,8 @@
 #include "../gbwt_helper.hpp"
 #include <vg/io/vpkg.hpp>
 
+#include <gbwtgraph/gbwtgraph.h>
+
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -370,12 +372,12 @@ int main_gbwt(int argc, char** argv)
                 cerr << "error: [vg gbwt] GBWTGraph construction requires XG index" << endl;
                 exit(1);
             }
-            unique_ptr<XG> xg_index = vg::io::VPKG::load_one<XG>(xg_name);
+            unique_ptr<PathPositionHandleGraph> xg_index = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
             if (xg_index.get() == nullptr) {
                 cerr << "error: [vg gbwt] could not load XG index " << xg_name << endl;
                 exit(1);
             }
-            GBWTGraph graph(*index, *xg_index);
+            gbwtgraph::GBWTGraph graph(*index, *xg_index);
             vg::io::VPKG::save(graph, graph_output);
         }
 

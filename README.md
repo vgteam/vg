@@ -1,6 +1,6 @@
 # vg
 
-[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Latest Release](https://img.shields.io/github/release/vgteam/vg.svg)](https://github.com/vgteam/vg/releases/latest) [![Build Status](https://travis-ci.org/vgteam/vg.svg?branch=master)](https://travis-ci.org/vgteam/vg) [![Performance Report](https://img.shields.io/badge/performance-report-brightgreen.svg)](https://vg-data.s3.amazonaws.com/vg_ci/vgci_reports/branch/master/index.html) [![Stories in Ready](https://badge.waffle.io/vgteam/vg.png?label=ready&title=Ready)](https://waffle.io/vgteam/vg)
+[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Latest Release](https://img.shields.io/github/release/vgteam/vg.svg)](https://github.com/vgteam/vg/releases/latest) [![Build Status](https://travis-ci.org/vgteam/vg.svg?branch=master)](https://travis-ci.org/vgteam/vg) [![Performance Report](https://img.shields.io/badge/performance-report-brightgreen.svg)](https://vg-data.s3.amazonaws.com/vg_ci/vgci_reports/branch/master/index.html) 
 [![Doxygen API Documentation](https://img.shields.io/badge/doxygen-docs-brightgreen.svg)](https://vgteam.github.io/vg/) 
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
@@ -144,6 +144,8 @@ The simplest thing to do with `vg` is to build a graph and align to it. At prese
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 ```
 
+Note that to build a graph, an index of the VCF file is required. The VCF index file can be generated using the `tabix` command provided by SAMtools (e.g. `tabix -p vcf x.vcf.gz` on the command line).
+
 ### Viewing, conversion
 
 `vg view` provides a way to convert the graph into various formats:
@@ -180,7 +182,7 @@ Most commands allow the streaming of graphs into and out of `vg`.
 If your graph is large, you want to use `vg index` to store the graph and `vg map` to align reads. `vg map` implements a kmer based seed and extend alignment model that is similar to that used in aligners like novoalign or MOSAIK. First an on-disk index is built with `vg index` which includes the graph itself and kmers of a particular size. When mapping, any kmer size shorter than that used in the index can be employed, and by default the mapper will decrease the kmer size to increase sensitivity when alignment at a particular _k_ fails.
 
 ```sh
-# construct the graph
+# construct the graph (paths below assume running from `vg/test` directory)
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
 
 # store the graph in the xg/gcsa index pair
@@ -208,8 +210,8 @@ vg map -T x.sim.txt -x x.xg -g x.gcsa --surject-to bam > aln.bam
 Variation from alignments can be embedded back into the graph.  This process is called augmentation and is important for variant calling, for example (see below).
 
 ```sh
-# augment the graph with all variation from the GAM, saving to aug.vg.  aug.gam contains the same reads as aln.gam but mapped to aug.vg
-vg augment x.vg aln.gam -A aug.gam > aug.vg
+# augment the graph with all variation from the GAM except that implied by soft clips, saving to aug.vg.  aug.gam contains the same reads as aln.gam but mapped to aug.vg
+vg augment x.vg aln.gam -C -A aug.gam > aug.vg
 
 # augment the graph with all variation from the GAM, saving each mapping as a path in the graph.
 # Note, this can be much less efficient than the above example if there are many alignments in the GAM
@@ -218,30 +220,52 @@ vg augment x.vg aln.gam -i > aug_with_paths.vg
 
 ### Variant Calling
 
-The following example shows how to construct a VCF file from a read alignment and graph.  Input must be split into chunks (see vg chunk) in order to run on whole genome.
+The following example shows how to construct a VCF using read support, considering only variants in the graph.  It depends on output from the Mapping and Augmentation examples above.  Small variants and SVs can be called using the same approach.  Currently, it is more accuracte for SVs. 
 
 ```sh
-# filter secondary and ambiguous read mappings out of the gam
-vg filter alignment.gam -r 0.90 -fu -s 2 -o 0 -D 999 -x graph.xg > filtered.gam
+# Compute the read support from the gam (ignoring mapping and base qualitiy < 15)
+vg pack -x x.xg -g aln.gam -Q 15 -o aln.pack
 
-# create an augmented graph by adding variation from the reads
-vg augment graph.vg filtered.gam -a pileup  -S aug_graph.support -Z aug_graph.trans > aug_graph.vg
-
-# to only recall variants that are already in the graph, add -g 9999999 to the augment options above.
-
-# Make calls by thresholding based on read support for graph path SEQ
-vg call aug_graph.vg -b graph.vg -s aug_graph.support -z aug_graph.trans -r SEQ > calls.vcf
-
-
-# Or Make calls using a Freebayes-like genotyping algorithm for graph path SEQ
-vg genotype graph.vg -G alignment.gam -E -v -r SEQ > calls.vcf
-
-# for comparison purposes, it's very useful to normalize the vcf output, especially for more complex graphs which can make large variant blocks that contain a lot of reference bases (Note: requires [vt](http://genome.sph.umich.edu/wiki/Vt)):
-vt decompose_blocksub -a calls.vcf | vt normalize -r FASTA_FILE - > calls.clean.vcf
-
+# Generate a VCF from the support
+vg call x.xg -k aln.pack > graph_calls.vcf
 ```
 
-To produce a VCF file for a whole chromosome, the graph must be cut up along the reference genome and called in chunks.  `scripts/chunked_call` wraps this functionality to produce chromosome-sized VCFs in a single command line (from a GAM file and XG index)
+In order to also consider *novel* variants from the reads, use the augmented graph and gam (as created in the previous example using `vg augment -C -A`)
+
+```sh
+# Index our augmented graph
+vg index aug.vg -x aug.xg
+
+# Compute the read support from the augmented gam (with ignoring qualitiy < 15)
+vg pack -x aug.xg -g aug.gam -Q 15 -o aln_aug.pack
+
+# Generate a VCF from the support
+vg call aug.xg -k aln_aug.pack > calls.vcf
+```
+
+A similar process can by used to *genotype* known variants from a VCF. To do this, the graph must be constructed from the VCF with `vg construct -a`.
+
+```sh
+# Re-construct the same graph as before but with `-a`
+vg construct -r small/x.fa -v small/x.vcf.gz -a > xa.vg
+
+# Index the graph with `-L' to preserve alt paths in the xg
+vg index xa.vg -x xa.xg -L
+
+# Compute the support (we could also reuse aln.pack from above)
+vg pack -x xa.xg -g aln.gam -o aln.pack
+
+# Genotype the VCF
+vg call xa.xg -k aln.pack -v small/x.vcf.gz
+```
+
+Pre-filtering the GAM before computing support can improve precision of SNP calling
+```sh
+# filter secondary and ambiguous read mappings out of the gam
+vg filter aln.gam -r 0.90 -fu -s 2 -o 0 -D 999 -x x.xg > aln.filtered.gam
+
+# then compute the support from aln.filtered.gam instead of aln.gam in above etc.
+```
 
 ### Command line interface
 

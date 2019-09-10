@@ -1,5 +1,6 @@
 #include "subcommand.hpp"
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include "../utility.hpp"
 #include "../packer.hpp"
 #include <vg/io/stream.hpp>
@@ -25,7 +26,7 @@ void help_pack(char** argv) {
          << "    -n, --node ID          write table for only specified node(s)" << endl
          << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
          << "    -q, --qual-adjust      scale coverage by phred quality (combined from mapq and base quality)" << endl
-         << "    -Q, --min-mapq N       ignore read mappings with Mapping Quality < N [default: 0]" << endl
+         << "    -Q, --min-mapq N       ignore reads with MAPQ < N and positions with base quality < N [default: 0]" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
 
@@ -44,6 +45,7 @@ int main_pack(int argc, char** argv) {
     string node_list_file;
     bool qual_adjust = false;
     int min_mapq = 0;
+    int min_baseq = 0;
 
     if (argc == 2) {
         help_pack(argv);
@@ -125,6 +127,7 @@ int main_pack(int argc, char** argv) {
             break;
         case 'Q':
             min_mapq = parse<int>(optarg);
+            min_baseq = min_mapq;
             break;
         default:
             abort();
@@ -133,12 +136,12 @@ int main_pack(int argc, char** argv) {
 
     omp_set_num_threads(thread_count);
 
-    unique_ptr<XG> xgidx;
+    unique_ptr<PathPositionHandleGraph> xgidx;
     if (xg_name.empty()) {
         cerr << "No XG index given. An XG index must be provided." << endl;
         exit(1);
     } else {
-        xgidx = vg::io::VPKG::load_one<XG>(xg_name);
+        xgidx = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
     }
 
     // process input node list
@@ -160,7 +163,7 @@ int main_pack(int argc, char** argv) {
 
     // todo one packer per thread and merge
 
-    vg::Packer packer(xgidx.get(), bin_size, qual_adjust);
+    vg::Packer packer(xgidx.get(), bin_size, qual_adjust, min_mapq, min_baseq);
     if (packs_in.size() == 1) {
         packer.load_from_file(packs_in.front());
     } else if (packs_in.size() > 1) {
@@ -173,18 +176,20 @@ int main_pack(int argc, char** argv) {
             packers.push_back(&packer);
         } else {
             for (size_t i = 0; i < thread_count; ++i) {
-                packers.push_back(new Packer(xgidx.get(), bin_size, qual_adjust));
+                packers.push_back(new Packer(xgidx.get(), bin_size, qual_adjust, min_mapq, min_baseq));
             }
         }
-        std::function<void(Alignment&)> lambda = [&packer,&record_edits,&packers,&min_mapq](Alignment& aln) {
-            if (aln.mapping_quality() >= min_mapq) {
-                packers[omp_get_thread_num()]->add(aln, record_edits);
-            }
+        std::function<void(Alignment&)> lambda = [&packer,&record_edits,&packers](Alignment& aln) {
+            packers[omp_get_thread_num()]->add(aln, record_edits);
         };
         if (gam_in == "-") {
             vg::io::for_each_parallel(std::cin, lambda);
         } else {
             ifstream gam_stream(gam_in);
+            if (!gam_stream) {
+                cerr << "[vg pack] error reading gam file: " << gam_in << endl;
+                return 1;
+            }
             vg::io::for_each_parallel(gam_stream, lambda);
             gam_stream.close();
         }

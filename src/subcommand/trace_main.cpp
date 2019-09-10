@@ -13,7 +13,7 @@ using namespace vg;
 using namespace std;
 using namespace vg::subcommand;
 
-using thread_t = vector<XG::ThreadMapping>;
+using thread_t = vector<gbwt::node_type>;
 
 void help_trace(char** argv) {
     cerr << "usage: " << argv[0] << " trace [options]" << endl
@@ -118,9 +118,7 @@ int main_trace(int argc, char** argv) {
     cerr << "error:[vg trace] start node must be specified with -n" << endl;
     return 1;
   }
-  XG xindex;  
-  ifstream in(xg_name.c_str());
-  xindex.load(in);
+  unique_ptr<PathPositionHandleGraph> xindex = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
 
   // Now load the haplotype data
   unique_ptr<gbwt::GBWT> gbwt_index;
@@ -141,7 +139,7 @@ int main_trace(int argc, char** argv) {
   // trace out our graph and paths from the start node
   Graph trace_graph;
   map<string, int> haplotype_frequences;
-  trace_haplotypes_and_paths(xindex, gbwt_index.get(), start_node, extend_distance,
+  trace_haplotypes_and_paths(*xindex, *gbwt_index.get(), start_node, extend_distance,
                              trace_graph, haplotype_frequences);
 
   // dump our graph to stdout

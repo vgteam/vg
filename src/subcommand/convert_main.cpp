@@ -1,7 +1,7 @@
 #include "subcommand.hpp"
 #include "../vg.hpp"
 #include "../utility.hpp"
-#include "../xg.hpp"
+#include "xg.hpp"
 #include "../convert_handle.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
@@ -25,7 +25,8 @@ void help_convert(char** argv) {
          << "output options:" << endl
          << "    -V, --vg-out           output in VG format [default]" << endl
          << "    -A, --hash-out         output in HashGraph format" << endl
-         << "    -P, --packed-out       output in PackedGraph format" << endl;
+         << "    -P, --packed-out       output in PackedGraph format" << endl
+         << "    -X, --xg-out           output in XG format" << endl;
 }
 
 int main_convert(int argc, char** argv) {
@@ -51,11 +52,12 @@ int main_convert(int argc, char** argv) {
             {"vg-out", no_argument, 0, 'V'},
             {"hash-out", no_argument, 0, 'A'},
             {"packed-out", no_argument, 0, 'P'},
+            {"xg-out", no_argument, 0, 'X'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hvxapxVAP",
+        c = getopt_long (argc, argv, "hvxapxVAPX",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -90,6 +92,10 @@ int main_convert(int argc, char** argv) {
         case 'P':
             output_format = "packed";
             break;
+        case 'X':
+            output_format = "xg";
+            break;
+
 
         default:
             abort();
@@ -107,7 +113,7 @@ int main_convert(int argc, char** argv) {
         } else if (graph_type == "packed") {
             return new bdsg::PackedGraph();
         } else if (graph_type == "xg") {
-            return new XG();
+            return new xg::XG();
         }
         return nullptr;
     };
@@ -125,22 +131,29 @@ int main_convert(int argc, char** argv) {
         dynamic_cast<SerializableHandleGraph*>(input_graph)->deserialize(input_path == "-" ? cin : input_stream);
     } else {
         //todo: XG::deserialize() doesn't work.  Need to go through vpkg
-        unique_ptr<XG> xindex = vg::io::VPKG::load_one<XG>(input_path);
+        unique_ptr<xg::XG> xindex = vg::io::VPKG::load_one<xg::XG>(input_path);
         delete input_graph;
         input_graph = xindex.release();
     }
     
 
-    // Make an empty output graph
-    MutablePathMutableHandleGraph* output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph_factory(output_format));
-    assert(output_graph != nullptr);
-    // Copy over the input graph
-    convert_path_handle_graph(input_graph, output_graph);
-    // Write the output graph to the stream
-    dynamic_cast<SerializableHandleGraph*>(output_graph)->serialize(cout);
 
+    if (output_format == "xg") {
+        // special logic because xg isn't mutable
+        xg::XG xg;
+        xg.from_path_handle_graph(*input_graph);
+        xg.serialize(cout);
+    } else {
+        // Make an empty output graph
+        MutablePathMutableHandleGraph* output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph_factory(output_format));
+        assert(output_graph != nullptr);
+        // Copy over the input graph
+        convert_path_handle_graph(input_graph, output_graph);
+        // Write the output graph to the stream
+        dynamic_cast<SerializableHandleGraph*>(output_graph)->serialize(cout);
+        delete output_graph;
+    }
     delete input_graph;
-    delete output_graph;
 
     return 0;
 }

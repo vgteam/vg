@@ -13,6 +13,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include "../alignment.hpp"
 #include <vg/io/vpkg.hpp>
 
@@ -122,7 +123,7 @@ int main_validate(int argc, char** argv) {
             return 1;
         }
         ifstream in(xg_path.c_str());
-        unique_ptr<XG> xindex = vg::io::VPKG::load_one<XG>(in);
+        unique_ptr<PathPositionHandleGraph> xindex = vg::io::VPKG::load_one<PathPositionHandleGraph>(in);
         in.close();
         get_input_file(gam_path, [&](istream& in) {
                 vg::io::for_each<Alignment>(in, [&](Alignment& aln) {
