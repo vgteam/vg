@@ -63,7 +63,6 @@ struct Range {
     };
     /// This will be called when we need to tick_chain our parent
     function<bool(void)> tick_chain_parent = []() {
-        cerr << "Cannot tick past end of chain" << endl;
         return false;
     };
     
@@ -141,8 +140,6 @@ struct Range {
     void reset() {
         here = start;
         running = true;
-        
-        cerr << "Reset range " << start << ":" << end << ":" << step << " to " << here << endl;
     }
     
     /// Start us and all the things we are chained onto at their start values
@@ -154,22 +151,16 @@ struct Range {
     /// Increment our value.
     /// Returns true if the new value needs processing, and false if we have left or would leave the range.
     bool tick() {
-        cerr << "Ticking range " << start << ":" << end << ":" << step << endl;
-    
         if (here == end) {
             // We are at the end
-            cerr << "\tAt end. Can't change ourselves." << endl;
             return false;
         }
         
         here += step;
         if ((step > 0 && here > end) || (step < 0 && here < end)) {
             // We have passed the end (for things like double)
-            cerr << "\tWould pass end of " << end << " with " << here << ". Can't change ourselves." << endl;
             return false;
         }
-        
-        cerr << "\tTicked to " << here << endl;
         
         return true;
     }
@@ -179,18 +170,15 @@ struct Range {
     bool tick_chain() {
         if (tick()) {
             // We could change
-            cerr << "Successfully ticked ourselves" << endl;
             return true;
         } else {
             // We couldn't change.
             if (tick_chain_parent()) {
                 // We have a parent we could advance.
                 reset();
-                cerr << "Successfully ticked an ancestor" << endl;
                 return true;
             } else {
                 // Our parent couldn't advance either.
-                cerr << "Could not tick ourselves or an ancestor" << endl;
                 return false;
             }
         }
@@ -202,16 +190,11 @@ struct Range {
     template<typename Other>
     Range<Other>& chain(Range<Other>& next) {
         
-        cerr << "Creating link from " << next.start << ":" << next.end << ":" << next.step
-            << " to parent " << this->start << ":" << this->end << ":" << this->step << endl;
-        
         // Attach next to us
         next.reset_chain_parent = [&]() {
             this->reset_chain();
         };
         next.tick_chain_parent = [&]() {
-            cerr << "Following link from " << next.start << ":" << next.end << ":" << next.step
-                << " to parent " << this->start << ":" << this->end << ":" << this->step << endl;
             return this->tick_chain();
         };
         
@@ -269,11 +252,9 @@ inline bool parse(const string& arg, typename enable_if<is_instantiation_of<Resu
         auto colon2 = arg.find(':', colon1 + 1);
         if (colon2 == string::npos) {
             // Just a range of two things
-            cerr << "Parse " << arg.substr(0, colon1) << " as start" << endl;
             if (!parse<typename Result::type>(arg.substr(0, colon1), dest.start)) {
                 return false;
             }
-            cerr << "Parse " << arg.substr(colon1 + 1) << " as end" << endl;
             if (!parse<typename Result::type>(arg.substr(colon1 + 1), dest.end)) {
                 return false;
             }
@@ -284,15 +265,12 @@ inline bool parse(const string& arg, typename enable_if<is_instantiation_of<Resu
             return false;
         } else {
             // We have 3 numbers
-            cerr << "Parse " << arg.substr(0, colon1) << " as start" << endl;
             if (!parse<typename Result::type>(arg.substr(0, colon1), dest.start)) {
                 return false;
             }
-            cerr << "Parse " << arg.substr(colon1 + 1, colon2 - colon1 - 1) << " as end" << endl;
             if (!parse<typename Result::type>(arg.substr(colon1 + 1, colon2 - colon1 - 1), dest.end)) {
                 return false;
             }
-            cerr << "Parse " << arg.substr(colon2 + 1) << " as step" << endl;
             if (!parse<typename Result::type>(arg.substr(colon2 + 1), dest.step)) {
                 return false;
             }
@@ -324,10 +302,13 @@ void help_gaffe(char** argv) {
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
     << "  -n, --discard                 discard all output alignments (for profiling)" << endl
+    << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
+    << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
     << "computational parameters:" << endl
     << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
     << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [300]" << endl
     << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.6]" << endl
+    << "  -D, --distance-limit INT      cluster using this distance limit [1000]" << endl
     << "  -e, --max-extensions INT      extend up to INT clusters [48]" << endl
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
     << "  -s, --cluster-score INT       only extend clusters if they are within cluster-score of the best score" << endl
@@ -349,8 +330,11 @@ int main_gaffe(int argc, char** argv) {
         return 1;
     }
 
-    #define OPT_TRACK_PROVENANCE 1001
-    #define OPT_TRACK_CORRECTNESS 1002
+    #define OPT_OUTPUT_BASENAME 1001
+    #define OPT_REPORT_NAME 1002
+    #define OPT_TRACK_PROVENANCE 1003
+    #define OPT_TRACK_CORRECTNESS 1004
+    
 
     // initialize parameters with their default options
     string xg_name;
@@ -358,6 +342,8 @@ int main_gaffe(int argc, char** argv) {
     string gbwt_name;
     string minimizer_name;
     string distance_name;
+    string output_basename;
+    string report_name;
     // How close should two hits be to be in the same cluster?
     Range<size_t> distance_limit = 1000;
     Range<size_t> hit_cap = 10, hard_hit_cap = 300;
@@ -428,8 +414,11 @@ int main_gaffe(int argc, char** argv) {
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
             {"discard", no_argument, 0, 'n'},
+            {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
+            {"report-name", required_argument, 0, OPT_REPORT_NAME},
             {"hit-cap", required_argument, 0, 'c'},
             {"hard-hit-cap", required_argument, 0, 'C'},
+            {"distance-limit", required_argument, 0, 'D'},
             {"max-extensions", required_argument, 0, 'e'},
             {"max-alignments", required_argument, 0, 'a'},
             {"cluster-score", required_argument, 0, 's'},
@@ -445,7 +434,7 @@ int main_gaffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:s:u:v:w:Ot:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:D:F:e:a:s:u:v:w:Ot:",
                          long_options, &option_index);
 
 
@@ -522,6 +511,14 @@ int main_gaffe(int argc, char** argv) {
             case 'n':
                 discard_alignments = true;
                 break;
+                
+            case OPT_OUTPUT_BASENAME:
+                output_basename = optarg;
+                break;
+            
+            case OPT_REPORT_NAME:
+                report_name = optarg;
+                break;
 
             case 'c':
                 {
@@ -542,6 +539,17 @@ int main_gaffe(int argc, char** argv) {
                         exit(1);
                     }
                     hard_hit_cap = cap;
+                }
+                break;
+                
+            case 'D':
+                {
+                    auto limit = parse<Range<size_t>>(optarg);
+                    if (limit <= 0) {
+                        cerr << "error: [vg gaffe] Distance limit (" << limit << ") must be a positive integer" << endl;
+                        exit(1);
+                    }
+                    distance_limit = limit;
                 }
                 break;
 
@@ -722,12 +730,52 @@ int main_gaffe(int argc, char** argv) {
     if (progress) {
         cerr << "Loading and initialization: " << init_seconds.count() << " seconds" << endl;
     }
+    
+    // Set up to write a report of mapping speed if requested, instead of just dumping to stderr.
+    ofstream report;
+    if (!report_name.empty()) {
+        // Open the report
+        report.open(report_name);
+        if (!report) {
+            // Make sure it worked
+            cerr << "error[vg gaffe]: Could not open report file " << report_name << endl;
+            exit(1);
+        }
+        
+        // Add a header
+        report << "#file\treads/second/thread" << endl;
+    }
 
     // We need to loop over all the ranges...
     for_each_combo([&]() {
     
+        // Work out where to send the output. Default to stdout.
+        string output_filename = "-";
+        if (!output_basename.empty()) {
+            // Compose a name using all the parameters.
+            stringstream s;
+            
+            s << output_basename;
+            
+            s << "-D" << distance_limit;
+            s << "-c" << hit_cap;
+            s << "-C" << hard_hit_cap;
+            s << "-F" << minimizer_score_fraction;
+            s << "-M" << max_multimaps;
+            s << "-e" << max_extensions;
+            s << "-a" << max_alignments;
+            s << "-s" << cluster_score;
+            s << "-u" << cluster_coverage;
+            s << "-w" << extension_set;
+            s << "-v" << extension_score;
+            
+            s << ".gam";
+            
+            output_filename = s.str();
+        }
+    
         if (progress) {
-            cerr << "Mapping reads..." << endl;
+            cerr << "Mapping reads to \"" << output_filename << "\"..." << endl;
         }
 
         if (progress) {
@@ -817,7 +865,7 @@ int main_gaffe(int argc, char** argv) {
             // Discard alignments if asked to. Otherwise spit them out in GAM format.
             unique_ptr<AlignmentEmitter> alignment_emitter = discard_alignments ?
                 make_unique<NullAlignmentEmitter>() :
-                get_alignment_emitter("-", "GAM", {}, thread_count);
+                get_alignment_emitter(output_filename, "GAM", {}, thread_count);
 
 #ifdef USE_CALLGRIND
             // We want to profile the alignment, not the loading.
@@ -860,16 +908,25 @@ int main_gaffe(int argc, char** argv) {
             total_reads_mapped += reads_mapped;
         }
         
-        // Produce a report
+        // Compute speed
+        double reads_per_second_per_thread = ((total_reads_mapped / elapsed_seconds.count()) / thread_count);
+        
         if (progress) {
+            // Log to standard error
             cerr << "Mapped " << total_reads_mapped << " reads across "
                 << thread_count << " threads in "
                 << elapsed_seconds.count() << " seconds." << endl;
             
-            cerr << "Mapping speed: " << ((total_reads_mapped / elapsed_seconds.count()) / thread_count)
+            cerr << "Mapping speed: " << reads_per_second_per_thread
                 << " reads per second per thread" << endl;
 
             cerr << "Memory footprint: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GB" << endl;
+        }
+        
+        
+        if (report) {
+            // Log output filename and mapping speed in reads/second/thread to report TSV
+            report << output_filename << "\t" << reads_per_second_per_thread << endl;
         }
         
     });
