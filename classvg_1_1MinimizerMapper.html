@@ -177,8 +177,6 @@ Protected Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:a6a485aa968767c54bc47fdff11bcdd76"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6a485aa968767c54bc47fdff11bcdd76">estimate_extension_group_score</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds) const </td></tr>
-<tr class="separator:a6a485aa968767c54bc47fdff11bcdd76"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2f8c43ce7e04292284d84fdde5e4e557"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2f8c43ce7e04292284d84fdde5e4e557">find_optimal_tail_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;out) const </td></tr>
 <tr class="separator:a2f8c43ce7e04292284d84fdde5e4e557"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4a67a89b962d336a62f1fac1274febf4"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; size_t, <br class="typebreak"/>
@@ -213,6 +211,8 @@ unordered_map&lt; size_t, vector<br class="typebreak"/>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-static-methods"></a>
 Static Protected Member Functions</h2></td></tr>
+<tr class="memitem:a2c8ab02743227cb2550fcfd295043253"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2c8ab02743227cb2550fcfd295043253">score_extension_group</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, int gap_open_penalty, int gap_extend_penalty)</td></tr>
+<tr class="separator:a2c8ab02743227cb2550fcfd295043253"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab3008803e2ce57d5bbcd6a077f9dcde6"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab3008803e2ce57d5bbcd6a077f9dcde6">immutable_path_from_length</a> (const <a class="el" href="classvg_1_1MinimizerMapper.html#af12f40d8ae25f153fba1dc122fda29f0">ImmutablePath</a> &amp;path)</td></tr>
 <tr class="separator:ab3008803e2ce57d5bbcd6a077f9dcde6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae1565adcd1bdf28aca55134d7482b1af"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ae1565adcd1bdf28aca55134d7482b1af">to_path</a> (const <a class="el" href="classvg_1_1MinimizerMapper.html#af12f40d8ae25f153fba1dc122fda29f0">ImmutablePath</a> &amp;path)</td></tr>
@@ -452,41 +452,6 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>The same as dfs_gbwt on a handle and an offset, but takes a gbwt::SearchState that defines only some haplotypes on a handle to start with. </p>
-
-</div>
-</div>
-<a class="anchor" id="a6a485aa968767c54bc47fdff11bcdd76"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">int vg::MinimizerMapper::estimate_extension_group_score </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>aln</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>extended_seeds</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Estimate the score it may be possible to achieve using the given group of GaplessExtensions. Supports single full-length extensions and groups that need chaining. May reorder the input extended_seeds vector if it is not sorted in read space. Is not always an overestimate of the actual score. </p>
 
 </div>
 </div>
@@ -865,6 +830,55 @@ template&lt;typename Item , typename Score &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Same as the other process_until_threshold overload, except using a vector to supply scores. </p>
+
+</div>
+</div>
+<a class="anchor" id="a2c8ab02743227cb2550fcfd295043253"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::MinimizerMapper::score_extension_group </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>extended_seeds</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>gap_open_penalty</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>gap_extend_penalty</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Score the given group of gapless extensions. Determines the best score that can be obtained by chaining extensions together, using the given gap open and gap extend penalties to charge for either overlaps or gaps in coverage of the read.</p>
+<p>Enforces that overlaps cannot result in containment.</p>
+<p>Input extended seeds must be sorted by start position. </p>
 
 </div>
 </div>
