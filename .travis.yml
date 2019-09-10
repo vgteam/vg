@@ -52,8 +52,8 @@ before_install:
 install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make get-deps; fi
 script:
-  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "linux" ]]; then make -j4 && echo Testing && make test && make static -j4; fi
-  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" ]]; then timeout 1800 make deps -j4 && make -j4 && echo Testing && make test; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "linux" ]]; then make -j4 && echo Testing && bin/vg test "Target to alignment extraction" && echo Full Testing && make test && make static -j4; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" ]]; then timeout 1800 make deps -j4 && make -j4 && echo Testing && bin/vg test "Target to alignment extraction" && echo Full Testing && make test; fi
   - if [[ ! -z "$BUILD_DOCS_ONLY" ]]; then doc/publish-docs.sh; fi
 # Cache all our dependency directories, and our lib and include
 cache:
