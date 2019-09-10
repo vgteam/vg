@@ -1,5 +1,5 @@
 /**
- * \file gaffe_main.cpp: GFA (Graph Alignment Format) Fast Emitter: a new mapper that will be *extremely* fast once we actually write it
+ * \file gaffe_main.cpp: GAF (Graph Alignment Format) Fast Emitter: a new mapper that will be *extremely* fast once we actually write it
  */
 
 #include <omp.h>
@@ -34,6 +34,222 @@
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
+
+namespace vg {
+
+// Define a system for grid searching
+
+/// This defines a range of values to test, from start to <=end, going up by step
+template<typename Number>
+struct Range {
+    
+    // Expose the thing we are a range of
+    using type = Number;
+
+    /// Represents the start of the range
+    Number start = 0;
+    /// Represents the inclusive end of the range
+    Number end = 0;
+    /// Represents the step to move by each tick
+    Number step = 1;
+    
+    /// Represents the current value the range is at
+    Number here = 0;
+    /// Determines if we are running or not (i.e. is here valid)
+    bool running = false;
+    
+    /// This will be called when we want to reset_chain what we are chained onto.
+    function<void(void)> reset_chain_parent = []() {
+    };
+    /// This will be called when we need to tick_chain our parent
+    function<bool(void)> tick_chain_parent = []() {
+        return false;
+    };
+    
+    /// Default constructor
+    inline Range() {
+        // Nothing to do!
+    }
+    
+    /// Construct from a single value
+    inline Range(const Number& val) : start(val), end(val) {
+        // Nothing to do!
+    }
+    
+    /// Check the range for usefulness
+    inline bool is_valid() {
+        if (start != end && step == 0) {
+            // We'll never make it
+            return false;
+        }
+        
+        if (start < end && step > 0) {
+            // We're going the wrong way
+            return false;
+        }
+        
+        if (start > end && step < 0) {
+            // We're going the other wrong way
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /// Convert to Number with the current value
+    operator Number() const {
+        if (running) {
+            return here;
+        } else {
+            return start;
+        }
+    }
+    
+    /// Start at our start value
+    void reset() {
+        here = start;
+        running = true;
+    }
+    
+    /// Start us and all the things we are chained onto at their start values
+    void reset_chain() {
+        reset();
+        reset_chain_parent();
+    }
+    
+    /// Increment our value.
+    /// Returns true if the new value needs processing, and false if we have left or would leave the range.
+    bool tick() {
+        if (here == end) {
+            // We are at the end
+            return false;
+        }
+        
+        here += step;
+        if ((step > 0 && here > end) || (step < 0 && here < end)) {
+            // We have passed the end (for things like double)
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /// Increment our value.
+    /// If it overflows, tock_chain whatever we are chained onto, and reset and succeed if that succeeds.
+    bool tick_chain() {
+        if (tick()) {
+            // We could change
+            return true;
+        } else {
+            // We couldn't change.
+            if (tick_chain_parent()) {
+                // We have a parent we could advance.
+                reset();
+                return true;
+            } else {
+                // Our parent couldn't advance either.
+                return false;
+            }
+        }
+    }
+    
+    /// Chain the given range onto this one.
+    /// Return the passed-in range.
+    /// Neither range may be moved away!
+    template<typename Other>
+    Range<Other>& chain(Range<Other>& next) {
+        
+        // Attach next to us
+        next.reset_chain_parent = [&]() {
+            reset_chain();
+        };
+        next.tick_chain_parent = [&]() {
+            return tick_chain();
+        };
+        
+        return next;
+    }
+    
+    /// Get a function that runs another function for each combination of
+    /// values for this Range and all Ranges it has been chained onto.
+    function<void(const function<void(void)>&)> get_iterator() {
+        return [&](const function<void(void)>& iteratee) {
+            // Start
+            reset_chain();
+            
+            do {
+                // Run iteratee
+                iteratee();
+                // And tick the whole chain before running again
+            } while(tick_chain());
+        };
+    }
+};
+
+// Define a way to test if a type is a Result<T>
+// See https://stackoverflow.com/a/25803794
+
+// In general, things aren't instantiations of things
+template <typename Subject, template<typename...> typename Predicate>
+struct is_instantiation_of : std::false_type {
+};
+
+// Except things that are instantiations of things with some arguments
+template <template<typename... > class Predicate, class... PredicateArgs>
+struct is_instantiation_of<Predicate<PredicateArgs...>, Predicate> : std::true_type {
+};
+
+/// Parse a range as start[:end[:step]]
+template<typename Result>
+inline bool parse(const string& arg, typename enable_if<is_instantiation_of<Result, Range>::value, Result>::type& dest) {
+
+    auto colon1 = arg.find(':');
+    
+    if (colon1 == string::npos) {
+        // No colons here. Parse one number.
+        if (!parse<typename Result::type>(arg, dest.start)) {
+            return false;
+        }
+        dest.end = dest.start;
+        dest.step = 0;
+        return dest.is_valid();
+    } else if (colon1 == arg.size()) {
+        // Can't end in a colon
+        return false;
+    } else {
+        // Look for another colon
+        auto colon2 = arg.find(':', colon1 + 1);
+        if (colon2 == string::npos) {
+            // Just a range of two things
+            if (!parse<typename Result::type>(arg.substr(0, colon1), dest.start)) {
+                return false;
+            }
+            if (!parse<typename Result::type>(arg.substr(colon1 + 1), dest.end)) {
+                return false;
+            }
+            dest.step = 1;
+            return dest.is_valid();
+        } else if (colon2 == arg.size()) {
+            // Can't end in a colon
+            return false;
+        } else {
+            // We have 3 numbers
+            if (!parse<typename Result::type>(arg.substr(0, colon1), dest.start)) {
+                return false;
+            }
+            if (!parse<typename Result::type>(arg.substr(colon1 + 1, colon2 - colon1 - 1), dest.end)) {
+                return false;
+            }
+            if (!parse<typename Result::type>(arg.substr(colon2 + 1), dest.step)) {
+                return false;
+            }
+            
+            return dest.is_valid();
+        }
+    }
+}
+
+}
 
 void help_gaffe(char** argv) {
     cerr
@@ -90,9 +306,9 @@ int main_gaffe(int argc, char** argv) {
     string minimizer_name;
     string distance_name;
     // How close should two hits be to be in the same cluster?
-    size_t distance_limit = 1000;
-    size_t hit_cap = 10, hard_hit_cap = 300;
-    double minimizer_score_fraction = 0.6;
+    Range<size_t> distance_limit = 1000;
+    Range<size_t> hit_cap = 10, hard_hit_cap = 300;
+    Range<double> minimizer_score_fraction = 0.6;
     bool progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_dp = true;
@@ -102,19 +318,19 @@ int main_gaffe(int argc, char** argv) {
     // Note: multiple FASTQs are not interpreted as paired.
     vector<string> fastq_filenames;
     // How many mappings per read can we emit?
-    size_t max_multimaps = 1;
+    Range<size_t> max_multimaps = 1;
     // How many clusters should we extend?
-    size_t max_extensions = 48;
+    Range<size_t> max_extensions = 48;
     // How many extended clusters should we align, max?
-    size_t max_alignments = 8;
+    Range<size_t> max_alignments = 8;
     //Throw away cluster with scores that are this amount below the best
-    double cluster_score = 0;
+    Range<double> cluster_score = 0;
     //Throw away clusters with coverage this amount below the best 
-    double cluster_coverage = 0;
+    Range<double> cluster_coverage = 0;
     //Throw away extension sets with scores that are this amount below the best
-    double extension_set = 0;
+    Range<double> extension_set = 0;
     //Throw away extensions with scores that are this amount below the best
-    int extension_score = 1;
+    Range<int> extension_score = 1;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
@@ -126,7 +342,20 @@ int main_gaffe(int argc, char** argv) {
     // Should we track candidate correctness?
     bool track_correctness = false;
     
-    vector<size_t> threads_to_run;
+    // Chain all the ranges and get a function that loops over all combinations.
+    auto for_each_combo = distance_limit
+        .chain(hit_cap)
+        .chain(hard_hit_cap)
+        .chain(minimizer_score_fraction)
+        .chain(max_multimaps)
+        .chain(max_extensions)
+        .chain(max_alignments)
+        .chain(cluster_score)
+        .chain(cluster_coverage)
+        .chain(extension_set)
+        .chain(extension_score)
+        .get_iterator();
+    
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -226,7 +455,7 @@ int main_gaffe(int argc, char** argv) {
                 break;
                 
             case 'M':
-                max_multimaps = parse<size_t>(optarg);
+                max_multimaps = parse<Range<size_t>>(optarg);
                 break;
             
             case 'N':
@@ -243,7 +472,7 @@ int main_gaffe(int argc, char** argv) {
 
             case 'c':
                 {
-                    size_t cap = parse<size_t>(optarg);
+                    size_t cap = parse<Range<size_t>>(optarg);
                     if (cap <= 0) {
                         cerr << "error: [vg gaffe] Hit cap (" << cap << ") must be a positive integer" << endl;
                         exit(1);
@@ -254,7 +483,7 @@ int main_gaffe(int argc, char** argv) {
 
             case 'C':
                 {
-                    size_t cap = parse<size_t>(optarg);
+                    size_t cap = parse<Range<size_t>>(optarg);
                     if (cap <= 0) {
                         cerr << "error: [vg gaffe] Hard hit cap (" << cap << ") must be a positive integer" << endl;
                         exit(1);
@@ -264,12 +493,12 @@ int main_gaffe(int argc, char** argv) {
                 break;
 
             case 'F':
-                minimizer_score_fraction = parse<double>(optarg);
+                minimizer_score_fraction = parse<Range<double>>(optarg);
                 break;
 
             case 'e':
                 {
-                    size_t extensions = parse<size_t>(optarg);
+                    size_t extensions = parse<Range<size_t>>(optarg);
                     if (extensions <= 0) {
                         cerr << "error: [vg gaffe] Number of extensions (" << extensions << ") must be a positive integer" << endl;
                         exit(1);
@@ -280,7 +509,7 @@ int main_gaffe(int argc, char** argv) {
 
             case 'a':
                 {
-                    size_t alignments = parse<size_t>(optarg);
+                    size_t alignments = parse<Range<size_t>>(optarg);
                     if (alignments <= 0) {
                         cerr << "error: [vg gaffe] Number of alignments (" << alignments << ") must be a positive integer" << endl;
                         exit(1);
@@ -291,7 +520,7 @@ int main_gaffe(int argc, char** argv) {
 
             case 's':
                 {
-                    double score = parse<double>(optarg);
+                    double score = parse<Range<double>>(optarg);
                     if (score < 0) {
                         cerr << "error: [vg gaffe] Cluster score threshold (" << score << ") must be positive" << endl;
                         exit(1);
@@ -302,7 +531,7 @@ int main_gaffe(int argc, char** argv) {
 
             case 'u':
                 {
-                    double score = parse<double>(optarg);
+                    double score = parse<Range<double>>(optarg);
                     if (score < 0) {
                         cerr << "error: [vg gaffe] Cluster coverage threshold (" << score << ") must be positive" << endl;
                         exit(1);
@@ -312,7 +541,7 @@ int main_gaffe(int argc, char** argv) {
                 break;
             case 'v':
                 {
-                    double score = parse<double>(optarg);
+                    double score = parse<Range<double>>(optarg);
                     if (score < 0) {
                         cerr << "error: [vg gaffe] Extension score threshold (" << score << ") must be positive" << endl;
                         exit(1);
@@ -322,7 +551,7 @@ int main_gaffe(int argc, char** argv) {
                 break;
             case 'w':
                 {
-                    int score = parse<int>(optarg);
+                    int score = parse<Range<int>>(optarg);
                     if (score < 0) {
                         cerr << "error: [vg gaffe] Extension set score threshold (" << score << ") must be positive" << endl;
                         exit(1);
@@ -351,7 +580,7 @@ int main_gaffe(int argc, char** argv) {
                     cerr << "error:[vg gaffe] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
                     exit(1);
                 }
-                threads_to_run.push_back(num_threads);
+                omp_set_num_threads(num_threads);
             }
                 break;
                 
@@ -434,99 +663,93 @@ int main_gaffe(int argc, char** argv) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
     MinimizerMapper minimizer_mapper(*gbwt_graph, *minimizer_index, distance_index, xg_index.get());
-
-
-    if (progress) {
-        cerr << "--hit-cap " << hit_cap << endl;
-    }
-    minimizer_mapper.hit_cap = hit_cap;
-
-    if (progress) {
-        cerr << "--hard-hit-cap " << hard_hit_cap << endl;
-    }
-    minimizer_mapper.hard_hit_cap = hard_hit_cap;
-
-    if (progress) {
-        cerr << "--score-fraction " << minimizer_score_fraction << endl;
-    }
-    minimizer_mapper.minimizer_score_fraction = minimizer_score_fraction;
-
-    if (progress) {
-        cerr << "--max-extensions " << max_extensions << endl;
-    }
-    minimizer_mapper.max_extensions = max_extensions;
-
-    if (progress) {
-        cerr << "--max-alignments " << max_alignments << endl;
-    }
-    minimizer_mapper.max_alignments = max_alignments;
-
-    if (progress) {
-        cerr << "--cluster-score " << cluster_score << endl;
-    }
-    minimizer_mapper.cluster_score_threshold = cluster_score;
-
-    if (progress) {
-        cerr << "--cluster-coverage " << cluster_coverage << endl;
-    }
-    minimizer_mapper.cluster_coverage_threshold = cluster_coverage;
-
-    if (progress) {
-        cerr << "--extension-score " << extension_score << endl;
-    }
-    minimizer_mapper.extension_score_threshold = extension_score;
-
-    if (progress) {
-        cerr << "--extension-set " << extension_set << endl;
-    }
-    minimizer_mapper.extension_set_score_threshold = extension_set;
-
-    if (progress && !do_dp) {
-        cerr << "--no-dp " << endl;
-    }
-    minimizer_mapper.do_dp = do_dp;
-
-    if (progress) {
-        cerr << "--max-multimaps " << max_multimaps << endl;
-    }
-    minimizer_mapper.max_multimaps = max_multimaps;
-
-    if (progress) {
-        cerr << "--distance-limit " << distance_limit << endl;
-    }
-    minimizer_mapper.distance_limit = distance_limit;
     
-    if (progress && track_provenance) {
-        cerr << "--track-provenance " << endl;
-    }
-    minimizer_mapper.track_provenance = track_provenance;
-    
-    if (progress && track_correctness) {
-        cerr << "--track-correctness " << endl;
-    }
-    minimizer_mapper.track_correctness = track_correctness;
-
-    minimizer_mapper.sample_name = sample_name;
-    minimizer_mapper.read_group = read_group;
-
     std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
     std::chrono::duration<double> init_seconds = init - launch;
     if (progress) {
         cerr << "Loading and initialization: " << init_seconds.count() << " seconds" << endl;
     }
 
-
-    if (threads_to_run.empty()) {
-        // Use 0 to represent the default.
-        threads_to_run.push_back(0);
-    }
+    // We need to loop over all the ranges...
+    for_each_combo([&]() {
     
-    for (size_t thread_count_current : threads_to_run) {
-    
-        if (thread_count_current != 0) {
-            omp_set_num_threads(thread_count_current);
+        if (progress) {
+            cerr << "Mapping reads..." << endl;
         }
+
+        if (progress) {
+            cerr << "--hit-cap " << hit_cap << endl;
+        }
+        minimizer_mapper.hit_cap = hit_cap;
+
+        if (progress) {
+            cerr << "--hard-hit-cap " << hard_hit_cap << endl;
+        }
+        minimizer_mapper.hard_hit_cap = hard_hit_cap;
+
+        if (progress) {
+            cerr << "--score-fraction " << minimizer_score_fraction << endl;
+        }
+        minimizer_mapper.minimizer_score_fraction = minimizer_score_fraction;
+
+        if (progress) {
+            cerr << "--max-extensions " << max_extensions << endl;
+        }
+        minimizer_mapper.max_extensions = max_extensions;
+
+        if (progress) {
+            cerr << "--max-alignments " << max_alignments << endl;
+        }
+        minimizer_mapper.max_alignments = max_alignments;
+
+        if (progress) {
+            cerr << "--cluster-score " << cluster_score << endl;
+        }
+        minimizer_mapper.cluster_score_threshold = cluster_score;
+
+        if (progress) {
+            cerr << "--cluster-coverage " << cluster_coverage << endl;
+        }
+        minimizer_mapper.cluster_coverage_threshold = cluster_coverage;
+
+        if (progress) {
+            cerr << "--extension-score " << extension_score << endl;
+        }
+        minimizer_mapper.extension_score_threshold = extension_score;
+
+        if (progress) {
+            cerr << "--extension-set " << extension_set << endl;
+        }
+        minimizer_mapper.extension_set_score_threshold = extension_set;
+
+        if (progress && !do_dp) {
+            cerr << "--no-dp " << endl;
+        }
+        minimizer_mapper.do_dp = do_dp;
+
+        if (progress) {
+            cerr << "--max-multimaps " << max_multimaps << endl;
+        }
+        minimizer_mapper.max_multimaps = max_multimaps;
+
+        if (progress) {
+            cerr << "--distance-limit " << distance_limit << endl;
+        }
+        minimizer_mapper.distance_limit = distance_limit;
         
+        if (progress && track_provenance) {
+            cerr << "--track-provenance " << endl;
+        }
+        minimizer_mapper.track_provenance = track_provenance;
+        
+        if (progress && track_correctness) {
+            cerr << "--track-correctness " << endl;
+        }
+        minimizer_mapper.track_correctness = track_correctness;
+
+        minimizer_mapper.sample_name = sample_name;
+        minimizer_mapper.read_group = read_group;
+
         // Work out the number of threads we will have
         size_t thread_count = omp_get_max_threads();
 
@@ -596,7 +819,7 @@ int main_gaffe(int argc, char** argv) {
             cerr << "Memory footprint: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GB" << endl;
         }
         
-    }
+    });
         
     return 0;
 }
