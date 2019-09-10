@@ -81,104 +81,105 @@ void VGset::to_xg(xg::XG& index) {
     });
 }
 
-void VGset::to_xg(xg::XG& index, const regex& paths_to_take, map<string, Path>* removed_paths) {
-    to_xg(index, [&](const string& path_name) -> bool {
-        // Take paths that match the regex.
-        return std::regex_match(path_name, paths_to_take);
-    }, removed_paths);
-}
-
 void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_take, map<string, Path>* removed_paths) {
+
+    function<void(const string&, std::ifstream&)> check_stream = [&](const string&name, std::ifstream& in) {
+        if (name == "-"){
+            if (!in) throw ifstream::failure("vg_set: cannot read from stdin. Failed to open " + name);
+        }
+        
+        if (!in) throw ifstream::failure("failed to open " + name);
+    };
     
     // We need to recostruct full removed paths from fragmentary paths encountered in each chunk.
     // This maps from path name to all the Mappings in the path in the order we encountered them
-    map<string, list<Mapping>> mappings;
-    
-    // Set up an XG index
-    index.from_callback([&](function<void(Graph&)> callback) {
+    auto for_each_sequence = [&](const std::function<void(const std::string& seq, const nid_t& node_id)>& lambda) {
         for (auto& name : filenames) {
-#ifdef debug
-            cerr << "Loading chunks from " << name << endl;
-#endif
-            // Load chunks from all the files and pass them into XG.
             std::ifstream in(name);
-            
-            if (name == "-"){
-                if (!in) throw ifstream::failure("vg_set: cannot read from stdin. Failed to open " + name);
-            }
-            
-            if (!in) throw ifstream::failure("failed to open " + name);
-            
-            function<void(Graph&)> handle_graph = [&](Graph& graph) {
-#ifdef debug
-                cerr << "Got chunk of " << name << "!" << endl;
-#endif
+            check_stream(name, in);
+            vg::io::for_each(in, (function<void(Graph&)>)[&](Graph& graph) {
+                    for (uint64_t i = 0; i < graph.node_size(); ++i) {
+                        auto& node = graph.node(i);
+                        lambda(node.sequence(), node.id());
+                    }
+                });
+        }
+    };
 
-                // We'll move all the path fragments into one of these (if removed_paths is not null)
-                std::list<Path> paths_taken;
+    auto for_each_edge = [&](const std::function<void(const nid_t& from, const bool& from_rev, const nid_t& to, const bool& to_rev)>& lambda) {
+        for (auto& name : filenames) {
+            std::ifstream in(name);
+            check_stream(name, in);
+            vg::io::for_each(in, (function<void(Graph&)>)[&](Graph& graph) {
+                    for (uint64_t i = 0; i < graph.edge_size(); ++i) {
+                        auto& edge = graph.edge(i);
+                        lambda(edge.from(), edge.from_start(), edge.to(), edge.to_end());
+                    }
+                });
+        }
+    };
 
-                // Remove the matching paths.
-                remove_paths(graph, paths_to_take, removed_paths ? &paths_taken : nullptr);
-
-                for (auto& path : paths_taken) {
-                    // Copy all the mappings from each path into the collection of mappings in order encountered
-                    std::copy(path.mapping().begin(), path.mapping().end(), std::back_inserter(mappings[path.name()]));
-                }
-
-                // Ship out the corrected graph
-                callback(graph);
-            };
-            
-            vg::io::for_each(in, handle_graph);
-            
-            // Now that we got all the chunks, reconstitute any siphoned-off paths into Path objects and return them.
-            // We have to handle chunks being encountered in any order, if ranks are set, or in path-forward order, if ranks are missing.
-            for(auto& kv : mappings) {
-                // We'll fill in this Path object
-                Path path;
-                path.set_name(kv.first);
-
-                // This will hold mappings by rank.
-                // If they don't have ranks assigned, we will assign them in the order encountered.
-                map<int64_t, Mapping> mappings_by_rank;
-
-                for (auto& mapping : kv.second) {
-                    if (mapping.rank() != 0) {
-                        // It has a rank already.
-                        // Make sure we didn't try to assign something to its rank
-                        assert(!mappings_by_rank.count(mapping.rank()));
-
-                        mappings_by_rank[mapping.rank()] = mapping;
-                    } else {
-                        // Assign it the next available rank in its path
-                        int64_t next_rank;
-                        if (!mappings_by_rank.empty()) {
-                            next_rank = mappings_by_rank.rbegin()->first + 1;
-                        } else {
-                            next_rank = 1;
-                        }
-
-                        mapping.set_rank(next_rank);
-
-                        assert(!mappings_by_rank.count(mapping.rank()));
-                        mappings_by_rank[mapping.rank()] = mapping;
+    // thanks to the silliness that is vg's graph chunking, we have to reconstitute our paths here
+    // to make sure that they are constructed with the correct order
+    map<string, pair<map<size_t, pair<nid_t, bool>>, bool>> paths;
+    for (auto& name : filenames) {
+        std::ifstream in(name);
+        check_stream(name, in);
+        vg::io::for_each(in, (function<void(Graph&)>)[&](Graph& graph) {
+                for (uint64_t i = 0; i < graph.path_size(); ++i) {
+                    auto& path = graph.path(i);
+                    auto& steps_circ = paths[path.name()];
+                    auto& steps = steps_circ.first;
+                    steps_circ.second = path.is_circular();
+                    for (auto& mapping : path.mapping()) {
+                        assert(mapping.rank() > 0);
+                        steps[mapping.rank()] = make_pair(mapping.position().node_id(),
+                                                            mapping.position().is_reverse());
                     }
                 }
+            });
+    }
 
-                for(auto& rank_and_mapping : mappings_by_rank) {
-                    // Put in all the mappings. Ignore the rank since thay're already marked with and sorted by rank.
-                    *path.add_mapping() = rank_and_mapping.second;
-                }
-                
-                // Now the Path is rebuilt; stick it in the big output map.
-                (*removed_paths)[path.name()] = path;
+    // optionally filter out alt paths
+    vector<pair<string, pair<map<size_t, pair<nid_t, bool>>, bool>>> kept_paths;
+    for (auto& path : paths) {
+        if (paths_to_take(path.first) == false) {
+            kept_paths.push_back(make_pair(path.first, std::move(path.second)));
+        } else if (removed_paths != nullptr) {
+            Path proto_path;
+            proto_path.set_name(path.first);
+            proto_path.set_is_circular(path.second.second);
+            for (auto& step : path.second.first) {
+                Mapping* mapping = proto_path.add_mapping();
+                mapping->mutable_position()->set_node_id(step.second.first);
+                mapping->mutable_position()->set_is_reverse(step.second.second);
+                mapping->set_rank(step.first);
             }
-            
-#ifdef debug
-            cerr << "Got all chunks; building XG index" << endl;
-#endif
+            (*removed_paths)[path.first] = std::move(proto_path);
         }
-    });
+    }
+    paths.clear();
+
+    auto for_each_path_element = [&](
+        const std::function<void(const std::string& path_name,
+                                 const nid_t& node_id, const bool& is_rev,
+                                 const std::string& cigar,
+                                 bool is_empty, bool is_circular)>& lambda) {
+        for (auto& path : kept_paths) {
+            auto& path_name = path.first;
+            auto& path_steps = path.second.first;
+            bool path_circular = path.second.second;
+            if (path_steps.empty()) {
+                lambda(path_name, 0, false, "", true, false);
+            } else {
+                for (auto& step : path_steps) {
+                    lambda(path_name, step.second.first, step.second.second, "", false, path_circular);
+                }
+            }
+        }
+    };
+    
+    index.from_enumerators(for_each_sequence, for_each_edge, for_each_path_element, false);
 }
 
 void VGset::for_each_kmer_parallel(size_t kmer_size, const function<void(const kmer_t&)>& lambda) {
