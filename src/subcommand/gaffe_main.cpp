@@ -63,33 +63,65 @@ struct Range {
     };
     /// This will be called when we need to tick_chain our parent
     function<bool(void)> tick_chain_parent = []() {
+        cerr << "Cannot tick past end of chain" << endl;
         return false;
     };
     
     /// Default constructor
-    inline Range() {
+    Range() {
         // Nothing to do!
     }
     
     /// Construct from a single value
-    inline Range(const Number& val) : start(val), end(val) {
+    Range(const Number& val): start(val), end(val) {
         // Nothing to do!
+    }
+    
+    /// Copy, preserving destination links
+    Range(const Range& other): start(other.start), end(other.end), step(other.step) {
+        // Nothing to do
+    }
+    
+    /// Move, preserving destination links
+    Range(Range&& other): start(other.start), end(other.end), step(other.step) {
+        // Nothing to do
+    }
+    
+    /// Copy assignment, preserving destination links
+    Range& operator=(const Range& other) {
+        start = other.start;
+        end = other.end;
+        step = other.step;
+        return *this;
+    }
+    
+    /// Move assignment, preserving destination links
+    Range& operator=(Range&& other) {
+        start = other.start;
+        end = other.end;
+        step = other.step;
+        return *this;
     }
     
     /// Check the range for usefulness
     inline bool is_valid() {
+        cerr << "Validating range " << start << ":" << end << ":" << step << endl;
+    
         if (start != end && step == 0) {
             // We'll never make it
+            cerr << "Invalid range (no movement): " << start << " to " << end << " step " << step << endl;
             return false;
         }
         
-        if (start < end && step > 0) {
+        if (start > end && step > 0) {
             // We're going the wrong way
+            cerr << "Invalid range (need to go down): " << start << " to " << end << " step " << step << endl;
             return false;
         }
         
-        if (start > end && step < 0) {
+        if (start < end && step < 0) {
             // We're going the other wrong way
+            cerr << "Invalid range (need to go up): " << start << " to " << end << " step " << step << endl;
             return false;
         }
         
@@ -109,6 +141,8 @@ struct Range {
     void reset() {
         here = start;
         running = true;
+        
+        cerr << "Reset range " << start << ":" << end << ":" << step << " to " << here << endl;
     }
     
     /// Start us and all the things we are chained onto at their start values
@@ -120,16 +154,22 @@ struct Range {
     /// Increment our value.
     /// Returns true if the new value needs processing, and false if we have left or would leave the range.
     bool tick() {
+        cerr << "Ticking range " << start << ":" << end << ":" << step << endl;
+    
         if (here == end) {
             // We are at the end
+            cerr << "\tAt end. Can't change ourselves." << endl;
             return false;
         }
         
         here += step;
         if ((step > 0 && here > end) || (step < 0 && here < end)) {
             // We have passed the end (for things like double)
+            cerr << "\tWould pass end of " << end << " with " << here << ". Can't change ourselves." << endl;
             return false;
         }
+        
+        cerr << "\tTicked to " << here << endl;
         
         return true;
     }
@@ -139,15 +179,18 @@ struct Range {
     bool tick_chain() {
         if (tick()) {
             // We could change
+            cerr << "Successfully ticked ourselves" << endl;
             return true;
         } else {
             // We couldn't change.
             if (tick_chain_parent()) {
                 // We have a parent we could advance.
                 reset();
+                cerr << "Successfully ticked an ancestor" << endl;
                 return true;
             } else {
                 // Our parent couldn't advance either.
+                cerr << "Could not tick ourselves or an ancestor" << endl;
                 return false;
             }
         }
@@ -159,12 +202,17 @@ struct Range {
     template<typename Other>
     Range<Other>& chain(Range<Other>& next) {
         
+        cerr << "Creating link from " << next.start << ":" << next.end << ":" << next.step
+            << " to parent " << this->start << ":" << this->end << ":" << this->step << endl;
+        
         // Attach next to us
         next.reset_chain_parent = [&]() {
-            reset_chain();
+            this->reset_chain();
         };
         next.tick_chain_parent = [&]() {
-            return tick_chain();
+            cerr << "Following link from " << next.start << ":" << next.end << ":" << next.step
+                << " to parent " << this->start << ":" << this->end << ":" << this->step << endl;
+            return this->tick_chain();
         };
         
         return next;
@@ -221,9 +269,11 @@ inline bool parse(const string& arg, typename enable_if<is_instantiation_of<Resu
         auto colon2 = arg.find(':', colon1 + 1);
         if (colon2 == string::npos) {
             // Just a range of two things
+            cerr << "Parse " << arg.substr(0, colon1) << " as start" << endl;
             if (!parse<typename Result::type>(arg.substr(0, colon1), dest.start)) {
                 return false;
             }
+            cerr << "Parse " << arg.substr(colon1 + 1) << " as end" << endl;
             if (!parse<typename Result::type>(arg.substr(colon1 + 1), dest.end)) {
                 return false;
             }
@@ -234,12 +284,15 @@ inline bool parse(const string& arg, typename enable_if<is_instantiation_of<Resu
             return false;
         } else {
             // We have 3 numbers
+            cerr << "Parse " << arg.substr(0, colon1) << " as start" << endl;
             if (!parse<typename Result::type>(arg.substr(0, colon1), dest.start)) {
                 return false;
             }
+            cerr << "Parse " << arg.substr(colon1 + 1, colon2 - colon1 - 1) << " as end" << endl;
             if (!parse<typename Result::type>(arg.substr(colon1 + 1, colon2 - colon1 - 1), dest.end)) {
                 return false;
             }
+            cerr << "Parse " << arg.substr(colon2 + 1) << " as step" << endl;
             if (!parse<typename Result::type>(arg.substr(colon2 + 1), dest.step)) {
                 return false;
             }
@@ -472,7 +525,7 @@ int main_gaffe(int argc, char** argv) {
 
             case 'c':
                 {
-                    size_t cap = parse<Range<size_t>>(optarg);
+                    auto cap = parse<Range<size_t>>(optarg);
                     if (cap <= 0) {
                         cerr << "error: [vg gaffe] Hit cap (" << cap << ") must be a positive integer" << endl;
                         exit(1);
@@ -483,7 +536,7 @@ int main_gaffe(int argc, char** argv) {
 
             case 'C':
                 {
-                    size_t cap = parse<Range<size_t>>(optarg);
+                    auto cap = parse<Range<size_t>>(optarg);
                     if (cap <= 0) {
                         cerr << "error: [vg gaffe] Hard hit cap (" << cap << ") must be a positive integer" << endl;
                         exit(1);
@@ -498,7 +551,7 @@ int main_gaffe(int argc, char** argv) {
 
             case 'e':
                 {
-                    size_t extensions = parse<Range<size_t>>(optarg);
+                    auto extensions = parse<Range<size_t>>(optarg);
                     if (extensions <= 0) {
                         cerr << "error: [vg gaffe] Number of extensions (" << extensions << ") must be a positive integer" << endl;
                         exit(1);
@@ -509,7 +562,7 @@ int main_gaffe(int argc, char** argv) {
 
             case 'a':
                 {
-                    size_t alignments = parse<Range<size_t>>(optarg);
+                    auto alignments = parse<Range<size_t>>(optarg);
                     if (alignments <= 0) {
                         cerr << "error: [vg gaffe] Number of alignments (" << alignments << ") must be a positive integer" << endl;
                         exit(1);
@@ -520,7 +573,7 @@ int main_gaffe(int argc, char** argv) {
 
             case 's':
                 {
-                    double score = parse<Range<double>>(optarg);
+                    auto score = parse<Range<double>>(optarg);
                     if (score < 0) {
                         cerr << "error: [vg gaffe] Cluster score threshold (" << score << ") must be positive" << endl;
                         exit(1);
@@ -531,7 +584,7 @@ int main_gaffe(int argc, char** argv) {
 
             case 'u':
                 {
-                    double score = parse<Range<double>>(optarg);
+                    auto score = parse<Range<double>>(optarg);
                     if (score < 0) {
                         cerr << "error: [vg gaffe] Cluster coverage threshold (" << score << ") must be positive" << endl;
                         exit(1);
@@ -541,7 +594,7 @@ int main_gaffe(int argc, char** argv) {
                 break;
             case 'v':
                 {
-                    double score = parse<Range<double>>(optarg);
+                    auto score = parse<Range<int>>(optarg);
                     if (score < 0) {
                         cerr << "error: [vg gaffe] Extension score threshold (" << score << ") must be positive" << endl;
                         exit(1);
@@ -551,7 +604,7 @@ int main_gaffe(int argc, char** argv) {
                 break;
             case 'w':
                 {
-                    int score = parse<Range<int>>(optarg);
+                    auto score = parse<Range<double>>(optarg);
                     if (score < 0) {
                         cerr << "error: [vg gaffe] Extension set score threshold (" << score << ") must be positive" << endl;
                         exit(1);
