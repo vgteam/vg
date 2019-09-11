@@ -25,6 +25,12 @@ namespace vg{
              */
             void homogenize(vg::VG* graph, PathPositionHandleGraph* path_graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, Paths p, int kmer_size);
             void homogenize(vg::VG* graph, PathPositionHandleGraph* path_graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, vg::Index reads_index);
+        
+	        std::int64_t sv_concordance(vg::Alignment& aln);
+	        std::int64_t sv_concordance(pair<Alignment&, Alignment&> alns);
+            std::int64_t oea_penalty = -4;
+            std::int64_t contiguous_seq_reward = 4;
+
         private:
 
             Translator translator;
@@ -43,6 +49,7 @@ namespace vg{
             void cut_tips(vector<id_t> tip_ids, vg::VG* graph);
             /** Remove non-reference tips from the graph. */
             void cut_nonref_tips(vg::VG* graph);
+
             
 
     };
