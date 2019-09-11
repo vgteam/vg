@@ -16,6 +16,8 @@
 #include "../xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+#include <bdsg/vectorizable_overlays.hpp>
+#include <bdsg/path_position_overlays.hpp>
 
 using namespace std;
 using namespace vg;
@@ -26,7 +28,7 @@ void help_call(char** argv) {
        << "Call variants or genotype known variants" << endl
        << endl
        << "support calling options:" << endl
-       << "    -k, --pack FILE         Supports created from vg pack (input graph must be xg)" << endl
+       << "    -k, --pack FILE         Supports created from vg pack for given input graph" << endl
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
        << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
@@ -135,11 +137,24 @@ int main_call(int argc, char** argv) {
     }
 
     // Read the graph
-    unique_ptr<PathHandleGraph> graph;
+    unique_ptr<PathHandleGraph> handle_graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
-            graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
+            handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
         });
 
+    // This is the graph we'll use.  The various unique_ptr's are for memory
+    // management only and may be null depending on which overlays are needed
+    PathHandleGraph* graph = handle_graph.get();
+
+    // Overlay to be a path position graph if necessary
+    bool need_path_positions = vcf_filename.empty();
+    unique_ptr<PathPositionHandleGraph> path_pos_graph;
+    if (need_path_positions && dynamic_cast<PathPositionHandleGraph*>(graph) == nullptr) {
+        path_pos_graph = unique_ptr<PathPositionHandleGraph>(new bdsg::PositionOverlay(graph));
+        graph = path_pos_graph.get();
+        assert(graph != nullptr);
+    }
+    
     // Check our paths
     for (const string& ref_path : ref_paths) {
         if (!graph->has_path(ref_path)) {
@@ -191,13 +206,22 @@ int main_call(int argc, char** argv) {
 
     // Make a Packed Support Caller
     unique_ptr<Packer> packer;
+    unique_ptr<PathHandleGraph> vec_graph;
     if (!pack_filename.empty()) {
-        if (dynamic_cast<xg::XG*>(graph.get()) == nullptr) {
-            cerr << "error [vg call]: Packed support option requires input graph in XG format" << endl;
-            return 1;
+        if (dynamic_cast<const VectorizableHandleGraph*>(graph) == nullptr) {
+            // make our vectorizable overlay if necessary.
+            if (need_path_positions) {
+                const PathPositionHandleGraph* path_position_graph = dynamic_cast<const PathPositionHandleGraph*>(graph);
+                assert(path_position_graph != nullptr);
+                vec_graph = unique_ptr<PathHandleGraph>(new bdsg::PathPositionVectorizableOverlay(path_position_graph));
+            } else {
+                vec_graph = unique_ptr<PathHandleGraph>(new bdsg::PathVectorizableOverlay(graph));
+            }
+            graph = vec_graph.get();
+            assert(graph != nullptr);
         }
         // Load our packed supports (they must have come from vg pack on graph)
-        packer = unique_ptr<Packer>(new Packer(dynamic_cast<xg::XG*>(graph.get())));
+        packer = unique_ptr<Packer>(new Packer(graph));
         packer->load_from_file(pack_filename);
         PackedSupportSnarlCaller* packed_caller = new PackedSupportSnarlCaller(*packer, *snarl_manager);
         snarl_caller = unique_ptr<SnarlCaller>(packed_caller);
@@ -237,8 +261,14 @@ int main_call(int argc, char** argv) {
                                                        ins_fasta.get());
         graph_caller = unique_ptr<GraphCaller>(vcf_genotyper);
     } else {
+        if (dynamic_cast<const PathPositionHandleGraph*>(graph) == nullptr) {
+            // make our overlay if necessary.  
+            path_pos_graph = unique_ptr<PathPositionHandleGraph>(new bdsg::PositionOverlay(graph));
+            graph = path_pos_graph.get();
+        }
+        
         // de-novo caller (port of the old vg call code, which requires a support based caller)
-        LegacyCaller* legacy_caller = new LegacyCaller(*dynamic_cast<PathPositionHandleGraph*>(graph.get()),
+        LegacyCaller* legacy_caller = new LegacyCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                        *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                                        *snarl_manager,
                                                        sample_name, ref_paths, ref_path_offsets, ref_path_lengths);

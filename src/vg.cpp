@@ -553,14 +553,17 @@ bool VG::has_previous_step(const step_handle_t& step_handle) const {
 }
     
 bool VG::for_each_step_on_handle_impl(const handle_t& handle, const function<bool(const step_handle_t&)>& iteratee) const {
-    const map<int64_t, set<mapping_t*>>& node_mapping = paths.get_node_mapping(get_id(handle));
-    for (const pair<int64_t, set<mapping_t*>>& path_occs : node_mapping) {
-        for (const mapping_t* mapping : path_occs.second) {
-            step_handle_t step_handle;
-            as_integers(step_handle)[0] = path_occs.first;
-            as_integers(step_handle)[1] = reinterpret_cast<int64_t>(mapping);
-            if (!iteratee(step_handle)) {
-                return false;
+  nid_t node_id = get_id(handle);
+    if (paths.has_node_mapping(node_id)) {
+        const map<int64_t, set<mapping_t*>>& node_mapping = paths.get_node_mapping(node_id);
+        for (const pair<int64_t, set<mapping_t*>>& path_occs : node_mapping) {
+            for (const mapping_t* mapping : path_occs.second) {
+                step_handle_t step_handle;
+                as_integers(step_handle)[0] = path_occs.first;
+                as_integers(step_handle)[1] = reinterpret_cast<int64_t>(mapping);
+                if (!iteratee(step_handle)) {
+                    return false;
+                }
             }
         }
     }
