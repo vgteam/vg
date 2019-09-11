@@ -535,10 +535,15 @@ $(LIB_DIR)/libvw.a: $(LIB_DIR)/libboost_program_options.a $(VOWPALWABBIT_DIR)/* 
 
 $(LIB_DIR)/liballreduce.a: $(LIB_DIR)/libvw.a
 
+# Building Boost with GCC against libc++ on Mac doesn't work. See https://travis-ci.org/vgteam/vg/jobs/583377358
+# So on Mac we make sure to always use Clang, even if the rest of the build uses GCC.
+# See https://gist.github.com/jimporter/10442880
 $(LIB_DIR)/libboost_program_options.a: $(BOOST_DIR)/libs/program_options/src/* $(BOOST_DIR)/boost/program_options/*
-	+. ./source_me.sh && cd $(BOOST_DIR) && ./bootstrap.sh --with-libraries=program_options --libdir=$(CWD)/$(LIB_DIR) --includedir=$(CWD)/$(INC_DIR) $(FILTER) && ./b2 --ignore-site-config --link=static cxxflags="$(CXXFLAGS)" linkflags="$(CXXFLAGS)" install $(FILTER)
 ifeq ($(shell uname -s),Darwin)
+	+. ./source_me.sh && cd $(BOOST_DIR) && ./bootstrap.sh --with-libraries=program_options --libdir=$(CWD)/$(LIB_DIR) --includedir=$(CWD)/$(INC_DIR) $(FILTER) && ./b2 --ignore-site-config --link=static toolset=clang cxxflags="-std=c++1y -stdlib=libc++" linkflags="-stdlib=libc++" install $(FILTER)
 	+. ./source_me.sh && install_name_tool -id $(CWD)/$(LIB_DIR)/libboost_program_options.dylib $(CWD)/$(LIB_DIR)/libboost_program_options.dylib
+else
+	+. ./source_me.sh && cd $(BOOST_DIR) && ./bootstrap.sh --with-libraries=program_options --libdir=$(CWD)/$(LIB_DIR) --includedir=$(CWD)/$(INC_DIR) $(FILTER) && ./b2 --ignore-site-config --link=static cxxflags="$(CXXFLAGS)" linkflags="$(CXXFLAGS)" install $(FILTER)
 endif
 
 $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
