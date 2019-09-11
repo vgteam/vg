@@ -1,0 +1,13 @@
+# Dockerfile for shipping just the vg binary you have
+# Run with bin as the context so you don't ship the whole build tree.
+FROM ubuntu:18.04
+MAINTAINER vgteam
+
+WORKDIR /vg
+
+ENV PATH /vg/bin:$PATH
+
+ENTRYPOINT /vg/bin/vg
+
+COPY vg /vg/bin/vg
+
