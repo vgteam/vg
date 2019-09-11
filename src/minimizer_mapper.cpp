@@ -919,17 +919,24 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
             // Compute total score
             size_t total_score = extension_path_scores[extended_seed_num] + left_tail_result.second + right_tail_result.second;
 
+            //Get the node ids of the beginning and end of each alignment
+
+            id_t winning_start = winning_score == 0 ? 0 : (winning_left.mapping_size() == 0
+                                          ? winning_middle.mapping(0).position().node_id()
+                                          : winning_left.mapping(0).position().node_id());
+            id_t current_start = left_tail_result.first.mapping_size() == 0
+                                          ? extension_paths[extended_seed_num].mapping(0).position().node_id()
+                                          : left_tail_result.first.mapping(0).position().node_id();
+            id_t winning_end = winning_score == 0 ? 0 : (winning_right.mapping_size() == 0
+                                  ? winning_middle.mapping(winning_middle.mapping_size() - 1).position().node_id()
+                                  : winning_right.mapping(winning_right.mapping_size()-1).position().node_id());
+            id_t current_end = right_tail_result.first.mapping_size() == 0
+                                ? extension_paths[extended_seed_num].mapping(extension_paths[extended_seed_num].mapping_size() - 1)     .position().node_id()
+                                          : right_tail_result.first.mapping(right_tail_result.first.mapping_size()-1).position().no     de_id();
             //Is this left tail different from the currently winning left tail?
-            bool different_left = (winning_left.mapping_size() != left_tail_result.first.mapping_size()) ||
-                                  (winning_left.mapping_size() != 0 && 
-                                   left_tail_result.first.mapping_size() != 0 &&
-                                   winning_left.mapping(0).position().node_id() 
-                                         != left_tail_result.first.mapping(0).position().node_id());
-            bool different_right = (winning_right.mapping_size() != right_tail_result.first.mapping_size()) ||
-                                  (winning_right.mapping_size() != 0 && 
-                                   right_tail_result.first.mapping_size() != 0 &&
-                                  winning_right.mapping(winning_right.mapping_size() - 1).position().node_id() 
-                                       != right_tail_result.first.mapping(right_tail_result.first.mapping_size() - 1).position().node_id());
+            bool different_left = winning_start != current_start;
+            bool different_right = winning_end != current_end;
+
 
             if (total_score > winning_score || winning_score == 0) {
                 // This is the new best alignment seen so far.
