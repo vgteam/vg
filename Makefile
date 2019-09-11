@@ -80,8 +80,6 @@ ifeq ($(shell uname -s),Darwin)
         # We also need to link it
         LD_LIB_FLAGS += -lomp
     else
-        CXXFLAGS += -fopenmp
-
         # The compiler is (probably?) GNU GCC
         # On Mac, we need to make sure to configure it to use libc++ like
         # Clang, and not GNU libstdc++.
@@ -91,6 +89,8 @@ ifeq ($(shell uname -s),Darwin)
         # See https://stackoverflow.com/q/22228208
 
         # TODO: ID compiler more reliably instead of depending on it not having OpenMP...
+	
+        CXXFLAGS += -fopenmp
 
         # Find includes using Clang
         LIBCXX_INCLUDES := $(shell clang++ -print-search-dirs | perl -ne 's{^libraries: =(.*)}{$$1/../../../} && print')
@@ -518,15 +518,17 @@ $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STR
 # build.
 # Also, autogen.sh looks for Boost in the system, and who knows what it will do
 # if it doesn't find it, so let it fail.
+# Also, we need to make sure nothing about -fopenmp makes it into the build, in case we are on Clang.
+# vw doesn't need OpenMP
 $(LIB_DIR)/libvw.a: $(LIB_DIR)/libboost_program_options.a $(VOWPALWABBIT_DIR)/* $(VOWPALWABBIT_DIR)/vowpalwabbit/*
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e 's/libvw_c_wrapper\.pc//g' Makefile.am
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e 's/libvw_c_wrapper\.la//g' vowpalwabbit/Makefile.am
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/libvw_c_wrapper\.pc/d' configure.ac
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/vwdll/d' Makefile.am
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/libvw_c_wrapper/d' vowpalwabbit/Makefile.am
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && (./autogen.sh || true)
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && ./configure --with-boost=$(CWD)
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && $(MAKE) $(FILTER)
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && CXXFLAGS=$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) (./autogen.sh || true)
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && CXXFLAGS=$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) ./configure --with-boost=$(CWD)
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && CXXFLAGS=$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(MAKE) $(FILTER)
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cp vowpalwabbit/.libs/libvw.a vowpalwabbit/.libs/liballreduce.a $(CWD)/$(LIB_DIR)/
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && mkdir -p $(CWD)/$(INC_DIR)/vowpalwabbit
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cp vowpalwabbit/*.h $(CWD)/$(INC_DIR)/vowpalwabbit/
