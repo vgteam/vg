@@ -343,7 +343,7 @@ using namespace std;
                 
                 if (first_pos.is_reverse() != graph->get_is_reverse(graph->get_handle_of_step(step))) {
                     size_t path_offset = graph->get_position_of_step(step) + graph->get_length(first_handle) - first_pos.offset();
-                    interval.second = max(interval.second, min(path_offset + left_overhang, path_length));
+                    interval.second = max(interval.second, min(path_offset + left_overhang, path_length - 1));
                 }
                 else {
                     size_t path_offset = graph->get_position_of_step(step) + first_pos.offset();
@@ -379,7 +379,7 @@ using namespace std;
                 }
                 else {
                     size_t path_offset = graph->get_position_of_step(step) + first_pos.offset() + mapping_to_length(final_mapping);
-                    interval.second = max(interval.second, min(path_offset + right_overhang, path_length));
+                    interval.second = max(interval.second, min(path_offset + right_overhang, path_length - 1));
                 }
             }
         }

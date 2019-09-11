@@ -25,7 +25,7 @@ class Packer {
 public:
     Packer(void);
     // graph must also implement VectorizableHandleGraph
-    Packer(const HandleGraph* graph, size_t bin_size = 0, bool qual_adjust = false);
+    Packer(const HandleGraph* graph, size_t bin_size = 0, bool qual_adjust = false, int min_mapq = 0, int min_baseq = 0);
     ~Packer(void);
     const HandleGraph* graph;
     void merge_from_files(const vector<string>& file_names);
@@ -91,7 +91,11 @@ private:
     string unescape_delims(const string& s) const;
 
     // toggle quality adjusted mode
-    bool qual_adjust;
+    bool qual_adjust = false;
+
+    // quality thresholds;
+    int min_mapq = 0;
+    int min_baseq = 0;
     
     // Combine the MAPQ and base quality (if available) for a given position in the read
     int compute_quality(const Alignment& aln, size_t position_in_read) const;

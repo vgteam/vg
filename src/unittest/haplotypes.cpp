@@ -5,12 +5,12 @@
 #include "catch.hpp"
 #include "haplotypes.hpp"
 #include "xg.hpp"
+#include "vg.hpp"
 
 #include <numeric>
 
 namespace unittest {
 using namespace std;
-
 
 using thread_t = vector<gbwt::node_type>;
 
@@ -96,13 +96,15 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   vg::Graph SNP_proto_graph;
   json2pb(SNP_proto_graph, SNP_graph_json.c_str(), SNP_graph_json.size());
   // Build the xg index
-  vg::XG SNP_xg_index(SNP_proto_graph);
+  xg::XG SNP_xg_index;
+  SNP_xg_index.from_path_handle_graph(vg::VG(SNP_proto_graph));
   vg::path_handle_t SNP_ref_path_handle = SNP_xg_index.get_path_handle("reference");
   
   vg::Graph del_proto_graph;
   json2pb(del_proto_graph, del_graph_json.c_str(), del_graph_json.size());
   // Build the xg index
-  vg::XG del_xg_index(del_proto_graph);
+  xg::XG del_xg_index;
+  del_xg_index.from_path_handle_graph(vg::VG(del_proto_graph));
   vg::path_handle_t del_ref_path_handle = del_xg_index.get_path_handle("reference");
   
   // NEGATIVE SNVs
@@ -160,13 +162,15 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   vg::Graph long_proto_graph;
   json2pb(long_proto_graph, long_graph_json.c_str(), long_graph_json.size());
   // Build the xg index
-  vg::XG long_xg_index(long_proto_graph);
+  xg::XG long_xg_index;
+  long_xg_index.from_path_handle_graph(vg::VG(long_proto_graph));
   vg::path_handle_t long_ref_path_handle = long_xg_index.get_path_handle("reference");
   
   vg::Graph double_proto_graph;
   json2pb(double_proto_graph, double_graph_json.c_str(), double_graph_json.size());
   // Build the xg index
-  vg::XG double_xg_index(double_proto_graph);
+  xg::XG double_xg_index;
+  double_xg_index.from_path_handle_graph(vg::VG(double_proto_graph));
   vg::path_handle_t double_ref_path_handle = double_xg_index.get_path_handle("reference");
 
   string matching_test_file = "matching_test.slls";
@@ -383,7 +387,8 @@ TEST_CASE("We can recognize a required crossover", "[hapo-score][gbwt]") {
   vg::Graph proto_graph;
   json2pb(proto_graph, graph_json.c_str(), graph_json.size());
   // Build the xg index
-  vg::XG xg_index(proto_graph);
+  xg::XG xg_index;
+  xg_index.from_path_handle_graph(vg::VG(proto_graph));
     
   gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
   gbwt::DynamicGBWT* gbwt_index = new gbwt::DynamicGBWT;

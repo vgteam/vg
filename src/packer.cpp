@@ -6,9 +6,9 @@ namespace vg {
 const int Packer::maximum_quality = 60;
 const int Packer::lru_cache_size = 50;
 
-Packer::Packer(void) : graph(nullptr), qual_adjust(false), quality_cache(nullptr) { }
+Packer::Packer(void) : graph(nullptr), qual_adjust(false), min_mapq(0), min_baseq(0), quality_cache(nullptr) { }
 
-Packer::Packer(const HandleGraph* graph, size_t binsz, bool qual_adjust) : graph(graph), bin_size(binsz), qual_adjust(qual_adjust) {
+Packer::Packer(const HandleGraph* graph, size_t binsz, bool qual_adjust, int min_mapq, int min_baseq) : graph(graph), bin_size(binsz), qual_adjust(qual_adjust), min_mapq(min_mapq), min_baseq(min_baseq) {
     size_t seq_length = 0;
     graph->for_each_handle([&](const handle_t& handle) { seq_length += graph->get_length(handle); });
     coverage_dynamic = gcsa::CounterArray(seq_length, qual_adjust ? 16 : 8);
@@ -19,7 +19,7 @@ Packer::Packer(const HandleGraph* graph, size_t binsz, bool qual_adjust) : graph
         });
     edge_coverage_dynamic = gcsa::CounterArray(max_edge_index+1, qual_adjust ? 16 : 8);
     if (binsz) n_bins = seq_length / bin_size + 1;
-    quality_cache = qual_adjust ? new LRUCache<pair<int, int>, int>(lru_cache_size) : nullptr;
+    quality_cache = new LRUCache<pair<int, int>, int>(lru_cache_size);
 }
 
 Packer::~Packer(void) {
@@ -265,10 +265,15 @@ void Packer::remove_edit_tmpfiles(void) {
 }
 
 void Packer::add(const Alignment& aln, bool record_edits) {
+    // mapping quality threshold filter
+    if (aln.mapping_quality() < min_mapq) {
+        return;
+    }
     // open tmpfile if needed
     ensure_edit_tmpfiles_open();
     // count the nodes, edges, and edits
     Mapping prev_mapping;
+    bool has_prev_mapping = false;
     int prev_bq_total = 0;
     int prev_bq_count = 0;
     size_t position_in_read = 0;
@@ -279,10 +284,12 @@ void Packer::add(const Alignment& aln, bool record_edits) {
 #ifdef debug
             cerr << "Mapping has no position" << endl;
 #endif
+            has_prev_mapping = false;
             continue;
         }
         // skip nodes outside of our graph, assuming this may be a subgraph
         if (!graph->has_node(mapping.position().node_id())) {
+            has_prev_mapping = false;
             continue;
         }
         size_t i = position_in_basis(mapping.position());
@@ -297,13 +304,16 @@ void Packer::add(const Alignment& aln, bool record_edits) {
                 int direction = mapping.position().is_reverse() ? -1 : 1;
                 for (size_t j = 0; j < edit.from_length(); ++j, ++position_in_read) {
                     int64_t coverage_idx = i + direction * j;
-                    if (!qual_adjust) {
-                        coverage_dynamic.increment(coverage_idx);
-                    } else {
-                        int base_quality = compute_quality(aln, position_in_read);
-                        coverage_dynamic.increment(coverage_idx, base_quality);
-                        bq_total += base_quality;
-                        ++bq_count;
+                    int base_quality = compute_quality(aln, position_in_read);
+                    bq_total += base_quality;
+                    ++bq_count;
+                    // base quality threshold filter (only if we found some kind of quality)
+                    if (base_quality < 0 || base_quality >= min_baseq) {
+                        if (!qual_adjust) {
+                            coverage_dynamic.increment(coverage_idx);
+                        } else {
+                            coverage_dynamic.increment(coverage_idx, base_quality);
+                        }
                     }
                 }         
             } else if (record_edits) {
@@ -323,7 +333,7 @@ void Packer::add(const Alignment& aln, bool record_edits) {
             }
         }
 
-        if (mi > 0 && prev_mapping.position().node_id() != mapping.position().node_id()) {
+        if (has_prev_mapping && prev_mapping.position().node_id() != mapping.position().node_id()) {
             // Note: we are effectively ignoring edits here.  So an edge is covered even
             // if there's a sub or indel at either of its ends in the path.  
             Edge e;
@@ -333,24 +343,28 @@ void Packer::add(const Alignment& aln, bool record_edits) {
             e.set_to_end(mapping.position().is_reverse());
             size_t edge_idx = edge_index(e);
             if (edge_idx != 0) {
-                if (!qual_adjust) {
-                    edge_coverage_dynamic.increment(edge_idx);
-                } else {
-                    // heuristic:  for an edge, we average out the base qualities from the matches in its two flanking mappings
-                    int avg_base_quality = -1;
-                    if (!aln.quality().empty()) {
-                        if (bq_count + prev_bq_count == 0) {
-                            avg_base_quality = 0;
-                        } else {
-                            avg_base_quality = (float)(bq_total + prev_bq_total) / (bq_count + prev_bq_count);
-                        }
+                // heuristic:  for an edge, we average out the base qualities from the matches in its two flanking mappings
+                int avg_base_quality = -1;
+                if (!aln.quality().empty()) {
+                    if (bq_count + prev_bq_count == 0) {
+                        avg_base_quality = 0;
+                    } else {
+                        avg_base_quality = (float)(bq_total + prev_bq_total) / (bq_count + prev_bq_count);
                     }
-                    edge_coverage_dynamic.increment(edge_idx, combine_qualities(aln.mapping_quality(), avg_base_quality));
+                }
+                // base quality threshold filter (only if we found some kind of quality)
+                if (avg_base_quality < 0 || avg_base_quality >= min_baseq) {
+                    if (!qual_adjust) {
+                        edge_coverage_dynamic.increment(edge_idx);
+                    } else {
+                        edge_coverage_dynamic.increment(edge_idx, combine_qualities(aln.mapping_quality(), avg_base_quality));
+                    }
                 }
             }
         }            
 
         prev_mapping = mapping;
+        has_prev_mapping = true;
     }
 }
 
@@ -499,8 +513,8 @@ vector<Edit> Packer::edits_at_position(size_t i) const {
 }
 
 size_t Packer::edge_index(const Edge& e) const {
-    edge_t edge = make_pair(graph->get_handle(e.from(), e.from_start()),
-                            graph->get_handle(e.to(), e.to_end()));
+    edge_t edge = graph->edge_handle(graph->get_handle(e.from(), e.from_start()),
+                                     graph->get_handle(e.to(), e.to_end()));
     return dynamic_cast<const VectorizableHandleGraph*>(graph)->edge_index(edge);
 }
 

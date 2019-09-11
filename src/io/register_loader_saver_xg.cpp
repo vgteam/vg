@@ -6,7 +6,8 @@
 #include <vg/io/registry.hpp>
 #include "register_loader_saver_xg.hpp"
 
-#include "../xg.hpp"
+#include "handle.hpp"
+#include "xg.hpp"
 
 namespace vg {
 
@@ -16,9 +17,10 @@ using namespace std;
 using namespace vg::io;
 
 void register_loader_saver_xg() {
-    Registry::register_bare_loader_saver<XG, PathPositionHandleGraph, PathHandleGraph, HandleGraph>("XG", [](istream& input) -> void* {
+  Registry::register_bare_loader_saver_with_magic<xg::XG, PathPositionHandleGraph, PathHandleGraph, HandleGraph>("XG", "XG",
+    [](istream& input) -> void* {
         // Allocate an XG
-        XG* index = new XG();
+        xg::XG* index = new xg::XG();
         
         // Load it
         index->load(input);
@@ -28,7 +30,7 @@ void register_loader_saver_xg() {
     }, [](const void* index_void, ostream& output) {
         // Cast to XG and serialize to the stream.
         assert(index_void != nullptr);
-        ((const XG*) index_void)->serialize(output);
+        ((const xg::XG*) index_void)->serialize(output);
     });
 }
 

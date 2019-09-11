@@ -13,28 +13,30 @@ vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
 vg index -x x.xg -G x.gbwt -v small/xy2.vcf.gz x.vg
 
 # Default construction
-vg minimizer -i x.mi x.xg
+vg minimizer -i x.mi -g x.gbwt x.xg
 is $? 0 "default parameters"
 
-# Single-threaded
-vg minimizer -t 1 -i x.mi x.xg
+# Single-threaded for deterministic results
+vg minimizer -t 1 -i x.mi -g x.gbwt x.xg
 is $? 0 "single-threaded construction"
 vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
-is $(md5sum x.extracted.mi | cut -f 1 -d\ ) a46316b92c64c3f689cbd2fa5a8ad2ab "construction is deterministic"
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 6d173d906b6eead5074f1d7a26464e7c "construction is deterministic"
 
 # Minimizer parameters
-vg minimizer -t 1 -k 7 -w 3 -i x.mi x.xg
+vg minimizer -t 1 -k 7 -w 3 -i x.mi -g x.gbwt x.xg
 is $? 0 "minimizer parameters"
 vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
-is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 34d44c8f8c0fbd4f0b1775e0ac25b880 "setting -k -w works correctly"
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) fd3cea04319fe9ff7eb623788be4b31e "setting -k -w works correctly"
+# FIXME
 
-# Haplotype-consistent minimizers
-vg minimizer -t 1 -g x.gbwt -i x.mi x.xg
-is $? 0 "haplotype-consistent minimizers"
+# Construction from GBWTGraph
+vg gbwt -x x.xg -g x.gg x.gbwt
+vg minimizer -t 1 -g x.gbwt -G -i x.mi x.gg
+is $? 0 "construction from GBWTGraph"
 vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
-is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 3b747e7a5295257df113784eacc2cd45 "construction is deterministic"
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 6d173d906b6eead5074f1d7a26464e7c "construction is deterministic"
 
-rm -f x.vg x.xg x.gbwt x.mi x.extracted.mi
+rm -f x.vg x.xg x.gbwt x.mi x.extracted.mi x.gg
 
 
 # Indexing two graphs
@@ -45,13 +47,14 @@ vg index -x x.xg -G x.gbwt -v small/xy2.vcf.gz x.vg
 vg index -x y.xg -G y.gbwt -v small/xy2.vcf.gz y.vg
 
 # Appending to the index
-vg minimizer -t 1 -i x.mi x.xg
+vg minimizer -t 1 -i x.mi -g x.gbwt x.xg
 is $? 0 "multiple graphs: first"
-vg minimizer -t 1 -l x.mi -i xy.mi y.xg
+vg minimizer -t 1 -l x.mi -i xy.mi -g y.gbwt y.xg
 is $? 0 "multiple graphs: second"
 vg view --extract-tag MinimizerIndex xy.mi > xy.extracted.mi
-is $(md5sum xy.extracted.mi | cut -f 1 -d\ ) cfe4f6e32591f979fc9766be106f2c1f "construction is deterministic"
+is $(md5sum xy.extracted.mi | cut -f 1 -d\ ) f64285d9aeca03551c1a8a48e4c3f654 "construction is deterministic"
 
 rm -f x.vg y.vg
 rm -f x.xg y.xg
+rm -f x.gbwt y.gbwt
 rm -f x.mi xy.mi xy.extracted.mi
