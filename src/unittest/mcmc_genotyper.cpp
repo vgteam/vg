@@ -2,7 +2,7 @@
 ///  
 /// unit tests for mcmc genotyper construction and utility functions
 ///
-
+#include <xg.hpp>
 #include <stdio.h>
 #include <iostream>
 #include "../multipath_mapper.hpp"
@@ -606,8 +606,9 @@ namespace vg {
                 
                 // Build the xg index
                 //defining an XG and a variable called xg_index and calling the constructor
-                 XG xg_index(graph.graph); //VG uses a Graph as internal structure 
-                
+                xg::XG xg_index; 
+                xg_index.from_path_handle_graph(graph);              
+
                 // Make a multipath mapper to map against the graph.
                 MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
                 
@@ -726,7 +727,8 @@ namespace vg {
                     
                     // Build the xg index
                     //defining an XG and a variable called xg_index and calling the constructor
-                    XG xg_index(graph.graph); //VG uses a Graph as internal structure 
+                    xg::XG xg_index; //VG uses a Graph as internal structure 
+                    xg_index.from_path_handle_graph(graph);               //xg::XG xg_index();
                     
                     // Make a multipath mapper to map against the graph.
                     MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
@@ -797,7 +799,7 @@ namespace vg {
                     delete lcpidx;
                 }
                 //for(int i = 0; i < results.size(); i++){
-                //    cerr  <<results[i] <<endl;
+                 //   cerr  <<results[i] <<endl;
                 //}
 
                 //cerr << count_correct << " tests out of " << max << " are correct " <<endl;
