@@ -11,6 +11,8 @@ var searchData=
   ['tell_5fgroup',['tell_group',['../classvg_1_1io_1_1MessageIterator.html#a93357bb3b11b5a1cbb6d09bd712e7991',1,'vg::io::MessageIterator::tell_group()'],['../classvg_1_1io_1_1ProtobufIterator.html#ab8622016ec8edafa386a8e56264e6d84',1,'vg::io::ProtobufIterator::tell_group()']]],
   ['thread_5fname',['thread_name',['../namespacevg.html#a521a6e5bc08cde58a9e9bf6b6bae9e7d',1,'vg']]],
   ['thread_5fto_5fgraph_5fspanned',['thread_to_graph_spanned',['../namespacevg.html#aa24cc1f72643cab5fa0dfcc551f61d50',1,'vg']]],
+  ['tick',['tick',['../structvg_1_1Range.html#a10f700e0447a5a922611122fa1811b61',1,'vg::Range']]],
+  ['tick_5fchain',['tick_chain',['../structvg_1_1Range.html#ac43f1cdc096cf02b316361df308ff934',1,'vg::Range']]],
   ['tipanchoredmaxdistance',['TipAnchoredMaxDistance',['../classvg_1_1TipAnchoredMaxDistance.html#a6c5366249e20e42a9fdeba724441728f',1,'vg::TipAnchoredMaxDistance::TipAnchoredMaxDistance()=default'],['../classvg_1_1TipAnchoredMaxDistance.html#a05bc07983e5ac280e6402e2b07536c02',1,'vg::TipAnchoredMaxDistance::TipAnchoredMaxDistance(MinimumDistanceIndex &amp;distance_index)']]],
   ['to_5fbacking',['to_backing',['../classvg_1_1ExtraNodeGraph.html#a9e2ba1f5f6b655494074901c11491ffd',1,'vg::ExtraNodeGraph::to_backing()'],['../classvg_1_1SourceSinkOverlay.html#a57984042ec4b444b5f540634f268e9c0',1,'vg::SourceSinkOverlay::to_backing()']]],
   ['to_5fbig_5fendian',['to_big_endian',['../structvg_1_1endianness.html#a5397898b5e413c0c4d09577952b80984',1,'vg::endianness']]],

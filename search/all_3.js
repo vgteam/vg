@@ -46,7 +46,7 @@ var searchData=
   ['casify',['casify',['../classvg_1_1Pileups.html#a2cfd8c66f4777b5997ac86511b63398a',1,'vg::Pileups']]],
   ['catch_5fconfig_5frunner',['CATCH_CONFIG_RUNNER',['../driver_8cpp.html#a34b4c3eca7342fbc4cba090d02139902',1,'driver.cpp']]],
   ['category',['category',['../classvg_1_1subcommand_1_1Subcommand.html#a6042accceefeb06bb5c072932f4b7ac7',1,'vg::subcommand::Subcommand']]],
-  ['chain',['CHAIN',['../classvg_1_1SnarlSeedClusterer.html#a835e4f3125a877f2baebd11886750225a93290bd86391c9891ac90e92a1683e18',1,'vg::SnarlSeedClusterer::CHAIN()'],['../namespacevg.html#aa9d8b2ece3ab50a38656273662553f2d',1,'vg::Chain()']]],
+  ['chain',['chain',['../structvg_1_1Range.html#a9e877d24ff937a7ad40da61d809ebaaf',1,'vg::Range::chain()'],['../classvg_1_1SnarlSeedClusterer.html#a835e4f3125a877f2baebd11886750225a93290bd86391c9891ac90e92a1683e18',1,'vg::SnarlSeedClusterer::CHAIN()'],['../namespacevg.html#aa9d8b2ece3ab50a38656273662553f2d',1,'vg::Chain()']]],
   ['chain_5fassignments',['chain_assignments',['../classvg_1_1MinimumDistanceIndex.html#af04cb883a13ff7a9cb6eed0dee80c4b3',1,'vg::MinimumDistanceIndex']]],
   ['chain_5fbegin',['chain_begin',['../namespacevg.html#ac3b14246f4fe83e3fbdadb1ba838faeb',1,'vg']]],
   ['chain_5fbegin_5ffrom',['chain_begin_from',['../namespacevg.html#aefacc656d2c444dfd6e0e445218265cc',1,'vg']]],

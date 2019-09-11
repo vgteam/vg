@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['range',['Range',['../structvg_1_1Range.html',1,'vg']]],
   ['rarevariantsimplifier',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html',1,'vg']]],
   ['readfilter',['ReadFilter',['../classvg_1_1ReadFilter.html',1,'vg']]],
   ['readrestrictedtraversalfinder',['ReadRestrictedTraversalFinder',['../classvg_1_1ReadRestrictedTraversalFinder.html',1,'vg']]],
