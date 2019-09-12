@@ -195,7 +195,8 @@ namespace vg {
 		// If any link was discarded, also discard the path (and warn).
 
 		// So let's start
-
+		in.clear();                 // clear fail and eof bits
+		in.seekg(0, std::ios::beg); // back to the start!
 		// Parse the GFA
 		GFAKluge gg;
 		//gg.parse_gfa_file(in);
@@ -223,7 +224,7 @@ namespace vg {
 
 
 		gg.for_each_sequence_line_in_file(in, seqfunc);
-
+		cerr << "Loaded " << name_to_seq.size() << " sequences." << endl;
 
 		// As we go through the links, we need to remmeber links which are straight abutments of sequences.
 		// These won't be processed by the pinch graph; we need to store them and process them later.
