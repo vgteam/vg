@@ -492,7 +492,7 @@ namespace vg {
                 
                     // No variants should still be symbolic at this point.
                     // Either we canonicalized them into base-level sequence, or we rejected them whn making the clump.
-                    assert(!variant->isSymbolicSV());
+                    //assert(!variant->isSymbolicSV());
                     // If variants have SVTYPE set, though, we will still use that info instead of the base-level sequence.
 
                     // Since we make the fasta reference uppercase, we do the VCF too (otherwise vcflib get mad)
@@ -526,6 +526,10 @@ namespace vg {
 
                     // Check the variant's reference sequence to catch bad VCF/FASTA pairings
                     auto expected_ref = reference_sequence.substr(variant->zeroBasedPosition() - chunk_offset, variant->ref.size());
+                    // TODO: this is a dirty hack.
+                    if (variant->isSymbolicSV() && variant->ref == "N" ){
+                       variant->ref = expected_ref; 
+                    }
                     if(variant->ref != expected_ref) {
                     // TODO: report error to caller somehow
                     #pragma omp critical (cerr)
@@ -1766,7 +1770,7 @@ namespace vg {
                     
                     // Canonicalize the variant and see if that disqualifies it.
                     // This also takes care of setting the variant's alt sequences.
-                    variant_acceptable = vvar->canonicalize(reference, insertions, true);
+                    variant_acceptable = vvar->canonicalize(reference, insertions, false);
      
                     if (variant_acceptable) {
                         // Worth checking for multiple alts.
