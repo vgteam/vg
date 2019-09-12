@@ -490,7 +490,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             
             if (second_best_alignment.score() != 0 && 
-                second_best_alignment.score() > best_alignment.score() * 0.5) {
+                second_best_alignment.score() > best_alignment.score() * 0.8) {
                 //If there is a second extension and its score is at least half of the best score
                 alignments.push_back(std::move(second_best_alignment));
 
