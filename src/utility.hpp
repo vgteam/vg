@@ -590,7 +590,7 @@ bool parse(const string& arg, Result& dest);
 // Do one generic implementation for signed integers that fit in a long long.
 // Cram the constraint into the type of the output parameter.
 template<typename Result>
-inline bool parse(const string& arg, typename enable_if<sizeof(Result) <= sizeof(long long) &&
+bool parse(const string& arg, typename enable_if<sizeof(Result) <= sizeof(long long) &&
     is_integral<Result>::value &&
     is_signed<Result>::value, Result>::type& dest) {
     
@@ -607,7 +607,7 @@ inline bool parse(const string& arg, typename enable_if<sizeof(Result) <= sizeof
 
 // Do another generic implementation for unsigned integers
 template<typename Result>
-inline bool parse(const string& arg, typename enable_if<sizeof(Result) <= sizeof(unsigned long long) &&
+bool parse(const string& arg, typename enable_if<sizeof(Result) <= sizeof(unsigned long long) &&
     is_integral<Result>::value &&
     !is_signed<Result>::value, Result>::type& dest) {
     
@@ -622,22 +622,13 @@ inline bool parse(const string& arg, typename enable_if<sizeof(Result) <= sizeof
     return(after == arg.size());    
 }              
 
-// We also have an implementation for doubles
+// We also have an implementation for doubles (defined in the cpp)
 template<>
-inline bool parse(const string& arg, double& dest) {
-    size_t after;
-    dest = std::stod(arg, &after);
-    return(after == arg.size());
-}
+bool parse(const string& arg, double& dest);
 
 // And one for regular expressions
 template<>
-inline bool parse(const string& arg, std::regex& dest) {
-    // This throsw std::regex_error if it can't parse.
-    // That contains a kind of useless error code that we can't turn itno a string without switching on all the values.
-    dest = std::regex(arg);
-    return true;
-}
+bool parse(const string& arg, std::regex& dest);
 
 // Implement the first version in terms of the second, for any type
 template<typename Result>
