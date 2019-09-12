@@ -567,15 +567,18 @@ namespace vg {
                     if (flat) {
                         alternates = variant->flatAlternates();
                         // if we can, remove the 1bp "standard" base that's added at the beginning of indels
-                        for (auto& v : alternates) {
-                            for (auto& a : v.second) {
-                                if (a.ref[0] == a.alt[0]) {
-                                    a.ref = a.ref.substr(1);
-                                    a.alt = a.alt.substr(1);
-                                    ++a.position;
+                        if (this->trim_indels){
+                            for (auto& v : alternates) {
+                                for (auto& a : v.second) {
+                                    if (a.ref[0] == a.alt[0]) {
+                                        a.ref = a.ref.substr(1);
+                                        a.alt = a.alt.substr(1);
+                                        ++a.position;
+                                    }
                                 }
                             }
                         }
+                        
                     } else {
                         alternates = variant->parsedAlternates();
                     }
