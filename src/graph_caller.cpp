@@ -44,16 +44,24 @@ void GraphCaller::call_top_level_snarls(bool recurse_on_fail) {
   
 }
 
-string GraphCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs) const {
+VCFOutputCaller::VCFOutputCaller(const string& sample_name) : sample_name(sample_name) {
+}
+
+VCFOutputCaller::~VCFOutputCaller() {
+}
+
+string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                                   const vector<size_t>& contig_length_overrides) const {
     stringstream ss;
     ss << "##fileformat=VCFv4.2" << endl;
-    for (auto contig : contigs) {
+    for (int i = 0; i < contigs.size(); ++i) {
+        const string& contig = contigs[i];
         path_handle_t path_handle = graph.get_path_handle(contig);
         string path_name = graph.get_path_name(path_handle);
         size_t length;
-        if (ref_lengths.count(path_name)) {
+        if (i < contig_length_overrides.size()) {
             // length override provided
-            length = ref_lengths.find(path_name)->second;
+            length = contig_length_overrides[i];
         } else {
             length = 0;
             for (handle_t handle : graph.scan_path(graph.get_path_handle(contig))) {
@@ -63,6 +71,23 @@ string GraphCaller::vcf_header(const PathHandleGraph& graph, const vector<string
         ss << "##contig=<ID=" << contig << ",length=" << length << ">" << endl;
     }
     return ss.str();
+}
+
+void VCFOutputCaller::add_variant(vcflib::Variant& var) const {
+#pragma omp critical(add_variant)
+    {
+        output_variants.push_back(var);
+    }
+}
+
+void VCFOutputCaller::write_variants(ostream& out_stream) const {
+    std::sort(output_variants.begin(), output_variants.end(), [](const vcflib::Variant& v1, const vcflib::Variant& v2) {
+            return v1.sequenceName < v2.sequenceName || (v1.sequenceName == v2.sequenceName && v1.position < v2.position);
+        });
+    for (auto v : output_variants) {
+        v.setVariantCallFile(output_vcf);
+        out_stream << v << endl;
+    }
 }
 
 VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
@@ -75,9 +100,9 @@ VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
                            FastaReference* ins_fasta,
                            ostream& out_stream) :
     GraphCaller(snarl_caller, snarl_manager, out_stream),
+    VCFOutputCaller(sample_name),
     graph(graph),
     input_vcf(variant_file),
-    sample_name(sample_name),
     traversal_finder(graph, snarl_manager, variant_file, ref_paths, ref_fasta, ins_fasta) {
 
     scan_contig_lengths();    
@@ -164,7 +189,6 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
             out_variant.ref = variants[i]->ref;
             out_variant.alt = variants[i]->alt;
             out_variant.alleles = variants[i]->alleles;
-            out_variant.setVariantCallFile(output_vcf);
             out_variant.filter = "PASS";
             out_variant.updateAlleleIndexes();
 
@@ -177,10 +201,7 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
             snarl_caller.update_vcf_info(snarl, vcf_traversals, vcf_alleles, sample_name, out_variant);
 
             // print the variant
-#pragma omp critical(cout)
-            {
-                out_stream << out_variant << endl;
-            }
+            add_variant(out_variant);
         }
         return true;
     }
@@ -189,8 +210,18 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
 
 }
 
-string VCFGenotyper::vcf_header(const PathHandleGraph& graph, const vector<string>& ref_paths) const {
-    string header = GraphCaller::vcf_header(graph, ref_paths);
+string VCFGenotyper::vcf_header(const PathHandleGraph& graph, const vector<string>& ref_paths,
+                                const vector<size_t>& contig_length_overrides) const {
+    assert(contig_length_overrides.empty()); // using this override makes no sense
+
+    // get the contig length overrides from the VCF
+    vector<size_t> vcf_contig_lengths;
+    auto length_map = scan_contig_lengths();
+    for (int i = 0; i < ref_paths.size(); ++i) {
+        vcf_contig_lengths[i] = length_map[ref_paths[i]];
+    }
+    
+    string header = VCFOutputCaller::vcf_header(graph, ref_paths, vcf_contig_lengths);
     header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
     snarl_caller.update_vcf_header(header);
     header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
@@ -201,8 +232,10 @@ string VCFGenotyper::vcf_header(const PathHandleGraph& graph, const vector<strin
     return header;
 }
 
-void VCFGenotyper::scan_contig_lengths() {
+unordered_map<string, size_t> VCFGenotyper::scan_contig_lengths() const {
 
+    unordered_map<string, size_t> ref_lengths;
+    
     // copied from dumpContigsFromHeader.cpp in vcflib
     vector<string> headerLines = split(input_vcf.header, "\n");
     for(vector<string>::iterator it = headerLines.begin(); it != headerLines.end(); it++) {
@@ -225,6 +258,8 @@ void VCFGenotyper::scan_contig_lengths() {
             }
         }
     }
+
+    return ref_lengths;
 }
 
 
@@ -233,18 +268,14 @@ LegacyCaller::LegacyCaller(const PathPositionHandleGraph& graph,
                            SnarlManager& snarl_manager,
                            const string& sample_name,
                            const vector<string>& ref_paths,
-                           const vector<size_t>& ref_path_offsets,
-                           const vector<size_t>& ref_path_lengths) :
+                           const vector<size_t>& ref_path_offsets) :
     GraphCaller(snarl_caller, snarl_manager, out_stream),
+    VCFOutputCaller(sample_name),
     graph(graph),
-    sample_name(sample_name),
     ref_paths(ref_paths) {
 
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
-    }
-    for (int i = 0; i < ref_path_lengths.size(); ++i) {
-        ref_lengths[ref_paths[i]] = ref_path_lengths[i];
     }
     
     is_vg = dynamic_cast<const VG*>(&graph) != nullptr;
@@ -378,8 +409,9 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
     return true;
 }
 
-string LegacyCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& ref_paths) const {
-    string header = GraphCaller::vcf_header(graph, ref_paths);
+string LegacyCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& ref_paths,
+                                const vector<size_t>& contig_length_overrides) const {
+    string header = VCFOutputCaller::vcf_header(graph, ref_paths, contig_length_overrides);
     header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
     snarl_caller.update_vcf_header(header);
     header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
@@ -596,7 +628,6 @@ void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder
     // +1 to convert to 1-based VCF
     out_variant.position = get_ref_position(snarl, ref_path_name).first + ref_offsets.find(ref_path_name)->second + 1; 
     out_variant.id = ".";
-    out_variant.setVariantCallFile(output_vcf);
     out_variant.filter = "PASS";
     out_variant.updateAlleleIndexes();
 
@@ -621,10 +652,7 @@ void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder
     snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, sample_name, out_variant);
 
     if (!out_variant.alt.empty()) {
-#pragma omp critical(cout)
-        {
-            cout << out_variant << endl;
-        }
+        add_variant(out_variant);
     }
 }
 
