@@ -27,24 +27,41 @@ if [[ "$#" -lt "8" ]]; then
     usage
 fi
 
-FASTA="${1}"
+fetch_input() {
+    # Download the specified file, if not a file already.
+    # Dumps all files into the current directory as their basenames
+    # Output the new filename
+    if [[ "${1}" == s3://* ]] ; then
+        aws s3 cp --quiet "${1}" "$(basename "${1}")"
+        basename "${1}"
+    else
+        echo "${1}"
+    fi
+}
+
+FASTA="$(fetch_input "${1}")"
+for EXT in amb ann bwt fai pac sa ; do
+    # Make sure we have all the indexes adjacent to the FASTA
+    fetch_input "${1}.${EXT}" >/dev/null
 shift
-XG_INDEX="${1}"
+XG_INDEX="$(fetch_input "${1}")"
+# Make sure we have the GBWTGraph pre-made
+GBWT_GRAPH="$(fetch_input "${1%.xg}.gg")"
 shift
-GCSA_INDEX="${1}"
+GCSA_INDEX="$(fetch_input "${1}")"
+LCP_INDEX="$(fetch_input "${1}.lcp")"
 shift
-GBWT_INDEX="${1}"
+GBWT_INDEX="$(fetch_input "${1}")"
 shift
-MINIMIZER_INDEX="${1}"
+MINIMIZER_INDEX="$(fetch_input "${1}")"
 shift
-DISTANCE_INDEX="${1}"
+DISTANCE_INDEX="$(fetch_input "${1}")"
 shift
-SIM_GAM="${1}"
+SIM_GAM="$(fetch_input "${1}")"
 shift
-REAL_FASTQ="${1}"
+REAL_FASTQ="$(fetch_input "${1}")"
 shift
 
-GBWT_GRAPH=${XG_INDEX%.xg}.gg
 if [ -f "$GBWT_GRAPH" ]; then
     GIRAFFE_GRAPH=(-g "${GBWT_GRAPH}")
 else

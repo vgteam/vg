@@ -9,6 +9,16 @@ ENV PATH /vg/bin:$PATH
 
 ENTRYPOINT /vg/bin/vg
 
+# Install dependencies for scripts
+RUN apt-get -qq -y update && \
+    apt-get -qq -y upgrade && \
+    apt-get -qq -y install \
+    numactl \
+    python-matplotlib \
+    awscli \
+    bwa \
+    && apt-get -qq -y clean
+
 COPY scripts /vg/scripts
 COPY bin/vg /vg/bin/vg
 
