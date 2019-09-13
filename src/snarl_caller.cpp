@@ -8,6 +8,11 @@ namespace vg {
 SnarlCaller::~SnarlCaller() {
 }
 
+function<bool(const SnarlTraversal&)> SnarlCaller::get_skip_allele_fn() const {
+    // default implementation says don't skip anything
+    return [](const SnarlTraversal&) { return false; };
+}
+
 SupportBasedSnarlCaller::SupportBasedSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager) :
     graph(graph),
     snarl_manager(snarl_manager) {
@@ -245,7 +250,7 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
     // And total alt allele depth for the alt alleles
     Support alt_support;
     // Find the min total support of anything called
-    double min_site_support = allele_supports.size() > 0 ? INFINITY : 0;
+    double min_site_support = called_allele_set.size() > 0 ? INFINITY : 0;
 
     if (!allele_supports.empty()) { //only add info if we made a call
         for (int allele = 0; allele < traversals.size(); ++allele) {
@@ -330,6 +335,14 @@ void SupportBasedSnarlCaller::update_vcf_header(string& header) const {
         std::to_string(min_mad_for_filter) + "\">\n";
     header += "##FILTER=<ID=lowxadl,Description=\"Variant has AD log likelihood less than " +
         std::to_string(min_ad_log_likelihood_for_filter) + "\">\n";
+}
+
+function<bool(const SnarlTraversal&)> SupportBasedSnarlCaller::get_skip_allele_fn() const {
+    // port over cutoff used in old support caller (there avg support used all the time, here
+    // we use the same toggles as when genotyping)
+    return [&](const SnarlTraversal& trav) -> bool {
+        return support_val(get_traversal_support(trav)) < min_alt_path_support;
+    };
 }
 
 int64_t SupportBasedSnarlCaller::get_edge_length(const edge_t& edge, const unordered_map<id_t, size_t>& ref_offsets) const {

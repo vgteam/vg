@@ -2730,9 +2730,9 @@ void VCFTraversalFinder::brute_force_alt_traversals(
     if (!check_max_trav_cutoff(alt_alleles)) {
         cerr << "[VCFTraversalFinder] Warning: Site " << pb2json(site) << " with " << site_variants.size()
              << " variants contains too many traversals (>" << max_traversal_cutoff 
-             << ") to enumerate so it will be skipped:";
+             << ") to enumerate so it will be skipped:\n";
         for (auto site_var : site_variants) {
-            cerr << "  " << *site_var << endl;
+            cerr << "   " << *site_var << endl;
         }
         output_traversals.clear();
         return;

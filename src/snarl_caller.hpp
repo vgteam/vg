@@ -41,6 +41,9 @@ public:
 
     /// Define any header fields needed by the above
     virtual void update_vcf_header(string& header) const = 0;
+
+    /// Optional method used for pruning searches
+    virtual function<bool(const SnarlTraversal&)> get_skip_allele_fn() const;
 };
 
 /**
@@ -82,6 +85,9 @@ public:
 
     /// Define any header fields needed by the above
     virtual void update_vcf_header(string& header) const;
+
+    /// Use min_alt_path_support threshold as cutoff
+    virtual function<bool(const SnarlTraversal&)> get_skip_allele_fn() const;
 
     /// Get the support of a traversal
     /// Child snarls are handled as in the old call code: their maximum support is used
@@ -148,6 +154,8 @@ protected:
     /// Use average instead of minimum support when determining a node's support
     /// its position supports.
     size_t average_node_support_switch_threshold = 50;
+    /// minimum average base support on alt path for it to be considered
+    double min_alt_path_support = 0.2;
 
     const PathHandleGraph& graph;
 

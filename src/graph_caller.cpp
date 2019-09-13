@@ -103,7 +103,7 @@ VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
     VCFOutputCaller(sample_name),
     graph(graph),
     input_vcf(variant_file),
-    traversal_finder(graph, snarl_manager, variant_file, ref_paths, ref_fasta, ins_fasta) {
+    traversal_finder(graph, snarl_manager, variant_file, ref_paths, ref_fasta, ins_fasta, snarl_caller.get_skip_allele_fn()) {
 
     scan_contig_lengths();    
 }
@@ -183,7 +183,6 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
             // create an output variant from the input one
             vcflib::Variant out_variant;
             out_variant.sequenceName = variants[i]->sequenceName;
-            out_variant.quality = 23;
             out_variant.position = variants[i]->position;
             out_variant.id = variants[i]->id;
             out_variant.ref = variants[i]->ref;
@@ -218,7 +217,7 @@ string VCFGenotyper::vcf_header(const PathHandleGraph& graph, const vector<strin
     vector<size_t> vcf_contig_lengths;
     auto length_map = scan_contig_lengths();
     for (int i = 0; i < ref_paths.size(); ++i) {
-        vcf_contig_lengths[i] = length_map[ref_paths[i]];
+        vcf_contig_lengths.push_back(length_map[ref_paths[i]]);
     }
     
     string header = VCFOutputCaller::vcf_header(graph, ref_paths, vcf_contig_lengths);
@@ -624,7 +623,6 @@ void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder
 
     // fill out the rest of the variant
     out_variant.sequenceName = ref_path_name;
-    out_variant.quality = 23;
     // +1 to convert to 1-based VCF
     out_variant.position = get_ref_position(snarl, ref_path_name).first + ref_offsets.find(ref_path_name)->second + 1; 
     out_variant.id = ".";
