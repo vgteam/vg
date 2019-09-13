@@ -3221,10 +3221,12 @@ pair<SnarlTraversal, vector<edge_t>> VCFTraversalFinder::scan_for_deletion(vcfli
         if (i < best_set.size() - 1) {
             step_handle_t next_step = node_to_step[graph.get_id(best_set[i + 1].first)];
             step_handle_t cur_step = node_to_step[graph.get_id(best_set[i].second)];
-            for (cur_step = graph.get_next_step(cur_step); cur_step != next_step; cur_step = graph.get_next_step(cur_step)) {
-                visit = traversal.add_visit();
-                visit->set_node_id(graph.get_id(graph.get_handle_of_step(cur_step)));
-                visit->set_backward(graph.get_is_reverse(graph.get_handle_of_step(cur_step)));
+            if (cur_step != next_step) {
+                for (cur_step = graph.get_next_step(cur_step); cur_step != next_step; cur_step = graph.get_next_step(cur_step)) {
+                    visit = traversal.add_visit();
+                    visit->set_node_id(graph.get_id(graph.get_handle_of_step(cur_step)));
+                    visit->set_backward(graph.get_is_reverse(graph.get_handle_of_step(cur_step)));
+                }
             }
         }
     }

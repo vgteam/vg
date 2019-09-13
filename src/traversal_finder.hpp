@@ -428,7 +428,7 @@ protected:
     bool include_endpoints = true;
 
     /// How far to scan when looking for deletions
-    size_t max_deletion_scan_nodes = 20;
+    size_t max_deletion_scan_nodes = 50;
 
 public:
 
