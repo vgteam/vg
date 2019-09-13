@@ -177,7 +177,10 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
             snarl_caller.update_vcf_info(snarl, vcf_traversals, vcf_alleles, sample_name, out_variant);
 
             // print the variant
-            out_stream << out_variant << endl;
+#pragma omp critical(cout)
+            {
+                out_stream << out_variant << endl;
+            }
         }
         return true;
     }
