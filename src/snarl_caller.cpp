@@ -249,7 +249,8 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
 
     if (!allele_supports.empty()) { //only add info if we made a call
         for (int allele = 0; allele < traversals.size(); ++allele) {
-            auto& support = called_allele_set.count(allele) ? allele_supports[allele] : uncalled_supports[allele];
+            bool is_called = called_allele_set.count(allele);
+            auto& support = is_called ? allele_supports[allele] : uncalled_supports[allele];
             
             // Set up allele-specific stats for the allele
             variant.samples[sample_name]["AD"].push_back(std::to_string((int64_t)round(total(support))));
@@ -262,8 +263,10 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
                 alt_support += support;
             }
             
-            // Min all the total supports from the alleles called as present    
-            min_site_support = min(min_site_support, total(support));
+            // Min all the total supports from the alleles called as present
+            if (is_called) {
+                min_site_support = min(min_site_support, total(support));
+            }
         }
     }
     
