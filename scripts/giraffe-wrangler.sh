@@ -2,7 +2,9 @@
 
 # giraffe-wrangler.sh: Run and profile vg gaffe and analyze the results.
 
-set -e
+echo "Wrangling giraffes..."
+
+set -ex
 
 usage() {
     # Print usage to stderr
@@ -32,7 +34,7 @@ fetch_input() {
     # Dumps all files into the current directory as their basenames
     # Output the new filename
     if [[ "${1}" == s3://* ]] ; then
-        aws s3 cp --quiet "${1}" "$(basename "${1}")"
+        aws s3 --quiet cp "${1}" "$(basename "${1}")"
         basename "${1}"
     else
         echo "${1}"
@@ -43,6 +45,7 @@ FASTA="$(fetch_input "${1}")"
 for EXT in amb ann bwt fai pac sa ; do
     # Make sure we have all the indexes adjacent to the FASTA
     fetch_input "${1}.${EXT}" >/dev/null
+done
 shift
 XG_INDEX="$(fetch_input "${1}")"
 # Make sure we have the GBWTGraph pre-made
@@ -67,6 +70,17 @@ if [ -f "$GBWT_GRAPH" ]; then
 else
     GIRAFFE_GRAPH=(-x "${XG_INDEX}")
 fi
+
+echo "Indexes:"
+echo "${XG_INDEX}"
+echo "${GBWT_GRAPH}"
+echo "${GCSA_INDEX}"
+echo "${LCP_INDEX}"
+echo "${GBWT_INDEX}"
+echo "${MINIMIZER_INDEX}"
+echo "${DISTANCE_INDEX}"
+echo "${SIM_GAM}"
+echo "${REAL_FASTQ}"
 
 # Define the Giraffe parameters
 GIRAFFE_OPTS=(-s75 -u 0.1 -v 1 -w 5 -C 600)
