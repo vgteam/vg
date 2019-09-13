@@ -412,6 +412,9 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                    (!full_length_found && !best_match_is_full_length ))) {
             //Keep either only full length alignments or the best extensions
             result.push_back(best_match);
+            if (best_match_is_full_length && result.size() == 2) {
+                break;
+            }
         }
     }
 
