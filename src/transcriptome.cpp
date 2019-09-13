@@ -14,7 +14,7 @@ using namespace std;
 // Number of transcripts buffered for each thread
 static const int32_t num_thread_transcripts = 100;
 
-//#define transcriptome_debug
+#define transcriptome_debug
 
 
 Transcriptome::Transcriptome(const string & graph_filename, const bool show_progress) {
@@ -307,7 +307,7 @@ void Transcriptome::project_transcripts_callback(const int32_t thread_idx, const
     double time_edit_2 = gcsa::readTimer();
     cerr << "DEBUG: " << time_edit_2 - time_edit_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif
-    
+
 }
 
 list<TranscriptPath> Transcriptome::project_transcript_gbwt(const Transcript & cur_transcript, const gbwt::GBWT & haplotype_index, const float mean_node_length) const {
