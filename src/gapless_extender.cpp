@@ -251,7 +251,6 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
     bool full_length_found = false;
     //Keep track of the fewest and second fewest mismatches found
     uint32_t full_length_mismatches = std::numeric_limits<uint32_t>::max();
-    uint32_t second_full_length_mismatches = std::numeric_limits<uint32_t>::max();
     for (seed_type seed : cluster) {
         GaplessExtension best_match {
             { }, static_cast<size_t>(0), gbwt::BidirectionalState(),
@@ -274,7 +273,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                 false, false, static_cast<uint32_t>(0), static_cast<uint32_t>(0)
             };
             match_initial(match, sequence, this->graph->get_sequence_view(seed.first), this->aligner);
-            if (match.internal_score >= second_full_length_mismatches * 0.75) {
+            if (match.internal_score >= full_length_mismatches * 0.75) {
                 continue;
             }
             if (match.read_interval.first == 0) {
@@ -295,14 +294,14 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
         while (!extensions.empty()) {
             GaplessExtension curr = extensions.top();
             extensions.pop();
-            if (curr.internal_score >= second_full_length_mismatches * 0.75) {
+            if (curr.internal_score >= full_length_mismatches * 0.75) {
                 continue;
             }
             // Always allow at least max_mismatches / 2 mismatches in the current flank.
             uint32_t mismatch_limit = std::max(
                 static_cast<uint32_t>(max_mismatches + 1),
                 static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
-            mismatch_limit = std::min(mismatch_limit, second_full_length_mismatches);
+            mismatch_limit = std::min(mismatch_limit, (uint32_t)(full_length_mismatches * 0.75));
             bool found_extension = false;
 
             // Case 1: Extend to the right.
@@ -389,13 +388,8 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                     //TODO: Could take this out or find a way to use it but keep around more than one alignment
                     if (best_match.internal_score < full_length_mismatches){
                         //If this is better than the previous best
-                        second_full_length_mismatches = full_length_mismatches;
                         full_length_mismatches = best_match.internal_score;
-                    } else if (best_match.internal_score < second_full_length_mismatches) {
-
-                        //TODO: Either get rid of full_length_mismatches and second_full_length_mismatches or find a better cutoff for discarding since using this isn't great
-                        second_full_length_mismatches = best_match.internal_score;
-                    }
+                    } 
                     best_match_is_full_length = true;
                 }
             }
