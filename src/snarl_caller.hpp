@@ -89,10 +89,15 @@ public:
 
     /// Get the support of a set of traversals.  Any support overlapping traversals in shared_travs
     /// will have their support split.  If exclusive_only is true, then any split support gets
-    /// rounded down to 0.  if the ref_trav_idx is given, it will be used for computing (deletion) edge lengths
+    /// rounded down to 0 (and ignored when computing mins or averages) .
+    /// exclusive_count is like exclusive only except shared traversals will be counted (as 0)
+    /// when doing average and min support
+    /// if the ref_trav_idx is given, it will be used for computing (deletion) edge lengths
     virtual vector<Support> get_traversal_set_support(const vector<SnarlTraversal>& traversals,
                                                       const vector<int>& shared_travs,
-                                                      bool exclusive_only, int ref_trav_idx = -1) const;
+                                                      bool exclusive_only,
+                                                      bool exclusive_count,
+                                                      int ref_trav_idx = -1) const;
 
     /// Get the total length of all nodes in the traversal
     virtual vector<int> get_traversal_sizes(const vector<SnarlTraversal>& traversals) const;
