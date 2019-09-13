@@ -14,8 +14,8 @@ RUN apt-get -qq -y update && \
     apt-get -qq -y upgrade && \
     apt-get -qq -y install \
     numactl \
-    python-matplotlib \
-    python-numpy \
+    python3-matplotlib \
+    python3-numpy \
     awscli \
     bwa \
     jq \
