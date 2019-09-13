@@ -24,7 +24,8 @@ using namespace std;
 class GraphCaller {
 public:
     GraphCaller(SnarlCaller& snarl_caller,
-                SnarlManager& snarl_manager);
+                SnarlManager& snarl_manager,
+                ostream& out_stream = cout);
 
     virtual ~GraphCaller();
 
@@ -36,14 +37,9 @@ public:
     /// Call a given snarl, and print the output to out_stream
     virtual bool call_snarl(const Snarl& snarl) = 0;
 
-    /// Write the vcf
-    virtual void write_vcf(const PathHandleGraph& graph, const vector<string>& contigs, ostream& out_stream) const;
-
-protected:
-
     /// Write the vcf header (version and contigs and basic info)
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs) const;
-
+   
 protected:
 
     /// Our Genotyper
@@ -52,8 +48,8 @@ protected:
     /// Our snarls
     SnarlManager& snarl_manager;
 
-    /// Buffer needed because we want to print the variants in sorted order
-    mutable vector<vcflib::Variant> out_variants;
+    /// Where all output written
+    ostream& out_stream;
 
     /// keep track of lengths of the reference paths (for overriding VCF output when input is a subpath)
     map<string, size_t> ref_lengths;
@@ -72,7 +68,8 @@ public:
                  const string& sample_name,
                  const vector<string>& ref_paths = {},
                  FastaReference* ref_fasta = nullptr,
-                 FastaReference* ins_fasta = nullptr);
+                 FastaReference* ins_fasta = nullptr,
+                 ostream& out_stream = cout);
 
     virtual ~VCFGenotyper();
 

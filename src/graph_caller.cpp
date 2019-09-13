@@ -4,8 +4,9 @@
 namespace vg {
 
 GraphCaller::GraphCaller(SnarlCaller& snarl_caller,
-                         SnarlManager& snarl_manager) :
-    snarl_caller(snarl_caller), snarl_manager(snarl_manager) {
+                         SnarlManager& snarl_manager,
+                         ostream& out_stream) :
+    snarl_caller(snarl_caller), snarl_manager(snarl_manager), out_stream(out_stream) {
 }
 
 GraphCaller::~GraphCaller() {
@@ -43,18 +44,6 @@ void GraphCaller::call_top_level_snarls(bool recurse_on_fail) {
   
 }
 
-void GraphCaller::write_vcf(const PathHandleGraph& graph, const vector<string>& contigs, ostream& out_stream) const {
-    out_stream << vcf_header(graph, contigs);
-
-    std::sort(out_variants.begin(), out_variants.end(), [](const vcflib::Variant& v1, const vcflib::Variant& v2) {
-            return v1.sequenceName < v2.sequenceName || (v1.sequenceName == v2.sequenceName && v1.position < v2.position);
-        });
-
-    for (auto& var : out_variants) {
-        out_stream << var << endl;
-    }
-}
-
 string GraphCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs) const {
     stringstream ss;
     ss << "##fileformat=VCFv4.2" << endl;
@@ -83,8 +72,9 @@ VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
                            const string& sample_name,
                            const vector<string>& ref_paths,
                            FastaReference* ref_fasta,
-                           FastaReference* ins_fasta) :
-    GraphCaller(snarl_caller, snarl_manager),
+                           FastaReference* ins_fasta,
+                           ostream& out_stream) :
+    GraphCaller(snarl_caller, snarl_manager, out_stream),
     graph(graph),
     input_vcf(variant_file),
     sample_name(sample_name),
@@ -187,9 +177,9 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
             snarl_caller.update_vcf_info(snarl, vcf_traversals, vcf_alleles, sample_name, out_variant);
 
             // print the variant
-#pragma omp critical(out_stream)
+#pragma omp critical(cout)
             {
-                out_variants.push_back(out_variant);
+                out_stream << out_variant << endl;
             }
         }
         return true;
@@ -245,7 +235,7 @@ LegacyCaller::LegacyCaller(const PathPositionHandleGraph& graph,
                            const vector<string>& ref_paths,
                            const vector<size_t>& ref_path_offsets,
                            const vector<size_t>& ref_path_lengths) :
-    GraphCaller(snarl_caller, snarl_manager),
+    GraphCaller(snarl_caller, snarl_manager, out_stream),
     graph(graph),
     sample_name(sample_name),
     ref_paths(ref_paths) {
@@ -631,9 +621,9 @@ void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder
     snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, sample_name, out_variant);
 
     if (!out_variant.alt.empty()) {
-#pragma omp critical(out_stream)
+#pragma omp critical(cout)
         {
-            out_variants.push_back(out_variant);
+            cout << out_variant << endl;
         }
     }
 }

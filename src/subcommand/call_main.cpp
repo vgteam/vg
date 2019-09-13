@@ -276,13 +276,12 @@ int main_call(int argc, char** argv) {
     }
 
     // Call the graph
+    cout << graph_caller->vcf_header(*graph, ref_paths) << flush;
     graph_caller->call_top_level_snarls();
-    // Print the VCF
-    graph_caller->write_vcf(*graph, ref_paths, cout);
-    
+        
     return 0;
 }
 
 // Register subcommand
-static Subcommand vg_call("call", "call or genotype VCF variants", PIPELINE, 7, main_call);
+static Subcommand vg_call("call", "call variants", PIPELINE, 5, main_call);
 
