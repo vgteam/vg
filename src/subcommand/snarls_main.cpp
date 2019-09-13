@@ -226,8 +226,15 @@ int main_snarl(int argc, char** argv) {
         // This shuold effectively be the same as above, and is included in this tool
         // for testing purposes.  The VCFTraversalFinder differs from Exhaustive in that
         // it's easier to limit traversals using read support, and it takes care of
-        // mapping back to the VCF via the alt paths. 
-      trav_finder = new VCFTraversalFinder(*vg_graph, snarl_manager, variant_file, {},
+        // mapping back to the VCF via the alt paths.
+      vector<string> ref_paths;
+      vg_graph->for_each_path_handle([&](path_handle_t path_handle) {
+              const string& name = vg_graph->get_path_name(path_handle);
+              if (!Paths::is_alt(name)) {
+                  ref_paths.push_back(name);
+              }
+          });
+      trav_finder = new VCFTraversalFinder(*vg_graph, snarl_manager, variant_file, ref_paths,
                                              ref_fasta.get(), ins_fasta.get());
     }
     

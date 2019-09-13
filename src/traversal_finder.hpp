@@ -428,7 +428,7 @@ protected:
     bool include_endpoints = true;
 
     /// How far to scan when looking for deletions
-    size_t max_deletion_scan_nodes = 100;
+    size_t max_deletion_scan_nodes = 20;
 
 public:
 
@@ -506,26 +506,26 @@ protected:
                                     const vector<int>& haplotype,
                                     path_handle_t ref_path);
 
-    /** Get one alt-path out of the graph in the form of a snarl traversal.  bool value
-     *  returned is true if allele is a deletion, and returned traversal will be a pair of nodes
-     *  representing the deletion edge.
+    /** Get one alt-path out of the graph in the form of a snarl traversal.  if the path is a deletion,
+     *  the edges corresponding to the deletion are also returned.  note that it is indeed possible
+     *  for one alt path (and therefore one vcf alleles) to correspond to several deletion edges in the 
+     *  graph due to normalization during construction.
      */
-    pair<SnarlTraversal, bool> get_alt_path(vcflib::Variant* site_variant, int allele, path_handle_t ref_path);
+    pair<SnarlTraversal, vector<edge_t>> get_alt_path(vcflib::Variant* site_variant, int allele, path_handle_t ref_path);
 
     /**
      * An alt path for a deletion is the deleted reference path.  But sometimes vg construct doesn't
      * write a deletion edge that exactly jumps over the alt path.  In these cases, we need to 
      * search the graph for one. This does a brute-force check of all deletion edges in the vicinity
-     * for one that's the same size as the one we're looking for.  It picks the nearest one and
-     * returns true if the exact size is found.  
+     * for one that's the same size as the one we're looking for.  
+     * It tries to find a set of nearyby deletions that match the desired length.
      * Todo: check the sequence as well
      * Also todo: It'd be really nice if construct -fa would make the deletion-edge easily inferrable 
      * from the alt path.  It really shouldn't be necessary to hunt around. 
-     * Returns: <size delta between returned deletion and vcf allele,
-     *           position delta between returned deletion and alt path>
+     * Returns: <deletion traversal, list of deletion edges>
      */
-    pair<int, int> scan_for_deletion(vcflib::Variant* var, int allele, path_handle_t ref_path,
-                                     step_handle_t& first_path_step, step_handle_t& last_path_step);
+    pair<SnarlTraversal, vector<edge_t>> scan_for_deletion(vcflib::Variant* var, int allele, path_handle_t ref_path,
+                                                           step_handle_t first_path_step, step_handle_t last_path_step);
 
     /**
      * Prune our search space using the skip_alt method.  Will return a list of pruned VCF alleles/
