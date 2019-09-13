@@ -15,8 +15,10 @@ RUN apt-get -qq -y update && \
     apt-get -qq -y install \
     numactl \
     python-matplotlib \
+    python-numpy \
     awscli \
     bwa \
+    jq \
     && apt-get -qq -y clean
 
 COPY scripts /vg/scripts

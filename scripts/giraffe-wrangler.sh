@@ -4,6 +4,8 @@
 
 echo "Wrangling giraffes..."
 
+scripts/giraffe-facts.py || true
+
 set -ex
 
 usage() {
@@ -141,7 +143,8 @@ MEAN_IDENTITY="$(vg view -aj "${WORK}/mapped.gam" | jq -c 'select(.path) | .iden
 MEAN_IDENTITY_MAP="$(vg view -aj "${WORK}/mapped-map.gam" | jq -c 'select(.path) | .identity' | awk '{x+=$1} END {print x/NR}')"
 
 # Compute loss stages
-vg view -aj "${WORK}/mapped.gam" | scripts/giraffe-facts.py "${WORK}/facts" >"${WORK}/facts.txt" 2>&1
+# Let giraffe facts errors out
+vg view -aj "${WORK}/mapped.gam" | scripts/giraffe-facts.py "${WORK}/facts" >"${WORK}/facts.txt"
 
 # Now do the real reads
 
