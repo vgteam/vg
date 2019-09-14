@@ -41,6 +41,9 @@ public:
 
     /// Define any header fields needed by the above
     virtual void update_vcf_header(string& header) const = 0;
+
+    /// Optional method used for pruning searches
+    virtual function<bool(const SnarlTraversal&)> get_skip_allele_fn() const;
 };
 
 /**
@@ -83,16 +86,24 @@ public:
     /// Define any header fields needed by the above
     virtual void update_vcf_header(string& header) const;
 
+    /// Use min_alt_path_support threshold as cutoff
+    virtual function<bool(const SnarlTraversal&)> get_skip_allele_fn() const;
+
     /// Get the support of a traversal
     /// Child snarls are handled as in the old call code: their maximum support is used
     virtual Support get_traversal_support(const SnarlTraversal& traversal) const;
 
     /// Get the support of a set of traversals.  Any support overlapping traversals in shared_travs
     /// will have their support split.  If exclusive_only is true, then any split support gets
-    /// rounded down to 0.  if the ref_trav_idx is given, it will be used for computing (deletion) edge lengths
+    /// rounded down to 0 (and ignored when computing mins or averages) .
+    /// exclusive_count is like exclusive only except shared traversals will be counted (as 0)
+    /// when doing average and min support
+    /// if the ref_trav_idx is given, it will be used for computing (deletion) edge lengths
     virtual vector<Support> get_traversal_set_support(const vector<SnarlTraversal>& traversals,
                                                       const vector<int>& shared_travs,
-                                                      bool exclusive_only, int ref_trav_idx = -1) const;
+                                                      bool exclusive_only,
+                                                      bool exclusive_count,
+                                                      int ref_trav_idx = -1) const;
 
     /// Get the total length of all nodes in the traversal
     virtual vector<int> get_traversal_sizes(const vector<SnarlTraversal>& traversals) const;
@@ -143,6 +154,8 @@ protected:
     /// Use average instead of minimum support when determining a node's support
     /// its position supports.
     size_t average_node_support_switch_threshold = 50;
+    /// minimum average base support on alt path for it to be considered
+    double min_alt_path_support = 0.2;
 
     const PathHandleGraph& graph;
 

@@ -190,5 +190,5 @@ int main_deconstruct(int argc, char** argv){
 }
 
 // Register subcommand
-static Subcommand vg_deconstruct("deconstruct", "convert a graph into VCF relative to a reference", main_deconstruct);
+static Subcommand vg_deconstruct("deconstruct", "create a VCF from variation in the graph", TOOLKIT, main_deconstruct);
 
