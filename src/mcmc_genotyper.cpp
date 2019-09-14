@@ -21,13 +21,15 @@ namespace vg {
 
         // set a flag for invalid contents so a message it observed 
         bool invalid_contents = false;
-        bool return_genome = true;
+        bool return_optimal = false;
+        bool swapped = false;
 
         // generate initial value
         unique_ptr<PhasedGenome> genome = generate_initial_guess();
         
-        double max_likelihood = 0.0;
-        double current_likelihood = 0.0;
+        double max_likelihood = 0.0; //max log likelihood
+        double current_likelihood = 0.0; // current log likelihood
+        double previous_likelihood = 0.0;
 
         unique_ptr<PhasedGenome> optimal;
         
@@ -53,28 +55,41 @@ namespace vg {
                 // holds new sample allele
                 double x_new = log_target(*genome, reads);
 
+                //genome->print_phased_genome();
 
                 // calculate likelihood ratio of posterior distribution 
                 double likelihood_ratio = exp(log_base*(x_new - x_prev));
                 
-                //cerr << "total score of new genome "<< x_new << endl;
-                //cerr << "total score of prev genome "<< x_prev << endl;
-                //cerr << "likelihood ratio            " << likelihood_ratio << endl;
-                //cerr << "prev log likelihood         " << current_likelihood << endl;
-                double factor  = (x_new - x_prev);
+                cerr << "********************************" <<endl;
+                cerr << "total score of new genome "<< x_new << endl;
+                cerr << "total score of prev genome "<< x_prev << endl;
+                cerr << "likelihood ratio            " << likelihood_ratio << endl;
+                cerr << "prev log likelihood         " << current_likelihood << endl;
                 
-                current_likelihood += log_base*factor;
-                //cerr << "log base " << log_base << endl;
-                //cerr << "factor " << factor << endl;
-                //cerr << "current log likelihood      " << current_likelihood << endl;
-                //cerr << "max likelihood              " << max_likelihood << endl;
-                //cerr<< endl;
+                int rolling_ll = log_base*(x_new-x_prev);
                 
                 
+                if(!swapped){
+                    // if we did not swap back then we use the prev likelihood 
+                    previous_likelihood = current_likelihood;
+                }// otherwise don't update it 
+
+                current_likelihood = previous_likelihood + log_base*(x_new-x_prev);
+                
+
+                cerr << "rolling_ll  "<< rolling_ll << endl;
+
+                cerr << "current log likelihood      " << current_likelihood << endl;
+                cerr << "max likelihood              " << max_likelihood << endl;
+                cerr<< endl;
+                
+                
+                genome->print_phased_genome();
+                cerr << "********************************" <<endl;
                 if (current_likelihood > max_likelihood){
                     max_likelihood = current_likelihood;
                     optimal = unique_ptr<PhasedGenome>(new PhasedGenome(*genome));
-                    return_genome = false;
+                    return_optimal=true;
                 }
 
                 // calculate acceptance probability 
@@ -82,15 +97,27 @@ namespace vg {
 
                 // if u~U(0,1) > alpha, discard new allele and keep previous 
                 if(generate_continuous_uniform(0.0,1.0) > acceptance_probability){ 
+                    swapped = true;
                     genome->set_allele(modified_site, old_allele.begin(), old_allele.end(), modified_haplo); 
+                    cerr << "************UPDATED HAPLOTYPE********************" <<endl;
+                    genome->print_phased_genome();
+                    cerr << "********************************" <<endl;
                 }         
             }
         } 
+        cerr <<invalid_contents <<endl;
+        cerr <<return_optimal<<endl;
 
-        if(invalid_contents || return_genome){
+        if(invalid_contents || !return_optimal){
             // for graphs without snarls 
+            cerr << "return genome"<<endl;
+            cerr << "************FINAL******************************************" <<endl;
+            genome->print_phased_genome();
             return std::move(genome); 
         }else{
+            cerr << "return optimal"<<endl;
+            cerr << "************FINAL******************************************" <<endl;
+            optimal->print_phased_genome();
             return std::move(optimal); 
         }
 

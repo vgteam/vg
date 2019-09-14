@@ -25,7 +25,7 @@ namespace vg {
     namespace unittest {
         
         const int seed = 0;
-        const int n_iterations = 10;
+        const int n_iterations = 30;
 
         /**
          * Moves an object from one vector and pushes it to the target vector
@@ -42,8 +42,8 @@ namespace vg {
 
         
         TEST_CASE("Test1") {
-            
-            SECTION("Tests run_genotyper() that takes a graph with one node and one short read") {
+            //Returns optimal phased genome on a 1-node graph with 1 short read 
+            SECTION("Test1: Requires haplotype pair to match truth set") {
                 VG graph;
 				
                 Node* n1 = graph.create_node("GCA");
@@ -51,7 +51,7 @@ namespace vg {
 
                 // name a path 
                 path_handle_t path_handle = graph.create_path_handle("x");
-                // append a visit to a node (via handle) to the given path 
+                // append a visit to a node (via Tests run_genotyper() that takes handle) to the given path 
                 graph.append_step(path_handle, graph.get_handle(n1->id()));
                 
                 //Cactus does not currently support finding snarls in graph of single-node connected components
@@ -108,8 +108,8 @@ namespace vg {
  
         }
         TEST_CASE("Test2"){
-            
-            SECTION("Tests run_genotyper() with a simple graph containing one snarl and only one read") {   
+            //Returns optimal phased genome on a 4-node graph (snarl) with 1 short read
+            SECTION("Test2: Requires haplotype pair to match truth set") {   
                 VG graph;
 				
                 
@@ -214,8 +214,8 @@ namespace vg {
             } 
         }                  
         TEST_CASE("Test3"){
-            
-            SECTION( "Tests run_genotyper() with a graph containing two snarls and one read") {   
+            //Returns optimal phased genome on a 7-node graph (two connected snarls) with 1 short read
+            SECTION("Test3: Requires haplotype pair to match truth set") {   
                 VG graph;
 
                 Node* n1 = graph.create_node("GCA"); //gets ID # in incremintal order starting at 1, used in mapping
@@ -334,9 +334,11 @@ namespace vg {
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 
                  // create a set of 2 possible solutions
-                vector<NodeTraversal> soln1, soln2;
+                vector<NodeTraversal> soln1, soln2, soln3, soln4;
                 soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n6), NodeTraversal(n7)};
                 soln2 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4), NodeTraversal(n6), NodeTraversal(n7)};
+                soln3 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n5), NodeTraversal(n7)};
+                soln4 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4), NodeTraversal(n5), NodeTraversal(n7)};
 
                 set<vector<NodeTraversal>> solns_set;
                 solns_set.insert(soln1);
@@ -376,8 +378,8 @@ namespace vg {
             }
         }
         TEST_CASE("Test4"){
-            
-            SECTION( "Tests run_genotyper() using a graph containing nested snarls and a vector with one read") {   
+            //Returns optimal phased genome on a 8-node graph (2 nested snarls) with 1 short read
+            SECTION("Test4: Requires haplotype pair to match truth set") {   
                 VG graph;
 				
                 
@@ -560,7 +562,8 @@ namespace vg {
 
         }
         TEST_CASE("Test5"){
-            SECTION("Tests run_genotyper using graph with two snarls and several reads"){
+            //Returns optimal phased genome on a 7-node graph containing 2 connected snarls, and 4 mapped reads
+            SECTION("Test5: Requires haplotype pair to match truth set"){
                 VG graph;
 
                 Node* n1 = graph.create_node("GCA"); //gets ID # in incremintal order starting at 1, used in mapping
@@ -573,7 +576,7 @@ namespace vg {
 
                 path_handle_t path_handle = graph.create_path_handle("x");
                 graph.append_step(path_handle, graph.get_handle(n1->id()));
-                graph.append_step(path_handle, graph.get_handle(n2->id()));
+                graph.append_step(path_handle, graph.get_handle(n3->id()));
                 graph.append_step(path_handle, graph.get_handle(n4->id()));
                 graph.append_step(path_handle, graph.get_handle(n5->id()));
                 graph.append_step(path_handle, graph.get_handle(n7->id()));
@@ -612,7 +615,8 @@ namespace vg {
                 // Make a multipath mapper to map against the graph.
                 MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
                 
-                vector<string> reads = {"GCATCTGAGCCC","GCATCTGAGCCC","GCAGCTGAACCC","GCAGCTGAACCC"};
+                //vector<string> reads = {"GCATCTGAGCCC","GCATCTGAGCCC","GCAGCTGAACCC","GCAGCTGAACCC"}; //TGGA
+                vector<string> reads = {"GCATCTGAGCCC","GCATCTGAGCCC","GCATCTGAACCC", "GCATCTGAACCC"};//TGTA
                 vector<Alignment> alns = {reads.size(), Alignment()};
 
                 // set alignment sequence
@@ -642,10 +646,19 @@ namespace vg {
                 //pass vector with accumulated MultipathAlignment objects to run_genotype()
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base); 
                 
-                // create a set of 2 possible solutions
+                // // create a set of 2 possible solutions
+                // vector<NodeTraversal> soln1, soln2;
+                // soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n6), NodeTraversal(n7)};
+                // soln2 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4), NodeTraversal(n5), NodeTraversal(n7)};
+
+                // set<vector<NodeTraversal>> solns_set;
+                // solns_set.insert(soln1);
+                // solns_set.insert(soln2);
+
+                //ex 1: TG, TA
                 vector<NodeTraversal> soln1, soln2;
                 soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n6), NodeTraversal(n7)};
-                soln2 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4), NodeTraversal(n5), NodeTraversal(n7)};
+                soln2 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n5), NodeTraversal(n7)};
 
                 set<vector<NodeTraversal>> solns_set;
                 solns_set.insert(soln1);
@@ -669,16 +682,17 @@ namespace vg {
             }
         }
         TEST_CASE("Test6"){
-            SECTION("Run tests n with different seeds for random generator"){
-                //int num_iterations = 20000; // for testing only: will guarantee that the genome will end at suboptimal genome at nth iteratrion  
-                
+            //Returns optimal phased genome on a 7-node graph (two snarls) with 8 short read
+            SECTION("Test6: Requires haplotype pair to match truth set"){
+
                 double count_correct = 0.0;
-                int count_incorrect = 0;
+                double count_incorrect = 0.0;
+                double count_half_correct = 0.0;
                 double count_minus = 0.0;
                 vector<double> results = vector<double>();
                 
-                int num_iterations = 20;
-                int max = 30;
+                int num_iterations = 50;
+                int max = 10;
                 
                 for(int seed_i = 0; seed_i < max; seed_i++){
                     
@@ -734,7 +748,7 @@ namespace vg {
                     MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
 
                     
-                    vector<string> reads = {"GCATCTGAGCCC", "GCATCTGAGCCC", "GCAGCTGAACCC", "GCAGCTGAACCC","GCAGCTGAACCC", "GCAGCTGAACCC", "GCAGCTGAGCCC", "GCAGCTGAGCCC" };
+                    vector<string> reads = {"GCATCTGAGCCC", "GCATCTGAGCCC", "GCAGCTGAACCC", "GCAGCTGAACCC","GCAGCTGAACCC", "GCAGCTGAACCC", "GCAGCTGAGCCC", "GCAGCTGAGCCC"};
                     vector<Alignment> alns = {reads.size(), Alignment()};
                     
                     // set alignment sequence
@@ -773,6 +787,8 @@ namespace vg {
                     solns_set.insert(soln1);
                     solns_set.insert(soln2);
 
+                    REQUIRE(genome->num_haplotypes() == 2);
+
                     // move the genome haplotype into a vector
                     vector<NodeTraversal> haplotype1, haplotype2;
                     copy(genome->begin(0), genome->end(0), back_inserter(haplotype1));
@@ -781,13 +797,10 @@ namespace vg {
                     
                     if(genome->num_haplotypes() == 2){
                         if(solns_set.count(haplotype1) && solns_set.count(haplotype2)){
-                            count_correct += 1.0;
-                            results.push_back(1.0);
+                            count_correct++;
                         }
                         else if(solns_set.count(haplotype1) || solns_set.count(haplotype2)){
-                            count_correct += 0.5;
-                            count_minus++;
-                            results.push_back(0.5);
+                            count_half_correct++;
                         }else{
                             count_incorrect++;
 
@@ -798,16 +811,22 @@ namespace vg {
                     delete gcsaidx;
                     delete lcpidx;
                 }
-                //for(int i = 0; i < results.size(); i++){
-                 //   cerr  <<results[i] <<endl;
-                //}
 
-                //cerr << count_correct << " tests out of " << max << " are correct " <<endl;
-                //cerr << count_incorrect << " tests are incorrect " << endl;
-                //cerr << count_minus << " tests were counted with half points " <<endl;
-                //int percent_correct = (count_correct/max)*100;
-                //cerr << percent_correct << "% are correct" <<endl;
+                cerr <<"****************************DONE TESTING****************************" << endl;
+                cerr << count_incorrect << " tests "<< "out of " << max <<" did not match any haplotypes from haplotype pair " << endl;
+                cerr << count_correct << " tests" << " out of " << max <<" matched both haplotypes from the haplotype pair " <<endl;
+                cerr << count_half_correct << " tests " << "out of " << max << " matched one haplotype from haplotype pair  " <<endl;
+                int percent_half_correct = (count_half_correct/max)*100;
+                int percent_correct = (count_correct/max)*100;  
+                int percent_incorrect = (count_incorrect/max)*100;
+                cerr << endl;
+                cerr << percent_incorrect << "% percent with zero haplotypes matched from haplotype pair" <<endl;
+                cerr << percent_correct << "% percent with two matched haplotypes" <<endl;
+                cerr << percent_half_correct << "% percent with one haplotype mathced from haplotype pair" <<endl;
+                
+                
             }
+            
         } 
     }
 
