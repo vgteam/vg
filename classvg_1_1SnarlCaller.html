@@ -120,6 +120,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a7fb3205d6e94505aadf0c9944fac7eb4"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlCaller.html#a7fb3205d6e94505aadf0c9944fac7eb4">update_vcf_header</a> (string &amp;header) const =0</td></tr>
 <tr class="memdesc:a7fb3205d6e94505aadf0c9944fac7eb4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define any header fields needed by the above.  <a href="#a7fb3205d6e94505aadf0c9944fac7eb4">More...</a><br/></td></tr>
 <tr class="separator:a7fb3205d6e94505aadf0c9944fac7eb4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa06d17efec46759dd08f0caa8defda48"><td class="memItemLeft" align="right" valign="top">virtual function&lt; bool(const <br class="typebreak"/>
+<a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlCaller.html#aa06d17efec46759dd08f0caa8defda48">get_skip_allele_fn</a> () const </td></tr>
+<tr class="memdesc:aa06d17efec46759dd08f0caa8defda48"><td class="mdescLeft">&#160;</td><td class="mdescRight">Optional method used for pruning searches.  <a href="#aa06d17efec46759dd08f0caa8defda48">More...</a><br/></td></tr>
+<tr class="separator:aa06d17efec46759dd08f0caa8defda48"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p><a class="el" href="classvg_1_1SnarlCaller.html">SnarlCaller</a>: Given a list of traversals through a site, come up with a genotype come up with a genotype </p>
@@ -195,6 +199,33 @@ Public Member Functions</h2></td></tr>
 <p>Get the genotype of a site. </p>
 
 <p>Implemented in <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#adc9597fd0336a6bb227133939eeda7a8">vg::SupportBasedSnarlCaller</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="aa06d17efec46759dd08f0caa8defda48"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">function&lt; bool(const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;)&gt; vg::SnarlCaller::get_skip_allele_fn </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Optional method used for pruning searches. </p>
+
+<p>Reimplemented in <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a637f503cf0ff7fc1cc89260d14d70f29">vg::SupportBasedSnarlCaller</a>.</p>
 
 </div>
 </div>

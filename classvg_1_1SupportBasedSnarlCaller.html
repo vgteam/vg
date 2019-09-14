@@ -143,10 +143,14 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a42c44dae396995577c679b0b3ab22449"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a42c44dae396995577c679b0b3ab22449">update_vcf_header</a> (string &amp;header) const </td></tr>
 <tr class="memdesc:a42c44dae396995577c679b0b3ab22449"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define any header fields needed by the above.  <a href="#a42c44dae396995577c679b0b3ab22449">More...</a><br/></td></tr>
 <tr class="separator:a42c44dae396995577c679b0b3ab22449"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a637f503cf0ff7fc1cc89260d14d70f29"><td class="memItemLeft" align="right" valign="top">virtual function&lt; bool(const <br class="typebreak"/>
+<a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a637f503cf0ff7fc1cc89260d14d70f29">get_skip_allele_fn</a> () const </td></tr>
+<tr class="memdesc:a637f503cf0ff7fc1cc89260d14d70f29"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use min_alt_path_support threshold as cutoff.  <a href="#a637f503cf0ff7fc1cc89260d14d70f29">More...</a><br/></td></tr>
+<tr class="separator:a637f503cf0ff7fc1cc89260d14d70f29"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac6c0add16300bcac819e916017d4dba1"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1Support.html">Support</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#ac6c0add16300bcac819e916017d4dba1">get_traversal_support</a> (const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;traversal) const </td></tr>
 <tr class="separator:ac6c0add16300bcac819e916017d4dba1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3c6a9645908abc82eaed8721a287fcd6"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; <a class="el" href="structvg_1_1Support.html">Support</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a3c6a9645908abc82eaed8721a287fcd6">get_traversal_set_support</a> (const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const vector&lt; int &gt; &amp;shared_travs, bool exclusive_only, int ref_trav_idx=-1) const </td></tr>
-<tr class="separator:a3c6a9645908abc82eaed8721a287fcd6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4f303d404dc00f4a8f991f7e903dce29"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; <a class="el" href="structvg_1_1Support.html">Support</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a4f303d404dc00f4a8f991f7e903dce29">get_traversal_set_support</a> (const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const vector&lt; int &gt; &amp;shared_travs, bool exclusive_only, bool exclusive_count, int ref_trav_idx=-1) const </td></tr>
+<tr class="separator:a4f303d404dc00f4a8f991f7e903dce29"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae1514146b342469dc343756d6ade910d"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#ae1514146b342469dc343756d6ade910d">get_traversal_sizes</a> (const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals) const </td></tr>
 <tr class="memdesc:ae1514146b342469dc343756d6ade910d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the total length of all nodes in the traversal.  <a href="#ae1514146b342469dc343756d6ade910d">More...</a><br/></td></tr>
 <tr class="separator:ae1514146b342469dc343756d6ade910d"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -195,6 +199,9 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:a8c75daf50553712dbba8f2327fafa1c3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7f3ab178f80140739466574d4524b1e3"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a7f3ab178f80140739466574d4524b1e3">average_node_support_switch_threshold</a> = 50</td></tr>
 <tr class="separator:a7f3ab178f80140739466574d4524b1e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a17f76956318b838695d8b120d553ce24"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a17f76956318b838695d8b120d553ce24">min_alt_path_support</a> = 0.2</td></tr>
+<tr class="memdesc:a17f76956318b838695d8b120d553ce24"><td class="mdescLeft">&#160;</td><td class="mdescRight">minimum average base support on alt path for it to be considered  <a href="#a17f76956318b838695d8b120d553ce24">More...</a><br/></td></tr>
+<tr class="separator:a17f76956318b838695d8b120d553ce24"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab0f5bd05d950be25e87a9f5fbc345a5c"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#ab0f5bd05d950be25e87a9f5fbc345a5c">graph</a></td></tr>
 <tr class="separator:ab0f5bd05d950be25e87a9f5fbc345a5c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a86c40f2d62950d1f484aa6dd84abf60d"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a86c40f2d62950d1f484aa6dd84abf60d">snarl_manager</a></td></tr>
@@ -605,7 +612,34 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a3c6a9645908abc82eaed8721a287fcd6"></a>
+<a class="anchor" id="a637f503cf0ff7fc1cc89260d14d70f29"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">function&lt; bool(const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;)&gt; vg::SupportBasedSnarlCaller::get_skip_allele_fn </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Use min_alt_path_support threshold as cutoff. </p>
+
+<p>Reimplemented from <a class="el" href="classvg_1_1SnarlCaller.html#aa06d17efec46759dd08f0caa8defda48">vg::SnarlCaller</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="a4f303d404dc00f4a8f991f7e903dce29"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -633,6 +667,12 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>exclusive_count</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">int&#160;</td>
           <td class="paramname"><em>ref_trav_idx</em> = <code>-1</code>&#160;</td>
         </tr>
@@ -648,7 +688,7 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Get the support of a set of traversals. Any support overlapping traversals in shared_travs will have their support split. If exclusive_only is true, then any split support gets rounded down to 0. if the ref_trav_idx is given, it will be used for computing (deletion) edge lengths </p>
+<p>Get the support of a set of traversals. Any support overlapping traversals in shared_travs will have their support split. If exclusive_only is true, then any split support gets rounded down to 0 (and ignored when computing mins or averages) . exclusive_count is like exclusive only except shared traversals will be counted (as 0) when doing average and min support if the ref_trav_idx is given, it will be used for computing (deletion) edge lengths </p>
 
 </div>
 </div>
@@ -808,7 +848,6 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Update INFO and FORMAT fields of the called variant. </p>
-<p>Compute the supports of the genotype (we're doing this a second time to fit the (unnecessarily modular?) interface where vcf info is updated independently of calling) </p>
 
 <p>Implements <a class="el" href="classvg_1_1SnarlCaller.html#ad0315e74aa5ea9df9820aa1000bd0291">vg::SnarlCaller</a>.</p>
 
@@ -983,6 +1022,28 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>what's the min log likelihood for allele depth assignments to PASS? </p>
+
+</div>
+</div>
+<a class="anchor" id="a17f76956318b838695d8b120d553ce24"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::SupportBasedSnarlCaller::min_alt_path_support = 0.2</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>minimum average base support on alt path for it to be considered </p>
 
 </div>
 </div>

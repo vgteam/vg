@@ -111,6 +111,7 @@ var searchData=
   ['_7etsvalignmentemitter',['~TSVAlignmentEmitter',['../classvg_1_1TSVAlignmentEmitter.html#a0935c98aab1a854a93348e36640146ac',1,'vg::TSVAlignmentEmitter']]],
   ['_7etvsclusterer',['~TVSClusterer',['../classvg_1_1TVSClusterer.html#ad0bd55ec4d0141dbd6b22cab86e2af85',1,'vg::TVSClusterer']]],
   ['_7evcfgenotyper',['~VCFGenotyper',['../classvg_1_1VCFGenotyper.html#a91aad8f951949331a1753f7e07588381',1,'vg::VCFGenotyper']]],
+  ['_7evcfoutputcaller',['~VCFOutputCaller',['../classvg_1_1VCFOutputCaller.html#a61c1441b882dbaaed73154aeae8109d6',1,'vg::VCFOutputCaller']]],
   ['_7evcfrecordconverter',['~VcfRecordConverter',['../classvg_1_1VcfRecordConverter.html#a49013729b000b0fd7c4a380c7ca79da6',1,'vg::VcfRecordConverter']]],
   ['_7evcfrecordfilter',['~VcfRecordFilter',['../classvg_1_1VcfRecordFilter.html#a11f60090fa5e3185bb42ece601457889',1,'vg::VcfRecordFilter']]],
   ['_7evcftraversalfinder',['~VCFTraversalFinder',['../classvg_1_1VCFTraversalFinder.html#a574fb1c2bdcf2752e75626f4c21bc90c',1,'vg::VCFTraversalFinder']]],

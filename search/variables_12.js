@@ -25,7 +25,6 @@ var searchData=
   ['ref_5fbase',['ref_base',['../structvg_1_1BasePileup.html#a8d68d6e5d3ce5d2a9a448f90ed6dfc09',1,'vg::BasePileup']]],
   ['ref_5fbin_5fsize',['ref_bin_size',['../classvg_1_1SupportCaller_1_1PrimaryPath.html#a42a0491db90fe51c894b91a7bec5aa54',1,'vg::SupportCaller::PrimaryPath::ref_bin_size()'],['../classvg_1_1SupportCaller.html#a1da5805e7c262a8fe317ad9e0b49817a',1,'vg::SupportCaller::ref_bin_size()']]],
   ['ref_5ffasta',['ref_fasta',['../classvg_1_1SupportCaller.html#ae0c8a316d75b2e1db80894b6ce230fb8',1,'vg::SupportCaller']]],
-  ['ref_5flengths',['ref_lengths',['../classvg_1_1GraphCaller.html#a880d5b0df0716673a5c28518177c1d02',1,'vg::GraphCaller']]],
   ['ref_5fnames',['ref_names',['../classvg_1_1SRPE.html#a1b718357b963bf22f959f81ea3c1c6b5',1,'vg::SRPE']]],
   ['ref_5foffset',['ref_offset',['../structvg_1_1XdropAligner_1_1graph__pos__s.html#a58967695f761ddd71de4cf15a7aa83f3',1,'vg::XdropAligner::graph_pos_s']]],
   ['ref_5foffsets',['ref_offsets',['../classvg_1_1LegacyCaller.html#a9aa5ae8255c13d5c19a4cae14f998a8e',1,'vg::LegacyCaller']]],

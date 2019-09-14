@@ -3,6 +3,7 @@ var searchData=
   ['variantadder',['VariantAdder',['../classvg_1_1VariantAdder.html',1,'vg']]],
   ['vcfbuffer',['VcfBuffer',['../classvg_1_1VcfBuffer.html',1,'vg']]],
   ['vcfgenotyper',['VCFGenotyper',['../classvg_1_1VCFGenotyper.html',1,'vg']]],
+  ['vcfoutputcaller',['VCFOutputCaller',['../classvg_1_1VCFOutputCaller.html',1,'vg']]],
   ['vcfrecordconverter',['VcfRecordConverter',['../classvg_1_1VcfRecordConverter.html',1,'vg']]],
   ['vcfrecordfilter',['VcfRecordFilter',['../classvg_1_1VcfRecordFilter.html',1,'vg']]],
   ['vcftraversalfinder',['VCFTraversalFinder',['../classvg_1_1VCFTraversalFinder.html',1,'vg']]],

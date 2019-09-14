@@ -43,6 +43,7 @@ var searchData=
   ['write_5fto_5ffile',['write_to_file',['../namespacevg_1_1io.html#a88cb8e7bbebb78a2ef3bdce1c64ba077',1,'vg::io']]],
   ['write_5ftranslations',['write_translations',['../structvg_1_1AugmentedGraph.html#a70ffd6eb24e80cfa265ae48cdde15a45',1,'vg::AugmentedGraph']]],
   ['write_5fvariant',['write_variant',['../classvg_1_1Genotyper.html#af5b580b6db4e727934f964d00b058038',1,'vg::Genotyper']]],
+  ['write_5fvariants',['write_variants',['../classvg_1_1VCFOutputCaller.html#a4014f0950de3d0b10d6a96cf48cc90f7',1,'vg::VCFOutputCaller']]],
   ['write_5fvcf_5fheader',['write_vcf_header',['../classvg_1_1Genotyper.html#ad2beb83f750d1deec75b16a60c2ea805',1,'vg::Genotyper::write_vcf_header()'],['../namespacevg.html#a84ce0743c9a27e8b8ed32de37e4064fd',1,'vg::write_vcf_header()']]],
   ['writealiasedraw',['WriteAliasedRaw',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a85d9e1ca69d7bad9e2941b7ecec08a42',1,'vg::io::BlockedGzipOutputStream']]],
   ['writer_5fthread_5ffunction',['writer_thread_function',['../classvg_1_1io_1_1StreamMultiplexer.html#a29ba6b97591887c453b0cc112cae41e4',1,'vg::io::StreamMultiplexer']]]

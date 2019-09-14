@@ -104,7 +104,7 @@ var searchData=
   ['message_5fhandlers',['message_handlers',['../classvg_1_1io_1_1ProtobufEmitter.html#a73231a5a45811c280d1a6d346abc75eb',1,'vg::io::ProtobufEmitter']]],
   ['message_5fit',['message_it',['../classvg_1_1io_1_1ProtobufIterator.html#a787d06e13a1799b7e65ee1aa19ec3bb8',1,'vg::io::ProtobufIterator']]],
   ['min_5fad_5flog_5flikelihood_5ffor_5ffilter',['min_ad_log_likelihood_for_filter',['../classvg_1_1SupportBasedSnarlCaller.html#ac0157140a7fe7e7264315d1d881d39fb',1,'vg::SupportBasedSnarlCaller::min_ad_log_likelihood_for_filter()'],['../classvg_1_1SupportCaller.html#aca2588765531eceb32bfc8a487d6503d',1,'vg::SupportCaller::min_ad_log_likelihood_for_filter()']]],
-  ['min_5falt_5fpath_5fsupport',['min_alt_path_support',['../classvg_1_1SupportCaller.html#a999d3ecc21ca9cab7ac9b14159ae1c44',1,'vg::SupportCaller']]],
+  ['min_5falt_5fpath_5fsupport',['min_alt_path_support',['../classvg_1_1SupportBasedSnarlCaller.html#a17f76956318b838695d8b120d553ce24',1,'vg::SupportBasedSnarlCaller::min_alt_path_support()'],['../classvg_1_1SupportCaller.html#a999d3ecc21ca9cab7ac9b14159ae1c44',1,'vg::SupportCaller::min_alt_path_support()']]],
   ['min_5favg_5fqual',['min_avg_qual',['../classvg_1_1Filter.html#aa2f91d1daf04d2fdd6eb75183994d834',1,'vg::Filter']]],
   ['min_5fbanded_5fmq',['min_banded_mq',['../classvg_1_1Mapper.html#a4fe883a960df0bbef6d08cfbe483c179',1,'vg::Mapper']]],
   ['min_5fbase_5fquality',['min_base_quality',['../classvg_1_1ReadFilter.html#a52c77d9ed319e6f7cf3e38582621fce1',1,'vg::ReadFilter']]],

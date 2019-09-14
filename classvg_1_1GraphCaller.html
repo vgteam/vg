@@ -119,9 +119,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a6064d47ccef10174fab1037764a3cf29"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a6064d47ccef10174fab1037764a3cf29">call_snarl</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl)=0</td></tr>
 <tr class="memdesc:a6064d47ccef10174fab1037764a3cf29"><td class="mdescLeft">&#160;</td><td class="mdescRight">Call a given snarl, and print the output to out_stream.  <a href="#a6064d47ccef10174fab1037764a3cf29">More...</a><br/></td></tr>
 <tr class="separator:a6064d47ccef10174fab1037764a3cf29"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaa741561bca938f8bfc463ef73d345c9"><td class="memItemLeft" align="right" valign="top">virtual string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#aaa741561bca938f8bfc463ef73d345c9">vcf_header</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph, const vector&lt; string &gt; &amp;contigs) const </td></tr>
-<tr class="memdesc:aaa741561bca938f8bfc463ef73d345c9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Write the vcf header (version and contigs and basic info)  <a href="#aaa741561bca938f8bfc463ef73d345c9">More...</a><br/></td></tr>
-<tr class="separator:aaa741561bca938f8bfc463ef73d345c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
@@ -134,9 +131,6 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:a1bb98847383ea9bb20e3e963a3667fa6"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a1bb98847383ea9bb20e3e963a3667fa6">out_stream</a></td></tr>
 <tr class="memdesc:a1bb98847383ea9bb20e3e963a3667fa6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Where all output written.  <a href="#a1bb98847383ea9bb20e3e963a3667fa6">More...</a><br/></td></tr>
 <tr class="separator:a1bb98847383ea9bb20e3e963a3667fa6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a880d5b0df0716673a5c28518177c1d02"><td class="memItemLeft" align="right" valign="top">map&lt; string, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a880d5b0df0716673a5c28518177c1d02">ref_lengths</a></td></tr>
-<tr class="memdesc:a880d5b0df0716673a5c28518177c1d02"><td class="mdescLeft">&#160;</td><td class="mdescRight">keep track of lengths of the reference paths (for overriding VCF output when input is a subpath)  <a href="#a880d5b0df0716673a5c28518177c1d02">More...</a><br/></td></tr>
-<tr class="separator:a880d5b0df0716673a5c28518177c1d02"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p><a class="el" href="classvg_1_1GraphCaller.html">GraphCaller</a>: Use the snarl decomposition to call snarls in a graph </p>
@@ -250,44 +244,6 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="aaa741561bca938f8bfc463ef73d345c9"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">string vg::GraphCaller::vcf_header </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
-          <td class="paramname"><em>contigs</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Write the vcf header (version and contigs and basic info) </p>
-
-<p>Reimplemented in <a class="el" href="classvg_1_1LegacyCaller.html#acae71c7ef0c86fc0793a429d358593d3">vg::LegacyCaller</a>, and <a class="el" href="classvg_1_1VCFGenotyper.html#a06979c7f12f53de5bddee3af775f9eb0">vg::VCFGenotyper</a>.</p>
-
-</div>
-</div>
 <h2 class="groupheader">Member Data Documentation</h2>
 <a class="anchor" id="a1bb98847383ea9bb20e3e963a3667fa6"></a>
 <div class="memitem">
@@ -308,28 +264,6 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Where all output written. </p>
-
-</div>
-</div>
-<a class="anchor" id="a880d5b0df0716673a5c28518177c1d02"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">map&lt;string, size_t&gt; vg::GraphCaller::ref_lengths</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>keep track of lengths of the reference paths (for overriding VCF output when input is a subpath) </p>
 
 </div>
 </div>
