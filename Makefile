@@ -288,15 +288,22 @@ endif
 
 .PHONY: clean get-deps deps test set-path static static-docker docs .pre-build .check-environment .check-git .no-git
 
+# For a normal dynamic build we remove the static build marker
 $(BIN_DIR)/$(EXE): $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
+	-rm $(LIB_DIR)/vg_is_static
 	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+
+# We keep a file that we touch on the last static build.
+# If the vg linkables are newer than the last static build, we do a build
+$(LIB_DIR)/vg_is_static: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
+	$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+	-touch $(LIB_DIR)/vg_is_static
 
 # We don't want to always rebuild the static vg if no files have changed.
 # But we do need to rebuild it if files have changed.
 # TODO: is there a way to query the mtimes of all the files and rebuild if they changed *or* vg isn't static?
 # For now we link dynamically and then link statically, if we actually need to rebuild anything.
-static: $(BIN_DIR)/$(EXE)
-	([ -x $(BIN_DIR)/$(EXE) ] && file $(BIN_DIR)/$(EXE) | grep "statically linked") || $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) 
+static: $(LIB_DIR)/vg_is_static
 
 static-docker: static scripts/*
 	strip $(BIN_DIR)/$(EXE)
