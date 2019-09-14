@@ -273,7 +273,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                 false, false, static_cast<uint32_t>(0), static_cast<uint32_t>(0)
             };
             match_initial(match, sequence, this->graph->get_sequence_view(seed.first), this->aligner);
-            if (match.internal_score >= full_length_mismatches * 0.75) {
+            if (match.internal_score >= full_length_mismatches * 1.5) {
                 continue;
             }
             if (match.read_interval.first == 0) {
@@ -294,7 +294,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
         while (!extensions.empty()) {
             GaplessExtension curr = extensions.top();
             extensions.pop();
-            if (curr.internal_score >= full_length_mismatches * 0.75) {
+            if (curr.internal_score >= full_length_mismatches * 1.5) {
                 continue;
             }
             // Always allow at least max_mismatches / 2 mismatches in the current flank.
