@@ -186,9 +186,9 @@ int main_cluster(int argc, char** argv) {
         gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_name);
         lcp_index = vg::io::VPKG::load_one<gcsa::LCPArray>(gcsa_name + ".lcp");
     }
-    unique_ptr<gbwtgraph::MinimizerIndex> minimizer_index;
+    unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
     if (!minimizer_name.empty()) {
-        minimizer_index = vg::io::VPKG::load_one<gbwtgraph::MinimizerIndex>(minimizer_name);
+        minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(minimizer_name);
     }
     unique_ptr<SnarlManager> snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarls_name);
     unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
@@ -224,7 +224,7 @@ int main_cluster(int argc, char** argv) {
             // If working with MEMs, this will hold all the MEMs
             vector<MaximalExactMatch> mems;
             // If working with minimizers, this will hold all the minimizers in the query
-            vector<gbwtgraph::MinimizerIndex::minimizer_type> minimizers;
+            vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type> minimizers;
             // And either way this will map from seed to MEM or minimizer that generated it
             vector<size_t> seed_to_source;
             
