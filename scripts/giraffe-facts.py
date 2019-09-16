@@ -848,7 +848,7 @@ def main(args):
     # Force output to UTF-8. Eventually we can use reconfigure() if we drop 3.6
     # and earlier.
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf8')
-    sys.stderr = io.TextIOWrapper(sys.sterr.buffer, encoding='utf8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf8')
    
     print(random.choice(FACTS), file = sys.stderr)
     
