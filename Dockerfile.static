@@ -25,6 +25,7 @@ RUN apt-get -qq -y update && \
     jq \
     bc \
     linux-tools-common \
+    binutils \
     perl \
     && apt-get -qq -y clean
 
