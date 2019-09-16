@@ -9,6 +9,10 @@ ENV PATH /vg/bin:$PATH
 
 ENTRYPOINT /vg/bin/vg
 
+# Prevent dpkg from trying to ask any questions, ever
+ENV DEBIAN_FRONTEND noninteractive
+ENV DEBCONF_NONINTERACTIVE_SEEN true
+
 # Install dependencies for scripts
 RUN apt-get -qq -y update && \
     apt-get -qq -y upgrade && \
