@@ -27,19 +27,6 @@ namespace vg {
         const int seed = 0;
         const int n_iterations = 30;
 
-        /**
-         * Moves an object from one vector and pushes it to the target vector
-         * vect is *assumed* to have only one MultipathAlignment object
-         */
-        void accumulate_alns(vector<MultipathAlignment> vect, vector<MultipathAlignment> target){
-            //moves the first object only 
-
-            move(vect.begin(), vect.end(), back_inserter(target)); 
-
-            // erase vect because it is not in an indeterminate state 
-            vect.erase(vect.begin(), vect.end()); 
-        }
-
         
         TEST_CASE("Test1") {
             //Returns optimal phased genome on a 1-node graph with 1 short read 
@@ -99,16 +86,18 @@ namespace vg {
                 copy(genome->begin(0), genome->end(0), back_inserter(haplotype1));
                 copy(genome->begin(1), genome->end(1), back_inserter(haplotype2));
                 
-                // check haplotypes are indeed in optimal solution set   
-                REQUIRE(solns_set.count(haplotype1));
-                REQUIRE(solns_set.count(haplotype2));
-
-
+                // check haplotypes are indeed in optimal solution set
+                bool pass = false;
+                if(solns_set.count(haplotype1)&& solns_set.count(haplotype2)){
+                    pass = true;
+                }
+                // requires both haplotypes to match the one read
+                REQUIRE(pass);   
             }
  
         }
         TEST_CASE("Test2"){
-            //Returns optimal phased genome on a 4-node graph (snarl) with 1 short read
+            //Returns optimal phased genome on a 4-node graph, snarl with 1 short read
             SECTION("Test2: Requires haplotype pair to match truth set") {   
                 VG graph;
 				
@@ -195,26 +184,30 @@ namespace vg {
                 
             
                 // create a set of 2 possible solutions
-                vector<NodeTraversal> soln1, soln2;
+                vector<NodeTraversal> soln1;
                 soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4)};
-                soln2 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4)};
 
                 set<vector<NodeTraversal>> solns_set;
                 solns_set.insert(soln1);
-                solns_set.insert(soln2);
 
                  // move the genome haplotype into a vector
                 vector<NodeTraversal> haplotype1, haplotype2;
                 copy(genome->begin(0), genome->end(0), back_inserter(haplotype1));
                 copy(genome->begin(1), genome->end(1), back_inserter(haplotype2));
                 
-                // check haplotypes are indeed in optimal solution set   
-                REQUIRE(solns_set.count(haplotype1));
-                REQUIRE(solns_set.count(haplotype2));
+                // check haplotypes are indeed in optimal solution set  
+                bool pass = false;
+                if(solns_set.count(haplotype1) || solns_set.count(haplotype2)){
+                    pass = true;
+                }
+                // requires at least one of the haplotypes to match truth set 
+                // only one match is required because there is only one read 
+                REQUIRE(pass);
+                
             } 
         }                  
         TEST_CASE("Test3"){
-            //Returns optimal phased genome on a 7-node graph (two connected snarls) with 1 short read
+            //Returns optimal phased genome on a 7-node graph two connected snarls with 1 short read
             SECTION("Test3: Requires haplotype pair to match truth set") {   
                 VG graph;
 
@@ -242,143 +235,86 @@ namespace vg {
                 graph.create_edge(n5, n7);
                 graph.create_edge(n6, n7);
 				
-				CactusSnarlFinder bubble_finder(graph);
+                CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
-                
-                string read = string("GCATCTGAGCCC");
-                MultipathAlignment multipath_aln;
-                multipath_aln.set_sequence(read);
 
+                // Configure GCSA temp directory to the system temp directory
+                gcsa::TempFile::setDirectory(temp_file::get_dir());
                 
-                // add subpaths with same topology as graph
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
-                Subpath* subpath4 = multipath_aln.add_subpath();
-                Subpath* subpath5 = multipath_aln.add_subpath();
-                Subpath* subpath6 = multipath_aln.add_subpath();
+                // And make it quiet
+                gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
                 
-                // set edges between subpaths
-                subpath0->add_next(1);
-                subpath0->add_next(2);
-                subpath1->add_next(3);
-                subpath2->add_next(3);
-                subpath3->add_next(4);
-                subpath3->add_next(5);
-                subpath4->add_next(6);
-                subpath5->add_next(6);
+                // Make pointers to fill in
+                gcsa::GCSA* gcsaidx = nullptr;
+                gcsa::LCPArray* lcpidx = nullptr;
                 
-                // set scores
-                subpath0->set_score(1);
-                subpath1->set_score(1);
-                subpath2->set_score(-4);
-                subpath3->set_score(1);
-                subpath4->set_score(-4);
-                subpath5->set_score(1);
-                subpath6->set_score(1); 
+                // Build the GCSA index
+                build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3); 
+            
                 
-                // designate mappings
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
-                mapping0->mutable_position()->set_node_id(1);
-                Edit* edit0 = mapping0->add_edit();
-                edit0->set_from_length(3); //a match 
-                edit0->set_to_length(3);
-                
-                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
-                mapping1->mutable_position()->set_node_id(2);
-                Edit* edit1 = mapping1->add_edit();
-                edit1->set_from_length(1); //a match 
-                edit1->set_to_length(1);
-                
-                Mapping* mapping2 = subpath2->mutable_path()->add_mapping();
-                mapping2->mutable_position()->set_node_id(3);
-                Edit* edit2 = mapping2->add_edit();
-                edit2->set_from_length(1); //a mismatch , snp
-                edit2->set_to_length(1);
-                edit2->set_sequence("T");
+                // Build the xg index
+                xg::XG xg_index; 
+                xg_index.from_path_handle_graph(graph);              
 
-                Mapping* mapping3 = subpath3->mutable_path()->add_mapping();
-                mapping3->mutable_position()->set_node_id(4);
-                Edit* edit3 = mapping3->add_edit();
-                edit3->set_from_length(3); //a match 
-                edit3->set_to_length(3);
-
-                Mapping* mapping4 = subpath4->mutable_path()->add_mapping();
-                mapping4->mutable_position()->set_node_id(5);
-                Edit* edit4 = mapping4->add_edit();
-                edit4->set_from_length(1); //a mismatch, snp
-                edit4->set_to_length(1);
-                edit4->set_sequence("G");
-
-                Mapping* mapping5 = subpath5->mutable_path()->add_mapping();
-                mapping5->mutable_position()->set_node_id(6);
-                Edit* edit5 = mapping5->add_edit();
-                edit5->set_from_length(1); //a match 
-                edit5->set_to_length(1);
-
-                Mapping* mapping6 = subpath6->mutable_path()->add_mapping();
-                mapping6->mutable_position()->set_node_id(7);
-                Edit* edit6 = mapping6->add_edit();
-                edit6->set_from_length(3); //a match 
-                edit6->set_to_length(3);
+                // Make a multipath mapper to map against the graph.
+                MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
                 
-                multipath_aln.add_start(0); //integer given is the subpath number
+                vector<string> reads = {"GCATCTGAGCCC"};
+                vector<Alignment> alns = {reads.size(), Alignment()};
 
+                // set alignment sequence
+                for(int i = 0; i< reads.size(); i++){
+                    alns[i].set_sequence(reads[i]);
+                }
 
                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
-                vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
+               vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>(); 
 
+               vector<vector<MultipathAlignment>> vect = {reads.size(),vector<MultipathAlignment>() };
+                    
+                    
+                // map read in alignment to graph and make multipath alignments 
+                for(int i = 0; i< reads.size(); i++){
+                    multipath_mapper.multipath_map(alns[i], vect[i], 1);
+                }
 
+                // accumulate the mapped reads in one vector
+                for(int i = 0; i< reads.size(); i++){
+                    move(vect[i].begin(), vect[i].end(), back_inserter(multipath_aln_vector)); 
+                }
+                    
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 
                  // create a set of 2 possible solutions
-                vector<NodeTraversal> soln1, soln2, soln3, soln4;
+                vector<NodeTraversal> soln1;
                 soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n6), NodeTraversal(n7)};
-                soln2 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4), NodeTraversal(n6), NodeTraversal(n7)};
-                soln3 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n5), NodeTraversal(n7)};
-                soln4 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4), NodeTraversal(n5), NodeTraversal(n7)};
 
                 set<vector<NodeTraversal>> solns_set;
                 solns_set.insert(soln1);
-                solns_set.insert(soln2);
 
                 // check requirements 
                 REQUIRE(genome->num_haplotypes() == 2);
-                REQUIRE(multipath_aln.start_size() > 0);
 
                 // move the genome haplotype into a vector
                 vector<NodeTraversal> haplotype1, haplotype2;
                 copy(genome->begin(0), genome->end(0), back_inserter(haplotype1));
                 copy(genome->begin(1), genome->end(1), back_inserter(haplotype2));
                 
-                vector<vector<NodeTraversal>> haplos = {haplotype1, haplotype2};
-                
-                // check haplotypes are indeed in optimal solution set   
-                int count_matches = 0;
-                for (int i = 0; i< genome->num_haplotypes(); i++){
-                    if(solns_set.count(haplos[i])){
-                        count_matches++;
-                    }
-                }
-
-                // get the score for phased genome 
-                float score = (float)count_matches / (float)genome->num_haplotypes();
-                
                 bool pass = false;
-                if (score == .5 || score == 1){
+                if(solns_set.count(haplotype1) || solns_set.count(haplotype2)){
                     pass = true;
                 }
+                // requires at least one of the haplotypes to match truth set 
+                // only one match is required because there is only one read
+                REQUIRE(pass);
                 
-                // for one read as long as the phased genome has at least one haplotype 
-                //matching the read then it is correct
-                REQUIRE(pass); 
+                
 
             }
         }
         TEST_CASE("Test4"){
-            //Returns optimal phased genome on a 8-node graph (2 nested snarls) with 1 short read
+            //Returns optimal phased genome on a 8-node graph 2 nested snarls with 1 short read
             SECTION("Test4: Requires haplotype pair to match truth set") {   
                 VG graph;
 				
@@ -409,7 +345,56 @@ namespace vg {
                 graph.create_edge(n7, n8);
                 graph.create_edge(n8, n6);
 				
-				CactusSnarlFinder bubble_finder(graph);
+            //     CactusSnarlFinder bubble_finder(graph);
+            //     SnarlManager snarl_manager = bubble_finder.find_snarls();
+
+            //     // Configure GCSA temp directory to the system temp directory
+            //     gcsa::TempFile::setDirectory(temp_file::get_dir());
+            //     // And make it quiet
+            //     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+                
+            //     // Make pointers to fill in
+            //     gcsa::GCSA* gcsaidx = nullptr;
+            //     gcsa::LCPArray* lcpidx = nullptr;
+                
+            //     // Build the GCSA index
+            //     build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3); 
+                
+            //     // Build the xg index
+            //     xg::XG xg_index; 
+            //     xg_index.from_path_handle_graph(graph);              
+
+            //     // Make a multipath mapper to map against the graph.
+            //     MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
+                
+            //     vector<string> reads = {"GGGCCCAGCTGG"};
+            //     vector<Alignment> alns = {reads.size(), Alignment()};
+
+            //     // set alignment sequence
+            //     for(int i = 0; i< reads.size(); i++){
+            //         alns[i].set_sequence(reads[i]);
+            //     }
+
+            //    MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, 10, seed);
+            //    vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>(); 
+
+            //    vector<vector<MultipathAlignment>> vect = {reads.size(),vector<MultipathAlignment>() };
+                    
+                    
+            //     // map read in alignment to graph and make multipath alignments 
+            //     for(int i = 0; i< reads.size(); i++){
+            //         multipath_mapper.multipath_map(alns[i], vect[i], 1);
+            //     }
+
+            //     // accumulate the mapped reads in one vector
+            //     for(int i = 0; i< reads.size(); i++){
+            //         move(vect[i].begin(), vect[i].end(), back_inserter(multipath_aln_vector)); 
+            //     }
+                    
+            //     double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
+            //     unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
+
+                CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 string read = string("GGGCCCAGCTGG");
@@ -516,20 +501,15 @@ namespace vg {
                 vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 
-                 // create a set of 2 possible solutions
-                vector<NodeTraversal> soln1, soln2, soln3;
+                 // create a set of possible solutions
+                vector<NodeTraversal> soln1;
                 soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n3), NodeTraversal(n5), NodeTraversal(n6)};
-                soln2 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n5), NodeTraversal(n6)};
-                soln3 = {NodeTraversal(n1), NodeTraversal(n7), NodeTraversal(n8), NodeTraversal(n6)};
 
                 set<vector<NodeTraversal>> solns_set;
                 solns_set.insert(soln1); 
-                solns_set.insert(soln2);
-                solns_set.insert(soln3);
 
                 // check requirements 
                 REQUIRE(genome->num_haplotypes() == 2);
-                REQUIRE(multipath_aln.start_size() > 0);
 
                 // move the genome haplotype into a vector
                 vector<NodeTraversal> haplotype1, haplotype2;
@@ -538,25 +518,13 @@ namespace vg {
                 
                 vector<vector<NodeTraversal>> haplos = {haplotype1, haplotype2};
                 
-                // check haplotypes are indeed in optimal solution set   
-                int count_matches = 0;
-                for (int i = 0; i< genome->num_haplotypes(); i++){
-                    if(solns_set.count(haplos[i])){
-                        count_matches++;
-                    }
-                }
-                cerr << "count_matches " << count_matches <<endl;
-                // get the score for phased genome 
-                float score = (float)count_matches / (float)genome->num_haplotypes();
-                
-                
                 bool pass = false;
-                if (score == .5 || score == 1){
+                if(solns_set.count(haplotype1) || solns_set.count(haplotype2)){
                     pass = true;
                 }
-                // for one read as long as the phased genome has at least one haplotype 
-                //matching the read then it is correct
-                REQUIRE(pass); 
+                // requires at least one of the haplotypes to match truth set 
+                // only one match is required because there is only one read
+                REQUIRE(pass);
             
             }    
 
@@ -647,6 +615,7 @@ namespace vg {
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base); 
                 
                 // // create a set of 2 possible solutions
+                // // ex 2: TG GA
                 // vector<NodeTraversal> soln1, soln2;
                 // soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n6), NodeTraversal(n7)};
                 // soln2 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4), NodeTraversal(n5), NodeTraversal(n7)};
@@ -672,9 +641,13 @@ namespace vg {
                 copy(genome->begin(0), genome->end(0), back_inserter(haplotype1));
                 copy(genome->begin(1), genome->end(1), back_inserter(haplotype2));
                 
-                // check haplotypes are indeed in optimal solution set   
-                REQUIRE(solns_set.count(haplotype1));
-                REQUIRE(solns_set.count(haplotype2));
+                // check haplotypes are indeed in optimal solution set  
+                bool pass = false; 
+                if(solns_set.count(haplotype1) && solns_set.count(haplotype2)){
+                    pass = true;
+                }
+                REQUIRE(pass);
+                
 
                 // Clean up the GCSA/LCP index
                 delete gcsaidx;
@@ -682,7 +655,7 @@ namespace vg {
             }
         }
         TEST_CASE("Test6"){
-            //Returns optimal phased genome on a 7-node graph (two snarls) with 8 short read
+            //Returns optimal phased genome on a 7-node graph, two connected snarls with 8 short read
             SECTION("Test6: Requires haplotype pair to match truth set"){
 
                 double count_correct = 0.0;
@@ -691,8 +664,8 @@ namespace vg {
                 double count_minus = 0.0;
                 vector<double> results = vector<double>();
                 
-                int num_iterations = 50;
-                int max = 10;
+                int num_iterations = 1000;
+                int max = 30;
                 
                 for(int seed_i = 0; seed_i < max; seed_i++){
                     

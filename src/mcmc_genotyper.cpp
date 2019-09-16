@@ -64,10 +64,7 @@ namespace vg {
                 cerr << "total score of new genome "<< x_new << endl;
                 cerr << "total score of prev genome "<< x_prev << endl;
                 cerr << "likelihood ratio            " << likelihood_ratio << endl;
-                cerr << "prev log likelihood         " << current_likelihood << endl;
-                
-                int rolling_ll = log_base*(x_new-x_prev);
-                
+                cerr << "prev log likelihood         " << current_likelihood << endl;                
                 
                 if(!swapped){
                     // if we did not swap back then we use the prev likelihood 
@@ -75,9 +72,6 @@ namespace vg {
                 }// otherwise don't update it 
 
                 current_likelihood = previous_likelihood + log_base*(x_new-x_prev);
-                
-
-                cerr << "rolling_ll  "<< rolling_ll << endl;
 
                 cerr << "current log likelihood      " << current_likelihood << endl;
                 cerr << "max likelihood              " << max_likelihood << endl;
@@ -105,13 +99,10 @@ namespace vg {
                 }         
             }
         } 
-        cerr <<invalid_contents <<endl;
-        cerr <<return_optimal<<endl;
-
         if(invalid_contents || !return_optimal){
             // for graphs without snarls 
-            cerr << "return genome"<<endl;
-            cerr << "************FINAL******************************************" <<endl;
+            //cerr << "return genome"<<endl;
+            //cerr << "************FINAL******************************************" <<endl;
             genome->print_phased_genome();
             return std::move(genome); 
         }else{
@@ -154,11 +145,13 @@ namespace vg {
         // comment this out when testing Test1 - will cause segfault
         // cerr << "this is the boundary nodes of the snarl " << random_snarl->start() << random_snarl->end() <<endl;
         
+
         if(random_snarl == nullptr){
             cerr << "random_snarl is null " <<endl;
             random_haplotype = -1;
             return to_return;
         }
+
 
         // get list of haplotypes that contain the snarl
         vector<id_t> matched_haplotypes = current.get_haplotypes_with_snarl(random_snarl);
@@ -166,6 +159,7 @@ namespace vg {
 
         if(matched_haplotypes.empty()){
             cerr<< "matched haplotype is empty"<< endl;
+            cerr << "looking for snarl starting with " << random_snarl->start() << " and snarl ending with " << random_snarl->end() <<endl;
             random_haplotype = -1;
             return to_return;
             
