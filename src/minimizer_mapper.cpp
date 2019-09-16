@@ -417,25 +417,48 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 if (track_provenance) {
                     funnel.substage("direct");
                 }
+                int best_score = 0;
+                int second_best_score = 0;
+                GaplessExtension best_extension;
+                GaplessExtension second_best_extension;
 
-                //Fill in the best alignments from the extension
+                for (auto& extension : extensions ) {
+                    // The score estimate is exact.
+
+                    if (best_score == 0 || best_extension.path.front() != extension.path.front() || best_extension.path.back() != extension.path.back()) {
+                        int alignment_score = extension.score;
+                        if (alignment_score > best_score) {
+                            //If there is not best extension yet or the score is better than the best extension and this is not the same as the best
+                            //Swap out second_best_extension
+                            second_best_extension = std::move(best_extension);
+                            second_best_score = best_score;
+
+                            best_score = alignment_score;
+                            best_extension = std::move(extension);
+
+                        } else if (alignment_score > second_best_score) {
+                            second_best_extension = std::move(extension);
+                            second_best_score = alignment_score;
+
+                        }
+                    }
+                }
+                //Fill in the best and second best alignments from the extensions 
                 
-                *best_alignment.mutable_path() = extensions.front().to_path(gbwt_graph, best_alignment.sequence());
-                size_t mismatch_count = extensions.front().mismatches();
+                *best_alignment.mutable_path() = best_extension.to_path(gbwt_graph, best_alignment.sequence());
+                size_t mismatch_count = best_extension.mismatches();
                 double identity = best_alignment.sequence().size() == 0 ? 0.0 : (best_alignment.sequence().size() - mismatch_count) / (double) best_alignment.sequence().size();
                 
                 // Fill in the score and identity
-                best_alignment.set_score(extensions.front().score);
+                best_alignment.set_score(best_score);
                 best_alignment.set_identity(identity);
-
-                if (extensions.size() > 1) {
-                    //Do the same thing for the second extension, if one exists
-                    *second_best_alignment.mutable_path() = extensions.back().to_path(gbwt_graph, second_best_alignment.sequence());
-                    size_t mismatch_count = extensions.back().mismatches();
+                if (second_best_score != 0) {
+                    *second_best_alignment.mutable_path() = second_best_extension.to_path(gbwt_graph, second_best_alignment.sequence());
+                    size_t mismatch_count = second_best_extension.mismatches();
                     double identity = second_best_alignment.sequence().size() == 0 ? 0.0 : (second_best_alignment.sequence().size() - mismatch_count) / (double) second_best_alignment.sequence().size();
                     
                     // Fill in the score and identity
-                    second_best_alignment.set_score(extensions.back().score);
+                    second_best_alignment.set_score(second_best_score);
                     second_best_alignment.set_identity(identity);
                 }
 

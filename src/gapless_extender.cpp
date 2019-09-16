@@ -249,7 +249,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
     // at most max_mismatches mismatches, we are no longer interested in extensions with
     // at least that many mismatches.
     bool full_length_found = false;
-    //Keep track of the fewest and second fewest mismatches found
+    bool found_zero_internal_score = false;
     uint32_t full_length_mismatches = std::numeric_limits<uint32_t>::max();
     for (seed_type seed : cluster) {
         GaplessExtension best_match {
@@ -301,7 +301,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             uint32_t mismatch_limit = std::max(
                 static_cast<uint32_t>(max_mismatches + 1),
                 static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
-            mismatch_limit = std::min(mismatch_limit, (uint32_t)(full_length_mismatches));
+            mismatch_limit = std::min(mismatch_limit, full_length_mismatches);
             bool found_extension = false;
 
             // Case 1: Extend to the right.
@@ -388,7 +388,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                     //TODO: Magic number
                     if (best_match.internal_score < full_length_mismatches * 5){
                         //If this is better than the previous best
-                        full_length_mismatches = best_match.internal_score * 5;
+                        //full_length_mismatches = best_match.internal_score * 5;
                     } 
                     best_match_is_full_length = true;
                 }
@@ -401,6 +401,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             result.clear();
             result.push_back(best_match);
             full_length_found = true;
+            found_zero_internal_score = best_match.internal_score == 0;
         } else if (!best_match.empty() && 
                  best_match_is_full_length && full_length_found) { 
             //If we're looking for full length alignments and this is one
@@ -412,7 +413,13 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
 
                 //Only return two full length gapless extensions
                 //TODO: Maybe return more?
-                break;
+                if (best_match.internal_score == 0) {
+                    if (!found_zero_internal_score) {
+                        found_zero_internal_score = true;
+                    } else {
+                        break;
+                    }
+                }
             }
         } else if (!best_match.empty() && 
                    !full_length_found && !best_match_is_full_length ) {
