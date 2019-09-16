@@ -25,10 +25,12 @@ RUN apt-get -qq -y update && \
     jq \
     bc \
     linux-tools-common \
+    linux-tools-generic \
     binutils \
     perl \
     && apt-get -qq -y clean
 
+COPY deps/FlameGraph /vg/deps/FlameGraph
 COPY scripts /vg/scripts
 COPY bin/vg /vg/bin/vg
 
