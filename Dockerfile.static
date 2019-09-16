@@ -1,0 +1,14 @@
+# Dockerfile for shipping just the vg binary you have
+# Run with DOCKER_BUILDKIT=1 to avoid shipping the whole vg directory as context
+FROM ubuntu:18.04
+MAINTAINER vgteam
+
+WORKDIR /vg
+
+ENV PATH /vg/bin:$PATH
+
+ENTRYPOINT /vg/bin/vg
+
+COPY scripts /vg/scripts
+COPY bin/vg /vg/bin/vg
+

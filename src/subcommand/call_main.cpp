@@ -271,17 +271,22 @@ int main_call(int argc, char** argv) {
         LegacyCaller* legacy_caller = new LegacyCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                        *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                                        *snarl_manager,
-                                                       sample_name, ref_paths, ref_path_offsets, ref_path_lengths);
+                                                       sample_name, ref_paths, ref_path_offsets);
         graph_caller = unique_ptr<GraphCaller>(legacy_caller);
     }
 
     // Call the graph
-    cout << graph_caller->vcf_header(*graph, ref_paths) << flush;
     graph_caller->call_top_level_snarls();
+
+    // VCF output is our only supported output
+    VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+    assert(vcf_caller != nullptr);
+    cout << vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
+    vcf_caller->write_variants(cout);
         
     return 0;
 }
 
 // Register subcommand
-static Subcommand vg_call("call", "call variants", PIPELINE, 5, main_call);
+static Subcommand vg_call("call", "call or genotype VCF variants", PIPELINE, 7, main_call);
 
