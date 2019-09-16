@@ -21,6 +21,7 @@ RUN apt-get -qq -y update && \
     jq \
     bc \
     linux-tools-common \
+    perl \
     && apt-get -qq -y clean
 
 COPY scripts /vg/scripts
