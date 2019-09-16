@@ -446,10 +446,10 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
 
                 second_best_full_length_score = best_match.internal_score;
 
-                if (second_best_full_length_score == 0) {
-                    //If we've found two full length alignments that have no mismatches, return them
-                    break;
-                }
+            }
+            if (second_best_full_length_score == 0) {
+                //If we've found two full length alignments that have no mismatches, return them
+                break;
             }
         } else if (!best_match.empty() && 
                    !full_length_found && !best_match_is_full_length ) {
