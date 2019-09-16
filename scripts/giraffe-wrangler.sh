@@ -2,11 +2,7 @@
 
 # giraffe-wrangler.sh: Run and profile vg gaffe and analyze the results.
 
-echo "Wrangling giraffes..."
-
-scripts/giraffe-facts.py || true
-
-set -ex
+set -e
 
 usage() {
     # Print usage to stderr
