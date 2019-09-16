@@ -13,6 +13,7 @@ import sys
 import time
 import subprocess
 import collections
+import io
 import itertools
 import json
 import random
@@ -843,7 +844,12 @@ def main(args):
     "args" specifies the program arguments, with args[0] being the executable
     name. The return value should be used as the program's exit code.
     """
-    
+   
+    # Force output to UTF-8. Eventually we can use reconfigure() if we drop 3.6
+    # and earlier.
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf8')
+    sys.stderr = io.TextIOWrapper(sys.sterr.buffer, encoding='utf8')
+   
     print(random.choice(FACTS), file = sys.stderr)
     
     options = parse_args(args) # This holds the nicely-parsed options object
