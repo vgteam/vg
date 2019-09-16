@@ -36,9 +36,6 @@ public:
 
     /// Call a given snarl, and print the output to out_stream
     virtual bool call_snarl(const Snarl& snarl) = 0;
-
-    /// Write the vcf header (version and contigs and basic info)
-    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs) const;
    
 protected:
 
@@ -50,16 +47,41 @@ protected:
 
     /// Where all output written
     ostream& out_stream;
-
-    /// keep track of lengths of the reference paths (for overriding VCF output when input is a subpath)
-    map<string, size_t> ref_lengths;
-
 };
 
 /**
+ * Helper class that vcf writers can inherit from to for some common code to output sorted VCF
+ */
+class VCFOutputCaller {
+public:
+    VCFOutputCaller(const string& sample_name);
+    virtual ~VCFOutputCaller();
+
+    /// Write the vcf header (version and contigs and basic info)
+    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                              const vector<size_t>& contig_length_overrides) const;
+
+    /// Add a variant to our buffer
+    void add_variant(vcflib::Variant& var) const;
+
+    /// Sort then write variants in the buffer
+    void write_variants(ostream& out_stream) const;
+    
+protected:
+    /// output vcf
+    mutable vcflib::VariantCallFile output_vcf;
+
+    /// Sample name
+    string sample_name;
+
+    /// output buffer (for sorting)
+    mutable vector<vcflib::Variant> output_variants;
+};
+    
+/**
  * VCFGenotyper : Genotype variants in a given VCF file
  */
-class VCFGenotyper : public GraphCaller {
+class VCFGenotyper : public GraphCaller, public VCFOutputCaller {
 public:
     VCFGenotyper(const PathHandleGraph& graph,
                  SnarlCaller& snarl_caller,
@@ -75,12 +97,13 @@ public:
 
     virtual bool call_snarl(const Snarl& snarl);
 
-    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs) const;
+    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                              const vector<size_t>& contig_length_overrides = {}) const;
 
 protected:
 
     /// munge out the contig lengths from the VCF header
-    virtual void scan_contig_lengths();
+    virtual unordered_map<string, size_t> scan_contig_lengths() const;
 
 protected:
 
@@ -89,12 +112,6 @@ protected:
 
     /// input VCF to genotype, must have been loaded etc elsewhere
     vcflib::VariantCallFile& input_vcf;
-
-    /// output vcf
-    mutable vcflib::VariantCallFile output_vcf;
-
-    /// Sample name
-    string sample_name;    
 
     /// traversal finder uses alt paths to map VCF alleles from input_vcf
     /// back to traversals in the snarl
@@ -108,21 +125,21 @@ protected:
  * the RepresentativeTraversalFinder to recursively find traversals
  * through arbitrary sites.   
  */
-class LegacyCaller : public GraphCaller {
+class LegacyCaller : public GraphCaller, public VCFOutputCaller {
 public:
     LegacyCaller(const PathPositionHandleGraph& graph,
                  SupportBasedSnarlCaller& snarl_caller,
                  SnarlManager& snarl_manager,
                  const string& sample_name,
                  const vector<string>& ref_paths = {},
-                 const vector<size_t>& ref_path_offsets = {},
-                 const vector<size_t>& ref_path_lengths = {});
+                 const vector<size_t>& ref_path_offsets = {});
 
     virtual ~LegacyCaller();
 
     virtual bool call_snarl(const Snarl& snarl);
 
-    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs) const;
+    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                              const vector<size_t>& contig_length_overrides = {}) const;
 
 protected:
 
@@ -165,12 +182,6 @@ protected:
     /// non-vg inputs are converted into vg as-needed, at least until we get the
     /// traversal finding ported
     bool is_vg;
-
-    /// output vcf
-    mutable vcflib::VariantCallFile output_vcf;
-
-    /// Sample name
-    string sample_name;    
 
     /// The old vg call traversal finder.  It is fairly efficient but daunting to maintain.
     /// We keep it around until a better replacement is implemented.  It is *not* compatible
