@@ -7,13 +7,9 @@
  * successive kmers and their reverse complements. If the kmer contains
  * characters other than A, C, G, and T, it will not be indexed.
  *
- * By default, the index contains all minimizers in the graph. Option
- * --max-occs can be used to specify the maximum number of occurrences for
- * a kmer. Kmers more frequent than that will be removed from the index.
- *
- * The index contains either all haplotype-consistent minimizers. Indexing al
- *  minimizers from complex graph regions can take a long time (e.g. 65 hours
- * vs 30 minutes for 1000GP), because many windows have the same minimizer.
+ * The index contains either all or haplotype-consistent minimizers. Indexing all
+ * minimizers from complex graph regions can take a long time (e.g. 65 hours
+ * vs 10 minutes for 1000GP), because many windows have the same minimizer.
  * As the total number of minimizers is manageable (e.g. 2.1 billion vs.
  * 1.4 billion for 1000GP), it should be possible to develop a better
  * algorithm for finding the minimizers.
