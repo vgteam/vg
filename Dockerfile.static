@@ -20,6 +20,7 @@ RUN apt-get -qq -y update && \
     bwa \
     jq \
     bc \
+    linux-tools-common \
     && apt-get -qq -y clean
 
 COPY scripts /vg/scripts
