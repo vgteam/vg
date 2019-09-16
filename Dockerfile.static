@@ -19,6 +19,7 @@ RUN apt-get -qq -y update && \
     awscli \
     bwa \
     jq \
+    bc \
     && apt-get -qq -y clean
 
 COPY scripts /vg/scripts
