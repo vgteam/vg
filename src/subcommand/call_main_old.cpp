@@ -253,5 +253,5 @@ int main_call_old(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_call_old("call-old", "call variants on an augmented graph [deprecated, soon to be removed]", PIPELINE, 5, main_call_old);
+static Subcommand vg_call_old("call-old", "call variants on an augmented graph [deprecated, soon to be removed]", DEVELOPMENT, main_call_old);
 
