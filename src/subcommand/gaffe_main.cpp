@@ -694,7 +694,7 @@ int main_gaffe(int argc, char** argv) {
     if (progress) {
         cerr << "Loading minimizer index " << minimizer_name << endl;
     }
-    unique_ptr<gbwtgraph::MinimizerIndex> minimizer_index = vg::io::VPKG::load_one<gbwtgraph::MinimizerIndex>(minimizer_name);
+    unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(minimizer_name);
 
     if (progress) {
         cerr << "Loading distance index " << distance_name << endl;

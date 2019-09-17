@@ -15,6 +15,23 @@
     #define VG_GIT_VERSION "not-from-git"
 #endif
 
+// Define a way to quote macro values.
+// See https://stackoverflow.com/a/196093
+#define QUOTE(arg) #arg
+// We need another level to get the macro's value and not its name.
+#define STR(macro) QUOTE(macro)
+
+// Work out the standard library version
+#ifdef _LIBCPP_VERSION
+    #define VG_STANDARD_LIBRARY_VERSION ("libc++ " STR(_LIBCPP_VERSION))
+#endif
+#ifdef __GLIBCXX__
+    #define VG_STANDARD_LIBRARY_VERSION ("libstd++ " STR(__GLIBCXX__))
+#endif
+#ifndef VG_STANDARD_LIBRARY_VERSION
+    #define VG_STANDARD_LIBRARY_VERSION "unknown standard library"
+#endif
+
 namespace vg {
 
 using namespace std;
@@ -22,6 +39,7 @@ using namespace std;
 // Define all the strings as the macros' values
 const string Version::VERSION = VG_GIT_VERSION;
 const string Version::COMPILER = VG_COMPILER_VERSION;
+const string Version::STANDARD_LIBRARY = VG_STANDARD_LIBRARY_VERSION;
 const string Version::OS = VG_OS;
 const string Version::BUILD_USER = VG_BUILD_USER;
 const string Version::BUILD_HOST = VG_BUILD_HOST;
@@ -93,6 +111,7 @@ string Version::get_long() {
     stringstream s;
     s << "vg version " << get_short() << endl;
     s << "Compiled with " << COMPILER << " on " << OS << endl;
+    s << "Linked against " << STANDARD_LIBRARY << endl;
     s << "Built by " << BUILD_USER << "@" << BUILD_HOST;
     return s.str();
 }
