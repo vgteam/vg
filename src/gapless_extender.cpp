@@ -387,11 +387,6 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             else if (best_match < curr) {
                 best_match = std::move(curr);
                 if (best_match.full() && best_match.internal_score <= max_mismatches) {
-                    //TODO: Magic number
-                    if (best_match.internal_score < full_length_mismatches * 5){
-                        //If this is better than the previous best
-                        //full_length_mismatches = best_match.internal_score * 5;
-                    } 
                     best_match_is_full_length = true;
                 }
             }
@@ -445,6 +440,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                 }
 
                 second_best_full_length_score = best_match.internal_score;
+                full_length_mismatches = second_best_full_length_score;
 
             }
             if (second_best_full_length_score == 0) {
