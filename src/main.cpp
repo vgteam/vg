@@ -44,8 +44,9 @@ void vg_help(char** argv) {
  }
 
 // We make sure to compile main for the lowest common denominator architecture.
-// This works on GCC and Clang. But we have to decalre main and then define it.
-int main(int argc, char *argv[]) __attribute__((__target__("arch=x86-64")));
+// This macro is defined in the preflight header on supported compiler setups.
+// But to use it we have to declare and then define main.
+int main(int argc, char *argv[]) VG_PREFLIGHT_EVERYWHERE;
 
 int main(int argc, char *argv[]) {
 

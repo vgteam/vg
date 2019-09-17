@@ -1385,6 +1385,7 @@ string NGSSimulator::get_read_name() {
 void NGSSimulator::record_read_quality(const Alignment& aln, bool read_2) {
     const string& quality = aln.quality();
     const string& sequence = aln.sequence();
+    assert(sequence.size() == quality.size());
     auto& transition_distrs = read_2 ? transition_distrs_2 : transition_distrs_1;
     if (quality.empty()) {
         return;
@@ -1396,7 +1397,7 @@ void NGSSimulator::record_read_quality(const Alignment& aln, bool read_2) {
     transition_distrs[0].record_transition(pair<uint8_t, bool>(0, false),
                                            pair<uint8_t, bool>(quality[0], sequence[0] == 'N'));
     // record the subsequent quality and N-mask transitions
-    for (size_t i = 1; i < transition_distrs.size(); i++) {
+    for (size_t i = 1; i < quality.size(); i++) {
         transition_distrs[i].record_transition(pair<uint8_t, bool>(quality[i - 1], sequence[i - 1] == 'N'),
                                                pair<uint8_t, bool>(quality[i], sequence[i] == 'N'));
     }
