@@ -2,8 +2,8 @@ var searchData=
 [
   ['unchop',['unchop',['../classvg_1_1VG.html#a998cfb17a4433f05a1579f0d704208a6',1,'vg::VG']]],
   ['underflow',['underflow',['../classvg_1_1io_1_1fdinbuf.html#a67ea7aab3e21cacec9fb836d4a70673e',1,'vg::io::fdinbuf']]],
-  ['unescape_5fdelim',['unescape_delim',['../classvg_1_1Packer.html#a4317a31a1e419ce6c0d345545518e519',1,'vg::Packer']]],
-  ['unescape_5fdelims',['unescape_delims',['../classvg_1_1Packer.html#ab7a6212ca48ab8bdcd28139297eb41e2',1,'vg::Packer']]],
+  ['unescape_5fdelim',['unescape_delim',['../classvg_1_1Packer.html#a32f8697cf4c222f5e207a4b15a1f0883',1,'vg::Packer']]],
+  ['unescape_5fdelims',['unescape_delims',['../classvg_1_1Packer.html#a92b44e965dd5da9da72e1a9196290d94',1,'vg::Packer']]],
   ['unfold',['unfold',['../classvg_1_1PhaseUnfolder.html#a39a286ab3746a9a175a898bead3d2612',1,'vg::PhaseUnfolder::unfold()'],['../classvg_1_1VG.html#afc568712b6d4aa3b6dc965f37cc769a7',1,'vg::VG::unfold()']]],
   ['unfold_5fcomponent',['unfold_component',['../classvg_1_1PhaseUnfolder.html#a84543fbc3521c9da70838339613ac3b9',1,'vg::PhaseUnfolder']]],
   ['uniform_5fint_5fdistribution',['uniform_int_distribution',['../classvg_1_1uniform__int__distribution.html#ab8d23ee7f2beacc01804f3206c3bc663',1,'vg::uniform_int_distribution']]],
@@ -15,9 +15,9 @@ var searchData=
   ['unpack_5fnumber',['unpack_number',['../structhandlegraph_1_1number__bool__packing.html#a5f2f610bc0e6819ff0ae3d91d2aff9fc',1,'handlegraph::number_bool_packing']]],
   ['unpaired_5ffor_5feach_5fparallel',['unpaired_for_each_parallel',['../namespacevg.html#ad9d7a5ca192b47b922e17a717774ff66',1,'vg']]],
   ['unparse',['unparse',['../classvg_1_1OptionValueParser.html#a816cf0ccd1d8b95f6f8f47434e1af376',1,'vg::OptionValueParser::unparse()'],['../classvg_1_1OptionValueParser_3_01vector_3_01Item_01_4_01_4.html#a57f771079219ffb85ea0cebc6b024045',1,'vg::OptionValueParser&lt; vector&lt; Item &gt; &gt;::unparse()'],['../classvg_1_1OptionValueParser.html#ae397faa8d0ae66c9c841a153045a6de2',1,'vg::OptionValueParser::unparse()']]],
-  ['unrecord',['unrecord',['../classvg_1_1SnarlManager.html#a42a87a6e424e9b39f77b43061b692039',1,'vg::SnarlManager::unrecord(const SnarlRecord *record) const '],['../classvg_1_1SnarlManager.html#aeeb8bf1eb342004f69b33caadad5a713',1,'vg::SnarlManager::unrecord(SnarlRecord *record)']]],
-  ['unreverse_5fgraph',['unreverse_graph',['../classvg_1_1GSSWAligner.html#a59385b2c7a17ce79afb7d7e51739ba24',1,'vg::GSSWAligner']]],
-  ['unreverse_5fgraph_5fmapping',['unreverse_graph_mapping',['../classvg_1_1GSSWAligner.html#a5663079c8d44ed5d38cbd80cd0b3b4c5',1,'vg::GSSWAligner']]],
+  ['unrecord',['unrecord',['../classvg_1_1SnarlManager.html#a40be4db13bf881c882f3be70c067c111',1,'vg::SnarlManager::unrecord(const SnarlRecord *record) const'],['../classvg_1_1SnarlManager.html#aeeb8bf1eb342004f69b33caadad5a713',1,'vg::SnarlManager::unrecord(SnarlRecord *record)']]],
+  ['unreverse_5fgraph',['unreverse_graph',['../classvg_1_1GSSWAligner.html#add2d3b75b4343ba0b3d828a87ac56f47',1,'vg::GSSWAligner']]],
+  ['unreverse_5fgraph_5fmapping',['unreverse_graph_mapping',['../classvg_1_1GSSWAligner.html#add9329344fdf10d65d9d6c2fd35e8cf2',1,'vg::GSSWAligner']]],
   ['untranslate',['untranslate',['../classvg_1_1GFAToPinchTranslator.html#afea7a7df95463feaa429d75ec3545387',1,'vg::GFAToPinchTranslator']]],
   ['update_5faugmented_5fgraph',['update_augmented_graph',['../classvg_1_1PileupAugmenter.html#a1b9c34b0b86cb3798da4fd832deae878',1,'vg::PileupAugmenter']]],
   ['update_5fin_5fout_5fedges',['update_in_out_edges',['../classvg_1_1FlowSort.html#a09b6782a1ab4d5c5ed7fa23cf83083d8',1,'vg::FlowSort']]],
@@ -27,7 +27,7 @@ var searchData=
   ['update_5fprogress',['update_progress',['../classvg_1_1Progressive.html#a0d64e6aa69bc094c163f4827602a302c',1,'vg::Progressive']]],
   ['update_5fscore_5fvector',['update_score_vector',['../structhaplo_1_1haplo__DP__column.html#a40859e4ede0d3829b5e7dca9a89af660',1,'haplo::haplo_DP_column']]],
   ['update_5fstate',['update_state',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#afb76a0ce92c750ae8cb12eaf2c0ae7fd',1,'vg::BandedGlobalAligner::BABuilder']]],
-  ['update_5fvcf_5fheader',['update_vcf_header',['../classvg_1_1SnarlCaller.html#a7fb3205d6e94505aadf0c9944fac7eb4',1,'vg::SnarlCaller::update_vcf_header()'],['../classvg_1_1SupportBasedSnarlCaller.html#a42c44dae396995577c679b0b3ab22449',1,'vg::SupportBasedSnarlCaller::update_vcf_header()']]],
+  ['update_5fvcf_5fheader',['update_vcf_header',['../classvg_1_1SnarlCaller.html#a7fb3205d6e94505aadf0c9944fac7eb4',1,'vg::SnarlCaller::update_vcf_header()'],['../classvg_1_1SupportBasedSnarlCaller.html#a4fc68060df93ea4a91d7cce0ac5ec19a',1,'vg::SupportBasedSnarlCaller::update_vcf_header()']]],
   ['update_5fvcf_5finfo',['update_vcf_info',['../classvg_1_1SnarlCaller.html#ad0315e74aa5ea9df9820aa1000bd0291',1,'vg::SnarlCaller::update_vcf_info()'],['../classvg_1_1SupportBasedSnarlCaller.html#a0a1e45e1eff5208d489115539d621384',1,'vg::SupportBasedSnarlCaller::update_vcf_info()']]],
-  ['used_5fbins_5fof_5frange',['used_bins_of_range',['../classvg_1_1StreamIndexBase.html#a5fe0982b8a0927205b3e57d65d642aa3',1,'vg::StreamIndexBase']]]
+  ['used_5fbins_5fof_5frange',['used_bins_of_range',['../classvg_1_1StreamIndexBase.html#a94777b19236dfb74d66ba8c484bf663f',1,'vg::StreamIndexBase']]]
 ];

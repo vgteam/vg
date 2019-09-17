@@ -11,6 +11,5 @@ var searchData=
   ['traversal_5ffinder_2ehpp',['traversal_finder.hpp',['../traversal__finder_8hpp.html',1,'']]],
   ['tree_5fsubgraph_2ecpp',['tree_subgraph.cpp',['../tree__subgraph_8cpp.html',1,'']]],
   ['tree_5fsubgraph_2ehpp',['tree_subgraph.hpp',['../tree__subgraph_8hpp.html',1,'']]],
-  ['types_2ehpp',['types.hpp',['../deps_2libhandlegraph_2src_2include_2handlegraph_2types_8hpp.html',1,'']]],
-  ['types_2ehpp',['types.hpp',['../src_2types_8hpp.html',1,'']]]
+  ['types_2ehpp',['types.hpp',['../src_2types_8hpp.html',1,'(Global Namespace)'],['../deps_2libhandlegraph_2src_2include_2handlegraph_2types_8hpp.html',1,'(Global Namespace)']]]
 ];

@@ -16,7 +16,7 @@ var searchData=
   ['window_5fsize',['window_size',['../classvg_1_1WindowedVcfBuffer.html#a898deb05050ba62533e294b7cf959fe3',1,'vg::WindowedVcfBuffer']]],
   ['window_5fto_5fstart',['window_to_start',['../classvg_1_1StreamIndexBase.html#a47fab2baab7953595105558d0fcba4e2',1,'vg::StreamIndexBase']]],
   ['wrapped_5fostream',['wrapped_ostream',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a14d9a1a0917016a7af46f2960608d302',1,'vg::io::BlockedGzipOutputStream']]],
-  ['write',['write',['../structhFILE__backend.html#af02239c02e7c622c784d552ed5638983',1,'hFILE_backend']]],
+  ['write',['write',['../structhFILE__backend.html#ada22f61f6280c429aca37d82ef4c31a4',1,'hFILE_backend']]],
   ['write_5foptions',['write_options',['../classvg_1_1Index.html#a785085834ced227c9a7182776e3126d0',1,'vg::Index']]],
   ['write_5foutput',['write_output',['../classvg_1_1ReadFilter.html#ad5bab332dd50a2b84e4bb7798fabd349',1,'vg::ReadFilter']]],
   ['write_5ftrivial_5fcalls',['write_trivial_calls',['../classvg_1_1SupportCaller.html#a216ee27f03698399b7ded8342d846ba1',1,'vg::SupportCaller']]],

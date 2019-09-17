@@ -43,6 +43,8 @@ var searchData=
   ['_7eindex',['~Index',['../classvg_1_1Index.html#a16165115d093fb76d4d675acdb065f99',1,'vg::Index']]],
   ['_7einserthaplotypecommand',['~InsertHaplotypeCommand',['../structvg_1_1InsertHaplotypeCommand.html#a173157b02306f85eb55291107367602e',1,'vg::InsertHaplotypeCommand']]],
   ['_7eiterator',['~iterator',['../classvg_1_1PhasedGenome_1_1iterator.html#a49c0df47c5f5eb7afc45a2978f5dc497',1,'vg::PhasedGenome::iterator::~iterator()'],['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html#a578e1ae4eb29377b05133e390ad1d4c3',1,'handlegraph::PathForEachSocket::iterator::~iterator()']]],
+  ['_7ej2pb_5ferror',['~j2pb_error',['../classj2pb__error.html#a4bf7997e2520c68a3861f9f105132510',1,'j2pb_error']]],
+  ['_7ejson_5fautoptr',['~json_autoptr',['../structjson__autoptr.html#a90ed076495793f454cea2f2e8ba3738b',1,'json_autoptr']]],
   ['_7elegacycaller',['~LegacyCaller',['../classvg_1_1LegacyCaller.html#a10147f341d558b896d91c2180f0361d8',1,'vg::LegacyCaller']]],
   ['_7elinear_5fhaplo_5fstructure',['~linear_haplo_structure',['../structhaplo_1_1linear__haplo__structure.html#a11b487a3f7b503ed282cd1cfee5ae2f3',1,'haplo::linear_haplo_structure']]],
   ['_7emapper',['~Mapper',['../classvg_1_1Mapper.html#a285dd133a8540553f671b7eac33f6ca0',1,'vg::Mapper']]],

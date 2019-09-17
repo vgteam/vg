@@ -24,7 +24,7 @@ var searchData=
   ['children',['children',['../structvg_1_1SnarlManager_1_1SnarlRecord.html#a0bfacb041ef897faedba2cf2585c9fb0',1,'vg::SnarlManager::SnarlRecord::children()'],['../structvg_1_1BitStringTree_1_1TreeNode.html#aec0e7ef56323148869869a0b02560aa5',1,'vg::BitStringTree::TreeNode::children()'],['../classvg_1_1TreeSubgraph.html#a77f31b395c329f4c42d585208e8f9683',1,'vg::TreeSubgraph::children()'],['../structvg_1_1TreeNode.html#a5a5645da982fa8a9acb280ef031960d2',1,'vg::TreeNode::children()']]],
   ['chrom',['chrom',['../structvg_1_1Transcript.html#ad79bd4743b079f2de3156970344ba689',1,'vg::Transcript']]],
   ['circular',['circular',['../classvg_1_1Paths.html#ad8af70b16e2280fba6e46418842229fa',1,'vg::Paths']]],
-  ['close',['close',['../structhFILE__backend.html#a05451c7188f39b89854297cacc60106d',1,'hFILE_backend']]],
+  ['close',['close',['../structhFILE__backend.html#a590725a4192591efd3349067808cde27',1,'hFILE_backend']]],
   ['cluster_5fcoverage_5fthreshold',['cluster_coverage_threshold',['../classvg_1_1MinimizerMapper.html#a4aa953562a49de5befd8c80ee5e84a22',1,'vg::MinimizerMapper']]],
   ['cluster_5fheads',['cluster_heads',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#a512c1a25d9d6f4d8641d4dd6002109a2',1,'vg::SnarlSeedClusterer::NodeClusters']]],
   ['cluster_5fscore_5fthreshold',['cluster_score_threshold',['../classvg_1_1MinimizerMapper.html#a10276fc66be2c41c2ebebd78e1f643de',1,'vg::MinimizerMapper']]],

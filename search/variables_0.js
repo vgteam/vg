@@ -8,6 +8,7 @@ var searchData=
   ['_5fdefault_5fquality',['_default_quality',['../classvg_1_1PileupAugmenter.html#a51d49a1407439744eb2c86b708abd826',1,'vg::PileupAugmenter']]],
   ['_5fdeletion_5fsupports',['_deletion_supports',['../classvg_1_1PileupAugmenter.html#ad265e1889d574a09e11b76c6393b2108',1,'vg::PileupAugmenter']]],
   ['_5fedge_5fpileups',['_edge_pileups',['../classvg_1_1Pileups.html#af6f3d0431209ade782e671be0ad84d4d',1,'vg::Pileups']]],
+  ['_5ferror',['_error',['../classj2pb__error.html#a6c1faa9c2a04cb41166771a03f8fe757',1,'j2pb_error']]],
   ['_5fgraph',['_graph',['../classvg_1_1Pileups.html#a57532ec0e7dba81c24a0d37352a1e218',1,'vg::Pileups::_graph()'],['../classvg_1_1PileupAugmenter.html#a74dd51ef08a8954c52b0be9f7cb9f972',1,'vg::PileupAugmenter::_graph()']]],
   ['_5finsert_5fcalls',['_insert_calls',['../classvg_1_1PileupAugmenter.html#a8bb9dca5ba4d5bf7d32878e135429ae6',1,'vg::PileupAugmenter']]],
   ['_5finsert_5fsupports',['_insert_supports',['../classvg_1_1PileupAugmenter.html#a5855b647bb5fb81067adfbaf745bf011',1,'vg::PileupAugmenter']]],

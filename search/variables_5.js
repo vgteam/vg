@@ -1,7 +1,7 @@
 var searchData=
 [
   ['eat_5ftrivial_5fchildren',['eat_trivial_children',['../classvg_1_1RepresentativeTraversalFinder.html#a7399762276304b196332d0660c169605',1,'vg::RepresentativeTraversalFinder']]],
-  ['edge',['edge',['../classvg_1_1XdropAligner.html#abe8df6d7c151d4585cf01dc0d0962940',1,'vg::XdropAligner::edge()'],['../structvg_1_1Graph.html#ae581df485daa482523eb1a7954ac9561',1,'vg::Graph::edge()'],['../structvg_1_1EdgePileup.html#a61793befcf507143604cf6e0af1cab6a',1,'vg::EdgePileup::edge()'],['../structvg_1_1LocationSupport.html#a439adeb46ccea871772e840970a3cde1',1,'vg::LocationSupport::edge()']]],
+  ['edge',['edge',['../classvg_1_1XdropAligner.html#abe8df6d7c151d4585cf01dc0d0962940',1,'vg::XdropAligner::edge()'],['../structvg_1_1Graph.html#ae581df485daa482523eb1a7954ac9561',1,'vg::Graph::edge()'],['../structvg_1_1EdgePileup.html#a61793befcf507143604cf6e0af1cab6a',1,'vg::EdgePileup::edge()']]],
   ['edge_5fby_5fsides',['edge_by_sides',['../classvg_1_1VG.html#ab754d45647580a21216bd010b72c6815',1,'vg::VG']]],
   ['edge_5fcache',['edge_cache',['../classvg_1_1Sampler.html#afb7efec11ad329ffaeaf4e5519b797a6',1,'vg::Sampler::edge_cache()'],['../classvg_1_1NGSSimulator.html#a5cfca82fd89f697b066b958aaa4d01ff',1,'vg::NGSSimulator::edge_cache()']]],
   ['edge_5fcoverage_5fciv',['edge_coverage_civ',['../classvg_1_1Packer.html#a11f2e82fc82448717a4e7ad63b777f27',1,'vg::Packer']]],
