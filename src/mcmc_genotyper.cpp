@@ -60,11 +60,11 @@ namespace vg {
                 // calculate likelihood ratio of posterior distribution 
                 double likelihood_ratio = exp(log_base*(x_new - x_prev));
                 
-                cerr << "********************************" <<endl;
-                cerr << "total score of new genome "<< x_new << endl;
-                cerr << "total score of prev genome "<< x_prev << endl;
-                cerr << "likelihood ratio            " << likelihood_ratio << endl;
-                cerr << "prev log likelihood         " << current_likelihood << endl;                
+                // cerr << "********************************" <<endl;
+                // cerr << "total score of new genome "<< x_new << endl;
+                // cerr << "total score of prev genome "<< x_prev << endl;
+                // cerr << "likelihood ratio            " << likelihood_ratio << endl;
+                // cerr << "prev log likelihood         " << current_likelihood << endl;                
                 
                 if(!swapped){
                     // if we did not swap back then we use the prev likelihood 
@@ -73,13 +73,13 @@ namespace vg {
 
                 current_likelihood = previous_likelihood + log_base*(x_new-x_prev);
 
-                cerr << "current log likelihood      " << current_likelihood << endl;
-                cerr << "max likelihood              " << max_likelihood << endl;
-                cerr<< endl;
+                // cerr << "current log likelihood      " << current_likelihood << endl;
+                // cerr << "max likelihood              " << max_likelihood << endl;
+                // cerr<< endl;
                 
                 
-                genome->print_phased_genome();
-                cerr << "********************************" <<endl;
+                // genome->print_phased_genome();
+                // cerr << "********************************" <<endl;
                 if (current_likelihood > max_likelihood){
                     max_likelihood = current_likelihood;
                     optimal = unique_ptr<PhasedGenome>(new PhasedGenome(*genome));
@@ -93,9 +93,9 @@ namespace vg {
                 if(generate_continuous_uniform(0.0,1.0) > acceptance_probability){ 
                     swapped = true;
                     genome->set_allele(modified_site, old_allele.begin(), old_allele.end(), modified_haplo); 
-                    cerr << "************UPDATED HAPLOTYPE********************" <<endl;
-                    genome->print_phased_genome();
-                    cerr << "********************************" <<endl;
+                    // cerr << "************UPDATED HAPLOTYPE********************" <<endl;
+                    // genome->print_phased_genome();
+                    // cerr << "********************************" <<endl;
                 }         
             }
         } 
@@ -103,12 +103,12 @@ namespace vg {
             // for graphs without snarls 
             //cerr << "return genome"<<endl;
             //cerr << "************FINAL******************************************" <<endl;
-            genome->print_phased_genome();
+            // genome->print_phased_genome();
             return std::move(genome); 
         }else{
-            cerr << "return optimal"<<endl;
-            cerr << "************FINAL******************************************" <<endl;
-            optimal->print_phased_genome();
+            // cerr << "return optimal"<<endl;
+            // cerr << "************FINAL******************************************" <<endl;
+            // optimal->print_phased_genome();
             return std::move(optimal); 
         }
 
@@ -159,7 +159,7 @@ namespace vg {
 
         if(matched_haplotypes.empty()){
             cerr<< "matched haplotype is empty"<< endl;
-            cerr << "looking for snarl starting with " << random_snarl->start() << " and snarl ending with " << random_snarl->end() <<endl;
+            // cerr << "looking for snarl starting with " << random_snarl->start() << " and snarl ending with " << random_snarl->end() <<endl;
             random_haplotype = -1;
             return to_return;
             
