@@ -112,7 +112,7 @@ if which perf >/dev/null 2>&1 ; then
     
     # If we don't strip bin/vg to make it small, the addr2line calls that perf
     # script makes take forever because the binary is huge
-    strip bin/vg
+    strip -d bin/vg
     
     ${NUMA_PREFIX} perf record -F 100 --call-graph dwarf -o "${WORK}/perf.data"  vg gaffe "${GIRAFFE_GRAPH[@]}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -f "${REAL_FASTQ}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/perf.gam"
     perf script -i "${WORK}/perf.data" >"${WORK}/out.perf"

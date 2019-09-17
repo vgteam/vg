@@ -33,4 +33,3 @@ RUN apt-get -qq -y update && \
 COPY deps/FlameGraph /vg/deps/FlameGraph
 COPY scripts /vg/scripts
 COPY bin/vg /vg/bin/vg
-
