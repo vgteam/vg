@@ -413,25 +413,18 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             if (best_match.internal_score < best_full_length_score){
                 //If this is the best match so far
 
-                if (best_full_length_score == std::numeric_limits<uint32_t>::max()) {
-                    //If this is the first one we've found
+                //Save the current best and replace it with this one
+                auto second = std::move(result[0]);
+                result[0] = best_match;
 
-                    result.push_back(best_match);
-
+                if (second_best_full_length_score == std::numeric_limits<uint32_t>::max()) {
+                    //If we've only found one so far and this one is better
+                    result.push_back(second);
                 } else {
-
-                    //Save the current best and replace it with this one
-                    auto second = std::move(result[0]);
-                    result[0] = best_match;
-
-                    if (second_best_full_length_score == std::numeric_limits<uint32_t>::max()) {
-                        //If we've only found one so far and this one is better
-                        result.push_back(second);
-                    } else {
-                        //Replace the old second best
-                        result[1] = second;
-                    }
+                    //Replace the old second best
+                    result[1] = second;
                 }
+                
 
                 second_best_full_length_score = best_full_length_score;
                 best_full_length_score = best_match.internal_score;
