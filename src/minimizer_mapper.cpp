@@ -20,7 +20,7 @@ namespace vg {
 
 using namespace std;
 
-MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::MinimizerIndex& minimizer_index,
+MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
     MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph) :
     path_graph(path_graph), minimizer_index(minimizer_index),
     distance_index(distance_index), gbwt_graph(graph),
@@ -54,7 +54,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     vector<pos_t> seeds;
     
     // This will hold all the minimizers in the query
-    vector<gbwtgraph::MinimizerIndex::minimizer_type> minimizers;
+    vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type> minimizers;
     // And either way this will map from seed to minimizer that generated it
     vector<size_t> seed_to_source;
     

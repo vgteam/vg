@@ -22,6 +22,27 @@ SupportBasedSnarlCaller::~SupportBasedSnarlCaller() {
     
 }
 
+void SupportBasedSnarlCaller::set_het_bias(double het_bias) {
+    // want to move away from ugly hacks that treat the reference traversal differently,
+    // so keep all these set the same
+    if (het_bias >= 0) {
+        max_het_bias = het_bias;
+        max_ref_het_bias = het_bias;
+        max_indel_het_bias = het_bias;
+    }
+}
+
+void SupportBasedSnarlCaller::set_min_supports(double min_mad_for_call, double min_support_for_call, double min_site_support) {
+    if (min_mad_for_call >= 0) {
+        min_mad_for_filter = min_mad_for_call;
+    }
+    if (min_support_for_call >= 0) {
+        min_total_support_for_call = min_support_for_call;
+    }
+    if (min_site_support >= 0) {
+        min_site_depth = min_site_support;
+    }
+}
 
 vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
                                               const vector<SnarlTraversal>& traversals,
@@ -321,6 +342,9 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
                ad_log_likelihood < min_ad_log_likelihood_for_filter) {
         // We have a het, but the assignment of reads between the two branches is just too weird
         variant.filter = "lowxadl";
+    } else if ((int64_t)round(total(total_support)) < min_site_depth) {
+        // we don't have enough support to want to make a call
+        variant.filter = "lowdepth";
     }
 }
 
@@ -335,6 +359,8 @@ void SupportBasedSnarlCaller::update_vcf_header(string& header) const {
         std::to_string(min_mad_for_filter) + "\">\n";
     header += "##FILTER=<ID=lowxadl,Description=\"Variant has AD log likelihood less than " +
         std::to_string(min_ad_log_likelihood_for_filter) + "\">\n";
+    header += "##FILTER=<ID=lowdepth,Description=\"Variant has read depth less than " +
+        std::to_string(min_site_depth) + "\">\n";    
 }
 
 function<bool(const SnarlTraversal&)> SupportBasedSnarlCaller::get_skip_allele_fn() const {

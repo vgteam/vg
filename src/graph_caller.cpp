@@ -625,7 +625,7 @@ void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder
     out_variant.sequenceName = ref_path_name;
     // +1 to convert to 1-based VCF
     out_variant.position = get_ref_position(snarl, ref_path_name).first + ref_offsets.find(ref_path_name)->second + 1; 
-    out_variant.id = ".";
+    out_variant.id = std::to_string(snarl.start().node_id()) + "_" + std::to_string(snarl.end().node_id());
     out_variant.filter = "PASS";
     out_variant.updateAlleleIndexes();
 

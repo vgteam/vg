@@ -7,13 +7,9 @@
  * successive kmers and their reverse complements. If the kmer contains
  * characters other than A, C, G, and T, it will not be indexed.
  *
- * By default, the index contains all minimizers in the graph. Option
- * --max-occs can be used to specify the maximum number of occurrences for
- * a kmer. Kmers more frequent than that will be removed from the index.
- *
- * The index contains either all haplotype-consistent minimizers. Indexing al
- *  minimizers from complex graph regions can take a long time (e.g. 65 hours
- * vs 30 minutes for 1000GP), because many windows have the same minimizer.
+ * The index contains either all or haplotype-consistent minimizers. Indexing all
+ * minimizers from complex graph regions can take a long time (e.g. 65 hours
+ * vs 10 minutes for 1000GP), because many windows have the same minimizer.
  * As the total number of minimizers is manageable (e.g. 2.1 billion vs.
  * 1.4 billion for 1000GP), it should be possible to develop a better
  * algorithm for finding the minimizers.
@@ -34,8 +30,7 @@
 #include <getopt.h>
 #include <omp.h>
 
-#include <gbwtgraph/gbwtgraph.h>
-#include <gbwtgraph/minimizer.h>
+#include <gbwtgraph/index.h>
 
 #include "../handle.hpp"
 #include "../utility.hpp"
@@ -53,8 +48,8 @@ void help_minimizer(char** argv) {
     std::cerr << "    -i, --index-name X     store the index to file X" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Minimizer options:" << std::endl;
-    std::cerr << "    -k, --kmer-length N    length of the kmers in the index (default: " << gbwtgraph::MinimizerIndex::KMER_LENGTH << ")" << std::endl;
-    std::cerr << "    -w, --window-length N  index the smallest kmer in a window of N kmers (default: " << gbwtgraph::MinimizerIndex::WINDOW_LENGTH << ")" << std::endl;
+    std::cerr << "    -k, --kmer-length N    length of the kmers in the index (default: " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_LENGTH << ")" << std::endl;
+    std::cerr << "    -w, --window-length N  index the smallest kmer in a window of N kmers (default: " << gbwtgraph::DefaultMinimizerIndex::key_type::WINDOW_LENGTH << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -l, --load-index X     load the index from file X and insert the new kmers into it" << std::endl;
@@ -73,8 +68,8 @@ int main_minimizer(int argc, char** argv) {
     }
 
     // Command-line options.
-    size_t kmer_length = gbwtgraph::MinimizerIndex::KMER_LENGTH;
-    size_t window_length = gbwtgraph::MinimizerIndex::WINDOW_LENGTH;
+    size_t kmer_length = gbwtgraph::DefaultMinimizerIndex::key_type::KMER_LENGTH;
+    size_t window_length = gbwtgraph::DefaultMinimizerIndex::key_type::WINDOW_LENGTH;
     std::string index_name, load_index, gbwt_name, graph_name;
     bool is_gbwt_graph = false;
     bool progress = false;
@@ -176,12 +171,12 @@ int main_minimizer(int argc, char** argv) {
     }
 
     // Minimizer index.
-    std::unique_ptr<gbwtgraph::MinimizerIndex> index(new gbwtgraph::MinimizerIndex(kmer_length, window_length));
+    std::unique_ptr<gbwtgraph::DefaultMinimizerIndex> index(new gbwtgraph::DefaultMinimizerIndex(kmer_length, window_length));
     if (!load_index.empty()) {
         if (progress) {
             std::cerr << "Loading MinimizerIndex " << load_index << std::endl;
         }
-        index = vg::io::VPKG::load_one<gbwtgraph::MinimizerIndex>(load_index);
+        index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(load_index);
     }
 
     // Build the index.

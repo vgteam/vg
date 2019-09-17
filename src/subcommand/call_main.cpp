@@ -29,6 +29,8 @@ void help_call(char** argv) {
        << endl
        << "support calling options:" << endl
        << "    -k, --pack FILE         Supports created from vg pack for given input graph" << endl
+       << "    -b, --het-bias N        Homozygous allele must have >= N times more support than the next best allele [default = 6]" << endl
+       << "    -m, --min-support M,N   Minimum allele support (M) and minimum site support (N) for call [default = 1,4]" << endl
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
        << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
@@ -52,13 +54,17 @@ int main_call(int argc, char** argv) {
     vector<string> ref_paths;
     vector<size_t> ref_path_offsets;
     vector<size_t> ref_path_lengths;
-
+    double het_bias = -1;
+    string min_support_string;
+    
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
 
         static const struct option long_options[] = {
             {"pack", required_argument, 0, 'k'},
+            {"het-bias", required_argument, 0, 'b'},
+            {"min-support", required_argument, 0, 'm'},
             {"vcf", required_argument, 0, 'v'},
             {"ref-fasta", required_argument, 0, 'f'},
             {"ins-fasta", required_argument, 0, 'i'},
@@ -74,7 +80,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:v:f:i:s:r:p:o:l:t:h",
+        c = getopt_long (argc, argv, "k:b:m:v:f:i:s:r:p:o:l:t:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -85,6 +91,12 @@ int main_call(int argc, char** argv) {
         {
         case 'k':
             pack_filename = optarg;
+            break;
+        case 'b':
+            het_bias = parse<int>(optarg);
+            break;
+        case 'm':
+            min_support_string = optarg;
             break;
         case 'v':
             vcf_filename = optarg;
@@ -136,6 +148,20 @@ int main_call(int argc, char** argv) {
         return 1;
     }
 
+    // parse the supports (stick together to keep number of options down)
+    vector<string> support_toks = split_delims(min_support_string, ",");
+    double min_allele_support = -1;
+    double min_site_support = -1;
+    if (support_toks.size() >= 1) {
+        min_allele_support = parse<double>(support_toks[0]);
+    }
+    if (support_toks.size() == 2) {
+        min_site_support = parse<double>(support_toks[1]);
+    } else if (support_toks.size() > 2) {
+        cerr << "error [vg call]: -m option expects two comman separated numbers N,M" << endl;
+        return 1;
+    }
+    
     // Read the graph
     unique_ptr<PathHandleGraph> handle_graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
@@ -224,6 +250,12 @@ int main_call(int argc, char** argv) {
         packer = unique_ptr<Packer>(new Packer(graph));
         packer->load_from_file(pack_filename);
         PackedSupportSnarlCaller* packed_caller = new PackedSupportSnarlCaller(*packer, *snarl_manager);
+        if (het_bias >= 0) {
+            packed_caller->set_het_bias(het_bias);
+        }
+        if (min_allele_support >= 0) {
+            packed_caller->set_min_supports(min_allele_support, min_allele_support, min_site_support);
+        }
         snarl_caller = unique_ptr<SnarlCaller>(packed_caller);
     }
 
