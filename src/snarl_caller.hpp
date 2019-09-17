@@ -51,8 +51,12 @@ public:
  */ 
 class SupportBasedSnarlCaller : public SnarlCaller {
 public:
-   SupportBasedSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager);
+    SupportBasedSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager);
     virtual ~SupportBasedSnarlCaller();
+
+    /// Set some of the parameters
+    void set_het_bias(double het_bias);
+    void set_min_supports(double min_mad_for_call, double min_support_for_call, double min_site_support);
 
     /// Support of an edge
     virtual Support get_edge_support(const edge_t& edge) const = 0;
@@ -136,16 +140,20 @@ protected:
     /// At 2, if twice the reads support one allele as the other, we'll call
     /// homozygous instead of heterozygous. At infinity, every call will be
     /// heterozygous if even one read supports each allele.
-    double max_het_bias = 10;
+    double max_het_bias = 6;
     /// Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double max_ref_het_bias = 4.5;
+    double max_ref_het_bias = 6;
     /// Like the max het bias, but applies to novel indels.
     double max_indel_het_bias = 6;
-    /// As above but used for alt1/alt2 calls
-    double max_ma_bias = 3;
+    /// Used for calling 1/2 calls.  If both alts (times this bias) are greater than
+    /// the reference, the call is made.  set to 0 to deactivate.
+    double max_ma_bias = 0;
     /// what's the minimum ref or alt allele depth to give a PASS in the filter
     /// column? Also used as a min actual support for a second-best allele call
     size_t min_mad_for_filter = 1;
+    /// what's the minimum total support (over all alleles) of the site to make
+    /// a call
+    size_t min_site_depth = 3;
     /// what's the min log likelihood for allele depth assignments to PASS?
     double min_ad_log_likelihood_for_filter = -9;
     /// Use average instead of minimum support when determining a traversal's support
@@ -154,7 +162,8 @@ protected:
     /// Use average instead of minimum support when determining a node's support
     /// its position supports.
     size_t average_node_support_switch_threshold = 50;
-    /// minimum average base support on alt path for it to be considered
+    /// used only for pruning alleles in the VCFTraversalFinder:  minimum support
+    /// of an allele's alt-path for it to be considered in the brute-force enumeration
     double min_alt_path_support = 0.2;
 
     const PathHandleGraph& graph;
