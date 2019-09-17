@@ -413,25 +413,34 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             if (best_match.internal_score < best_full_length_score){
                 //If this is the best match so far
 
-                if (second_best_full_length_score == std::numeric_limits<uint32_t>::max()) {
-                    //If we've only found one so far and this one is better
+                if (best_full_length_score == std::numeric_limits<uint32_t>::max()) {
+                    //If this is the first one we've found
+
+                    result.push_back(best_match);
+
+                } else {
+
+                    //Save the current best and replace it with this one
                     auto second = std::move(result[0]);
                     result[0] = best_match;
-                    result.push_back(second);
-                } else {
-                    //Replace the old second best
-                    result[1] = best_match;
+
+                    if (second_best_full_length_score == std::numeric_limits<uint32_t>::max()) {
+                        //If we've only found one so far and this one is better
+                        result.push_back(second);
+                    } else {
+                        //Replace the old second best
+                        result[1] = second;
+                    }
                 }
 
                 second_best_full_length_score = best_full_length_score;
                 best_full_length_score = best_match.internal_score;
 
                 
-            } else if (best_match.internal_score < second_best_full_length_score ||
-                       second_best_full_length_score ==std::numeric_limits<uint32_t>::max()) {
+            } else if (best_match.internal_score < second_best_full_length_score) {
                 //If this is better than the second best match
 
-                if (second_best_full_length_score ==std::numeric_limits<uint32_t>::max()) {
+                if (second_best_full_length_score == std::numeric_limits<uint32_t>::max()) {
                     //If we only have one alignment
                     result.push_back(best_match);
                 } else {
@@ -440,6 +449,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                 }
 
                 second_best_full_length_score = best_match.internal_score;
+                //Make sure we stop looking at extensions worse than the second best
                 full_length_mismatches = second_best_full_length_score;
 
             }
