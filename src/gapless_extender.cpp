@@ -250,8 +250,8 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
     // at least that many mismatches.
     bool full_length_found = false;
     bool found_zero_internal_score = false;
-    uint32_t best_full_length_mismatches = std::numeric_limits<uint32_t>::max();
-    uint32_t second_best_full_length_mismatches = std::numeric_limits<uint32_t>::max();
+    GaplessExtension best_alignment;
+    GaplessExtension second_best_alignment;
     uint32_t full_length_mismatches = std::numeric_limits<uint32_t>::max();
     for (seed_type seed : cluster) {
         GaplessExtension best_match {
@@ -396,53 +396,32 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
         if (best_match_is_full_length && !full_length_found) {
             //If this is the first time we've found a full length alignment
             result.clear();
-            result.push_back(best_match);
+            best_alignment = std::move(best_match);
             full_length_found = true;
-            best_full_length_mismatches = best_match.internal_score;
 
         } else if (best_match_is_full_length && full_length_found &&
-                 (best_match.path.front() != result.front().path.front() ||
-                  best_match.path.back() != result.front().path.back())) { 
+                 (best_match.path.front() != best_alignment.path.front() ||
+                  best_match.path.back() != best_alignment.path.back())) { 
             //If we're looking for full length alignments and this is one that
             //is different from the best one we found already
             //
             //Keep only the best two full length matches, results[0] is the best
 
-            if (best_match.internal_score < best_full_length_mismatches){
+            if (best_match.internal_score < best_alignment.internal_score){
                 //If this is the best match so far
-
-                //Save the current best and replace it with this one
-                auto second = std::move(result[0]);
-                result[0] = std::move(best_match);
-
-                if (second_best_full_length_mismatches != std::numeric_limits<uint32_t>::max()) {
-                    //Replace the old second best
-                    result.pop_back();
-                }
-                result.push_back(second);
-                
-
-                second_best_full_length_mismatches = best_full_length_mismatches;
-                best_full_length_mismatches = best_match.internal_score;
+                second_best_alignment = std::move(best_alignment);
+                best_alignment = std::move(best_match);
 
                 
-            } else if (best_match.internal_score < second_best_full_length_mismatches) {
+            } else if (best_match.internal_score < second_best_alignment.internal_score) {
                 //If this is better than the second best match
 
-                if (second_best_full_length_mismatches == std::numeric_limits<uint32_t>::max()) {
-                    //If we only have one alignment
-                    result.push_back(best_match);
-                } else {
-                    //replace the old second best
-                    result[1] = best_match;
-                }
-
-                second_best_full_length_mismatches = best_match.internal_score;
+                second_best_alignment = std::move(best_match);
                 //Make sure we stop looking at extensions worse than the second best
-                full_length_mismatches = second_best_full_length_mismatches;
+                full_length_mismatches = second_best_alignment.internal_score;
 
             }
-            if (second_best_full_length_mismatches == 0) {
+            if (full_length_mismatches == 0) {
                 //If we've found two full length alignments with no mismatches
                 break;
             }
@@ -451,6 +430,12 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             //If we haven't found full length alignments, keep the best extensions
             result.push_back(best_match);
         }
+    }
+
+    if (!best_alignment.empty()) {
+        result.clear();
+        result.push_back(best_alignment);
+        result.push_back(second_best_alignment);
     }
 
     // Remove duplicates, find mismatches, and trim mismatches to maximize score.
