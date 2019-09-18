@@ -62,7 +62,6 @@ var searchData=
   ['inversion_5ffilter',['inversion_filter',['../classvg_1_1Filter.html#a5503147c786a4d9bfb18fc081630b5f6',1,'vg::Filter']]],
   ['is_5facyclic',['is_acyclic',['../classvg_1_1VG.html#a71388f637b255bf16a940e735a12aacd',1,'vg::VG']]],
   ['is_5fall_5fn',['is_all_n',['../namespacevg.html#abe6f7955b97d8537da2133a47f37f462',1,'vg']]],
-  ['is_5falt_5fpath',['is_alt_path',['../namespacevg.html#a4e701675f6d1b67522349bf5b7651bb0',1,'vg']]],
   ['is_5fancestor_5fnext',['is_ancestor_next',['../classvg_1_1VG.html#a65e98e20589f3f63de75f4dc63526562',1,'vg::VG::is_ancestor_next(id_t node_id, id_t candidate_id)'],['../classvg_1_1VG.html#a837620e82b388581d91300a53c099574',1,'vg::VG::is_ancestor_next(id_t node_id, id_t candidate_id, set&lt; id_t &gt; &amp;seen, size_t steps=64)']]],
   ['is_5fancestor_5fprev',['is_ancestor_prev',['../classvg_1_1VG.html#a7237af28b6fd3159ce048ec66679935c',1,'vg::VG::is_ancestor_prev(id_t node_id, id_t candidate_id)'],['../classvg_1_1VG.html#aec9353f02748091b04439a26fda57f9b',1,'vg::VG::is_ancestor_prev(id_t node_id, id_t candidate_id, set&lt; id_t &gt; &amp;seen, size_t steps=64)']]],
   ['is_5fchild',['is_child',['../classvg_1_1NetGraph.html#a25dbff454e5c9aa081c354f05523a512',1,'vg::NetGraph']]],

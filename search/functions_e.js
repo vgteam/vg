@@ -32,7 +32,7 @@ var searchData=
   ['node_5fstarts_5fin_5fpath',['node_starts_in_path',['../classvg_1_1VG.html#a093f4e4dffe0d03806df32edc33cdb9a',1,'vg::VG::node_starts_in_path(const list&lt; NodeTraversal &gt; &amp;path, map&lt; Node *, int &gt; &amp;node_start)'],['../classvg_1_1VG.html#ac27c591957478a17605c2453749f7d20',1,'vg::VG::node_starts_in_path(list&lt; NodeTraversal &gt; &amp;path, map&lt; NodeTraversal *, int &gt; &amp;node_start)']]],
   ['node_5fvector_5foffset',['node_vector_offset',['../classhandlegraph_1_1VectorizableHandleGraph.html#a8666da4a9f55361893544fbb4eff76ce',1,'handlegraph::VectorizableHandleGraph']]],
   ['nodeclusters',['NodeClusters',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#a8ce25e6b28c702b1c6fa3838c42f5ea2',1,'vg::SnarlSeedClusterer::NodeClusters']]],
-  ['nodelength',['nodelength',['../structhaplo_1_1gbwt__thread__t.html#afcc24f78011916b909ac56b22c8f82c3',1,'haplo::gbwt_thread_t::nodelength()'],['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#ab296e97698e39ee2338e790e8ddbffff',1,'vg::MinimumDistanceIndex::SnarlIndex::nodeLength()']]],
+  ['nodelength',['nodeLength',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#ab296e97698e39ee2338e790e8ddbffff',1,'vg::MinimumDistanceIndex::SnarlIndex::nodeLength()'],['../structhaplo_1_1gbwt__thread__t.html#afcc24f78011916b909ac56b22c8f82c3',1,'haplo::gbwt_thread_t::nodelength()']]],
   ['nodes_5fare_5fperfect_5fpath_5fneighbors',['nodes_are_perfect_path_neighbors',['../classvg_1_1VG.html#a9bf8c0e391c1a6c027ed26b991d8cad0',1,'vg::VG']]],
   ['nodes_5fbefore_5foffset',['nodes_before_offset',['../classvg_1_1Viz.html#aa315096c3932839c5cf98b28da52b078',1,'vg::Viz']]],
   ['nodes_5fnext',['nodes_next',['../classvg_1_1VG.html#a0b084d958fd8069839884dc3a01ed745',1,'vg::VG::nodes_next(NodeTraversal n, vector&lt; NodeTraversal &gt; &amp;nodes)'],['../classvg_1_1VG.html#a62f1bb7fa27d4d4312017b113aab099a',1,'vg::VG::nodes_next(NodeTraversal n)']]],
@@ -50,5 +50,6 @@ var searchData=
   ['normalize',['normalize',['../classvg_1_1VG.html#a217f8b5abd62bcdb256cf15926c9fe5c',1,'vg::VG']]],
   ['normalize_5falignment',['normalize_alignment',['../namespacevg.html#afa0c54720b2b1007ae540dc70b5b8024',1,'vg']]],
   ['nullmaskinggraph',['NullMaskingGraph',['../classvg_1_1NullMaskingGraph.html#a2d348fa5aa3bd9216fc4133d320575ef',1,'vg::NullMaskingGraph::NullMaskingGraph(const HandleGraph *graph)'],['../classvg_1_1NullMaskingGraph.html#addeb1ab4002f516c686a5af59018597f',1,'vg::NullMaskingGraph::NullMaskingGraph()=default']]],
-  ['num_5fhaplotypes',['num_haplotypes',['../classvg_1_1PhasedGenome.html#af17e5f99a07028d41f94885480cdddf7',1,'vg::PhasedGenome']]]
+  ['num_5fhaplotypes',['num_haplotypes',['../classvg_1_1PhasedGenome.html#af17e5f99a07028d41f94885480cdddf7',1,'vg::PhasedGenome']]],
+  ['num_5fsnarls',['num_snarls',['../classvg_1_1SnarlManager.html#a727734d76e892a3fc0d421c6382349a1',1,'vg::SnarlManager']]]
 ];

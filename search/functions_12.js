@@ -6,7 +6,7 @@ var searchData=
   ['random_5fread',['random_read',['../classvg_1_1VG.html#aec84f7813f59a16b2d0c1bd72904ae5b',1,'vg::VG']]],
   ['random_5fsequence',['random_sequence',['../namespacevg.html#ab80fc8c8920c7ec53cfee81dc2fce852',1,'vg']]],
   ['random_5fsequence_5fgen',['random_sequence_gen',['../namespacevg.html#a4012afd56ccb35387121c71c2119e244',1,'vg']]],
-  ['range',['range',['../classvg_1_1io_1_1MessageIterator.html#af88ac04ab7cbb8245a86d21a71a5dd76',1,'vg::io::MessageIterator::range()'],['../classvg_1_1io_1_1ProtobufIterator.html#acf75c4c7a16e406f9bb860e3f0c7dae9',1,'vg::io::ProtobufIterator::range()'],['../structvg_1_1Range.html#a08e1ef06cddbc0efcb0660d34cf3bc5d',1,'vg::Range::Range()'],['../structvg_1_1Range.html#a4becc4a909e9ff23a62318da327af7ff',1,'vg::Range::Range(const Number &amp;val)'],['../structvg_1_1Range.html#a10c624eaeb6a83b450c9d24fdbaa8555',1,'vg::Range::Range(const Range &amp;other)'],['../structvg_1_1Range.html#a7bf784228c365aa72150fec926de77ae',1,'vg::Range::Range(Range &amp;&amp;other)']]],
+  ['range',['Range',['../structvg_1_1Range.html#a08e1ef06cddbc0efcb0660d34cf3bc5d',1,'vg::Range::Range()'],['../structvg_1_1Range.html#a4becc4a909e9ff23a62318da327af7ff',1,'vg::Range::Range(const Number &amp;val)'],['../structvg_1_1Range.html#a10c624eaeb6a83b450c9d24fdbaa8555',1,'vg::Range::Range(const Range &amp;other)'],['../structvg_1_1Range.html#a7bf784228c365aa72150fec926de77ae',1,'vg::Range::Range(Range &amp;&amp;other)'],['../classvg_1_1io_1_1MessageIterator.html#af88ac04ab7cbb8245a86d21a71a5dd76',1,'vg::io::MessageIterator::range()'],['../classvg_1_1io_1_1ProtobufIterator.html#acf75c4c7a16e406f9bb860e3f0c7dae9',1,'vg::io::ProtobufIterator::range()']]],
   ['range_5fvector',['range_vector',['../namespacevg.html#a931d9271de88fc786030fdd0ab4bf534',1,'vg::range_vector(size_t begin, size_t end)'],['../namespacevg.html#a39adca1737de5d28d007d95b809deb7f',1,'vg::range_vector(size_t end)']]],
   ['rank_5fin_5fparent',['rank_in_parent',['../structvg_1_1SnarlSeedClusterer_1_1NetgraphNode.html#a8764931229567f2ffbf14988d02ff17f',1,'vg::SnarlSeedClusterer::NetgraphNode']]],
   ['rarevariantsimplifier',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html#a08cf82d7c40db195176b9bf177a50e32',1,'vg::RareVariantSimplifier']]],
@@ -121,6 +121,7 @@ var searchData=
   ['rrmemo',['RRMemo',['../structhaplo_1_1haploMath_1_1RRMemo.html#a3958ec23ff1fbaac901d909c5f134f27',1,'haplo::haploMath::RRMemo']]],
   ['run',['run',['../classvg_1_1Genotyper.html#af760be5c99e086b2c41510b3d3a47e5a',1,'vg::Genotyper']]],
   ['run_5fbenchmark',['run_benchmark',['../namespacevg.html#ac101c453ab2076d74f0324f73d174695',1,'vg::run_benchmark(const string &amp;name, size_t iterations, const function&lt; void(void)&gt; &amp;under_test)'],['../namespacevg.html#added44ff3bb1c0ce606563a40923c513',1,'vg::run_benchmark(const string &amp;name, size_t iterations, const function&lt; void(void)&gt; &amp;setup, const function&lt; void(void)&gt; &amp;under_test)']]],
+  ['run_5fgenotype',['run_genotype',['../classvg_1_1MCMCGenotyper.html#a90154a536e4ee9a3ccb0d410e1feab6c',1,'vg::MCMCGenotyper']]],
   ['run_5fmultipath_5fdp',['run_multipath_dp',['../namespacevg.html#af0b28c682c013f735434f20e4d97ba1b',1,'vg']]],
   ['run_5funit_5ftests',['run_unit_tests',['../namespacevg_1_1unittest.html#ae154dafb36ee57ef618704a37a11fb0c',1,'vg::unittest']]]
 ];

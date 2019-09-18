@@ -31,6 +31,7 @@ var searchData=
   ['discard_5fto_5fbreakpoint',['discard_to_breakpoint',['../classvg_1_1io_1_1StreamMultiplexer.html#a6107af83d4ce5347df10459d0f57e399',1,'vg::io::StreamMultiplexer']]],
   ['discordance_5fscore',['discordance_score',['../classvg_1_1SRPE.html#ab563ec3e5f3aa23f29e897cbdfb4b143',1,'vg::SRPE']]],
   ['discrete_5fdistribution',['discrete_distribution',['../classvg_1_1discrete__distribution.html#af776d23ad1fa743df24837bd31e32665',1,'vg::discrete_distribution::discrete_distribution(InputIt first, InputIt last)'],['../classvg_1_1discrete__distribution.html#a038d37d1df2526016be0119d7d5feea6',1,'vg::discrete_distribution::discrete_distribution(initializer_list&lt; double &gt; weights={1})']]],
+  ['discrete_5funiform_5fsample',['discrete_uniform_sample',['../classvg_1_1SnarlManager.html#aff971d38975386cfc73d44560027110a',1,'vg::SnarlManager']]],
   ['disjoint',['disjoint',['../structhaplo_1_1int__itvl__t.html#ae0a7468e2fc96d6a68c0d6226344a38b',1,'haplo::int_itvl_t']]],
   ['disjoint_5fsubgraphs',['disjoint_subgraphs',['../classvg_1_1VG.html#af31e90fe77a1d30244011dd8dbbf5f25',1,'vg::VG']]],
   ['display',['display',['../classvg_1_1MEMChainModel.html#ab02e84fb2d25c2ff7f19941b78e458ba',1,'vg::MEMChainModel::display()'],['../classvg_1_1AlignmentChainModel.html#a142994d7c623a99007811acb547e6112',1,'vg::AlignmentChainModel::display()']]],
