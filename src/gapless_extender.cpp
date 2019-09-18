@@ -432,10 +432,12 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
         }
     }
 
-    if (!best_alignment.empty()) {
+    if (full_length_found) {
         result.clear();
         result.push_back(best_alignment);
-        result.push_back(second_best_alignment);
+        if (!second_best_alignment.empty()) {
+            result.push_back(second_best_alignment);
+        }
     }
 
     // Remove duplicates, find mismatches, and trim mismatches to maximize score.
