@@ -13,9 +13,19 @@ _Variation graphs_ provide a succinct encoding of the sequences of many genomes.
 * _edges_, which connect two nodes via either of their respective ends
 * _paths_, describe genomes, sequence alignments, and annotations (such as gene models and transcripts) as walks through nodes connected by edges
 
-This model is similar to a number of sequence graphs that have been used in assembly and multiple sequence alignment. Paths provide coordinate systems relative to genomes encoded in the graph, allowing stable mappings to be produced even if the structure of the graph is changed.
+This model is similar to sequence graphs that have been used in assembly and multiple sequence alignment.
+
+Paths provide coordinate systems relative to genomes encoded in the graph, allowing stable mappings to be produced even if the structure of the graph is changed.
+The variation graph model makes this embedding explicit and essential.
+Tools in vg maintain paths as immutable during transformations of the graph.
+They use paths to project graph-relative data into reference-relative coordinate spaces.
+Paths provide stable coordinates for graphs built in different ways from the same input sequences.
 
 ![example variation graph](https://raw.githubusercontent.com/vgteam/vg/master/doc/figures/smallgraph.png)
+
+## Support 
+
+We maintain a support forum on biostars: https://www.biostars.org/t/vg/
 
 ## Installation
 
