@@ -33,7 +33,7 @@ namespace vg {
         }
     }
     
-    PhasedGenome::PhasedGenome(SnarlManager& snarl_manager) : snarl_manager(snarl_manager) {
+    PhasedGenome::PhasedGenome(const SnarlManager& snarl_manager) : snarl_manager(&snarl_manager) {
         // nothing to do
     }
     
@@ -45,13 +45,36 @@ namespace vg {
         
     }
     
+    PhasedGenome::PhasedGenome(PhasedGenome& rhs){
+        
+        *this = rhs;
+    }
+    PhasedGenome& PhasedGenome::operator = (PhasedGenome& phased_genome){
+        this->~PhasedGenome();
+        
+        snarl_manager = phased_genome.snarl_manager;
+
+        haplotypes.clear();
+        
+        for(int i = 0; i < phased_genome.haplotypes.size(); i++ ){
+            // build haplotypes    
+            Haplotype* new_haplo = new Haplotype(phased_genome.begin(i), phased_genome.end(i)); 
+            haplotypes.push_back(new_haplo);
+        }
+                     
+        // build indices on the new object 
+        build_indices();
+        
+        return phased_genome;
+    } 
+    
     void PhasedGenome::build_indices() {
         
 #ifdef debug_phased_genome
         cerr << "[PhasedGenome::build_indices]: building node id to site index" << endl;
 #endif
         // construct the start and end of site indices
-        for (const Snarl* snarl : snarl_manager.top_level_snarls()) {
+        for (const Snarl* snarl : snarl_manager->top_level_snarls()) {
             build_site_indices_internal(snarl);
         }
         
@@ -86,7 +109,7 @@ namespace vg {
                     // are we leaving or entering the site?
                     if (site_start_sides.count(site)) {
 #ifdef debug_phased_genome
-                        cerr << "[PhasedGenome::build_indices]: leaving at start of site " << site->start.node->id() << "->" << site->end.node->id() << endl;
+                        cerr << "[PhasedGenome::build_indices]: leaving at start of site " << site->start().node_id() << "->" << site->end().node_id() << endl;
 #endif
                         // leaving: put the site in the index in the orientation of haplotype travesal
                         HaplotypeNode* other_side_node = site_start_sides[site];
@@ -95,7 +118,7 @@ namespace vg {
                     }
                     else {
 #ifdef debug_phased_genome
-                        cerr << "[PhasedGenome::build_indices]: entering at start of site " << site->start.node->id() << "->" << site->end.node->id() << endl;
+                        cerr << "[PhasedGenome::build_indices]: entering at start of site " << site->start().node_id() << "->" << site->end().node_id() << endl;
 #endif
                         // entering: mark the node in the haplotype path where we entered
                         site_end_sides[site] = haplo_node;
@@ -107,7 +130,7 @@ namespace vg {
                     // are we leaving or entering the site?
                     if (site_end_sides.count(site)) {
 #ifdef debug_phased_genome
-                        cerr << "[PhasedGenome::build_indices]: leaving at end of site " << site->start.node->id() << "->" << site->end.node->id() << endl;
+                        cerr << "[PhasedGenome::build_indices]: leaving at end of site " << site->start().node_id() << "->" << site->end().node_id() << endl;
 #endif
                         // leaving: put the site in the index in the orientation of haplotype travesal
                         HaplotypeNode* other_side_node = site_end_sides[site];
@@ -116,7 +139,7 @@ namespace vg {
                     }
                     else {
 #ifdef debug_phased_genome
-                        cerr << "[PhasedGenome::build_indices]: entering at end of site " << site->start.node->id() << "->" << site->end.node->id() << endl;
+                        cerr << "[PhasedGenome::build_indices]: entering at end of site " << site->start().node_id() << "->" << site->end().node_id() << endl;
 #endif
                         // entering: mark the node in the haplotype path where we entered
                         site_start_sides[site] = haplo_node;
@@ -140,7 +163,7 @@ namespace vg {
         site_ends[snarl->end().node_id()] = snarl;
         
         // recurse through child sites
-        for (const Snarl* subsnarl : snarl_manager.children_of(snarl)) {
+        for (const Snarl* subsnarl : snarl_manager->children_of(snarl)) {
             build_site_indices_internal(subsnarl);
         }
     }
@@ -182,7 +205,7 @@ namespace vg {
         }
         
         // update index for child sites
-        for (const Snarl* child_site : snarl_manager.children_of(&site)) {
+        for (const Snarl* child_site : snarl_manager->children_of(&site)) {
             swap_label(*child_site, haplotype_1, haplotype_2);
         }
     }
@@ -197,6 +220,47 @@ namespace vg {
     
     PhasedGenome::iterator PhasedGenome::end(int which_haplotype) {
         return iterator(0, which_haplotype, nullptr);
+    }
+
+    vector<id_t> PhasedGenome::get_haplotypes_with_snarl(const Snarl* snarl_to_find){
+        
+        // a vector that will hold the haplotype IDs of haplotypes found to traverse through the snarl
+        vector<id_t> matched_haplotype_ids;
+
+        // interate through the vector of haplotype pointers and do a lookup for snarl_to_find
+        // if found then we add it to the list of matched haplotypes 
+
+        id_t id = 0;
+        for (Haplotype* haplotype : haplotypes){
+            bool found = haplotype->sites.count(snarl_to_find);
+            if(found){
+                // add the ID to the haplotype to the vector 
+                matched_haplotype_ids.push_back(id);
+            }
+            id++;
+        }
+
+        return matched_haplotype_ids;
+
+    }
+
+    void PhasedGenome::print_phased_genome(){
+         // output number of haplotypes contained in phased genome 
+        size_t haplo_num = num_haplotypes();
+        cerr << "The haplotype num is: " << haplo_num << endl;
+
+        // iterate through the genome and all its haplotypes
+        for(int i = 0; i < haplo_num; i++){
+            cout << "Haplotype ID is: " << i <<endl;
+            // iterate through each node in the haplotype
+            for(auto iter = begin(i); iter != end(i); iter++ ){
+                //cerr << "The node is: "<< (*iter).node <<endl;
+                cerr << "The sequence is: " << (*iter).node->sequence() <<endl;
+            }   
+            
+        }
+        
+
     }
     
     vector<NodeTraversal> PhasedGenome::get_allele(const Snarl& site, int which_haplotype) {
@@ -277,12 +341,13 @@ namespace vg {
 #endif
         
         // update index for child sites
-        for (const Snarl* child_site : snarl_manager.children_of(&site)) {
+        for (const Snarl* child_site : snarl_manager->children_of(&site)) {
             swap_label(*child_site, haplo_1, haplo_2);
         }
     }
     
     int32_t PhasedGenome::optimal_score_on_genome(const MultipathAlignment& multipath_aln, VG& graph) {
+        
         
         // must have identified start subpaths before computing optimal score   
         assert(multipath_aln.start_size() > 0);
@@ -366,10 +431,12 @@ namespace vg {
                     if (position.node_id() != subpath_node->node_traversal.node->id()
                         || ((position.is_reverse() == subpath_node->node_traversal.backward) != oriented_forward)) {
                         subpath_follows_path = false;
-                        break;
+                        
 #ifdef debug_phased_genome
                         cerr << "[PhasedGenome::optimal_score_on_genome]: subpath " << i << " is inconsistent with haplotype" << endl;
-#endif
+                        
+#endif              
+                    break;
                     }
                 }
                 
@@ -377,7 +444,7 @@ namespace vg {
                 if (subpath_follows_path) {
 #ifdef debug_phased_genome
                     cerr << "[PhasedGenome::optimal_score_on_genome]: subpath " << i << " is consistent with haplotype" << endl;
-#endif
+#endif              
                     int32_t extended_prefix_score = subpath_prefix_score[i] + subpath.score();
                     if (subpath.next_size() == 0) {
 #ifdef debug_phased_genome
@@ -395,7 +462,7 @@ namespace vg {
 #endif
                         // edge case: check if subpath_node was improperly incremented from a mapping that ended in the
                         // middle of a node
-                        Position end_pos = last_path_position(subpath.path());
+                        Position end_pos = make_position(final_position(subpath.path()));
                         if (end_pos.offset() != graph.get_node(end_pos.node_id())->sequence().length()) {
                             move_backward(subpath_node);
                         }
