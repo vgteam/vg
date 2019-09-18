@@ -393,27 +393,21 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
         }
 
         // Handle the best match.
-        if (best_match_is_full_length && !full_length_found) {
-            //If this is the first time we've found a full length alignment
-            result.clear();
-            best_alignment = std::move(best_match);
+        if (best_match_is_full_length && 
+             (!full_length_found || best_match.state != best_alignment.state)) { 
+            //This is a full length alignment and we either haven't found any 
+            //others or this is different from the best one we found already
+            //Only keep the best and second best full length alignments
+
             full_length_found = true;
-
-        } else if (best_match_is_full_length && full_length_found &&
-                 (best_match.path.front() != best_alignment.path.front() ||
-                  best_match.path.back() != best_alignment.path.back())) { 
-            //If we're looking for full length alignments and this is one that
-            //is different from the best one we found already
-            //
-            //Keep only the best two full length matches, results[0] is the best
-
-            if (best_match.internal_score < best_alignment.internal_score){
+            if (best_alignment.empty() || best_match.internal_score < best_alignment.internal_score){
                 //If this is the best match so far
                 second_best_alignment = std::move(best_alignment);
                 best_alignment = std::move(best_match);
 
                 
-            } else if (best_match.internal_score < second_best_alignment.internal_score) {
+            } else if (second_best_alignment.empty() ||
+                       best_match.internal_score < second_best_alignment.internal_score) {
                 //If this is better than the second best match
 
                 second_best_alignment = std::move(best_match);
