@@ -11,9 +11,6 @@ namespace vg {
 
 using namespace std;
 
-// Number of transcripts buffered for each thread
-static const int32_t num_thread_transcripts = 100;
-
 #define transcriptome_debug
 
 
@@ -37,8 +34,11 @@ Transcriptome::~Transcriptome() {
 
 void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBWT & haplotype_index) {
 
+#ifdef transcriptome_debug
+    cerr << "DEBUG start: " << gcsa::readTimer() << ", " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif
+
     vector<Transcript> transcripts;
-    transcripts.reserve(num_thread_transcripts * num_threads);
 
     // Get mean length of nodes in the graph.
     const float mean_node_length = graph->length() / static_cast<double>(graph->size());
@@ -78,11 +78,27 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
 
         } else if (chrom_path_index.first != chrom) {
 
+            if (!transcripts.empty()) {
+
+                // Construct transcript paths from transcripts in buffer.
+                project_transcripts(transcripts, haplotype_index, mean_node_length);
+                transcripts.clear();
+            }
+
+#ifdef transcriptome_debug
+    double time_edit_1 = gcsa::readTimer();
+    cerr << "DEBUG index start: " << time_edit_1 << ", " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif
             delete chrom_path_index.second;
             chrom_path_index.first = chrom;
 
             // Construct path index for chromosome/contig.
             chrom_path_index.second = new PathIndex(*graph, chrom);
+
+#ifdef transcriptome_debug
+    double time_edit_2 = gcsa::readTimer();
+    cerr << "DEBUG index end: " << time_edit_2 << ", " << time_edit_2 - time_edit_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif 
         }
 
         assert(chrom_path_index.second);
@@ -143,15 +159,6 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
 
             // Reorder reversed order exons.
             reorder_exons(&transcripts.back());
-
-            // Is transcript buffer full. 
-            if (transcripts.size() == num_thread_transcripts * num_threads) {
-
-                // Construct transcript paths from transcripts in buffer.
-                project_transcripts(transcripts, haplotype_index, mean_node_length);
-                transcripts.clear();
-            }
-
             transcripts.emplace_back(Transcript(transcript_id, is_reverse, chrom));
         }
 
@@ -163,10 +170,6 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
 
     // Construct transcript paths from transcripts in buffer.
     project_transcripts(transcripts, haplotype_index, mean_node_length);
-
-    // Edit graph with transcript paths and update path traversals
-    // to match the augmented graph. 
-    add_junctions_to_graph();
 
     delete chrom_path_index.second;
 }
@@ -228,10 +231,18 @@ void Transcriptome::project_transcripts(const vector<Transcript> & transcripts, 
     vector<thread> projection_threads;
     projection_threads.reserve(num_threads);
 
+#ifdef transcriptome_debug
+    double time_edit_1 = gcsa::readTimer();
+    cerr << "DEBUG project start: " << time_edit_1 << ", " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif
+
+    list<TranscriptPath> transcript_paths;
+    mutex transcript_paths_mutex;
+
     // Spawn projection threads.
     for (int32_t thread_idx = 0; thread_idx < num_threads; thread_idx++) {
 
-        projection_threads.push_back(thread(&Transcriptome::project_transcripts_callback, this, thread_idx, ref(transcripts), ref(haplotype_index), mean_node_length));
+        projection_threads.push_back(thread(&Transcriptome::project_transcripts_callback, this, &transcript_paths, &transcript_paths_mutex, thread_idx, ref(transcripts), ref(haplotype_index), mean_node_length));
     }
 
     // Join projection threads.   
@@ -239,9 +250,57 @@ void Transcriptome::project_transcripts(const vector<Transcript> & transcripts, 
         
         thread.join();
     }
+
+#ifdef transcriptome_debug
+    double time_edit_2 = gcsa::readTimer();
+    cerr << "DEBUG add start: " << time_edit_2 << ", " << time_edit_2 - time_edit_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif    
+
+    // Move paths to data structure compatible with edit.
+    vector<Path> paths;
+    paths.reserve(transcript_paths.size());
+
+    for (auto & transcript: transcript_paths) {
+
+        paths.emplace_back(move(transcript.path));
+    }
+
+#ifdef transcriptome_debug
+    double time_edit_3 = gcsa::readTimer();
+    cerr << "DEBUG edit start: " << time_edit_3 << ", " << time_edit_3 - time_edit_2 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif
+
+    // Edit graph with transcript paths and update transcript path
+    // traversals to match the augmented graph. 
+    graph->edit(paths, nullptr, false, true, true);
+
+#ifdef transcriptome_debug
+    double time_edit_4 = gcsa::readTimer();
+    cerr << "DEBUG edit end: " << time_edit_4 << ", " << time_edit_4 - time_edit_3 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif
+
+    assert(transcript_paths.size() == paths.size());
+
+    auto transcript_paths_it = transcript_paths.begin();
+    auto paths_it = paths.begin();
+
+    while (transcript_paths_it != transcript_paths.end()) {
+
+        transcript_paths_it->path = move(*paths_it);
+
+        ++transcript_paths_it;
+        ++paths_it;
+    } 
+
+    _transcriptome.splice(_transcriptome.end(), transcript_paths);
+
+#ifdef transcriptome_debug
+    double time_edit_5 = gcsa::readTimer();
+    cerr << "DEBUG edit end: " << time_edit_5 << ", " << time_edit_5 - time_edit_4 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif
 }
 
-void Transcriptome::project_transcripts_callback(const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length) {
+void Transcriptome::project_transcripts_callback(list<TranscriptPath> * transcript_paths, mutex * transcript_paths_mutex, const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length) const {
 
     list<TranscriptPath> thread_transcript_paths;
 
@@ -289,25 +348,9 @@ void Transcriptome::project_transcripts_callback(const int32_t thread_idx, const
         transcripts_idx += num_threads;
     }
 
-    lock_guard<mutex> trancriptome_lock(trancriptome_mutex);
-
-#ifdef transcriptome_debug
-    double time_edit_1 = gcsa::readTimer();
-    cerr << "DEBUG: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
-#endif
-
     // Add transcript paths to transcriptome.
-    _transcriptome.reserve(_transcriptome.size() + thread_transcript_paths.size());
-    for (auto & transcript_path: thread_transcript_paths) {
-
-        _transcriptome.emplace_back(move(transcript_path));
-    }
-
-#ifdef transcriptome_debug
-    double time_edit_2 = gcsa::readTimer();
-    cerr << "DEBUG: " << time_edit_2 - time_edit_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
-#endif
-
+    lock_guard<mutex> trancriptome_lock(*transcript_paths_mutex);
+    transcript_paths->splice(transcript_paths->end(), thread_transcript_paths);
 }
 
 list<TranscriptPath> Transcriptome::project_transcript_gbwt(const Transcript & cur_transcript, const gbwt::GBWT & haplotype_index, const float mean_node_length) const {
@@ -577,7 +620,7 @@ vector<pair<exon_nodes_t, thread_ids_t> > Transcriptome::get_exon_haplotypes(con
     return exon_haplotypes;
 }
 
-list<TranscriptPath> Transcriptome::project_transcript_embedded(const Transcript & cur_transcript) {
+list<TranscriptPath> Transcriptome::project_transcript_embedded(const Transcript & cur_transcript) const {
 
     vector<map<int64_t, set<mapping_t*> > *> exon_start_node_mappings;
     vector<map<int64_t, set<mapping_t*> > *> exon_end_node_mappings;
@@ -766,7 +809,7 @@ void Transcriptome::collapse_identical_paths(list<TranscriptPath> * cur_transcri
     }
 }
 
-const vector<TranscriptPath> & Transcriptome::transcript_paths() const {
+const list<TranscriptPath> & Transcriptome::transcript_paths() const {
 
     return _transcriptome;
 }
@@ -779,46 +822,6 @@ int32_t Transcriptome::size() const {
 const VG & Transcriptome::splice_graph() const {
 
     return *graph;
-}
-
-void Transcriptome::add_junctions_to_graph() {
-
-#ifdef transcriptome_debug
-    double time_edit_1 = gcsa::readTimer();
-    cerr << "DEBUG: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
-#endif
-
-    // Move paths to data structure compatible with edit.
-    vector<Path> paths;
-    paths.reserve(_transcriptome.size());
-
-    for (auto & transcript: _transcriptome) {
-
-        paths.emplace_back(move(transcript.path));
-    }
-
-#ifdef transcriptome_debug
-    double time_edit_2 = gcsa::readTimer();
-    cerr << "DEBUG: " << time_edit_2 - time_edit_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
-#endif
-
-    // Edit graph with transcript paths and update transcript path
-    // traversals to match the augmented graph. 
-    graph->edit(paths, nullptr, false, true, true);
-
-#ifdef transcriptome_debug
-    double time_edit_3 = gcsa::readTimer();
-    cerr << "DEBUG: " << time_edit_3 - time_edit_2 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
-#endif
-
-    for (size_t i = 0; i < paths.size(); ++i) {
-
-        _transcriptome.at(i).path = move(paths.at(i));
-    }
-
-#ifdef transcriptome_debug
-    cerr << "DEBUG: " << gcsa::readTimer() - time_edit_3 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
-#endif   
 }
 
 void Transcriptome::remove_non_transcribed(const bool new_reference_paths) {
