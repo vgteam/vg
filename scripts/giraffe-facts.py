@@ -13,10 +13,18 @@ import sys
 import time
 import subprocess
 import collections
+import io
 import itertools
 import json
 import random
 import math
+
+# Force output to UTF-8. Eventually we can use reconfigure() if we drop 3.6
+# and earlier.
+# We need to do this before these streams get picked as any argument default
+# values.
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf8')
 
 # We depend on our local histogram.py
 import histogram
@@ -843,7 +851,7 @@ def main(args):
     "args" specifies the program arguments, with args[0] being the executable
     name. The return value should be used as the program's exit code.
     """
-    
+   
     print(random.choice(FACTS), file = sys.stderr)
     
     options = parse_args(args) # This holds the nicely-parsed options object
