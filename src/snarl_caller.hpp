@@ -112,6 +112,12 @@ public:
     /// Get the total length of all nodes in the traversal
     virtual vector<int> get_traversal_sizes(const vector<SnarlTraversal>& traversals) const;
 
+    /// Get the average traversal support thresholdek
+    virtual size_t get_average_traversal_support_switch_threshold() const;
+
+    /// Get the minimum total support for call
+    virtual int get_min_total_support_for_call() const;
+
 protected:
 
     /// Get the best support out of a list of supports, ignoring skips

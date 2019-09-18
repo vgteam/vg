@@ -293,8 +293,8 @@ LegacyCaller::LegacyCaller(const PathPositionHandleGraph& graph,
                                                              max_search_depth,
                                                              max_search_width,
                                                              max_bubble_paths,
-                                                             min_total_support_for_call,
-                                                             min_total_support_for_call,
+                                                             0,
+                                                             0,
                                                              get_path_index,
                                                              [&](id_t id) { return snarl_caller.get_min_node_support(id);},
                                                              [&](edge_t edge) { return snarl_caller.get_edge_support(edge);});
@@ -336,12 +336,17 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         // our graph isn't in VG format.  we are using a (hopefully temporary) workaround
         // of converting the subgraph into VG.
         pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(&snarl, graph, true);
+        size_t total_snarl_length = 0;
         for (auto node_id : contents.first) {
-            vg_graph.create_handle(graph.get_sequence(graph.get_handle(node_id)), node_id);
+            handle_t new_handle = vg_graph.create_handle(graph.get_sequence(graph.get_handle(node_id)), node_id);
+            if (node_id != snarl.start().node_id() && node_id != snarl.end().node_id()) {
+                total_snarl_length += vg_graph.get_length(new_handle);
+            }
         }
         for (auto edge : contents.second) {
-          vg_graph.create_edge(vg_graph.get_handle(graph.get_id(edge.first), vg_graph.get_is_reverse(edge.first)),
-                               vg_graph.get_handle(graph.get_id(edge.second), vg_graph.get_is_reverse(edge.second)));
+            vg_graph.create_edge(vg_graph.get_handle(graph.get_id(edge.first), vg_graph.get_is_reverse(edge.first)),
+                                 vg_graph.get_handle(graph.get_id(edge.second), vg_graph.get_is_reverse(edge.second)));
+            total_snarl_length += 1;
         }
         // add the paths to the subgraph
         algorithms::expand_context_with_paths(&graph, &vg_graph, 1);
@@ -356,12 +361,17 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         get_path_index = [&](const Snarl& site) -> PathIndex* {
             return find_index(site, site_path_indexes).second;
         };
+        // determine the support threshold for the traversal finder.  if we're using average
+        // support, then we don't use any (set to 0), other wise, use the minimum support for a call
+        SupportBasedSnarlCaller& support_caller = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller);
+        size_t threshold = support_caller.get_average_traversal_support_switch_threshold();
+        double support_cutoff = total_snarl_length <= threshold ? support_caller.get_min_total_support_for_call() : 0;
         rep_trav_finder = new RepresentativeTraversalFinder(vg_graph, snarl_manager,
                                                             max_search_depth,
                                                             max_search_width,
                                                             max_bubble_paths,
-                                                            min_total_support_for_call,
-                                                            min_total_support_for_call,
+                                                            support_cutoff,
+                                                            support_cutoff,
                                                             get_path_index,
                                                             [&](id_t id) { return support_caller.get_min_node_support(id);},
                                                             // note: because our traversal finder and support caller have
