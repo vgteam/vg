@@ -109,7 +109,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // of the selected minimizers is not high enough.
         size_t hits = minimizer_index.count(minimizers[minimizer_num]);
         
-        if ( hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
+        if (hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
             // Locate the hits.
             for (auto& hit : minimizer_index.find(minimizers[minimizer_num])) {
                 // Reverse the hits for a reverse minimizer
@@ -132,7 +132,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         } else if (hits <= hard_hit_cap) {
             // Passed hard hit cap but failed score fraction/normal hit cap
             rejected_count++;
-
             if (track_provenance) {
                 funnel.pass("hard-hit-cap", minimizer_num);
                 funnel.fail("hit-cap||score-fraction", minimizer_num, (selected_score + minimizer_score[minimizer_num]) / base_target_score);
@@ -140,9 +139,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         } else {
             // Failed hard hit cap
             rejected_count++;
-
             if (track_provenance) {
-
                 funnel.fail("hard-hit-cap", minimizer_num);
             }
         }
@@ -151,7 +148,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             funnel.processed_input();
         }
     }
-
 
     if (track_provenance && track_correctness) {
         // Tag seeds with correctness based on proximity along paths to the input read's refpos
