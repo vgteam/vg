@@ -133,6 +133,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ad61f74e84cfc2f249ab88b85d54d3e76"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#ad61f74e84cfc2f249ab88b85d54d3e76">get_traversal_sizes</a> (const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals) const</td></tr>
 <tr class="memdesc:ad61f74e84cfc2f249ab88b85d54d3e76"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the total length of all nodes in the traversal.  <a href="#ad61f74e84cfc2f249ab88b85d54d3e76">More...</a><br /></td></tr>
 <tr class="separator:ad61f74e84cfc2f249ab88b85d54d3e76"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a12f3117542a1994dcc54044fafebfd9c"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a12f3117542a1994dcc54044fafebfd9c">get_average_traversal_support_switch_threshold</a> () const</td></tr>
+<tr class="memdesc:a12f3117542a1994dcc54044fafebfd9c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the average traversal support thresholdek.  <a href="#a12f3117542a1994dcc54044fafebfd9c">More...</a><br /></td></tr>
+<tr class="separator:a12f3117542a1994dcc54044fafebfd9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac7e36771ace6cf84d9f4f732cdbc692f"><td class="memItemLeft" align="right" valign="top">virtual int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#ac7e36771ace6cf84d9f4f732cdbc692f">get_min_total_support_for_call</a> () const</td></tr>
+<tr class="memdesc:ac7e36771ace6cf84d9f4f732cdbc692f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the minimum total support for call.  <a href="#ac7e36771ace6cf84d9f4f732cdbc692f">More...</a><br /></td></tr>
+<tr class="separator:ac7e36771ace6cf84d9f4f732cdbc692f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1SnarlCaller"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1SnarlCaller')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1SnarlCaller.html">vg::SnarlCaller</a></td></tr>
 <tr class="memitem:abda61a55c21f1473db0443293144c96d inherit pub_methods_classvg_1_1SnarlCaller"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlCaller.html#abda61a55c21f1473db0443293144c96d">~SnarlCaller</a> ()</td></tr>
 <tr class="separator:abda61a55c21f1473db0443293144c96d inherit pub_methods_classvg_1_1SnarlCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -292,6 +298,33 @@ Protected Attributes</h2></td></tr>
 <p>Get the genotype of a site. </p>
 
 <p>Implements <a class="el" href="classvg_1_1SnarlCaller.html#a1659a26128036d46bacc19407aebdd17">vg::SnarlCaller</a>.</p>
+
+</div>
+</div>
+<a id="a12f3117542a1994dcc54044fafebfd9c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a12f3117542a1994dcc54044fafebfd9c">&#9670;&nbsp;</a></span>get_average_traversal_support_switch_threshold()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::SupportBasedSnarlCaller::get_average_traversal_support_switch_threshold </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get the average traversal support thresholdek. </p>
 
 </div>
 </div>
@@ -585,6 +618,33 @@ Protected Attributes</h2></td></tr>
 <p>Minimum support of a node. </p>
 
 <p>Implemented in <a class="el" href="classvg_1_1PackedSupportSnarlCaller.html#a18f4b8af857c29fed458a8e4c2b27d61">vg::PackedSupportSnarlCaller</a>.</p>
+
+</div>
+</div>
+<a id="ac7e36771ace6cf84d9f4f732cdbc692f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac7e36771ace6cf84d9f4f732cdbc692f">&#9670;&nbsp;</a></span>get_min_total_support_for_call()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::SupportBasedSnarlCaller::get_min_total_support_for_call </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get the minimum total support for call. </p>
 
 </div>
 </div>
