@@ -242,11 +242,15 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
     // Allocate a GBWT record cache.
     gbwt::CachedGBWT cache = this->graph->get_cache();
 
-    // Find either the best extension for each seed or the best full-length alignment
-    // for the entire cluster. If we have found a full-length alignment with
+    // Find either the best extension for each seed or the best two full-length alignments
+    // for the entire cluster. 
+    // TODO: This part isn't entirely true anymore:
+    //If we have found a full-length alignment with
     // at most max_mismatches mismatches, we are no longer interested in extensions with
     // at least that many mismatches.
     bool full_length_found = false;
+    GaplessExtension best_alignment;
+    GaplessExtension second_best_alignment;
     uint32_t full_length_mismatches = std::numeric_limits<uint32_t>::max();
     for (seed_type seed : cluster) {
         GaplessExtension best_match {
@@ -382,22 +386,50 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             else if (best_match < curr) {
                 best_match = std::move(curr);
                 if (best_match.full() && best_match.internal_score <= max_mismatches) {
-                    full_length_found = true;
-                    full_length_mismatches = best_match.internal_score;
                     best_match_is_full_length = true;
                 }
             }
         }
 
         // Handle the best match.
-        if (best_match_is_full_length) {
-            result.clear();
-            result.push_back(best_match);
-            if (best_match.internal_score == 0) {
+        if (best_match_is_full_length && 
+             (!full_length_found || best_match.state != best_alignment.state)) { 
+            //This is a full length alignment and we either haven't found any 
+            //others or this is different from the best one we found already
+            //Only keep the best and second best full length alignments
+
+            full_length_found = true;
+            if (best_alignment.empty() || best_match.internal_score < best_alignment.internal_score){
+                //If this is the best match so far
+                second_best_alignment = std::move(best_alignment);
+                best_alignment = std::move(best_match);
+
+                
+            } else if (second_best_alignment.empty() ||
+                       best_match.internal_score < second_best_alignment.internal_score) {
+                //If this is better than the second best match
+
+                second_best_alignment = std::move(best_match);
+                //Make sure we stop looking at extensions worse than the second best
+                full_length_mismatches = second_best_alignment.internal_score;
+
+            }
+            if (full_length_mismatches == 0) {
+                //If we've found two full length alignments with no mismatches
                 break;
             }
-        } else if (!full_length_found && !best_match.empty()) {
+        } else if (!best_match.empty() && 
+                   !full_length_found && !best_match_is_full_length ) {
+            //If we haven't found full length alignments, keep the best extensions
             result.push_back(best_match);
+        }
+    }
+
+    if (full_length_found) {
+        result.clear();
+        result.push_back(best_alignment);
+        if (!second_best_alignment.empty()) {
+            result.push_back(second_best_alignment);
         }
     }
 

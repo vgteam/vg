@@ -343,7 +343,7 @@ int main_gaffe(int argc, char** argv) {
     string output_basename;
     string report_name;
     // How close should two hits be to be in the same cluster?
-    Range<size_t> distance_limit = 1000;
+    Range<size_t> distance_limit = 200;
     Range<size_t> hit_cap = 10, hard_hit_cap = 300;
     Range<double> minimizer_score_fraction = 0.6;
     bool progress = false;
@@ -367,7 +367,7 @@ int main_gaffe(int argc, char** argv) {
     //Throw away extension sets with scores that are this amount below the best
     Range<double> extension_set = 0;
     //Throw away extensions with scores that are this amount below the best
-    Range<int> extension_score = 1;
+    Range<int> extension_score = 0;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
