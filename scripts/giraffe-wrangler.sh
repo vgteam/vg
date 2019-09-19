@@ -36,7 +36,6 @@ if [[ "$#" -lt "8" ]]; then
 fi
 
 echo "Using ${THREAD_COUNT} threads"
-exit 1
 
 fetch_input() {
     # Download the specified file, if not a file already.
