@@ -242,14 +242,13 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
     // Allocate a GBWT record cache.
     gbwt::CachedGBWT cache = this->graph->get_cache();
 
-    // Find either the best extension for each seed or the all full-length alignments
+    // Find either the best extension for each seed or the best two full-length alignments
     // for the entire cluster. 
     // TODO: This part isn't entirely true anymore:
     //If we have found a full-length alignment with
     // at most max_mismatches mismatches, we are no longer interested in extensions with
     // at least that many mismatches.
     bool full_length_found = false;
-    bool found_zero_internal_score = false;
     GaplessExtension best_alignment;
     GaplessExtension second_best_alignment;
     uint32_t full_length_mismatches = std::numeric_limits<uint32_t>::max();
