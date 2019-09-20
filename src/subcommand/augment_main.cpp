@@ -247,16 +247,44 @@ int main_augment(int argc, char** argv) {
                 return 1;
             }
         }
-        if (gam_in_file_name == "-") {
-            // this is usually bad news, but we gave a warning
+        if (gam_in_file_name == "-" || !loci_file.empty()) {
             vector<Path> buffer;
-            get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
-                    vg::io::for_each<Alignment>(alignment_stream, [&](Alignment& alignment) {
-                            Path& path = *alignment.mutable_path();
-                            path.set_name(alignment.name());
-                            buffer.push_back(path);
-                        });
-                });
+            if (gam_in_file_name == "-") {
+                // this is usually bad news, but we gave a warning
+                get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
+                        vg::io::for_each<Alignment>(alignment_stream, [&](Alignment& alignment) {
+                                Path& path = *alignment.mutable_path();
+                                path.set_name(alignment.name());
+                                buffer.push_back(path);
+                            });
+                    });
+            } else if (!loci_file.empty()) {
+                function<void(Locus&)> lambda = [&graph, &buffer, &called_genotypes_only](Locus& locus) {
+                    // if we are only doing called genotypes, record so we can filter alleles
+                    set<int> alleles_in_genotype;
+                    if (called_genotypes_only) {
+                        for (int i = 0; i < locus.genotype_size(); ++i) {
+                            for (int j = 0; j < locus.genotype(i).allele_size(); ++j) {
+                                alleles_in_genotype.insert(locus.genotype(i).allele(j));
+                            }
+                        }
+                    }
+                    for (int i = 0; i < locus.allele_size(); ++i) {
+                        // skip alleles not in the genotype if using only called genotypes
+                        if (!alleles_in_genotype.empty()) {
+                            if (!alleles_in_genotype.count(i)) continue;
+                        }
+                        Path path = simplify(locus.allele(i));
+                        stringstream name;
+                        name << locus.name() << ":" << i;
+                        path.set_name(name.str());
+                        buffer.push_back(path);
+                    }
+                };
+                get_input_file(loci_file, [&](istream& loci_stream) {
+                        vg::io::for_each(loci_stream, lambda);
+                    });
+            }
             
             augment(graph.get(),
                     buffer,
@@ -264,7 +292,7 @@ int main_augment(int argc, char** argv) {
                     gam_out_file_name.empty() ? nullptr : &gam_out_file,
                     include_paths,
                     include_paths,
-                    softclip_trim);
+                    !include_softclips);
         } else {
             // much better to stream from a file so we can do two passes without storing in memory
             get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
@@ -274,7 +302,7 @@ int main_augment(int argc, char** argv) {
                             gam_out_file_name.empty() ? nullptr : &gam_out_file,
                             include_paths,
                             include_paths,
-                            softclip_trim);
+                            !include_softclips);
                 });
         }
 
@@ -292,9 +320,10 @@ int main_augment(int argc, char** argv) {
             vg::io::write_buffered(translation_file, translation, 0);
             translation_file.close();
         }
-    }
+    } 
 
     // Serialize the graph using VPKG.  Todo: is there away to do this in one line?
+    // could just call serialie() directly if willing to forego vpkg...
     if (vg_graph != nullptr) {
         vg::io::VPKG::save(*vg_graph, cout);
     } else if (dynamic_cast<bdsg::HashGraph*>(graph.get()) != nullptr) {
