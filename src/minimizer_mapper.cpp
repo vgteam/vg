@@ -1024,6 +1024,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
             }
         }
     }
+    best.set_identity(identity(best.path()));
     //Do the same for the second best
     *second_best.mutable_path() = std::move(second_left);
 
