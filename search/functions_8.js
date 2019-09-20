@@ -48,7 +48,6 @@ var searchData=
   ['help_5fbenchmark',['help_benchmark',['../benchmark__main_8cpp.html#a1e3da44e3dcc6fea154d15a1986ade1b',1,'benchmark_main.cpp']]],
   ['help_5fbugs',['help_bugs',['../bugs__main_8cpp.html#a415dbec22babc1cbced301243fab6404',1,'bugs_main.cpp']]],
   ['help_5fcall',['help_call',['../call__main_8cpp.html#ab92ccd67b3c20b7be7c46281c4cabfb3',1,'call_main.cpp']]],
-  ['help_5fcall_5fold',['help_call_old',['../call__main__old_8cpp.html#a2caeb59fb6056e5d4ea6bb4225e6b716',1,'call_main_old.cpp']]],
   ['help_5fchunk',['help_chunk',['../chunk__main_8cpp.html#a502600dcc3e4e15a338642fe554fbf8d',1,'chunk_main.cpp']]],
   ['help_5fcircularize',['help_circularize',['../circularize__main_8cpp.html#a0613e20e02d0fbb56d7270a7b268ffb3',1,'circularize_main.cpp']]],
   ['help_5fcluster',['help_cluster',['../cluster__main_8cpp.html#a4099bc0f1cb9fecb87c903e578ff2a17',1,'cluster_main.cpp']]],

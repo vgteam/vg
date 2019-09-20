@@ -1,7 +1,6 @@
 var searchData=
 [
   ['p_5fvalue_5fmemo',['p_value_memo',['../classvg_1_1MultipathMapper.html#aa6e45b752367bcc299b3427d2edd3e54',1,'vg::MultipathMapper']]],
-  ['pack_5ffile_5fname',['pack_file_name',['../classvg_1_1SupportCaller.html#a8568b0cb2e9d2a2b6926d189a7fcead9',1,'vg::SupportCaller']]],
   ['pack_5fnames',['pack_names',['../classvg_1_1Viz.html#abb3fd61d416351930f2e7399e6f6001b',1,'vg::Viz']]],
   ['packer',['packer',['../classvg_1_1PackedSupportSnarlCaller.html#a97af038a395322059ce5dea52d88ce54',1,'vg::PackedSupportSnarlCaller']]],
   ['packs',['packs',['../classvg_1_1Viz.html#a350ea478ececb5f19170b16cf1539726',1,'vg::Viz']]],
@@ -78,7 +77,6 @@ var searchData=
   ['previous_5ftag',['previous_tag',['../classvg_1_1io_1_1MessageIterator.html#affc663d4448fe1b213d1c2e9ec64b3bb',1,'vg::io::MessageIterator']]],
   ['previous_5fvalues',['previous_values',['../structhaplo_1_1haplo__DP__column.html#a5e1664796c443719bd4e775f503ab8ad',1,'haplo::haplo_DP_column']]],
   ['primary',['primary',['../classvg_1_1MaximalExactMatch.html#a2e34dcded590361daf8ca3a9ed3fb62f',1,'vg::MaximalExactMatch']]],
-  ['primary_5fpaths',['primary_paths',['../classvg_1_1SupportCaller.html#a8dab4df2537ef96e9803d630f5920aec',1,'vg::SupportCaller']]],
   ['primary_5fsnarl_5fassignments',['primary_snarl_assignments',['../classvg_1_1MinimumDistanceIndex.html#a86607845dc26e639371673ccbeed9ae0',1,'vg::MinimumDistanceIndex']]],
   ['primary_5fsnarl_5franks',['primary_snarl_ranks',['../classvg_1_1MinimumDistanceIndex.html#a5cdc050e271bd434515de86f55a54793',1,'vg::MinimumDistanceIndex']]],
   ['primitive_5froot',['primitive_root',['../classvg_1_1ShuffledPairs.html#a78c948366b8eec98b8393ae2ac75f86a',1,'vg::ShuffledPairs']]],

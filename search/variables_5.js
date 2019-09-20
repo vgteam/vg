@@ -42,7 +42,6 @@ var searchData=
   ['exon_5fnodes',['exon_nodes',['../structvg_1_1Transcript.html#ad02a672767380c99c4890b0f8158e56e',1,'vg::Transcript']]],
   ['exons',['exons',['../structvg_1_1Transcript.html#ad2b25d65d35571935300b296eac6bf2c',1,'vg::Transcript']]],
   ['exp_5frho',['exp_rho',['../structhaplo_1_1haploMath_1_1RRMemo.html#a7979b3ef938f0a887ea1b5511d33e9f6',1,'haplo::haploMath::RRMemo']]],
-  ['expected_5fcoverage',['expected_coverage',['../classvg_1_1SupportCaller.html#a72cd919ebff400d32250e4f0882929f4',1,'vg::SupportCaller']]],
   ['extender',['extender',['../classvg_1_1MinimizerMapper.html#a7384299b6fd570ee8454c6f74c7a6583',1,'vg::MinimizerMapper']]],
   ['extension_5fscore_5fthreshold',['extension_score_threshold',['../classvg_1_1MinimizerMapper.html#adeff081b3c6a83ddfa7f620245b61fd0',1,'vg::MinimizerMapper']]],
   ['extension_5fset_5fscore_5fthreshold',['extension_set_score_threshold',['../classvg_1_1MinimizerMapper.html#ac47b8ebb0479d86727c97e37e7f103ee',1,'vg::MinimizerMapper']]],

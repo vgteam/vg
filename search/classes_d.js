@@ -8,7 +8,6 @@ var searchData=
   ['noalignmentinbandexception',['NoAlignmentInBandException',['../classvg_1_1NoAlignmentInBandException.html',1,'vg']]],
   ['node',['Node',['../structvg_1_1Node.html',1,'vg']]],
   ['nodeclusters',['NodeClusters',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html',1,'vg::SnarlSeedClusterer']]],
-  ['nodedivider',['NodeDivider',['../structvg_1_1NodeDivider.html',1,'vg']]],
   ['nodepileup',['NodePileup',['../structvg_1_1NodePileup.html',1,'vg']]],
   ['nodeside',['NodeSide',['../classvg_1_1NodeSide.html',1,'vg']]],
   ['nodetraversal',['NodeTraversal',['../classvg_1_1NodeTraversal.html',1,'vg']]],

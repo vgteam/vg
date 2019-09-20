@@ -25,7 +25,6 @@ var searchData=
   ['stage',['Stage',['../structvg_1_1Funnel_1_1Stage.html',1,'vg::Funnel']]],
   ['step_5fhandle_5ft',['step_handle_t',['../structhandlegraph_1_1step__handle__t.html',1,'handlegraph']]],
   ['strandsplitgraph',['StrandSplitGraph',['../classvg_1_1StrandSplitGraph.html',1,'vg']]],
-  ['strandsupport',['StrandSupport',['../structvg_1_1StrandSupport.html',1,'vg']]],
   ['streamindex',['StreamIndex',['../classvg_1_1StreamIndex.html',1,'vg']]],
   ['streamindex_3c_20vg_3a_3agraph_20_3e',['StreamIndex&lt; vg::Graph &gt;',['../classvg_1_1StreamIndex.html',1,'vg']]],
   ['streamindexbase',['StreamIndexBase',['../classvg_1_1StreamIndexBase.html',1,'vg']]],
@@ -39,7 +38,6 @@ var searchData=
   ['support',['Support',['../structvg_1_1Support.html',1,'vg']]],
   ['supportaugmentedgraph',['SupportAugmentedGraph',['../structvg_1_1SupportAugmentedGraph.html',1,'vg']]],
   ['supportbasedsnarlcaller',['SupportBasedSnarlCaller',['../classvg_1_1SupportBasedSnarlCaller.html',1,'vg']]],
-  ['supportcaller',['SupportCaller',['../classvg_1_1SupportCaller.html',1,'vg']]],
   ['supportrestrictedtraversalfinder',['SupportRestrictedTraversalFinder',['../classvg_1_1SupportRestrictedTraversalFinder.html',1,'vg']]],
   ['surjector',['Surjector',['../classvg_1_1Surjector.html',1,'vg']]],
   ['swaphaplotypescommand',['SwapHaplotypesCommand',['../structvg_1_1SwapHaplotypesCommand.html',1,'vg']]]

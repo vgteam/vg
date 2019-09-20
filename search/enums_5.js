@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['nodetype',['nodeType',['../structhaplo_1_1linear__haplo__structure.html#a3180d362cdac21750aebf6d4fe77e0d8',1,'haplo::linear_haplo_structure']]]
+  ['pruningmode',['PruningMode',['../prune__main_8cpp.html#a2c77251411bc109287b491299718e248',1,'prune_main.cpp']]]
 ];

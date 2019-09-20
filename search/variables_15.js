@@ -12,7 +12,6 @@ var searchData=
   ['upper_5fbound',['upper_bound',['../structvg_1_1BREAKPOINT.html#add7be6a634fda8c98ff9627ecd454683',1,'vg::BREAKPOINT']]],
   ['upper_5fbound_5fheuristic',['upper_bound_heuristic',['../classvg_1_1TargetValueSearch.html#ac3930066893407bf6fd3e57a717bba0c',1,'vg::TargetValueSearch']]],
   ['use_5fapprox_5fsub_5fmem_5fcount',['use_approx_sub_mem_count',['../classvg_1_1BaseMapper.html#abf1a0a71b2bcc7763690fed623383fb3',1,'vg::BaseMapper']]],
-  ['use_5faverage_5fsupport',['use_average_support',['../classvg_1_1SupportCaller.html#a032117d5fd316be83877834de8d25a99',1,'vg::SupportCaller']]],
   ['use_5favg',['use_avg',['../classvg_1_1Filter.html#a271fe98c839b17295ecef0dc54cb7d7e',1,'vg::Filter']]],
   ['use_5fcluster_5fmq',['use_cluster_mq',['../classvg_1_1Mapper.html#a2c4c837c39fa708de934f5c24c3c371e',1,'vg::Mapper']]],
   ['use_5fembedded_5fpaths',['use_embedded_paths',['../classvg_1_1Transcriptome.html#afc815aefb14bad4cec9aeccdd9872652',1,'vg::Transcriptome']]],
@@ -21,7 +20,6 @@ var searchData=
   ['use_5fmin_5fdist_5fclusterer',['use_min_dist_clusterer',['../classvg_1_1MultipathMapper.html#aed5898444e134f0fb95ae527d215e88f',1,'vg::MultipathMapper']]],
   ['use_5fpopulation_5fmapqs',['use_population_mapqs',['../classvg_1_1MultipathMapper.html#aaaecbb0881e444042662a72907442fc1',1,'vg::MultipathMapper']]],
   ['use_5freference_5fpaths',['use_reference_paths',['../classvg_1_1Transcriptome.html#a37911193a8091c07833776946f9994ad',1,'vg::Transcriptome']]],
-  ['use_5fsupport_5fcount',['use_support_count',['../classvg_1_1SupportCaller.html#a626d85743ce833b7745afe9c1ab66cb6',1,'vg::SupportCaller']]],
   ['use_5ftvs_5fclusterer',['use_tvs_clusterer',['../classvg_1_1MultipathMapper.html#afaa33d747ce1393304aa96bc5245a4f8',1,'vg::MultipathMapper']]],
-  ['used',['used',['../classvg_1_1PinchToVGTranslator.html#a4ba24f45298b6e67662245b22d0bef3f',1,'vg::PinchToVGTranslator::used()'],['../structvg_1_1IntervalBitfield.html#a4ce87a0c028df95b777075fb8b378c25',1,'vg::IntervalBitfield::used()']]]
+  ['used',['used',['../classvg_1_1PinchToVGTranslator.html#a4ba24f45298b6e67662245b22d0bef3f',1,'vg::PinchToVGTranslator']]]
 ];

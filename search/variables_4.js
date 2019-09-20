@@ -5,8 +5,6 @@ var searchData=
   ['db',['db',['../classvg_1_1Index.html#a1e594e1678d5644e579e9ea915312cbc',1,'vg::Index']]],
   ['db_5foptions',['db_options',['../classvg_1_1Index.html#ad2dd73cd581069d8718b0d576b7d1961',1,'vg::Index']]],
   ['debug',['debug',['../classvg_1_1BaseMapper.html#a5ce344e730fbb7cdc6b6d57b4ca76cf2',1,'vg::BaseMapper']]],
-  ['default_5fdefault_5fquality',['Default_default_quality',['../classvg_1_1PileupAugmenter.html#aa24ff6402effbe06c6d379d09ff9d6d4',1,'vg::PileupAugmenter']]],
-  ['default_5fmin_5faug_5fsupport',['Default_min_aug_support',['../classvg_1_1PileupAugmenter.html#a65bf2a86bb36b378c5a9b763d4c2eac3',1,'vg::PileupAugmenter']]],
   ['default_5fpath_5fweight',['DEFAULT_PATH_WEIGHT',['../classvg_1_1FlowSort.html#a68d8af802f0e2a61c81bf0ae4ebfc301',1,'vg::FlowSort']]],
   ['default_5fsequence_5fquality',['default_sequence_quality',['../classvg_1_1Genotyper.html#a3c40092b41694cacc7e531bf7f9fb8aa',1,'vg::Genotyper']]],
   ['default_5fvalue',['default_value',['../classvg_1_1BaseOption.html#ade40b0f856c10a12e3fc7847f4a33b7a',1,'vg::BaseOption']]],

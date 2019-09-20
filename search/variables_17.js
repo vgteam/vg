@@ -19,7 +19,6 @@ var searchData=
   ['write',['write',['../structhFILE__backend.html#ada22f61f6280c429aca37d82ef4c31a4',1,'hFILE_backend']]],
   ['write_5foptions',['write_options',['../classvg_1_1Index.html#a785085834ced227c9a7182776e3126d0',1,'vg::Index']]],
   ['write_5foutput',['write_output',['../classvg_1_1ReadFilter.html#ad5bab332dd50a2b84e4bb7798fabd349',1,'vg::ReadFilter']]],
-  ['write_5ftrivial_5fcalls',['write_trivial_calls',['../classvg_1_1SupportCaller.html#a216ee27f03698399b7ded8342d846ba1',1,'vg::SupportCaller']]],
   ['writer_5fstop',['writer_stop',['../classvg_1_1io_1_1StreamMultiplexer.html#ae51a3ffdfe9ec988bf732e4904dcbf60',1,'vg::io::StreamMultiplexer']]],
   ['writer_5fthread',['writer_thread',['../classvg_1_1io_1_1StreamMultiplexer.html#a56a9d39b8ccdd13f07e835ad7a967a60',1,'vg::io::StreamMultiplexer']]]
 ];

@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['qual',['qual',['../structvg_1_1StrandSupport.html#a3c79edd74306e3b47950dce1ac57e19d',1,'vg::StrandSupport']]],
   ['qual_5fadj_5faligner',['qual_adj_aligner',['../classvg_1_1AlignerClient.html#ad808371671d657c01a8c0a57b34a2046',1,'vg::AlignerClient']]],
   ['qual_5fadjust',['qual_adjust',['../classvg_1_1Packer.html#a08679bd0da43f583ad81fcb3ed409cb2',1,'vg::Packer']]],
   ['qual_5ffilter',['qual_filter',['../classvg_1_1Filter.html#ac0b864f9350cb8d9be52e2c13e69c30c',1,'vg::Filter']]],

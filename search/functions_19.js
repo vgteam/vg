@@ -76,8 +76,6 @@ var searchData=
   ['_7epathrestrictedtraversalfinder',['~PathRestrictedTraversalFinder',['../classvg_1_1PathRestrictedTraversalFinder.html#a63b53f979b357845cb6a73a9008f4614',1,'vg::PathRestrictedTraversalFinder']]],
   ['_7ephasedgenome',['~PhasedGenome',['../classvg_1_1PhasedGenome.html#a08609371573b24264b5f5e14af6d0139',1,'vg::PhasedGenome']]],
   ['_7epictographs',['~Pictographs',['../classvg_1_1Pictographs.html#a0889bee7fb20ed90c52442a614a1648b',1,'vg::Pictographs']]],
-  ['_7epileupaugmenter',['~PileupAugmenter',['../classvg_1_1PileupAugmenter.html#a48e6f585a2f8eda65f96d3c01a1c8ac4',1,'vg::PileupAugmenter']]],
-  ['_7epileups',['~Pileups',['../classvg_1_1Pileups.html#a534e99280eccd403f4b5ac6104d6cf80',1,'vg::Pileups']]],
   ['_7eprotobufemitter',['~ProtobufEmitter',['../classvg_1_1io_1_1ProtobufEmitter.html#ab1994a31484b9a52710a38315adb2bcc',1,'vg::io::ProtobufEmitter']]],
   ['_7eprotohandlegraph',['~ProtoHandleGraph',['../classvg_1_1ProtoHandleGraph.html#a853491b2624881c53c3c07fb9365118c',1,'vg::ProtoHandleGraph']]],
   ['_7equaladjaligner',['~QualAdjAligner',['../classvg_1_1QualAdjAligner.html#ad46461869b49eb5b7e4fe90437c86c99',1,'vg::QualAdjAligner']]],

@@ -39,7 +39,6 @@ var searchData=
   ['topological_5forder',['topological_order',['../classvg_1_1BandedGlobalAligner.html#a45b4ad348f9232013df241afece68afc',1,'vg::BandedGlobalAligner']]],
   ['total_5fbits',['TOTAL_BITS',['../classvg_1_1BitString.html#a754714ef7b6c7a1951ae46b8e2594562',1,'vg::BitString']]],
   ['total_5fseq_5flength',['total_seq_length',['../classvg_1_1BaseMapper.html#a45439a16e3d38573e5cc59cb95462878',1,'vg::BaseMapper::total_seq_length()'],['../classvg_1_1Sampler.html#a1e14636749c41aa2d525177bf1a68cf5',1,'vg::Sampler::total_seq_length()'],['../classvg_1_1NGSSimulator.html#ac83d417596d2d157ddc5903d41be1fef',1,'vg::NGSSimulator::total_seq_length()']]],
-  ['total_5fsupport',['total_support',['../classvg_1_1SupportCaller_1_1PrimaryPath.html#af7917163fa9a4e17ef5e61c345f758cf',1,'vg::SupportCaller::PrimaryPath']]],
   ['track_5fcomponents',['track_components',['../classvg_1_1MEMClusterer_1_1HitGraph.html#a6bc63fbe77aee54235636bbc228a9e96',1,'vg::MEMClusterer::HitGraph']]],
   ['track_5fcorrectness',['track_correctness',['../classvg_1_1MinimizerMapper.html#a7896c6cccfa011c4fbad1b916d30052e',1,'vg::MinimizerMapper']]],
   ['track_5fprovenance',['track_provenance',['../classvg_1_1MinimizerMapper.html#aeabec85347521c1f42ef51e0453c4e5f',1,'vg::MinimizerMapper']]],

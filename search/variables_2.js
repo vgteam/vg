@@ -31,7 +31,6 @@ var searchData=
   ['bgzip_5fout',['bgzip_out',['../classvg_1_1io_1_1MessageEmitter.html#a591f1c1d3271301d0df6999cf15eb801',1,'vg::io::MessageEmitter']]],
   ['bin_5fsize',['bin_size',['../classvg_1_1Packer.html#a528fbf835285899061cd6947e163976d',1,'vg::Packer']]],
   ['bin_5fto_5franges',['bin_to_ranges',['../classvg_1_1StreamIndexBase.html#a4801a54e202c9214718c71db7cea12a9',1,'vg::StreamIndexBase']]],
-  ['binned_5fsupport',['binned_support',['../classvg_1_1SupportCaller_1_1PrimaryPath.html#a3d466c816c3bd44cedbce104f2a1a4c2',1,'vg::SupportCaller::PrimaryPath']]],
   ['bins_5fby_5fid_5fprefix',['bins_by_id_prefix',['../classvg_1_1StreamIndexBase.html#a19b9a91061212bfd558a384fa19d4854',1,'vg::StreamIndexBase']]],
   ['bit_5flength',['bit_length',['../classvg_1_1BitString.html#afa7b98ed5fc1b88e1a0fa99fd23ab991',1,'vg::BitString']]],
   ['bits',['bits',['../classvg_1_1BitString.html#a42e6375ac0a96473ebe1884625732419',1,'vg::BitString']]],

@@ -27,8 +27,6 @@ var searchData=
   ['aln',['aln',['../classvg_1_1AlignmentChainModelVertex.html#ab49913fb60fec26e020912069d8c0103',1,'vg::AlignmentChainModelVertex']]],
   ['aln_5fto_5fmate',['aln_to_mate',['../classvg_1_1SRPE.html#a17b17b87964f9fb6f113cb393dee370c',1,'vg::SRPE']]],
   ['alphabet',['alphabet',['../classvg_1_1NGSSimulator.html#aa970fcca49e375093b8abf6c3b31e2c5',1,'vg::NGSSimulator']]],
-  ['alt1',['alt1',['../structvg_1_1NodeDivider_1_1Entry.html#ade4bfc2ac4680ef1ecbb9a8edac20420',1,'vg::NodeDivider::Entry']]],
-  ['alt2',['alt2',['../structvg_1_1NodeDivider_1_1Entry.html#aea93cd15efd8c13eec905d9743e5ed49',1,'vg::NodeDivider::Entry']]],
   ['alt_5falignments',['alt_alignments',['../classvg_1_1BandedGlobalAligner.html#a72ad87c059fc959b0258feb87c8dd4bd',1,'vg::BandedGlobalAligner']]],
   ['alt_5fanchor_5fmax_5flength_5fdiff',['alt_anchor_max_length_diff',['../classvg_1_1MultipathMapper.html#a229117ffb8dcad25565d8f65e29ba194',1,'vg::MultipathMapper']]],
   ['alt_5fpaths',['alt_paths',['../classvg_1_1Constructor.html#a19deb52667c009bcb73cd27e7ba2a5ac',1,'vg::Constructor']]],
@@ -45,7 +43,6 @@ var searchData=
   ['augmented',['augmented',['../classvg_1_1NestedTraversalFinder.html#a313111e30533ab2a685d7c9e112a6b22',1,'vg::NestedTraversalFinder']]],
   ['available_5fshort_5foptions',['available_short_options',['../classvg_1_1ConfigurableParser.html#a529443bfe60e0ab272166ccc15991ce2',1,'vg::ConfigurableParser']]],
   ['average_5fnode_5fsupport_5fswitch_5fthreshold',['average_node_support_switch_threshold',['../classvg_1_1SupportBasedSnarlCaller.html#a7f3ab178f80140739466574d4524b1e3',1,'vg::SupportBasedSnarlCaller']]],
-  ['average_5fsupport_5fswitch_5fthreshold',['average_support_switch_threshold',['../classvg_1_1SupportCaller.html#ad3826a4f33deff50ad7d35c0b121e95c',1,'vg::SupportCaller']]],
   ['average_5ftraversal_5fsupport_5fswitch_5fthreshold',['average_traversal_support_switch_threshold',['../classvg_1_1SupportBasedSnarlCaller.html#a8c75daf50553712dbba8f2327fafa1c3',1,'vg::SupportBasedSnarlCaller']]],
   ['avg_5fnode_5flength',['avg_node_length',['../classvg_1_1BaseMapper.html#ad77c0e853fcfc715a15b8852b8b4f388',1,'vg::BaseMapper']]]
 ];

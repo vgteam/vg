@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['entrycat',['EntryCat',['../structvg_1_1NodeDivider.html#a03a29b35ee0e1a20619a54b007e628b0',1,'vg::NodeDivider']]]
+  ['filtername',['FilterName',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388',1,'vg::ReadFilter::Counts']]]
 ];

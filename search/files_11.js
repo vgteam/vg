@@ -39,8 +39,6 @@ var searchData=
   ['subcommand_2ehpp',['subcommand.hpp',['../subcommand_8hpp.html',1,'']]],
   ['subgraph_2ecpp',['subgraph.cpp',['../subgraph_8cpp.html',1,'']]],
   ['subgraph_2ehpp',['subgraph.hpp',['../subgraph_8hpp.html',1,'']]],
-  ['support_5fcaller_2ecpp',['support_caller.cpp',['../support__caller_8cpp.html',1,'']]],
-  ['support_5fcaller_2ehpp',['support_caller.hpp',['../support__caller_8hpp.html',1,'']]],
   ['surject_5fmain_2ecpp',['surject_main.cpp',['../surject__main_8cpp.html',1,'']]],
   ['surjector_2ecpp',['surjector.cpp',['../surjector_8cpp.html',1,'']]],
   ['surjector_2ehpp',['surjector.hpp',['../surjector_8hpp.html',1,'']]],
