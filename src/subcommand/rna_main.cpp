@@ -53,6 +53,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     bool use_embedded_paths = false;
     bool collapse_transcript_paths = true;
     bool remove_non_transcribed = false;
+    bool sort_grap = false;
     bool add_reference_transcript_paths = false;
     bool add_non_reference_transcript_paths = false;
     bool output_reference_transcript_paths = false;
@@ -184,7 +185,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     double time_parsing_start = gcsa::readTimer();
     if (show_progress) { cerr << "[vg rna] Parsing graph file ..." << endl; }
 
-    // Construct transcriptome and parse variation graph.
+    // Construct transcriptome and parse graph.
     Transcriptome transcriptome(get_input_file_name(optind, argc, argv), show_progress);
 
     unique_ptr<gbwt::GBWT> haplotype_index;
@@ -215,7 +216,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     if (show_progress) { cerr << "[vg rna] Parsing and projecting transcripts ..." << endl; }
 
     // Add transcripts to transcriptome by projecting them onto embedded paths 
-    // in a graph and/or haplotypes in a GBWT index. Edit graph with 
+    // in a graph and/or haplotypes in a GBWT index. Augment graph with 
     // transcriptome splice-junctions.
     for (auto & filename: transcript_filenames) {
 
@@ -242,11 +243,11 @@ int32_t main_rna(int32_t argc, char** argv) {
 
 
     double time_sort_start = gcsa::readTimer();
-    if (show_progress) { cerr << "[vg rna] Topological sorting and compacting graph ..." << endl; }
+    if (show_progress) { cerr << "[vg rna] Topological sorting and compacting splice graph ..." << endl; }
     
     transcriptome.compact_ordered();
     
-    if (show_progress) { cerr << "[vg rna] Graph sorted and compacted in " << gcsa::readTimer() - time_sort_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
+    if (show_progress) { cerr << "[vg rna] Splice graph sorted and compacted in " << gcsa::readTimer() - time_sort_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
 
 
     if (add_reference_transcript_paths || add_non_reference_transcript_paths) {
@@ -255,14 +256,14 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         if (add_reference_transcript_paths && add_non_reference_transcript_paths) {
 
-            if (show_progress) { cerr << "[vg rna] Adding all transcript paths to graph ..." << endl; }
+            if (show_progress) { cerr << "[vg rna] Adding all transcript paths to splice graph ..." << endl; }
 
         } else {
 
-            if (show_progress) { cerr << "[vg rna] Adding " << ((add_reference_transcript_paths) ? "reference" : "non-reference") << " transcript paths to graph ..." << endl; }
+            if (show_progress) { cerr << "[vg rna] Adding " << ((add_reference_transcript_paths) ? "reference" : "non-reference") << " transcript paths to splice graph ..." << endl; }
         }
 
-        transcriptome.add_paths_to_graph(add_reference_transcript_paths, add_non_reference_transcript_paths, false);
+        transcriptome.add_paths_to_splice_graph(add_reference_transcript_paths, add_non_reference_transcript_paths, false);
 
         if (show_progress) { cerr << "[vg rna] Paths added in " << gcsa::readTimer() - time_add_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
     }
@@ -309,12 +310,12 @@ int32_t main_rna(int32_t argc, char** argv) {
         info_ostream.close();
     }    
 
-    if (show_progress) { cerr << "[vg rna] Writing graph to stdout ..." << endl; }
+    if (show_progress) { cerr << "[vg rna] Writing splice graph to stdout ..." << endl; }
 
-    // Write spliced variation graph to stdout 
-    transcriptome.write_graph(&cout);
+    // Write splice graph to stdout 
+    transcriptome.write_splice_graph(&cout);
 
-    if (show_progress) { cerr << "[vg rna] Graph (and transcripts) written in " << gcsa::readTimer() - time_writing_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
+    if (show_progress) { cerr << "[vg rna] Splice graph (and transcripts) written in " << gcsa::readTimer() - time_writing_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
 
     return 0;
 }
