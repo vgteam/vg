@@ -5253,26 +5253,12 @@ void VG::edit(istream& paths_to_add,
     // If we are going to actually add the paths to the graph, we need to break at path ends
     break_at_ends |= save_paths;
 
-    function<void(Path&)> save_fn = nullptr;
-    if (save_paths) {
-        save_fn = [&](Path& added) {
-            paths.extend(added, false, false);
-        };
-    }
-
     // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
     paths.compact_ranks();
     
     // Augment the graph with the paths, modifying paths in place if update true
-    augment(this, paths_to_add, out_translations, out_gam_stream, save_fn,
+    augment(this, paths_to_add, out_translations, out_gam_stream, save_paths,
             break_at_ends, remove_softclips);
-        
-    // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
-    // Todo: can we just do this once?
-    paths.compact_ranks();
-
-    // execute a semi partial order sort on the nodes
-    sort();
 }
     
 // The not quite as robust (TODO: how?) but actually efficient way to edit the graph.

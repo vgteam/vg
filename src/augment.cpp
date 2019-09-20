@@ -15,7 +15,7 @@ void augment(MutablePathMutableHandleGraph* graph,
              istream& gam_stream,
              vector<Translation>* out_translations,
              ostream* gam_out_stream,
-             function<void(Path&)> save_path_fn,
+             bool embed_paths,
              bool break_at_ends,
              bool remove_softclips) {
 
@@ -32,7 +32,7 @@ void augment(MutablePathMutableHandleGraph* graph,
                  iterate_gam,
                  out_translations,
                  gam_out_stream,
-                 save_path_fn,
+                 embed_paths,
                  break_at_ends,
                  remove_softclips);
 }
@@ -41,7 +41,7 @@ void augment(MutablePathMutableHandleGraph* graph,
              vector<Path>& path_vector,
              vector<Translation>* out_translations,
              ostream* gam_out_stream,
-             function<void(Path&)> save_path_fn,
+             bool embed_paths,
              bool break_at_ends,
              bool remove_softclips) {
     
@@ -59,7 +59,7 @@ void augment(MutablePathMutableHandleGraph* graph,
                  iterate_gam,
                  out_translations,
                  gam_out_stream,
-                 save_path_fn,
+                 embed_paths,
                  break_at_ends,
                  remove_softclips);
 }
@@ -68,7 +68,7 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                   function<void(function<void(Alignment&)>, bool)> iterate_gam,
                   vector<Translation>* out_translations,
                   ostream* gam_out_stream,
-                  function<void(Path&)> save_path_fn,
+                  bool embed_paths,
                   bool break_at_ends,
                   bool remove_softclips) {
     // Collect the breakpoints
@@ -138,8 +138,8 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
             // Copy over the name
             *added.mutable_name() = aln.name();
 
-            if (save_path_fn) {
-                save_path_fn(added);
+            if (embed_paths) {
+                add_path_to_graph(graph, added);
             }
 
             // something is off about this check.
@@ -198,6 +198,19 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
     if (out_translations != nullptr) {
         *out_translations = make_translation(graph, node_translation, added_nodes, orig_node_sizes);
     }
+
+    VG* vg_graph = dynamic_cast<VG*>(graph);
+    
+    // This code got run after augment in VG::edit, so we make sure it happens here too
+    if (vg_graph != nullptr) {
+        // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
+        // Todo: can we just do this once?
+       vg_graph->paths.compact_ranks();
+        
+       // execute a semi partial order sort on the nodes
+       vg_graph->sort();
+    }
+
 }
 
 
@@ -295,6 +308,15 @@ void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpo
         }
     }
 
+}
+
+path_handle_t add_path_to_graph(MutablePathHandleGraph* graph, const Path& path) {
+    path_handle_t path_handle = graph->create_path_handle(path.name(), path.is_circular());
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        graph->append_step(path_handle, graph->get_handle(path.mapping(i).position().node_id(),
+                                                          path.mapping(i).position().is_reverse()));
+    }
+    return path_handle;
 }
 
 unordered_map<id_t, set<pos_t>> forwardize_breakpoints(const HandleGraph* graph,
