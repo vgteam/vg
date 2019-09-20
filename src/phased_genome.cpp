@@ -4,6 +4,8 @@
 
 #include "phased_genome.hpp"
 
+//#define debug_phased_genome
+
 using namespace std;
 
 namespace vg {
@@ -425,9 +427,10 @@ namespace vg {
                 
                 // iterate through mappings in this subpath (assumes one mapping per node)
                 bool subpath_follows_path = true;
-                for (int j = 0; j < subpath.path().mapping_size(); j++, move_forward(subpath_node)) {
+                for (int j = 0; j < subpath.path().mapping_size(); j++) {
                     // check if mapping corresponds to the next node in the path in the correct orientation
-                    const Position& position = subpath.path().mapping(j).position();
+                    const Mapping& mapping = subpath.path().mapping(j);
+                    const Position& position = mapping.position();
                     if (position.node_id() != subpath_node->node_traversal.node->id()
                         || ((position.is_reverse() == subpath_node->node_traversal.backward) != oriented_forward)) {
                         subpath_follows_path = false;
@@ -436,7 +439,11 @@ namespace vg {
                         cerr << "[PhasedGenome::optimal_score_on_genome]: subpath " << i << " is inconsistent with haplotype" << endl;
                         
 #endif              
-                    break;
+                        break;
+                    }
+                    
+                    if (position.offset() + mapping_from_length(mapping) == subpath_node->node_traversal.node->sequence().size()) {
+                        move_forward(subpath_node);
                     }
                 }
                 
@@ -460,14 +467,6 @@ namespace vg {
 #ifdef debug_phased_genome
                         cerr << "[PhasedGenome::optimal_score_on_genome]: non sink path, extending score of " << extended_prefix_score << endl;
 #endif
-                        // edge case: check if subpath_node was improperly incremented from a mapping that ended in the
-                        // middle of a node
-                        Position end_pos = make_position(final_position(subpath.path()));
-                        if (end_pos.offset() != graph.get_node(end_pos.node_id())->sequence().length()) {
-                            move_backward(subpath_node);
-                        }
-                        // TODO: this could be a problem if the next node is the end of a chromosome (will seg fault
-                        // because can't get the previous node from nullptr)
                         
                         // mark which node the next subpath starts at
                         for (int j = 0; j < subpath.next_size(); j++) {

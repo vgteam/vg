@@ -444,9 +444,6 @@ namespace vg {
                 edit7b->set_sequence("G");
 
                 multipath_aln.add_start(0); //integer given is the subpath number
-
-                cerr << "Multipath mapper alignment " <<endl;
-                cerr << pb2json(multipath_aln) <<endl;
 				
                 // match and mismatch represent the point system used for penalty
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
@@ -864,7 +861,7 @@ namespace vg {
                 REQUIRE(pass);
             
             }
-        }    
+        }
 
     }
 
