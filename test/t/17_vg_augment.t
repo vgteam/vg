@@ -6,18 +6,9 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 13
+plan tests 14
 
 vg view -J -v pileup/tiny.json > tiny.vg
-
-# Compare output of pileup on tiny.vg and pileup/alignment.json
-# with pileup/truth.json, which has been manually vetted.
-# Will also test some vg view functionality. 
-vg view -J -a -G pileup/alignment.json > alignment.gam
-vg augment -a pileup tiny.vg alignment.gam -P tiny.gpu > /dev/null
-vg view tiny.gpu -l -j | jq . > tiny.gpu.json
-is $(jq --argfile a tiny.gpu.json --argfile b pileup/truth.json -n '($a == $b)') true "vg augment -P produces the expected output for test case on tiny graph."
-rm -f alignment.gam tiny.gpu tiny.gpu.json
 
 # Make sure well-supported edits are augmented in
 vg view -J -a -G pileup/edits.json > edits.gam
@@ -78,4 +69,15 @@ vg sim -l 30 -x 2snp.xg -n 30 -a >2snp.sim
 vg index -x flat.xg -g flat.gcsa -k 16 flat.vg
 vg map -g flat.gcsa -x flat.xg -G 2snp.sim -k 8 >2snp.gam
 is $(vg augment flat.vg 2snp.gam -i | vg mod -D - | vg mod -n - | vg view - | grep ^S | wc -l) 7 "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
-rm -f flat.vg flat.gcsa flat.xg 2snp.vg 2snp.xg 2snp.sim 2snp.gam
+
+vg augment flat.vg 2snp.gam | vg view - | grep S | awk '{print $3}' | sort > vg_augment.nodes
+vg convert flat.vg -p > flat.pg
+vg augment flat.pg 2snp.gam | vg convert -v - | vg view - | grep S | awk '{print $3}' | sort > packed_graph_augment.nodes
+diff vg_augment.nodes packed_graph_augment.nodes
+is "$?" 0 "augmenting a packed graph produces same results as a vg graph"
+vg convert flat.vg -a > flat.hg
+vg augment flat.hg 2snp.gam | vg convert -v - | vg view - | grep S | awk '{print $3}' | sort > hash_graph_augment.nodes
+diff vg_augment.nodes hash_graph_augment.nodes
+is "$?" 0 "augmenting a hash graph produces same results as a vg graph"
+
+rm -f flat.vg flat.gcsa flat.xg flat.pg flat.hg 2snp.vg 2snp.xg 2snp.sim 2snp.gam vg_augment.nodes packed_graph_augment.nodes hash_graph_augment.nodes
