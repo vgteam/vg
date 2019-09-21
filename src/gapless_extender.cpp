@@ -24,12 +24,13 @@ bool GaplessExtension::contains(const gbwtgraph::GBWTGraph& graph, seed_type see
     size_t read_offset = this->read_interval.first;
     size_t node_offset = this->offset;
     for (handle_t handle : this->path) {
-        size_t len = graph.get_length(handle);
+        size_t len = graph.get_length(handle) - node_offset;
         read_offset += len;
         node_offset += len;
         if (handle == expected_handle && read_offset - expected_read_offset == node_offset - expected_node_offset) {
             return true;
         }
+        node_offset = 0;
     }
 
     return false;
@@ -286,7 +287,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
         bool best_match_is_full_length = false;
 
         // Match the initial node and add it to the queue, unless we already have
-        // at least as good full-length alignment,
+        // two at least as good full-length alignments.
         std::priority_queue<GaplessExtension> extensions;
         {
             size_t read_offset = get_read_offset(seed);
