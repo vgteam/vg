@@ -13,9 +13,19 @@ _Variation graphs_ provide a succinct encoding of the sequences of many genomes.
 * _edges_, which connect two nodes via either of their respective ends
 * _paths_, describe genomes, sequence alignments, and annotations (such as gene models and transcripts) as walks through nodes connected by edges
 
-This model is similar to a number of sequence graphs that have been used in assembly and multiple sequence alignment. Paths provide coordinate systems relative to genomes encoded in the graph, allowing stable mappings to be produced even if the structure of the graph is changed.
+This model is similar to sequence graphs that have been used in assembly and multiple sequence alignment.
+
+Paths provide coordinate systems relative to genomes encoded in the graph, allowing stable mappings to be produced even if the structure of the graph is changed.
+The variation graph model makes this embedding explicit and essential.
+Tools in vg maintain paths as immutable during transformations of the graph.
+They use paths to project graph-relative data into reference-relative coordinate spaces.
+Paths provide stable coordinates for graphs built in different ways from the same input sequences.
 
 ![example variation graph](https://raw.githubusercontent.com/vgteam/vg/master/doc/figures/smallgraph.png)
+
+## Support 
+
+We maintain a support forum on biostars: https://www.biostars.org/t/vg/
 
 ## Installation
 
@@ -44,15 +54,18 @@ Then, install VG's dependencies. You'll need the protobuf and jansson developmen
 On other distros, you will need to perform the equivalent of:
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
-                         protobuf-compiler libprotoc-dev libjansson-dev automake libtool \
-                         jq bc rs curl unzip redland-utils librdf-dev bison flex gawk \
-                         lzma-dev liblzma-dev liblz4-dev libffi-dev libcairo-dev
+                         protobuf-compiler libprotoc-dev libprotobuf-dev libjansson-dev \
+                         automake libtool jq bc rs curl unzip redland-utils \
+                         librdf-dev bison flex gawk lzma-dev liblzma-dev liblz4-dev \
+                         libffi-dev libcairo-dev
+                         
+Note that **Ubuntu 16.04** does not ship a sufficiently new Protobuf; vg requires **Protobuf 3** which will have to be manually installed.
 
 At present, you will need GCC version 4.9 or greater to compile vg. (Check your version with `gcc --version`.)
 
 Other libraries may be required. Please report any build difficulties.
 
-Note that a 64-bit OS is required. Ubuntu 16.04 should work. You will also need a CPU that supports SSE 4.2 to run VG; you can check this with `cat /proc/cpuinfo | grep sse4_2`.
+Note that a 64-bit OS is required. Ubuntu 18.04 should work. You will also need a CPU that supports SSE 4.2 to run VG; you can check this with `cat /proc/cpuinfo | grep sse4_2`.
 
 When you are ready, build with `. ./source_me.sh && make`, and run with `./bin/vg`.
 
@@ -75,7 +88,7 @@ VG depends on a number of packages being installed on the system where it is bei
 
 You can use MacPorts to install VG's dependencies:
 
-    sudo port install libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen cairo libomp
+    sudo port install libtool protobuf3-cpp jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen cairo libomp
     
 
 ##### Using Homebrew

@@ -408,7 +408,11 @@ tuple<Support, Support, int> SupportBasedSnarlCaller::get_child_support(const Sn
         child_total_support += child_support;
     }
     Support child_avg_support = child_total_support / child_size;
-    return std::tie(child_max_support, child_avg_support, child_size);
+    // we always use child_max like the old support_caller.
+    // this is the only way to get top-down recursion to work in many cases
+    // todo: fix to use bottom up, get get support from actual traversals
+    // every time!! 
+    return std::tie(child_max_support, child_max_support, child_size);
 }
 
 
@@ -604,6 +608,14 @@ vector<int> SupportBasedSnarlCaller::get_traversal_sizes(const vector<SnarlTrave
     }
     return sizes;
     
+}
+
+size_t SupportBasedSnarlCaller::get_average_traversal_support_switch_threshold() const {
+    return average_traversal_support_switch_threshold;
+}
+
+int SupportBasedSnarlCaller::get_min_total_support_for_call() const {
+    return min_total_support_for_call;
 }
 
 double SupportBasedSnarlCaller::get_bias(const vector<int>& traversal_sizes, int best_trav,

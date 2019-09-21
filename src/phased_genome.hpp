@@ -9,6 +9,7 @@
 #ifndef phased_genome_hpp
 #define phased_genome_hpp
 
+
 #include <stdio.h>
 #include <cassert>
 #include <list>
@@ -20,7 +21,6 @@
 #include "hash_map.hpp"
 #include "snarls.hpp"
 
-//#define debug_phased_genome
 
 using namespace std;
 
@@ -49,8 +49,10 @@ namespace vg {
          */
         
         /// Constructor
-        PhasedGenome(SnarlManager& snarl_manager);
+        PhasedGenome(const SnarlManager& snarl_manager);
         ~PhasedGenome();
+        PhasedGenome(PhasedGenome& phased_genome);
+        PhasedGenome&  operator =(PhasedGenome& phased_genome);
         
         /// Build a haplotype in place from an iterator that returns NodeTraversal objects from its
         /// dereference operator (allows construction without instantiating the haplotype elsewhere)
@@ -80,6 +82,13 @@ namespace vg {
         /// Iterator representing the past-the-last position of the given haplotype, with the last
         /// position being the right telomere node.
         iterator end(int which_haplotype);
+
+        /// Check which haplotypes a snarl is found in 
+        // Returns a list of haplotype IDs 
+        vector<id_t> get_haplotypes_with_snarl(const Snarl* snarl_to_find);
+
+        /// Prints out the haplotypes, and node values
+        void print_phased_genome();
         
         /*
          *  HAPLOTYPE EDITING METHODS
@@ -119,7 +128,7 @@ namespace vg {
         struct HaplotypeNode;
         class Haplotype;
         
-        SnarlManager& snarl_manager;
+        const SnarlManager* snarl_manager;
         
         /// All haplotypes in the genome (generally 2 per chromosome)
         vector<Haplotype*> haplotypes;
@@ -252,7 +261,9 @@ namespace vg {
         iterator(size_t rank, int haplotype_number, HaplotypeNode* haplo_node);
         
     public:
-        
+
+        using value_type = NodeTraversal;   
+
         /// Default constructor
         iterator();
         /// Copy constructor
@@ -546,6 +557,15 @@ namespace vg {
     }
 }
 
+namespace std{
+    template<>
+    struct iterator_traits<vg::PhasedGenome::iterator>{
+        using value_type = vg::NodeTraversal;   
+        using iterator_category = forward_iterator_tag;
+    };
+}
+
+    
 
 
 #endif /* phased_genome_hpp */
