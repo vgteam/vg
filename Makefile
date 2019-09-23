@@ -308,7 +308,6 @@ static: $(LIB_DIR)/vg_is_static
 # Make sure to strip out the symbols that make the binary 300 MB, but leave the
 # symbols perf needs for profiling.
 static-docker: static scripts/*
-	strip -d $(BIN_DIR)/$(EXE)
 	DOCKER_BUILDKIT=1 docker build . -f Dockerfile.static -t vg
 
 $(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)

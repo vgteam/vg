@@ -25,7 +25,7 @@ RUN apt-get -qq -y update && \
     jq \
     bc \
     linux-tools-common \
-    linux-tools-generic \
+    linux-tools-5.0.0-29-generic \
     binutils \
     perl \
     && apt-get -qq -y clean

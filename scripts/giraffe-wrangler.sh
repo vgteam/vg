@@ -2,7 +2,7 @@
 
 # giraffe-wrangler.sh: Run and profile vg gaffe and analyze the results.
 
-set -e
+set -ex
 
 usage() {
     # Print usage to stderr
@@ -110,15 +110,18 @@ if which perf >/dev/null 2>&1 ; then
     # Record profile.
     # Do this first because perf is likely to be misconfigured and we want to fail fast.
     
-    # If we don't strip bin/vg to make it small, the addr2line calls that perf
-    # script makes take forever because the binary is huge
-    strip -d bin/vg
+    # TODO: If we don't strip bin/vg to make it small, the addr2line calls that perf
+    # script makes might take forever because the binary is huge
     
     ${NUMA_PREFIX} perf record -F 100 --call-graph dwarf -o "${WORK}/perf.data"  vg gaffe "${GIRAFFE_GRAPH[@]}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -f "${REAL_FASTQ}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/perf.gam"
     perf script -i "${WORK}/perf.data" >"${WORK}/out.perf"
     deps/FlameGraph/stackcollapse-perf.pl "${WORK}/out.perf" >"${WORK}/out.folded"
     deps/FlameGraph/flamegraph.pl "${WORK}/out.folded" > "${WORK}/profile.svg"
 fi
+
+cp ${WORK}/perf.data .
+cp ${WORK}/profile.svg .
+exit
 
 # Run simulated reads, with stats
 ${NUMA_PREFIX} vg gaffe --track-correctness -x "${XG_INDEX}" "${GIRAFFE_GRAPH[@]}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -G "${SIM_GAM}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/mapped.gam"
