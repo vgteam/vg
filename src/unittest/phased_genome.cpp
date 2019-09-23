@@ -40,7 +40,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
             }
             
@@ -70,7 +70,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // construct haplotypes
                 
@@ -120,7 +120,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // construct haplotypes
                 
@@ -204,7 +204,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // construct haplotypes
                 
@@ -256,7 +256,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // construct haplotypes
                 
@@ -307,7 +307,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // construct haplotypes
                 
@@ -397,7 +397,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // construct haplotypes
                 
@@ -475,7 +475,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // construct haplotypes
                 
@@ -589,7 +589,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // add haplotypes
                 
@@ -680,7 +680,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 list<NodeTraversal> haplotype_1;
                 list<NodeTraversal> haplotype_2;
@@ -763,7 +763,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // add haplotypes
                 
@@ -848,7 +848,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 REQUIRE(snarl_manager.top_level_snarls().size() > 0);
                 const Snarl* site = snarl_manager.top_level_snarls()[0];
@@ -975,7 +975,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 REQUIRE(snarl_manager.top_level_snarls().size() > 0);
                 const Snarl* site = snarl_manager.top_level_snarls()[0];
@@ -1098,7 +1098,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // constuct haplotypes
                 

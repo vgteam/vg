@@ -104,8 +104,6 @@ struct Range {
     
     /// Check the range for usefulness
     inline bool is_valid() {
-        cerr << "Validating range " << start << ":" << end << ":" << step << endl;
-    
         if (start != end && step == 0) {
             // We'll never make it
             cerr << "Invalid range (no movement): " << start << " to " << end << " step " << step << endl;

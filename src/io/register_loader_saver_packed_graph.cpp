@@ -17,7 +17,7 @@ using namespace std;
 using namespace vg::io;
 
 void register_loader_saver_packed_graph() {
-  Registry::register_bare_loader_saver<bdsg::PackedGraph, PathHandleGraph, HandleGraph>("PackedGraph", [](istream& input) -> void* {
+  Registry::register_bare_loader_saver<bdsg::PackedGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>("PackedGraph", [](istream& input) -> void* {
         // Allocate a PackedGraph
          bdsg::PackedGraph* packed_graph = new bdsg::PackedGraph();
         

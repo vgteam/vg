@@ -411,7 +411,7 @@ public:
     /// Cannot be copied because of all the internal pointer indexes
     SnarlManager(const SnarlManager& other) = delete;
     SnarlManager& operator=(const SnarlManager& other) = delete;
-        
+        // copy the SnarlManager
     /// Can be moved
     SnarlManager(SnarlManager&& other) = default;
     SnarlManager& operator=(SnarlManager&& other) = default;
@@ -566,6 +566,14 @@ public:
     /// Given a Snarl that we don't own (like from a Visit), find the
     /// pointer to the managed copy of that Snarl.
     const Snarl* manage(const Snarl& not_owned) const;
+
+    /// Sample snarls discrete uniformly 
+    /// Returns a nullptr if no snarls are found 
+    const Snarl* discrete_uniform_sample(minstd_rand0& random_engine)const;
+
+    /// Count snarls in deque<SnarlRecords>, a master list of snarls in graph
+    int num_snarls()const;
+
         
 private:
     
