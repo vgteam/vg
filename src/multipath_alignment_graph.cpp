@@ -1364,6 +1364,8 @@ namespace vg {
         // Align the tails, not collecting a set of source subpaths.
         auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns, nullptr);
         
+        
+        
         for (bool handling_right_tail : {false, true}) {
             // For each tail we are processing
         
@@ -1374,7 +1376,14 @@ namespace vg {
                 auto& attached_path_node_index = kv.first;
                 // And all the alignments off of there
                 auto& alns = kv.second;
-
+                
+                // only make anchors from alignments that have score equal to the optimal
+                for (size_t i = 1; i < alns.size(); ++i) {
+                    if (alns[i].score() < alns.front().score()) {
+                        alns.resize(i);
+                        break;
+                    }
+                }
                 
 #ifdef debug_multipath_alignment
                 cerr << "Handling " << (handling_right_tail ? "right" : "left") << " tail off of PathNode "
@@ -3649,7 +3658,7 @@ namespace vg {
                         cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph" << endl;
                         tail_graph.for_each_handle([&](const handle_t& handle) {
                             cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
-                            tail_graph.follow_edges(handle, false, [&](const handle_t& prev) {
+                            tail_graph.follow_edges(handle, true, [&](const handle_t& prev) {
                                 cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
                             });
                             tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
