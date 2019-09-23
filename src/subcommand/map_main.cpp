@@ -1217,6 +1217,11 @@ int main_map(int argc, char** argv) {
     
     cout.flush();
 
+    // clean up our mappers
+    for (uint64_t i = 0; i < mapper.size(); ++i) {
+        delete mapper[i];
+    }
+
     return 0;
 
 }
