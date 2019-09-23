@@ -28,8 +28,9 @@ void help_rna(char** argv) {
          << "    -e, --use-embedded-paths   project transcripts onto embedded graph paths" << endl
          << "    -c, --do-not-collapse      do not collapse identical transcripts across haplotypes" << endl
          << "    -d, --remove-non-gene      remove intergenic and intronic regions (removes reference paths if -a or -r)" << endl
-         << "    -r, --add-ref-paths        add reference transcripts as embedded paths in the graph" << endl
-         << "    -a, --add-non-ref-paths    add non-reference transcripts as embedded paths in the graph" << endl
+         << "    -o, --do-not-sort          do not topological sort and compact splice graph" << endl
+         << "    -r, --add-ref-paths        add reference transcripts as embedded paths in the splice graph" << endl
+         << "    -a, --add-non-ref-paths    add non-reference transcripts as embedded paths in the splice graph" << endl
          << "    -u, --out-ref-paths        output reference transcripts in GBWT, fasta and info" << endl
          << "    -b, --write-gbwt FILE      write transcripts as threads to GBWT index file" << endl
          << "    -f, --write-fasta FILE     write transcripts as sequences to fasta file" << endl
@@ -53,7 +54,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     bool use_embedded_paths = false;
     bool collapse_transcript_paths = true;
     bool remove_non_transcribed = false;
-    bool sort_grap = false;
+    bool sort_collapse_graph = true;
     bool add_reference_transcript_paths = false;
     bool add_non_reference_transcript_paths = false;
     bool output_reference_transcript_paths = false;
@@ -75,6 +76,7 @@ int32_t main_rna(int32_t argc, char** argv) {
                 {"use-embeded-paths",  no_argument, 0, 'e'},
                 {"do-not-collapse",  no_argument, 0, 'c'},
                 {"remove-non-gene",  no_argument, 0, 'd'},
+                {"do-not-sort",  no_argument, 0, 'o'},
                 {"add-ref-paths",  no_argument, 0, 'r'},
                 {"add-non-ref-paths",  no_argument, 0, 'a'},
                 {"out-ref-paths",  no_argument, 0, 'u'},           
@@ -88,7 +90,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             };
 
         int32_t option_index = 0;
-        c = getopt_long(argc, argv, "n:s:l:ercdraub:f:i:t:ph?", long_options, &option_index);
+        c = getopt_long(argc, argv, "n:s:l:ercdoraub:f:i:t:ph?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -119,6 +121,10 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         case 'd':
             remove_non_transcribed = true;
+            break;
+
+        case 'o':
+            sort_collapse_graph = false;
             break;
 
         case 'r':
@@ -242,12 +248,15 @@ int32_t main_rna(int32_t argc, char** argv) {
     }
 
 
-    double time_sort_start = gcsa::readTimer();
-    if (show_progress) { cerr << "[vg rna] Topological sorting and compacting splice graph ..." << endl; }
-    
-    transcriptome.compact_ordered();
-    
-    if (show_progress) { cerr << "[vg rna] Splice graph sorted and compacted in " << gcsa::readTimer() - time_sort_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
+    if (sort_collapse_graph) {
+
+        double time_sort_start = gcsa::readTimer();
+        if (show_progress) { cerr << "[vg rna] Topological sorting and compacting splice graph ..." << endl; }
+        
+        transcriptome.compact_ordered();
+        
+        if (show_progress) { cerr << "[vg rna] Splice graph sorted and compacted in " << gcsa::readTimer() - time_sort_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
+    }
 
 
     if (add_reference_transcript_paths || add_non_reference_transcript_paths) {
@@ -263,7 +272,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             if (show_progress) { cerr << "[vg rna] Adding " << ((add_reference_transcript_paths) ? "reference" : "non-reference") << " transcript paths to splice graph ..." << endl; }
         }
 
-        transcriptome.add_paths_to_splice_graph(add_reference_transcript_paths, add_non_reference_transcript_paths, false);
+        transcriptome.embed_transcript_paths(add_reference_transcript_paths, add_non_reference_transcript_paths, false);
 
         if (show_progress) { cerr << "[vg rna] Paths added in " << gcsa::readTimer() - time_add_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
     }

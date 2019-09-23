@@ -119,9 +119,9 @@ class Transcriptome {
         /// Topological sort and compact graph.
         void compact_ordered();
 
-        /// Embeds transcript paths in variation graph. 
+        /// Embeds transcript paths in spliced variation graph. 
         /// Optionally rebuild paths indexes.
-        void add_paths_to_splice_graph(const bool add_reference_paths, const bool add_non_reference_paths, const bool rebuild_indexes);
+        void embed_transcript_paths(const bool add_reference_paths, const bool add_non_reference_paths, const bool rebuild_indexes);
 
         /// Add transcript paths as threads in GBWT index.
         void construct_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool output_reference_transcripts) const;
@@ -154,12 +154,13 @@ class Transcriptome {
         /// are ordered in reverse.
         void reorder_exons(Transcript * transcript) const;
 
-        /// Constructs transcript paths by projecting transcripts onto embedded paths 
-        /// in a variation graph and/or haplotypes in a GBWT index. 
-        list<TranscriptPath> project_transcripts(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length) const;
+        /// Constructs transcript paths by projecting transcripts onto embedded paths in
+        /// a variation graph and/or haplotypes in a GBWT index. Also returns whether any
+        /// of the projected transcript paths contain any novel start/end sites or junctions.  
+        pair<list<TranscriptPath>, bool> project_transcripts(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length) const;
 
         /// Threaded transcript projecting.
-        void project_transcripts_callback(list<TranscriptPath> * transcript_paths, mutex * transcript_paths_mutex, const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length) const;
+        void project_transcripts_callback(list<TranscriptPath> * proj_transcript_paths, bool * proj_transcript_paths_novel_junction, mutex * transcript_paths_mutex, const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length) const;
 
         /// Projects transcripts onto haplotypes in a GBWT index and returns resulting transcript paths.
         list<TranscriptPath> project_transcript_gbwt(const Transcript & cur_transcript, const gbwt::GBWT & haplotype_index, const float mean_node_length) const;
@@ -173,13 +174,16 @@ class Transcriptome {
 
         /// Collapses identical transcript paths. The number of collapsed copies are 
         /// recorded in the data structure TranscriptPath.
-        void collapse_identical_transcript_paths(list<TranscriptPath> * cur_transcript_paths) const;
+        void collapse_identical_paths(list<TranscriptPath> * cur_transcript_paths) const;
 
+        /// Checks whether transcript paths contain any novel start/end sites or junctions.  
+        bool paths_has_novel_junction(const list<TranscriptPath> & cur_transcript_paths) const;
 
-        /// Adds projected transcript paths to transcriptome. Optionally augment variation graph 
+        /// Adds transcript paths to transcriptome. Augments the variation graph 
         /// with transcript path splice-junctions and updates transcript path traversals
-        /// to match the augmented graph. 
-        void add_projected_transcript_paths(list<TranscriptPath> * proj_transcript_paths, const bool augment_splice_graph);
+        /// to match the augmented graph if the paths contain any novel start/end sites 
+        /// or junctions.
+        void add_paths_to_transcriptome(list<TranscriptPath> * cur_transcript_paths, const bool augment_splice_graph);
 };
 
 }
