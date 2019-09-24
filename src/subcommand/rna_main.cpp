@@ -283,7 +283,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     // Construct and write GBWT index of transcript paths in transcriptome.
     if (!gbwt_out_filename.empty()) {
 
-        if (show_progress) { cerr << "[vg rna] Writing " << transcriptome.size() << " transcripts as threads to GBWT index file ..." << endl; }
+        if (show_progress) { cerr << "[vg rna] Writing transcripts as threads to GBWT index file ..." << endl; }
 
         // Silence GBWT index construction. 
         gbwt::Verbosity::set(gbwt::Verbosity::SILENT); 
@@ -300,7 +300,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     // Write transcript path sequences in transcriptome to fasta file.
     if (!fasta_out_filename.empty()) {
 
-        if (show_progress) { cerr << "[vg rna] Writing " << transcriptome.size() << " transcripts as sequences to fasta file ..." << endl; }
+        if (show_progress) { cerr << "[vg rna] Writing transcripts as sequences to fasta file ..." << endl; }
 
         ofstream fasta_ostream;
         fasta_ostream.open(fasta_out_filename);
@@ -311,7 +311,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     // Write origin info on transcripts in transcriptome to tsv file.
     if (!info_out_filename.empty()) {
 
-        if (show_progress) { cerr << "[vg rna] Writing origin info on " << transcriptome.size() << " transcripts to tsv file ..." << endl; }
+        if (show_progress) { cerr << "[vg rna] Writing origin info on transcripts to tsv file ..." << endl; }
 
         ofstream info_ostream;
         info_ostream.open(info_out_filename);

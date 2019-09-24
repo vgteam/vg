@@ -38,8 +38,9 @@ struct Transcript {
     /// Exon coordinates (start and end) on the chromosome/contig.
     vector<pair<int32_t, int32_t> > exons;
 
-    /// Exon positions (start and end) on a variation graph. 
-    vector<pair<Position, Position> > exon_nodes;
+    /// Exon border node positions (last position in upstream intron and
+    /// first position in downstream intron) on a variation graph. 
+    vector<pair<Position, Position> > exon_border_nodes;
 
     Transcript(const string & name_in, const bool is_reverse_in, const string & chrom_in) : name(name_in), is_reverse(is_reverse_in), chrom(chrom_in) {}
 };
