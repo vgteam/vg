@@ -173,9 +173,8 @@ class Transcriptome {
         /// Projects transcripts onto embedded paths in a variation graph and returns resulting transcript paths.
         list<TranscriptPath> project_transcript_embedded(const Transcript & cur_transcript) const;
 
-        /// Collapses identical transcript paths. The number of collapsed copies are 
-        /// recorded in the data structure TranscriptPath.
-        void collapse_identical_paths(list<TranscriptPath> * cur_transcript_paths) const;
+        /// Add new transcript paths to current set. Optionally add only unique paths.
+        void append_transcript_paths(list<TranscriptPath> * cur_transcript_paths, list<TranscriptPath> * new_transcript_paths, const bool add_unqiue_paths_only) const;
 
         /// Checks whether transcript paths contain any novel start/end sites or junctions.  
         bool paths_has_novel_junction(const list<TranscriptPath> & cur_transcript_paths) const;

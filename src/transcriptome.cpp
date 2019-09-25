@@ -290,15 +290,11 @@ void Transcriptome::project_transcripts_callback(list<TranscriptPath> * proj_tra
 
         if (use_embedded_paths || use_reference_paths) { 
 
-            // Project transcript onto embedded paths.
-            cur_transcript_paths.splice(cur_transcript_paths.end(), project_transcript_embedded(transcript)); 
+            // Project transcript onto embedded paths and add new 
+            // transcript paths to current set.
+            auto new_transcript_paths = project_transcript_embedded(transcript);
+            append_transcript_paths(&cur_transcript_paths, &new_transcript_paths, collapse_transcript_paths);
         }
-
-        if (collapse_transcript_paths) { 
-
-            // Collapse identical transcript paths.
-            collapse_identical_paths(&cur_transcript_paths);
-        } 
 
         auto cur_transcript_paths_it = cur_transcript_paths.begin();
         int32_t transcript_path_idx = 1;
@@ -429,7 +425,7 @@ list<TranscriptPath> Transcriptome::project_transcript_gbwt(const Transcript & c
         cur_transcript_paths.back().haplotype_origins.reserve(haplotype.second.size());
 
         // Add haplotype names as origins.
-        for (auto thread_id: haplotype.second) {
+        for (auto & thread_id: haplotype.second) {
 
             // Convert bidirectional path id before finding name. 
             cur_transcript_paths.back().haplotype_origins.emplace_back(thread_name(haplotype_index, gbwt::Path::id(thread_id)));
@@ -802,58 +798,62 @@ list<TranscriptPath> Transcriptome::project_transcript_embedded(const Transcript
 
                 reverse_complement_path_in_place(&(cur_transcript_paths.back().path), [&](size_t node_id) {return _splice_graph->get_node(node_id)->sequence().size();});
             } 
-        }       
+        }  
     } 
 
     return cur_transcript_paths;
 }
 
-void Transcriptome::collapse_identical_paths(list<TranscriptPath> * cur_transcript_paths) const {
+void Transcriptome::append_transcript_paths(list<TranscriptPath> * cur_transcript_paths, list<TranscriptPath> * new_transcript_paths, const bool add_unqiue_paths_only) const {
 
-    auto cur_transcript_paths_it_1 = cur_transcript_paths->begin();
+    // Add only non unique transcript paths.
+    if (add_unqiue_paths_only) {
 
-    while (cur_transcript_paths_it_1 != cur_transcript_paths->end()) {
+        for (auto & new_transcript_path: *new_transcript_paths) {
 
-        auto cur_transcript_paths_it_2 = cur_transcript_paths_it_1;
-        ++cur_transcript_paths_it_2;
+            bool new_path_unqiue = true;
 
-        while (cur_transcript_paths_it_2 != cur_transcript_paths->end()) {
+            for (auto & cur_transcript_path: *cur_transcript_paths) {
 
-            // Check if two path mappings are identical.
-            if (cur_transcript_paths_it_1->path.mapping_size() == cur_transcript_paths_it_2->path.mapping_size() && equal(cur_transcript_paths_it_1->path.mapping().begin(), cur_transcript_paths_it_1->path.mapping().end(), cur_transcript_paths_it_2->path.mapping().begin(), [](const Mapping & m1, const Mapping & m2) { return google::protobuf::util::MessageDifferencer::Equals(m1, m2); })) {
+                // Check if two path mappings are identical.
+                if (cur_transcript_path.path.mapping_size() == new_transcript_path.path.mapping_size() && equal(cur_transcript_path.path.mapping().begin(), cur_transcript_path.path.mapping().end(), new_transcript_path.path.mapping().begin(), [](const Mapping & m1, const Mapping & m2) { return google::protobuf::util::MessageDifferencer::Equals(m1, m2); })) {
 
-                if (cur_transcript_paths_it_1->transcript_origin != cur_transcript_paths_it_2->transcript_origin) {
+                    if (cur_transcript_path.transcript_origin != new_transcript_path.transcript_origin) {
 
-                    cerr << "[transcriptome] WARNING: Different transcripts collaped (" << cur_transcript_paths_it_1->transcript_origin << " & " << cur_transcript_paths_it_2->transcript_origin << ")" << endl;
+                        cerr << "[transcriptome] WARNING: Different transcripts collaped (" << cur_transcript_path.transcript_origin << " & " << new_transcript_path.transcript_origin << ")" << endl;
+                    }
+
+                    assert(cur_transcript_path.reference_origin == new_transcript_path.reference_origin || cur_transcript_path.reference_origin.empty() || new_transcript_path.reference_origin.empty());
+
+                    // Merge reference origin name.
+                    if (cur_transcript_path.reference_origin.empty()) {
+
+                        cur_transcript_path.reference_origin = new_transcript_path.reference_origin;
+                    }
+
+                    // Merge haplotype origin names.
+                    cur_transcript_path.haplotype_origins.insert(cur_transcript_path.haplotype_origins.end(), new_transcript_path.haplotype_origins.begin(), new_transcript_path.haplotype_origins.end());
+                    
+                    new_path_unqiue = false;
+                    break;
                 }
-
-                assert(cur_transcript_paths_it_1->reference_origin == cur_transcript_paths_it_2->reference_origin || cur_transcript_paths_it_1->reference_origin.empty() || cur_transcript_paths_it_2->reference_origin.empty());
-
-                // Merge reference origin name.
-                if (cur_transcript_paths_it_1->reference_origin.empty()) {
-
-                    cur_transcript_paths_it_1->reference_origin = cur_transcript_paths_it_2->reference_origin;
-                }
-
-                // Merge haplotype origin names.
-                cur_transcript_paths_it_1->haplotype_origins.insert(cur_transcript_paths_it_1->haplotype_origins.end(), cur_transcript_paths_it_2->haplotype_origins.begin(), cur_transcript_paths_it_2->haplotype_origins.end());
-
-                // Delete one of the identical paths.
-                cur_transcript_paths_it_2 = cur_transcript_paths->erase(cur_transcript_paths_it_2);
-
-            } else {
-
-                ++cur_transcript_paths_it_2;
             }
-        }
 
-        ++cur_transcript_paths_it_1;
+            if (new_path_unqiue) {
+
+                cur_transcript_paths->push_back(new_transcript_path);
+            } 
+        }
+    
+    } else {
+
+        cur_transcript_paths->splice(cur_transcript_paths->end(), *new_transcript_paths);
     }
 }
 
 bool Transcriptome::paths_has_novel_junction(const list<TranscriptPath> & cur_transcript_paths) const {
 
-    for (auto transcript_path: cur_transcript_paths) {
+    for (auto & transcript_path: cur_transcript_paths) {
 
         for (size_t i = 0; i < transcript_path.path.mapping_size(); i++) {
 
@@ -950,7 +950,7 @@ void Transcriptome::add_paths_to_transcriptome(list<TranscriptPath> * new_transc
     _transcript_paths.reserve(_transcript_paths.size() + new_transcript_paths->size());
 
     // Add projected transcript paths to transcriptome.
-    for (auto transcript_path: *new_transcript_paths) {
+    for (auto & transcript_path: *new_transcript_paths) {
 
         _transcript_paths.emplace_back(move(transcript_path));
     }
