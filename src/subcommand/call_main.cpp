@@ -17,7 +17,7 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/vectorizable_overlays.hpp>
-#include <bdsg/path_position_overlays.hpp>
+#include <bdsg/packed_path_position_overlays.hpp>
 
 using namespace std;
 using namespace vg;
@@ -176,7 +176,7 @@ int main_call(int argc, char** argv) {
     bool need_path_positions = vcf_filename.empty();
     unique_ptr<PathPositionHandleGraph> path_pos_graph;
     if (need_path_positions && dynamic_cast<PathPositionHandleGraph*>(graph) == nullptr) {
-        path_pos_graph = unique_ptr<PathPositionHandleGraph>(new bdsg::PositionOverlay(graph));
+        path_pos_graph = unique_ptr<PathPositionHandleGraph>(new bdsg::PackedPositionOverlay(graph));
         graph = path_pos_graph.get();
         assert(graph != nullptr);
     }
@@ -295,7 +295,7 @@ int main_call(int argc, char** argv) {
     } else {
         if (dynamic_cast<const PathPositionHandleGraph*>(graph) == nullptr) {
             // make our overlay if necessary.  
-            path_pos_graph = unique_ptr<PathPositionHandleGraph>(new bdsg::PositionOverlay(graph));
+            path_pos_graph = unique_ptr<PathPositionHandleGraph>(new bdsg::PackedPositionOverlay(graph));
             graph = path_pos_graph.get();
         }
         
