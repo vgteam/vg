@@ -454,6 +454,9 @@ list<TranscriptPath> Transcriptome::project_transcript_gbwt(const Transcript & c
 
                     if (exon_border_start_node.offset() + 1 == node_length) {
 
+                        assert(haplotype.first.at(exon_idx).size() > 1);
+                        assert(node_id != exon_border_end_nodes.node_id());
+
                         continue;
                     
                     } else {
