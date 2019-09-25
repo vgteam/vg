@@ -7,6 +7,8 @@
 #include "../alignment_emitter.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+#include <bdsg/vectorizable_overlays.hpp>
+#include <bdsg/packed_path_position_overlays.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -637,17 +639,21 @@ int main_map(int argc, char** argv) {
     gcsa::TempFile::setDirectory(temp_file::get_dir());
 
     // Load up our indexes.
-    unique_ptr<PathPositionHandleGraph> xgidx;
+    PathPositionHandleGraph* xgidx = nullptr;
     unique_ptr<gcsa::GCSA> gcsa;
     unique_ptr<gcsa::LCPArray> lcp;
     unique_ptr<gbwt::GBWT> gbwt;
+    // Used only for memory management:
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    unique_ptr<bdsg::PackedPositionOverlay> position_overlay;
+    unique_ptr<bdsg::PathPositionVectorizableOverlay> vectorizable_overlay;
     
     // One of them may be used to provide haplotype scores
     haplo::ScoreProvider* haplo_score_provider = nullptr;
 
     // We try opening the file, and then see if it worked
     ifstream xg_stream(xg_name);
-
+    
     if(xg_stream) {
         // We have an xg index!
         
@@ -656,7 +662,18 @@ int main_map(int argc, char** argv) {
         if(debug) {
             cerr << "Loading xg index " << xg_name << "..." << endl;
         }
-        xgidx = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_stream);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_stream);
+        xgidx = dynamic_cast<PathPositionHandleGraph*>(path_handle_graph.get());
+        if (xgidx == nullptr) {
+            // apply the path position overlay
+            position_overlay = make_unique<bdsg::PackedPositionOverlay>(path_handle_graph.get());
+            xgidx = position_overlay.get();
+        }
+        if (dynamic_cast<VectorizableHandleGraph*>(xgidx) == nullptr) {
+            // apply the vectorizable overlay
+            vectorizable_overlay = make_unique<bdsg::PathPositionVectorizableOverlay>(xgidx);
+            xgidx = vectorizable_overlay.get();
+        }
     }
 
     ifstream gcsa_stream(gcsa_name);
@@ -718,7 +735,7 @@ int main_map(int argc, char** argv) {
     }
     
     // If we need to do surjection, we will need a surjector. So set one up.
-    Surjector surjector(xgidx.get());
+    Surjector surjector(xgidx);
 
     // Look up all the path info we need for the HTSlib header, in case we output to HTS format.
     map<string, int64_t> path_length;
@@ -780,9 +797,9 @@ int main_map(int argc, char** argv) {
 
     for (int i = 0; i < thread_count; ++i) {
         Mapper* m = nullptr;
-        if(xgidx.get() && gcsa.get() && lcp.get()) {
+        if(xgidx && gcsa.get() && lcp.get()) {
             // We have the xg and GCSA indexes, so use them
-            m = new Mapper(xgidx.get(), gcsa.get(), lcp.get(), haplo_score_provider);
+            m = new Mapper(xgidx, gcsa.get(), lcp.get(), haplo_score_provider);
         } else {
             // Can't continue with null
             throw runtime_error("Need XG, GCSA, and LCP to create a Mapper");
