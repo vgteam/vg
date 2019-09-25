@@ -3351,6 +3351,10 @@ void VG::apply_ordering(const vector<handle_t>& ordering, bool compact_ids) {
         this->compact_ids();
     }
 }
+    
+void VG::set_id_increment(const nid_t& min_id) {
+    // no-op
+}
 
 map<id_t, vcflib::Variant> VG::get_node_id_to_variant(vcflib::VariantCallFile vfile){
     map<id_t, vcflib::Variant> ret;
