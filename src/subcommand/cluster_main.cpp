@@ -42,7 +42,6 @@ void help_cluster(char** argv) {
     << "  -x, --xg-name FILE            use this xg index (required)" << endl
     << "  -g, --gcsa-name FILE          use this GCSA2/LCP index pair (both FILE and FILE.lcp)" << endl
     << "  -m, --minimizer-name FILE     use this minimizer index" << endl
-    << "  -s, --snarls FILE             cluster using these snarls (required)" << endl
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
     << "  -c, --hit-cap INT             ignore minimizers with more than this many locations [10]" << endl
     << "computational parameters:" << endl
@@ -60,7 +59,6 @@ int main_cluster(int argc, char** argv) {
     string xg_name;
     string gcsa_name;
     string minimizer_name;
-    string snarls_name;
     string distance_name;
     // How close should two hits be to be in the same cluster?
     size_t distance_limit = 1000;
@@ -75,7 +73,6 @@ int main_cluster(int argc, char** argv) {
             {"xg-name", required_argument, 0, 'x'},
             {"gcsa-name", required_argument, 0, 'g'},
             {"minimizer-name", required_argument, 0, 'm'},
-            {"snarls", required_argument, 0, 's'},
             {"dist-name", required_argument, 0, 'd'},
             {"hit-cap", required_argument, 0, 'c'},
             {"threads", required_argument, 0, 't'},
@@ -83,7 +80,7 @@ int main_cluster(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:m:s:d:c:t:",
+        c = getopt_long (argc, argv, "hx:g:m:d:c:t:",
                          long_options, &option_index);
 
 
@@ -113,14 +110,6 @@ int main_cluster(int argc, char** argv) {
                 minimizer_name = optarg;
                 if (minimizer_name.empty()) {
                     cerr << "error:[vg cluster] Must provide minimizer file with -m." << endl;
-                    exit(1);
-                }
-                break;
-                
-            case 's':
-                snarls_name = optarg;
-                if (snarls_name.empty()) {
-                    cerr << "error:[vg cluster] Must provide snarl file with -s." << endl;
                     exit(1);
                 }
                 break;
@@ -168,10 +157,6 @@ int main_cluster(int argc, char** argv) {
         exit(1);
     }
     
-    if (snarls_name.empty()) {
-        cerr << "error:[vg cluster] Finding clusters requires snarls, must provide snarls file (-s)" << endl;
-        exit(1);
-    }
     
     if (distance_name.empty()) {
         cerr << "error:[vg cluster] Finding clusters requires a distance index, must provide distance index file (-d)" << endl;
@@ -190,7 +175,6 @@ int main_cluster(int argc, char** argv) {
     if (!minimizer_name.empty()) {
         minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(minimizer_name);
     }
-    unique_ptr<SnarlManager> snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarls_name);
     unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     
     // Make the clusterer
