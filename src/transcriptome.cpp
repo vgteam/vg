@@ -153,6 +153,7 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
         add_exon(&(transcripts.back()), make_pair(spos, epos), *chrom_path_index.second);
     }
 
+    reorder_exons(&transcripts.back());
     delete chrom_path_index.second;
 
 #ifdef transcriptome_debug
@@ -179,8 +180,8 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
 #endif 
 
     // Add projected transcript paths to transcriptome and
-    // augment splice graph with splice-junctions.
-    add_paths_to_transcriptome(&proj_transcript_paths.first, proj_transcript_paths.second);
+    // augment splice graph with new splice-junctions.
+    add_paths_to_transcriptome(&proj_transcript_paths);
 
 #ifdef transcriptome_debug
     double time_add_2 = gcsa::readTimer();
@@ -245,10 +246,9 @@ void Transcriptome::reorder_exons(Transcript * transcript) const {
     }
 }
 
-pair<list<TranscriptPath>, bool> Transcriptome::project_transcripts(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length) const {
+list<TranscriptPath> Transcriptome::project_transcripts(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length) const {
 
     list<TranscriptPath> proj_transcript_paths;
-    bool proj_transcript_paths_novel_junction = false;
     mutex proj_transcript_paths_mutex;
 
     vector<thread> projection_threads;
@@ -257,7 +257,7 @@ pair<list<TranscriptPath>, bool> Transcriptome::project_transcripts(const vector
     // Spawn projection threads.
     for (int32_t thread_idx = 0; thread_idx < num_threads; thread_idx++) {
 
-        projection_threads.push_back(thread(&Transcriptome::project_transcripts_callback, this, &proj_transcript_paths, &proj_transcript_paths_novel_junction, &proj_transcript_paths_mutex, thread_idx, ref(transcripts), ref(haplotype_index), mean_node_length));
+        projection_threads.push_back(thread(&Transcriptome::project_transcripts_callback, this, &proj_transcript_paths, &proj_transcript_paths_mutex, thread_idx, ref(transcripts), ref(haplotype_index), mean_node_length));
     }
 
     // Join projection threads.   
@@ -266,10 +266,10 @@ pair<list<TranscriptPath>, bool> Transcriptome::project_transcripts(const vector
         thread.join();
     }
 
-    return make_pair(proj_transcript_paths, proj_transcript_paths_novel_junction);
+    return proj_transcript_paths;
 }
 
-void Transcriptome::project_transcripts_callback(list<TranscriptPath> * proj_transcript_paths, bool * proj_transcript_paths_novel_junction, mutex * proj_transcript_paths_mutex, const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length) const {
+void Transcriptome::project_transcripts_callback(list<TranscriptPath> * proj_transcript_paths, mutex * proj_transcript_paths_mutex, const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length) const {
 
     list<TranscriptPath> thread_transcript_paths;
 
@@ -313,15 +313,8 @@ void Transcriptome::project_transcripts_callback(list<TranscriptPath> * proj_tra
         transcripts_idx += num_threads;
     }
 
-    lock_guard<mutex> trancriptome_lock(*proj_transcript_paths_mutex);
-
-    // Does the transcript paths contain any novel start/end sites or junctions.  
-    if (paths_has_novel_junction(thread_transcript_paths)) {
-
-        *proj_transcript_paths_novel_junction = true;
-    }
-
     // Add transcript paths to transcriptome.
+    lock_guard<mutex> trancriptome_lock(*proj_transcript_paths_mutex);
     proj_transcript_paths->splice(proj_transcript_paths->end(), thread_transcript_paths);
 }
 
@@ -477,8 +470,8 @@ list<TranscriptPath> Transcriptome::project_transcript_gbwt(const Transcript & c
                     }
                 }
 
-                assert(0 < edit_length && edit_length <= node_length);
                 assert(0 <= offset && offset < node_length);
+                assert(0 < edit_length && edit_length <= node_length);
 
                 // Add new mapping in forward direction. Later the whole path will
                 // be reverse complemented if transcript is on the '-' strand.
@@ -851,7 +844,9 @@ void Transcriptome::append_transcript_paths(list<TranscriptPath> * cur_transcrip
     }
 }
 
-bool Transcriptome::paths_has_novel_junction(const list<TranscriptPath> & cur_transcript_paths) const {
+bool Transcriptome::add_novel_transcript_junctions(const list<TranscriptPath> & cur_transcript_paths) {
+
+    bool all_junctions_added = true;
 
     for (auto & transcript_path: cur_transcript_paths) {
 
@@ -859,29 +854,11 @@ bool Transcriptome::paths_has_novel_junction(const list<TranscriptPath> & cur_tr
 
             auto & cur_mapping = transcript_path.path.mapping(i);
 
-            if (cur_mapping.position().offset() > 0) {
+            if (cur_mapping.position().offset() > 0 || cur_mapping.edit_size() > 1 || !edit_is_match(cur_mapping.edit(0)) || !_splice_graph->has_node(cur_mapping.position().node_id()) || _splice_graph->get_node(cur_mapping.position().node_id())->sequence().size() != cur_mapping.edit(0).from_length()) {
 
-                return true;
-            } 
-
-            if (cur_mapping.edit_size() > 1) {
-
-                return true;
-            } 
-
-            if (!edit_is_match(cur_mapping.edit(0))) {
-
-                return true;
-            } 
-
-            if (!_splice_graph->has_node(cur_mapping.position().node_id())) {
-
-                return true;
-            }     
-
-            if (_splice_graph->get_node(cur_mapping.position().node_id())->sequence().size() != cur_mapping.edit(0).from_length()) {
-
-                return true;
+                all_junctions_added = false;
+                i++;
+                continue;
             } 
 
             if (i > 0) {
@@ -893,19 +870,34 @@ bool Transcriptome::paths_has_novel_junction(const list<TranscriptPath> & cur_tr
 
                 if (!_splice_graph->has_edge(prev_node_side, cur_node_side)) {
 
-                    return true;
+                    _splice_graph->create_edge(prev_node_side, cur_node_side);
                 }
             }
         }
     }
 
-    return false;
+    return all_junctions_added;
 }
 
-void Transcriptome::add_paths_to_transcriptome(list<TranscriptPath> * new_transcript_paths, const bool augment_splice_graph) {
+void Transcriptome::add_paths_to_transcriptome(list<TranscriptPath> * new_transcript_paths) {
 
-    // Augment splice graph with splice-junctions in transcript paths.
-    if (augment_splice_graph) {
+#ifdef transcriptome_debug
+    double time_novel_1 = gcsa::readTimer();
+    cerr << "DEBUG novel start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif
+
+    // Add novel splice-junctions in transcript paths
+    // to splice graph which does not require node splitting.
+    bool all_junctions_added = add_novel_transcript_junctions(*new_transcript_paths);
+
+#ifdef transcriptome_debug
+    double time_novel_2 = gcsa::readTimer();
+    cerr << "DEBUG novel end: " << time_novel_2 - time_novel_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif
+
+    // Augment splice graph with splice-junctions (including node splitting) 
+    // in transcript paths.
+    if (!all_junctions_added) {
 
         // Move paths to data structure compatible with edit.
         vector<Path> edit_paths;
