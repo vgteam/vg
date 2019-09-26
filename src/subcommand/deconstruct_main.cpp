@@ -16,7 +16,7 @@
 #include "../deconstructor.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
-#include <bdsg/packed_path_position_overlays.hpp>
+#include <bdsg/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -124,13 +124,8 @@ int main_deconstruct(int argc, char** argv){
             path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
         });
 
-    PathPositionHandleGraph* graph = dynamic_cast<PathPositionHandleGraph*>(path_handle_graph.get());
-    // Overlay to be a path position graph if necessary
-    unique_ptr<PathPositionHandleGraph> path_position_handle_graph;
-    if (graph == nullptr) {
-        path_position_handle_graph = unique_ptr<PathPositionHandleGraph>(new bdsg::PackedPositionOverlay(path_handle_graph.get()));
-        graph = path_position_handle_graph.get();
-    }
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    PathPositionHandleGraph* graph = overlay_helper.apply(path_handle_graph.get());
     
     // Load or compute the snarls
     unique_ptr<SnarlManager> snarl_manager;    

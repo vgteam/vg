@@ -15,6 +15,7 @@
 #include "../xg.hpp"
 #include "../gbwt_helper.hpp"
 #include <vg/io/vpkg.hpp>
+#include <bdsg/overlay_helper.hpp>
 
 #include <gbwtgraph/gbwtgraph.h>
 
@@ -38,7 +39,7 @@ void help_gbwt(char** argv) {
          << "    -e, --extract FILE     extract threads in SDSL format to FILE" << endl
          << "GBWTGraph construction:" << endl
          << "    -g, --graph-name FILE  build a GBWT graph and serialize it to FILE (requires -x)" << endl
-         << "    -x, --xg-name FILE     use the sequences from the XG index in FILE" << endl
+         << "    -x, --xg-name FILE     use the sequences from the XG index or graph in FILE" << endl
          << "metadata (use deps/gbwt/metadata_tool to modify):" << endl
          << "    -M, --metadata         print basic metadata" << endl
          << "    -C, --contigs          print the number of contigs" << endl
@@ -372,8 +373,11 @@ int main_gbwt(int argc, char** argv)
                 cerr << "error: [vg gbwt] GBWTGraph construction requires XG index" << endl;
                 exit(1);
             }
-            unique_ptr<PathPositionHandleGraph> xg_index = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
-            if (xg_index.get() == nullptr) {
+            unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+            bdsg::PathPositionOverlayHelper overlay_helper;
+            PathPositionHandleGraph* xg_index = overlay_helper.apply(path_handle_graph.get());
+            
+            if (xg_index == nullptr) {
                 cerr << "error: [vg gbwt] could not load XG index " << xg_name << endl;
                 exit(1);
             }

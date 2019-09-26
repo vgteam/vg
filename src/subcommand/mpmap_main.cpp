@@ -13,6 +13,7 @@
 #include "../path.hpp"
 #include "../xg.hpp"
 #include "../watchdog.hpp"
+#include <bdsg/overlay_helper.hpp>
 
 //#define record_read_run_times
 
@@ -891,8 +892,9 @@ int main_mpmap(int argc, char** argv) {
     gcsa::TempFile::setDirectory(temp_file::get_dir());
     
     // Load required indexes
-    
-    unique_ptr<PathPositionHandleGraph> xg_index = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_stream);
+    unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_stream);
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    PathPositionHandleGraph* xg_index = overlay_helper.apply(path_handle_graph.get());    
     unique_ptr<gcsa::GCSA> gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
     unique_ptr<gcsa::LCPArray> lcp_array = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     
@@ -919,7 +921,7 @@ int main_mpmap(int argc, char** argv) {
         // TODO: we only support a single ref contig, and we use these
         // hardcoded mutation and recombination likelihoods
         
-        sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, *xg_index.get(),
+        sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, *xg_index,
                                                  xg_index->get_path_handle(sublinearLS_ref_path));
         haplo_score_provider = new haplo::LinearScoreProvider(*sublinearLS);
     }
@@ -940,7 +942,7 @@ int main_mpmap(int argc, char** argv) {
         
     }
     
-    MultipathMapper multipath_mapper(xg_index.get(), gcsa_index.get(), lcp_array.get(), haplo_score_provider,
+    MultipathMapper multipath_mapper(xg_index, gcsa_index.get(), lcp_array.get(), haplo_score_provider,
         snarl_manager.get(), distance_index.get());
     
     // set alignment parameters

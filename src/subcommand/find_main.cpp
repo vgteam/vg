@@ -9,6 +9,7 @@
 #include "../stream_index.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
 #include "../algorithms/approx_path_distance.hpp"
+#include <bdsg/overlay_helper.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -20,7 +21,7 @@ void help_find(char** argv) {
     cerr << "usage: " << argv[0] << " find [options] >sub.vg" << endl
          << "options:" << endl
          << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl
-         << "    -x, --xg-name FILE     use this xg index (instead of rocksdb db)" << endl
+         << "    -x, --xg-name FILE     use this xg index or graph (instead of rocksdb db)" << endl
          << "graph features:" << endl
          << "    -n, --node ID          find node(s), return 1-hop context as graph" << endl
          << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
@@ -346,9 +347,12 @@ int main_find(int argc, char** argv) {
         vindex->open_read_only(db_name);
     }
 
-    unique_ptr<PathPositionHandleGraph> xindex;
+    PathPositionHandleGraph* xindex = nullptr;
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    bdsg::PathPositionOverlayHelper overlay_helper;
     if (!xg_name.empty()) {
-        xindex = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        xindex = overlay_helper.apply(path_handle_graph.get());
     }
     
     unique_ptr<GAMIndex> gam_index;
@@ -836,7 +840,7 @@ int main_find(int argc, char** argv) {
                 }
             } else {
                 // for mems we need to load up the gcsa and lcp structures into the mapper
-                Mapper mapper(xindex.get(), gcsa_index.get(), lcp_index.get());
+                Mapper mapper(xindex, gcsa_index.get(), lcp_index.get());
                 mapper.fast_reseed = use_fast_reseed;
                 // get the mems
                 double lcp_avg, fraction_filtered;

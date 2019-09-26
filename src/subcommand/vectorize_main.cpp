@@ -18,6 +18,7 @@
 #include "../mapper.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+#include <bdsg/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -29,7 +30,7 @@ void help_vectorize(char** argv){
          << "Vectorize a set of alignments to a variety of vector formats." << endl
          << endl
          << "options: " << endl
-         << "  -x --xg FILE       An xg index for the graph of interest" << endl
+         << "  -x --xg FILE       An xg index or graph of interest" << endl
          << "  -g --gcsa FILE     A gcsa2 index to use if generating MEM sketches" << endl
          << "  -l --aln-label LABEL   Rename every alignment to LABEL when outputting alignment name." << endl
          << "  -f --format        Tab-delimit output so it can be used in R." << endl
@@ -180,9 +181,12 @@ int main_vectorize(int argc, char** argv){
         }
     }
 
-    unique_ptr<PathPositionHandleGraph> xg_index;
+    PathPositionHandleGraph* xg_index = nullptr;
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    bdsg::PathPositionOverlayHelper overlay_helper;
     if (!xg_name.empty()) {
-        xg_index = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        xg_index = overlay_helper.apply(path_handle_graph.get());
     }
     else{
         cerr << "No XG index given. An XG index must be provided." << endl;
@@ -211,14 +215,14 @@ int main_vectorize(int argc, char** argv){
             cerr << "[vg vectorize] error : an xg index and gcsa index are required when making MEM sketches" << endl;
             return 1;
         } else {
-            mapper = new Mapper(xg_index.get(), gcsa_index.get(), lcp_index.get());
+            mapper = new Mapper(xg_index, gcsa_index.get(), lcp_index.get());
         }
         if (mem_hit_max) {
             mapper->hit_max = mem_hit_max;
         }
     }
 
-    Vectorizer vz(xg_index.get());
+    Vectorizer vz(xg_index);
 
     // write the header if needed
     if (format) {

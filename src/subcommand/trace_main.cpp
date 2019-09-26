@@ -8,6 +8,7 @@
 #include "../vg.hpp"
 #include <vg/io/vpkg.hpp>
 #include "../haplotype_extracter.hpp"
+#include <bdsg/overlay_helper.hpp>
 
 using namespace vg;
 using namespace std;
@@ -20,7 +21,7 @@ void help_trace(char** argv) {
          << "Trace and extract haplotypes from an index" << endl
          << endl
          << "options:" << endl
-         << "    -x, --index FILE           use this xg index" << endl
+         << "    -x, --index FILE           use this xg index or graph" << endl
          << "    -G, --gbwt-name FILE       use this GBWT haplotype index instead of the xg's embedded gPBWT" << endl
          << "    -n, --start-node INT       start at this node" << endl
         //TODO: implement backwards iteration over graph
@@ -118,7 +119,9 @@ int main_trace(int argc, char** argv) {
     cerr << "error:[vg trace] start node must be specified with -n" << endl;
     return 1;
   }
-  unique_ptr<PathPositionHandleGraph> xindex = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
+  unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+  bdsg::PathPositionOverlayHelper overlay_helper;
+  PathPositionHandleGraph* xindex = overlay_helper.apply(path_handle_graph.get());    
 
   // Now load the haplotype data
   unique_ptr<gbwt::GBWT> gbwt_index;

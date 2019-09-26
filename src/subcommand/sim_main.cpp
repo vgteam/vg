@@ -19,6 +19,7 @@
 #include "../sampler.hpp"
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/vpkg.hpp>
+#include <bdsg/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -54,7 +55,7 @@ void help_sim(char** argv) {
          << "Samples sequences from the xg-indexed graph." << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-name FILE          use the xg index in FILE" << endl
+         << "    -x, --xg-name FILE          use the xg index (or graph) in FILE" << endl
          << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-f)" << endl
          << "    -I, --interleaved           reads in FASTQ (-F) are interleaved read pairs" << endl
          << "    -P, --path PATH             simulate from the given names path (multiple allowed, cannot also give -T)" << endl
@@ -245,9 +246,13 @@ int main_sim(int argc, char** argv) {
         transcript_expressions = parse_rsem_expression_file(rsem_in);
     }
 
-    unique_ptr<PathPositionHandleGraph> xgidx;
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
+    PathPositionHandleGraph* xgidx = nullptr;
+
     if (!xg_name.empty()) {
-        xgidx = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
     }
     
     for (auto& path_name : path_names) {
@@ -274,7 +279,7 @@ int main_sim(int argc, char** argv) {
         // Use the fixed error rate sampler
         
         // Make a sample to sample reads with
-        Sampler sampler(xgidx.get(), seed_val, forward_only, reads_may_contain_Ns, path_names, transcript_expressions);
+        Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names, transcript_expressions);
         
         Aligner rescorer(default_match, default_mismatch, default_gap_open, default_gap_extension, default_full_length_bonus);
 

@@ -7,8 +7,7 @@
 #include "../alignment_emitter.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
-#include <bdsg/vectorizable_overlays.hpp>
-#include <bdsg/packed_path_position_overlays.hpp>
+#include <bdsg/overlay_helper.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -22,7 +21,7 @@ void help_map(char** argv) {
          << endl
          << "graph/index:" << endl
          << "    -d, --base-name BASE          use BASE.xg and BASE.gcsa as the input index pair" << endl
-         << "    -x, --xg-name FILE            use this xg index (defaults to <graph>.vg.xg)" << endl
+         << "    -x, --xg-name FILE            use this xg index or graph (defaults to <graph>.vg.xg)" << endl
          << "    -g, --gcsa-name FILE          use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
          << "    -1, --gbwt-name FILE          use this GBWT haplotype index (defaults to <graph>"<<gbwt::GBWT::EXTENSION << ")" << endl
          << "algorithm:" << endl
@@ -645,8 +644,7 @@ int main_map(int argc, char** argv) {
     unique_ptr<gbwt::GBWT> gbwt;
     // Used only for memory management:
     unique_ptr<PathHandleGraph> path_handle_graph;
-    unique_ptr<bdsg::PackedPositionOverlay> position_overlay;
-    unique_ptr<bdsg::PathPositionVectorizableOverlay> vectorizable_overlay;
+    bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
     
     // One of them may be used to provide haplotype scores
     haplo::ScoreProvider* haplo_score_provider = nullptr;
@@ -663,17 +661,7 @@ int main_map(int argc, char** argv) {
             cerr << "Loading xg index " << xg_name << "..." << endl;
         }
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_stream);
-        xgidx = dynamic_cast<PathPositionHandleGraph*>(path_handle_graph.get());
-        if (xgidx == nullptr) {
-            // apply the path position overlay
-            position_overlay = make_unique<bdsg::PackedPositionOverlay>(path_handle_graph.get());
-            xgidx = position_overlay.get();
-        }
-        if (dynamic_cast<VectorizableHandleGraph*>(xgidx) == nullptr) {
-            // apply the vectorizable overlay
-            vectorizable_overlay = make_unique<bdsg::PathPositionVectorizableOverlay>(xgidx);
-            xgidx = vectorizable_overlay.get();
-        }
+        xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
     }
 
     ifstream gcsa_stream(gcsa_name);

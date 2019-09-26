@@ -22,6 +22,7 @@
 #include "../alignment_emitter.hpp"
 #include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
+#include <bdsg/overlay_helper.hpp>
 
 #include <gbwtgraph/minimizer.h>
 
@@ -286,7 +287,7 @@ void help_gaffe(char** argv) {
     << "Map unpaired reads using minimizers and gapless extension." << endl
     << endl
     << "basic options:" << endl
-    << "  -x, --xg-name FILE            use this xg index (required if -g not specified)" << endl
+    << "  -x, --xg-name FILE            use this xg index or graph (required if -g not specified)" << endl
     << "  -g, --graph-name FILE         use this GBWTGraph (required if -x not specified)" << endl
     << "  -H, --gbwt-name FILE          use this GBWT index (required)" << endl
     << "  -m, --minimizer-name FILE     use this minimizer index (required)" << endl
@@ -682,7 +683,13 @@ int main_gaffe(int argc, char** argv) {
     if (progress && !xg_name.empty()) {
         cerr << "Loading XG index " << xg_name << endl;
     }
-    unique_ptr<PathPositionHandleGraph> xg_index = (xg_name.empty() ? nullptr : vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name));
+    PathPositionHandleGraph* xg_index = nullptr;
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    if (!xg_name.empty()) {
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        xg_index = overlay_helper.apply(path_handle_graph.get());
+    }
 
     if (progress) {
         cerr << "Loading GBWT index " << gbwt_name << endl;
@@ -721,7 +728,7 @@ int main_gaffe(int argc, char** argv) {
     if (progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(*gbwt_graph, *minimizer_index, distance_index, xg_index.get());
+    MinimizerMapper minimizer_mapper(*gbwt_graph, *minimizer_index, distance_index, xg_index);
     
     std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
     std::chrono::duration<double> init_seconds = init - launch;
