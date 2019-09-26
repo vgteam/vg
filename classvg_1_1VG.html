@@ -224,6 +224,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a0b4fa1970f08f3e4d0cf2f8c33a967a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7c07df5ff863bab2c096cd58a8350f37"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a7c07df5ff863bab2c096cd58a8350f37">apply_ordering</a> (const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;order, bool <a class="el" href="classvg_1_1VG.html#a161ef56bd0eeee937602f60b8617f24d">compact_ids</a>=false)</td></tr>
 <tr class="separator:a7c07df5ff863bab2c096cd58a8350f37"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aebe71b82645b85e73342366cea0a4549"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#aebe71b82645b85e73342366cea0a4549">set_id_increment</a> (const <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;min_id)</td></tr>
+<tr class="memdesc:aebe71b82645b85e73342366cea0a4549"><td class="mdescLeft">&#160;</td><td class="mdescRight">No-op function (required by MutableHandleGraph interface)  <a href="#aebe71b82645b85e73342366cea0a4549">More...</a><br /></td></tr>
+<tr class="separator:aebe71b82645b85e73342366cea0a4549"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adb25bd1fdb9e36c55157c5be864ca403"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#adb25bd1fdb9e36c55157c5be864ca403">destroy_path</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path)</td></tr>
 <tr class="memdesc:adb25bd1fdb9e36c55157c5be864ca403"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destroy the given path. Invalidates handles to the path and its node steps.  <a href="#adb25bd1fdb9e36c55157c5be864ca403">More...</a><br /></td></tr>
 <tr class="separator:adb25bd1fdb9e36c55157c5be864ca403"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -9172,6 +9175,36 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
       </table>
 </div><div class="memdoc">
 <p>Set the edge indexes through this function. Picks up the sides being connected by the edge automatically, and silently drops the edge if they are already connected. </p>
+
+</div>
+</div>
+<a id="aebe71b82645b85e73342366cea0a4549"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aebe71b82645b85e73342366cea0a4549">&#9670;&nbsp;</a></span>set_id_increment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::VG::set_id_increment </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>min_id</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>No-op function (required by MutableHandleGraph interface) </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#ab844ab426cd9f289414aca4d8b892ca9">handlegraph::MutableHandleGraph</a>.</p>
 
 </div>
 </div>

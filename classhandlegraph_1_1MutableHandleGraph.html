@@ -114,6 +114,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a195c81fa446b62d94fda8841eaa3bb85"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7e14ea0ae201ba87934559ecbd3a2981"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a7e14ea0ae201ba87934559ecbd3a2981">apply_ordering</a> (const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;order, bool compact_ids=false)=0</td></tr>
 <tr class="separator:a7e14ea0ae201ba87934559ecbd3a2981"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab844ab426cd9f289414aca4d8b892ca9"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#ab844ab426cd9f289414aca4d8b892ca9">set_id_increment</a> (const <a class="el" href="namespacehandlegraph.html#acfee0df419f087fab4a5cbf2cabff734">nid_t</a> &amp;min_id)=0</td></tr>
+<tr class="separator:ab844ab426cd9f289414aca4d8b892ca9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1HandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1HandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1HandleGraph.html">handlegraph::HandleGraph</a></td></tr>
 <tr class="memitem:a24fb796441c9ad8c870fdb716a82b305 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a24fb796441c9ad8c870fdb716a82b305">~HandleGraph</a> ()=default</td></tr>
 <tr class="separator:a24fb796441c9ad8c870fdb716a82b305 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -511,6 +513,35 @@ Additional Inherited Members</h2></td></tr>
 <p>Adjust the representation of the graph in memory to improve performance. Optionally, allow the node IDs to be reassigned to further improve performance. Note: Ideally, this method is called one time once there is expected to be few graph modifications in the future. </p>
 
 <p>Implemented in <a class="el" href="classvg_1_1VG.html#a0b4fa1970f08f3e4d0cf2f8c33a967a5">vg::VG</a>.</p>
+
+</div>
+</div>
+<a id="ab844ab426cd9f289414aca4d8b892ca9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab844ab426cd9f289414aca4d8b892ca9">&#9670;&nbsp;</a></span>set_id_increment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void handlegraph::MutableHandleGraph::set_id_increment </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#acfee0df419f087fab4a5cbf2cabff734">nid_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>min_id</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Set a minimum id to increment the id space by, used as a hint during construction. May have no effect on a backing implementation. </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1VG.html#aebe71b82645b85e73342366cea0a4549">vg::VG</a>.</p>
 
 </div>
 </div>
