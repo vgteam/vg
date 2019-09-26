@@ -22,6 +22,7 @@
 #include <vg/io/protobuf_emitter.hpp>
 
 #include <gbwtgraph/minimizer.h>
+#include <bdsg/overlay_helper.hpp>
 
 //#define USE_CALLGRIND
 
@@ -39,7 +40,7 @@ void help_cluster(char** argv) {
     << "Find and cluster mapping seeds." << endl
     << endl
     << "basic options:" << endl
-    << "  -x, --xg-name FILE            use this xg index (required)" << endl
+    << "  -x, --xg-name FILE            use this xg index or graph (required)" << endl
     << "  -g, --gcsa-name FILE          use this GCSA2/LCP index pair (both FILE and FILE.lcp)" << endl
     << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -s, --snarls FILE             cluster using these snarls (required)" << endl
@@ -179,7 +180,9 @@ int main_cluster(int argc, char** argv) {
     }
     
     // create in-memory objects
-    unique_ptr<PathPositionHandleGraph> xg_index = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
+    unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    PathPositionHandleGraph* xg_index = overlay_helper.apply(path_handle_graph.get());
     unique_ptr<gcsa::GCSA> gcsa_index;
     unique_ptr<gcsa::LCPArray> lcp_index;
     if (!gcsa_name.empty()) {
@@ -200,7 +203,7 @@ int main_cluster(int argc, char** argv) {
     unique_ptr<Mapper> mapper;
     if (gcsa_index) {
         // We will find MEMs using a Mapper
-        mapper = make_unique<Mapper>(xg_index.get(), gcsa_index.get(), lcp_index.get());
+        mapper = make_unique<Mapper>(xg_index, gcsa_index.get(), lcp_index.get());
     }
     // Otherwise we will find minimizers using the minimizer_index
     
