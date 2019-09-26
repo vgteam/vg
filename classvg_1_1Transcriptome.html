@@ -98,8 +98,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a9084366eefa5e787e3f567156ab1ef87"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a9084366eefa5e787e3f567156ab1ef87">compact_ordered</a> ()</td></tr>
 <tr class="memdesc:a9084366eefa5e787e3f567156ab1ef87"><td class="mdescLeft">&#160;</td><td class="mdescRight">Topological sort and compact graph.  <a href="#a9084366eefa5e787e3f567156ab1ef87">More...</a><br /></td></tr>
 <tr class="separator:a9084366eefa5e787e3f567156ab1ef87"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2a3d546272d84cfee9bbd59f67de50f4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a2a3d546272d84cfee9bbd59f67de50f4">add_paths_to_graph</a> (const bool add_reference_paths, const bool add_non_reference_paths, const bool rebuild_indexes)</td></tr>
-<tr class="separator:a2a3d546272d84cfee9bbd59f67de50f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6ab7915a3aa73ebad0d0ca874d0024be"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a6ab7915a3aa73ebad0d0ca874d0024be">embed_transcript_paths</a> (const bool add_reference_paths, const bool add_non_reference_paths, const bool rebuild_indexes)</td></tr>
+<tr class="separator:a6ab7915a3aa73ebad0d0ca874d0024be"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a026ab152b2f78f6787d29dc2995ca1ef"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a026ab152b2f78f6787d29dc2995ca1ef">construct_gbwt</a> (gbwt::GBWTBuilder *gbwt_builder, const bool output_reference_transcripts) const</td></tr>
 <tr class="memdesc:a026ab152b2f78f6787d29dc2995ca1ef"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add transcript paths as threads in GBWT index.  <a href="#a026ab152b2f78f6787d29dc2995ca1ef">More...</a><br /></td></tr>
 <tr class="separator:a026ab152b2f78f6787d29dc2995ca1ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -112,9 +112,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:adbe5d5630c4fb3b30657d58bd02dbc42"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#adbe5d5630c4fb3b30657d58bd02dbc42">write_info</a> (ostream *tsv_ostream, const bool output_reference_transcripts) const</td></tr>
 <tr class="memdesc:adbe5d5630c4fb3b30657d58bd02dbc42"><td class="mdescLeft">&#160;</td><td class="mdescRight">Writes origin info on transcripts to tsv file.  <a href="#adbe5d5630c4fb3b30657d58bd02dbc42">More...</a><br /></td></tr>
 <tr class="separator:adbe5d5630c4fb3b30657d58bd02dbc42"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a988e0ac3b5447109f5981ae8c533a006"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a988e0ac3b5447109f5981ae8c533a006">write_graph</a> (ostream *graph_ostream)</td></tr>
-<tr class="memdesc:a988e0ac3b5447109f5981ae8c533a006"><td class="mdescLeft">&#160;</td><td class="mdescRight">Writes spliced variation graph to vg file.  <a href="#a988e0ac3b5447109f5981ae8c533a006">More...</a><br /></td></tr>
-<tr class="separator:a988e0ac3b5447109f5981ae8c533a006"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a00adbf64d77a3d99945f5a5b3915dc95"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a00adbf64d77a3d99945f5a5b3915dc95">write_splice_graph</a> (ostream *graph_ostream)</td></tr>
+<tr class="memdesc:a00adbf64d77a3d99945f5a5b3915dc95"><td class="mdescLeft">&#160;</td><td class="mdescRight">Writes spliced variation graph to vg file.  <a href="#a00adbf64d77a3d99945f5a5b3915dc95">More...</a><br /></td></tr>
+<tr class="separator:a00adbf64d77a3d99945f5a5b3915dc95"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -140,35 +140,35 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:a00458e98fa2aa5447a1cf193c9b1c553"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae6f600db9b276fe332d4f14919bba983"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#ae6f600db9b276fe332d4f14919bba983">reorder_exons</a> (<a class="el" href="structvg_1_1Transcript.html">Transcript</a> *transcript) const</td></tr>
 <tr class="separator:ae6f600db9b276fe332d4f14919bba983"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a03e26e8ee65075a68c2d2a94ed5970ff"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a03e26e8ee65075a68c2d2a94ed5970ff">project_transcripts</a> (const vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; &amp;transcripts, const gbwt::GBWT &amp;haplotype_index, const float mean_node_length)</td></tr>
-<tr class="separator:a03e26e8ee65075a68c2d2a94ed5970ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9547404309463268b9570b6810ae1d81"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a9547404309463268b9570b6810ae1d81">project_transcripts_callback</a> (const int32_t thread_idx, const vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; &amp;transcripts, const gbwt::GBWT &amp;haplotype_index, const float mean_node_length)</td></tr>
-<tr class="memdesc:a9547404309463268b9570b6810ae1d81"><td class="mdescLeft">&#160;</td><td class="mdescRight">Threaded transcript projecting.  <a href="#a9547404309463268b9570b6810ae1d81">More...</a><br /></td></tr>
-<tr class="separator:a9547404309463268b9570b6810ae1d81"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4dc039b181428f8a0a8dc6c84423ab69"><td class="memItemLeft" align="right" valign="top">list&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a4dc039b181428f8a0a8dc6c84423ab69">project_transcripts</a> (const vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; &amp;transcripts, const gbwt::GBWT &amp;haplotype_index, const float mean_node_length) const</td></tr>
+<tr class="separator:a4dc039b181428f8a0a8dc6c84423ab69"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a326113aeec95aac5c5f8222cf586a222"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a326113aeec95aac5c5f8222cf586a222">project_transcripts_callback</a> (list&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt; *proj_transcript_paths, mutex *transcript_paths_mutex, const int32_t thread_idx, const vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; &amp;transcripts, const gbwt::GBWT &amp;haplotype_index, const float mean_node_length) const</td></tr>
+<tr class="memdesc:a326113aeec95aac5c5f8222cf586a222"><td class="mdescLeft">&#160;</td><td class="mdescRight">Threaded transcript projecting.  <a href="#a326113aeec95aac5c5f8222cf586a222">More...</a><br /></td></tr>
+<tr class="separator:a326113aeec95aac5c5f8222cf586a222"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7097440e1b699510e442ef274a350966"><td class="memItemLeft" align="right" valign="top">list&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a7097440e1b699510e442ef274a350966">project_transcript_gbwt</a> (const <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &amp;cur_transcript, const gbwt::GBWT &amp;haplotype_index, const float mean_node_length) const</td></tr>
 <tr class="memdesc:a7097440e1b699510e442ef274a350966"><td class="mdescLeft">&#160;</td><td class="mdescRight">Projects transcripts onto haplotypes in a GBWT index and returns resulting transcript paths.  <a href="#a7097440e1b699510e442ef274a350966">More...</a><br /></td></tr>
 <tr class="separator:a7097440e1b699510e442ef274a350966"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a84da424fd458fc6d302c05210f9e1960"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; <a class="el" href="namespacevg.html#a8ae488d495e344881cbcf599ebdd2355">exon_nodes_t</a>, <a class="el" href="namespacevg.html#a5c7b3ebb9ad8d6c01a0c54668b102c26">thread_ids_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a84da424fd458fc6d302c05210f9e1960">get_exon_haplotypes</a> (const <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">vg::id_t</a> start_node, const <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">vg::id_t</a> end_node, const gbwt::GBWT &amp;haplotype_index, const int32_t expected_length) const</td></tr>
 <tr class="separator:a84da424fd458fc6d302c05210f9e1960"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a51dfb6c82583b97e737f8ada748860c9"><td class="memItemLeft" align="right" valign="top">list&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a51dfb6c82583b97e737f8ada748860c9">project_transcript_embedded</a> (const <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &amp;cur_transcript)</td></tr>
-<tr class="memdesc:a51dfb6c82583b97e737f8ada748860c9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Projects transcripts onto embedded paths in a variation graph and returns resulting transcript paths.  <a href="#a51dfb6c82583b97e737f8ada748860c9">More...</a><br /></td></tr>
-<tr class="separator:a51dfb6c82583b97e737f8ada748860c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a93df59af7395d6d2a9b01f98f0b57e37"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a93df59af7395d6d2a9b01f98f0b57e37">collapse_identical_paths</a> (list&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt; *cur_transcript_paths) const</td></tr>
-<tr class="separator:a93df59af7395d6d2a9b01f98f0b57e37"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab49a7bfb850d42cfb6c0b48f4dfff042"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#ab49a7bfb850d42cfb6c0b48f4dfff042">add_junctions_to_graph</a> ()</td></tr>
-<tr class="separator:ab49a7bfb850d42cfb6c0b48f4dfff042"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8c04c4b840db8ad17b86364409efeee4"><td class="memItemLeft" align="right" valign="top">list&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a8c04c4b840db8ad17b86364409efeee4">project_transcript_embedded</a> (const <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &amp;cur_transcript) const</td></tr>
+<tr class="memdesc:a8c04c4b840db8ad17b86364409efeee4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Projects transcripts onto embedded paths in a variation graph and returns resulting transcript paths.  <a href="#a8c04c4b840db8ad17b86364409efeee4">More...</a><br /></td></tr>
+<tr class="separator:a8c04c4b840db8ad17b86364409efeee4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a04120771115735ffac1d91452c5767f4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a04120771115735ffac1d91452c5767f4">append_transcript_paths</a> (list&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt; *cur_transcript_paths, list&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt; *new_transcript_paths, const bool add_unqiue_paths_only) const</td></tr>
+<tr class="memdesc:a04120771115735ffac1d91452c5767f4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add new transcript paths to current set. Optionally add only unique paths.  <a href="#a04120771115735ffac1d91452c5767f4">More...</a><br /></td></tr>
+<tr class="separator:a04120771115735ffac1d91452c5767f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aecf50ff9bc41e177361e5fba3fbe5e2c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#aecf50ff9bc41e177361e5fba3fbe5e2c">add_paths_to_transcriptome</a> (list&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt; *cur_transcript_paths)</td></tr>
+<tr class="separator:aecf50ff9bc41e177361e5fba3fbe5e2c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a681fd006224fa3e144b1995d6797c1d9"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a681fd006224fa3e144b1995d6797c1d9">add_novel_transcript_junctions</a> (const list&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt; &amp;cur_transcript_paths)</td></tr>
+<tr class="separator:a681fd006224fa3e144b1995d6797c1d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
-<tr class="memitem:a1f34e480cb2ab0a7e8f30e7ae462fee1"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a1f34e480cb2ab0a7e8f30e7ae462fee1">_transcriptome</a></td></tr>
-<tr class="memdesc:a1f34e480cb2ab0a7e8f30e7ae462fee1"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1Transcriptome.html">Transcriptome</a> represented by a set of transcript paths.  <a href="#a1f34e480cb2ab0a7e8f30e7ae462fee1">More...</a><br /></td></tr>
-<tr class="separator:a1f34e480cb2ab0a7e8f30e7ae462fee1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7f981a9d8172e931cc7c59b60de62caa"><td class="memItemLeft" align="right" valign="top">mutex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a7f981a9d8172e931cc7c59b60de62caa">trancriptome_mutex</a></td></tr>
-<tr class="memdesc:a7f981a9d8172e931cc7c59b60de62caa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Mutex used for adding transcript paths to transcriptome.  <a href="#a7f981a9d8172e931cc7c59b60de62caa">More...</a><br /></td></tr>
-<tr class="separator:a7f981a9d8172e931cc7c59b60de62caa"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6c97b21d326e79b1e443320012f186cc"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1VG.html">VG</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a6c97b21d326e79b1e443320012f186cc">graph</a></td></tr>
-<tr class="memdesc:a6c97b21d326e79b1e443320012f186cc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Spliced variation graph.  <a href="#a6c97b21d326e79b1e443320012f186cc">More...</a><br /></td></tr>
-<tr class="separator:a6c97b21d326e79b1e443320012f186cc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4529febdd1ca956f02a677bbacae17b6"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a4529febdd1ca956f02a677bbacae17b6">_transcript_paths</a></td></tr>
+<tr class="memdesc:a4529febdd1ca956f02a677bbacae17b6"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1Transcriptome.html">Transcriptome</a> represented by a set of transcript paths.  <a href="#a4529febdd1ca956f02a677bbacae17b6">More...</a><br /></td></tr>
+<tr class="separator:a4529febdd1ca956f02a677bbacae17b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adca3cbba760bbfb1c72eb1dcd77b09b3"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1VG.html">VG</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#adca3cbba760bbfb1c72eb1dcd77b09b3">_splice_graph</a></td></tr>
+<tr class="memdesc:adca3cbba760bbfb1c72eb1dcd77b09b3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Spliced variation graph.  <a href="#adca3cbba760bbfb1c72eb1dcd77b09b3">More...</a><br /></td></tr>
+<tr class="separator:adca3cbba760bbfb1c72eb1dcd77b09b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Class that defines a transcriptome represented by a set of transcript paths. </p>
@@ -262,8 +262,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ab49a7bfb850d42cfb6c0b48f4dfff042"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab49a7bfb850d42cfb6c0b48f4dfff042">&#9670;&nbsp;</a></span>add_junctions_to_graph()</h2>
+<a id="a681fd006224fa3e144b1995d6797c1d9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a681fd006224fa3e144b1995d6797c1d9">&#9670;&nbsp;</a></span>add_novel_transcript_junctions()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -272,9 +272,10 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::Transcriptome::add_junctions_to_graph </td>
+          <td class="memname">bool vg::Transcriptome::add_novel_transcript_junctions </td>
           <td>(</td>
-          <td class="paramname"></td><td>)</td>
+          <td class="paramtype">const list&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>cur_transcript_paths</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
@@ -284,42 +285,34 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Edits variation graph with transcript path splice-junctions and updates transcript path traversals to match the augmented graph. </p>
+<p>Adds novel splice-junctions in transcript paths to splice graph which does not require node splitting. Return false if a novel junction requires node splitting. </p>
 
 </div>
 </div>
-<a id="a2a3d546272d84cfee9bbd59f67de50f4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2a3d546272d84cfee9bbd59f67de50f4">&#9670;&nbsp;</a></span>add_paths_to_graph()</h2>
+<a id="aecf50ff9bc41e177361e5fba3fbe5e2c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aecf50ff9bc41e177361e5fba3fbe5e2c">&#9670;&nbsp;</a></span>add_paths_to_transcriptome()</h2>
 
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::Transcriptome::add_paths_to_graph </td>
+          <td class="memname">void vg::Transcriptome::add_paths_to_transcriptome </td>
           <td>(</td>
-          <td class="paramtype">const bool&#160;</td>
-          <td class="paramname"><em>add_reference_paths</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
+          <td class="paramtype">list&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt; *&#160;</td>
+          <td class="paramname"><em>cur_transcript_paths</em></td><td>)</td>
           <td></td>
-          <td class="paramtype">const bool&#160;</td>
-          <td class="paramname"><em>add_non_reference_paths</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const bool&#160;</td>
-          <td class="paramname"><em>rebuild_indexes</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
-<p>Embeds transcript paths in variation graph. Optionally rebuild paths indexes. </p>
+<p>Adds transcript paths to transcriptome. Augments the variation graph with transcript path splice-junctions and updates transcript path traversals to match the augmented graph if the paths contain any novel start/end sites or junctions. </p>
 
 </div>
 </div>
@@ -352,8 +345,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a93df59af7395d6d2a9b01f98f0b57e37"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a93df59af7395d6d2a9b01f98f0b57e37">&#9670;&nbsp;</a></span>collapse_identical_paths()</h2>
+<a id="a04120771115735ffac1d91452c5767f4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a04120771115735ffac1d91452c5767f4">&#9670;&nbsp;</a></span>append_transcript_paths()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -362,11 +355,27 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::Transcriptome::collapse_identical_paths </td>
+          <td class="memname">void vg::Transcriptome::append_transcript_paths </td>
           <td>(</td>
           <td class="paramtype">list&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt; *&#160;</td>
-          <td class="paramname"><em>cur_transcript_paths</em></td><td>)</td>
-          <td> const</td>
+          <td class="paramname"><em>cur_transcript_paths</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">list&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt; *&#160;</td>
+          <td class="paramname"><em>new_transcript_paths</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const bool&#160;</td>
+          <td class="paramname"><em>add_unqiue_paths_only</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
         </tr>
       </table>
   </td>
@@ -375,7 +384,8 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Collapses identical transcript paths. The number of collapsed copies are recorded in the data structure <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a>. </p>
+
+<p>Add new transcript paths to current set. Optionally add only unique paths. </p>
 
 </div>
 </div>
@@ -428,6 +438,41 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a6ab7915a3aa73ebad0d0ca874d0024be"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6ab7915a3aa73ebad0d0ca874d0024be">&#9670;&nbsp;</a></span>embed_transcript_paths()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Transcriptome::embed_transcript_paths </td>
+          <td>(</td>
+          <td class="paramtype">const bool&#160;</td>
+          <td class="paramname"><em>add_reference_paths</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const bool&#160;</td>
+          <td class="paramname"><em>add_non_reference_paths</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const bool&#160;</td>
+          <td class="paramname"><em>rebuild_indexes</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Embeds transcript paths in spliced variation graph. Optionally rebuild paths indexes. </p>
+
+</div>
+</div>
 <a id="a84da424fd458fc6d302c05210f9e1960"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a84da424fd458fc6d302c05210f9e1960">&#9670;&nbsp;</a></span>get_exon_haplotypes()</h2>
 
@@ -477,8 +522,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a51dfb6c82583b97e737f8ada748860c9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a51dfb6c82583b97e737f8ada748860c9">&#9670;&nbsp;</a></span>project_transcript_embedded()</h2>
+<a id="a8c04c4b840db8ad17b86364409efeee4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8c04c4b840db8ad17b86364409efeee4">&#9670;&nbsp;</a></span>project_transcript_embedded()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -491,7 +536,7 @@ Private Attributes</h2></td></tr>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &amp;&#160;</td>
           <td class="paramname"><em>cur_transcript</em></td><td>)</td>
-          <td></td>
+          <td> const</td>
         </tr>
       </table>
   </td>
@@ -549,8 +594,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a03e26e8ee65075a68c2d2a94ed5970ff"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a03e26e8ee65075a68c2d2a94ed5970ff">&#9670;&nbsp;</a></span>project_transcripts()</h2>
+<a id="a4dc039b181428f8a0a8dc6c84423ab69"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4dc039b181428f8a0a8dc6c84423ab69">&#9670;&nbsp;</a></span>project_transcripts()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -559,7 +604,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::Transcriptome::project_transcripts </td>
+          <td class="memname">list&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt; vg::Transcriptome::project_transcripts </td>
           <td>(</td>
           <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>transcripts</em>, </td>
@@ -579,7 +624,7 @@ Private Attributes</h2></td></tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td></td>
+          <td></td><td> const</td>
         </tr>
       </table>
   </td>
@@ -592,8 +637,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a9547404309463268b9570b6810ae1d81"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9547404309463268b9570b6810ae1d81">&#9670;&nbsp;</a></span>project_transcripts_callback()</h2>
+<a id="a326113aeec95aac5c5f8222cf586a222"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a326113aeec95aac5c5f8222cf586a222">&#9670;&nbsp;</a></span>project_transcripts_callback()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -604,6 +649,18 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Transcriptome::project_transcripts_callback </td>
           <td>(</td>
+          <td class="paramtype">list&lt; <a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a> &gt; *&#160;</td>
+          <td class="paramname"><em>proj_transcript_paths</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">mutex *&#160;</td>
+          <td class="paramname"><em>transcript_paths_mutex</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">const int32_t&#160;</td>
           <td class="paramname"><em>thread_idx</em>, </td>
         </tr>
@@ -628,7 +685,7 @@ Private Attributes</h2></td></tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td></td>
+          <td></td><td> const</td>
         </tr>
       </table>
   </td>
@@ -775,26 +832,6 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a988e0ac3b5447109f5981ae8c533a006"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a988e0ac3b5447109f5981ae8c533a006">&#9670;&nbsp;</a></span>write_graph()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::Transcriptome::write_graph </td>
-          <td>(</td>
-          <td class="paramtype">ostream *&#160;</td>
-          <td class="paramname"><em>graph_ostream</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Writes spliced variation graph to vg file. </p>
-
-</div>
-</div>
 <a id="adbe5d5630c4fb3b30657d58bd02dbc42"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#adbe5d5630c4fb3b30657d58bd02dbc42">&#9670;&nbsp;</a></span>write_info()</h2>
 
@@ -855,9 +892,29 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a00adbf64d77a3d99945f5a5b3915dc95"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a00adbf64d77a3d99945f5a5b3915dc95">&#9670;&nbsp;</a></span>write_splice_graph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Transcriptome::write_splice_graph </td>
+          <td>(</td>
+          <td class="paramtype">ostream *&#160;</td>
+          <td class="paramname"><em>graph_ostream</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Writes spliced variation graph to vg file. </p>
+
+</div>
+</div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="a1f34e480cb2ab0a7e8f30e7ae462fee1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1f34e480cb2ab0a7e8f30e7ae462fee1">&#9670;&nbsp;</a></span>_transcriptome</h2>
+<a id="adca3cbba760bbfb1c72eb1dcd77b09b3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adca3cbba760bbfb1c72eb1dcd77b09b3">&#9670;&nbsp;</a></span>_splice_graph</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -866,7 +923,31 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt;<a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a>&gt; vg::Transcriptome::_transcriptome</td>
+          <td class="memname"><a class="el" href="classvg_1_1VG.html">VG</a>* vg::Transcriptome::_splice_graph</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Spliced variation graph. </p>
+
+</div>
+</div>
+<a id="a4529febdd1ca956f02a677bbacae17b6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4529febdd1ca956f02a677bbacae17b6">&#9670;&nbsp;</a></span>_transcript_paths</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt;<a class="el" href="structvg_1_1TranscriptPath.html">TranscriptPath</a>&gt; vg::Transcriptome::_transcript_paths</td>
         </tr>
       </table>
   </td>
@@ -896,30 +977,6 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a6c97b21d326e79b1e443320012f186cc"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6c97b21d326e79b1e443320012f186cc">&#9670;&nbsp;</a></span>graph</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classvg_1_1VG.html">VG</a>* vg::Transcriptome::graph</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Spliced variation graph. </p>
-
-</div>
-</div>
 <a id="ac2261cd2e4236c02dbfded216253c923"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac2261cd2e4236c02dbfded216253c923">&#9670;&nbsp;</a></span>num_threads</h2>
 
@@ -933,30 +990,6 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Number of threads used for transcript path construction. </p>
-
-</div>
-</div>
-<a id="a7f981a9d8172e931cc7c59b60de62caa"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7f981a9d8172e931cc7c59b60de62caa">&#9670;&nbsp;</a></span>trancriptome_mutex</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">mutex vg::Transcriptome::trancriptome_mutex</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Mutex used for adding transcript paths to transcriptome. </p>
 
 </div>
 </div>

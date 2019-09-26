@@ -42,7 +42,6 @@ var searchData=
   ['track_5fcomponents',['track_components',['../classvg_1_1MEMClusterer_1_1HitGraph.html#a6bc63fbe77aee54235636bbc228a9e96',1,'vg::MEMClusterer::HitGraph']]],
   ['track_5fcorrectness',['track_correctness',['../classvg_1_1MinimizerMapper.html#a7896c6cccfa011c4fbad1b916d30052e',1,'vg::MinimizerMapper']]],
   ['track_5fprovenance',['track_provenance',['../classvg_1_1MinimizerMapper.html#aeabec85347521c1f42ef51e0453c4e5f',1,'vg::MinimizerMapper']]],
-  ['trancriptome_5fmutex',['trancriptome_mutex',['../classvg_1_1Transcriptome.html#a7f981a9d8172e931cc7c59b60de62caa',1,'vg::Transcriptome']]],
   ['transcript_5forigin',['transcript_origin',['../structvg_1_1TranscriptPath.html#a37b730811e3f8ad713647c469d6a1628',1,'vg::TranscriptPath']]],
   ['transcript_5ftag',['transcript_tag',['../classvg_1_1Transcriptome.html#a56a00bd350c02600e5474fc89791d5bd',1,'vg::Transcriptome']]],
   ['transition_5fdistrs_5f1',['transition_distrs_1',['../classvg_1_1NGSSimulator.html#a571f3ff879e38077e8d7dad879157d55',1,'vg::NGSSimulator']]],

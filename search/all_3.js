@@ -130,7 +130,6 @@ var searchData=
   ['codes_5fby_5foption',['codes_by_option',['../classvg_1_1ConfigurableParser.html#aea0db01f1fd00b96a309053cb66881c4',1,'vg::ConfigurableParser']]],
   ['cohort',['cohort',['../structhaplo_1_1linear__haplo__structure.html#ae0e8f21ee11e664612aefb8f0f678c40',1,'haplo::linear_haplo_structure']]],
   ['col_5fidx',['col_idx',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html#aac3083f9fb9e9521011f7a637753c302',1,'vg::BandedGlobalAligner::AltTracebackStack::Deflection']]],
-  ['collapse_5fidentical_5fpaths',['collapse_identical_paths',['../classvg_1_1Transcriptome.html#a93df59af7395d6d2a9b01f98f0b57e37',1,'vg::Transcriptome']]],
   ['collapse_5forder_5flength_5fruns',['collapse_order_length_runs',['../classvg_1_1MultipathAlignmentGraph.html#aa9837be5f0b807534244afe266208448',1,'vg::MultipathAlignmentGraph']]],
   ['collapse_5ftranscript_5fpaths',['collapse_transcript_paths',['../classvg_1_1Transcriptome.html#aaef5359c4785d9e01e989a7875eed85e',1,'vg::Transcriptome']]],
   ['collect_5fcoverage',['collect_coverage',['../classvg_1_1Packer.html#a6b814828a7b58a786da679cfc667f204',1,'vg::Packer']]],

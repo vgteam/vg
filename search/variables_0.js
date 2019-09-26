@@ -2,5 +2,6 @@ var searchData=
 [
   ['_5ferror',['_error',['../classj2pb__error.html#a6c1faa9c2a04cb41166771a03f8fe757',1,'j2pb_error']]],
   ['_5fpaths',['_paths',['../classvg_1_1Paths.html#a5857b70582a67d2819f5e5db23a984cf',1,'vg::Paths']]],
-  ['_5ftranscriptome',['_transcriptome',['../classvg_1_1Transcriptome.html#a1f34e480cb2ab0a7e8f30e7ae462fee1',1,'vg::Transcriptome']]]
+  ['_5fsplice_5fgraph',['_splice_graph',['../classvg_1_1Transcriptome.html#adca3cbba760bbfb1c72eb1dcd77b09b3',1,'vg::Transcriptome']]],
+  ['_5ftranscript_5fpaths',['_transcript_paths',['../classvg_1_1Transcriptome.html#a4529febdd1ca956f02a677bbacae17b6',1,'vg::Transcriptome']]]
 ];

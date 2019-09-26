@@ -82,7 +82,6 @@ var searchData=
   ['clusters_5foverlap_5fin_5fread',['clusters_overlap_in_read',['../namespacevg.html#af67eb440256877ac857d6649052d7db1',1,'vg']]],
   ['clusters_5foverlap_5flength',['clusters_overlap_length',['../namespacevg.html#a50260b7d42777dd7f352a5ba40ac655e',1,'vg']]],
   ['clusters_5fto_5fdrop',['clusters_to_drop',['../classvg_1_1Mapper.html#a3e6517fced9f179d761fee4ff6efb4fe',1,'vg::Mapper']]],
-  ['collapse_5fidentical_5fpaths',['collapse_identical_paths',['../classvg_1_1Transcriptome.html#a93df59af7395d6d2a9b01f98f0b57e37',1,'vg::Transcriptome']]],
   ['collapse_5forder_5flength_5fruns',['collapse_order_length_runs',['../classvg_1_1MultipathAlignmentGraph.html#aa9837be5f0b807534244afe266208448',1,'vg::MultipathAlignmentGraph']]],
   ['collect_5fcoverage',['collect_coverage',['../classvg_1_1Packer.html#a6b814828a7b58a786da679cfc667f204',1,'vg::Packer']]],
   ['collect_5fsubgraph',['collect_subgraph',['../classvg_1_1VG.html#aeb07260266f2e0d33b0d359c0b37dd5b',1,'vg::VG']]],

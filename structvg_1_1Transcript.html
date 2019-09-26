@@ -93,9 +93,8 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:ad2b25d65d35571935300b296eac6bf2c"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; int32_t, int32_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Transcript.html#ad2b25d65d35571935300b296eac6bf2c">exons</a></td></tr>
 <tr class="memdesc:ad2b25d65d35571935300b296eac6bf2c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Exon coordinates (start and end) on the chromosome/contig.  <a href="#ad2b25d65d35571935300b296eac6bf2c">More...</a><br /></td></tr>
 <tr class="separator:ad2b25d65d35571935300b296eac6bf2c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad02a672767380c99c4890b0f8158e56e"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; <a class="el" href="structvg_1_1Position.html">Position</a>, <a class="el" href="structvg_1_1Position.html">Position</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Transcript.html#ad02a672767380c99c4890b0f8158e56e">exon_nodes</a></td></tr>
-<tr class="memdesc:ad02a672767380c99c4890b0f8158e56e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Exon positions (start and end) on a variation graph.  <a href="#ad02a672767380c99c4890b0f8158e56e">More...</a><br /></td></tr>
-<tr class="separator:ad02a672767380c99c4890b0f8158e56e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a67368318a461eb29e73ac8a2aae5fcac"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; <a class="el" href="structvg_1_1Position.html">Position</a>, <a class="el" href="structvg_1_1Position.html">Position</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Transcript.html#a67368318a461eb29e73ac8a2aae5fcac">exon_border_nodes</a></td></tr>
+<tr class="separator:a67368318a461eb29e73ac8a2aae5fcac"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Data structure that defines a transcript annotation. </p>
@@ -159,19 +158,18 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ad02a672767380c99c4890b0f8158e56e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad02a672767380c99c4890b0f8158e56e">&#9670;&nbsp;</a></span>exon_nodes</h2>
+<a id="a67368318a461eb29e73ac8a2aae5fcac"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a67368318a461eb29e73ac8a2aae5fcac">&#9670;&nbsp;</a></span>exon_border_nodes</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt;pair&lt;<a class="el" href="structvg_1_1Position.html">Position</a>, <a class="el" href="structvg_1_1Position.html">Position</a>&gt; &gt; vg::Transcript::exon_nodes</td>
+          <td class="memname">vector&lt;pair&lt;<a class="el" href="structvg_1_1Position.html">Position</a>, <a class="el" href="structvg_1_1Position.html">Position</a>&gt; &gt; vg::Transcript::exon_border_nodes</td>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Exon positions (start and end) on a variation graph. </p>
+<p>Exon border node positions (last position in upstream intron and first position in downstream intron) on a variation graph. </p>
 
 </div>
 </div>

@@ -15,7 +15,8 @@ var searchData=
   ['_5fpush_5fmapping',['_push_mapping',['../xdrop__aligner_8cpp.html#a5787add53d7bbfdc10c9720454e98918',1,'xdrop_aligner.cpp']]],
   ['_5fpush_5fop',['_push_op',['../xdrop__aligner_8cpp.html#ac058be264b99f54156cf44838308078c',1,'xdrop_aligner.cpp']]],
   ['_5fset_5for_5fadd',['_SET_OR_ADD',['../json2pb_8cpp.html#a7a898a2b4507c746088e2b09e94e4c56',1,'json2pb.cpp']]],
+  ['_5fsplice_5fgraph',['_splice_graph',['../classvg_1_1Transcriptome.html#adca3cbba760bbfb1c72eb1dcd77b09b3',1,'vg::Transcriptome']]],
   ['_5fsrc_5findex',['_src_index',['../xdrop__aligner_8cpp.html#aebd5c1bc54d1732930033dcdf9977bd9',1,'xdrop_aligner.cpp']]],
-  ['_5ftranscriptome',['_transcriptome',['../classvg_1_1Transcriptome.html#a1f34e480cb2ab0a7e8f30e7ae462fee1',1,'vg::Transcriptome']]],
+  ['_5ftranscript_5fpaths',['_transcript_paths',['../classvg_1_1Transcriptome.html#a4529febdd1ca956f02a677bbacae17b6',1,'vg::Transcriptome']]],
   ['_5fxopen_5fsource',['_XOPEN_SOURCE',['../crash_8cpp.html#a78c99ffd76a7bb3c8c74db76207e9ab4',1,'crash.cpp']]]
 ];
