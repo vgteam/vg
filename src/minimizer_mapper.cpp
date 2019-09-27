@@ -77,12 +77,17 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         size_t hits = minimizer_index.count(minimizers[i]);
         max_hits = std::max(hits, max_hits);
         if (hits > 0) {
-            minimizer_score[i] = 1.0 - std::log(hits);
+            minimizer_score[i] = -std::log(hits);
         }
     }
-    for (size_t i = 0; i < minimizers.size(); i++) {
-        minimizer_score[i] += std::log(max_hits);
-        base_target_score += minimizer_score[i];
+    if (max_hits > 0) {
+        double adjustment = 1.0 + std::log(max_hits);
+        for (size_t i = 0; i < minimizers.size(); i++) {
+            if (minimizer_score[i] < 0.0) {
+                minimizer_score[i] += adjustment;
+                base_target_score += minimizer_score[i];
+            }
+        }
     }
     double target_score = (base_target_score * minimizer_score_fraction) + 0.000001;
 
