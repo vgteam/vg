@@ -156,8 +156,8 @@ public:
     // We used to be able to search for a Mapping by value, but that's not
     // efficient if the Mappings don't have ranks, and it never checked the
     // edits for equality anyway.
-    bool has_node_mapping(id_t id);
-    bool has_node_mapping(Node* n);
+    bool has_node_mapping(id_t id) const;
+    bool has_node_mapping(Node* n) const;
     map<int64_t, set<mapping_t*> >& get_node_mapping(Node* n);
     map<int64_t, set<mapping_t*> >& get_node_mapping(id_t id);
     const map<int64_t, set<mapping_t*> >& get_node_mapping(id_t id) const;
@@ -259,6 +259,8 @@ bool path_is_simple_match(const Path& p);
 // convert the mapping to the particular node into the sequence implied by the mapping
 const string mapping_sequence(const Mapping& m, const string& node_seq);
 const string mapping_sequence(const Mapping& m, const Node& n);
+// convert the path to a sequence
+string path_sequence(const HandleGraph& graph, const Path& path);
 // Reverse-complement a Mapping and all the Edits in it. A function to get node
 // lengths is needed, because the mapping will need to count its position from
 // the other end of the node.
@@ -348,6 +350,11 @@ Path path_from_node_traversals(const list<NodeTraversal>& traversals);
 // Store them in the list unless it is nullptr.
 void remove_paths(Graph& graph, const function<bool(const string&)>& paths_to_take, std::list<Path>* matching);
 
+// Get a Path from a handle graph
+Path path_from_path_handle(const PathHandleGraph& graph, path_handle_t path_handle);
+
+// Wrap a Path in an Alignment
+Alignment alignment_from_path(const HandleGraph& graph, const Path& path);
 }
 
 #endif

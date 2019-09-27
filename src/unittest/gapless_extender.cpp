@@ -4,6 +4,7 @@
  */
 
 #include "../gapless_extender.hpp"
+#include "../gbwt_helper.hpp"
 #include "../json2pb.h"
 
 #include "catch.hpp"
@@ -203,13 +204,14 @@ TEST_CASE("Gapless extensions report correct positions", "[gapless_extender]") {
     // Build an XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(graph));
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
 
     // Build a GBWT-backed graph.
-    GBWTGraph gbwt_graph(gbwt_index, xg_index);
+    gbwtgraph::GBWTGraph gbwt_graph(gbwt_index, xg_index);
 
     SECTION("starts and ends at node boundaries") {
         GaplessExtension extension {
@@ -332,13 +334,14 @@ TEST_CASE("Full-length alignments", "[gapless_extender]") {
     // Build an XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(graph));
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
 
     // Build a GBWT-backed graph.
-    GBWTGraph gbwt_graph(gbwt_index, xg_index);
+    gbwtgraph::GBWTGraph gbwt_graph(gbwt_index, xg_index);
 
     // And finally wrap it in a GaplessExtender with an Aligner.
     Aligner aligner;
@@ -430,13 +433,14 @@ TEST_CASE("Partial alignments without trimming", "[gapless_extender]") {
     // Build an XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(graph));
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
 
     // Build a GBWT-backed graph.
-    GBWTGraph gbwt_graph(gbwt_index, xg_index);
+    gbwtgraph::GBWTGraph gbwt_graph(gbwt_index, xg_index);
 
     // And finally wrap it in a GaplessExtender with an Aligner.
     Aligner aligner;
@@ -559,13 +563,14 @@ TEST_CASE("Trimming mismatches", "[gapless_extender]") {
     // Build an XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(graph));
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
 
     // Build a GBWT-backed graph.
-    GBWTGraph gbwt_graph(gbwt_index, xg_index);
+    gbwtgraph::GBWTGraph gbwt_graph(gbwt_index, xg_index);
 
     // And finally wrap it in a GaplessExtender with an Aligner.
     Aligner aligner;

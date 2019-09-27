@@ -32,6 +32,11 @@ void extract_context(const HandleGraph& source, MutableHandleGraph& subgraph, co
 /// extract the node id range
 void extract_id_range(const HandleGraph& source, const nid_t& id1, const nid_t& id2, MutableHandleGraph& subgraph);
 
+/// extract the path range
+/// nodes aren't cut, so the returned graph may start before start and/or end after end
+/// if end < 0, then it will walk to the end of the path
+void extract_path_range(const PathPositionHandleGraph& source, path_handle_t path_handle, int64_t start, int64_t end, MutableHandleGraph& subgraph);
+
 /// add subpaths to the subgraph, providing a concatenation of subpaths that are discontiguous over the subgraph
 /// based on their order in the path position index provided by the source graph
 /// will clear any path found in both graphs before writing the new steps into it

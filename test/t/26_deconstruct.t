@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 18
+plan tests 19
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > tiny.vg
 vg index tiny.vg -x tiny.xg
@@ -112,6 +112,9 @@ vg deconstruct tiny_names.xg -P ref -A alt1,alt2 -e > tiny_names_decon.vcf
 is $(grep -v "#" tiny_names_decon.vcf | wc -l) 2 "-P -A options return correct number of variants"
 is $(grep -v "#" tiny_names_decon.vcf | grep ref.1 | wc -l) 2 "-P -A options use correct reference name"
 is $(grep -v "#" tiny_names_decon.vcf | grep ref.1 | grep 14 | grep "CONFLICT=alt1" | wc -l) 1 "-P -A identifies conflict in alt1 in second variant"
+vg deconstruct tiny_names.vg -P ref -A alt1,alt2 -e > tiny_names_decon_vg.vcf
+diff tiny_names_decon.vcf tiny_names_decon_vg.vcf
+is "$?" 0 "deconstructing vg graph gives same output as xg graph"
 
-rm -f tiny_names.gfa tiny_names.vg tiny_names.xg tiny_names_decon.vcf
+rm -f tiny_names.gfa tiny_names.vg tiny_names.xg tiny_names_decon.vcf tiny_names_decon_vg.vcf
 

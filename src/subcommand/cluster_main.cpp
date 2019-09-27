@@ -16,10 +16,13 @@
 #include "../seed_clusterer.hpp"
 #include "../mapper.hpp"
 #include "../annotation.hpp"
-#include "../minimizer.hpp"
+#include "../xg.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include <vg/io/protobuf_emitter.hpp>
+
+#include <gbwtgraph/minimizer.h>
+#include <bdsg/overlay_helper.hpp>
 
 //#define USE_CALLGRIND
 
@@ -37,7 +40,7 @@ void help_cluster(char** argv) {
     << "Find and cluster mapping seeds." << endl
     << endl
     << "basic options:" << endl
-    << "  -x, --xg-name FILE            use this xg index (required)" << endl
+    << "  -x, --xg-name FILE            use this xg index or graph (required)" << endl
     << "  -g, --gcsa-name FILE          use this GCSA2/LCP index pair (both FILE and FILE.lcp)" << endl
     << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -s, --snarls FILE             cluster using these snarls (required)" << endl
@@ -177,16 +180,18 @@ int main_cluster(int argc, char** argv) {
     }
     
     // create in-memory objects
-    unique_ptr<XG> xg_index = vg::io::VPKG::load_one<XG>(xg_name);
+    unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    PathPositionHandleGraph* xg_index = overlay_helper.apply(path_handle_graph.get());
     unique_ptr<gcsa::GCSA> gcsa_index;
     unique_ptr<gcsa::LCPArray> lcp_index;
     if (!gcsa_name.empty()) {
         gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_name);
         lcp_index = vg::io::VPKG::load_one<gcsa::LCPArray>(gcsa_name + ".lcp");
     }
-    unique_ptr<MinimizerIndex> minimizer_index;
+    unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
     if (!minimizer_name.empty()) {
-        minimizer_index = vg::io::VPKG::load_one<MinimizerIndex>(minimizer_name);
+        minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(minimizer_name);
     }
     unique_ptr<SnarlManager> snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarls_name);
     unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
@@ -198,7 +203,7 @@ int main_cluster(int argc, char** argv) {
     unique_ptr<Mapper> mapper;
     if (gcsa_index) {
         // We will find MEMs using a Mapper
-        mapper = make_unique<Mapper>(xg_index.get(), gcsa_index.get(), lcp_index.get());
+        mapper = make_unique<Mapper>(xg_index, gcsa_index.get(), lcp_index.get());
     }
     // Otherwise we will find minimizers using the minimizer_index
     
@@ -222,7 +227,7 @@ int main_cluster(int argc, char** argv) {
             // If working with MEMs, this will hold all the MEMs
             vector<MaximalExactMatch> mems;
             // If working with minimizers, this will hold all the minimizers in the query
-            vector<MinimizerIndex::minimizer_type> minimizers;
+            vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type> minimizers;
             // And either way this will map from seed to MEM or minimizer that generated it
             vector<size_t> seed_to_source;
             
@@ -268,7 +273,8 @@ int main_cluster(int argc, char** argv) {
             // Cluster the seeds. Get sets of input seed indexes that go together.
             // Make sure to time it.
             std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit);
+            tuple<vector<vector<size_t>>,vector<vector<size_t>>> paired_clusters = clusterer.cluster_seeds(seeds, distance_limit);
+            vector<vector<size_t>> clusters = std::move(std::get<0>(paired_clusters));
             std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
             

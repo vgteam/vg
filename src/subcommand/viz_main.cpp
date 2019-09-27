@@ -4,6 +4,7 @@
 #include "../xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+#include <bdsg/overlay_helper.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -111,12 +112,15 @@ int main_viz(int argc, char** argv) {
         }
     }
 
-    unique_ptr<XG> xgidx;
+    PathPositionHandleGraph* xgidx = nullptr;
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
     if (xg_name.empty()) {
         cerr << "No XG index given. An XG index must be provided." << endl;
         exit(1);
     } else {
-        xgidx = vg::io::VPKG::load_one<XG>(xg_name);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
     }
 
     // todo one packer per thread and merge
@@ -132,7 +136,7 @@ int main_viz(int argc, char** argv) {
         pack_names = packs_in;
     }
 
-    Viz viz(xgidx.get(), &packs, pack_names, image_out, image_width, image_height, show_cnv, show_dna, show_paths);
+    Viz viz(xgidx, &packs, pack_names, image_out, image_width, image_height, show_cnv, show_dna, show_paths);
     viz.draw();
 
     return 0;

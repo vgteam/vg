@@ -786,6 +786,34 @@ void SnarlManager::for_each_chain_parallel(const function<void(const Chain*)>& l
     });
 }
 
+const Snarl* SnarlManager::discrete_uniform_sample(minstd_rand0& random_engine)const{
+    // have to set the seed to the random engine in the unit tests , pass the random engine 
+
+    int number_of_snarls = num_snarls();
+
+    // if we have no snarls we return a flag 
+    if(number_of_snarls ==0){
+        return nullptr;
+    }
+    
+    // we choose a snarl from the master list of snarls in the graph at random uniformly
+    // unif[a,b]
+    uniform_int_distribution<int> distribution(0, number_of_snarls-1);  
+    int random_num = distribution(random_engine);
+    
+    const Snarl* random_snarl = unrecord(&snarls[random_num]);
+
+    return random_snarl;
+
+} 
+
+int SnarlManager::num_snarls()const{
+    // get size of snarls in the master list deque<SnarlRecord> snarls 
+    int num_snarls = this->snarls.size();
+    return num_snarls;
+
+}
+
     
 void SnarlManager::flip(const Snarl* snarl) {
         
@@ -2221,7 +2249,46 @@ handle_t NetGraph::get_handle_from_inward_backing_handle(const handle_t& backing
         throw runtime_error("Cannot assign backing handle to a child chain or unary snarl");
     }
 }
+
+edge_t to_edge(const HandleGraph& graph, const Visit& v1, const Visit& v2) {
+
+    id_t prev_id;
+    bool prev_back;
+    if (v1.node_id() != 0) {
+        prev_id = v1.node_id();
+        prev_back = v1.backward();
+    } else {
+        const Snarl& prev_snarl = v1.snarl();
+        if (v1.backward()) {
+            prev_id = prev_snarl.start().node_id();
+            prev_back = !prev_snarl.start().backward();
+        } else {
+            prev_id = prev_snarl.end().node_id();
+            prev_back = prev_snarl.end().backward();
+        }
+    }
     
+    id_t cur_id;
+    bool cur_back;                
+    if (v2.node_id() != 0) {
+        cur_id = v2.node_id();
+        cur_back = v2.backward();
+    } else {
+        const Snarl& cur_snarl = v2.snarl();
+        if (v2.backward()) {
+            cur_id = cur_snarl.end().node_id();
+            cur_back = !cur_snarl.end().backward();
+        } else {
+            cur_id = cur_snarl.start().node_id();
+            cur_back = cur_snarl.start().backward();
+        }
+    }
+
+    return graph.edge_handle(graph.get_handle(prev_id, prev_back),
+                             graph.get_handle(cur_id, cur_back));
+
+}
+
 bool operator==(const Visit& a, const Visit& b) {
     // IDs and orientations have to match, and nobody has a snarl or the
     // snarls match.

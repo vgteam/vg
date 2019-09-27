@@ -8,8 +8,9 @@
 #include <functional>
 
 #include "aligner.hpp"
-#include "gbwt_helper.hpp"
 #include "hash_map.hpp"
+
+#include <gbwtgraph/gbwtgraph.h>
 
 namespace vg {
 
@@ -62,16 +63,16 @@ struct GaplessExtension
     size_t mismatches() const { return this->mismatch_positions.size(); }
 
     /// Return the starting position of the extension.
-    Position starting_position(const GBWTGraph& graph) const;
+    Position starting_position(const gbwtgraph::GBWTGraph& graph) const;
 
     /// Return the position after the extension.
-    Position tail_position(const GBWTGraph& graph) const;
+    Position tail_position(const gbwtgraph::GBWTGraph& graph) const;
 
     /// Return the node offset after the extension.
-    size_t tail_offset(const GBWTGraph& graph) const;
+    size_t tail_offset(const gbwtgraph::GBWTGraph& graph) const;
 
     /// Convert the extension into a Path.
-    Path to_path(const GBWTGraph& graph, const std::string& sequence) const;
+    Path to_path(const gbwtgraph::GBWTGraph& graph, const std::string& sequence) const;
 
     /// For priority queues.
     bool operator<(const GaplessExtension& another) const {
@@ -102,17 +103,17 @@ public:
     GaplessExtender();
 
     /// Create a GaplessExtender using the given GBWTGraph and Aligner objects.
-    explicit GaplessExtender(const GBWTGraph& graph, const Aligner& aligner);
+    explicit GaplessExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner);
 
     /// Convert (graph position, read offset) to a seed.
     static seed_type to_seed(pos_t pos, size_t read_offset) {
-        return seed_type(GBWTGraph::node_to_handle(gbwt::Node::encode(id(pos), is_rev(pos))),
+        return seed_type(gbwtgraph::GBWTGraph::node_to_handle(gbwt::Node::encode(id(pos), is_rev(pos))),
                          static_cast<int64_t>(read_offset) - static_cast<int64_t>(offset(pos)));
     }
 
     /// Get the graph position from a seed.
     static pos_t get_pos(seed_type seed) {
-        gbwt::node_type node = GBWTGraph::handle_to_node(seed.first);
+        gbwt::node_type node = gbwtgraph::GBWTGraph::handle_to_node(seed.first);
         return make_pos_t(gbwt::Node::id(node), gbwt::Node::is_reverse(node), get_node_offset(seed));
     }
 
@@ -141,11 +142,12 @@ public:
     /**
      * Try to improve the score of each extension by trimming mismatches from the flanks.
      * Do not trim full-length alignments with <= max_mismatches mismatches.
+     * Use the provided CachedGBWT or allocate a new one.
      * Note that extend() already calls this by default.
      */
-    void trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches = MAX_MISMATCHES) const;
+    void trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches = MAX_MISMATCHES, const gbwt::CachedGBWT* cache = nullptr) const;
 
-    const GBWTGraph* graph;
+    const gbwtgraph::GBWTGraph* graph;
     const Aligner*   aligner;
 };
 

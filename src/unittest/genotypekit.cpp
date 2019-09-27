@@ -706,7 +706,7 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals of simple inversions",
     "node": [
         {"id": 1, "sequence": "G"},
         {"id": 2, "sequence": "ATTA"},
-        {"id": 3, "sequence": "CA"},
+        {"id": 3, "sequence": "CA"}
     ],
     "edge": [
         {"from": 1, "to": 2},

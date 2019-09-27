@@ -1,11 +1,13 @@
 #include "subcommand.hpp"
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include "../surjector.hpp"
 #include "../alignment_emitter.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+#include <bdsg/overlay_helper.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -19,7 +21,7 @@ void help_map(char** argv) {
          << endl
          << "graph/index:" << endl
          << "    -d, --base-name BASE          use BASE.xg and BASE.gcsa as the input index pair" << endl
-         << "    -x, --xg-name FILE            use this xg index (defaults to <graph>.vg.xg)" << endl
+         << "    -x, --xg-name FILE            use this xg index or graph (defaults to <graph>.vg.xg)" << endl
          << "    -g, --gcsa-name FILE          use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
          << "    -1, --gbwt-name FILE          use this GBWT haplotype index (defaults to <graph>"<<gbwt::GBWT::EXTENSION << ")" << endl
          << "algorithm:" << endl
@@ -636,17 +638,20 @@ int main_map(int argc, char** argv) {
     gcsa::TempFile::setDirectory(temp_file::get_dir());
 
     // Load up our indexes.
-    unique_ptr<XG> xgidx;
+    PathPositionHandleGraph* xgidx = nullptr;
     unique_ptr<gcsa::GCSA> gcsa;
     unique_ptr<gcsa::LCPArray> lcp;
     unique_ptr<gbwt::GBWT> gbwt;
+    // Used only for memory management:
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
     
     // One of them may be used to provide haplotype scores
     haplo::ScoreProvider* haplo_score_provider = nullptr;
 
     // We try opening the file, and then see if it worked
     ifstream xg_stream(xg_name);
-
+    
     if(xg_stream) {
         // We have an xg index!
         
@@ -655,7 +660,8 @@ int main_map(int argc, char** argv) {
         if(debug) {
             cerr << "Loading xg index " << xg_name << "..." << endl;
         }
-        xgidx = vg::io::VPKG::load_one<XG>(xg_stream);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_stream);
+        xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
     }
 
     ifstream gcsa_stream(gcsa_name);
@@ -717,15 +723,13 @@ int main_map(int argc, char** argv) {
     }
     
     // If we need to do surjection, we will need a surjector. So set one up.
-    Surjector surjector(xgidx.get());
+    Surjector surjector(xgidx);
 
     // Look up all the path info we need for the HTSlib header, in case we output to HTS format.
     map<string, int64_t> path_length;
-    int num_paths = xgidx->max_path_rank();
-    for (int i = 1; i <= num_paths; ++i) {
-        auto name = xgidx->path_name(i);
-        path_length[name] = xgidx->path_length(name);
-    }
+    xgidx->for_each_path_handle([&](path_handle_t path_handle) {
+            path_length[xgidx->get_path_name(path_handle)] = xgidx->get_path_length(path_handle);
+        });
 
     // Set up output to an emitter that will handle serialization
     unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count);
@@ -781,9 +785,9 @@ int main_map(int argc, char** argv) {
 
     for (int i = 0; i < thread_count; ++i) {
         Mapper* m = nullptr;
-        if(xgidx.get() && gcsa.get() && lcp.get()) {
+        if(xgidx && gcsa.get() && lcp.get()) {
             // We have the xg and GCSA indexes, so use them
-            m = new Mapper(xgidx.get(), gcsa.get(), lcp.get(), haplo_score_provider);
+            m = new Mapper(xgidx, gcsa.get(), lcp.get(), haplo_score_provider);
         } else {
             // Can't continue with null
             throw runtime_error("Need XG, GCSA, and LCP to create a Mapper");
@@ -1217,6 +1221,11 @@ int main_map(int argc, char** argv) {
     }
     
     cout.flush();
+
+    // clean up our mappers
+    for (uint64_t i = 0; i < mapper.size(); ++i) {
+        delete mapper[i];
+    }
 
     return 0;
 

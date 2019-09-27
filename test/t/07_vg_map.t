@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 54
+plan tests 55
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -123,6 +123,13 @@ is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f
 is $(vg map -T small/x-s1337-n1000.reads -x x.xg -g x.gcsa -k 22 -j | jq -r ".mapping_quality" | wc -l) 1000 "unpaired reads produce mapping quality scores"
 
 rm temp_paired_alignment.json temp_independent_alignment.json
+
+vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -j -t 1 --surject-to sam > temp_paired_alignment_xg.sam
+vg map -x graphs/refonly-lrc_kir.vg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -j -t 1 --surject-to sam > temp_paired_alignment_vg.sam
+diff temp_paired_alignment_xg.sam temp_paired_alignment_vg.sam
+is "$?" 0 "map returns same output on xg and vg (single threaded)"
+
+rm -f temp_paired_alignment_xg.sam temp_paired_alignment_vg.sam
 
 vg map -f alignment/mismatch_full_qual.fq -x x.xg -g x.gcsa -k 22 -j -A | jq -r -c '.score' > temp_scores_full_qual.txt
 vg map -f alignment/mismatch_reduced_qual.fq -x x.xg -g x.gcsa -k 22 -j -A | jq -r -c '.score' > temp_scores_reduced_qual.txt

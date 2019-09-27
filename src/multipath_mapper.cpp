@@ -23,13 +23,13 @@ namespace vg {
     //size_t MultipathMapper::SECONDARY_RESCUE_ATTEMPT = 0;
     //size_t MultipathMapper::SECONDARY_RESCUE_TOTAL = 0;
     
-    MultipathMapper::MultipathMapper(PathPositionHandleGraph* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
+    MultipathMapper::MultipathMapper(PathPositionHandleGraph* graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                                      haplo::ScoreProvider* haplo_score_provider, SnarlManager* snarl_manager,
                                      MinimumDistanceIndex* distance_index) :
-        BaseMapper(xg_index, gcsa_index, lcp_array, haplo_score_provider),
+        BaseMapper(graph, gcsa_index, lcp_array, haplo_score_provider),
         snarl_manager(snarl_manager),
         distance_index(distance_index),
-        path_component_index(xg_index)
+        path_component_index(graph)
     {
         // nothing to do
     }
@@ -2967,7 +2967,7 @@ namespace vg {
 #endif
 
                 // Make fake anchor paths to cut the snarls out of in the tails
-                multi_aln_graph.synthesize_tail_anchors(alignment, align_graph, get_aligner(), min_tail_anchor_length, 1, false);
+                multi_aln_graph.synthesize_tail_anchors(alignment, align_graph, get_aligner(), min_tail_anchor_length, num_alt_alns, false);
                 
             }
        
@@ -3212,7 +3212,8 @@ namespace vg {
                     // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
                     // Make sure to also always include the optimal alignment first, even if inconsistent.
                     // And also include up to population_max_paths non-consistent but hopefully scorable paths
-                    alignments = haplotype_consistent_alignments(multipath_alns[i], *haplo_score_provider, population_max_paths, true);
+                    alignments = haplotype_consistent_alignments(multipath_alns[i], *haplo_score_provider, population_max_paths,
+                                                                 population_paths_hard_cap, true);
                 } else {
                     // We will just find the top n best-alignment-scoring linearizations and hope some match haplotypes
                     alignments = optimal_alignments(multipath_alns[i], population_max_paths);
@@ -3524,8 +3525,10 @@ namespace vg {
                     // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
                     // Make sure to also always include the optimal alignment first, even if inconsistent.
                     // Also pad out with population_max_paths inconsistent or unscorable paths
-                    alignments[0] = haplotype_consistent_alignments(multipath_aln_pair.first, *haplo_score_provider, population_max_paths, true);
-                    alignments[1] = haplotype_consistent_alignments(multipath_aln_pair.second, *haplo_score_provider, population_max_paths, true);
+                    alignments[0] = haplotype_consistent_alignments(multipath_aln_pair.first, *haplo_score_provider, population_max_paths,
+                                                                    population_paths_hard_cap, true);
+                    alignments[1] = haplotype_consistent_alignments(multipath_aln_pair.second, *haplo_score_provider, population_max_paths,
+                                                                    population_paths_hard_cap, true);
                 } else {
                     // We will just find the top n best-alignment-scoring linearizations and hope some match haplotypes
                     alignments[0] = optimal_alignments(multipath_aln_pair.first, population_max_paths);

@@ -18,6 +18,7 @@
 #include "../convert.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+#include <bdsg/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -27,7 +28,7 @@ void help_locify(char** argv){
     cerr << "usage: " << argv[0] << " locify [options] " << endl
          << "    -l, --loci FILE      input loci over which to locify the alignments" << endl
          << "    -a, --aln-idx DIR    use this rocksdb alignment index (from vg index -N)" << endl
-         << "    -x, --xg-idx FILE    use this xg index" << endl
+         << "    -x, --xg-idx FILE    use this xg index or graph" << endl
          << "    -n, --name-alleles   generate names for each allele rather than using full Paths" << endl
          << "    -f, --forwardize     flip alignments on the reverse strand to the forward" << endl
          << "    -s, --sorted-loci FILE  write the non-nested loci out in their sorted order" << endl
@@ -131,7 +132,9 @@ int main_locify(int argc, char** argv){
         return 1;
     }
     ifstream xgstream(xg_idx_name);
-    unique_ptr<XG> xgidx = vg::io::VPKG::load_one<XG>(xgstream);
+    unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xgstream);
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    PathPositionHandleGraph* xgidx = overlay_helper.apply(path_handle_graph.get());    
 
     std::function<vector<string>(string, char)> strsplit = [&](string x, char delim){
 
@@ -343,7 +346,7 @@ int main_locify(int argc, char** argv){
         if (forwardize) {
             if (aln.second.path().mapping_size() && aln.second.path().mapping(0).position().is_reverse()) {
                 output_buf.push_back(reverse_complement_alignment(aln.second,
-                                                                  [&xgidx](int64_t id) { return xgidx->node_length(id); }));
+                                                                  [&xgidx](int64_t id) { return xgidx->get_length(xgidx->get_handle(id)); }));
             } else {
                 output_buf.push_back(aln.second);
             }

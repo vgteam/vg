@@ -49,7 +49,7 @@ class VGCITest(TestCase):
         self.workdir = tempfile.mkdtemp()
 
         # for checking calling f1
-        self.f1_threshold = 0.005
+        self.f1_threshold = 0.015
         # What (additional) portion of reads are allowed to get worse scores
         # when moving to a more inclusive reference?
         self.worse_threshold = 0.005
@@ -281,7 +281,7 @@ class VGCITest(TestCase):
         if interleaved:
             opts += '--interleaved '
         if multipath:
-            opts += '--multipath '
+            opts += '--mapper mpmap '
         if misc_opts:
             opts += ' {} '.format(misc_opts)
         if genotype:
@@ -654,6 +654,8 @@ class VGCITest(TestCase):
                                      [],
                                      plan.gcsa_file_ids,
                                      plan.gbwt_file_ids,
+                                     [],
+                                     [],
                                      plan.id_range_file_ids,
                                      plan.snarl_file_ids,
                                      plan.vg_file_ids, 
@@ -1094,7 +1096,6 @@ class VGCITest(TestCase):
         # OOM-ing.
         cmd += ['--calling_mem', '8G']
         cmd += ['--call_chunk_cores', str(min(6, self.cores))]
-        cmd += ['--gam_index_cores', str(min(4, self.cores))]
         cmd += ['--maxCores', str(self.cores)]
         cmd += self._toil_vg_io_opts() 
         if self.container:
@@ -1211,7 +1212,7 @@ class VGCITest(TestCase):
                             os.path.join(giab, 'HG002_GRCh37_GIAB_highconf_CG-IllFB-IllGATKHC-Ion-10X'
                                          '-SOLID_CHROM1-22_v.3.3.2_highconf_noinconsistent.bed'),                            
                             self._input('hs37d5_chr21.fa.gz'),
-                            0.025)
+                            0.035)
             
     @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(600)

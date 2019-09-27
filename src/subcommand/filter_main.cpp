@@ -14,8 +14,10 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include "../readfilter.hpp"
 #include <vg/io/vpkg.hpp>
+#include <bdsg/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -38,7 +40,7 @@ void help_filter(char** argv) {
          << "    -o, --max-overhang N       filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
          << "    -m, --min-end-matches N    filter reads that don't begin with at least N matches on each end" << endl
          << "    -S, --drop-split           remove split reads taking nonexistent edges" << endl
-         << "    -x, --xg-name FILE         use this xg index (required for -S and -D)" << endl
+         << "    -x, --xg-name FILE         use this xg index or graph (required for -S and -D)" << endl
          << "    -A, --append-regions       append to alignments created with -RB" << endl
          << "    -v, --verbose              print out statistics on numbers of reads filtered by what." << endl
          << "    -V, --no-output            print out statistics (as above) but do not write out filtered GAM." << endl
@@ -276,12 +278,15 @@ int main_filter(int argc, char** argv) {
     sort(filter.name_prefixes.begin(), filter.name_prefixes.end());
     
      // If the user gave us an XG index, we probably ought to load it up.
-    unique_ptr<XG> xindex;
+    PathPositionHandleGraph* xindex = nullptr;
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    bdsg::PathPositionOverlayHelper overlay_helper;
     if (!xg_name.empty()) {
         // read the xg index
-        xindex = vg::io::VPKG::load_one<XG>(xg_name);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        xindex = overlay_helper.apply(path_handle_graph.get());
     }
-    filter.graph = xindex.get();
+    filter.graph = xindex;
     
     // Read in the alignments and filter them.
     get_input_file(optind, argc, argv, [&](istream& in) {

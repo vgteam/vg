@@ -11,11 +11,13 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include "../utility.hpp"
 #include "../surjector.hpp"
 #include "../alignment_emitter.hpp"
+#include <bdsg/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -26,7 +28,7 @@ void help_surject(char** argv) {
          << "Transforms alignments to be relative to particular paths." << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-name FILE      use the graph in this xg index (required)" << endl
+         << "    -x, --xg-name FILE      use this graph or xg index (required)" << endl
          << "    -t, --threads N         number of threads to use" << endl
          << "    -p, --into-path NAME    surject into this path (many allowed, default: all in xg)" << endl
          << "    -F, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
@@ -179,9 +181,12 @@ int main_surject(int argc, char** argv) {
         }
     }
 
-    unique_ptr<XG> xgidx;
+    PathPositionHandleGraph* xgidx = nullptr;
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    bdsg::PathPositionOverlayHelper overlay_helper;
     if (!xg_name.empty()) {
-        xgidx = vg::io::VPKG::load_one<XG>(xg_name);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        xgidx = overlay_helper.apply(path_handle_graph.get());
     } else {
         // We need an XG index for the rest of the algorithm
         cerr << "error[vg surject] XG index (-x) is required for surjection" << endl;
@@ -190,21 +195,19 @@ int main_surject(int argc, char** argv) {
 
     // if no paths were given take all of those in the index
     if (path_names.empty()) {
-        for (size_t i = 1; i <= xgidx->path_count; ++i) {
-            path_names.insert(xgidx->path_name(i));
-        }
+        xgidx->for_each_path_handle([&](path_handle_t path_handle) {
+                path_names.insert(xgidx->get_path_name(path_handle));
+            });
     }
 
     // Make a single therad-safe Surjector.
-    Surjector surjector(xgidx.get());
+    Surjector surjector(xgidx);
     
     // Get the lengths of all the paths in the XG to populate the HTS headers
     map<string, int64_t> path_length;
-    int num_paths = xgidx->max_path_rank();
-    for (int i = 1; i <= num_paths; ++i) {
-        auto name = xgidx->path_name(i);
-        path_length[name] = xgidx->path_length(name);
-    }
+    xgidx->for_each_path_handle([&](path_handle_t path_handle) {
+            path_length[xgidx->get_path_name(path_handle)] = xgidx->get_path_length(path_handle);
+        });
    
     // Count our threads
     int thread_count = get_thread_count();

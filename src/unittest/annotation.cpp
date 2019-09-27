@@ -76,6 +76,16 @@ TEST_CASE("Multi-value annotations can be set and gotten and cleared", "[alignme
     REQUIRE(recovered.size() == 0);
     
 }
+
+TEST_CASE("Annotations convert to JSON sensibly", "[alignment][annotation]") {
+    
+    Alignment aln;
+    set_annotation(&aln, "snake_case_number", 1.5);
+    
+    string json = pb2json(aln);
+    
+    REQUIRE(json == R"({"annotation": {"snake_case_number": 1.5}})");
+}
    
 }
 }

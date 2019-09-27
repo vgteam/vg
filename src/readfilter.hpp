@@ -7,7 +7,7 @@
 #include <string>
 #include <regex>
 #include "vg.hpp"
-#include "xg.hpp"
+#include "handle.hpp"
 #include <vg/vg.pb.h>
 
 /** \file
@@ -172,10 +172,10 @@ private:
     bool trim_ambiguous_end(Alignment& alignment, int k);
     
     /**
-     * Return false if the read only follows edges in the xg index, and true if
+     * Return false if the read only follows edges in the graph, and true if
      * the read is split (or just incorrect) and takes edges not in the index.
      *
-     * Throws an error if no XG index is specified.
+     * Throws an error if no graph is specified.
      */
     bool is_split(Alignment& alignment);
     

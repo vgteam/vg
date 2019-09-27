@@ -17,7 +17,7 @@ is "$(vg annotate -n -x t.ref.xg -a tiny/tiny-s7331-n10-l50.gam | awk '{ if ($5 
 
 vg annotate -b tiny/tiny.bed -x t.ref.xg -a tiny/tiny-s543-n30-l10.gam > annotated.gam
 is "$(vg view -aj annotated.gam | jq -c '.annotation.features' | grep feat1 | wc -l)" 3 "vg annotate finds the right number of reads overlapping a feature"
-is "$(vg view -aj annotated.gam | grep feat1 | grep '"node_id":"1"' | wc -l)" "$(vg view -aj annotated.gam | grep feat1 | wc -l)" "all reads overlapping a feature fall on its node"
+is "$(vg view -aj annotated.gam | grep feat1 | grep -e '"node_id": *"1"' | wc -l)" "$(vg view -aj annotated.gam | grep feat1 | wc -l)" "all reads overlapping a feature fall on its node"
 is "$(vg view -aj annotated.gam | jq -c '.annotation.features' | grep feat1 | grep feat2 | wc -l)" 0 "vg annotate finds no reads touching both of two distant features"
 is "$(vg view -aj annotated.gam | jq -c '.annotation.features' | grep feat2 | grep feat3 | wc -l)" 2 "vg annotate shows reads having to go through one feature to get to another at the end"
 is "$(vg view -aj annotated.gam | jq -c '.annotation.features' | grep featAll | wc -l)" 30 "vg annotate shows all reads overlapping a whole-reference-covering feature"

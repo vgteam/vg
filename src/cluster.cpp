@@ -3521,9 +3521,9 @@ bdsg::HashGraph cluster_subgraph_containing(const HandleGraph& base, const Align
         backward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.begin)
                                     + (mem.begin - aln.sequence().begin()));
     }
-    auto cluster_graph = new bdsg::HashGraph();
-    algorithms::extract_containing_graph(&base, cluster_graph, positions, forward_max_dist, backward_max_dist);
-    return *cluster_graph;
+    auto cluster_graph = bdsg::HashGraph();
+    algorithms::extract_containing_graph(&base, &cluster_graph, positions, forward_max_dist, backward_max_dist);
+    return cluster_graph;
 }
 
 bdsg::HashGraph cluster_subgraph_walk(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
