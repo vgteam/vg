@@ -69,7 +69,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         funnel.stage("seed");
     }
 
-    // Compute minimizer scores for all minimizers as 1 + ln(max_hits) - ln(hits).
+    // Compute minimizer scores for all minimizers as 0.5 + ln(max_hits) - ln(hits).
     std::vector<double> minimizer_score(minimizers.size(), 0.0);
     double base_target_score = 0.0;
     size_t max_hits = 0;
@@ -81,7 +81,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         }
     }
     if (max_hits > 0) {
-        double adjustment = 1.0 + std::log(max_hits);
+        double adjustment = 0.5 + std::log(max_hits);
         for (size_t i = 0; i < minimizers.size(); i++) {
             if (minimizer_score[i] < 0.0) {
                 minimizer_score[i] += adjustment;
