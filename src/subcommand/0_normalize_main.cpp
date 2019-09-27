@@ -7,25 +7,32 @@
 
 #include "subcommand.hpp"
 
-#include "../../include/sglib/hash_graph.hpp"
+#include "../../include/bdsg/hash_graph.hpp"
 #include "../../include/vg/io/vpkg.hpp"
-#include "../algorithms/0_draft_haplotype_realignment.hpp"
+// #include "../algorithms/0_draft_haplotype_realignment.hpp"
+#include "../algorithms/0_oo_normalize_snarls.hpp"
 #include "../algorithms/0_draft_snarl_normalization_evaluation.cpp"
 #include "../gbwt_helper.hpp"
 
-#include <chrono>  // for high_resolution_clock
+#include <chrono> // for high_resolution_clock
 
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
 void help_normalize(char **argv) {
-    cerr << "usage: " << argv[0] << " normalize [options] <graph.vg> >[mod.vg]" << endl
-         << "Modifies snarls, outputs modified on stdout." << endl
-         << endl
-         << "options:" << endl
-         << "    -g, --gbwt       gbwt corresponding to hashgraph." << endl
-         << "    -s, --snarls       snarls file corresponding to hashgraph." << endl;
+    cerr
+        << "usage: " << argv[0] << " normalize [options] <graph.vg> >[mod.vg]" << endl
+        << "Modifies snarls, outputs modified on stdout." << endl
+        << endl
+        << "options:" << endl
+        << "    -g, --gbwt       gbwt corresponding to hashgraph." << endl
+        << "    -s, --snarls       snarls file corresponding to hashgraph." << endl
+        << "    -m, --max_alignment_size       limits the number of threads that will "
+           "be aligned in any snarl. If exceeded, program skips snarl. Default is 200 "
+           "threads. If you don't want to skip any snarls based on thread count, enter 0."
+        << endl
+        << "    -s, --snarls       snarls file corresponding to hashgraph." << endl;
 }
 
 int main_normalize(int argc, char **argv) {
@@ -37,6 +44,7 @@ int main_normalize(int argc, char **argv) {
 
     bool evaluate = false;
     bool normalize = false;
+    int max_alignment_size = 200; // default cutoff is 200 threads in a snarl.
     string gbwt;
     string snarls;
 
@@ -48,11 +56,12 @@ int main_normalize(int argc, char **argv) {
             {{"help", no_argument, 0, 'h'},
              {"gbwt", required_argument, 0, 'g'},
              {"snarls", required_argument, 0, 's'},
+             {"max_alignment_size", optional_argument, 0, 'm'},
              {"evaluate", no_argument, 0, 'e'},
              {0, 0, 0, 0}};
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "g:s:eh", long_options, &option_index);
+        c = getopt_long(argc, argv, "hg:s:m:e", long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -69,6 +78,14 @@ int main_normalize(int argc, char **argv) {
             evaluate = true;
             break;
 
+        case 'm':
+            max_alignment_size = parse<int>(optarg);
+            // if max_alignment_size is 0, then that signifies that it should actually be
+            // infinite, i.e. that we should not exclude any snarls.
+            if (max_alignment_size == 0) {
+                max_alignment_size = INT_MAX;
+            }
+
         case 's':
             snarls = optarg;
             break;
@@ -78,11 +95,13 @@ int main_normalize(int argc, char **argv) {
         }
     }
 
-    sglib::HashGraph *graph;
+    bdsg::HashGraph *graph;
     get_input_file(optind, argc, argv,
-                   [&](istream &in) { graph = new sglib::HashGraph(in); });
+                   [&](istream &in) { graph = new bdsg::HashGraph(in); });
 
     if (normalize) {
+        cerr << "running normalize!" << endl;
+
         /// Build the gbwt:
         ifstream gbwt_stream;
         gbwt_stream.open(gbwt);
@@ -102,8 +121,15 @@ int main_normalize(int argc, char **argv) {
         }
         // Record start time
         auto start = chrono::high_resolution_clock::now();
+
+        SnarlNormalizer normalizer = SnarlNormalizer(*graph, haploGraph, max_alignment_size);
+
         // run test code on all snarls in graph.
-        disambiguate_top_level_snarls(*graph, haploGraph, snarl_stream);
+        normalizer.normalize_top_level_snarls(snarl_stream);
+
+        // // run test code on all snarls in graph. (non obj-oriented code)
+        // disambiguate_top_level_snarls(*graph, haploGraph, snarl_stream, max_alignment_size);
+
         // Record end time
         auto finish = std::chrono::high_resolution_clock::now();
         chrono::duration<double> elapsed = finish - start;
@@ -111,11 +137,11 @@ int main_normalize(int argc, char **argv) {
     }
 
     if (evaluate) {
-        std::ifstream snarl_stream;
-        string snarl_file = snarls;
-        snarl_stream.open(snarl_file);
-        cerr << "about to evaluate normalized snarls" << endl;
-        vg::evaluate_normalized_snarls(snarl_stream);
+        // std::ifstream snarl_stream;
+        // string snarl_file = snarls;
+        // snarl_stream.open(snarl_file);
+        // cerr << "about to evaluate normalized snarls" << endl;
+        // vg::evaluate_normalized_snarls(snarl_stream);
     }
 
     // TODO: NOTE: this may be cumbersome code if we decide to add more argument types.

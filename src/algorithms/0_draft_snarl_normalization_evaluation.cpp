@@ -33,5 +33,6 @@ void evaluate_normalized_snarls(ifstream &snarl_stream) {
     });
     cerr << "number of total snarls in graph: " << general_count << endl;
 
+    delete snarl_manager;
 }
 }
