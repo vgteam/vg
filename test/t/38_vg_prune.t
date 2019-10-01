@@ -27,18 +27,18 @@ is $(vg stats -E y.vg) 48 "pruning with path restoring leaves the correct number
 rm -f y.vg
 
 # Unfold paths and threads: 1 component, 60 nodes, 72 edges
-vg prune -u -g x.gbwt -e 1 x.vg > y.vg
+vg prune -u -m x.mapping -g x.gbwt -e 1 x.vg > y.vg
 is $(vg stats -s y.vg | wc -l) 1 "pruning with path/thread unfolding produces the correct number of components"
 is $(vg stats -N y.vg) 60 "pruning with path/thread unfolding produces the correct number of nodes"
 is $(vg stats -E y.vg) 72 "pruning with path/thread unfolding produces the correct number of edges"
-rm -f y.vg
+rm -f x.mapping y.vg
 
 # Unfold only paths: 1 component, 44 nodes, 48 edges
-vg prune -u -e 1 x.vg > y.vg
+vg prune -u -m x.mapping -e 1 x.vg > y.vg
 is $(vg stats -s y.vg | wc -l) 1 "pruning with path unfolding produces the correct number of components"
 is $(vg stats -N y.vg) 44 "pruning with path unfolding produces the correct number of nodes"
 is $(vg stats -E y.vg) 48 "pruning with path unfolding produces the correct number of edges"
-rm -f y.vg
+rm -f x.mapping y.vg
 
 rm -f x.vg x.gbwt
 

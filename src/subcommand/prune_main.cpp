@@ -99,29 +99,31 @@ void print_defaults(const std::map<PruningMode, ValueType>& defaults) {
 
 void help_prune(char** argv) {
     std::cerr << "usage: " << argv[0] << " prune [options] <graph.vg> >[output.vg]" << std::endl;
+    std::cerr << std::endl;
     std::cerr << "Prunes the complex regions of the graph for GCSA2 indexing. Pruning the graph" << std::endl;
     std::cerr << "removes embedded paths." << std::endl;
-    std::cerr << "pruning parameters:" << std::endl;
+    std::cerr << std::endl;
+    std::cerr << "Pruning parameters:" << std::endl;
     std::cerr << "    -k, --kmer-length N    kmer length used for pruning" << std::endl;
     std::cerr << "                           "; print_defaults(PruningParameters::kmer_length);
     std::cerr << "    -e, --edge-max N       remove the edges on kmers making > N edge choices" << std::endl;
     std::cerr << "                           "; print_defaults(PruningParameters::edge_max);
     std::cerr << "    -s, --subgraph-min N   remove subgraphs of < N bases" << std::endl;
     std::cerr << "                           "; print_defaults(PruningParameters::subgraph_min);
-    std::cerr << "pruning modes (-P, -r, and -u are mutually exclusive):" << std::endl;
+    std::cerr << "Pruning modes (-P, -r, and -u are mutually exclusive):" << std::endl;
     std::cerr << "    -P, --prune            simply prune the graph (default)" << std::endl;
     std::cerr << "    -r, --restore-paths    restore the edges on non-alt paths" << std::endl;
     std::cerr << "    -u, --unfold-paths     unfold non-alt paths and GBWT threads" << std::endl;
     std::cerr << "    -v, --verify-paths     verify that the paths exist after pruning" << std::endl;
     std::cerr << "                           (potentially very slow)" << std::endl;
-    std::cerr << "unfolding options:" << std::endl;
+    std::cerr << "Unfolding options:" << std::endl;
     std::cerr << "    -g, --gbwt-name FILE   unfold the threads from this GBWT index" << std::endl;
-    std::cerr << "    -m, --mapping FILE     store the node mapping for duplicates in this file" << std::endl;
-    std::cerr << "    -a, --append-mapping   append to the existing node mapping (requires -m)" << std::endl;
-    std::cerr << "other options:" << std::endl;
+    std::cerr << "    -m, --mapping FILE     store the node mapping for duplicates in this file (required with -u)" << std::endl;
+    std::cerr << "    -a, --append-mapping   append to the existing node mapping" << std::endl;
+    std::cerr << "Other options:" << std::endl;
     std::cerr << "    -p, --progress         show progress" << std::endl;
     std::cerr << "    -t, --threads N        use N threads (default: " << omp_get_max_threads() << ")" << std::endl;
-    std::cerr << "    -d, --dry-run          determine the validity of the parameter combination" << std::endl;
+    std::cerr << "    -d, --dry-run          determine the validity of the combination of options" << std::endl;
 }
 
 int main_prune(int argc, char** argv) {
@@ -243,10 +245,6 @@ int main_prune(int argc, char** argv) {
         std::cerr << "error: [vg prune] --kmer-length and --edge-max must be positive" << std::endl;
         return 1;
     }
-    if (append_mapping && mapping_name.empty()) {
-        std::cerr << "error: [vg prune] parameter --append-mapping requires --mapping" << std::endl;
-        return 1;
-    }
 
     // Mode-specific checks.
     if (mode == mode_prune) {
@@ -266,7 +264,10 @@ int main_prune(int argc, char** argv) {
         }
     }
     if (mode == mode_unfold) {
-        // Nothing here
+        if (mapping_name.empty()) {
+            std::cerr << "error: [vg prune] mode --unfold requires a node mapping file specified with --mapping" << std::endl;
+            return 1;
+        }
     }
 
     // Dry run.
