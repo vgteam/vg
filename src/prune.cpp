@@ -4,7 +4,7 @@
 
 namespace vg {
 
-constexpr size_t PRUNE_THREAD_BUFFER_SIZE = 128 * 1024;
+constexpr size_t PRUNE_THREAD_BUFFER_SIZE = 1024 * 1024;
 
 pair_hash_set<edge_t> find_edges_to_prune(const HandleGraph& graph, size_t k, size_t edge_max) {
 
