@@ -6,6 +6,7 @@
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/id_sort.hpp"
 #include "augment.hpp"
+#include "prune.hpp"
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
 
@@ -6929,7 +6930,7 @@ void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
     // Duplicate code from prune_complex(). If pruning leaves many loose nodes
     // (that will usually be deleted in the next step), attaching them to the
     // head/tail nodes is unnecessary and potentially expensive.
-    vector<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
+    pair_hash_set<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
     for (auto& e : to_destroy) {
         destroy_edge(e.first, e.second);
     }
@@ -6940,7 +6941,7 @@ void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
 
 void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node) {
 
-    vector<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
+    pair_hash_set<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
     for (auto& e : to_destroy) {
         destroy_edge(e.first, e.second);
     }
