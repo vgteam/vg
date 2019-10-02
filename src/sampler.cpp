@@ -6,17 +6,41 @@ namespace vg {
 
 
 void Sampler::set_source_paths(const vector<string>& source_paths,
-                               const vector<pair<string, double>>& transcript_expressions) {
+                               const vector<pair<string, double>>& transcript_expressions,
+                               const vector<tuple<string, string, size_t>>& haplotype_transcripts) {
     if (!source_paths.empty() && !transcript_expressions.empty()) {
         cerr << "error:[Sampler] cannot sample from list of paths and from list of transcripts simultaneously" << endl;
+        exit(1);
+    }
+    else if (!haplotype_transcripts.empty() && transcript_expressions.empty()) {
+        cerr << "error:[Sampler] cannot sample from haplotype transcripts without an expression profile" << endl;
         exit(1);
     }
     else if (!transcript_expressions.empty()) {
         this->source_paths.clear();
         vector<double> expression_values;
-        for (const pair<string, double>& transcript_expression : transcript_expressions) {
-            this->source_paths.push_back(transcript_expression.first);
-            expression_values.push_back(transcript_expression.second);
+        if (haplotype_transcripts.empty()) {
+            for (const pair<string, double>& transcript_expression : transcript_expressions) {
+                this->source_paths.push_back(transcript_expression.first);
+                expression_values.push_back(transcript_expression.second);
+            }
+        }
+        else {
+            unordered_map<string, vector<size_t>> haplotypes_of_transcript;
+            for (size_t i = 0; i < haplotype_transcripts.size(); ++i) {
+                haplotypes_of_transcript[get<1>(haplotype_transcripts[i])].push_back(i);
+            }
+            for (const pair<string, double>& transcript_expression : transcript_expressions) {
+                size_t total_haplotypes = 0;
+                for (size_t i : haplotypes_of_transcript[transcript_expression.first]) {
+                    total_haplotypes += get<2>(haplotype_transcripts[i]);
+                }
+                for (size_t i : haplotypes_of_transcript[transcript_expression.first]) {
+                    double haplotype_expression = (transcript_expression.second * get<2>(haplotype_transcripts[i])) / total_haplotypes;
+                    expression_values.push_back(haplotype_expression);
+                    this->source_paths.push_back(get<0>(haplotype_transcripts[i]));
+                }
+            }
         }
         path_sampler = vg::discrete_distribution<>(expression_values.begin(), expression_values.end());
     }
@@ -571,6 +595,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                            bool interleaved_fastq,
                            const vector<string>& source_paths_input,
                            const vector<pair<string, double>>& transcript_expressions,
+                           const vector<tuple<string, string, size_t>>& haplotype_transcripts,
                            double substition_polymorphism_rate,
                            double indel_polymorphism_rate,
                            double indel_error_proportion,
@@ -607,6 +632,11 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
         exit(1);
     }
     
+    if (!haplotype_transcripts.empty() && transcript_expressions.empty()) {
+        cerr << "error:[NGSSimulator] cannot sample from haplotype transcripts without an expression profile" << endl;
+        exit(1);
+    }
+    
     if (substition_polymorphism_rate < 0.0 || substition_polymorphism_rate > 1.0
         || indel_polymorphism_rate < 0.0 || indel_polymorphism_rate > 1.0
         || indel_error_proportion < 0.0 || indel_error_proportion > 1.0) {
@@ -634,12 +664,12 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
             << ") > 5 * insert length standard deviation (" << insert_length_stdev << ")" << endl;
     }
     
-    if (source_paths.empty() && transcript_expressions.empty()) {
+    if (source_paths_input.empty() && transcript_expressions.empty()) {
         start_pos_samplers.emplace_back(1, total_seq_length);
     }
-    else if (!source_paths.empty()) {
+    else if (!source_paths_input.empty()) {
         vector<size_t> path_sizes;
-        for (const auto& source_path : source_paths) {
+        for (const auto& source_path : source_paths_input) {
             path_sizes.push_back(graph.get_path_length(graph.get_path_handle(source_path)));
             start_pos_samplers.emplace_back(0, path_sizes.back() - 1);
         }
@@ -647,11 +677,35 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
     }
     else {
         vector<double> expression_values;
-        for (const pair<string, double>& transcript_expression : transcript_expressions) {
-            source_paths.push_back(transcript_expression.first);
-            start_pos_samplers.emplace_back(0, graph.get_path_length(graph.get_path_handle(transcript_expression.first)) - 1);
-            expression_values.push_back(transcript_expression.second);
+        
+        if (haplotype_transcripts.empty()) {
+            for (const pair<string, double>& transcript_expression : transcript_expressions) {
+                source_paths.push_back(transcript_expression.first);
+                start_pos_samplers.emplace_back(0, graph.get_path_length(graph.get_path_handle(transcript_expression.first)) - 1);
+                expression_values.push_back(transcript_expression.second);
+            }
         }
+        else {
+            // map the transcript names to the haplotype transcript names
+            unordered_map<string, vector<size_t>> haplotypes_of_transcript;
+            for (size_t i = 0; i < haplotype_transcripts.size(); ++i) {
+                haplotypes_of_transcript[get<1>(haplotype_transcripts[i])].push_back(i);
+            }
+            for (const pair<string, double>& transcript_expression : transcript_expressions) {
+                // split the expression up among the haplotype transcripts according to their count
+                size_t total_haplotypes = 0;
+                for (size_t i : haplotypes_of_transcript[transcript_expression.first]) {
+                    total_haplotypes += get<2>(haplotype_transcripts[i]);
+                }
+                for (size_t i : haplotypes_of_transcript[transcript_expression.first]) {
+                    double haplotype_expression = (transcript_expression.second * get<2>(haplotype_transcripts[i])) / total_haplotypes;
+                    expression_values.push_back(haplotype_expression);
+                    source_paths.push_back(get<0>(haplotype_transcripts[i]));
+                    start_pos_samplers.emplace_back(0, graph.get_path_length(graph.get_path_handle(transcript_expression.first)) - 1);
+                }
+            }
+        }
+        
         path_sampler = vg::discrete_distribution<>(expression_values.begin(), expression_values.end());
     }
     

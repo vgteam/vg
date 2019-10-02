@@ -59,7 +59,8 @@ public:
             bool forward_only = false,
             bool allow_Ns = false,
             const vector<string>& source_paths = {},
-            const vector<pair<string, double>>& transcript_expressions = {})
+            const vector<pair<string, double>>& transcript_expressions = {},
+            const vector<tuple<string, string, size_t>>& haplotype_transcripts = {})
         : xgidx(x),
           node_cache(100),
           edge_cache(100),
@@ -75,13 +76,17 @@ public:
             seed = time(NULL);
         }
         rng.seed(seed);
-        set_source_paths(source_paths, transcript_expressions);
+        set_source_paths(source_paths, transcript_expressions, haplotype_transcripts);
     }
 
     /// Make a path sampling distribution based on relative lengths or on transcript expressions
     /// (at most one should be non-empty)
+    /// If providing a transcript expression profile, can optionally provide a non-empty vector
+    /// of haplotype transcripts to translate between the embedded path names and the transcript
+    /// names in the expression profile
     void set_source_paths(const vector<string>& source_paths,
-                          const vector<pair<string, double>>& transcript_expressions);
+                          const vector<pair<string, double>>& transcript_expressions,
+                          const vector<tuple<string, string, size_t>>& haplotype_transcripts);
 
     pos_t position(void);
     string sequence(size_t length);
@@ -153,11 +158,12 @@ public:
                  bool interleaved_fastq = false,
                  const vector<string>& source_paths = {},
                  const vector<pair<string, double>>& transcript_expressions = {},
+                 const vector<tuple<string, string, size_t>>& haplotype_transcripts = {},
                  double substition_polymorphism_rate = 0.001,
                  double indel_polymorphism_rate = 0.0002,
                  double indel_error_proportion = 0.01,
-                 double insert_length_mean = 1000.0,
-                 double insert_length_stdev = 75.0,
+                 double insert_length_mean = 300.0,
+                 double insert_length_stdev = 50.0,
                  double error_multiplier = 1.0,
                  bool retry_on_Ns = true,
                  size_t seed = 0);
