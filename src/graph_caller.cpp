@@ -704,13 +704,15 @@ pair<size_t, bool> LegacyCaller::get_ref_position(const Snarl& snarl, const stri
     assert(start_steps.size() > 0);
     // take the first one
     step_handle_t start_step = start_steps.begin()->second;
+    bool backward = graph.get_is_reverse(graph.get_handle_of_step(start_step));
     step_handle_t step_it = start_step;
     size_t start_position = start_steps.begin()->first;
     handle_t curr_handle = graph.get_handle_of_step(step_it);
     size_t snarl_length = graph.get_length(curr_handle);
     // walk it until we hit the end handle
-    while (graph.has_next_step(step_it)) {
-        step_it = graph.get_next_step(step_it);
+    while (!backward && graph.has_next_step(step_it) ||
+           graph.has_previous_step(step_it)) {
+        step_it = (!backward ? graph.get_next_step(step_it) : graph.get_previous_step(step_it));
         curr_handle = graph.get_handle_of_step(step_it);
         if (curr_handle == end_handle) {
             break;
@@ -719,7 +721,6 @@ pair<size_t, bool> LegacyCaller::get_ref_position(const Snarl& snarl, const stri
         }
     }
     size_t end_position = start_position + snarl_length;
-    bool backward = graph.get_is_reverse(graph.get_handle_of_step(start_step));
     return make_pair(backward ? end_position : start_position, backward);
 }
 
