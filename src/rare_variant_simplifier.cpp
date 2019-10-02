@@ -8,20 +8,14 @@ RareVariantSimplifier::RareVariantSimplifier(MutablePathDeletableHandleGraph& gr
     // Nothing to do!
 }
 
-/// Return true if the given path name is a variant ref or alt allele alt path
-bool is_alt_path(const string& name) {
-    // See <https://stackoverflow.com/a/40441240>; we have no startswith, but we have rfind at pos <= 0.
-    return name.rfind("_alt_", 0) == 0;
-}
-
 void RareVariantSimplifier::simplify() {
     // This holds the IDs of all the nodes we want to keep around
     unordered_set<id_t> to_keep;
 
     graph.for_each_path_handle([&](const path_handle_t& path) {
         // For each path
-
-        if (!is_alt_path(graph.get_path_name(path))) {
+        
+        if (!Paths::is_alt(graph.get_path_name(path))) {
             // If it isn't an alt path, we want to trace it
 
             // For each occurrence from start to end

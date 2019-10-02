@@ -13,9 +13,19 @@ _Variation graphs_ provide a succinct encoding of the sequences of many genomes.
 * _edges_, which connect two nodes via either of their respective ends
 * _paths_, describe genomes, sequence alignments, and annotations (such as gene models and transcripts) as walks through nodes connected by edges
 
-This model is similar to a number of sequence graphs that have been used in assembly and multiple sequence alignment. Paths provide coordinate systems relative to genomes encoded in the graph, allowing stable mappings to be produced even if the structure of the graph is changed.
+This model is similar to sequence graphs that have been used in assembly and multiple sequence alignment.
+
+Paths provide coordinate systems relative to genomes encoded in the graph, allowing stable mappings to be produced even if the structure of the graph is changed.
+The variation graph model makes this embedding explicit and essential.
+Tools in vg maintain paths as immutable during transformations of the graph.
+They use paths to project graph-relative data into reference-relative coordinate spaces.
+Paths provide stable coordinates for graphs built in different ways from the same input sequences.
 
 ![example variation graph](https://raw.githubusercontent.com/vgteam/vg/master/doc/figures/smallgraph.png)
+
+## Support 
+
+We maintain a support forum on biostars: https://www.biostars.org/t/vg/
 
 ## Installation
 
@@ -269,7 +279,7 @@ vg call xa.xg -k aln.pack -v small/x.vcf.gz > genotypes.vcf
 Pre-filtering the GAM before computing support can improve precision of SNP calling
 ```sh
 # filter secondary and ambiguous read mappings out of the gam
-vg filter aln.gam -r 0.90 -fu -s 2 -o 0 -D 999 -x x.xg > aln.filtered.gam
+vg filter aln.gam -r 0.90 -fu -m 1 -q 15 -D 999 -x x.xg > aln.filtered.gam
 
 # then compute the support from aln.filtered.gam instead of aln.gam in above etc.
 ```
@@ -282,7 +292,7 @@ vg snarls x.xg > x.snarls
 vg call x.xg -k aln.pack -r x.snarls > calls.vcf
 ```
 
-Note: `vg pack`, `vg call` and `vg snarls` can now all be run on directly on any graph format (ex `.vg`, `.xg` or anything output by `vg convert`).  Operating on `.vg` uses the most memory and is not recommended for large graphs.  The output of `vg pack` can only be read in conjunction with the same graph used to create it, so `vg pack x.vg -g aln.gam -o x.pack` then `vg call x.xg -k x.pack` will not work.
+Note: `vg augment`, `vg pack`, `vg call` and `vg snarls` can now all be run on directly on any graph format (ex `.vg`, `.xg` (except `augment`) or anything output by `vg convert`).  Operating on `.vg` uses the most memory and is not recommended for large graphs.  The output of `vg pack` can only be read in conjunction with the same graph used to create it, so `vg pack x.vg -g aln.gam -o x.pack` then `vg call x.xg -k x.pack` will not work.
 
 #### Calling variants from paths in the graph
 

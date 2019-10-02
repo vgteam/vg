@@ -2976,7 +2976,6 @@ VCFTraversalFinder::get_haplotype_alt_contents(
         // get the alt path information out of the graph
         pair<SnarlTraversal, vector<edge_t>> alt_path_info = get_alt_path(var, haplotype[allele], ref_path);
         if (alt_path_info.first.visit_size() == 0) {
-            assert(!alt_path_info.second.empty());
             // skip deletion alt path where we can't find the deletion edge in the graph
             continue;
         }
@@ -3139,8 +3138,8 @@ pair<SnarlTraversal, vector<edge_t>> VCFTraversalFinder::scan_for_deletion(vcfli
         handle_t cur_handle = graph.get_handle_of_step(cur_step);
         handle_t next_handle = graph.get_handle_of_step(graph.get_next_step(cur_step));        
         graph.follow_edges(cur_handle, false, [&] (const handle_t& edge_next_handle) {
-                assert(graph.get_is_reverse(edge_next_handle) == false);
-                if (graph.get_id(next_handle) != graph.get_id(edge_next_handle) &&
+                if (!graph.get_is_reverse(edge_next_handle) && // ignore inversions
+		    graph.get_id(next_handle) != graph.get_id(edge_next_handle) &&
                     ref_offsets.count(graph.get_id(edge_next_handle))) {
                     // we are in a deletion that's contained in the window
                     int deletion_start_offset = ref_offsets[graph.get_id(cur_handle)] + graph.get_length(cur_handle);

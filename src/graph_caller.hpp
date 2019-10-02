@@ -209,11 +209,6 @@ protected:
     /// What's the maximum number of bubble path combinations we can explore
     /// while finding one with maximum support?
     size_t max_bubble_paths = 100;
-    /// What's the minimum integer number of reads that must support a call? We
-    /// don't necessarily want to call a SNP as het because we have a single
-    // supporting read, even if there are only 10 reads on the site.
-    size_t min_total_support_for_call = 1;
-
 
 };
 

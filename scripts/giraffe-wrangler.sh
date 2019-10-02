@@ -27,29 +27,58 @@ if [[ "$#" -lt "8" ]]; then
     usage
 fi
 
-FASTA="${1}"
+fetch_input() {
+    # Download the specified file, if not a file already.
+    # Dumps all files into the current directory as their basenames
+    # Output the new filename
+    if [[ "${1}" == s3://* ]] ; then
+        aws s3 --quiet cp "${1}" "$(basename "${1}")"
+        basename "${1}"
+    else
+        echo "${1}"
+    fi
+}
+
+FASTA="$(fetch_input "${1}")"
+for EXT in amb ann bwt fai pac sa ; do
+    # Make sure we have all the indexes adjacent to the FASTA
+    fetch_input "${1}.${EXT}" >/dev/null
+done
 shift
-XG_INDEX="${1}"
+XG_INDEX="$(fetch_input "${1}")"
+# Make sure we have the GBWTGraph pre-made
+GBWT_GRAPH="$(fetch_input "${1%.xg}.gg")"
 shift
-GCSA_INDEX="${1}"
+GCSA_INDEX="$(fetch_input "${1}")"
+LCP_INDEX="$(fetch_input "${1}.lcp")"
 shift
-GBWT_INDEX="${1}"
+GBWT_INDEX="$(fetch_input "${1}")"
 shift
-MINIMIZER_INDEX="${1}"
+MINIMIZER_INDEX="$(fetch_input "${1}")"
 shift
-DISTANCE_INDEX="${1}"
+DISTANCE_INDEX="$(fetch_input "${1}")"
 shift
-SIM_GAM="${1}"
+SIM_GAM="$(fetch_input "${1}")"
 shift
-REAL_FASTQ="${1}"
+REAL_FASTQ="$(fetch_input "${1}")"
 shift
 
-GBWT_GRAPH=${XG_INDEX%.xg}.gg
 if [ -f "$GBWT_GRAPH" ]; then
     GIRAFFE_GRAPH=(-g "${GBWT_GRAPH}")
 else
     GIRAFFE_GRAPH=(-x "${XG_INDEX}")
 fi
+
+echo "Indexes:"
+echo "${XG_INDEX}"
+echo "${GBWT_GRAPH}"
+echo "${GCSA_INDEX}"
+echo "${LCP_INDEX}"
+echo "${GBWT_INDEX}"
+echo "${MINIMIZER_INDEX}"
+echo "${DISTANCE_INDEX}"
+echo "${SIM_GAM}"
+echo "${REAL_FASTQ}"
 
 # Define the Giraffe parameters
 GIRAFFE_OPTS=(-s75 -u 0.1 -v 1 -w 5 -C 600)
@@ -83,7 +112,7 @@ if which perf >/dev/null 2>&1 ; then
     
     # If we don't strip bin/vg to make it small, the addr2line calls that perf
     # script makes take forever because the binary is huge
-    strip bin/vg
+    strip -d bin/vg
     
     ${NUMA_PREFIX} perf record -F 100 --call-graph dwarf -o "${WORK}/perf.data"  vg gaffe "${GIRAFFE_GRAPH[@]}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -f "${REAL_FASTQ}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/perf.gam"
     perf script -i "${WORK}/perf.data" >"${WORK}/out.perf"
@@ -110,7 +139,8 @@ MEAN_IDENTITY="$(vg view -aj "${WORK}/mapped.gam" | jq -c 'select(.path) | .iden
 MEAN_IDENTITY_MAP="$(vg view -aj "${WORK}/mapped-map.gam" | jq -c 'select(.path) | .identity' | awk '{x+=$1} END {print x/NR}')"
 
 # Compute loss stages
-vg view -aj "${WORK}/mapped.gam" | scripts/giraffe-facts.py "${WORK}/facts" >"${WORK}/facts.txt" 2>&1
+# Let giraffe facts errors out
+vg view -aj "${WORK}/mapped.gam" | scripts/giraffe-facts.py "${WORK}/facts" >"${WORK}/facts.txt"
 
 # Now do the real reads
 

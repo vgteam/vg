@@ -286,6 +286,9 @@ public:
     /// Optionally compact the id space of the graph to match the ordering, from 1->|ordering|.
     /// This may be a no-op in the case of graph implementations that do not have any mechanism to maintain an ordering.
     virtual void apply_ordering(const std::vector<handle_t>& order, bool compact_ids = false);
+    
+    /// No-op function (required by MutableHandleGraph interface)
+    virtual void set_id_increment(const nid_t& min_id);
 
     ////////////////////////////////////////////////////////////////////////////
     // Mutable path handle interface

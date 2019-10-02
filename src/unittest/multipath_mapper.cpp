@@ -319,7 +319,7 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
     
     // Build the xg index
     xg::XG xg_index;
-    xg_index.from_path_handle_graph(VG(proto_graph));
+    xg_index.from_path_handle_graph(graph);
     
     // Make a multipath mapper to map against the graph.
     MultipathMapper mapper(&xg_index, gcsaidx, lcpidx);
