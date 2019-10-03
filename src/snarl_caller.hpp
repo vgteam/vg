@@ -55,7 +55,7 @@ public:
     virtual ~SupportBasedSnarlCaller();
 
     /// Set some of the parameters
-    void set_het_bias(double het_bias);
+    void set_het_bias(double het_bias, double ref_het_bias = 0.);
     void set_min_supports(double min_mad_for_call, double min_support_for_call, double min_site_support);
 
     /// Support of an edge

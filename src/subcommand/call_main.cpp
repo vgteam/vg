@@ -28,7 +28,7 @@ void help_call(char** argv) {
        << endl
        << "support calling options:" << endl
        << "    -k, --pack FILE         Supports created from vg pack for given input graph" << endl
-       << "    -b, --het-bias N        Homozygous allele must have >= N times more support than the next best allele [default = 6]" << endl
+       << "    -b, --het-bias M,N      Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
        << "    -m, --min-support M,N   Minimum allele support (M) and minimum site support (N) for call [default = 1,4]" << endl
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
@@ -53,8 +53,8 @@ int main_call(int argc, char** argv) {
     vector<string> ref_paths;
     vector<size_t> ref_path_offsets;
     vector<size_t> ref_path_lengths;
-    double het_bias = -1;
     string min_support_string;
+    string bias_string;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -92,7 +92,7 @@ int main_call(int argc, char** argv) {
             pack_filename = optarg;
             break;
         case 'b':
-            het_bias = parse<int>(optarg);
+            bias_string = optarg;
             break;
         case 'm':
             min_support_string = optarg;
@@ -153,11 +153,26 @@ int main_call(int argc, char** argv) {
     double min_site_support = -1;
     if (support_toks.size() >= 1) {
         min_allele_support = parse<double>(support_toks[0]);
+        min_site_support = min_allele_support;
     }
     if (support_toks.size() == 2) {
         min_site_support = parse<double>(support_toks[1]);
     } else if (support_toks.size() > 2) {
-        cerr << "error [vg call]: -m option expects two comman separated numbers N,M" << endl;
+        cerr << "error [vg call]: -m option expects at most two comma separated numbers M,N" << endl;
+        return 1;
+    }
+    // parse the biases
+    vector<string> bias_toks = split_delims(bias_string, ",");
+    double het_bias = -1;
+    double ref_het_bias = -1;
+    if (bias_toks.size() >= 1) {
+        het_bias = parse<double>(bias_toks[0]);
+        ref_het_bias = het_bias;
+    }
+    if (bias_toks.size() == 2) {
+        ref_het_bias = parse<double>(bias_toks[1]);
+    } else if (bias_toks.size() > 2) {
+        cerr << "error [vg call]: -b option expects at most two comma separated numbers M,N" << endl;
         return 1;
     }
     
@@ -239,7 +254,7 @@ int main_call(int argc, char** argv) {
         packer->load_from_file(pack_filename);
         PackedSupportSnarlCaller* packed_caller = new PackedSupportSnarlCaller(*packer, *snarl_manager);
         if (het_bias >= 0) {
-            packed_caller->set_het_bias(het_bias);
+            packed_caller->set_het_bias(het_bias, ref_het_bias);
         }
         if (min_allele_support >= 0) {
             packed_caller->set_min_supports(min_allele_support, min_allele_support, min_site_support);
