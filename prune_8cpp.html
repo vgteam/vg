@@ -65,12 +65,14 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#namespaces">Namespaces</a> &#124;
-<a href="#func-members">Functions</a>  </div>
+<a href="#func-members">Functions</a> &#124;
+<a href="#var-members">Variables</a>  </div>
   <div class="headertitle">
 <div class="title">prune.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="prune_8hpp.html">prune.hpp</a>&quot;</code><br />
+<code>#include &lt;stack&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -79,9 +81,14 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a9e892bf26f768618a2b8c2abea6a6a60"><td class="memItemLeft" align="right" valign="top">vector&lt; edge_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9e892bf26f768618a2b8c2abea6a6a60">vg::find_edges_to_prune</a> (const HandleGraph &amp;graph, size_t k, size_t edge_max)</td></tr>
-<tr class="memdesc:a9e892bf26f768618a2b8c2abea6a6a60"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all the walks up to length k, adding edges which.  <a href="namespacevg.html#a9e892bf26f768618a2b8c2abea6a6a60">More...</a><br /></td></tr>
-<tr class="separator:a9e892bf26f768618a2b8c2abea6a6a60"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4b1a635d2dfecadd8fe795cb80cedfb7"><td class="memItemLeft" align="right" valign="top">pair_hash_set&lt; edge_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4b1a635d2dfecadd8fe795cb80cedfb7">vg::find_edges_to_prune</a> (const HandleGraph &amp;graph, size_t k, size_t edge_max)</td></tr>
+<tr class="memdesc:a4b1a635d2dfecadd8fe795cb80cedfb7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all the walks up to length k, adding edges which.  <a href="namespacevg.html#a4b1a635d2dfecadd8fe795cb80cedfb7">More...</a><br /></td></tr>
+<tr class="separator:a4b1a635d2dfecadd8fe795cb80cedfb7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
+Variables</h2></td></tr>
+<tr class="memitem:a63d4077d2f547fd64cf6fc7ed8d03942"><td class="memItemLeft" align="right" valign="top">constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a63d4077d2f547fd64cf6fc7ed8d03942">vg::PRUNE_THREAD_BUFFER_SIZE</a> = 1024 * 1024</td></tr>
+<tr class="separator:a63d4077d2f547fd64cf6fc7ed8d03942"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

@@ -75,11 +75,11 @@ $(function() {
 <code>#include &lt;<a class="el" href="vpkg_8hpp.html">vg/io/vpkg.hpp</a>&gt;</code><br />
 <code>#include &quot;<a class="el" href="subcommand_8hpp.html">subcommand.hpp</a>&quot;</code><br />
 <code>#include &quot;xg.hpp&quot;</code><br />
+<code>#include &quot;../algorithms/remove_high_degree.hpp&quot;</code><br />
 <code>#include &lt;gbwt/gbwt.h&gt;</code><br />
 <code>#include &lt;cstdlib&gt;</code><br />
 <code>#include &lt;iostream&gt;</code><br />
 <code>#include &lt;list&gt;</code><br />
-<code>#include &lt;regex&gt;</code><br />
 <code>#include &lt;map&gt;</code><br />
 <code>#include &lt;string&gt;</code><br />
 <code>#include &lt;getopt.h&gt;</code><br />
@@ -115,6 +115,7 @@ Functions</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines the "vg prune" subcommand, which prunes the complex regions of the graph for GCSA2 indexing.</p>
 <p>By default, pruning removes the nodes touched by paths of length &ndash;kmer-length crossing more than &ndash;edge-max non-trivial edges. Graph regions shorter than &ndash;subgraph_min are also removed. Pruning also removes all embedded paths.</p>
+<p>For very complex graphs, there is an option to remove high-degree nodes before pruning. Otherwise enumerating the k bp paths would take too long.</p>
 <p>With &ndash;restore-paths, the nodes and edges on non-alt paths are added back after pruning.</p>
 <p>With &ndash;unfold-paths, pruning unfolds the non-alt paths and GBWT threads in the complex regions. If &ndash;mapping is specified, the mapping from duplicate node identifiers to the original identifiers is stored in a file. This file can be used for building a GCSA2 index that maps to the original graph. </p>
 </div><h2 class="groupheader">Enumeration Type Documentation</h2>

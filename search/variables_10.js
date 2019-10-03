@@ -92,6 +92,7 @@ var searchData=
   ['projected_5fcount',['projected_count',['../structvg_1_1Funnel_1_1Stage.html#a74c290d50af94a82c196350d3ee7223d',1,'vg::Funnel::Stage']]],
   ['proto',['proto',['../classvg_1_1VGAlignmentEmitter.html#a22bdc3b955724da5de739b05201a9cfb',1,'vg::VGAlignmentEmitter::proto()'],['../vg_8proto.html#ace9afe7f815b63b3d93844da5eb8fbbc',1,'proto():&#160;vg.proto']]],
   ['protobuf_5fto_5ftag',['protobuf_to_tag',['../structvg_1_1io_1_1Registry_1_1Tables.html#a9959a1192210db895c2d127dc6a197fc',1,'vg::io::Registry::Tables']]],
+  ['prune_5fthread_5fbuffer_5fsize',['PRUNE_THREAD_BUFFER_SIZE',['../namespacevg.html#a63d4077d2f547fd64cf6fc7ed8d03942',1,'vg']]],
   ['pseudo_5flength_5fmultiplier',['pseudo_length_multiplier',['../classvg_1_1MultipathMapper.html#a8c463a9a1350cd7220abd8575d9e7bd3',1,'vg::MultipathMapper']]],
   ['ptr',['ptr',['../structjson__autoptr.html#a8eeb7c64d99d1378d9524ede91d6faa4',1,'json_autoptr']]]
 ];

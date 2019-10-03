@@ -66,7 +66,7 @@ var searchData=
   ['find_5fbreakpoints',['find_breakpoints',['../namespacevg.html#a24e2a2fd382d2e28a13b8bf96a01cf7c',1,'vg']]],
   ['find_5fbubble',['find_bubble',['../classvg_1_1NestedTraversalFinder.html#ad9fd7aef8b98fdc56b429e4613113c6f',1,'vg::NestedTraversalFinder::find_bubble()'],['../classvg_1_1RepresentativeTraversalFinder.html#ad8cc120dc63491eadfdc7b00cd1dc519',1,'vg::RepresentativeTraversalFinder::find_bubble()']]],
   ['find_5fconnecting_5fpaths',['find_connecting_paths',['../classvg_1_1MinimizerMapper.html#ab3256c8c0ebc49ff72af298684580fa4',1,'vg::MinimizerMapper']]],
-  ['find_5fedges_5fto_5fprune',['find_edges_to_prune',['../namespacevg.html#a9e892bf26f768618a2b8c2abea6a6a60',1,'vg']]],
+  ['find_5fedges_5fto_5fprune',['find_edges_to_prune',['../namespacevg.html#a4b1a635d2dfecadd8fe795cb80cedfb7',1,'vg']]],
   ['find_5fin_5forientation',['find_in_orientation',['../structvg_1_1PathIndex.html#ae448ae2af8e4073b9db8b678e3b97e00',1,'vg::PathIndex']]],
   ['find_5fin_5fout_5fweb',['find_in_out_web',['../classvg_1_1FlowSort.html#aa5e485f218cdc874e5519ef61843358c',1,'vg::FlowSort']]],
   ['find_5findex',['find_index',['../classvg_1_1LegacyCaller.html#a4565fd084e703f68ee44a8a1646774fe',1,'vg::LegacyCaller']]],

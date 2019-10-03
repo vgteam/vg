@@ -37,6 +37,7 @@ var searchData=
   ['max_5fbuf_5fsize',['max_buf_size',['../classvg_1_1StreamSorter.html#a192491eeef2fa2c99522f2ad23f12035',1,'vg::StreamSorter']]],
   ['max_5fcluster_5fmapping_5fquality',['max_cluster_mapping_quality',['../classvg_1_1Mapper.html#a92ea8476aae3d65f0b46f6c7353c21be',1,'vg::Mapper']]],
   ['max_5fcontext_5fradius',['max_context_radius',['../classvg_1_1VariantAdder.html#a943bba24f9a1a7197744e74ee5465e5d',1,'vg::VariantAdder']]],
+  ['max_5fdegree',['max_degree',['../structPruningParameters.html#a58d4dca5e0623280f669e386a5eadd2f',1,'PruningParameters']]],
   ['max_5fdeletion_5fscan_5fnodes',['max_deletion_scan_nodes',['../classvg_1_1VCFTraversalFinder.html#a3e61ffdb1cf6733311b444df38928137',1,'vg::VCFTraversalFinder']]],
   ['max_5fdepth',['max_depth',['../classvg_1_1RepresentativeTraversalFinder.html#a79339337af609bc33f77cf4696962492',1,'vg::RepresentativeTraversalFinder']]],
   ['max_5fdistances',['max_distances',['../classvg_1_1MinimumDistanceIndex.html#aca887995e3a06b1fc3af09694f681281',1,'vg::MinimumDistanceIndex']]],

@@ -306,6 +306,7 @@ var searchData=
   ['prune_5flow_5fscoring_5fedges',['prune_low_scoring_edges',['../classvg_1_1MEMClusterer_1_1HitGraph.html#ab2949f31f3e43410189eafa260544baf',1,'vg::MEMClusterer::HitGraph']]],
   ['prune_5fmain_2ecpp',['prune_main.cpp',['../prune__main_8cpp.html',1,'']]],
   ['prune_5fshort_5fsubgraphs',['prune_short_subgraphs',['../classvg_1_1VG.html#a590703c2954a2a15d735995c2007a879',1,'vg::VG']]],
+  ['prune_5fthread_5fbuffer_5fsize',['PRUNE_THREAD_BUFFER_SIZE',['../namespacevg.html#a63d4077d2f547fd64cf6fc7ed8d03942',1,'vg']]],
   ['prune_5fto_5fhigh_5fscoring_5fpaths',['prune_to_high_scoring_paths',['../classvg_1_1MultipathAlignmentGraph.html#ae608d17e883c30c5dd8a4c38047d1e00',1,'vg::MultipathAlignmentGraph']]],
   ['pruningmode',['PruningMode',['../prune__main_8cpp.html#a2c77251411bc109287b491299718e248',1,'prune_main.cpp']]],
   ['pruningparameters',['PruningParameters',['../structPruningParameters.html',1,'']]],
