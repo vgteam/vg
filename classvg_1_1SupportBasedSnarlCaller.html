@@ -92,9 +92,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ae6c35a2438dac057d7fd50152a004e49"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1bc8a2019ce7e220dbee5b26c4b27211"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a1bc8a2019ce7e220dbee5b26c4b27211">~SupportBasedSnarlCaller</a> ()</td></tr>
 <tr class="separator:a1bc8a2019ce7e220dbee5b26c4b27211"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a59bcdab863b9de0ecafe7fb72707fddc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a59bcdab863b9de0ecafe7fb72707fddc">set_het_bias</a> (double het_bias)</td></tr>
-<tr class="memdesc:a59bcdab863b9de0ecafe7fb72707fddc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set some of the parameters.  <a href="#a59bcdab863b9de0ecafe7fb72707fddc">More...</a><br /></td></tr>
-<tr class="separator:a59bcdab863b9de0ecafe7fb72707fddc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a67fb755c35231f154803ac35644af0cd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a67fb755c35231f154803ac35644af0cd">set_het_bias</a> (double het_bias, double ref_het_bias=0.)</td></tr>
+<tr class="memdesc:a67fb755c35231f154803ac35644af0cd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set some of the parameters.  <a href="#a67fb755c35231f154803ac35644af0cd">More...</a><br /></td></tr>
+<tr class="separator:a67fb755c35231f154803ac35644af0cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3afbd8d1bc78b6716c587b93424db8cb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a3afbd8d1bc78b6716c587b93424db8cb">set_min_supports</a> (double min_mad_for_call, double min_support_for_call, double min_site_support)</td></tr>
 <tr class="separator:a3afbd8d1bc78b6716c587b93424db8cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aabdec54f27e4c971f33e660d697b1380"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1Support.html">Support</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#aabdec54f27e4c971f33e660d697b1380">get_edge_support</a> (const <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &amp;edge) const =0</td></tr>
@@ -814,8 +814,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a59bcdab863b9de0ecafe7fb72707fddc"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a59bcdab863b9de0ecafe7fb72707fddc">&#9670;&nbsp;</a></span>set_het_bias()</h2>
+<a id="a67fb755c35231f154803ac35644af0cd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a67fb755c35231f154803ac35644af0cd">&#9670;&nbsp;</a></span>set_het_bias()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -824,8 +824,18 @@ Protected Attributes</h2></td></tr>
           <td class="memname">void vg::SupportBasedSnarlCaller::set_het_bias </td>
           <td>(</td>
           <td class="paramtype">double&#160;</td>
-          <td class="paramname"><em>het_bias</em></td><td>)</td>
+          <td class="paramname"><em>het_bias</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>ref_het_bias</em> = <code>0.</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
