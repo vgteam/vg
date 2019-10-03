@@ -578,7 +578,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
         
     // Make sure to clamp 0-60.
-    mappings.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
+    mappings.front().set_mapping_quality(max(min(mapq/2, 60.0), 0.0));
     
     if (track_provenance) {
         funnel.substage_stop();
