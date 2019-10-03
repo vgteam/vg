@@ -92,7 +92,7 @@ int main_call(int argc, char** argv) {
             pack_filename = optarg;
             break;
         case 'b':
-            het_bias = parse<int>(optarg);
+            het_bias = parse<double>(optarg);
             break;
         case 'm':
             min_support_string = optarg;
