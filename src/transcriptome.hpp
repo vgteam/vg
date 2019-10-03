@@ -38,8 +38,9 @@ struct Transcript {
     /// Exon coordinates (start and end) on the chromosome/contig.
     vector<pair<int32_t, int32_t> > exons;
 
-    /// Exon positions (start and end) on a variation graph. 
-    vector<pair<Position, Position> > exon_nodes;
+    /// Exon border node positions (last position in upstream intron and
+    /// first position in downstream intron) on a variation graph. 
+    vector<pair<Position, Position> > exon_border_nodes;
 
     Transcript(const string & name_in, const bool is_reverse_in, const string & chrom_in) : name(name_in), is_reverse(is_reverse_in), chrom(chrom_in) {}
 };
@@ -119,9 +120,9 @@ class Transcriptome {
         /// Topological sort and compact graph.
         void compact_ordered();
 
-        /// Embeds transcript paths in variation graph. 
+        /// Embeds transcript paths in spliced variation graph. 
         /// Optionally rebuild paths indexes.
-        void add_paths_to_graph(const bool add_reference_paths, const bool add_non_reference_paths, const bool rebuild_indexes);
+        void embed_transcript_paths(const bool add_reference_paths, const bool add_non_reference_paths, const bool rebuild_indexes);
 
         /// Add transcript paths as threads in GBWT index.
         void construct_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool output_reference_transcripts) const;
@@ -136,18 +137,15 @@ class Transcriptome {
         void write_info(ostream * tsv_ostream, const bool output_reference_transcripts) const;
 
         /// Writes spliced variation graph to vg file
-        void write_graph(ostream * graph_ostream);
+        void write_splice_graph(ostream * graph_ostream);
 
     private:
 
         /// Transcriptome represented by a set of transcript paths. 
-        vector<TranscriptPath> _transcriptome;
-
-        /// Mutex used for adding transcript paths to transcriptome
-        mutex trancriptome_mutex;
+        vector<TranscriptPath> _transcript_paths;
 
         /// Spliced variation graph.
-        VG * graph;
+        VG * _splice_graph;
 
         /// Finds the position of each end of a exon on a path in the  
         /// variation graph and adds the exon to a transcript.
@@ -157,12 +155,12 @@ class Transcriptome {
         /// are ordered in reverse.
         void reorder_exons(Transcript * transcript) const;
 
-        /// Constructs transcript paths by projecting transcripts onto embedded paths 
-        /// in a variation graph and/or haplotypes in a GBWT index.
-        void project_transcripts(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length);
+        /// Constructs transcript paths by projecting transcripts onto embedded paths in
+        /// a variation graph and/or haplotypes in a GBWT index.   
+        list<TranscriptPath> project_transcripts(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length) const;
 
         /// Threaded transcript projecting.
-        void project_transcripts_callback(const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length);
+        void project_transcripts_callback(list<TranscriptPath> * proj_transcript_paths, mutex * transcript_paths_mutex, const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length) const;
 
         /// Projects transcripts onto haplotypes in a GBWT index and returns resulting transcript paths.
         list<TranscriptPath> project_transcript_gbwt(const Transcript & cur_transcript, const gbwt::GBWT & haplotype_index, const float mean_node_length) const;
@@ -172,15 +170,21 @@ class Transcriptome {
         vector<pair<exon_nodes_t, thread_ids_t> > get_exon_haplotypes(const vg::id_t start_node, const vg::id_t end_node, const gbwt::GBWT & haplotype_index, const int32_t expected_length) const;
 
         /// Projects transcripts onto embedded paths in a variation graph and returns resulting transcript paths.
-        list<TranscriptPath> project_transcript_embedded(const Transcript & cur_transcript);
+        list<TranscriptPath> project_transcript_embedded(const Transcript & cur_transcript) const;
 
-        /// Collapses identical transcript paths. The number of collapsed copies are 
-        /// recorded in the data structure TranscriptPath.
-        void collapse_identical_paths(list<TranscriptPath> * cur_transcript_paths) const;
+        /// Add new transcript paths to current set. Optionally add only unique paths.
+        void append_transcript_paths(list<TranscriptPath> * cur_transcript_paths, list<TranscriptPath> * new_transcript_paths, const bool add_unqiue_paths_only) const;
 
-        /// Edits variation graph with transcript path splice-junctions and 
-        /// updates transcript path traversals to match the augmented graph. 
-        void add_junctions_to_graph();   
+        /// Adds transcript paths to transcriptome. Augments the variation graph 
+        /// with transcript path splice-junctions and updates transcript path traversals
+        /// to match the augmented graph if the paths contain any novel start/end sites 
+        /// or junctions.
+        void add_paths_to_transcriptome(list<TranscriptPath> * cur_transcript_paths);
+
+        /// Adds novel splice-junctions in transcript paths to splice graph 
+        /// which does not require node splitting. Return false if a novel junction
+        /// requires node splitting.
+        bool add_novel_transcript_junctions(const list<TranscriptPath> & cur_transcript_paths);
 };
 
 }

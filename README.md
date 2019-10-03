@@ -279,7 +279,7 @@ vg call xa.xg -k aln.pack -v small/x.vcf.gz > genotypes.vcf
 Pre-filtering the GAM before computing support can improve precision of SNP calling
 ```sh
 # filter secondary and ambiguous read mappings out of the gam
-vg filter aln.gam -r 0.90 -fu -s 2 -o 0 -D 999 -x x.xg > aln.filtered.gam
+vg filter aln.gam -r 0.90 -fu -m 1 -q 15 -D 999 -x x.xg > aln.filtered.gam
 
 # then compute the support from aln.filtered.gam instead of aln.gam in above etc.
 ```
@@ -292,7 +292,7 @@ vg snarls x.xg > x.snarls
 vg call x.xg -k aln.pack -r x.snarls > calls.vcf
 ```
 
-Note: `vg pack`, `vg call` and `vg snarls` can now all be run on directly on any graph format (ex `.vg`, `.xg` or anything output by `vg convert`).  Operating on `.vg` uses the most memory and is not recommended for large graphs.  The output of `vg pack` can only be read in conjunction with the same graph used to create it, so `vg pack x.vg -g aln.gam -o x.pack` then `vg call x.xg -k x.pack` will not work.
+Note: `vg augment`, `vg pack`, `vg call` and `vg snarls` can now all be run on directly on any graph format (ex `.vg`, `.xg` (except `augment`) or anything output by `vg convert`).  Operating on `.vg` uses the most memory and is not recommended for large graphs.  The output of `vg pack` can only be read in conjunction with the same graph used to create it, so `vg pack x.vg -g aln.gam -o x.pack` then `vg call x.xg -k x.pack` will not work.
 
 #### Calling variants from paths in the graph
 

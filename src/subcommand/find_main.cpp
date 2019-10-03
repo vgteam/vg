@@ -9,6 +9,7 @@
 #include "../stream_index.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
 #include "../algorithms/approx_path_distance.hpp"
+#include <bdsg/overlay_helper.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -20,7 +21,7 @@ void help_find(char** argv) {
     cerr << "usage: " << argv[0] << " find [options] >sub.vg" << endl
          << "options:" << endl
          << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl
-         << "    -x, --xg-name FILE     use this xg index (instead of rocksdb db)" << endl
+         << "    -x, --xg-name FILE     use this xg index or graph (instead of rocksdb db)" << endl
          << "graph features:" << endl
          << "    -n, --node ID          find node(s), return 1-hop context as graph" << endl
          << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
@@ -28,12 +29,16 @@ void help_find(char** argv) {
          << "    -s, --edges-start ID   return edges on start of node with ID" << endl
          << "    -c, --context STEPS    expand the context of the subgraph this many steps" << endl
          << "    -L, --use-length       treat STEPS in -c or M in -r as a length in bases" << endl
-         << "    -p, --path TARGET      find the node(s) in the specified path range(s) TARGET=path[:pos1[-pos2]]" << endl
-         << "    -E, --path-dag TARGET  like -p, but gets any node in the partial order from pos1 to pos2, assumes id sorted DAG" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
          << "    -I, --list-paths       write out the path names in the index" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
          << "    -G, --gam GAM          accumulate the graph touched by the alignments in the GAM" << endl
+         << "subgraphs by path range:" << endl
+         << "    -p, --path TARGET      find the node(s) in the specified path range(s) TARGET=path[:pos1[-pos2]]" << endl
+         << "    -R, --path-bed FILE    read our targets from the given BED FILE" << endl
+         << "    -E, --path-dag         with -p or -R, gets any node in the partial order from pos1 to pos2, assumes id sorted DAG" << endl
+         << "    -W, --save-to PREFIX   instead of writing target subgraphs to stdout," << endl
+         << "                           write one per given target to a separate file named PREFIX[path]:[start]-[end].vg" << endl
          << "alignments:" << endl
          << "    -d, --db-name DIR      use this RocksDB database to retrieve alignments" << endl
          << "    -l, --sorted-gam FILE  use this sorted, indexed GAM file" << endl
@@ -77,7 +82,8 @@ int main_find(int argc, char** argv) {
     bool use_length = false;
     bool count_kmers = false;
     bool kmer_table = false;
-    vector<string> targets;
+    vector<string> targets_str;
+    vector<Region> targets;
     string path_name;
     bool position_in = false;
     string range;
@@ -103,6 +109,8 @@ int main_find(int argc, char** argv) {
     vector<string> extract_path_patterns;
     bool list_path_names = false;
     bool path_dag = false;
+    string bed_targets_file;
+    string save_to_prefix;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -129,7 +137,9 @@ int main_find(int argc, char** argv) {
                 {"use-length", no_argument, 0, 'L'},
                 {"kmer-count", no_argument, 0, 'C'},
                 {"path", required_argument, 0, 'p'},
-                {"path-dag", required_argument, 0, 'E'},
+                {"path-bed", required_argument, 0, 'R'},
+                {"path-dag", no_argument, 0, 'E'},
+                {"save-to", required_argument, 0, 'W'},
                 {"position-in", required_argument, 0, 'P'},
                 {"node-range", required_argument, 0, 'r'},
                 {"sorted-gam", required_argument, 0, 'l'},
@@ -147,7 +157,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:B:fDG:N:A:Y:Z:IQ:E:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:B:fDG:N:A:Y:Z:IQ:ER:W:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -210,17 +220,24 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'p':
-            targets.push_back(optarg);
+            targets_str.push_back(optarg);
+            break;
+
+        case 'R':
+            bed_targets_file = optarg;
             break;
 
         case 'E':
-            targets.push_back(optarg);
             path_dag = true;
             break;
 
         case 'P':
             path_name = optarg;
             position_in = true;
+            break;
+
+        case 'W':
+            save_to_prefix = optarg;
             break;
 
         case 'c':
@@ -346,9 +363,12 @@ int main_find(int argc, char** argv) {
         vindex->open_read_only(db_name);
     }
 
-    unique_ptr<PathPositionHandleGraph> xindex;
+    PathPositionHandleGraph* xindex = nullptr;
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    bdsg::PathPositionOverlayHelper overlay_helper;
     if (!xg_name.empty()) {
-        xindex = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_name);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        xindex = overlay_helper.apply(path_handle_graph.get());
     }
     
     unique_ptr<GAMIndex> gam_index;
@@ -556,25 +576,47 @@ int main_find(int argc, char** argv) {
                     cout << xindex->get_path_name(path_handle) << endl;
                 });
         }
+        // handle targets from BED
+        if (!bed_targets_file.empty()) {
+            parse_bed_regions(bed_targets_file, targets);
+        }
+        // those given on the command line
+        for (auto& target : targets_str) {
+            Region region;
+            parse_region(target, region);
+            targets.push_back(region);
+        }
         if (!targets.empty()) {
             VG graph;
+            auto prep_graph = [&](void) {
+                if (context_size > 0) {
+                    if (use_length) {
+                        algorithms::expand_subgraph_by_length(*xindex, graph, context_size);
+                    } else {
+                        algorithms::expand_subgraph_by_steps(*xindex, graph, context_size);
+                    }
+                } else {
+                    algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
+                }
+                algorithms::add_subpaths_to_subgraph(*xindex, graph);
+                graph.remove_orphan_edges();
+                // Order the mappings by rank. TODO: how do we handle breaks between
+                // different sections of a path with a single name?
+                graph.paths.sort_by_mapping_rank();
+            };
             for (auto& target : targets) {
                 // Grab each target region
-                string name;
-                int64_t start, end;
-                parse_region(target, name, start, end);
-                if(xindex->has_path(name) == false) { 
+                if(xindex->has_path(target.seq) == false) { 
                     // Passing a nonexistent path to get_path_range produces Undefined Behavior
-                    cerr << "[vg find] error, path " << name << " not found in index" << endl;
+                    cerr << "[vg find] error, path " << target.seq << " not found in index" << endl;
                     exit(1);
                 }
-                path_handle_t path_handle = xindex->get_path_handle(name);
+                path_handle_t path_handle = xindex->get_path_handle(target.seq);
                 // no coordinates given, we do whole thing (0,-1)
-                if (start < 0 && end < 0) {
-                    start = 0;
+                if (target.start < 0 && target.end < 0) {
+                    target.start = 0;
                 }
-                algorithms::extract_path_range(*xindex, path_handle, start, end, graph);
-                
+                algorithms::extract_path_range(*xindex, path_handle, target.start, target.end, graph);
                 if (path_dag) {
                     // find the start and end node of this
                     // and fill things in
@@ -587,24 +629,25 @@ int main_find(int argc, char** argv) {
                         });
                     algorithms::extract_id_range(*xindex, id_start, id_end, graph);
                 }
-            }
-            if (context_size > 0) {
-                if (use_length) {
-                    algorithms::expand_subgraph_by_length(*xindex, graph, context_size);
-                } else {
-                    algorithms::expand_subgraph_by_steps(*xindex, graph, context_size);
+                if (!save_to_prefix.empty()) {
+                    prep_graph();
+                    // write to our save_to file
+                    stringstream s;
+                    s << save_to_prefix << target.seq;
+                    if (target.end >= 0) s << ":" << target.start << ":" << target.end;
+                    s << ".vg";
+                    ofstream out(s.str().c_str());
+                    graph.serialize_to_ostream(out);
+                    out.close();
+                    // reset our graph
+                    VG empty;
+                    graph = empty;
                 }
-            } else {
-                algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
             }
-            algorithms::add_subpaths_to_subgraph(*xindex, graph);
-            
-            graph.remove_orphan_edges();
-            // Order the mappings by rank. TODO: how do we handle breaks between
-            // different sections of a path with a single name?
-            graph.paths.sort_by_mapping_rank();
-            
-            graph.serialize_to_ostream(cout);
+            if (save_to_prefix.empty()) {
+                prep_graph();
+                graph.serialize_to_ostream(cout);
+            }
         }
         if (!range.empty()) {
             VG graph;
@@ -751,24 +794,6 @@ int main_find(int argc, char** argv) {
                 }
             }
         }
-        if (!targets.empty()) {
-            VG graph;
-            for (auto& target : targets) {
-                string name;
-                int64_t start, end;
-                parse_region(target, name, start, end);
-                // end coordinate is exclusive for get_path()
-                if (end >= 0) {
-                    ++end;
-                }
-                vindex->get_path(graph, name, start, end);
-            }
-            if (context_size > 0) {
-                vindex->expand_context(graph, context_size);
-            }
-            graph.remove_orphan_edges();
-            graph.serialize_to_ostream(cout);
-        }
         if (!range.empty()) {
             VG graph;
             int64_t id_start=0, id_end=0;
@@ -836,7 +861,7 @@ int main_find(int argc, char** argv) {
                 }
             } else {
                 // for mems we need to load up the gcsa and lcp structures into the mapper
-                Mapper mapper(xindex.get(), gcsa_index.get(), lcp_index.get());
+                Mapper mapper(xindex, gcsa_index.get(), lcp_index.get());
                 mapper.fast_reseed = use_fast_reseed;
                 // get the mems
                 double lcp_avg, fraction_filtered;

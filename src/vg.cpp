@@ -6,6 +6,7 @@
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/id_sort.hpp"
 #include "augment.hpp"
+#include "prune.hpp"
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
 
@@ -3350,6 +3351,10 @@ void VG::apply_ordering(const vector<handle_t>& ordering, bool compact_ids) {
     if (compact_ids) {
         this->compact_ids();
     }
+}
+    
+void VG::set_id_increment(const nid_t& min_id) {
+    // no-op
 }
 
 map<id_t, vcflib::Variant> VG::get_node_id_to_variant(vcflib::VariantCallFile vfile){
@@ -6925,7 +6930,7 @@ void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
     // Duplicate code from prune_complex(). If pruning leaves many loose nodes
     // (that will usually be deleted in the next step), attaching them to the
     // head/tail nodes is unnecessary and potentially expensive.
-    vector<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
+    pair_hash_set<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
     for (auto& e : to_destroy) {
         destroy_edge(e.first, e.second);
     }
@@ -6936,7 +6941,7 @@ void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
 
 void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node) {
 
-    vector<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
+    pair_hash_set<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
     for (auto& e : to_destroy) {
         destroy_edge(e.first, e.second);
     }

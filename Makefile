@@ -240,6 +240,7 @@ LIBBDSG_DIR:=deps/libbdsg
 XG_DIR:=deps/xg
 MMMULTIMAP_DIR=deps/mmmultimap
 IPS4O_DIR=deps/ips4o
+BBHASH_DIR=deps/BBHash
 
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
@@ -306,6 +307,7 @@ DEPS += $(INC_DIR)/dozeu/dozeu.h
 DEPS += $(INC_DIR)/mmmultimap.hpp
 DEPS += $(INC_DIR)/ips4o.hpp
 DEPS += $(INC_DIR)/raptor2/raptor2.h
+DEPS += $(INC_DIR)/BooPHF.h
 
 # Only depend on these files for the final linking stage.	
 # These libraries provide no headers to affect the vg build.	
@@ -419,6 +421,9 @@ ifeq ($(shell uname -s),Darwin)
 else
 	+. ./source_me.sh && cp -r $(GBWTGRAPH_DIR)/include/gbwtgraph $(CWD)/$(INC_DIR)/ && cd $(GBWTGRAPH_DIR) && $(MAKE) $(FILTER) && mv libgbwtgraph.a $(CWD)/$(LIB_DIR)
 endif
+
+$(INC_DIR)/BooPHF.h: $(BBHASH_DIR)/BooPHF.h
+	+cp $(BBHASH_DIR)/BooPHF.h $(CWD)/$(INC_DIR)
 
 $(INC_DIR)/progress_bar.hpp: $(PROGRESS_BAR_DIR)/progress_bar.hpp
 	+cp $(PROGRESS_BAR_DIR)/progress_bar.hpp $(CWD)/$(INC_DIR)

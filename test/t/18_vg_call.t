@@ -74,8 +74,8 @@ is "${LESS_SIX}" "1" "Fewer than 6 differences between called and true SV genoty
 
 rm -f HGSVC_alts.vg HGSVC_alts.xg HGSVC_alts.pack HGSVC.vcf baseline_gts.txt gts.txt
 
-vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
-vg index -x x.xg x.vg
+vg construct -a -r small/x.fa -v small/x.vcf.gz > x.vg
+vg index -x x.xg x.vg -L
 vg sim -s 1 -n 1000 -l 150 -x x.xg -a > sim.gam
 vg pack -x x.xg -g sim.gam -o x.xg.cx
 vg pack -x x.vg -g sim.gam -o x.vg.cx

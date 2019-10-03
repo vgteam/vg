@@ -15,6 +15,7 @@
 #include "../vg.hpp"
 #include "../xg.hpp"
 #include <vg/io/vpkg.hpp>
+#include <bdsg/overlay_helper.hpp>
 #include "../position.hpp"
 
 #include "algorithms/nearest_offsets_in_paths.hpp"
@@ -27,7 +28,7 @@ void help_dotplot(char** argv) {
     cerr << "usage: " << argv[0] << " dotplot [options]" << endl
          << "options:" << endl
          << "  input:" << endl
-         << "    -x, --xg FILE         use the graph in the XG index FILE" << endl;
+         << "    -x, --xg FILE         use the graph or the XG index FILE" << endl;
     //<< "  output:" << endl;
 }
 
@@ -79,9 +80,10 @@ int main_dotplot(int argc, char** argv) {
         cerr << "[vg dotplot] Error: an xg index is required" << endl;
         exit(1);
     } else {
-        unique_ptr<PathPositionHandleGraph> xindex;
-        xindex = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_file);
-    
+        unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_file);
+        bdsg::PathPositionOverlayHelper overlay_helper;
+        PathPositionHandleGraph* xindex = overlay_helper.apply(path_handle_graph.get());
+
         cout << "query.name" << "\t"
              << "query.pos" << "\t"
              << "orientation" << "\t"
