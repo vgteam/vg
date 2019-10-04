@@ -592,6 +592,7 @@ const string NGSSimulator::alphabet = "ACGT";
 
 NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                            const string& ngs_fastq_file,
+                           const string& ngs_paired_fastq_file,
                            bool interleaved_fastq,
                            const vector<string>& source_paths_input,
                            const vector<pair<string, double>>& transcript_expressions,
@@ -623,9 +624,10 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
     , source_paths(source_paths_input)
     , joint_initial_distr(seed - 1)
 {
-    graph.for_each_handle([&](const handle_t& handle) {
-            total_seq_length += graph.get_length(handle);
-        });
+    if (!ngs_paired_fastq_file.empty() && interleaved_fastq) {
+        cerr << "error:[NGSSimulator] cannot indicate interleaved FASTQ and paired FASTQs simultaneously" << endl;
+        exit(1);
+    }
     
     if (!source_paths.empty() && !transcript_expressions.empty()) {
         cerr << "error:[NGSSimulator] cannot simultaneously limit sampling to paths and match an expresssion profile" << endl;
@@ -664,10 +666,16 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
             << ") > 5 * insert length standard deviation (" << insert_length_stdev << ")" << endl;
     }
     
+    graph.for_each_handle([&](const handle_t& handle) {
+        total_seq_length += graph.get_length(handle);
+    });
+    
     if (source_paths_input.empty() && transcript_expressions.empty()) {
+        // we are sampling from all positions
         start_pos_samplers.emplace_back(1, total_seq_length);
     }
     else if (!source_paths_input.empty()) {
+        // we are sampling from a given set of source paths
         vector<size_t> path_sizes;
         for (const auto& source_path : source_paths_input) {
             path_sizes.push_back(graph.get_path_length(graph.get_path_handle(source_path)));
@@ -676,9 +684,12 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
         path_sampler = vg::discrete_distribution<>(path_sizes.begin(), path_sizes.end());
     }
     else {
+        // we are sampling according to an expression profile
         vector<double> expression_values;
         
         if (haplotype_transcripts.empty()) {
+            // no transcript name file provided, path names should match transcript names in the
+            // expression file
             for (const pair<string, double>& transcript_expression : transcript_expressions) {
                 source_paths.push_back(transcript_expression.first);
                 start_pos_samplers.emplace_back(0, graph.get_path_length(graph.get_path_handle(transcript_expression.first)) - 1);
@@ -725,9 +736,17 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
         }
     }
     
+    // record read lengths and the empirical distribution of base qualities
     unordered_map<size_t, size_t> length_count;
     if (interleaved_fastq) {
         fastq_paired_interleaved_for_each(ngs_fastq_file, [&](const Alignment& aln_1, const Alignment& aln_2) {
+            length_count[aln_1.quality().size()]++;
+            length_count[aln_2.quality().size()]++;
+            record_read_pair_quality(aln_1, aln_2);
+        });
+    }
+    else if (!ngs_paired_fastq_file.empty()) {
+        fastq_paired_two_files_for_each(ngs_fastq_file, ngs_paired_fastq_file, [&](const Alignment& aln_1, const Alignment& aln_2) {
             length_count[aln_1.quality().size()]++;
             length_count[aln_2.quality().size()]++;
             record_read_pair_quality(aln_1, aln_2);
@@ -740,6 +759,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
         });
     }
     
+    // auto-detect the read length
     size_t modal_length = 0;
     size_t modal_length_count = 0;
     size_t total_reads = 0;
@@ -759,6 +779,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
         cerr << "warning:[NGSSimulator] Auto-detected read length of " << modal_length << " is long compared to mean insert length " << insert_length_mean << " and standard deviation " << insert_length_stdev << ", sampling may take additional time and statistical properties of insert length distribution may not reflect input parameters" << endl;
     }
     
+    // shorten the quality string samplers until they are the modal length (this determines read length later)
     while (transition_distrs_1.size() > modal_length) {
         transition_distrs_1.pop_back();
     }

@@ -84,7 +84,7 @@ void help_sim(char** argv) {
          << endl
          << "options:" << endl
          << "    -x, --xg-name FILE          use the xg index (or graph) in FILE" << endl
-         << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-f)" << endl
+         << "    -F, --fastq FILE            match the error profile of NGS reads in FILE, repeat for paired reads (ignores -l,-f)" << endl
          << "    -I, --interleaved           reads in FASTQ (-F) are interleaved read pairs" << endl
          << "    -P, --path PATH             simulate from the given names path (multiple allowed, cannot also give -T)" << endl
          << "    -T, --tx-expr-file FILE     simulate from an expression profile formatted as RSEM output (cannot also give -P)" << endl
@@ -128,6 +128,7 @@ int main_sim(int argc, char** argv) {
     double indel_prop = 0.0;
     double error_scale_factor = 1.0;
     string fastq_name;
+    string fastq_2_name;
     // What path should we sample from? Empty string = the whole graph.
     vector<string> path_names;
     // Alternatively, which transcripts with how much expression?
@@ -181,7 +182,16 @@ int main_sim(int argc, char** argv) {
             break;
             
         case 'F':
-            fastq_name = optarg;
+            if (fastq_name.empty()) {
+                fastq_name = optarg;
+            }
+            else if (fastq_2_name.empty()) {
+                fastq_2_name = optarg;
+            }
+            else {
+                cerr << "error: cannot provide more than 2 FASTQs to train simulator" << endl;
+                exit(1);
+            }
             break;
             
         case 'I':
@@ -427,6 +437,7 @@ int main_sim(int argc, char** argv) {
         
         NGSSimulator sampler(*xgidx,
                              fastq_name,
+                             fastq_2_name,
                              interleaved,
                              path_names,
                              transcript_expressions,

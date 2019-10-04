@@ -155,6 +155,7 @@ public:
     /// restricted to paths and to an expression profile.
     NGSSimulator(PathPositionHandleGraph& graph,
                  const string& ngs_fastq_file,
+                 const string& ngs_paired_fastq_file = "",
                  bool interleaved_fastq = false,
                  const vector<string>& source_paths = {},
                  const vector<pair<string, double>>& transcript_expressions = {},
