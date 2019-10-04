@@ -72,7 +72,7 @@ vector<tuple<string, string, size_t>> parse_haplotype_transcript_file(istream& h
         }
         // contributing haplotypes are separeted by commas
         size_t haplo_count = 1 + std::count(tokens[4].begin(), tokens[4].end(), ',');
-        return_val.emplace_back(tokens[0], tokens[1], haplo_count);
+        return_val.emplace_back(tokens[0], tokens[2], haplo_count);
         line.clear();
     }
     return return_val;
