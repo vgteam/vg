@@ -709,10 +709,14 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                     total_haplotypes += get<2>(haplotype_transcripts[i]);
                 }
                 for (size_t i : haplotypes_of_transcript[transcript_expression.first]) {
+                    size_t path_length = graph.get_path_length(graph.get_path_handle(get<0>(haplotype_transcripts[i])));
+                    if (path_length == 0) {
+                        continue;
+                    }
                     double haplotype_expression = (transcript_expression.second * get<2>(haplotype_transcripts[i])) / total_haplotypes;
                     expression_values.push_back(haplotype_expression);
                     source_paths.push_back(get<0>(haplotype_transcripts[i]));
-                    start_pos_samplers.emplace_back(0, graph.get_path_length(graph.get_path_handle(transcript_expression.first)) - 1);
+                    start_pos_samplers.emplace_back(0, path_length - 1);
                 }
             }
         }
