@@ -316,49 +316,61 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 funnel.processing_input(cluster_num);
             }
             if (read_coverage_by_cluster[cluster_num] == curr_coverage &&
-                cluster_score[cluster_num] == curr_score) {
+                cluster_score[cluster_num] == curr_score &&
+                curr_kept < max_extensions / 2) {
                 curr_kept++;
                 curr_count++;
             } else {
                 for (size_t i = 0 ; i < curr_kept ; i++ ) {
                     equivalent_cluster_fraction.push_back(double(curr_kept) / double(curr_count));
                 }
-                curr_coverage = read_coverage_by_cluster[cluster_num];
-                curr_score = cluster_score[cluster_num];
-                curr_kept = 1;
-                curr_count = 1;
+                if (!read_coverage_by_cluster[cluster_num] == curr_coverage ||
+                    !cluster_score[cluster_num] == curr_score) {
+                    //If this is a cluster that has scores different than the previous one
+                    curr_coverage = read_coverage_by_cluster[cluster_num];
+                    curr_score = cluster_score[cluster_num];
+                    curr_kept = 1;
+                    curr_count = 1;
+                } else {
+                    //If this cluster is equivalent to the previous one and we already took enough
+                    //equivalent clusters
+                    curr_count ++;
+                }
             }
 
+            if (curr_kept < max_extensions / 2) {
+                //Only keep this cluster if we have few enough equivalent clusters
 
-            vector<size_t>& cluster = clusters[cluster_num];
+                vector<size_t>& cluster = clusters[cluster_num];
 
-#ifdef debug
-            cerr << "Cluster " << cluster_num << " rank " << i << ": " << endl;
+#ifdef debug    
+                cerr << "Cluster " << cluster_num << " rank " << i << ": " << endl;
 #endif
-             
-            // Pack the seeds for GaplessExtender.
-            GaplessExtender::cluster_type seed_matchings;
-            for (auto& seed_index : cluster) {
-                // Insert the (graph position, read offset) pair.
-                seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
-#ifdef debug
-                cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
-                    << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index.count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
+                 
+                // Pack the seeds for GaplessExtender.
+                GaplessExtender::cluster_type seed_matchings;
+                for (auto& seed_index : cluster) {
+                    // Insert the (graph position, read offset) pair.
+                    seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
+#ifdef debug    
+                    cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
+                        << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index.count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
 #endif
-            }
-            
-            // Extend seed hits in the cluster into one or more gapless extensions
-            cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())));
-            
-            if (track_provenance) {
-                // Record with the funnel that the previous group became a group of this size.
-                // Don't bother recording the seed to extension matching...
-                funnel.project_group(cluster_num, cluster_extensions.back().size());
+                }
                 
-                // Say we finished with this cluster, for now.
-                funnel.processed_input();
-            }
+                // Extend seed hits in the cluster into one or more gapless extensions
+                cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())));
+                
+                if (track_provenance) {
+                    // Record with the funnel that the previous group became a group of this size.
+                    // Don't bother recording the seed to extension matching...
+                    funnel.project_group(cluster_num, cluster_extensions.back().size());
+                    
+                    // Say we finished with this cluster, for now.
+                    funnel.processed_input();
+                }
             
+            }
             return true;
         }, [&](size_t cluster_num) {
             // There are too many sufficiently good clusters

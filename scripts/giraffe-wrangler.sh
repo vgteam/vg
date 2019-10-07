@@ -91,7 +91,7 @@ echo "${SIM_GAM}"
 echo "${REAL_FASTQ}"
 
 # Define the Giraffe parameters
-GIRAFFE_OPTS=(-s75 -u 0.1 -v 1 -w 5 -C 600)
+GIRAFFE_OPTS=(-C 1500 -F 0.8 -e 300 -a 4 -s 50 -u 0.3 -v 1 -w 20)
 
 # Define a work directory
 # TODO: this requires GNU mptemp

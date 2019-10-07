@@ -344,8 +344,8 @@ int main_gaffe(int argc, char** argv) {
     string report_name;
     // How close should two hits be to be in the same cluster?
     Range<size_t> distance_limit = 200;
-    Range<size_t> hit_cap = 10, hard_hit_cap = 300;
-    Range<double> minimizer_score_fraction = 0.6;
+    Range<size_t> hit_cap = 10, hard_hit_cap = 1500;
+    Range<double> minimizer_score_fraction = 0.8;
     bool progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_dp = true;
@@ -357,17 +357,17 @@ int main_gaffe(int argc, char** argv) {
     // How many mappings per read can we emit?
     Range<size_t> max_multimaps = 1;
     // How many clusters should we extend?
-    Range<size_t> max_extensions = 48;
+    Range<size_t> max_extensions = 300;
     // How many extended clusters should we align, max?
-    Range<size_t> max_alignments = 8;
+    Range<size_t> max_alignments = 4;
     //Throw away cluster with scores that are this amount below the best
-    Range<double> cluster_score = 0;
+    Range<double> cluster_score = 50;
     //Throw away clusters with coverage this amount below the best 
-    Range<double> cluster_coverage = 0;
+    Range<double> cluster_coverage = 0.3;
     //Throw away extension sets with scores that are this amount below the best
-    Range<double> extension_set = 0;
+    Range<double> extension_set = 20;
     //Throw away extensions with scores that are this amount below the best
-    Range<int> extension_score = 0;
+    Range<int> extension_score = 1;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
