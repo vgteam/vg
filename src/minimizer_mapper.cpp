@@ -640,7 +640,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
         
     // Make sure to clamp 0-60.
-    if (final_equivalent_fraction.front() < 0) {
+    if (final_equivalent_fraction.front() > 0) {
         mappings.front().set_mapping_quality(max(min(mapq/2,round(prob_to_phred(final_equivalent_fraction.front()))), 0.0));
     } else {
         mappings.front().set_mapping_quality(max(min(mapq/2, 60.0), 0.0));
