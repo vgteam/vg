@@ -320,24 +320,23 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 curr_kept < max_extensions / 2) {
                 curr_kept++;
                 curr_count++;
-            } else {
-                for (size_t i = 0 ; i < curr_kept ; i++ ) {
-                    equivalent_cluster_fraction.push_back(double(curr_kept) / double(curr_count));
-                }
-                if (!read_coverage_by_cluster[cluster_num] == curr_coverage ||
+            } else if (!read_coverage_by_cluster[cluster_num] == curr_coverage ||
                     !cluster_score[cluster_num] == curr_score) {
                     //If this is a cluster that has scores different than the previous one
+                    for (size_t i = 0 ; i < curr_kept ; i++ ) {
+                        equivalent_cluster_fraction.push_back(double(curr_kept) / double(curr_count));
+                    }
                     curr_coverage = read_coverage_by_cluster[cluster_num];
                     curr_score = cluster_score[cluster_num];
                     curr_kept = 1;
                     curr_count = 1;
-                } else {
-                    //If this cluster is equivalent to the previous one and we already took enough
-                    //equivalent clusters
-                    curr_count ++;
-                    return false;
-                }
+            } else {
+                //If this cluster is equivalent to the previous one and we already took enough
+                //equivalent clusters
+                curr_count ++;
+                return false;
             }
+            
 
             //Only keep this cluster if we have few enough equivalent clusters
 
