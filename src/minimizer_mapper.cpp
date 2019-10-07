@@ -109,7 +109,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // of the selected minimizers is not high enough.
         size_t hits = minimizer_index.count(minimizers[minimizer_num]);
         
-        if (hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
+        if (seeds.size() < 2 || hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
             // Locate the hits.
             for (auto& hit : minimizer_index.find(minimizers[minimizer_num])) {
                 // Reverse the hits for a reverse minimizer
@@ -276,8 +276,23 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // These are the GaplessExtensions for all the clusters, in cluster_indexes_in_order order.
     vector<vector<GaplessExtension>> cluster_extensions;
     cluster_extensions.reserve(clusters.size());
+    //For each cluster, what fraction of "equivalent" clusters did we keep?
+    vector<double> equivalent_cluster_fraction;
+    //What is the score and coverage we are considering and how many reads
+    size_t curr_coverage = 0;
+    size_t curr_score = 0;
+    size_t curr_kept = 0;
+    size_t curr_count = 0;
     
+    //Process clusters sorted by both score and read coverage
     process_until_threshold(clusters, read_coverage_by_cluster,
+        [&](size_t a, size_t b) {
+            if (read_coverage_by_cluster[a] == read_coverage_by_cluster[b]){
+                return cluster_score[a] > cluster_score[b];
+            } else {
+                return read_coverage_by_cluster[a] > read_coverage_by_cluster[b];
+            }
+        },
         cluster_coverage_threshold, 1, max_extensions,
         [&](size_t cluster_num) {
             // Handle sufficiently good clusters in descending coverage order
@@ -300,6 +315,31 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 funnel.pass("cluster-score", cluster_num, cluster_score[cluster_num]);
                 funnel.processing_input(cluster_num);
             }
+            if (read_coverage_by_cluster[cluster_num] == curr_coverage &&
+                cluster_score[cluster_num] == curr_score &&
+                curr_kept < max_extensions / 2) {
+                curr_kept++;
+                curr_count++;
+            } else {
+                for (size_t i = 0 ; i < curr_kept ; i++ ) {
+                    equivalent_cluster_fraction.push_back(double(curr_kept) / double(curr_count));
+                }
+                if (!read_coverage_by_cluster[cluster_num] == curr_coverage ||
+                    !cluster_score[cluster_num] == curr_score) {
+                    //If this is a cluster that has scores different than the previous one
+                    curr_coverage = read_coverage_by_cluster[cluster_num];
+                    curr_score = cluster_score[cluster_num];
+                    curr_kept = 1;
+                    curr_count = 1;
+                } else {
+                    //If this cluster is equivalent to the previous one and we already took enough
+                    //equivalent clusters
+                    curr_count ++;
+                    return false;
+                }
+            }
+
+            //Only keep this cluster if we have few enough equivalent clusters
 
             vector<size_t>& cluster = clusters[cluster_num];
 
@@ -329,21 +369,34 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // Say we finished with this cluster, for now.
                 funnel.processed_input();
             }
-            
             return true;
+            
         }, [&](size_t cluster_num) {
             // There are too many sufficiently good clusters
             if (track_provenance) {
                 funnel.pass("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
                 funnel.fail("max-extensions", cluster_num);
             }
+            for (size_t i = 0 ; i < curr_kept ; i++ ) {
+                equivalent_cluster_fraction.push_back(double(curr_kept) / double(curr_count));
+            }
+            curr_kept = 0;
+            curr_count = 0;
         }, [&](size_t cluster_num) {
             // This cluster is not sufficiently good.
             if (track_provenance) {
                 funnel.fail("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
             }
+            for (size_t i = 0 ; i < curr_kept ; i++ ) {
+                equivalent_cluster_fraction.push_back(double(curr_kept) / double(curr_count));
+            }
+            curr_kept = 0;
+            curr_count = 0;
         });
         
+        for (size_t i = 0 ; i < curr_kept ; i++ ) {
+            equivalent_cluster_fraction.push_back(double(curr_kept) / double(curr_count));
+        }
     
     if (track_provenance) {
         funnel.substage("score");
@@ -380,6 +433,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // We will fill this with all computed alignments in estimated score order.
     vector<Alignment> alignments;
     alignments.reserve(cluster_extensions.size());
+    //equivalent_cluster_fraction but ordered by alignment
+    vector<double> equivalent_alignment_fraction;
+    equivalent_alignment_fraction.reserve(cluster_extensions.size());
+
     
     // Clear any old refpos annotation and path
     aln.clear_refpos();
@@ -466,6 +523,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 second_best_alignment.score() > best_alignment.score() * 0.8) {
                 //If there is a second extension and its score is at least half of the best score
                 alignments.push_back(std::move(second_best_alignment));
+                equivalent_alignment_fraction.push_back(equivalent_cluster_fraction[extension_num]);
 
                 if (track_provenance) {
     
@@ -477,6 +535,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
 
             alignments.push_back(std::move(best_alignment));
+            equivalent_alignment_fraction.push_back(equivalent_cluster_fraction[extension_num]);
 
             if (track_provenance) {
 
@@ -504,6 +563,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     if (alignments.size() == 0) {
         // Produce an unaligned Alignment
         alignments.emplace_back(aln);
+        equivalent_alignment_fraction.push_back(0);
         
         if (track_provenance) {
             // Say it came from nowhere
@@ -524,6 +584,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     vector<double> scores;
     scores.reserve(alignments.size());
     
+    vector<double> final_equivalent_fraction;
     process_until_threshold(alignments, (std::function<double(size_t)>) [&](size_t i) -> double {
         return alignments.at(i).score();
     }, 0, 1, max_multimaps, [&](size_t alignment_num) {
@@ -535,6 +596,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         
         // Remember the output alignment
         mappings.emplace_back(std::move(alignments[alignment_num]));
+        final_equivalent_fraction.push_back(equivalent_alignment_fraction[alignment_num]);
         
         if (track_provenance) {
             // Tell the funnel
@@ -578,7 +640,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
         
     // Make sure to clamp 0-60.
-    mappings.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
+    if (final_equivalent_fraction.front() < 0) {
+        mappings.front().set_mapping_quality(max(min(mapq/2,round(prob_to_phred(final_equivalent_fraction.front()))), 0.0));
+    } else {
+        mappings.front().set_mapping_quality(max(min(mapq/2, 60.0), 0.0));
+    }
     
     if (track_provenance) {
         funnel.substage_stop();
