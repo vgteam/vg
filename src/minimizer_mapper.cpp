@@ -284,7 +284,15 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     size_t curr_kept = 0;
     size_t curr_count = 0;
     
+    //Process clusters sorted by both score and read coverage
     process_until_threshold(clusters, read_coverage_by_cluster,
+        [&](size_t a, size_t b) {
+            if (read_coverage_by_cluster[a] == read_coverage_by_cluster[b]){
+                return cluster_score[a] > cluster_score[b];
+            } else {
+                return read_coverage_by_cluster[a] > read_coverage_by_cluster[b];
+            }
+        },
         cluster_coverage_threshold, 1, max_extensions,
         [&](size_t cluster_num) {
             // Handle sufficiently good clusters in descending coverage order
