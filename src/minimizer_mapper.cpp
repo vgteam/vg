@@ -317,8 +317,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 }
                 curr_coverage = read_coverage_by_cluster[cluster_num];
                 curr_score = cluster_score[cluster_num];
-                curr_kept = 0;
-                curr_count = 0;
+                curr_kept = 1;
+                curr_count = 1;
             }
 
 
@@ -544,6 +544,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     if (alignments.size() == 0) {
         // Produce an unaligned Alignment
         alignments.emplace_back(aln);
+        equivalent_alignment_fraction.push_back(0);
         
         if (track_provenance) {
             // Say it came from nowhere
