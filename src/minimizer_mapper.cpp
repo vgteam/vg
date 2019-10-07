@@ -369,9 +369,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     // Say we finished with this cluster, for now.
                     funnel.processed_input();
                 }
+                return true;
             
+            } else {
+                return false;
             }
-            return true;
         }, [&](size_t cluster_num) {
             // There are too many sufficiently good clusters
             if (track_provenance) {
