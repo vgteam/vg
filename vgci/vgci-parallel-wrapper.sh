@@ -37,7 +37,7 @@ do
     # And for each
    
     # Run the main vgci script for that test
-    vgci/vgci.sh -S -D "${SINGULARITY_IMAGE} -t "${TEST_SPEC}" -j "${JUNIT_OUT_DIR}/junit.${NODE_INDEX}.${TEST_NUMBER}.xml" -w "${TEST_OUT_DIR}" -H
+    vgci/vgci.sh -S -D "${SINGULARITY_IMAGE}" -t "${TEST_SPEC}" -j "${JUNIT_OUT_DIR}/junit.${NODE_INDEX}.${TEST_NUMBER}.xml" -w "${TEST_OUT_DIR}" -H
     TEST_EXIT="${?}"
     
     if [ "${TEST_EXIT}" != "0" ]
