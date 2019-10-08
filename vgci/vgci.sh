@@ -262,7 +262,7 @@ then
             else
                 
                 # Do the build with Singularity
-                singularity build --fakeroot -F "${SAVE_CONTAINER}" vgci/Dockerfile.vgci.recipe
+                singularity build -F "${SAVE_CONTAINER}" vgci/Dockerfile.vgci.recipe
                 if [ "$?" -ne 0 ]
                 then
                     echo "vg singlualrity build fail"
