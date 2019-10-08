@@ -324,7 +324,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     !cluster_score[cluster_num] == curr_score) {
                     //If this is a cluster that has scores different than the previous one
                     for (size_t i = 0 ; i < curr_kept ; i++ ) {
-                        equivalent_cluster_fraction.push_back(double(curr_kept) / double(curr_count));
+                        equivalent_cluster_fraction.push_back(1.0 - (double(curr_kept) / double(curr_count)));
                     }
                     curr_coverage = read_coverage_by_cluster[cluster_num];
                     curr_score = cluster_score[cluster_num];
@@ -377,7 +377,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 funnel.fail("max-extensions", cluster_num);
             }
             for (size_t i = 0 ; i < curr_kept ; i++ ) {
-                equivalent_cluster_fraction.push_back(double(curr_kept) / double(curr_count));
+                equivalent_cluster_fraction.push_back(1.0 - (double(curr_kept) / double(curr_count)));
             }
             curr_kept = 0;
             curr_count = 0;
@@ -387,14 +387,14 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 funnel.fail("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
             }
             for (size_t i = 0 ; i < curr_kept ; i++ ) {
-                equivalent_cluster_fraction.push_back(double(curr_kept) / double(curr_count));
+                equivalent_cluster_fraction.push_back(1.0 - (double(curr_kept) / double(curr_count)));
             }
             curr_kept = 0;
             curr_count = 0;
         });
         
         for (size_t i = 0 ; i < curr_kept ; i++ ) {
-            equivalent_cluster_fraction.push_back(double(curr_kept) / double(curr_count));
+            equivalent_cluster_fraction.push_back(1.0 - (double(curr_kept) / double(curr_count)));
         }
     
     if (track_provenance) {
@@ -635,7 +635,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index) / 2;
     
     if (final_equivalent_fraction.front() > 0) {
-        min(mapq/2,round(prob_to_phred(1-final_equivalent_fraction.front())));
+        min(mapq,round(prob_to_phred(final_equivalent_fraction.front())));
     }
 #ifdef debug
     cerr << "MAPQ is " << mapq << endl;
