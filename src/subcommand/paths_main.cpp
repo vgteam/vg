@@ -27,19 +27,24 @@ void help_paths(char** argv) {
     cerr << "usage: " << argv[0] << " paths [options]" << endl
          << "options:" << endl
          << "  input:" << endl
-         << "    -v, --vg FILE         use the paths in this vg FILE" << endl
-         << "    -x, --xg FILE         use the paths in the XG index FILE" << endl
-         << "    -g, --gbwt FILE       use the threads in the GBWT index in FILE" << endl
-         << "                          (XG index or vg graph required for most output options; -g takes priority over -x)" << endl
-         << "  output:" << endl
-         << "    -X, --extract-gam     print (as GAM alignments) the stored paths in the graph" << endl
-         << "    -V, --extract-vg      print (as path-only .vg) the queried paths" << endl
-         << "    -L, --list            print (as a list of names, one per line) the path (or thread) names" << endl
-         << "    -E, --lengths         print a list of path names (as with -L) but paired with their lengths" << endl
-         << "    -F, --extract-fasta   print the paths in FASTA format" << endl
+         << "    -v, --vg FILE            use the paths in this vg FILE" << endl
+         << "    -x, --xg FILE            use the paths in the XG index FILE" << endl
+         << "    -g, --gbwt FILE          use the threads in the GBWT index in FILE" << endl
+         << "                             (XG index or vg graph required for most output options; -g takes priority over -x)" << endl
+         << "  output graph (.vg format)" << endl
+         << "    -V, --extract-vg         output a path-only graph covering the selected paths" << endl
+         << "    -d, --drop-paths         output a graph with the selected paths removed" << endl
+         << "    -r, --retain-paths       output a graph with only the selected paths retained" << endl
+         << "  output path data:" << endl
+         << "    -X, --extract-gam        print (as GAM alignments) the stored paths in the graph" << endl
+         << "    -L, --list               print (as a list of names, one per line) the path (or thread) names" << endl
+         << "    -E, --lengths            print a list of path names (as with -L) but paired with their lengths" << endl
+         << "    -F, --extract-fasta      print the paths in FASTA format" << endl
          << "  path selection:" << endl
-         << "    -Q, --paths-by STR    select the paths with the given name prefix" << endl
-         << "    -S, --sample STR      select the threads for this sample (GBWT)" << endl;
+         << "    -p, --paths-file FILE    select the paths named in a file (one per line)" << endl
+         << "    -Q, --paths-by STR       select the paths with the given name prefix" << endl
+         << "    -S, --sample STR         select the threads for this sample (GBWT)" << endl
+         << "    -a, --variant-paths      select the variant paths added by 'vg construct -a'" << endl;
 }
 
 int main_paths(int argc, char** argv) {
@@ -53,11 +58,15 @@ int main_paths(int argc, char** argv) {
     bool extract_as_vg = false;
     bool list_names = false;
     bool extract_as_fasta = false;
+    bool drop_paths = false;
+    bool retain_paths = false;
     string xg_file;
     string vg_file;
     string gbwt_file;
     string path_prefix;
     string sample_name;
+    string path_file;
+    bool select_alt_paths = false;
     bool list_lengths = false;
     size_t output_formats = 0, selection_criteria = 0;
 
@@ -70,13 +79,17 @@ int main_paths(int argc, char** argv) {
             {"vg", required_argument, 0, 'v'},
             {"xg", required_argument, 0, 'x'},
             {"gbwt", required_argument, 0, 'g'},
-            {"extract-gam", no_argument, 0, 'X'},
             {"extract-vg", no_argument, 0, 'V'},
+            {"drop-paths", no_argument, 0, 'd'},
+            {"retain-paths", no_argument, 0, 'r'},
+            {"extract-gam", no_argument, 0, 'X'},
             {"list", no_argument, 0, 'L'},
             {"lengths", no_argument, 0, 'E'},
             {"extract-fasta", no_argument, 0, 'F'},
+            {"paths-file", required_argument, 0, 'p'},
             {"paths-by", required_argument, 0, 'Q'},
             {"sample", required_argument, 0, 'S'},
+            {"variant-paths", no_argument, 0, 'a'},
 
             // Hidden options for backward compatibility.
             {"threads", no_argument, 0, 'T'},
@@ -86,7 +99,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEFS:Tq:",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEFS:Tq:drap:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -107,14 +120,24 @@ int main_paths(int argc, char** argv) {
         case 'g':
             gbwt_file = optarg;
             break;
-            
-        case 'X':
-            extract_as_gam = true;
-            output_formats++;
-            break;
 
         case 'V':
             extract_as_vg = true;
+            output_formats++;
+            break;
+                
+        case 'd':
+            drop_paths = true;
+            output_formats++;
+            break;
+            
+        case 'r':
+            retain_paths = true;
+            output_formats++;
+            break;
+                
+        case 'X':
+            extract_as_gam = true;
             output_formats++;
             break;
 
@@ -128,6 +151,16 @@ int main_paths(int argc, char** argv) {
             list_lengths = true;
             output_formats++;
             break;
+                
+        case 'F':
+            extract_as_fasta = true;
+            output_formats++;
+            break;
+                
+        case 'p':
+            path_file = optarg;
+            selection_criteria++;
+            break;
 
         case 'Q':
             path_prefix = optarg;
@@ -138,10 +171,10 @@ int main_paths(int argc, char** argv) {
             sample_name = optarg;
             selection_criteria++;
             break;
-
-        case 'F':
-            extract_as_fasta = true;
-            output_formats++;
+                
+        case 'a':
+            select_alt_paths = true;
+            selection_criteria++;
             break;
 
         case 'T':
@@ -172,7 +205,7 @@ int main_paths(int argc, char** argv) {
     if (!gbwt_file.empty()) {
         bool need_graph = (extract_as_gam || extract_as_vg || list_lengths || extract_as_fasta);
         if (need_graph && xg_file.empty() && vg_file.empty()) {
-            std::cerr << "error: [vg paths] an XG index or vg graph needed for extracting threads in -X, -V, -E or -F format" << std::endl;
+            std::cerr << "error: [vg paths] an XG index or vg graph needed for extracting threads in -X, -V, -d, -r, -E or -F format" << std::endl;
             std::exit(EXIT_FAILURE);
         }
         if (!need_graph && (!xg_file.empty() || !vg_file.empty())) {
@@ -183,16 +216,29 @@ int main_paths(int argc, char** argv) {
         }
     }
     if (output_formats != 1) {
-        std::cerr << "error: [vg paths] one output format (-X, -V, -L, or -E) must be specified" << std::endl;
+        std::cerr << "error: [vg paths] one output format (-X, -V, -d, -r, -L, or -E) must be specified" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (selection_criteria > 1) {
-        std::cerr << "error: [vg paths] multiple selection criteria (-Q, -S) cannot be used" << std::endl;
+        std::cerr << "error: [vg paths] multiple selection criteria (-Q, -S, -a, -p) cannot be used" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (!sample_name.empty() && gbwt_file.empty()) {
         std::cerr << "error: [vg paths] selection by sample name only works with a GBWT index" << std::endl;
         std::exit(EXIT_FAILURE);
+    }
+    if (select_alt_paths && !gbwt_file.empty()) {
+        std::cerr << "error: [vg paths] selecting variant allele paths is not compatible with a GBWT index" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    if ((drop_paths || retain_paths) && !gbwt_file.empty()) {
+        std::cerr << "error: [vg paths] dropping or retaining paths only works on embedded VG/XG paths, not GBWT threads" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    
+    if (select_alt_paths) {
+        // alt paths all have a specific prefix
+        path_prefix = "_alt_";
     }
     
     // Load whatever indexes we were given
@@ -219,15 +265,29 @@ int main_paths(int argc, char** argv) {
           exit(1);
         }
     }
+    
+    set<string> path_names;
+    if (!path_file.empty()) {
+        ifstream path_stream(path_file);
+        if (!path_stream) {
+            cerr << "error: cannot open path name file " << path_file << endl;
+            exit(EXIT_FAILURE);
+        }
+        
+        string line;
+        while (getline(path_stream, line)) {
+            path_names.emplace(move(line));
+        }
+    }
 
-    // We may need to emit a stream of Alignemnts
+    // We may need to emit a stream of Alignments
     unique_ptr<vg::io::ProtobufEmitter<Alignment>> gam_emitter;
     // Or we might need to emit a stream of VG Graph objects
     unique_ptr<vg::io::ProtobufEmitter<Graph>> graph_emitter;
     if (extract_as_gam) {
         // Open up a GAM output stream
         gam_emitter = unique_ptr<vg::io::ProtobufEmitter<Alignment>>(new vg::io::ProtobufEmitter<Alignment>(cout));
-    } else if (extract_as_vg) {
+    } else if (extract_as_vg || drop_paths || retain_paths) {
         // Open up a VG Graph chunk output stream
         graph_emitter = unique_ptr<vg::io::ProtobufEmitter<Graph>>(new vg::io::ProtobufEmitter<Graph>(cout));
     }
@@ -256,6 +316,19 @@ int main_paths(int argc, char** argv) {
                 if (name.length() >= path_prefix.length() && std::equal(path_prefix.begin(), path_prefix.end(), name.begin())) {
                     thread_ids.push_back(i);
                 }
+            }
+        } else if (!path_file.empty()) {
+            // TODO: there doesn't seem to be a look-up by name in the GBWT, so we check all of them
+            thread_ids.reserve(path_names.size());
+            for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
+                std::string name = thread_name(*gbwt_index, i);
+                if (path_names.count(name)) {
+                    thread_ids.push_back(i);
+                }
+            }
+            if (thread_ids.size() != path_names.size()) {
+                std::cerr << "error: [vg paths] could not find all path names from file in GBWT index" << std::endl;
+                std::exit(EXIT_FAILURE);
             }
         } else {
             thread_ids.reserve(gbwt_index->metadata.paths());
@@ -309,16 +382,21 @@ int main_paths(int argc, char** argv) {
     } else if (graph.get() != nullptr) {
         // Handle non-thread queries from vg
         
-        auto check_prefix = [&path_prefix](const string& name) {
-            // Note: we're using a filter rather than index, so O(#paths in graph). 
-            return path_prefix.empty() ||
-            std::mismatch(name.begin(), name.end(),
-                          path_prefix.begin(), path_prefix.end()).second == path_prefix.end();
+        auto check_path_name = [&](const string& name) {
+            // Note: we're using a filter rather than index, so O(#paths in graph).
+            if (path_file.empty()) {
+                return (path_prefix.empty() ||
+                        std::mismatch(name.begin(), name.end(),
+                                      path_prefix.begin(), path_prefix.end()).second == path_prefix.end());
+            }
+            else {
+                return bool(path_names.count(name));
+            }
         };
 
         graph->for_each_path_handle([&](path_handle_t path_handle) {
                 string path_name = graph->get_path_name(path_handle);
-                if (check_prefix(path_name)) {
+                if (check_path_name(path_name)) {
                     if (list_names) {
                         cout << path_name;
                         if (list_lengths) {
