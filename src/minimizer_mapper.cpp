@@ -632,18 +632,18 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     size_t winning_index;
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
     double mapq = (mappings.empty() || mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index);
+        get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index) / 2;
     
+    if (final_equivalent_fraction.front() > 0) {
+        min(mapq/2,round(prob_to_phred(1-final_equivalent_fraction.front())))
+    }
 #ifdef debug
     cerr << "MAPQ is " << mapq << endl;
 #endif
         
     // Make sure to clamp 0-60.
-    if (final_equivalent_fraction.front() > 0) {
-        mappings.front().set_mapping_quality(max(min(mapq/2,round(prob_to_phred(final_equivalent_fraction.front()))), 0.0));
-    } else {
-        mappings.front().set_mapping_quality(max(min(mapq/2, 60.0), 0.0));
-    }
+    mappings.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
+   
     
     if (track_provenance) {
         funnel.substage_stop();
