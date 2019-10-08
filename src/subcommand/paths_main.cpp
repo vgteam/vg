@@ -19,6 +19,8 @@
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 
+#include "../algorithms/copy_graph.hpp"
+
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -380,7 +382,8 @@ int main_paths(int argc, char** argv) {
             }
         }
     } else if (graph.get() != nullptr) {
-        // Handle non-thread queries from vg
+        
+        // Handle non-thread queries from vg or xg
         
         auto check_path_name = [&](const string& name) {
             // Note: we're using a filter rather than index, so O(#paths in graph).
@@ -394,7 +397,26 @@ int main_paths(int argc, char** argv) {
             }
         };
 
-        graph->for_each_path_handle([&](path_handle_t path_handle) {
+        if (drop_paths || retain_paths) {
+            
+            VG new_graph;
+            
+            // copy the nodes and edges
+            algorithms::copy_handle_graph(&(*graph), &new_graph);
+            
+            // copy the indicated paths
+            graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+                string name = graph->get_path_name(path_handle);
+                if (check_path_name(name) != drop_paths) {
+                    algorithms::copy_path(&(*graph), path_handle, &new_graph);
+                }
+            });
+            
+            // output the graph
+            new_graph.serialize(cout);
+        }
+        else {
+            graph->for_each_path_handle([&](path_handle_t path_handle) {
                 string path_name = graph->get_path_name(path_handle);
                 if (check_path_name(path_name)) {
                     if (list_names) {
@@ -421,6 +443,7 @@ int main_paths(int argc, char** argv) {
                     }
                 }
             });
+        }
     }
     return 0;
 
