@@ -32,7 +32,7 @@ KEEP_INTERMEDIATE_FILES=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@27a991275911d08c42bfd264bde7112264d54c25"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@73cb20a035a4ebf8b72cd12cde2c6e5e507b41e3"
 # What toil should we install?
 # Could be something like "toil[aws,mesos]==3.13.0"
 # or "git+https://github.com/adamnovak/toil.git@2b696bec34fa1381afdcf187456571d2b41f3842#egg=toil[aws,mesos]"
@@ -436,7 +436,10 @@ then
     then
         # Test the Singularity-built vg
         VG_VERSION=`singularity run ${SINGULARITY_IMAGE} vg version -s`
-        printf "vg-docker-version \"${SINGULARITY_IMAGE}\"\n" >> vgci_cfg.tsv
+        # Make sure to send a full path to the image or Toil won't be able to find it.
+        # See https://stackoverflow.com/a/44084533
+        SINGULARITY_IMAGE_FULL_PATH="$(cd "$(dirname "${SINGULARITY_IMAGE}")"; pwd)/$(basename "${SINGULARITY_IMAGE}")"
+        printf "vg-docker-version \"${SINGULARITY_IMAGE_FULL_PATH}\"\n" >> vgci_cfg.tsv
         printf "container Singularity\n" >> vgci_cfg.tsv
         
         # Pull down the other docker images to Singularity's cache, so time
