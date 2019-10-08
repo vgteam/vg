@@ -12,6 +12,7 @@ MAINTAINER vgteam
 RUN apt-get -qq update && apt-get -qq install -y \
     sudo \
     curl \
+    wget \
     pv \
     pigz \
     bsdmainutils \
@@ -22,7 +23,7 @@ RUN apt-get -qq update && apt-get -qq install -y \
     rs \
     libffi-dev
 
-RUN curl https://github.com/vgteam/vg_docker/raw/master/deps/bwa_0.7.15-5_amd64.deb --output /tmp/bwa.deb
+RUN wget https://github.com/vgteam/vg_docker/raw/master/deps/bwa_0.7.15-5_amd64.deb -o /tmp/bwa.deb
 RUN dpkg -i /tmp/bwa.deb
 
 # copy over current directory to docker
