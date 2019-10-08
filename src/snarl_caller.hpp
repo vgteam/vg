@@ -41,6 +41,9 @@ public:
 
     /// Define any header fields needed by the above
     virtual void update_vcf_header(string& header) const = 0;
+
+    /// Optional method used for pruning searches
+    virtual function<bool(const SnarlTraversal&)> get_skip_allele_fn() const;
 };
 
 /**
@@ -48,8 +51,12 @@ public:
  */ 
 class SupportBasedSnarlCaller : public SnarlCaller {
 public:
-   SupportBasedSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager);
+    SupportBasedSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager);
     virtual ~SupportBasedSnarlCaller();
+
+    /// Set some of the parameters
+    void set_het_bias(double het_bias, double ref_het_bias = 0.);
+    void set_min_supports(double min_mad_for_call, double min_support_for_call, double min_site_support);
 
     /// Support of an edge
     virtual Support get_edge_support(const edge_t& edge) const = 0;
@@ -83,19 +90,33 @@ public:
     /// Define any header fields needed by the above
     virtual void update_vcf_header(string& header) const;
 
+    /// Use min_alt_path_support threshold as cutoff
+    virtual function<bool(const SnarlTraversal&)> get_skip_allele_fn() const;
+
     /// Get the support of a traversal
     /// Child snarls are handled as in the old call code: their maximum support is used
     virtual Support get_traversal_support(const SnarlTraversal& traversal) const;
 
     /// Get the support of a set of traversals.  Any support overlapping traversals in shared_travs
     /// will have their support split.  If exclusive_only is true, then any split support gets
-    /// rounded down to 0.  if the ref_trav_idx is given, it will be used for computing (deletion) edge lengths
+    /// rounded down to 0 (and ignored when computing mins or averages) .
+    /// exclusive_count is like exclusive only except shared traversals will be counted (as 0)
+    /// when doing average and min support
+    /// if the ref_trav_idx is given, it will be used for computing (deletion) edge lengths
     virtual vector<Support> get_traversal_set_support(const vector<SnarlTraversal>& traversals,
                                                       const vector<int>& shared_travs,
-                                                      bool exclusive_only, int ref_trav_idx = -1) const;
+                                                      bool exclusive_only,
+                                                      bool exclusive_count,
+                                                      int ref_trav_idx = -1) const;
 
     /// Get the total length of all nodes in the traversal
     virtual vector<int> get_traversal_sizes(const vector<SnarlTraversal>& traversals) const;
+
+    /// Get the average traversal support thresholdek
+    virtual size_t get_average_traversal_support_switch_threshold() const;
+
+    /// Get the minimum total support for call
+    virtual int get_min_total_support_for_call() const;
 
 protected:
 
@@ -125,16 +146,20 @@ protected:
     /// At 2, if twice the reads support one allele as the other, we'll call
     /// homozygous instead of heterozygous. At infinity, every call will be
     /// heterozygous if even one read supports each allele.
-    double max_het_bias = 10;
+    double max_het_bias = 6;
     /// Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double max_ref_het_bias = 4.5;
+    double max_ref_het_bias = 6;
     /// Like the max het bias, but applies to novel indels.
     double max_indel_het_bias = 6;
-    /// As above but used for alt1/alt2 calls
-    double max_ma_bias = 3;
+    /// Used for calling 1/2 calls.  If both alts (times this bias) are greater than
+    /// the reference, the call is made.  set to 0 to deactivate.
+    double max_ma_bias = 0;
     /// what's the minimum ref or alt allele depth to give a PASS in the filter
     /// column? Also used as a min actual support for a second-best allele call
     size_t min_mad_for_filter = 1;
+    /// what's the minimum total support (over all alleles) of the site to make
+    /// a call
+    size_t min_site_depth = 3;
     /// what's the min log likelihood for allele depth assignments to PASS?
     double min_ad_log_likelihood_for_filter = -9;
     /// Use average instead of minimum support when determining a traversal's support
@@ -143,6 +168,9 @@ protected:
     /// Use average instead of minimum support when determining a node's support
     /// its position supports.
     size_t average_node_support_switch_threshold = 50;
+    /// used only for pruning alleles in the VCFTraversalFinder:  minimum support
+    /// of an allele's alt-path for it to be considered in the brute-force enumeration
+    double min_alt_path_support = 0.2;
 
     const PathHandleGraph& graph;
 

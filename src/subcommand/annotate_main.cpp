@@ -10,6 +10,7 @@
 #include "../gff_reader.hpp"
 #include "../region_expander.hpp"
 #include "../algorithms/alignment_path_offsets.hpp"
+#include <bdsg/overlay_helper.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -20,7 +21,7 @@ using namespace vg::subcommand;
 void help_annotate(char** argv) {
     cerr << "usage: " << argv[0] << " annotate [options] >output.{gam,vg,tsv}" << endl
          << "graph annotation options:" << endl
-         << "    -x, --xg-name FILE     xg index of the graph to annotate (required)" << endl
+         << "    -x, --xg-name FILE     xg index or graph to annotate (required)" << endl
          << "    -b, --bed-name FILE    a BED file to convert to GAM. May repeat." << endl
          << "    -f, --gff-name FILE    a GFF3/GTF file to convert to GAM. May repeat." << endl
          << "    -g, --ggff             output at GGFF subgraph annotation file instead of GAM (requires -s)" << endl
@@ -176,12 +177,15 @@ int main_annotate(int argc, char** argv) {
         }
     }
     
-    
-    unique_ptr<PathPositionHandleGraph> xg_index = nullptr;
+    PathPositionHandleGraph* xg_index = nullptr;
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    bdsg::PathPositionOverlayHelper overlay_helper;
+
     if (!xg_name.empty()) {
         get_input_file(xg_name, [&](istream& in) {
             // Read in the XG index
-            xg_index = vg::io::VPKG::load_one<PathPositionHandleGraph>(in);
+            path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
+            xg_index = overlay_helper.apply(path_handle_graph.get());
         });
     } else {
         cerr << "error [vg annotate]: no xg index provided" << endl;
@@ -200,7 +204,7 @@ int main_annotate(int argc, char** argv) {
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
     }
     
-    Mapper mapper(xg_index.get(), nullptr, nullptr);
+    Mapper mapper(xg_index, nullptr, nullptr);
     
     if (!gam_name.empty()) {
         vector<Alignment> buffer;
@@ -284,7 +288,7 @@ int main_annotate(int argc, char** argv) {
                 get_input_file(bed_name, [&](istream& bed_stream) {
                     // Load all the BED regions as Alignments embedded in the graph.
                     vector<Alignment> bed_regions;
-                    parse_bed_regions(bed_stream, xg_index.get(), &bed_regions);
+                    parse_bed_regions(bed_stream, xg_index, &bed_regions);
                     
                     for (auto& region : bed_regions) {
                         // For each region in the BED
@@ -296,7 +300,7 @@ int main_annotate(int argc, char** argv) {
                             // Scan the Mappings. We know each Mapping will be all perfect matches.
                             
                             // Record that the alignment covers the given region on the given node.
-                            features_on_node[mapping.position().node_id()].emplace_back(mapping_to_range(xg_index.get(), mapping),
+                            features_on_node[mapping.position().node_id()].emplace_back(mapping_to_range(xg_index, mapping),
                                 interned_name);
                         }
                     }
@@ -324,7 +328,7 @@ int main_annotate(int argc, char** argv) {
                             auto features = features_on_node.find(node_id);
                             if (features != features_on_node.end()) {
                                 // Some things occur on this node. Find the overlaps with the part of the node touched by this read.
-                                auto overlapping = find_overlapping(features->second, mapping_to_range(xg_index.get(), mapping));
+                                auto overlapping = find_overlapping(features->second, mapping_to_range(xg_index, mapping));
                                 // Save them all to the set (to remove duplicates)
                                 copy(overlapping.begin(), overlapping.end(), inserter(touched_features, touched_features.begin()));
                             }
@@ -449,7 +453,7 @@ int main_annotate(int argc, char** argv) {
                 // Convert each BED file to GAM
                 get_input_file(bed_name, [&](istream& bed_stream) {
                     vector<Alignment> buffer;
-                    parse_bed_regions(bed_stream, xg_index.get(), &buffer);
+                    parse_bed_regions(bed_stream, xg_index, &buffer);
                     vg::io::write_buffered(cout, buffer, 0); // flush
                 });
                 
@@ -459,7 +463,7 @@ int main_annotate(int argc, char** argv) {
             for (auto& gff_name : gff_names) {
                 get_input_file(gff_name, [&](istream& gff_stream) {
                     vector<Alignment> buffer;
-                    parse_gff_regions(gff_stream, xg_index.get(), &buffer);
+                    parse_gff_regions(gff_stream, xg_index, &buffer);
                     vg::io::write_buffered(cout, buffer, 0); // flush
                 });
             }

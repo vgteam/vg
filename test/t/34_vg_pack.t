@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 13
+plan tests 15
 
 vg construct -m 1000 -r tiny/tiny.fa >flat.vg
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
@@ -16,9 +16,11 @@ vg map -g flat.gcsa -x flat.xg -G 2snp.sim -k 8 >2snp.gam
 vg pack -x flat.xg -o 2snp.gam.cx -g 2snp.gam -e
 is $(vg pack -x flat.xg -di 2snp.gam.cx -e | tail -n+2 | cut -f 5 | grep -v ^0$ | wc -l) 2 "allele observation packing detects 2 SNPs"
 
-vg augment -a pileup flat.vg 2snp.gam -P 2snp.gam.vgpu >/dev/null
-is $(vg view -l 2snp.gam.vgpu|  jq '.node_pileups[].base_pileup[] | (.num_bases // 0)' | awk '{ print NR-1, $0 }' | head | md5sum | cut -f 1 -d\ )\
-   $(vg pack -x flat.xg -di 2snp.gam.cx -e | awk '{ print $3, $4 }' | tail -n+2 | head | md5sum | cut -f 1 -d\ ) "pileup packs agree with graph coverage"
+# we replace the comparison to the pileup output, to a snapshot of what it used to be (as pileup is gone)
+vg pack -x flat.xg -o 2snp.gam.snapshot.cx -g pileup/2snp.gam -e
+is $(cat pileup/2snp.gam.vgpu.json | jq '.node_pileups[].base_pileup[] | (.num_bases // 0)' | awk '{ print NR-1, $0 }' | head | md5sum | cut -f 1 -d\ )\
+   $(vg pack -x flat.xg -di 2snp.gam.snapshot.cx -e | awk '{ print $3, $4 }' | tail -n+2 | head | md5sum | cut -f 1 -d\ ) "pileup packs agree with graph coverage"
+rm -f 2snp.gam.snapshot.cx
    
 vg pack -x flat.xg -i 2snp.gam.cx -i 2snp.gam.cx -i 2snp.gam.cx -o 2snp.gam.cx.3x
 
@@ -59,10 +61,9 @@ rm -f flat.vg 2snp.vg 2snp.xg 2snp.sim flat.gcsa flat.gcsa.lcp flat.xg 2snp.xg 2
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > tiny.vg
 vg index tiny.vg -x tiny.xg
-vg sim -l 10 -x tiny.xg -n 50 -a  -s 23 > tiny.gam
-vg augment -a pileup tiny.vg tiny.gam -P tiny.vgpu > /dev/null
-x=$(vg view -l tiny.vgpu | jq  '.edge_pileups' | grep num_reads | awk '{print $2}' | sed -e 's/\,//' | awk '{sum+=$1} END {print sum}')
-y=$(vg pack -x tiny.xg -g tiny.gam -D -o tiny.pack | grep -v from | awk '{sum+=$5} END {print sum}')
+# now that pileup doesnt exist, we use the snapshots in pileup/ instead of recomputing
+x=$(cat pileup/tiny.vgpu.json | jq  '.edge_pileups' | grep num_reads | awk '{print $2}' | sed -e 's/\,//' | awk '{sum+=$1} END {print sum}')
+y=$(vg pack -x tiny.xg -g pileup/tiny.gam -D -o tiny.pack | grep -v from | awk '{sum+=$5} END {print sum}')
 is $x $y "pack computes the same total edge coverage as pileup"
 x=$(vg pack -x tiny.xg -i tiny.pack -D | grep -v from | awk '{sum+=$5} END {print sum}')
 is $x $y "pack stores the correct edge pileup to disk"
@@ -79,3 +80,20 @@ is $(vg pack -x flat.xg -di reads.gam.cx | tail -n+2 | cut -f 4 | grep ^0$ | wc 
 is $(vg pack -x flat.xg -Di reads.gam.cx | tail | cut -f 5 | grep ^59$ | wc -l) 1 "qual-adjust packing gets correct edge support"
 
 rm -f flat.vg flat.xg flat.gcsa reads.fq reads.gam reads.gam.cx
+
+vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
+vg index -x x.xg x.vg
+vg sim -s 1 -n 1000 -l 150 -x x.xg -a > sim.gam
+vg pack -x x.xg -g sim.gam -o x.xg.cx
+vg pack -x x.vg -g sim.gam -o x.vg.cx
+vg pack -x x.xg -i x.xg.cx -d | awk '!($1="")' | sort > node-table.xg.tsv
+vg pack -x x.vg -i x.vg.cx -d | awk '!($1="")' | sort > node-table.vg.tsv
+diff node-table.xg.tsv node-table.vg.tsv
+is "$?" 0 "node packs on vg same as xg"
+
+vg pack -x x.xg -i x.xg.cx -D | sort > edge-table.xg.tsv
+vg pack -x x.vg -i x.vg.cx -D | sort > edge-table.vg.tsv
+diff edge-table.xg.tsv edge-table.vg.tsv
+is "$?" 0 "edge packs on vg same as xg"
+
+rm -f x.vg x.xg sim.gam x.xg.cx x.vg.cx node-table.vg.tsv node-table.xg.tsv edge-table.vg.tsv edge-table.xg.tsv

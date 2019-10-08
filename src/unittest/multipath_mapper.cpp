@@ -184,7 +184,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         
         // Make a cluster
         clusters.resize(1);
-        clusters.back().emplace_back(&mems[1], make_pos_t(1, false, 0));
+        clusters.back().emplace_back(&mems.at(0), make_pos_t(1, false, 0));
         
         REQUIRE(mems.size() == 1);
         

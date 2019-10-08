@@ -729,11 +729,11 @@ list<mapping_t>& Paths::get_create_path(const string& name) {
     }
 }
 
-bool Paths::has_node_mapping(id_t id) {
+bool Paths::has_node_mapping(id_t id) const {
     return node_mapping.find(id) != node_mapping.end();
 }
 
-bool Paths::has_node_mapping(Node* n) {
+bool Paths::has_node_mapping(Node* n) const {
     return node_mapping.find(n->id()) != node_mapping.end();
 }
 

@@ -6,6 +6,7 @@
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/id_sort.hpp"
 #include "augment.hpp"
+#include "prune.hpp"
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
 
@@ -553,14 +554,17 @@ bool VG::has_previous_step(const step_handle_t& step_handle) const {
 }
     
 bool VG::for_each_step_on_handle_impl(const handle_t& handle, const function<bool(const step_handle_t&)>& iteratee) const {
-    const map<int64_t, set<mapping_t*>>& node_mapping = paths.get_node_mapping(get_id(handle));
-    for (const pair<int64_t, set<mapping_t*>>& path_occs : node_mapping) {
-        for (const mapping_t* mapping : path_occs.second) {
-            step_handle_t step_handle;
-            as_integers(step_handle)[0] = path_occs.first;
-            as_integers(step_handle)[1] = reinterpret_cast<int64_t>(mapping);
-            if (!iteratee(step_handle)) {
-                return false;
+  nid_t node_id = get_id(handle);
+    if (paths.has_node_mapping(node_id)) {
+        const map<int64_t, set<mapping_t*>>& node_mapping = paths.get_node_mapping(node_id);
+        for (const pair<int64_t, set<mapping_t*>>& path_occs : node_mapping) {
+            for (const mapping_t* mapping : path_occs.second) {
+                step_handle_t step_handle;
+                as_integers(step_handle)[0] = path_occs.first;
+                as_integers(step_handle)[1] = reinterpret_cast<int64_t>(mapping);
+                if (!iteratee(step_handle)) {
+                    return false;
+                }
             }
         }
     }
@@ -3348,6 +3352,10 @@ void VG::apply_ordering(const vector<handle_t>& ordering, bool compact_ids) {
         this->compact_ids();
     }
 }
+    
+void VG::set_id_increment(const nid_t& min_id) {
+    // no-op
+}
 
 map<id_t, vcflib::Variant> VG::get_node_id_to_variant(vcflib::VariantCallFile vfile){
     map<id_t, vcflib::Variant> ret;
@@ -5250,26 +5258,12 @@ void VG::edit(istream& paths_to_add,
     // If we are going to actually add the paths to the graph, we need to break at path ends
     break_at_ends |= save_paths;
 
-    function<void(Path&)> save_fn = nullptr;
-    if (save_paths) {
-        save_fn = [&](Path& added) {
-            paths.extend(added, false, false);
-        };
-    }
-
     // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
     paths.compact_ranks();
     
     // Augment the graph with the paths, modifying paths in place if update true
-    augment(this, paths_to_add, out_translations, out_gam_stream, save_fn,
+    augment(this, paths_to_add, out_translations, out_gam_stream, save_paths,
             break_at_ends, remove_softclips);
-        
-    // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
-    // Todo: can we just do this once?
-    paths.compact_ranks();
-
-    // execute a semi partial order sort on the nodes
-    sort();
 }
     
 // The not quite as robust (TODO: how?) but actually efficient way to edit the graph.
@@ -6936,7 +6930,7 @@ void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
     // Duplicate code from prune_complex(). If pruning leaves many loose nodes
     // (that will usually be deleted in the next step), attaching them to the
     // head/tail nodes is unnecessary and potentially expensive.
-    vector<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
+    pair_hash_set<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
     for (auto& e : to_destroy) {
         destroy_edge(e.first, e.second);
     }
@@ -6947,7 +6941,7 @@ void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
 
 void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node) {
 
-    vector<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
+    pair_hash_set<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
     for (auto& e : to_destroy) {
         destroy_edge(e.first, e.second);
     }

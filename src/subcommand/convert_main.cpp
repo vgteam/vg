@@ -8,6 +8,7 @@
 
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
+#include "bdsg/odgi.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -17,21 +18,16 @@ using namespace vg::subcommand;
 
 void help_convert(char** argv) {
     cerr << "usage: " << argv[0] << " convert [options] <input-graph>" << endl
-         << "input options:" << endl
-         << "    -v, --vg-in            input in VG format [default]" << endl
-         << "    -a, --hash-in          input in HashGraph format" << endl
-         << "    -p, --packed-in        input in PackedGraph format" << endl
-         << "    -x, --xg-in            input in XG format" << endl
          << "output options:" << endl
-         << "    -V, --vg-out           output in VG format [default]" << endl
-         << "    -A, --hash-out         output in HashGraph format" << endl
-         << "    -P, --packed-out       output in PackedGraph format" << endl
-         << "    -X, --xg-out           output in XG format" << endl;
+         << "    -v, --vg-out           output in VG format [default]" << endl
+         << "    -a, --hash-out         output in HashGraph format" << endl
+         << "    -p, --packed-out       output in PackedGraph format" << endl
+         << "    -x, --xg-out           output in XG format" << endl
+         << "    -o, --odgi-out           output in ODGI format" << endl;
 }
 
 int main_convert(int argc, char** argv) {
 
-    string input_format = "vg";
     string output_format = "vg";
 
     if (argc == 2) {
@@ -45,19 +41,16 @@ int main_convert(int argc, char** argv) {
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
-            {"vg-in", no_argument, 0, 'v'},
-            {"hash-in", no_argument, 0, 'a'},
-            {"packed-in", no_argument, 0, 'p'},
-            {"xg-in", no_argument, 0, 'x'},
-            {"vg-out", no_argument, 0, 'V'},
-            {"hash-out", no_argument, 0, 'A'},
-            {"packed-out", no_argument, 0, 'P'},
-            {"xg-out", no_argument, 0, 'X'},
+            {"vg-out", no_argument, 0, 'v'},
+            {"hash-out", no_argument, 0, 'a'},
+            {"packed-out", no_argument, 0, 'p'},
+            {"xg-out", no_argument, 0, 'x'},
+            {"odgi-out", no_argument, 0, 'o'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hvxapxVAPX",
+        c = getopt_long (argc, argv, "hvxapxo",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -72,88 +65,83 @@ int main_convert(int argc, char** argv) {
             help_convert(argv);
             return 1;
         case 'v':
-            input_format = "vg";
-            break;
-        case 'a':
-            input_format = "hash";
-            break;
-        case 'p':
-            input_format = "packed";
-            break;
-        case 'x':
-            input_format = "xg";
-            break;            
-        case 'V':
             output_format = "vg";
             break;
-        case 'A':
+        case 'a':
             output_format = "hash";
             break;
-        case 'P':
+        case 'p':
             output_format = "packed";
             break;
-        case 'X':
+        case 'x':
             output_format = "xg";
             break;
-
+        case 'o':
+            output_format = "odgi";
+            break;
 
         default:
             abort();
         }
     }
 
-    string input_path = get_input_file_name(optind, argc, argv);
+    unique_ptr<HandleGraph> input_graph;
+    get_input_file(optind, argc, argv, [&](istream& in) {
+        input_graph = vg::io::VPKG::load_one<HandleGraph>(in);
+      });
 
     // allocate a graph using the graph_type string to decide a class
-    function<PathHandleGraph*(const string&)> graph_factory = [&](const string& graph_type) -> PathHandleGraph*{
-        if (graph_type == "vg") {
-            return new VG();
-        } else if (graph_type == "hash") {
-            return new bdsg::HashGraph();
-        } else if (graph_type == "packed") {
-            return new bdsg::PackedGraph();
-        } else if (graph_type == "xg") {
-            return new xg::XG();
-        }
-        return nullptr;
-    };
-
-    ifstream input_stream;
-    if (input_path != "-") {
-        input_stream.open(input_path);
+    unique_ptr<HandleGraph> output_graph;
+    if (output_format == "vg") {
+      output_graph = unique_ptr<HandleGraph>(new VG());
+    } else if (output_format == "hash") {
+      output_graph = unique_ptr<HandleGraph>(new bdsg::HashGraph());
+    } else if (output_format == "packed") {
+      output_graph = unique_ptr<HandleGraph>(new bdsg::PackedGraph());
+    } else if (output_format == "xg") {
+      output_graph = unique_ptr<HandleGraph>(new xg::XG());
+    } else if (output_format == "odgi") {
+      output_graph = unique_ptr<HandleGraph>(new bdsg::ODGI());
+      cerr << "error [vg convert]: odgi conversion does not work yet" << endl;
+      return 1;
     }
 
-    // Make an empty input graph
-    PathHandleGraph* input_graph = graph_factory(input_format);
-    assert(input_graph != nullptr);
-    // Read the graph from the stream
-    if (input_format != "xg") {
-        dynamic_cast<SerializableHandleGraph*>(input_graph)->deserialize(input_path == "-" ? cin : input_stream);
-    } else {
-        //todo: XG::deserialize() doesn't work.  Need to go through vpkg
-        unique_ptr<xg::XG> xindex = vg::io::VPKG::load_one<xg::XG>(input_path);
-        delete input_graph;
-        input_graph = xindex.release();
-    }
-    
-
+    PathHandleGraph* input_path_graph = dynamic_cast<PathHandleGraph*>(input_graph.get());
+    PathHandleGraph* output_path_graph = dynamic_cast<PathHandleGraph*>(output_graph.get());
 
     if (output_format == "xg") {
-        // special logic because xg isn't mutable
-        xg::XG xg;
-        xg.from_path_handle_graph(*input_graph);
-        xg.serialize(cout);
-    } else {
-        // Make an empty output graph
-        MutablePathMutableHandleGraph* output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph_factory(output_format));
-        assert(output_graph != nullptr);
-        // Copy over the input graph
-        convert_path_handle_graph(input_graph, output_graph);
-        // Write the output graph to the stream
-        dynamic_cast<SerializableHandleGraph*>(output_graph)->serialize(cout);
-        delete output_graph;
+        if (input_path_graph != nullptr) {
+            dynamic_cast<xg::XG*>(output_graph.get())->from_path_handle_graph(*input_path_graph);
+        } else {
+            // not that this will happen any time soon, but we can relax it once xg0 is in,
+            // as it has a from_handle_graph
+            cerr << "error [vg convert]: cannot output to xg as input graph does not support paths" << endl;
+            return 1;
+        }
     }
-    delete input_graph;
+    else if (input_path_graph != nullptr && output_path_graph != nullptr) {
+        MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
+        assert(mutable_output_graph != nullptr);
+        convert_path_handle_graph(input_path_graph, mutable_output_graph);
+    } else if (input_path_graph != nullptr) {
+        MutableHandleGraph* mutable_output_graph = dynamic_cast<MutableHandleGraph*>(output_graph.get());
+        assert(mutable_output_graph != nullptr);
+        cerr << "warning [vg convert]: output format does not support paths" << endl;
+        convert_handle_graph(input_graph.get(), mutable_output_graph);
+    }
+
+    // Serialize the graph using VPKG.  Todo: is there away to do this in one line?
+    if (output_format == "vg") {
+        vg::io::VPKG::save(*dynamic_cast<VG*>(output_graph.get()), cout);
+    } else if (output_format == "hash") {
+        vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph*>(output_graph.get()), cout);
+    } else if (output_format == "packed") {
+        vg::io::VPKG::save(*dynamic_cast<bdsg::PackedGraph*>(output_graph.get()), cout);
+    } else if (output_format == "xg") {
+        vg::io::VPKG::save(*dynamic_cast<xg::XG*>(output_graph.get()), cout);
+    } else if (output_format == "odgi") {
+        vg::io::VPKG::save(*dynamic_cast<bdsg::ODGI*>(output_graph.get()), cout);
+    }
 
     return 0;
 }

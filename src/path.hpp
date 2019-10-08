@@ -156,8 +156,8 @@ public:
     // We used to be able to search for a Mapping by value, but that's not
     // efficient if the Mappings don't have ranks, and it never checked the
     // edits for equality anyway.
-    bool has_node_mapping(id_t id);
-    bool has_node_mapping(Node* n);
+    bool has_node_mapping(id_t id) const;
+    bool has_node_mapping(Node* n) const;
     map<int64_t, set<mapping_t*> >& get_node_mapping(Node* n);
     map<int64_t, set<mapping_t*> >& get_node_mapping(id_t id);
     const map<int64_t, set<mapping_t*> >& get_node_mapping(id_t id) const;

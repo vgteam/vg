@@ -16,6 +16,7 @@
 #include "../xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+#include <bdsg/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -26,7 +27,9 @@ void help_call(char** argv) {
        << "Call variants or genotype known variants" << endl
        << endl
        << "support calling options:" << endl
-       << "    -k, --pack FILE         Supports created from vg pack (input graph must be xg)" << endl
+       << "    -k, --pack FILE         Supports created from vg pack for given input graph" << endl
+       << "    -b, --het-bias M,N      Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
+       << "    -m, --min-support M,N   Minimum allele support (M) and minimum site support (N) for call [default = 1,4]" << endl
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
        << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
@@ -50,13 +53,17 @@ int main_call(int argc, char** argv) {
     vector<string> ref_paths;
     vector<size_t> ref_path_offsets;
     vector<size_t> ref_path_lengths;
-
+    string min_support_string;
+    string bias_string;
+    
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
 
         static const struct option long_options[] = {
             {"pack", required_argument, 0, 'k'},
+            {"het-bias", required_argument, 0, 'b'},
+            {"min-support", required_argument, 0, 'm'},
             {"vcf", required_argument, 0, 'v'},
             {"ref-fasta", required_argument, 0, 'f'},
             {"ins-fasta", required_argument, 0, 'i'},
@@ -72,7 +79,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:v:f:i:s:r:p:o:l:t:h",
+        c = getopt_long (argc, argv, "k:b:m:v:f:i:s:r:p:o:l:t:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -83,6 +90,12 @@ int main_call(int argc, char** argv) {
         {
         case 'k':
             pack_filename = optarg;
+            break;
+        case 'b':
+            bias_string = optarg;
+            break;
+        case 'm':
+            min_support_string = optarg;
             break;
         case 'v':
             vcf_filename = optarg;
@@ -134,12 +147,56 @@ int main_call(int argc, char** argv) {
         return 1;
     }
 
+    // parse the supports (stick together to keep number of options down)
+    vector<string> support_toks = split_delims(min_support_string, ",");
+    double min_allele_support = -1;
+    double min_site_support = -1;
+    if (support_toks.size() >= 1) {
+        min_allele_support = parse<double>(support_toks[0]);
+        min_site_support = min_allele_support;
+    }
+    if (support_toks.size() == 2) {
+        min_site_support = parse<double>(support_toks[1]);
+    } else if (support_toks.size() > 2) {
+        cerr << "error [vg call]: -m option expects at most two comma separated numbers M,N" << endl;
+        return 1;
+    }
+    // parse the biases
+    vector<string> bias_toks = split_delims(bias_string, ",");
+    double het_bias = -1;
+    double ref_het_bias = -1;
+    if (bias_toks.size() >= 1) {
+        het_bias = parse<double>(bias_toks[0]);
+        ref_het_bias = het_bias;
+    }
+    if (bias_toks.size() == 2) {
+        ref_het_bias = parse<double>(bias_toks[1]);
+    } else if (bias_toks.size() > 2) {
+        cerr << "error [vg call]: -b option expects at most two comma separated numbers M,N" << endl;
+        return 1;
+    }
+    
     // Read the graph
-    unique_ptr<PathHandleGraph> graph;
+    unique_ptr<PathHandleGraph> path_handle_graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
-            graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
+            path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
         });
+    PathHandleGraph* graph = path_handle_graph.get();
 
+    // Apply overlays as necessary
+    bool need_path_positions = vcf_filename.empty();
+    bool need_vectorizable = !pack_filename.empty();
+    bdsg::PathPositionOverlayHelper pp_overlay_helper;
+    bdsg::PathPositionVectorizableOverlayHelper ppv_overlay_helper;
+    bdsg::PathVectorizableOverlayHelper pv_overlay_helper;
+    if (need_path_positions && need_vectorizable) {
+        graph = dynamic_cast<PathHandleGraph*>(ppv_overlay_helper.apply(graph));
+    } else if (need_path_positions && !need_vectorizable) {
+        graph = dynamic_cast<PathHandleGraph*>(pp_overlay_helper.apply(graph));
+    } else if (!need_path_positions && need_vectorizable) {
+        graph = dynamic_cast<PathHandleGraph*>(pv_overlay_helper.apply(graph));
+    }
+    
     // Check our paths
     for (const string& ref_path : ref_paths) {
         if (!graph->has_path(ref_path)) {
@@ -191,15 +248,17 @@ int main_call(int argc, char** argv) {
 
     // Make a Packed Support Caller
     unique_ptr<Packer> packer;
-    if (!pack_filename.empty()) {
-        if (dynamic_cast<xg::XG*>(graph.get()) == nullptr) {
-            cerr << "error [vg call]: Packed support option requires input graph in XG format" << endl;
-            return 1;
-        }
+    if (!pack_filename.empty()) {        
         // Load our packed supports (they must have come from vg pack on graph)
-        packer = unique_ptr<Packer>(new Packer(dynamic_cast<xg::XG*>(graph.get())));
+        packer = unique_ptr<Packer>(new Packer(graph));
         packer->load_from_file(pack_filename);
         PackedSupportSnarlCaller* packed_caller = new PackedSupportSnarlCaller(*packer, *snarl_manager);
+        if (het_bias >= 0) {
+            packed_caller->set_het_bias(het_bias, ref_het_bias);
+        }
+        if (min_allele_support >= 0) {
+            packed_caller->set_min_supports(min_allele_support, min_allele_support, min_site_support);
+        }
         snarl_caller = unique_ptr<SnarlCaller>(packed_caller);
     }
 
@@ -238,20 +297,25 @@ int main_call(int argc, char** argv) {
         graph_caller = unique_ptr<GraphCaller>(vcf_genotyper);
     } else {
         // de-novo caller (port of the old vg call code, which requires a support based caller)
-        LegacyCaller* legacy_caller = new LegacyCaller(*dynamic_cast<PathPositionHandleGraph*>(graph.get()),
+        LegacyCaller* legacy_caller = new LegacyCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                        *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                                        *snarl_manager,
-                                                       sample_name, ref_paths, ref_path_offsets, ref_path_lengths);
+                                                       sample_name, ref_paths, ref_path_offsets);
         graph_caller = unique_ptr<GraphCaller>(legacy_caller);
     }
 
     // Call the graph
-    cout << graph_caller->vcf_header(*graph, ref_paths) << flush;
     graph_caller->call_top_level_snarls();
+
+    // VCF output is our only supported output
+    VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+    assert(vcf_caller != nullptr);
+    cout << vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
+    vcf_caller->write_variants(cout);
         
     return 0;
 }
 
 // Register subcommand
-static Subcommand vg_call("call", "call variants", PIPELINE, 5, main_call);
+static Subcommand vg_call("call", "call or genotype VCF variants", PIPELINE, 7, main_call);
 

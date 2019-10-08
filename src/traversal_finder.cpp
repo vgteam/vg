@@ -1091,9 +1091,9 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     size_t site_end = index.by_id.at(site.end().node_id()).first;
     
 #ifdef debug
-    cerr << "Site starts with " << to_node_traversal(site.start(), graph)
+    cerr << "Site starts with " << pb2json(site.start())
          << " at " << site_start
-         << " and ends with " << to_node_traversal(site.end(), graph)
+         << " and ends with " << pb2json(site.end())
          << " at " << site_end << endl;
         
     for (id_t node : nodes_left) {
@@ -1159,7 +1159,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             id_t here = visited_node;
             do {
 #ifdef debug
-                cerr << "at node " << pb2json(*here) << endl;
+                cerr << "at node " << here << endl;
 #endif
                 // Advance
                 ref_node_start = found->first + graph.get_length(graph.get_handle(here));
@@ -2730,9 +2730,9 @@ void VCFTraversalFinder::brute_force_alt_traversals(
     if (!check_max_trav_cutoff(alt_alleles)) {
         cerr << "[VCFTraversalFinder] Warning: Site " << pb2json(site) << " with " << site_variants.size()
              << " variants contains too many traversals (>" << max_traversal_cutoff 
-             << ") to enumerate so it will be skipped:";
+             << ") to enumerate so it will be skipped:\n";
         for (auto site_var : site_variants) {
-            cerr << "  " << *site_var << endl;
+            cerr << "   " << *site_var << endl;
         }
         output_traversals.clear();
         return;
@@ -2974,14 +2974,13 @@ VCFTraversalFinder::get_haplotype_alt_contents(
         vcflib::Variant* var = site_variants[allele];
 
         // get the alt path information out of the graph
-        pair<SnarlTraversal, bool> alt_path_info = get_alt_path(var, haplotype[allele], ref_path);
+        pair<SnarlTraversal, vector<edge_t>> alt_path_info = get_alt_path(var, haplotype[allele], ref_path);
         if (alt_path_info.first.visit_size() == 0) {
-            assert(alt_path_info.second == true);
             // skip deletion alt path where we can't find the deletion edge in the graph
             continue;
         }
         SnarlTraversal& alt_traversal = alt_path_info.first;
-        bool is_deletion = alt_path_info.second;
+        bool is_deletion = !alt_path_info.second.empty();
 
         if (!is_deletion) {
             // fill in the nodes from the path
@@ -2990,24 +2989,21 @@ VCFTraversalFinder::get_haplotype_alt_contents(
                                                   alt_traversal.visit(i).backward()));
             }
         }  else {
-            // add the deletion edge from the path
-            assert(alt_traversal.visit_size() == 2);
-            handle_t left = graph.get_handle(alt_traversal.visit(0).node_id(),
-                                             alt_traversal.visit(0).backward());
-            handle_t right = graph.get_handle(alt_traversal.visit(1).node_id(),
-                                              alt_traversal.visit(1).backward());
-            alt_deletion_edges.insert(graph.edge_handle(left, right));
+            // add the deletion edges from the path
+            for (auto deletion_edge : alt_path_info.second) {
+                alt_deletion_edges.insert(deletion_edge);
+            }
         }
     }
 
     return make_pair(alt_nodes, alt_deletion_edges);
 }
 
-pair<SnarlTraversal, bool> VCFTraversalFinder::get_alt_path(vcflib::Variant* var, int allele,
+pair<SnarlTraversal, vector<edge_t>> VCFTraversalFinder::get_alt_path(vcflib::Variant* var, int allele,
                                                             path_handle_t ref_path) {
 
     SnarlTraversal alt_path;
-    bool is_deletion = false;
+    vector<edge_t> deletion_edges;
     
     string alt_path_name = "_alt_" + make_variant_id(*var) + "_" + to_string(allele);
     if (graph.has_path(alt_path_name) && !graph.is_empty(graph.get_path_handle(alt_path_name))) {
@@ -3024,7 +3020,7 @@ pair<SnarlTraversal, bool> VCFTraversalFinder::get_alt_path(vcflib::Variant* var
         // in this case we use the reference allele path, and try to find an edge that spans
         // it.  this will be our alt edge
         // todo: put an alt path name maker into utility.hpp
-        is_deletion = allele != 0;
+        bool is_deletion = allele != 0;
         alt_path_name = "_alt_" + make_variant_id(*var) + "_0";
         // allele 0 can be empty for an insertion.  we don't complain if it's not in the graph
         assert(allele == 0 || graph.has_path(alt_path_name));
@@ -3043,128 +3039,198 @@ pair<SnarlTraversal, bool> VCFTraversalFinder::get_alt_path(vcflib::Variant* var
                 // todo: logic needed here if want to support non-forward reference paths.
                 first_step = graph.get_previous_step(first_step);
                 last_step = graph.get_next_step(last_step);
-                if (allele != 0) {
+                if (allele == 0) {
+                    handle_t left = graph.get_handle_of_step(first_step);
+                    handle_t right = graph.get_handle_of_step(last_step);
+                    
+                    Visit* visit = alt_path.add_visit();
+                    visit->set_node_id(graph.get_id(left));
+                    visit->set_backward(graph.get_is_reverse(left));
+                    visit = alt_path.add_visit();
+                    visit->set_node_id(graph.get_id(right));
+                    visit->set_backward(graph.get_is_reverse(right));
+                } else {
                     // alt paths don't always line up with deletion edges, so we hunt for
                     // our deletion edge using the path_index here.
-                    pair<int, int> scan_deltas = scan_for_deletion(var, allele, ref_path,
-                                                                   first_step, last_step);
-                    if (scan_deltas.first != 0 || scan_deltas.second != 0) {
+                    pair<SnarlTraversal, vector<edge_t>> scan_deletion = scan_for_deletion(var, allele, ref_path,
+                                                                                           first_step, last_step);
+                    if (scan_deletion.first.visit_size() == 0) {
                         cerr << "[VCFTraversalFinder] Warning: Could not find deletion edge that matches allele "
                              << allele << " of\n" << *var << "\naround alt path" << alt_path_name << ":";
-                        if (scan_deltas.first != 0) {
-                            cerr << " Ignoring allele" << endl;
-                            return make_pair(alt_path, is_deletion);
-                        } else {
-                            cerr << " Using approximate match with size-delta " << scan_deltas.first << " and position delta "
-                                 << scan_deltas.second << " nodes" << endl;
-                        }
                     }
+                    alt_path = std::move(scan_deletion.first);
+                    deletion_edges = std::move(scan_deletion.second);
                 }
-                handle_t left = graph.get_handle_of_step(first_step);
-                handle_t right = graph.get_handle_of_step(last_step);
-
-                Visit* visit = alt_path.add_visit();
-                visit->set_node_id(graph.get_id(left));
-                visit->set_backward(graph.get_is_reverse(left));
-                visit = alt_path.add_visit();
-                visit->set_node_id(graph.get_id(right));
-                visit->set_backward(graph.get_is_reverse(right));
             } else {
                 assert(allele == 0);
             }
         }
     }
 
-    return make_pair(alt_path, is_deletion);
+    return make_pair(alt_path, deletion_edges);
 }
 
-pair<int, int> VCFTraversalFinder::scan_for_deletion(vcflib::Variant* var, int allele, path_handle_t ref_path,
-                                                     step_handle_t& first_path_step, step_handle_t& last_path_step) {
+pair<SnarlTraversal, vector<edge_t>> VCFTraversalFinder::scan_for_deletion(vcflib::Variant* var, int allele, path_handle_t ref_path,
+                                                                           step_handle_t first_path_step, step_handle_t last_path_step) {
     assert(allele > 0);
 
     // if our path matches an edge, we don't need to do anything
-    if (graph.has_edge(graph.get_handle_of_step(first_path_step),
-                       graph.get_handle_of_step(last_path_step))) {
-        return make_pair(0, 0);
+    edge_t spanning_edge = graph.edge_handle(graph.get_handle_of_step(first_path_step),
+                                             graph.get_handle_of_step(last_path_step));
+    if (graph.has_edge(spanning_edge)) {
+        SnarlTraversal traversal;
+        Visit* visit = traversal.add_visit();
+        visit->set_node_id(graph.get_id(graph.get_handle_of_step(first_path_step)));
+        visit->set_backward(graph.get_is_reverse(graph.get_handle_of_step(first_path_step)));
+        visit = traversal.add_visit();
+        visit->set_node_id(graph.get_id(graph.get_handle_of_step(last_path_step)));
+        visit->set_backward(graph.get_is_reverse(graph.get_handle_of_step(last_path_step)));
+        return make_pair(traversal, vector<edge_t>(1, spanning_edge));
     }
 
-    // todo: this function is buggy
-    //       when vg normalizes complex indels, a single deletion in the vcf can
-    //       be broken up into multiple completely separate deletions in the graph.
-    //       this function needs to find every deletion that "crosses" the alt
-    //       path in any way. 
-    
     // we're doing everything via length comparison, so keep track of the length we're
     // looking for (vcf_deletion_length) and the length we have (path_deletion_length)
     int vcf_deletion_length = var->alleles[0].length() - var->alleles[allele].length();
 
-    // zip back a few nodes
-    auto start = first_path_step;
-    for (int i = 0; i < max_deletion_scan_nodes / 2 && graph.has_previous_step(start); ++i) {
-        start = graph.get_previous_step(start);
+    // make our search window by scanning out the ends of our path
+    step_handle_t first_window_step = first_path_step;
+    for (int i = 0; i < max_deletion_scan_nodes && graph.has_previous_step(first_window_step); ++i) {
+        first_window_step = graph.get_previous_step(first_window_step);
     }
-
-#ifdef debug
-    cerr << "Seaching for deletion edge for allele " << allele << " of\n" << *var << endl
-         << "The deletion from the VCF is " << vcf_deletion_length << " bases" << endl;
-#endif
-
-    int best_size_delta = std::numeric_limits<int>::max();
-    int best_pos_delta = std::numeric_limits<int>::max();
-    step_handle_t best_start = graph.path_end(ref_path);
-    step_handle_t best_end = graph.path_end(ref_path);
+    step_handle_t last_window_step = last_path_step;
+    for (int i = 0; i < max_deletion_scan_nodes && graph.has_next_step(last_window_step); ++i) {
+        last_window_step = graph.get_next_step(last_window_step);
+    }
     
-    // measure every deletion edge in quadratic time and find the one that best fits the variant
-    // if only construct would actually put the alt paths through the deletions...
-    auto cur = start;
-    for (int i = 0; i < max_deletion_scan_nodes && graph.has_next_step(cur); ++i, cur = graph.get_next_step(cur)) {
-        if (graph.has_next_step(cur)) {
-            auto next = graph.get_next_step(cur);
-            handle_t node = graph.get_handle_of_step(cur);
-            graph.follow_edges(node, false, [&] (const handle_t& next_node) {
-                    if (graph.get_id(next_node) != graph.get_id(graph.get_handle_of_step(next))) {
-                        auto step_found = step_in_path(next_node, ref_path);
-                        if (step_found.second) {
-                            auto step = step_found.first;
-                            // the edge comes back to the reference path
-                            int length = 0;
-                            auto del_start = cur;
-                            auto del_end = step;
-                            // iterate over the reference path spanned by the edge to count the length
-                            for (graph.get_next_step(del_start); del_start != del_end; graph.get_next_step(del_start)) {
-                                length += graph.get_length(graph.get_handle_of_step(del_start));
-                                if (length > 2 * vcf_deletion_length) {
-                                    length = -1;
-                                    break;
-                                }
-                            }
-                            if (length > 0) {
-                                int delta = std::abs(length - vcf_deletion_length);
-                                int pos_delta = std::abs(i - (int)(max_deletion_scan_nodes / 2));
-                                if (delta < best_size_delta || delta == best_size_delta && pos_delta < best_pos_delta) {
-                                    best_size_delta = delta;
-                                    best_start = cur;
-                                    best_end = del_end;
-                                    best_pos_delta = pos_delta;
-#ifdef debug
-                                    cerr << "found candidate deletion at i=" << i << " from "
-                                         << graph.get_id(graph.get_handle_of_step(best_start)) << "->"
-                                         << graph.get_id(graph.get_handle_of_step(best_end)) 
-                                         << " with length " << length << endl;
-#endif
-
-                                }
-                            }
-                        }
-                    }
-                });
+    // index our reference offsets (assuming forward reference path with no cycles)
+    // needing this logic doesn't happen very often, otherwise would consider
+    // requiring path position interface
+    unordered_map<nid_t, int> ref_offsets;
+    unordered_map<nid_t, step_handle_t> node_to_step;
+    int offset = 0;
+    int first_offset = 0;
+    int last_offset = 0;
+    step_handle_t cur_step = first_window_step;
+    while (true) { // want to iterate last-inclusive
+        handle_t cur_handle = graph.get_handle_of_step(cur_step);
+        assert(graph.get_is_reverse(cur_handle) == false);
+        ref_offsets[graph.get_id(cur_handle)] = offset;
+        node_to_step[graph.get_id(cur_handle)] = cur_step;
+        if (cur_step == first_path_step) {
+            first_offset = offset + graph.get_length(cur_handle);
+        }
+        if (cur_step == last_path_step) {
+            last_offset = offset;
+        }
+        offset += graph.get_length(cur_handle);
+        if (cur_step == last_window_step) {
+            break;
+        } else {
+            cur_step = graph.get_next_step(cur_step);
         }
     }
 
-    first_path_step = best_start;
-    last_path_step = best_end;
+    // find our deletions, and index them by how close they match our given alt path
+    // the delta is the min length of the deletion's two endpoints to the paths enpoints. 
+    multimap<int, edge_t> delta_to_deletion; // index deleions by their distance from ref path ends
+    unordered_map<edge_t, size_t> deletion_to_length; // lookup deletion sizes
+    for (cur_step = first_window_step; cur_step != last_window_step; cur_step = graph.get_next_step(cur_step)) {
+        handle_t cur_handle = graph.get_handle_of_step(cur_step);
+        handle_t next_handle = graph.get_handle_of_step(graph.get_next_step(cur_step));        
+        graph.follow_edges(cur_handle, false, [&] (const handle_t& edge_next_handle) {
+                if (!graph.get_is_reverse(edge_next_handle) && // ignore inversions
+		    graph.get_id(next_handle) != graph.get_id(edge_next_handle) &&
+                    ref_offsets.count(graph.get_id(edge_next_handle))) {
+                    // we are in a deletion that's contained in the window
+                    int deletion_start_offset = ref_offsets[graph.get_id(cur_handle)] + graph.get_length(cur_handle);
+                    int deletion_end_offset = ref_offsets[graph.get_id(edge_next_handle)];
+                    int delta = std::min(std::abs(deletion_start_offset - first_offset), std::abs(deletion_end_offset - last_offset));
+                    delta_to_deletion.insert(make_pair(delta, make_pair(cur_handle, edge_next_handle)));
+                    deletion_to_length[make_pair(cur_handle, edge_next_handle)] = deletion_end_offset - deletion_start_offset;
+                }
+            });
+    }
 
-    return make_pair(best_size_delta, best_pos_delta);
+    // our goal is to find a traversal that threads the deletions we find.  in order to do this, our deltions
+    // can't overlap
+    function<bool(edge_t, const vector<edge_t>&)> doesnt_intersect = [&](edge_t edge, const vector<edge_t>& edge_set) {
+        int edge_start = ref_offsets[graph.get_id(edge.first)] + graph.get_length(edge.first);
+        int edge_end = ref_offsets[graph.get_id(edge.second)];
+        // because of previous assumptins, are edges shoudl always be forward alogn the path.
+        // note they are not made wtih graph.edge_handle, and are just oriented in the scan order
+        assert(edge_start <= edge_end);
+        for (edge_t other_edge : edge_set) {
+            int other_start = ref_offsets[graph.get_id(other_edge.first)] + graph.get_length(other_edge.first);
+            int other_end = ref_offsets[graph.get_id(other_edge.second)];
+            if ((other_start >= edge_start && other_start < edge_end) || (other_end > edge_start && other_end <= edge_end) ||
+                (edge_start >= other_start && edge_start < other_end) || (edge_end > other_start && edge_end >= other_end)) {
+                return false;
+            }
+        }
+        return true;
+    };
+    
+    // greedily try to find some deletions that add up to the desired length, and are close to spanning
+    // the alt path
+    int best_delta = numeric_limits<int>::max();
+    vector<edge_t> best_set;
+    for (auto delta_edge : delta_to_deletion) {
+        // can do better than quadratic here, but the sizes should be small enough not to matter
+        vector<edge_t> candidate_set = {delta_edge.second};
+        size_t total_size = deletion_to_length[delta_edge.second];
+        int total_delta = delta_edge.first;
+        for (auto delta_edge2 : delta_to_deletion) {
+            if (delta_edge2 != delta_edge) {
+                if (total_size + deletion_to_length[delta_edge2.second] <= vcf_deletion_length &&
+                    // make that cubic...
+                    doesnt_intersect(delta_edge2.second, candidate_set)) {
+                        total_size += deletion_to_length[delta_edge2.second];
+                        total_delta += delta_edge2.first;
+                        candidate_set.push_back(delta_edge2.second);
+                    }
+            }
+            if (total_size == vcf_deletion_length) {
+                break;
+            }
+        }
+        if (total_delta < best_delta) {
+            best_set = candidate_set;
+            best_delta = total_delta;
+        }
+    }
+
+    // sort the edges along the path
+    std::sort(best_set.begin(), best_set.end(), [&](edge_t e1, edge_t e2) {
+            return ref_offsets[graph.get_id(e1.first)] < ref_offsets[graph.get_id(e2.first)]; });
+
+    SnarlTraversal traversal;
+    Visit* visit;
+    // fill out the traversal
+    for (int i = 0; i < best_set.size(); ++i) {
+        // add a visit for each edge endpoint
+        if (i == 0 || best_set[i].first != best_set[i-1].second) {
+            visit = traversal.add_visit();
+            visit->set_node_id(graph.get_id(best_set[i].first));
+            visit->set_backward(graph.get_is_reverse(best_set[i].first));
+        }
+        visit = traversal.add_visit();
+        visit->set_node_id(graph.get_id(best_set[i].second));
+        visit->set_backward(graph.get_is_reverse(best_set[i].second));
+        // the fill in the reference path to the next edge
+        if (i < best_set.size() - 1) {
+            step_handle_t next_step = node_to_step[graph.get_id(best_set[i + 1].first)];
+            step_handle_t cur_step = node_to_step[graph.get_id(best_set[i].second)];
+            if (cur_step != next_step) {
+                for (cur_step = graph.get_next_step(cur_step); cur_step != next_step; cur_step = graph.get_next_step(cur_step)) {
+                    visit = traversal.add_visit();
+                    visit->set_node_id(graph.get_id(graph.get_handle_of_step(cur_step)));
+                    visit->set_backward(graph.get_is_reverse(graph.get_handle_of_step(cur_step)));
+                }
+            }
+        }
+    }
+
+    return make_pair(traversal, best_set);
 }
 
 

@@ -22,9 +22,6 @@
 [submodule "sha1"]
 	path = deps/sha1
 	url = https://github.com/vog/sha1.git
-[submodule "protobuf"]
-	path = deps/protobuf
-	url = https://github.com/google/protobuf.git
 [submodule "gcsa2"]
 	path = deps/gcsa2
 	url = https://github.com/jltsiren/gcsa2.git
@@ -125,3 +122,6 @@
 [submodule "deps/mmmultimap"]
 	path = deps/mmmultimap
 	url = https://github.com/ekg/mmmultimap.git
+[submodule "deps/BBHash"]
+	path = deps/BBHash
+	url = https://github.com/rizkg/BBHash.git

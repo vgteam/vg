@@ -24,7 +24,7 @@ using namespace std;
 /// If out_translation is not null, a list of translations, one per node existing
 /// after the edit, describing
 /// how each new or conserved node is embedded in the old graph. 
-/// if save_path_fn is not null, this function will be run on each modified path
+/// if embed_paths is true, then the augmented alignemnents will be saved as embededed paths in the graph
 /// in order to add it back to the graph.
 /// If break_at_ends is true, nodes will be broken at
 /// the ends of paths that start/end woth perfect matches, so the paths can
@@ -35,7 +35,7 @@ void augment(MutablePathMutableHandleGraph* graph,
              istream& gam_stream,
              vector<Translation>* out_translation = nullptr,
              ostream* gam_out_stream = nullptr,
-             function<void(Path&)> save_path_fn = nullptr,
+             bool embed_paths = false,
              bool break_at_ends = false,
              bool remove_soft_clips = false);
 
@@ -45,7 +45,7 @@ void augment(MutablePathMutableHandleGraph* graph,
              vector<Path>& path_vector,
              vector<Translation>* out_translation = nullptr,
              ostream* gam_out_stream = nullptr,
-             function<void(Path&)> save_path_fn = nullptr,
+             bool embed_paths = false,
              bool break_at_ends = false,
              bool remove_soft_clips = false);
 
@@ -54,10 +54,14 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                   function<void(function<void(Alignment&)>, bool)> iterate_gam,
                   vector<Translation>* out_translation,
                   ostream* gam_out_stream,
-                  function<void(Path&)> save_path_fn,
+                  bool embed_paths,
                   bool break_at_ends,
                   bool remove_soft_clips);
 
+/// Add a path to the graph.  This is like VG::extend, and expects
+/// a path with no edits, and for all the nodes and edges in the path
+/// to exist exactly in the graph
+path_handle_t add_path_to_graph(MutablePathHandleGraph* graph, const Path& path);
 
 /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
 /// them to the given map by node ID of sets of bases in the node that will need

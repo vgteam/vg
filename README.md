@@ -13,9 +13,19 @@ _Variation graphs_ provide a succinct encoding of the sequences of many genomes.
 * _edges_, which connect two nodes via either of their respective ends
 * _paths_, describe genomes, sequence alignments, and annotations (such as gene models and transcripts) as walks through nodes connected by edges
 
-This model is similar to a number of sequence graphs that have been used in assembly and multiple sequence alignment. Paths provide coordinate systems relative to genomes encoded in the graph, allowing stable mappings to be produced even if the structure of the graph is changed.
+This model is similar to sequence graphs that have been used in assembly and multiple sequence alignment.
+
+Paths provide coordinate systems relative to genomes encoded in the graph, allowing stable mappings to be produced even if the structure of the graph is changed.
+The variation graph model makes this embedding explicit and essential.
+Tools in vg maintain paths as immutable during transformations of the graph.
+They use paths to project graph-relative data into reference-relative coordinate spaces.
+Paths provide stable coordinates for graphs built in different ways from the same input sequences.
 
 ![example variation graph](https://raw.githubusercontent.com/vgteam/vg/master/doc/figures/smallgraph.png)
+
+## Support 
+
+We maintain a support forum on biostars: https://www.biostars.org/t/vg/
 
 ## Installation
 
@@ -44,15 +54,18 @@ Then, install VG's dependencies. You'll need the protobuf and jansson developmen
 On other distros, you will need to perform the equivalent of:
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
-                         protobuf-compiler libprotoc-dev libjansson-dev automake libtool \
-                         jq bc rs curl unzip redland-utils librdf-dev bison flex gawk \
-                         lzma-dev liblzma-dev liblz4-dev libffi-dev libcairo-dev
+                         protobuf-compiler libprotoc-dev libprotobuf-dev libjansson-dev \
+                         automake libtool jq bc rs curl unzip redland-utils \
+                         librdf-dev bison flex gawk lzma-dev liblzma-dev liblz4-dev \
+                         libffi-dev libcairo-dev
+                         
+Note that **Ubuntu 16.04** does not ship a sufficiently new Protobuf; vg requires **Protobuf 3** which will have to be manually installed.
 
 At present, you will need GCC version 4.9 or greater to compile vg. (Check your version with `gcc --version`.)
 
 Other libraries may be required. Please report any build difficulties.
 
-Note that a 64-bit OS is required. Ubuntu 16.04 should work. You will also need a CPU that supports SSE 4.2 to run VG; you can check this with `cat /proc/cpuinfo | grep sse4_2`.
+Note that a 64-bit OS is required. Ubuntu 18.04 should work. You will also need a CPU that supports SSE 4.2 to run VG; you can check this with `cat /proc/cpuinfo | grep sse4_2`.
 
 When you are ready, build with `. ./source_me.sh && make`, and run with `./bin/vg`.
 
@@ -75,7 +88,7 @@ VG depends on a number of packages being installed on the system where it is bei
 
 You can use MacPorts to install VG's dependencies:
 
-    sudo port install libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen cairo libomp
+    sudo port install libtool protobuf3-cpp jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen cairo libomp
     
 
 ##### Using Homebrew
@@ -220,30 +233,34 @@ vg augment x.vg aln.gam -i > aug_with_paths.vg
 
 ### Variant Calling
 
-The following example shows how to construct a VCF using read support, considering only variants in the graph.  It depends on output from the Mapping and Augmentation examples above.  Small variants and SVs can be called using the same approach.  Currently, it is more accuracte for SVs. 
+#### Calling variants using read support
+
+The following examples show how to generate a VCF with vg using read support.  They depend on output from the Mapping and Augmentation examples above.  Small variants and SVs can be called using the same approach.  Currently, it is more accuracte for SVs.  
+
+Call only variants that are present in the graph:
 
 ```sh
-# Compute the read support from the gam (ignoring mapping and base qualitiy < 15)
-vg pack -x x.xg -g aln.gam -Q 15 -o aln.pack
+# Compute the read support from the gam (ignoring mapping and base qualitiy < 5)
+vg pack -x x.xg -g aln.gam -Q 5 -o aln.pack
 
 # Generate a VCF from the support
 vg call x.xg -k aln.pack > graph_calls.vcf
 ```
 
-In order to also consider *novel* variants from the reads, use the augmented graph and gam (as created in the previous example using `vg augment -C -A`)
+In order to also consider *novel* variants from the reads, use the augmented graph and gam (as created in the previous example using `vg augment -C -A`):
 
 ```sh
 # Index our augmented graph
 vg index aug.vg -x aug.xg
 
-# Compute the read support from the augmented gam (with ignoring qualitiy < 15)
-vg pack -x aug.xg -g aug.gam -Q 15 -o aln_aug.pack
+# Compute the read support from the augmented gam (with ignoring qualitiy < 5)
+vg pack -x aug.xg -g aug.gam -Q 5 -o aln_aug.pack
 
 # Generate a VCF from the support
 vg call aug.xg -k aln_aug.pack > calls.vcf
 ```
 
-A similar process can by used to *genotype* known variants from a VCF. To do this, the graph must be constructed from the VCF with `vg construct -a`.
+A similar process can by used to *genotype* known variants from a VCF. To do this, the graph must be constructed from the VCF with `vg construct -a`:
 
 ```sh
 # Re-construct the same graph as before but with `-a`
@@ -256,16 +273,48 @@ vg index xa.vg -x xa.xg -L
 vg pack -x xa.xg -g aln.gam -o aln.pack
 
 # Genotype the VCF
-vg call xa.xg -k aln.pack -v small/x.vcf.gz
+vg call xa.xg -k aln.pack -v small/x.vcf.gz > genotypes.vcf
 ```
 
 Pre-filtering the GAM before computing support can improve precision of SNP calling
 ```sh
 # filter secondary and ambiguous read mappings out of the gam
-vg filter aln.gam -r 0.90 -fu -s 2 -o 0 -D 999 -x x.xg > aln.filtered.gam
+vg filter aln.gam -r 0.90 -fu -m 1 -q 15 -D 999 -x x.xg > aln.filtered.gam
 
 # then compute the support from aln.filtered.gam instead of aln.gam in above etc.
 ```
+
+For larger graphs, it is recommended to compute snarls separately:
+```sh
+vg snarls x.xg > x.snarls
+
+# load snarls from a file instead of computing on the fly
+vg call x.xg -k aln.pack -r x.snarls > calls.vcf
+```
+
+Note: `vg augment`, `vg pack`, `vg call` and `vg snarls` can now all be run on directly on any graph format (ex `.vg`, `.xg` (except `augment`) or anything output by `vg convert`).  Operating on `.vg` uses the most memory and is not recommended for large graphs.  The output of `vg pack` can only be read in conjunction with the same graph used to create it, so `vg pack x.vg -g aln.gam -o x.pack` then `vg call x.xg -k x.pack` will not work.
+
+#### Calling variants from paths in the graph
+
+Infer variants from from alignments implied by paths in the graph.  This can be used, for example, to call SVs directly from a variation graph that was constructed from a multiple alignment of different assemblies:
+```sh
+# create a graph from a multiple alignment of HLA haplotypes (from vg/test directory)
+vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
+
+# index it
+vg index hla.vg -x hla.xg
+
+# generate a VCF using gi|568815592:29791752-29792749 as the reference contig.  The other paths will be considered as haploid samples
+vg deconstruct hla.xg -e -p "gi|568815592:29791752-29792749" > hla_variants.vcf
+```
+
+Variants can also be inferred strictly from topology by not using `-e`, though unlike the above example, cycles are not supported.  "Deconstruct" the VCF variants that were used to construct the graph. The output will be similar but identical to `small/x.vcf.gz` as `vg construct` can add edges between adjacent alts and/or do some normalization:
+```sh
+# using the same graph from the `map` example
+vg deconstruct x.xg > x.vcf
+```
+
+As with `vg call`, it is best to compute snarls separately and pass them in with `-r` when working with large graphs.
 
 ### Command line interface
 

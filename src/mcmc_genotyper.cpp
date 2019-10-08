@@ -145,7 +145,6 @@ namespace vg {
         
 
         if(random_snarl == nullptr){
-            cerr << "random_snarl is null " <<endl;
             random_haplotype = -1;
             return to_return;
         }
@@ -156,7 +155,6 @@ namespace vg {
 
 
         if(matched_haplotypes.empty()){
-            cerr<< "matched haplotype is empty"<< endl;
             // cerr << "looking for snarl starting with " << random_snarl->start() << " and snarl ending with " << random_snarl->end() <<endl;
             random_haplotype = -1;
             return to_return;

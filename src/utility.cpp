@@ -690,4 +690,19 @@ unordered_map<id_t, id_t> overlay_node_translations(const unordered_map<id_t, id
     return overlaid;
 }
 
+template<>
+bool parse(const string& arg, double& dest) {
+    size_t after;
+    dest = std::stod(arg, &after);
+    return(after == arg.size());
+}
+
+template<>
+bool parse(const string& arg, std::regex& dest) {
+    // This throsw std::regex_error if it can't parse.
+    // That contains a kind of useless error code that we can't turn itno a string without switching on all the values.
+    dest = std::regex(arg);
+    return true;
+}
+
 }
