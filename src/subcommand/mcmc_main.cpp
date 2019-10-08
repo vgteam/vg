@@ -29,11 +29,18 @@ void help_mcmc(char** argv) {
     << endl
     << "basic options:" << endl
     << "  -i, --iteration-number INT        tells us the number of iterations to run mcmc_genotyper with" <<endl
-    << "  -s, --seed INT                    the seed we will use for the random number generator " << endl;
+    << "  -s, --seed INT                    the seed we will use for the random number generator " << endl
+    << "  -p  --ref-path NAME               reference path to call on (multipile allowed.  defaults to all paths)"<< endl
+    << "  -o, --ref-offset N                offset in reference path (multiple allowed, 1 per path)" << endl
+    << "  -l, --ref-length N                override length of reference in the contig field of output VCF" << endl;
 }
 
 int main_mcmc(int argc, char** argv) {
 
+    // holds the ref-path name 
+    vector<string> ref_paths;
+    vector<size_t> ref_path_offsets;
+    vector<size_t> ref_path_lengths;
 
     if (argc < 5) {
         help_mcmc(argv);
@@ -52,11 +59,12 @@ int main_mcmc(int argc, char** argv) {
             {"help", no_argument, 0, 'h'},
             {"iteration-number", required_argument, 0, 'i'},
             {"seed", required_argument, 0, 's'},
+            {"ref-path", required_argument, 0, 'p'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hi:s:",
+        c = getopt_long (argc, argv, "hi:s:p:",
                          long_options, &option_index);
 
 
@@ -73,7 +81,15 @@ int main_mcmc(int argc, char** argv) {
             case 's':
                 seed = parse<int>(optarg);
                 break;
-                
+            case 'p':
+                ref_paths.push_back(optarg);
+                break;
+            case 'o':
+                ref_path_offsets.push_back(parse<int>(optarg));
+                break;
+            case 'l':
+                ref_path_lengths.push_back(parse<int>(optarg));
+                break;                
             case 'h':
             case '?':
             default:
@@ -82,14 +98,35 @@ int main_mcmc(int argc, char** argv) {
                 break;
         }
     }
-    
-    
+    // Check our offsets
+    if (ref_path_offsets.size() != 0 && ref_path_offsets.size() != ref_paths.size()) {
+        cerr << "error [vg call]: when using -o, the same number paths must be given with -p" << endl;
+        return 1;
+    }
+    // Check our ref lengths
+    if (ref_path_lengths.size() != 0 && ref_path_lengths.size() != ref_paths.size()) {
+        cerr << "error [vg call]: when using -l, the same number paths must be given with -p" << endl;
+        return 1;
+    }
+
     string multipath_file =  get_input_file_name(optind, argc, argv);
     string graph_file =  get_input_file_name(optind, argc, argv);
     string snarls_file =  get_input_file_name(optind, argc, argv);
 
     unique_ptr<VG> graph = (vg::io::VPKG::load_one<VG>(graph_file));
     unique_ptr<SnarlManager> snarls = (vg::io::VPKG::load_one<SnarlManager>(snarls_file));
+
+    // No paths specified: use them all
+    if (ref_paths.empty()) {
+        graph->for_each_path_handle([&](path_handle_t path_handle) {
+                const string& name = graph->get_path_name(path_handle);
+                if (!Paths::is_alt(name)) {
+                    ref_paths.push_back(name);
+                }
+            });
+    }
+    
+   
 
     vector<MultipathAlignment> reads;
     get_input_file(multipath_file, [&] (istream& open_file){
