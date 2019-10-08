@@ -11,11 +11,13 @@ set +e
 
 # Should we build and run locally, or should we use Docker?
 LOCAL_BUILD=0
-# What filename should we export our Docker to?
-SAVE_DOCKER=""
-# What filename should we import our Docker from instead of building.
+# Should we build with Singularity, or use Docker?
+SINGULARITY_BUILD=0
+# What filename should we export our container to?
+SAVE_CONTAINER=""
+# What filename should we import our container from instead of building?
 # Note that this must be exported from this script, so it will have the right tag!
-LOAD_DOCKER=""
+LOAD_CONATINER=""
 # What tag will our Docker use?
 # We need exclusive control of the Docker daemon for the duration of the test, so nobody moves it!
 DOCKER_TAG=""
@@ -30,7 +32,7 @@ KEEP_INTERMEDIATE_FILES=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@1f54b04243e633640f7bae8ef2f35a90f5f75148"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@27a991275911d08c42bfd264bde7112264d54c25"
 # What toil should we install?
 # Could be something like "toil[aws,mesos]==3.13.0"
 # or "git+https://github.com/adamnovak/toil.git@2b696bec34fa1381afdcf187456571d2b41f3842#egg=toil[aws,mesos]"
@@ -63,8 +65,9 @@ usage() {
     printf "Options:\n\n"
     printf "\t-l\t\tBuild vg locally (instead of in Docker) and don't use Docker at all.\n"
     printf "\t\t\tNon-Python dependencies must be installed.\n"
-    printf "\t-d FILE\tSave built Docker to the given file.\n"
-    printf "\t-D FILE\tLoad a previously built Docker from a file instead of building.\n"
+    printf "\t-S\t\tBuild vg in Singularity (instead of in Docker) and don't use Docker at all. Requires -d or -D.\n"
+    printf "\t-d FILE\tSave built container to the given file.\n"
+    printf "\t-D FILE\tLoad a previously built container from a file instead of building.\n"
     printf "\t-T TAG\tLoad a previously built Docker from the given tag/specifier instead of building.\n"
     printf "\t-r\t\tRe-use virtualenvs across script invocations. \n"
     printf "\t-k\t\tKeep on-disk output from tests. \n"
@@ -80,16 +83,19 @@ usage() {
     exit 1
 }
 
-while getopts "ld:D:T:rkisp:t:w:W:j:J:H" o; do
+while getopts "lSd:D:T:rkisp:t:w:W:j:J:H" o; do
     case "${o}" in
         l)
             LOCAL_BUILD=1
             ;;
+        S)
+            SINGULARITY_BUILD=1
+            ;;
         d)
-            SAVE_DOCKER="${OPTARG}"
+            SAVE_CONTAINER="${OPTARG}"
             ;;
         D)
-            LOAD_DOCKER="${OPTARG}"
+            LOAD_CONATINER="${OPTARG}"
             ;;
         T)
             DOCKER_TAG="${OPTARG}"
@@ -166,7 +172,7 @@ DO_BUILD=1
 DO_TEST=1
 DO_REPORT=1
 
-if [ ! -z "${LOAD_DOCKER}" ]
+if [ ! -z "${LOAD_CONATINER}" ]
 then
     # Skip the build phase
     DO_BUILD=0
@@ -234,6 +240,39 @@ then
             echo "vg local build fail"
             BUILD_FAIL=1
         fi
+    elif [ "${SINGULARITY_BUILD}" == "1" ]
+    then
+        # Build a Singularity image locally. Can be done when we don't have
+        # permission to use Docker.
+        
+        if [ -z "${SAVE_CONTAINER}" ]
+        then
+            echo "cannot build Singularity container without a destination file"
+            BUILD_FAIL=1
+        else
+        
+            make include/vg_git_version.hpp
+        
+            # Convert Dockerfile to Singularity
+            spython recipe vgci/Dockerfile.vgci >vgci/Dockerfile.vgci.recipe
+            if [ "$?" -ne 0 ]
+            then
+                echo "vg singlualrity conversion fail"
+                BUILD_FAIL=1
+            else
+                
+                # Do the build with Singularity
+                singularity build --fakeroot -F "${SAVE_CONTAINER}" vgci/Dockerfile.vgci.recipe
+                if [ "$?" -ne 0 ]
+                then
+                    echo "vg singlualrity build fail"
+                    BUILD_FAIL=1
+                fi
+                
+                # We built a container so we will use that when running
+                SINGULARITY_IMAGE="${SAVE_CONTAINER}"
+            fi
+        fi
     else
 
         # Build a docker image locally.  Can be useful when don't
@@ -250,11 +289,11 @@ then
             BUILD_FAIL=1
         else
         
-            if [ ! -z "${SAVE_DOCKER}" ]
+            if [ ! -z "${SAVE_CONTAINER}" ]
             then
                 # Save the Docker to a file.
                 # Loading it will set the tag.
-                docker save "${DOCKER_TAG}" -o "${SAVE_DOCKER}"
+                docker save "${DOCKER_TAG}" -o "${SAVE_CONTAINER}"
                 if [ "$?" -ne 0 ]
                 then
                     echo "vg docker save fail"
@@ -271,12 +310,27 @@ then
     DO_TEST=0
 fi
 
-if ([ "${DO_TEST}" != "0" ] || [ "${DO_REPORT}" != "0" ]) && [ ! -z "${LOAD_DOCKER}" ]
+if ([ "${DO_TEST}" != "0" ] || [ "${DO_REPORT}" != "0" ]) && [ ! -z "${LOAD_CONATINER}" ]
 then
-    # Just load the Docker instead of building.
-    # It will set the tag it was saved from.
-    # We need it both for testing and reportign because both need the vg version
-    docker load -i "${LOAD_DOCKER}"
+    
+    if [ "${SINGULARITY_BUILD}" == "1" ]
+    then
+        # Container will be used with Singularity
+        SINGULARITY_IMAGE="${LOAD_CONATINER}"
+    else
+        # Container will be used with Docker
+        
+        # Just load the Docker instead of building.
+        # It will set the tag it was saved from.
+        # We need it both for testing and reportign because both need the vg version
+        docker load -i "${LOAD_CONATINER}"
+    fi
+fi
+
+if [ "${SINGULARITY_BUILD}" == "1" ] && [ -z "${SINGULARITY_IMAGE}" ]
+then
+    echo "cannot run Singularity container without a source file"
+    exit 1
 fi
 
 if [ "${DO_TEST}" != "0" ]
@@ -378,10 +432,24 @@ then
         VG_VERSION=`vg version -s`
         printf "vg-docker-version None\n" >> vgci_cfg.tsv
         printf "container None\n" >> vgci_cfg.tsv
+    elif [ "${SINGULARITY_BUILD}" == "1" ]
+    then
+        # Test the Singularity-built vg
+        VG_VERSION=`singularity run ${SINGULARITY_IMAGE} vg version -s`
+        printf "vg-docker-version \"${SINGULARITY_IMAGE}\"\n" >> vgci_cfg.tsv
+        printf "container Singularity\n" >> vgci_cfg.tsv
+        
+        # Pull down the other docker images to Singularity's cache, so time
+        # costs (and instability) of doing so doesn't affect individual test
+        # results (looking at you, rocker/tidyverse:3.4.2)
+        # Allow two tries
+        for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do singularity pull "docker://${img}" ; done
+        for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do singularity pull "docker://${img}" ; done
     else
         # Test the Dockerized vg
         VG_VERSION=`docker run ${DOCKER_TAG} vg version -s`
         printf "vg-docker-version ${DOCKER_TAG}\n" >> vgci_cfg.tsv
+        printf "container Docker\n" >> vgci_cfg.tsv
         
         # Pull down the docker images, so time costs (and instability) of doing so doesn't affect
         # individual test results (looking at you, rocker/tidyverse:3.4.2)
@@ -504,6 +572,10 @@ then
         then
             # Report on the locally built vg
             VG_VERSION=`vg version -s`
+        elif [ "${SINGULARITY_BUILD}" == "1" ]
+        then
+            # Test the Singularity vg
+            VG_VERSION=`singularity run ${SINGULARITY_IMAGE} vg version -s`    
         else
             # Test the Dockerized vg
             VG_VERSION=`docker run ${DOCKER_TAG} vg version -s`

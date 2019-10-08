@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 
 # vgci-parallel-wrapper.sh: run a subset of the available tests with vgci.sh
-# Usage: vgci-paralell-wrapper.sh vgci/test-list.txt vgci-docker-vg-local $CI_NODE_INDEX $CI_NODE_TOTAL junit test_output
+# Usage: vgci-paralell-wrapper.sh vgci/test-list.txt vg.sif $CI_NODE_INDEX $CI_NODE_TOTAL junit test_output
 # Finds our share of the tests in the test list, given our 0-based index and the total node count.
-# Runs each of them with the given Docker tag and drops a unique junit xml for the test in the given output 
+# Runs each of them with the given Singularity image and drops a unique junit xml for the test in the given output 
 # directory, while keeping the test output in the other given output directory in per-test folders.
 # If we have to run more than 1 test we will duplicate vgci.sh's setup work creating venvs and so on.
 # Meant to be run fromn the vg project root.
 
 # We will handle errors ourselves
-set -e
+set +e
 # Report what we're up to
 set -x
 
 # Parse arguments
 TEST_LIST="${1}"
 shift
-DOCKER_TAG="${1}"
+SINGULARITY_IMAGE="${1}"
 shift
 NODE_INDEX="${1}"
 shift
