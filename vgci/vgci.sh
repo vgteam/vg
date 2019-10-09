@@ -32,11 +32,11 @@ KEEP_INTERMEDIATE_FILES=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@41a37a1fd1290f1770e02050db9357b97b8e19cd"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@f51a8804bbc5ad1bf385eee5a54c8763b6de81c4"
 # What toil should we install?
 # Could be something like "toil[aws,mesos]==3.13.0"
 # or "git+https://github.com/adamnovak/toil.git@2b696bec34fa1381afdcf187456571d2b41f3842#egg=toil[aws,mesos]"
-TOIL_PACKAGE="toil[aws,mesos]==3.13.0"
+TOIL_PACKAGE="git+https://github.com/DataBiosphere/toil.git@792f1dcae9434816aee4561017a60923b02a0cfc#egg=toil[aws,mesos]"
 # What tests should we run?
 # Should be something like "vgci/vgci.py::VGCITest::test_sim_brca2_snp1kg_mpmap"
 # Must have the Python file in it or Pytest can't find the tests.
