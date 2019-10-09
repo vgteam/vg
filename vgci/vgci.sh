@@ -36,7 +36,7 @@ TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@f51a8804bbc5ad1bf385e
 # What toil should we install?
 # Could be something like "toil[aws,mesos]==3.13.0"
 # or "git+https://github.com/adamnovak/toil.git@2b696bec34fa1381afdcf187456571d2b41f3842#egg=toil[aws,mesos]"
-TOIL_PACKAGE="git+https://github.com/DataBiosphere/toil.git@792f1dcae9434816aee4561017a60923b02a0cfc#egg=toil[aws,mesos]"
+TOIL_PACKAGE="git+https://github.com/DataBiosphere/toil.git@48b003d1a64bf4a3d6228e5519406b5509f3a301#egg=toil[aws,mesos]"
 # What tests should we run?
 # Should be something like "vgci/vgci.py::VGCITest::test_sim_brca2_snp1kg_mpmap"
 # Must have the Python file in it or Pytest can't find the tests.
