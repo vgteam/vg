@@ -55,11 +55,15 @@ public:
     size_t get_n_bins(void) const;
     bool is_dynamic(void);
     size_t coverage_size(void);
+    void increment_coverage(size_t i);
+    void increment_coverage(size_t i, size_t v);
 
     size_t edge_coverage(Edge& e) const;
     size_t edge_coverage(size_t i) const;
     size_t edge_vector_size(void) const;
     size_t edge_index(const Edge& e) const;
+    void increment_edge_coverage(size_t i);
+    void increment_edge_coverage(size_t i, size_t v);
 private:
     void ensure_edit_tmpfiles_open(void);
     void close_edit_tmpfiles(void);
