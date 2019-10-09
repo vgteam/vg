@@ -147,13 +147,13 @@ void Packer::collect_coverage(const Packer& c) {
 #pragma omp task
             {
                 for (size_t i = 0; i < c.graph_length(); ++i) {
-                    coverage_dynamic.increment(i, c.coverage_at_position(i));
+                    increment_coverage(i, c.coverage_at_position(i));
                 }
             }
 #pragma omp task
             {
                 for (size_t i = 0; i < c.edge_vector_size(); ++i){
-                    edge_coverage_dynamic.increment(i, c.edge_coverage(i));
+                    increment_edge_coverage(i, c.edge_coverage(i));
                 }
             }
         }
@@ -192,16 +192,17 @@ void Packer::make_compact(void) {
     // sync edit file
     close_edit_tmpfiles();
     // temporaries for construction
-    size_t basis_length = coverage_dynamic.size();
+    size_t basis_length = coverage_size();
     int_vector<> coverage_iv;
     util::assign(coverage_iv, int_vector<>(basis_length));
-    for (size_t i = 0; i < coverage_dynamic.size(); ++i) {
-        coverage_iv[i] = coverage_dynamic[i];
+    for (size_t i = 0; i < basis_length; ++i) {
+        coverage_iv[i] = coverage_at_position(i);
     }
+    size_t edge_coverage_length = edge_vector_size();
     int_vector<> edge_coverage_iv;
     util::assign(edge_coverage_iv, int_vector<>(edge_coverage_dynamic.size()));
-    for (size_t i = 0; i < edge_coverage_dynamic.size(); ++i) {
-        edge_coverage_iv[i] = edge_coverage_dynamic[i];
+    for (size_t i = 0; i < edge_coverage_length; ++i) {
+        edge_coverage_iv[i] = edge_coverage(i);
     }
     util::assign(edge_coverage_civ, edge_coverage_iv);
     edit_csas.resize(edit_tmpfile_names.size());
@@ -310,9 +311,9 @@ void Packer::add(const Alignment& aln, bool record_edits) {
                     // base quality threshold filter (only if we found some kind of quality)
                     if (base_quality < 0 || base_quality >= min_baseq) {
                         if (!qual_adjust) {
-                            coverage_dynamic.increment(coverage_idx);
+                            increment_coverage(coverage_idx);
                         } else {
-                            coverage_dynamic.increment(coverage_idx, base_quality);
+                            increment_coverage(coverage_idx, base_quality);
                         }
                     }
                 }         
@@ -355,9 +356,9 @@ void Packer::add(const Alignment& aln, bool record_edits) {
                 // base quality threshold filter (only if we found some kind of quality)
                 if (avg_base_quality < 0 || avg_base_quality >= min_baseq) {
                     if (!qual_adjust) {
-                        edge_coverage_dynamic.increment(edge_idx);
+                        increment_edge_coverage(edge_idx);
                     } else {
-                        edge_coverage_dynamic.increment(edge_idx, combine_qualities(aln.mapping_quality(), avg_base_quality));
+                        increment_edge_coverage(edge_idx, combine_qualities(aln.mapping_quality(), avg_base_quality));
                     }
                 }
             }
@@ -453,6 +454,14 @@ size_t Packer::edge_vector_size(void) const{
     }
 }
 
+void Packer::increment_edge_coverage(size_t i) {
+    edge_coverage_dynamic.increment(i);
+}
+
+void Packer::increment_edge_coverage(size_t i, size_t v) {
+    edge_coverage_dynamic.increment(i, v);
+}
+
 size_t Packer::coverage_at_position(size_t i) const {
     if (is_compacted) {
         return coverage_civ[i];
@@ -472,12 +481,7 @@ size_t Packer::edge_coverage(size_t i) const {
 
 size_t Packer::edge_coverage(Edge& e) const {
     size_t pos = edge_index(e);
-    if (is_compacted){
-        return edge_coverage_civ[pos];
-    }
-    else{
-        return edge_coverage_dynamic[pos];
-    }
+    return edge_coverage(pos);
 }
 
 vector<Edit> Packer::edits_at_position(size_t i) const {
@@ -592,7 +596,20 @@ ostream& Packer::show_structure(ostream& out) {
 }
 
 size_t Packer::coverage_size(void) {
-    return coverage_civ.size();
+    if (is_compacted){
+        return coverage_civ.size();
+    }
+    else{
+        return coverage_dynamic.size();
+    }
+}
+
+void Packer::increment_coverage(size_t i) {
+    coverage_dynamic.increment(i);
+}
+
+void Packer::increment_coverage(size_t i, size_t v) {
+    coverage_dynamic.increment(i, v);
 }
 
 int Packer::compute_quality(const Alignment& aln, size_t position_in_read) const {
