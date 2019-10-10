@@ -240,8 +240,8 @@ The following examples show how to generate a VCF with vg using read support.  T
 Call only variants that are present in the graph:
 
 ```sh
-# Compute the read support from the gam (ignoring mapping and base qualitiy < 15)
-vg pack -x x.xg -g aln.gam -Q 15 -o aln.pack
+# Compute the read support from the gam (ignoring mapping and base qualitiy < 5)
+vg pack -x x.xg -g aln.gam -Q 5 -o aln.pack
 
 # Generate a VCF from the support
 vg call x.xg -k aln.pack > graph_calls.vcf
@@ -253,8 +253,8 @@ In order to also consider *novel* variants from the reads, use the augmented gra
 # Index our augmented graph
 vg index aug.vg -x aug.xg
 
-# Compute the read support from the augmented gam (with ignoring qualitiy < 15)
-vg pack -x aug.xg -g aug.gam -Q 15 -o aln_aug.pack
+# Compute the read support from the augmented gam (with ignoring qualitiy < 5)
+vg pack -x aug.xg -g aug.gam -Q 5 -o aln_aug.pack
 
 # Generate a VCF from the support
 vg call aug.xg -k aln_aug.pack > calls.vcf
