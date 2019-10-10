@@ -46,6 +46,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "    -B, --label-paths           don't augment with alignments, just use them for labeling the graph" << endl
          << "    -Z, --translation FILE      save translations from augmented back to base graph to FILE" << endl
          << "    -A, --alignment-out FILE    save augmented GAM reads to FILE" << endl
+         << "    -s, --subgraph              graph is a subgraph of the one used to create GAM. ignore alignments with missing nodes" << endl
          << "    -h, --help                  print this help message" << endl
          << "    -p, --progress              show progress" << endl
          << "    -v, --verbose               print information and warnings about vcf generation" << endl
@@ -84,6 +85,10 @@ int main_augment(int argc, char** argv) {
     // Write the GAM alignments (from gam_in_file_name) projected on the augmented graph here
     string gam_out_file_name;
 
+    // Expect given graph to be subgraph of that used to create GAM and not
+    // fail when nodes are missing
+    bool is_subgraph = false;
+
     // Print some progress messages to screen
     bool show_progress = false;
 
@@ -102,6 +107,7 @@ int main_augment(int argc, char** argv) {
         {"include-paths", no_argument, 0, 'i'},
         {"cut-softclips", no_argument, 0, 'C'},
         {"label-paths", no_argument, 0, 'B'},
+        {"subgraph", no_argument, 0, 's'},
         {"help", no_argument, 0, 'h'},
         {"progress", required_argument, 0, 'p'},
         {"verbose", no_argument, 0, 'v'},
@@ -111,7 +117,7 @@ int main_augment(int argc, char** argv) {
         {"include-gt", required_argument, 0, 'L'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "a:Z:A:iCBhpvt:l:L:";
+    static const char* short_options = "a:Z:A:iCBhpvt:l:L:s";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -138,6 +144,9 @@ int main_augment(int argc, char** argv) {
             break;
         case 'B':
             label_paths = true;
+            break;
+        case 's':
+            is_subgraph = true;
             break;
         case 'h':
         case '?':
@@ -292,7 +301,8 @@ int main_augment(int argc, char** argv) {
                     gam_out_file_name.empty() ? nullptr : &gam_out_file,
                     include_paths,
                     include_paths,
-                    !include_softclips);
+                    !include_softclips,
+                    is_subgraph);
         } else {
             // much better to stream from a file so we can do two passes without storing in memory
             get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
@@ -302,7 +312,8 @@ int main_augment(int argc, char** argv) {
                             gam_out_file_name.empty() ? nullptr : &gam_out_file,
                             include_paths,
                             include_paths,
-                            !include_softclips);
+                            !include_softclips,
+                            is_subgraph);
                 });
         }
 

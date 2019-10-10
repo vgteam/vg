@@ -17,7 +17,8 @@ void augment(MutablePathMutableHandleGraph* graph,
              ostream* gam_out_stream,
              bool embed_paths,
              bool break_at_ends,
-             bool remove_softclips) {
+             bool remove_softclips,
+             bool filter_out_of_graph_alignments) {
 
     function<void(function<void(Alignment&)>, bool)> iterate_gam =
         [&gam_stream] (function<void(Alignment&)> aln_callback, bool reset_stream) {
@@ -34,7 +35,8 @@ void augment(MutablePathMutableHandleGraph* graph,
                  gam_out_stream,
                  embed_paths,
                  break_at_ends,
-                 remove_softclips);
+                 remove_softclips,
+                 filter_out_of_graph_alignments);
 }
 
 void augment(MutablePathMutableHandleGraph* graph,
@@ -43,7 +45,8 @@ void augment(MutablePathMutableHandleGraph* graph,
              ostream* gam_out_stream,
              bool embed_paths,
              bool break_at_ends,
-             bool remove_softclips) {
+             bool remove_softclips,
+             bool filter_out_of_graph_alignments) {
     
     function<void(function<void(Alignment&)>, bool)> iterate_gam =
         [&path_vector] (function<void(Alignment&)> aln_callback, bool reset_stream) {
@@ -61,7 +64,8 @@ void augment(MutablePathMutableHandleGraph* graph,
                  gam_out_stream,
                  embed_paths,
                  break_at_ends,
-                 remove_softclips);
+                 remove_softclips,
+                 filter_out_of_graph_alignments);
 }
 
 void augment_impl(MutablePathMutableHandleGraph* graph,
@@ -70,15 +74,29 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                   ostream* gam_out_stream,
                   bool embed_paths,
                   bool break_at_ends,
-                  bool remove_softclips) {
+                  bool remove_softclips,
+                  bool filter_out_of_graph_alignments) {
     // Collect the breakpoints
     unordered_map<id_t, set<pos_t>> breakpoints;
+
+    // Check if alignment contains node that's not in the graph
+    function<bool(const Path&)> check_in_graph = [&graph](const Path& path) {
+        for (size_t i = 0; i < path.mapping_size(); ++i) {
+            if (!graph->has_node(path.mapping(i).position().node_id())) {
+                return false;
+            }
+        }
+        return true;
+    };
 
     // First pass: find the breakpoints
     iterate_gam((function<void(Alignment&)>)[&](Alignment& aln) {
 #ifdef debug
             cerr << pb2json(aln.path()) << endl;
 #endif
+            if (filter_out_of_graph_alignments && !check_in_graph(aln.path())) {
+                return;
+            }
 
             if (remove_softclips) {
                 softclip_trim(aln);
@@ -119,6 +137,10 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
 
     // Second pass: add the nodes and edges
     iterate_gam((function<void(Alignment&)>)[&](Alignment& aln) {
+            if (filter_out_of_graph_alignments && !check_in_graph(aln.path())) {
+                return;
+            }
+            
             if (remove_softclips) {
                 softclip_trim(aln);
             }
@@ -324,6 +346,11 @@ unordered_map<id_t, set<pos_t>> forwardize_breakpoints(const HandleGraph* graph,
     unordered_map<id_t, set<pos_t>> fwd;
     for (auto& p : breakpoints) {
         id_t node_id = p.first;
+        if (!graph->has_node(node_id)) {
+            throw runtime_error("Node from GAM \"" + std::to_string(node_id) + "\" not found in graph.  If you are sure"
+                                " the input graph is a subgraph of that used to create the GAM, you can ignore this error"
+                                " with \"vg augment -s\"");
+        }
         assert(graph->has_node(node_id));
         size_t node_length = graph->get_length(graph->get_handle(node_id));
         auto bp = p.second;
