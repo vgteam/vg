@@ -645,7 +645,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index) / 2;
     
     if (probability_mapping_lost.front() > 0) {
-        min(mapq,round(prob_to_phred(probability_mapping_lost.front())));
+        mapq = min(mapq,round(prob_to_phred(probability_mapping_lost.front())));
     }
 #ifdef debug
     cerr << "MAPQ is " << mapq << endl;
