@@ -693,34 +693,56 @@ pair<string, PathIndex*> LegacyCaller::find_index(const Snarl& snarl, const vect
 
 pair<size_t, bool> LegacyCaller::get_ref_position(const Snarl& snarl, const string& ref_path_name) const {
     path_handle_t path_handle = graph.get_path_handle(ref_path_name);
+
     handle_t start_handle = graph.get_handle(snarl.start().node_id(), snarl.start().backward());
-    map<uint64_t, step_handle_t> start_steps;
+    map<size_t, step_handle_t> start_steps;
     graph.for_each_step_on_handle(start_handle, [&](step_handle_t step) {
             if (graph.get_path_handle_of_step(step) == path_handle) {
                 start_steps[graph.get_position_of_step(step)] = step;
             }
         });
+
     handle_t end_handle = graph.get_handle(snarl.end().node_id(), snarl.end().backward());
-    assert(start_steps.size() > 0);
-    // take the first one
+    map<size_t, step_handle_t> end_steps;
+    graph.for_each_step_on_handle(end_handle, [&](step_handle_t step) {
+            if (graph.get_path_handle_of_step(step) == path_handle) {
+                end_steps[graph.get_position_of_step(step)] = step;
+            }
+        });
+
+    assert(start_steps.size() > 0 && end_steps.size() > 0);
     step_handle_t start_step = start_steps.begin()->second;
-    bool backward = graph.get_is_reverse(graph.get_handle_of_step(start_step));
-    step_handle_t step_it = start_step;
-    size_t start_position = start_steps.begin()->first;
-    handle_t curr_handle = graph.get_handle_of_step(step_it);
-    size_t snarl_length = graph.get_length(curr_handle);
-    // walk it until we hit the end handle
-    while (!backward && graph.has_next_step(step_it) ||
-           graph.has_previous_step(step_it)) {
-        step_it = (!backward ? graph.get_next_step(step_it) : graph.get_previous_step(step_it));
-        curr_handle = graph.get_handle_of_step(step_it);
-        if (curr_handle == end_handle) {
-            break;
+    step_handle_t end_step = end_steps.begin()->second;
+    bool scan_backward = graph.get_is_reverse(graph.get_handle_of_step(start_step));
+
+    // if we're on a cycle, we keep our start step and find the end step by scanning the path
+    if (start_steps.size() > 1 || end_steps.size() > 1) {
+        bool found_end = false;
+        if (scan_backward) {
+            for (step_handle_t cur_step = start_step; graph.has_previous_step(end_step) && !found_end;
+                 cur_step = graph.get_previous_step(cur_step)) {
+                if (graph.get_handle_of_step(cur_step) == end_handle) {
+                    end_step = cur_step;
+                    found_end = true;
+                }
+            }
+            assert(found_end);
         } else {
-            snarl_length += graph.get_length(curr_handle);
+            for (step_handle_t cur_step = start_step; graph.has_next_step(end_step) && !found_end;
+                 cur_step = graph.get_next_step(cur_step)) {
+                if (graph.get_handle_of_step(cur_step) == end_handle) {
+                    end_step = cur_step;
+                    found_end = true;
+                }
+            }
+            assert(found_end);
         }
     }
-    size_t end_position = start_position + snarl_length;
+    
+    size_t start_position = start_steps.begin()->first;
+    size_t end_position = end_step == end_steps.begin()->second ? end_steps.begin()->first : graph.get_position_of_step(end_step);
+    bool backward = end_position < start_position;
+
     return make_pair(backward ? end_position : start_position, backward);
 }
 
