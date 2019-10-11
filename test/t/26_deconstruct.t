@@ -86,7 +86,7 @@ printf "x\t13\tGGAAATTTTCTGGAGTTCTATTATATT\tGGAAATTTTCTGGAGTTCTATTATATAAATTTTCTG
 diff cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv
 is "$?" 0 "deconstruct correctly handles a cycle in the alt path"
 
-vg chunk -x cyclic_tiny.xg -r 10:15 -c 1 > cycle.vg
+vg find -x cyclic_tiny.xg  -n 10 -n 11 -n 12 -n 13 -n 14 -n 15 -c 1 > cycle.vg
 vg index cycle.vg -x cycle.xg
 vg deconstruct cycle.xg -p y -e -t 1 > cycle_decon.vcf
 is $(grep -v "#" cycle_decon.vcf | wc -l) 2 "cyclic reference deconstruction has correct number of variants"

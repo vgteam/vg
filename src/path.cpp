@@ -32,6 +32,25 @@ const std::function<bool(const string&)> Paths::is_alt = [](const string& path_n
     
 };
 
+// Check if using subpath naming scheme.  If it is return true,
+// the root path name, and the offset (false otherwise)
+tuple<bool, string, size_t> Paths::parse_subpath_name(const string& path_name) {
+    size_t tag_offset = path_name.rfind(".subpath");
+    if (tag_offset == string::npos || tag_offset + 7 == path_name.length()) {
+        return make_tuple(false, "", 0);
+    } else {
+        string offset_str = path_name.substr(tag_offset + 8);
+        size_t offset_val = std::stol(offset_str);
+        return make_tuple(true, path_name.substr(0, tag_offset), offset_val);
+    }
+}
+
+// Create a subpath name
+string Paths::make_subpath_name(const string& path_name, size_t offset) {
+    return path_name + ".subpath" + std::to_string(offset);
+}
+
+
 mapping_t::mapping_t(void) : traversal(0), length(0), rank(1) { }
 
 mapping_t::mapping_t(const Mapping& m) {
