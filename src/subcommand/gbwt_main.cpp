@@ -32,23 +32,26 @@ void help_gbwt(char** argv) {
     std::cerr << std::endl;
     std::cerr << "Manipulate GBWTs." << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Merging (use deps/gbwt/merge_gbwt for more options):" << std::endl;
-    std::cerr << "    -m, --merge             merge the GBWT files from the input args and write to output" << std::endl;
-    std::cerr << "    -o, --output X          write output GBWT to X (required)" << std::endl;
-    std::cerr << "    -f, --fast              fast merging algorithm (node ids must not overlap; implies -m)" << std::endl;
+    std::cerr << "General options:" << std::endl;
+    std::cerr << "    -o, --output X          write output GBWT to X (required with -m, -f, and -P)" << std::endl;
     std::cerr << "    -p, --progress          show progress and statistics" << std::endl;
+    std::cerr << std::endl;
+    std::cerr << "Merging (requires -o; use deps/gbwt/merge_gbwt for more options):" << std::endl;
+    std::cerr << "    -m, --merge             merge the GBWT files from the input args and write to output" << std::endl;
+    std::cerr << "    -f, --fast              fast merging algorithm (node ids must not overlap; implies -m)" << std::endl;
+    std::cerr << std::endl;
     std::cerr << "Threads (one GBWT file as an input arg):" << std::endl;
     std::cerr << "    -c, --count-threads     print the number of threads" << std::endl;
     std::cerr << "    -e, --extract FILE      extract threads in SDSL format to FILE" << std::endl;
+    std::cerr << std::endl;
     std::cerr << "GBWTGraph construction (0 or 1 GBWT files as input args):" << std::endl;
     std::cerr << "    -g, --graph-name FILE   build GBWTGraph and serialize it to FILE (requires -x)" << std::endl;
     std::cerr << "    -x, --xg-name FILE      use the node sequences from the graph in FILE" << std::endl;
-    std::cerr << "    -P, --path-cover N      build GBWT from a greedy path cover of N paths per component" << std::endl;
+    std::cerr << "    -P, --path-cover N      build GBWT from a greedy path cover of N paths per component (requires -o)" << std::endl;
     std::cerr << "    -k, --context-length N  use N-node contexts for finding the path cover (default " << gbwtgraph::PATH_COVER_DEFAULT_K << ")" << std::endl;
     std::cerr << "    -b, --buffer-size N     GBWT construction buffer size in millions of nodes (default " << (gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION) << ")" << std::endl;
     std::cerr << "    -i, --id-interval N     store path ids at one out of N positions (default " << gbwt::DynamicGBWT::SAMPLE_INTERVAL << ")" << std::endl;
-    std::cerr << "    -o, --output X          write output GBWT to X (required with -P)" << std::endl;
-    std::cerr << "    -p, --progress          show progress and statistics" << std::endl;
+    std::cerr << std::endl;
     std::cerr << "Metadata (one GBWT file as an input arg; use deps/gbwt/metadata_tool to modify):" << std::endl;
     std::cerr << "    -M, --metadata          print basic metadata" << std::endl;
     std::cerr << "    -C, --contigs           print the number of contigs" << std::endl;
@@ -56,7 +59,8 @@ void help_gbwt(char** argv) {
     std::cerr << "    -S, --samples           print the number of samples" << std::endl;
     std::cerr << "    -L, --list-names        list contig/sample names (use with -C or -S)" << std::endl;
     std::cerr << "    -T, --thread-names      list thread names" << std::endl;
-    std::cerr << "    -R, --remove-sample X   remove sample X from the index (use -o to change output)" << std::endl;
+    std::cerr << "    -R, --remove-sample X   remove sample X from the index (overwrites input if -o is not used)" << std::endl;
+    std::cerr << std::endl;
 }
 
 
@@ -86,11 +90,13 @@ int main_gbwt(int argc, char** argv)
     while (true) {
         static struct option long_options[] =
             {
+                // General
+                { "output", required_argument, 0, 'o' },
+                { "progress",  no_argument, 0, 'p' },
+
                 // Merging
                 { "merge", no_argument, 0, 'm' },
-                { "output", required_argument, 0, 'o' },
                 { "fast", no_argument, 0, 'f' },
-                { "progress",  no_argument, 0, 'p' },
 
                 // Threads
                 { "count-threads", no_argument, 0, 'c' },
@@ -118,7 +124,7 @@ int main_gbwt(int argc, char** argv)
             };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "mo:fpce:g:x:P:k:b:i:MCHSLTR:h?", long_options, &option_index);
+        c = getopt_long(argc, argv, "o:pmfce:g:x:P:k:b:i:MCHSLTR:h?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -126,19 +132,21 @@ int main_gbwt(int argc, char** argv)
 
         switch (c)
         {
+        // General
+        case 'o':
+            gbwt_output = optarg;
+            break;
+        case 'p':
+            show_progress = true;
+            break;
+
         // Merging
         case 'm':
             merge = true;
             break;
-        case 'o':
-            gbwt_output = optarg;
-            break;
         case 'f':
             fast_merging = true;
             merge = true;
-            break;
-        case 'p':
-            show_progress = true;
             break;
 
         // Threads
