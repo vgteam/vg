@@ -292,7 +292,8 @@ void extract_path_range(const PathPositionHandleGraph& source, path_handle_t pat
 /// add subpaths to the subgraph, providing a concatenation of subpaths that are discontiguous over the subgraph
 /// based on their order in the path position index provided by the source graph
 /// will clear any path found in both graphs before writing the new steps into it
-void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePathHandleGraph& subgraph) {
+void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePathHandleGraph& subgraph,
+                              bool rename_discontinuous_path_chunks) {
     std::unordered_map<std::string, std::map<uint64_t, handle_t> > subpaths;
     subgraph.for_each_handle([&](const handle_t& h) {
             handlegraph::nid_t id = subgraph.get_id(h);
@@ -306,16 +307,52 @@ void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePath
                     });
             }
         });
+
+    function<path_handle_t(const string&, bool, size_t&)> new_subpath =
+        [&subgraph](const string& path_name, bool is_circular, size_t& sub_i) {
+        while (true) {
+            string subpath_name = path_name + ".chunk" + std::to_string(sub_i++);
+            if (!subgraph.has_path(subpath_name)) {
+                return subgraph.create_path_handle(subpath_name, is_circular);
+            }
+        }
+    };
+
     for (auto& subpath : subpaths) {
         const std::string& path_name = subpath.first;
         // destroy the path if it exists
         if (subgraph.has_path(path_name)) {
             subgraph.destroy_path(subgraph.get_path_handle(path_name));
         }
+        size_t chunk_num = 0;
         // fill in the path information
         path_handle_t path = subgraph.create_path_handle(path_name);
-        for (auto& p : subpath.second) {
-            const handle_t& handle = p.second;
+        for (auto p = subpath.second.begin(); p != subpath.second.end(); ++p) {
+            const handle_t& handle = p->second;
+            if (p != subpath.second.begin()) {
+                auto prev = p;
+                --prev;
+                const handle_t& prev_handle = prev->second;
+                // distance from map
+                size_t delta = max(p->first, prev->first) - min(p->first, prev->first);
+                // what the distance should be if they're contiguous depends on relative orienations
+                size_t cont_delta;
+                bool r1 = subgraph.get_is_reverse(prev_handle);
+                bool r2 = subgraph.get_is_reverse(handle);
+                if (r1 && r2) {
+                    cont_delta = subgraph.get_length(handle);
+                } else if (!r1 && !r2) {
+                    cont_delta = subgraph.get_length(prev_handle);
+                } else if (!r1 && r2) {
+                    cont_delta = subgraph.get_length(prev_handle) + subgraph.get_length(handle) - 1;
+                } else {
+                    cont_delta = 1;
+                }
+                if (delta != cont_delta) {
+                    // we have a discontinuity!  we'll make a new path can continue from there
+                    path = new_subpath(path_name, subgraph.get_is_circular(path), chunk_num);
+                }
+            }
             subgraph.append_step(path, handle);
         }
     }

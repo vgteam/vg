@@ -40,7 +40,10 @@ void extract_path_range(const PathPositionHandleGraph& source, path_handle_t pat
 /// add subpaths to the subgraph, providing a concatenation of subpaths that are discontiguous over the subgraph
 /// based on their order in the path position index provided by the source graph
 /// will clear any path found in both graphs before writing the new steps into it
-void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePathHandleGraph& subgraph);
+/// if rename_discontinuous_path_chunks is true, after each detected path discontinuity in the
+/// subgraph it will start a new path with a .chunki suffix
+void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePathHandleGraph& subgraph,
+                              bool rename_discontinuous_path_chunks = false);
 
 /// We can accumulate a subgraph without accumulating all the edges between its nodes
 /// this helper ensures that we get the full set

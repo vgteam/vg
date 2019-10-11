@@ -67,7 +67,7 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
     else if (context == 0 && length == 0) {
         algorithms::add_connecting_edges_to_subgraph(*graph, *vg_subgraph);
     }
-    algorithms::add_subpaths_to_subgraph(*graph, *vg_subgraph);
+    algorithms::add_subpaths_to_subgraph(*graph, *vg_subgraph, true);
         
     // build the vg of the subgraph
     vg_subgraph->remove_orphan_edges();
@@ -313,7 +313,7 @@ void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int64_t context
     if (length) {
         algorithms::expand_subgraph_by_length(*graph, subgraph, context, forward_only);
     }
-    algorithms::add_subpaths_to_subgraph(*graph, subgraph);
+    algorithms::add_subpaths_to_subgraph(*graph, subgraph, true);
 
     // build the vg
     out_region.start = subgraph.min_node_id();
