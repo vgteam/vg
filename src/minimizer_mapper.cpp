@@ -109,7 +109,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // of the selected minimizers is not high enough.
         size_t hits = minimizer_index.count(minimizers[minimizer_num]);
         
-        if (seeds.size() < 2 || hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
+        if (seeds.size() == 1 || hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
             // Locate the hits.
             for (auto& hit : minimizer_index.find(minimizers[minimizer_num])) {
                 // Reverse the hits for a reverse minimizer
@@ -317,7 +317,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
             if (read_coverage_by_cluster[cluster_num] == curr_coverage &&
                 cluster_score[cluster_num] == curr_score &&
-                curr_kept < max_extensions / 2) {
+                curr_kept < max_extensions * 0.75) {
                 curr_kept++;
                 curr_count++;
             } else if (!read_coverage_by_cluster[cluster_num] == curr_coverage ||
