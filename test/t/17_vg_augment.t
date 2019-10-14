@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 14
+plan tests 15
 
 vg view -J -v pileup/tiny.json > tiny.vg
 
@@ -53,7 +53,11 @@ vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa >t.vg
 vg align -s GGGGGGGAAATTTTCTGGAGTTCTATTATATTCCAAAAAAAAAA t.vg >t.gam
 is $(vg augment -i t.vg t.gam | vg view - | grep ^S | grep $(vg augment -i t.vg t.gam | vg stats  -H - | awk '{ print $3}') | cut -f 3) GGGGG "a soft clip at read start becomes a new head of the graph"
 is $(vg augment -i t.vg t.gam | vg view - | grep ^S | grep $(vg augment -i t.vg t.gam | vg stats  -T - | awk '{ print $3}') | cut -f 3) AAAAAAAA "a soft clip at read end becomes a new tail of the graph"
-rm -rf t.vg t.gam
+vg align -s AAATTTTCTGGAGTTCTAT t.vg >> t.gam
+vg find -x t.vg -n 9 -c 1 > n9.vg
+vg augment n9.vg t.gam -s -A n9_aug.gam > /dev/null
+is $(vg view -a n9_aug.gam | wc -l) "1" "augment -s works as desired"
+rm -rf t.vg t.gam n9.vg n9_aug.gam
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 16 x.vg
