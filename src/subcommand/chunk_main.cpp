@@ -21,6 +21,7 @@
 #include "../region.hpp"
 #include "../haplotype_extracter.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
+#include <bdsg/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -270,7 +271,10 @@ int main_chunk(int argc, char** argv) {
     bool chunk_graph = gam_and_graph || (!chunk_gam && gam_split_size == 0);
 
     // Load our index
-    unique_ptr<PathPositionHandleGraph> graph;
+    PathPositionHandleGraph* graph = nullptr;
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    bdsg::PathPositionOverlayHelper overlay_helper;
+
     if (chunk_graph || trace || context_steps > 0 || context_length > 0 || (!id_range && gam_split_size == 0)) {
         if (xg_file.empty()) {
             cerr << "error:[vg chunk] xg index (-x) required" << endl;
@@ -283,7 +287,8 @@ int main_chunk(int argc, char** argv) {
             return 1;
         }
         
-        graph = vg::io::VPKG::load_one<PathPositionHandleGraph>(in);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
+        graph = overlay_helper.apply(path_handle_graph.get());
         in.close();
     }
 
@@ -396,7 +401,7 @@ int main_chunk(int argc, char** argv) {
             delete range_stream;
         }
     }
-    else if (graph.get() != nullptr) {
+    else if (graph != nullptr) {
         // every path
         graph->for_each_path_handle([&](path_handle_t path_handle) {
                 Region region;
@@ -479,7 +484,7 @@ int main_chunk(int argc, char** argv) {
     // initialize chunkers
     vector<PathChunker> chunkers(threads);
     for (auto& chunker : chunkers) {
-        chunker.graph = graph.get();
+        chunker.graph = graph;
     }
     
     // When chunking GAMs, every thread gets its own cursor to seek into the input GAM.

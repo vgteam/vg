@@ -16,13 +16,14 @@
 #include "../deconstructor.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+#include <bdsg/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
 void help_deconstruct(char** argv){
-    cerr << "usage: " << argv[0] << " deconstruct [options] [-p|-P] <PATH> <my_graph>.xg" << endl
+    cerr << "usage: " << argv[0] << " deconstruct [options] [-p|-P] <PATH> <GRAPH>" << endl
          << "Outputs VCF records for Snarls present in a graph (relative to a chosen reference path)." << endl
          << "options: " << endl
          << "    -p, --path NAME        A reference path to deconstruct against (comma-separated list accepted)." << endl
@@ -118,11 +119,14 @@ int main_deconstruct(int argc, char** argv){
     }
     
     // Read the graph
-    unique_ptr<PathPositionHandleGraph> graph;
+    unique_ptr<PathHandleGraph> path_handle_graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
-        graph = vg::io::VPKG::load_one<PathPositionHandleGraph>(in);
+            path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
         });
 
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    PathPositionHandleGraph* graph = overlay_helper.apply(path_handle_graph.get());
+    
     // Load or compute the snarls
     unique_ptr<SnarlManager> snarl_manager;    
     if (!snarl_file_name.empty()) {
@@ -184,7 +188,7 @@ int main_deconstruct(int argc, char** argv){
     if (show_progress) {
         cerr << "Decsontructing top-level snarls" << endl;
     }
-    dd.deconstruct(refpaths, graph.get(), snarl_manager.get(), path_restricted_traversals,
+    dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals,
                    !alt_path_to_prefix.empty() ? &alt_path_to_prefix : nullptr);
     return 0;
 }

@@ -6,7 +6,7 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/handle_graph.hpp>
-#include <bdsg/vectorizable_overlays.hpp>
+#include <bdsg/overlay_helper.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -140,7 +140,6 @@ int main_pack(int argc, char** argv) {
     omp_set_num_threads(thread_count);
 
     unique_ptr<HandleGraph> handle_graph;
-    unique_ptr<VectorizableHandleGraph> vec_graph;
     HandleGraph* graph = nullptr;
     if (xg_name.empty()) {
         cerr << "error [vg pack]: No basis graph given. One must be provided with -x." << endl;
@@ -148,17 +147,8 @@ int main_pack(int argc, char** argv) {
     } else {
         handle_graph = vg::io::VPKG::load_one<HandleGraph>(xg_name);
     }
-
-    // switch over to the vectorizable interface, creating an overlay if necessary
-    // "handle_graph" shouldn't be used after this
-    VectorizableHandleGraph* vectorizable_graph = dynamic_cast<VectorizableHandleGraph*>(handle_graph.get());
-    if (vectorizable_graph != nullptr) {
-        handle_graph.release();
-    } else {
-        vectorizable_graph = new bdsg::VectorizableOverlay(handle_graph.get());
-    }
-    vec_graph = unique_ptr<VectorizableHandleGraph>(vectorizable_graph);
-    graph = dynamic_cast<HandleGraph*>(vec_graph.get());
+    bdsg::VectorizableOverlayHelper overlay_helper;
+    graph = dynamic_cast<HandleGraph*>(overlay_helper.apply(handle_graph.get()));
 
     if (gam_in.empty() && packs_in.empty()) {
         cerr << "error [vg pack]: Input must be provided with -g or -i" << endl;

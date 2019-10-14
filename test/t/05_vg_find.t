@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 25
+plan tests 27
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -44,7 +44,7 @@ vg construct -m 1000 -r minigiab/q.fa -v minigiab/NA12878.chr22.tiny.giab.vcf.gz
 vg index -x giab.xg -g giab.gcsa -k 11 giab.vg
 is $(vg find -M ATTCATNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) $(md5sum correct/05_vg_find/28.txt | cut -f -1 -d\ ) "we can find the right MEMs for a sequence with Ns"
 is $(vg find -M ATTCATNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) $(vg find -M ATTCATNNNNNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) "we find the same MEMs sequences with different lengths of Ns"
-rm -f giab.vg giab.xg giab.gcsa
+rm -f giab.vg giab.xg giab.gcsa{,.lcp}
 
 #vg construct -r mem/r.fa > r.vg
 #vg index -x r.xg -g r.gcsa -k 16 r.vg
@@ -75,7 +75,7 @@ rm -rf x.db x.gam x.sorted.gam x.sorted.gam.gai
 
 is $(vg find -G small/x-s1337-n1.gam -x x.xg | vg view - | grep ATTAGCCATGTGACTTTGAACAAGTTAGTTAATCTCTCTGAACTTCAGTT | wc -l) 1 "the index can be queried using GAM alignments"
 
-rm -rf x.vg x.xg x.gcsa
+rm -rf x.vg x.xg x.gcsa{,.lcp}
 
 vg construct -m 1000 -r tiny/tiny.fa -v tiny/tiny.vcf.gz >tiny.vg
 vg index -x tiny.xg tiny.vg 
@@ -99,5 +99,14 @@ rm -f w.xg w.vg
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >t.vg
 vg index -x t.xg t.vg
-is $(vg find -x t.xg -E x:30-35 | vg view - | grep ^S | wc -l) 4 "path DAG range query works"
-rm -f t.xg t.vg
+is $(vg find -x t.xg -E -p x:30-35 | vg view - | grep ^S | wc -l) 4 "path DAG range query works"
+
+vg find -x t.xg -E -p x:30-35 -p x:10-20 -W t.
+is $((vg view t.x:30:35.vg; vg view t.x:10:20.vg) | wc -l) 20 "we can extract a set of targets to separate files"
+
+echo x 30 36 | tr ' ' '\t' >t.bed
+echo x 10 21 | tr ' ' '\t' >>t.bed
+vg find -x t.xg -E -R t.bed -W q.
+is $((vg view q.x:10:20.vg; vg view q.x:30:35.vg) | md5sum | cut -f 1 -d\ ) $((vg view t.x:10:20.vg ; vg view t.x:30:35.vg)| md5sum | cut -f 1 -d\ ) "the same extraction can be made using BEd input"
+
+rm -f t.xg t.vg t.x:30:35.vg t.x:10:20.vg q.x:30:35.vg q.x:10:20.vg t.bed
