@@ -117,20 +117,24 @@ void help_prune(char** argv) {
     std::cerr << "                           "; print_defaults(PruningParameters::subgraph_min);
     std::cerr << "    -M, --max-degree N     if N > 0, remove nodes with degree > N before pruning" << std::endl;
     std::cerr << "                           "; print_defaults(PruningParameters::max_degree);
+    std::cerr << std::endl;
     std::cerr << "Pruning modes (-P, -r, and -u are mutually exclusive):" << std::endl;
     std::cerr << "    -P, --prune            simply prune the graph (default)" << std::endl;
     std::cerr << "    -r, --restore-paths    restore the edges on non-alt paths" << std::endl;
     std::cerr << "    -u, --unfold-paths     unfold non-alt paths and GBWT threads" << std::endl;
     std::cerr << "    -v, --verify-paths     verify that the paths exist after pruning" << std::endl;
     std::cerr << "                           (potentially very slow)" << std::endl;
+    std::cerr << std::endl;
     std::cerr << "Unfolding options:" << std::endl;
     std::cerr << "    -g, --gbwt-name FILE   unfold the threads from this GBWT index" << std::endl;
     std::cerr << "    -m, --mapping FILE     store the node mapping for duplicates in this file (required with -u)" << std::endl;
     std::cerr << "    -a, --append-mapping   append to the existing node mapping" << std::endl;
+    std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -p, --progress         show progress" << std::endl;
     std::cerr << "    -t, --threads N        use N threads (default: " << omp_get_max_threads() << ")" << std::endl;
     std::cerr << "    -d, --dry-run          determine the validity of the combination of options" << std::endl;
+    std::cerr << std::endl;
 }
 
 int main_prune(int argc, char** argv) {

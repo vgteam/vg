@@ -29,6 +29,8 @@ namespace vg {
  */
 struct GaplessExtension
 {
+    typedef std::pair<handle_t, int64_t> seed_type; // (handle, read_offset - node_offset).
+
     // In the graph.
     std::vector<handle_t>     path;
     size_t                    offset;
@@ -62,6 +64,9 @@ struct GaplessExtension
     /// Number of mismatches in the extension.
     size_t mismatches() const { return this->mismatch_positions.size(); }
 
+    /// Does the extension contain the seed?
+    bool contains(const gbwtgraph::GBWTGraph& graph, seed_type seed) const;
+
     /// Return the starting position of the extension.
     Position starting_position(const gbwtgraph::GBWTGraph& graph) const;
 
@@ -93,8 +98,8 @@ struct GaplessExtension
  */
 class GaplessExtender {
 public:
-    typedef std::pair<handle_t, int64_t> seed_type; // (handle, read_offset - node_offset).
-    typedef pair_hash_set<seed_type>     cluster_type;
+    typedef GaplessExtension::seed_type seed_type;
+    typedef pair_hash_set<seed_type>    cluster_type;
 
     /// The default value for the maximum number of mismatches.
     constexpr static size_t MAX_MISMATCHES = 4;
@@ -117,6 +122,11 @@ public:
         return make_pos_t(gbwt::Node::id(node), gbwt::Node::is_reverse(node), get_node_offset(seed));
     }
 
+    /// Get the handle from a seed.
+    static handle_t get_handle(seed_type seed) {
+        return seed.first;
+    }
+
     /// Get the node offset from a seed.
     static size_t get_node_offset(seed_type seed) {
         return (seed.second < 0 ? -(seed.second) : 0);
@@ -128,8 +138,8 @@ public:
     }
 
     /**
-     * Find the best full-length alignment for the sequence within the cluster with
-     * at most max_mismatches mismatches.
+     * Find two highest-scoring full-length alignments for the sequence within the
+     * cluster with at most max_mismatches mismatches.
      * If that is not possible, find the set of highest-scoring maximal extensions
      * of the seeds, allowing any number of mismatches in the seed node and
      * max_mismatches / 2 mismatches on each flank. Flanks may have more mismatches
