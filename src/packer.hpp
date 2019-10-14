@@ -21,13 +21,32 @@ namespace vg {
 
 using namespace sdsl;
 
+/// Packer collects coverage of a GAM using compressed indexes
+/// Any combination of these 3 types of information can be stored
+/// - base coverage : number of reads aligning to a given base (offset in node) in the graph
+/// - edge coverage : number of reads aligning to a given edge in the graph
+/// - edits : a list of edits at a given base in the graph
+/// In memory, the coverages are stored in SDSL int vectors (dynamic) and on disk they are compressed int vectors
 class Packer {
 public:
     Packer(void);
-    // graph must also implement VectorizableHandleGraph
-    Packer(const HandleGraph* graph, size_t bin_size = 0, bool qual_adjust = false, int min_mapq = 0, int min_baseq = 0);
+    /// Create a Packer
+    /// graph : Must implement the VectorizableHandleGraph interface
+    /// bin_size : Bin coverage into bins
+    /// data_width : Number of bits per entry in the dynamic coverage vector.  Higher values get stored in a map
+    /// record_bases : Store the base coverage
+    /// record_edges : Store the edge coverage
+    /// record_edits : Store the edits
+    Packer(const HandleGraph* graph, size_t bin_size = 0, size_t data_width = 8, bool record_bases = true, bool record_edges = true, bool record_edits = true);
     ~Packer(void);
-    const HandleGraph* graph;
+
+    /// Add coverage from given alignment to the indexes
+    /// aln : given alignemnt
+    /// min_mapq : ignore alignments with mapping_quality below this value
+    /// min_baseq : ignore bases in the alignment if their read quality is below this value
+    /// qual_adjust : instead of incrementing the coverage by 1, increment it by the quality (mapq and baseq combined)
+    void add(const Alignment& aln, int min_mapq = 0, int min_baseq = 0, bool qual_adjust = false);
+
     void merge_from_files(const vector<string>& file_names);
     void merge_from_dynamic(vector<Packer*>& packers);
     void load_from_file(const string& file_name);
@@ -38,7 +57,6 @@ public:
                      std::string name = "");
     void make_compact(void);
     void make_dynamic(void);
-    void add(const Alignment& aln, bool record_edits = true);
     size_t graph_length(void) const;
     size_t position_in_basis(const Position& pos) const;
     string pos_key(size_t i) const;
@@ -53,7 +71,8 @@ public:
     void write_edits(ostream& out, size_t bin) const; // for merge
     size_t get_bin_size(void) const;
     size_t get_n_bins(void) const;
-    bool is_dynamic(void);
+    bool is_dynamic(void) const;
+    const HandleGraph* get_graph() const;
     size_t coverage_size(void);
     void increment_coverage(size_t i);
     void increment_coverage(size_t i, size_t v);
@@ -69,6 +88,10 @@ private:
     void close_edit_tmpfiles(void);
     void remove_edit_tmpfiles(void);
     bool is_compacted = false;
+    
+    // base graph
+    const HandleGraph* graph;
+
     // dynamic model
     gcsa::CounterArray coverage_dynamic;
     gcsa::CounterArray edge_coverage_dynamic;
@@ -82,7 +105,7 @@ private:
     size_t edit_count = 0;
     dac_vector<> coverage_civ; // graph coverage (compacted coverage_dynamic)
     vlc_vector<> edge_coverage_civ; // edge coverage (compacted edge_coverage_dynamic)
-    //
+    // edits
     vector<csa_sada<enc_vector<>, 32, 32, sa_order_sa_sampling<>, isa_sampling<>, succinct_byte_alphabet<> > > edit_csas;
     // make separators that are somewhat unusual, as we escape these
     char delim1 = '\xff';
@@ -94,12 +117,10 @@ private:
     string unescape_delim(const string& s, char d) const;
     string unescape_delims(const string& s) const;
 
-    // toggle quality adjusted mode
-    bool qual_adjust = false;
-
-    // quality thresholds;
-    int min_mapq = 0;
-    int min_baseq = 0;
+    // toggles:
+    bool record_bases;
+    bool record_edges;
+    bool record_edits;
     
     // Combine the MAPQ and base quality (if available) for a given position in the read
     int compute_quality(const Alignment& aln, size_t position_in_read) const;
