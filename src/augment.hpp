@@ -31,13 +31,16 @@ using namespace std;
 /// be added to the vg graph's paths object.
 /// If soft_clip is true, soft clips will be removed from the input paths
 /// before processing, and the dangling ends won't end up in the graph
+/// If filter_out_of_graph_alignments is true, some extra time will be taken to check if
+/// all nodes in the alignment are in the graph.  If they aren't, then it will be ignored
 void augment(MutablePathMutableHandleGraph* graph,
              istream& gam_stream,
              vector<Translation>* out_translation = nullptr,
              ostream* gam_out_stream = nullptr,
              bool embed_paths = false,
              bool break_at_ends = false,
-             bool remove_soft_clips = false);
+             bool remove_soft_clips = false,
+             bool filter_out_of_graph_alignments = false);
 
 /// Like above, but operates on a vector of Alignments, instead of a stream
 /// (Note: It is best to use stream interface for large numbers of alignments to save memory)
@@ -47,7 +50,8 @@ void augment(MutablePathMutableHandleGraph* graph,
              ostream* gam_out_stream = nullptr,
              bool embed_paths = false,
              bool break_at_ends = false,
-             bool remove_soft_clips = false);
+             bool remove_soft_clips = false,
+             bool filter_out_of_graph_alignments = false);
 
 /// Generic version used to implement the above two methods.  
 void augment_impl(MutablePathMutableHandleGraph* graph,
@@ -56,7 +60,8 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                   ostream* gam_out_stream,
                   bool embed_paths,
                   bool break_at_ends,
-                  bool remove_soft_clips);
+                  bool remove_soft_clips,
+                  bool filter_out_of_graph_alignments);
 
 /// Add a path to the graph.  This is like VG::extend, and expects
 /// a path with no edits, and for all the nodes and edges in the path
