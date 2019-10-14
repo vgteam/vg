@@ -64,13 +64,15 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#func-members">Functions</a>  </div>
+<a href="#func-members">Functions</a> &#124;
+<a href="#var-members">Variables</a>  </div>
   <div class="headertitle">
 <div class="title">minimizer_main.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="subcommand_8hpp.html">subcommand.hpp</a>&quot;</code><br />
 <code>#include &lt;<a class="el" href="vpkg_8hpp.html">vg/io/vpkg.hpp</a>&gt;</code><br />
+<code>#include &lt;algorithm&gt;</code><br />
 <code>#include &lt;iostream&gt;</code><br />
 <code>#include &lt;vector&gt;</code><br />
 <code>#include &lt;getopt.h&gt;</code><br />
@@ -81,10 +83,17 @@ $(function() {
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:a849308cddbd36f5fc06c5e1289112bae"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a849308cddbd36f5fc06c5e1289112bae">get_default_threads</a> ()</td></tr>
+<tr class="separator:a849308cddbd36f5fc06c5e1289112bae"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a45dc67f0fe9ce978202fda58585b6b52"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a45dc67f0fe9ce978202fda58585b6b52">help_minimizer</a> (char **argv)</td></tr>
 <tr class="separator:a45dc67f0fe9ce978202fda58585b6b52"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5a43d1ef287159cce46f07df1b8b088d"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a5a43d1ef287159cce46f07df1b8b088d">main_minimizer</a> (int argc, char **argv)</td></tr>
 <tr class="separator:a5a43d1ef287159cce46f07df1b8b088d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
+Variables</h2></td></tr>
+<tr class="memitem:a5b3b08bd8224196307cb86df71ff927d"><td class="memItemLeft" align="right" valign="top">constexpr int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a5b3b08bd8224196307cb86df71ff927d">DEFAULT_MAX_THREADS</a> = 16</td></tr>
+<tr class="separator:a5b3b08bd8224196307cb86df71ff927d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines the "vg minimizer" subcommand, which builds the experimental minimizer index.</p>
@@ -95,6 +104,23 @@ Functions</h2></td></tr>
 <li>Extract all k'-mers from the subgraph and use them to determine where the minimizers can start. </li>
 </ul>
 </div><h2 class="groupheader">Function Documentation</h2>
+<a id="a849308cddbd36f5fc06c5e1289112bae"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a849308cddbd36f5fc06c5e1289112bae">&#9670;&nbsp;</a></span>get_default_threads()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int get_default_threads </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a45dc67f0fe9ce978202fda58585b6b52"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a45dc67f0fe9ce978202fda58585b6b52">&#9670;&nbsp;</a></span>help_minimizer()</h2>
 
@@ -135,6 +161,21 @@ Functions</h2></td></tr>
           <td></td>
           <td>)</td>
           <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<h2 class="groupheader">Variable Documentation</h2>
+<a id="a5b3b08bd8224196307cb86df71ff927d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5b3b08bd8224196307cb86df71ff927d">&#9670;&nbsp;</a></span>DEFAULT_MAX_THREADS</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr int DEFAULT_MAX_THREADS = 16</td>
         </tr>
       </table>
 </div><div class="memdoc">

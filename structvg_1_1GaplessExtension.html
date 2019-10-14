@@ -64,6 +64,7 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="structvg_1_1GaplessExtension-members.html">List of all members</a>  </div>
@@ -74,6 +75,11 @@ $(function() {
 
 <p><code>#include &lt;gapless_extender.hpp&gt;</code></p>
 <table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
+Public Types</h2></td></tr>
+<tr class="memitem:a8c8a3d415e13a943e87b4c1e33347081"><td class="memItemLeft" align="right" valign="top">typedef std::pair&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a8c8a3d415e13a943e87b4c1e33347081">seed_type</a></td></tr>
+<tr class="separator:a8c8a3d415e13a943e87b4c1e33347081"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a9c16f9e41fdfafb22a6a64c1e852bb9c"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a9c16f9e41fdfafb22a6a64c1e852bb9c">length</a> () const</td></tr>
@@ -91,6 +97,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a4898e2fabc109703f497e19f10bb164a"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a4898e2fabc109703f497e19f10bb164a">mismatches</a> () const</td></tr>
 <tr class="memdesc:a4898e2fabc109703f497e19f10bb164a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of mismatches in the extension.  <a href="#a4898e2fabc109703f497e19f10bb164a">More...</a><br /></td></tr>
 <tr class="separator:a4898e2fabc109703f497e19f10bb164a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aba7a20e9cda82fefa76322cd597530fe"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#aba7a20e9cda82fefa76322cd597530fe">contains</a> (const gbwtgraph::GBWTGraph &amp;graph, <a class="el" href="structvg_1_1GaplessExtension.html#a8c8a3d415e13a943e87b4c1e33347081">seed_type</a> seed) const</td></tr>
+<tr class="memdesc:aba7a20e9cda82fefa76322cd597530fe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Does the extension contain the seed?  <a href="#aba7a20e9cda82fefa76322cd597530fe">More...</a><br /></td></tr>
+<tr class="separator:aba7a20e9cda82fefa76322cd597530fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a52c9ed37c11404fd22f0d81e80f68aee"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Position.html">Position</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a52c9ed37c11404fd22f0d81e80f68aee">starting_position</a> (const gbwtgraph::GBWTGraph &amp;graph) const</td></tr>
 <tr class="memdesc:a52c9ed37c11404fd22f0d81e80f68aee"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the starting position of the extension.  <a href="#a52c9ed37c11404fd22f0d81e80f68aee">More...</a><br /></td></tr>
 <tr class="separator:a52c9ed37c11404fd22f0d81e80f68aee"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -143,7 +152,52 @@ Public Attributes</h2></td></tr>
 <li>'score' is an alignment score (bigger is better).</li>
 <li>Flags 'left_full' and 'right_full' indicate whether the extension covers the start/end of the read. </li>
 </ul>
-</div><h2 class="groupheader">Member Function Documentation</h2>
+</div><h2 class="groupheader">Member Typedef Documentation</h2>
+<a id="a8c8a3d415e13a943e87b4c1e33347081"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8c8a3d415e13a943e87b4c1e33347081">&#9670;&nbsp;</a></span>seed_type</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef std::pair&lt;<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, int64_t&gt; <a class="el" href="structvg_1_1GaplessExtension.html#a8c8a3d415e13a943e87b4c1e33347081">vg::GaplessExtension::seed_type</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<h2 class="groupheader">Member Function Documentation</h2>
+<a id="aba7a20e9cda82fefa76322cd597530fe"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aba7a20e9cda82fefa76322cd597530fe">&#9670;&nbsp;</a></span>contains()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::GaplessExtension::contains </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBWTGraph &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1GaplessExtension.html#a8c8a3d415e13a943e87b4c1e33347081">seed_type</a>&#160;</td>
+          <td class="paramname"><em>seed</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Does the extension contain the seed? </p>
+
+</div>
+</div>
 <a id="a72542968a383c49ac29cc4f939cb3d9d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a72542968a383c49ac29cc4f939cb3d9d">&#9670;&nbsp;</a></span>empty()</h2>
 

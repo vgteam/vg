@@ -52,7 +52,7 @@ var searchData=
   ['find_5fnamed_5ftraversals',['find_named_traversals',['../classvg_1_1PathRestrictedTraversalFinder.html#ab046472d6a0a26a52c91574e7a09373d',1,'vg::PathRestrictedTraversalFinder']]],
   ['find_5fnode_5fby_5fname_5for_5fadd_5fnew',['find_node_by_name_or_add_new',['../classvg_1_1VG.html#a04774a86b07508e9e5955abfba2171ff',1,'vg::VG']]],
   ['find_5fnon_5fref_5ftips',['find_non_ref_tips',['../classvg_1_1Homogenizer.html#a8b6ba61dfa468727d090ed7ba9b8b490',1,'vg::Homogenizer']]],
-  ['find_5foptimal_5ftail_5falignments',['find_optimal_tail_alignments',['../classvg_1_1MinimizerMapper.html#a9523bf432e00aba13b391befbed71d82',1,'vg::MinimizerMapper']]],
+  ['find_5foptimal_5ftail_5falignments',['find_optimal_tail_alignments',['../classvg_1_1MinimizerMapper.html#a6e3ec6685f98622b35391ae0d8bac180',1,'vg::MinimizerMapper']]],
   ['find_5fpath_5ftraversals',['find_path_traversals',['../classvg_1_1PathTraversalFinder.html#a47716598ddfa8044c42f4b9a55d51d01',1,'vg::PathTraversalFinder']]],
   ['find_5fposition',['find_position',['../structvg_1_1PathIndex.html#a377bc15c246c708fe4a0264cb05588af',1,'vg::PathIndex']]],
   ['find_5fsaver',['find_saver',['../classvg_1_1io_1_1Registry.html#acfad8c6a18a1443150d0818fe1a14857',1,'vg::io::Registry']]],

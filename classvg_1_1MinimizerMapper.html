@@ -153,8 +153,8 @@ Protected Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:a9523bf432e00aba13b391befbed71d82"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a9523bf432e00aba13b391befbed71d82">find_optimal_tail_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;out) const</td></tr>
-<tr class="separator:a9523bf432e00aba13b391befbed71d82"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6e3ec6685f98622b35391ae0d8bac180"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6e3ec6685f98622b35391ae0d8bac180">find_optimal_tail_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;best, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;second_best) const</td></tr>
+<tr class="separator:a6e3ec6685f98622b35391ae0d8bac180"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab3256c8c0ebc49ff72af298684580fa4"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; size_t, unordered_map&lt; size_t, vector&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab3256c8c0ebc49ff72af298684580fa4">find_connecting_paths</a> (const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, size_t read_length) const</td></tr>
 <tr class="separator:ab3256c8c0ebc49ff72af298684580fa4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a52ffe043bb4a0f598e0fe76f3f7ca301"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a52ffe043bb4a0f598e0fe76f3f7ca301">get_tail_forest</a> (const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;extended_seed, size_t read_length, bool left_tails) const</td></tr>
@@ -480,8 +480,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a9523bf432e00aba13b391befbed71d82"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9523bf432e00aba13b391befbed71d82">&#9670;&nbsp;</a></span>find_optimal_tail_alignments()</h2>
+<a id="a6e3ec6685f98622b35391ae0d8bac180"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6e3ec6685f98622b35391ae0d8bac180">&#9670;&nbsp;</a></span>find_optimal_tail_alignments()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -505,7 +505,13 @@ Protected Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>out</em>&#160;</td>
+          <td class="paramname"><em>best</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>second_best</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -519,7 +525,7 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Operating on the given input alignment, align the tails dangling off the given extended perfect-match seeds and produce an optimal alignment into the given output <a class="el" href="structvg_1_1Alignment.html">Alignment</a> object. </p>
+<p>Operating on the given input alignment, align the tails dangling off the given extended perfect-match seeds and produce an optimal alignment into the given output <a class="el" href="structvg_1_1Alignment.html">Alignment</a> object, best, and the second best alignment into second_best. </p>
 
 </div>
 </div>

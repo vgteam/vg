@@ -18,6 +18,7 @@ var searchData=
   ['decrement_5fnode_5fids',['decrement_node_ids',['../classvg_1_1VG.html#a356612f42ba60fe5895f3abe7501173a',1,'vg::VG']]],
   ['deduplicate_5fcluster_5fpairs',['deduplicate_cluster_pairs',['../classvg_1_1MEMClusterer.html#ae99c87e944c8c1056abb8efc7da5786e',1,'vg::MEMClusterer']]],
   ['deep_5fcontents',['deep_contents',['../classvg_1_1SnarlManager.html#a88dbb1a06fa24de3459f62ecdbc7d962',1,'vg::SnarlManager']]],
+  ['default_5fmax_5fthreads',['DEFAULT_MAX_THREADS',['../minimizer__main_8cpp.html#a5b3b08bd8224196307cb86df71ff927d',1,'minimizer_main.cpp']]],
   ['default_5fpath_5fweight',['DEFAULT_PATH_WEIGHT',['../classvg_1_1FlowSort.html#a68d8af802f0e2a61c81bf0ae4ebfc301',1,'vg::FlowSort']]],
   ['default_5fsequence_5fquality',['default_sequence_quality',['../classvg_1_1Genotyper.html#a3c40092b41694cacc7e531bf7f9fb8aa',1,'vg::Genotyper']]],
   ['default_5fvalue',['default_value',['../classvg_1_1BaseOption.html#ade40b0f856c10a12e3fc7847f4a33b7a',1,'vg::BaseOption']]],
