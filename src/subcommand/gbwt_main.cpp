@@ -413,7 +413,7 @@ int main_gbwt(int argc, char** argv)
                 std::cerr << "Finding " << path_cover << "-path cover with context length " << context_length << std::endl;
             }
             double start = gbwt::readTimer();
-            path_cover_gbwt = gbwtgraph::path_cover_gbwt(*handle_graph, path_cover, context_length, buffer_size, id_interval, true);
+            path_cover_gbwt = gbwtgraph::path_cover_gbwt(*handle_graph, path_cover, context_length, buffer_size, id_interval, show_progress);
             if (show_progress) {
                 double seconds = gbwt::readTimer() - start;
                 std::cerr << "GBWT built in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;

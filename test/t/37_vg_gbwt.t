@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 30
+plan tests 36
 
 
 # Build vg graphs for two chromosomes
@@ -93,6 +93,20 @@ vg view --extract-tag GBWTGraph x.gg > x.extracted.gg
 is $(md5sum x.extracted.gg | cut -f 1 -d\ ) 40400e50e1b9eec8915363e7775f693f "GBWTGraph was correctly serialized"
 
 rm -f x.xg x.gbwt x.gg x.extracted.gg
+
+
+# Build both GBWT and GBWTGraph from a 16-path cover
+vg index -x xy.xg x.vg y.vg
+vg gbwt -P 16 -x xy.xg -g xy.gg -o xy.gbwt
+is $? 0 "GBWT/GBWTGraph construction from path cover was successful"
+vg view --extract-tag GBWTGraph xy.gg > xy.extracted.gg
+is $(md5sum xy.extracted.gg | cut -f 1 -d\ ) 91d09aafba875e1a9cb86e42384530d2 "GBWTGraph was correctly serialized"
+is $(vg gbwt -c xy.gbwt) 32 "path cover: 32 threads"
+is $(vg gbwt -C xy.gbwt) 2 "path cover: 2 contigs"
+is $(vg gbwt -H xy.gbwt) 16 "path cover: 16 haplotypes"
+is $(vg gbwt -S xy.gbwt) 16 "path cover: 16 sample"
+
+rm -f xy.xg xy.gg xy.gbwt xy.extracted.gg
 
 
 rm -f x.vg y.vg
