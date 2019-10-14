@@ -14,6 +14,8 @@
 
 #include "../vg.hpp"
 #include "../multipath_alignment.hpp"
+#include "../mcmc_caller.hpp"
+#include "../graph_caller.hpp"
 #include <vg/io/stream.hpp>
 
 
@@ -60,6 +62,8 @@ int main_mcmc(int argc, char** argv) {
             {"iteration-number", required_argument, 0, 'i'},
             {"seed", required_argument, 0, 's'},
             {"ref-path", required_argument, 0, 'p'},
+            {"ref-offset", required_argument, 0, 'o'},
+            {"ref-length", required_argument, 0, 'l'}, 
             {0, 0, 0, 0}
         };
 
@@ -98,6 +102,23 @@ int main_mcmc(int argc, char** argv) {
                 break;
         }
     }
+
+
+    string multipath_file =  get_input_file_name(optind, argc, argv);
+    string graph_file =  get_input_file_name(optind, argc, argv);
+    string snarls_file =  get_input_file_name(optind, argc, argv);
+
+    unique_ptr<VG> graph = (vg::io::VPKG::load_one<VG>(graph_file));
+    unique_ptr<SnarlManager> snarls = (vg::io::VPKG::load_one<SnarlManager>(snarls_file));
+
+    // Check our paths
+    for (const string& ref_path : ref_paths) {
+        if (!graph->has_path(ref_path)) {
+            cerr << "error [vg call]: Reference path \"" << ref_path << "\" not found in graph" << endl;
+            return 1;
+        }
+    }
+    
     // Check our offsets
     if (ref_path_offsets.size() != 0 && ref_path_offsets.size() != ref_paths.size()) {
         cerr << "error [vg call]: when using -o, the same number paths must be given with -p" << endl;
@@ -109,13 +130,6 @@ int main_mcmc(int argc, char** argv) {
         return 1;
     }
 
-    string multipath_file =  get_input_file_name(optind, argc, argv);
-    string graph_file =  get_input_file_name(optind, argc, argv);
-    string snarls_file =  get_input_file_name(optind, argc, argv);
-
-    unique_ptr<VG> graph = (vg::io::VPKG::load_one<VG>(graph_file));
-    unique_ptr<SnarlManager> snarls = (vg::io::VPKG::load_one<SnarlManager>(snarls_file));
-
     // No paths specified: use them all
     if (ref_paths.empty()) {
         graph->for_each_path_handle([&](path_handle_t path_handle) {
@@ -126,7 +140,6 @@ int main_mcmc(int argc, char** argv) {
             });
     }
     
-   
 
     vector<MultipathAlignment> reads;
     get_input_file(multipath_file, [&] (istream& open_file){
@@ -154,8 +167,16 @@ int main_mcmc(int argc, char** argv) {
         
     }
     }
-    
-    
+
+    unique_ptr<MCMCCaller> mcmc_caller; //TODO: initialize this to something.....
+    VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(mcmc_caller.get());
+    assert(vcf_caller != nullptr);
+    cout << vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
+    vcf_caller->write_variants(cout);
+        
+    return 0;
+
+
     
     // will output a graph w/ embedded paths
     graph->serialize_to_ostream(std::cout);
