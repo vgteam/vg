@@ -6,19 +6,33 @@ namespace vg {
 const int Packer::maximum_quality = 60;
 const int Packer::lru_cache_size = 50;
 
-Packer::Packer(void) : graph(nullptr), qual_adjust(false), min_mapq(0), min_baseq(0), quality_cache(nullptr) { }
+Packer::Packer(void) : graph(nullptr), quality_cache(nullptr) { }
 
-Packer::Packer(const HandleGraph* graph, size_t binsz, bool qual_adjust, int min_mapq, int min_baseq) : graph(graph), bin_size(binsz), qual_adjust(qual_adjust), min_mapq(min_mapq), min_baseq(min_baseq) {
+Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t data_width, bool record_bases, bool record_edges, bool record_edits) :
+    graph(graph), bin_size(bin_size), record_bases(record_bases), record_edges(record_edges), record_edits(record_edits) {
+    // initialize the base coverage counter
     size_t seq_length = 0;
-    graph->for_each_handle([&](const handle_t& handle) { seq_length += graph->get_length(handle); });
-    coverage_dynamic = gcsa::CounterArray(seq_length, qual_adjust ? 16 : 8);
+    if (record_bases) {
+        graph->for_each_handle([&](const handle_t& handle) { seq_length += graph->get_length(handle); });
+    }
+    coverage_dynamic = gcsa::CounterArray(seq_length, data_width);
+
+    // initialize the edge coverage counter
     size_t max_edge_index = 0;
-    graph->for_each_edge([&](const edge_t& edge) {
-            max_edge_index = std::max(max_edge_index,
-                                      dynamic_cast<const VectorizableHandleGraph*>(graph)->edge_index(edge));
-        });
-    edge_coverage_dynamic = gcsa::CounterArray(max_edge_index+1, qual_adjust ? 16 : 8);
-    if (binsz) n_bins = seq_length / bin_size + 1;
+    if (record_edges) {
+        graph->for_each_edge([&](const edge_t& edge) {
+                max_edge_index = std::max(max_edge_index,
+                                          dynamic_cast<const VectorizableHandleGraph*>(graph)->edge_index(edge));
+            });
+    }
+    edge_coverage_dynamic = gcsa::CounterArray(max_edge_index+1, data_width);
+
+    // count the bins if binning
+    if (bin_size) {
+        n_bins = seq_length / bin_size + 1;
+    }
+
+    // speed up quality computation if necessary
     quality_cache = new LRUCache<pair<int, int>, int>(lru_cache_size);
 }
 
@@ -146,14 +160,18 @@ void Packer::collect_coverage(const Packer& c) {
         {
 #pragma omp task
             {
-                for (size_t i = 0; i < c.graph_length(); ++i) {
-                    increment_coverage(i, c.coverage_at_position(i));
+                if (record_bases) {
+                    for (size_t i = 0; i < c.graph_length(); ++i) {
+                        increment_coverage(i, c.coverage_at_position(i));
+                    }
                 }
             }
 #pragma omp task
             {
-                for (size_t i = 0; i < c.edge_vector_size(); ++i){
-                    increment_edge_coverage(i, c.edge_coverage(i));
+                if (record_edges) {
+                    for (size_t i = 0; i < c.edge_vector_size(); ++i){
+                        increment_edge_coverage(i, c.edge_coverage(i));
+                    }
                 }
             }
         }
@@ -200,7 +218,7 @@ void Packer::make_compact(void) {
     }
     size_t edge_coverage_length = edge_vector_size();
     int_vector<> edge_coverage_iv;
-    util::assign(edge_coverage_iv, int_vector<>(edge_coverage_dynamic.size()));
+    util::assign(edge_coverage_iv, int_vector<>(edge_coverage_length));
     for (size_t i = 0; i < edge_coverage_length; ++i) {
         edge_coverage_iv[i] = edge_coverage(i);
     }
@@ -224,8 +242,12 @@ void Packer::make_dynamic(void) {
     is_compacted = false;
 }
 
-bool Packer::is_dynamic(void) {
+bool Packer::is_dynamic(void) const {
     return !is_compacted;
+}
+
+const HandleGraph* Packer::get_graph() const {
+    return graph;
 }
 
 void Packer::ensure_edit_tmpfiles_open(void) {
@@ -265,7 +287,7 @@ void Packer::remove_edit_tmpfiles(void) {
     }
 }
 
-void Packer::add(const Alignment& aln, bool record_edits) {
+void Packer::add(const Alignment& aln, int min_mapq, int min_baseq , bool qual_adjust) {
     // mapping quality threshold filter
     if (aln.mapping_quality() < min_mapq) {
         return;
@@ -461,6 +483,7 @@ void Packer::increment_edge_coverage(size_t i) {
 void Packer::increment_edge_coverage(size_t i, size_t v) {
     edge_coverage_dynamic.increment(i, v);
 }
+
 
 size_t Packer::coverage_at_position(size_t i) const {
     if (is_compacted) {
