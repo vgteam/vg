@@ -108,7 +108,7 @@ void Packer::merge_from_files(const vector<string>& file_names) {
             assert(n_bins == c.get_n_bins());
         }
         c.write_edits(tmpfstreams);
-        collect_coverage(c);
+        collect_coverage({&c});
     }
 }
 
@@ -129,8 +129,8 @@ void Packer::merge_from_dynamic(vector<Packer*>& packers) {
             assert(n_bins == c.get_n_bins());
         }
         c.write_edits(tmpfstreams);
-        collect_coverage(c);
     }
+    collect_coverage(packers);
 }
 
 size_t Packer::get_bin_size(void) const {
@@ -167,7 +167,7 @@ void Packer::write_edits(ostream& out, size_t bin) const {
     }
 }
 
-void Packer::collect_coverage(const Packer& c) {
+void Packer::collect_coverage(const vector<Packer*>& packers) {
     // assume the same basis vector
     assert(!is_compacted);
 #pragma omp parallel for
@@ -175,13 +175,17 @@ void Packer::collect_coverage(const Packer& c) {
         if (record_bases) {
             size_t base_offset = i * coverage_dynamic[0].size();
             for (size_t j = 0; j < coverage_dynamic[i].size(); ++j) {
-                increment_coverage(j + base_offset, c.coverage_at_position(j + base_offset));
+                for (size_t k = 0; k < packers.size(); ++k) {
+                    increment_coverage(j + base_offset, packers[k]->coverage_at_position(j + base_offset));
+                }
             }
         }
         if (record_edges) {
             size_t edge_base_offset = i * edge_coverage_dynamic[0].size();
             for (size_t j = 0; j < edge_coverage_dynamic[i].size(); ++j) {
-                increment_edge_coverage(j + edge_base_offset, c.edge_coverage(j + edge_base_offset));
+                for (size_t k = 0; k < packers.size(); ++k) {
+                    increment_edge_coverage(j + edge_base_offset, packers[k]->edge_coverage(j + edge_base_offset));
+                }
             }
         }
     }

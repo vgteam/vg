@@ -63,7 +63,7 @@ public:
     string edit_value(const Edit& edit, bool revcomp) const;
     vector<Edit> edits_at_position(size_t i) const;
     size_t coverage_at_position(size_t i) const;
-    void collect_coverage(const Packer& c);
+    void collect_coverage(const vector<Packer*>& packers);
     ostream& as_table(ostream& out, bool show_edits, vector<vg::id_t> node_ids);
     ostream& as_edge_table(ostream& out, vector<vg::id_t> node_ids);
     ostream& show_structure(ostream& out); // debugging
