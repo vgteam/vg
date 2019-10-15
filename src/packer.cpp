@@ -175,17 +175,21 @@ void Packer::collect_coverage(const vector<Packer*>& packers) {
         if (record_bases) {
             size_t base_offset = i * coverage_dynamic[0].size();
             for (size_t j = 0; j < coverage_dynamic[i].size(); ++j) {
+                size_t inc_cov = 0;
                 for (size_t k = 0; k < packers.size(); ++k) {
-                    increment_coverage(j + base_offset, packers[k]->coverage_at_position(j + base_offset));
+                    inc_cov += packers[k]->coverage_at_position(j + base_offset);
                 }
+                increment_coverage(j + base_offset, inc_cov);
             }
         }
         if (record_edges) {
             size_t edge_base_offset = i * edge_coverage_dynamic[0].size();
             for (size_t j = 0; j < edge_coverage_dynamic[i].size(); ++j) {
+                size_t inc_edge_cov = 0;
                 for (size_t k = 0; k < packers.size(); ++k) {
-                    increment_edge_coverage(j + edge_base_offset, packers[k]->edge_coverage(j + edge_base_offset));
+                    inc_edge_cov += packers[k]->edge_coverage(j + edge_base_offset);
                 }
+                increment_edge_coverage(j + edge_base_offset, inc_edge_cov);
             }
         }
     }
