@@ -192,7 +192,7 @@ int main_pack(int argc, char** argv) {
     vector<Packer*> packers(num_packers, nullptr);
 #pragma omp parallel for
     for (int i = 0; i < packers.size(); ++i) {
-        packers[i] = new Packer(graph, bin_size, data_width, max(1, thread_count - 1), true, true, record_edits);
+        packers[i] = new Packer(graph, bin_size, data_width, thread_count, true, true, record_edits);
     }
 
     Packer& packer = *packers[0];

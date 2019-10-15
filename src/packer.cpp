@@ -28,7 +28,7 @@ Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, 
     }
 
     // only bin if we need to
-    if (coverage_bins < 1 || num_edges_dynamic <= coverage_bins || num_bases_dynamic <= coverage_bins) {
+    if (num_edges_dynamic <= coverage_bins || num_bases_dynamic <= coverage_bins) {
         coverage_bins = 1;
     }
     assert(coverage_bins > 0);
