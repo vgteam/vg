@@ -187,8 +187,17 @@ int main_pack(int argc, char** argv) {
     // bits needed to store double the coverage
     size_t data_width = std::ceil(std::log2(2 * expected_coverage));
 
+    // create our packers
+    size_t num_packers = !gam_in.empty() ? thread_count : 1;
+    vector<Packer*> packers(num_packers, nullptr);
+#pragma omp parallel for
+    for (int i = 0; i < packers.size(); ++i) {
+        packers[i] = new Packer(graph, bin_size, data_width, thread_count, true, true, record_edits);
+    }
+
+    Packer& packer = *packers[0];
+    
     // todo one packer per thread and merge
-    vg::Packer packer(graph, bin_size, data_width, thread_count, true, true, record_edits);
     if (packs_in.size() == 1) {
         packer.load_from_file(packs_in.front());
     } else if (packs_in.size() > 1) {
@@ -196,14 +205,6 @@ int main_pack(int argc, char** argv) {
     }
 
     if (!gam_in.empty()) {
-        vector<vg::Packer*> packers;
-        if (thread_count == 1) {
-            packers.push_back(&packer);
-        } else {
-            for (size_t i = 0; i < thread_count; ++i) {
-                packers.push_back(new Packer(graph, bin_size, thread_count, data_width, true, true, record_edits));
-            }
-        }
         std::function<void(Alignment&)> lambda = [&packer,&min_mapq,&min_baseq,&qual_adjust,&packers](Alignment& aln) {
             packers[omp_get_thread_num()]->add(aln, min_mapq, min_baseq, qual_adjust);
         };
@@ -218,14 +219,13 @@ int main_pack(int argc, char** argv) {
             vg::io::for_each_parallel(gam_stream, lambda);
             gam_stream.close();
         }
-        if (thread_count == 1) {
-            packers.clear();
-        } else {
-            packer.merge_from_dynamic(packers);
-            for (auto& p : packers) {
-                delete p;
+        if (packers.size() > 1) {
+            vector<Packer*> others(packers.begin() + 1, packers.end());
+            packer.merge_from_dynamic(others);
+            for (auto other : others) {
+                delete other;
             }
-            packers.clear();
+            packers.resize(1);
         }
     }
 
@@ -242,6 +242,11 @@ int main_pack(int argc, char** argv) {
         }
     }
 
+    for (int i = 0; i < packers.size(); ++i) {
+        delete packers[i];
+    }        
+    packers.clear();
+    
     return 0;
 }
 
