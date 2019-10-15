@@ -33,11 +33,12 @@ public:
     /// Create a Packer
     /// graph : Must implement the VectorizableHandleGraph interface
     /// bin_size : Bin coverage into bins
+    /// coverage_bins : Use this many coverage objects.  Using one / thread allows faster merge
     /// data_width : Number of bits per entry in the dynamic coverage vector.  Higher values get stored in a map
     /// record_bases : Store the base coverage
     /// record_edges : Store the edge coverage
     /// record_edits : Store the edits
-    Packer(const HandleGraph* graph, size_t bin_size = 0, size_t data_width = 8, bool record_bases = true, bool record_edges = true, bool record_edits = true);
+    Packer(const HandleGraph* graph, size_t bin_size = 0, size_t coverage_bins = 1, size_t data_width = 8, bool record_bases = true, bool record_edges = true, bool record_edits = true);
     ~Packer(void);
 
     /// Add coverage from given alignment to the indexes
@@ -57,7 +58,6 @@ public:
                      std::string name = "");
     void make_compact(void);
     void make_dynamic(void);
-    size_t graph_length(void) const;
     size_t position_in_basis(const Position& pos) const;
     string pos_key(size_t i) const;
     string edit_value(const Edit& edit, bool revcomp) const;
@@ -84,6 +84,10 @@ public:
     void increment_edge_coverage(size_t i);
     void increment_edge_coverage(size_t i, size_t v);
 private:
+    /// map from absolute postion to positions in the binned arrays
+    pair<size_t, size_t> coverage_bin_offset(size_t i) const;
+    pair<size_t, size_t> edge_coverage_bin_offset(size_t i) const;
+    
     void ensure_edit_tmpfiles_open(void);
     void close_edit_tmpfiles(void);
     void remove_edit_tmpfiles(void);
@@ -93,9 +97,16 @@ private:
     const HandleGraph* graph;
 
     // dynamic model
-    gcsa::CounterArray coverage_dynamic;
-    gcsa::CounterArray edge_coverage_dynamic;
+    // base coverage.  we bin to make merging faster
+    vector<gcsa::CounterArray> coverage_dynamic;
+    // total length of above vectors
+    size_t num_bases_dynamic;
+    // edge coverage.  we bin to make merging faster
+    vector<gcsa::CounterArray> edge_coverage_dynamic;
+    // total length of above
+    size_t num_edges_dynamic;
     vector<string> edit_tmpfile_names;
+    
     vector<ofstream*> tmpfstreams;
     // which bin should we use
     size_t bin_for_position(size_t i) const;

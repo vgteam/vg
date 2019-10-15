@@ -188,7 +188,7 @@ int main_pack(int argc, char** argv) {
     size_t data_width = std::ceil(std::log2(2 * expected_coverage));
 
     // todo one packer per thread and merge
-    vg::Packer packer(graph, bin_size, data_width, true, true, record_edits);
+    vg::Packer packer(graph, bin_size, data_width, thread_count, true, true, record_edits);
     if (packs_in.size() == 1) {
         packer.load_from_file(packs_in.front());
     } else if (packs_in.size() > 1) {
@@ -201,7 +201,7 @@ int main_pack(int argc, char** argv) {
             packers.push_back(&packer);
         } else {
             for (size_t i = 0; i < thread_count; ++i) {
-                packers.push_back(new Packer(graph, bin_size, data_width, true, true, record_edits));
+                packers.push_back(new Packer(graph, bin_size, thread_count, data_width, true, true, record_edits));
             }
         }
         std::function<void(Alignment&)> lambda = [&packer,&min_mapq,&min_baseq,&qual_adjust,&packers](Alignment& aln) {
