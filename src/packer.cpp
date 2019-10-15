@@ -38,9 +38,9 @@ Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, 
     // initialize a coverage counter for each bin (totally independent from the edit coverage bins)
     for (size_t i = 0; i < coverage_bins; ++i) {
         size_t cov_bin_size = num_bases_dynamic / coverage_bins + (i == coverage_bins - 1 ? num_bases_dynamic % coverage_bins : 0);
-        coverage_dynamic.push_back(gcsa::CounterArray(cov_bin_size, data_width));
+        coverage_dynamic.emplace_back(cov_bin_size, data_width);
         size_t edge_bin_size = num_edges_dynamic / coverage_bins + (i == coverage_bins - 1 ? num_edges_dynamic % coverage_bins : 0);
-        edge_coverage_dynamic.push_back(gcsa::CounterArray(edge_bin_size, data_width));
+        edge_coverage_dynamic.emplace_back(edge_bin_size, data_width);
     }
 
     // count the bins if binning
