@@ -31,7 +31,8 @@ void help_mcmc(char** argv) {
     << endl
     << "basic options:" << endl
     << "  -i, --iteration-number INT        tells us the number of iterations to run mcmc_genotyper with" <<endl
-    << "  -s, --seed INT                    the seed we will use for the random number generator " << endl
+    << "  -r, --seed INT                    the seed we will use for the random number generator " << endl
+    << "  -s, --sample NAME                 sample name [default=SAMPLE]" << endl
     << "  -p  --ref-path NAME               reference path to call on (multipile allowed.  defaults to all paths)"<< endl
     << "  -o, --ref-offset N                offset in reference path (multiple allowed, 1 per path)" << endl
     << "  -l, --ref-length N                override length of reference in the contig field of output VCF" << endl;
@@ -39,7 +40,7 @@ void help_mcmc(char** argv) {
 
 int main_mcmc(int argc, char** argv) {
 
-    // holds the ref-path name 
+    string sample_name = "SAMPLE";
     vector<string> ref_paths;
     vector<size_t> ref_path_offsets;
     vector<size_t> ref_path_lengths;
@@ -60,7 +61,8 @@ int main_mcmc(int argc, char** argv) {
         {
             {"help", no_argument, 0, 'h'},
             {"iteration-number", required_argument, 0, 'i'},
-            {"seed", required_argument, 0, 's'},
+            {"seed", required_argument, 0, 'r'},
+            {"sample", required_argument, 0, 's'}, 
             {"ref-path", required_argument, 0, 'p'},
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'}, 
@@ -68,7 +70,7 @@ int main_mcmc(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hi:s:p:",
+        c = getopt_long (argc, argv, "hi:s:p:o:l:r:",
                          long_options, &option_index);
 
 
@@ -82,7 +84,7 @@ int main_mcmc(int argc, char** argv) {
                 n_iterations = parse<int>(optarg);
                 break;
 
-            case 's':
+            case 'r':
                 seed = parse<int>(optarg);
                 break;
             case 'p':
@@ -93,7 +95,10 @@ int main_mcmc(int argc, char** argv) {
                 break;
             case 'l':
                 ref_path_lengths.push_back(parse<int>(optarg));
-                break;                
+                break; 
+            case 's':
+                sample_name = optarg;
+                break;                   
             case 'h':
             case '?':
             default:
@@ -140,6 +145,11 @@ int main_mcmc(int argc, char** argv) {
             });
     }
     
+      /*
+    *########################################################################################
+    *                      GENOTYPING
+    *########################################################################################
+    **/
 
     vector<MultipathAlignment> reads;
     get_input_file(multipath_file, [&] (istream& open_file){
@@ -168,11 +178,59 @@ int main_mcmc(int argc, char** argv) {
     }
     }
 
-    unique_ptr<MCMCCaller> mcmc_caller; //TODO: initialize this to something.....
-    VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(mcmc_caller.get());
-    assert(vcf_caller != nullptr);
-    cout << vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
-    vcf_caller->write_variants(cout);
+    /*
+    *########################################################################################
+    *                      VCF OUTPUT
+    *########################################################################################
+    **/
+
+    // finds all ref paths that run through snarl and saves into trav_results
+    CactusSnarlFinder snarl_finder(*graph);
+    SnarlManager snarl_manager = snarl_finder.find_snarls();
+    PathTraversalFinder trav_finder(*graph, snarl_manager);
+
+    MCMCCaller mcmc_caller(*graph, snarl_manager, sample_name, ref_paths, ref_path_offsets, cout);
+    
+        
+    //print header to std out
+    cout << mcmc_caller.vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
+    
+    //loop start
+    //TODO: iterate through snarls send to find_traversals, need a loop
+    // how to access the deque<SnarlRecord> snarls (private)
+
+    //TODO:look at glenns top level snarls method
+    auto trav_results = trav_finder.find_path_traversals(snarl);
+    vector<SnarlTraversal> ref_path = trav_results.first;
+
+    // top level snarls
+    // snarl_manager can access children 
+    
+    
+   
+ 
+    //If it can't find any traversals, you can't output the snarl In VCF.
+    if(!ref_path.empty()){
+        // continue the loop of snarl without printing VCF file 
+    }else{
+        //In practice there should be only one reference path, 
+        //so you can just choose the first one returned
+        SnarlTraversal first_returned = ref_path[0];
+        
+        vector<pair<step_handle_t, step_handle_t> > steps = trav_results.second;
+        pair<step_handle_t, step_handle_t> first_step_returned = steps[0];
+
+        pair<size_t, bool> ref_pos;
+        
+        
+
+    }
+    //TODO: write variants right after variant object processed 
+    //write VCF
+    // vcf_caller->write_variants(cout);
+
+    //loop end
+    
         
     return 0;
 
