@@ -4,6 +4,7 @@ var searchData=
   ['edge_5fallele_5flabels',['edge_allele_labels',['../classvg_1_1Genotyper.html#aae52b974044843aed34fc31152ccda77',1,'vg::Genotyper']]],
   ['edge_5fcount',['edge_count',['../classvg_1_1VG.html#a25ef81b910a6fc47c9a6ba4c1636cf83',1,'vg::VG']]],
   ['edge_5fcoverage',['edge_coverage',['../classvg_1_1Packer.html#a5ff601ec8eace2559df20c9b1b11e030',1,'vg::Packer::edge_coverage(Edge &amp;e) const'],['../classvg_1_1Packer.html#a241eceae29b5f183b876586e0e504a76',1,'vg::Packer::edge_coverage(size_t i) const']]],
+  ['edge_5fcoverage_5fbin_5foffset',['edge_coverage_bin_offset',['../classvg_1_1Packer.html#ab2f586cd7d0443b6ab3de98d321db4ac',1,'vg::Packer']]],
   ['edge_5fhandle',['edge_handle',['../classhandlegraph_1_1HandleGraph.html#a3766f1aca1cbdbf827f2a12aaf2078ec',1,'handlegraph::HandleGraph']]],
   ['edge_5findex',['edge_index',['../classvg_1_1Packer.html#aaac9a172415e1e7fbc419e5a7e13e985',1,'vg::Packer::edge_index()'],['../classhandlegraph_1_1VectorizableHandleGraph.html#a5aa85bce7358af90d1e63d2060a50a39',1,'handlegraph::VectorizableHandleGraph::edge_index()']]],
   ['edge_5fsize',['edge_size',['../classvg_1_1ProtoHandleGraph.html#affd915c48487f86e5aa7cce4579df75b',1,'vg::ProtoHandleGraph']]],

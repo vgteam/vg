@@ -57,7 +57,7 @@ var searchData=
   ['correctly_5fmapped',['correctly_mapped',['../structvg_1_1Alignment.html#a9ec303e39d844ec1e6289ddfbcdd7911',1,'vg::Alignment']]],
   ['counts',['counts',['../structvg_1_1ReadFilter_1_1Counts.html#abd2a4734823326101f65c4e2c2f54fd9',1,'vg::ReadFilter::Counts']]],
   ['coverage_5fciv',['coverage_civ',['../classvg_1_1Packer.html#adc0b40cfa531d0edbc50c9ed7bfcf84e',1,'vg::Packer']]],
-  ['coverage_5fdynamic',['coverage_dynamic',['../classvg_1_1Packer.html#ae382431ffbae1d4ebc173c5704604cbc',1,'vg::Packer']]],
+  ['coverage_5fdynamic',['coverage_dynamic',['../classvg_1_1Packer.html#ab0e7e52cb59fb72cd83013461e5d8648',1,'vg::Packer']]],
   ['cr',['cr',['../classvg_1_1Viz.html#a1c514ef7170a0f6a195aeed7b2cd0b20',1,'vg::Viz']]],
   ['crossing_5fedges',['crossing_edges',['../classvg_1_1PhaseUnfolder.html#a326b5a34e3c5255b95fbad3eb536fa48',1,'vg::PhaseUnfolder']]],
   ['cumulative_5fseq_5flen',['cumulative_seq_len',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a60ef2a91471d83aaaa6d52cb13b800e8',1,'vg::BandedGlobalAligner::BAMatrix']]],

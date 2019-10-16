@@ -46,6 +46,8 @@ var searchData=
   ['nt_5ftable',['nt_table',['../classvg_1_1GSSWAligner.html#a73b117b8b0b894ce486bdb2c4eeeeb10',1,'vg::GSSWAligner']]],
   ['num_5falt_5falns',['num_alt_alns',['../classvg_1_1MultipathMapper.html#ad29e0a45fcb921023bd6479a15cfef78',1,'vg::MultipathMapper']]],
   ['num_5fbases',['num_bases',['../structvg_1_1BasePileup.html#aca3e40a479d777aaaa687ca8ab7ce49a',1,'vg::BasePileup']]],
+  ['num_5fbases_5fdynamic',['num_bases_dynamic',['../classvg_1_1Packer.html#a34e4dcd2100f889a0f3e673f1a794d29',1,'vg::Packer']]],
+  ['num_5fedges_5fdynamic',['num_edges_dynamic',['../classvg_1_1Packer.html#ae05325e714e72b76815740f03dc10a3b',1,'vg::Packer']]],
   ['num_5fforward_5freads',['num_forward_reads',['../structvg_1_1EdgePileup.html#a5a61f1d9489561ede0ca1afcbcd7c1d9',1,'vg::EdgePileup']]],
   ['num_5fitems',['num_items',['../classvg_1_1ShuffledPairs.html#af7af129e1f60b59e78ed6d92d693d599',1,'vg::ShuffledPairs']]],
   ['num_5fmapping_5fattempts',['num_mapping_attempts',['../classvg_1_1MultipathMapper.html#acd259da737785206d02cc2807ab831fa',1,'vg::MultipathMapper']]],

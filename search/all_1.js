@@ -8,7 +8,7 @@ var searchData=
   ['adaptive_5fdiff_5fexponent',['adaptive_diff_exponent',['../classvg_1_1BaseMapper.html#a653e029302e4442dbabd06a70ec4bbec',1,'vg::BaseMapper']]],
   ['adaptive_5freseed_5fdiff',['adaptive_reseed_diff',['../classvg_1_1BaseMapper.html#acf7556c347ea7596624700482dc58c8c',1,'vg::BaseMapper']]],
   ['adaptive_5freseed_5flength_5fmemo',['adaptive_reseed_length_memo',['../classvg_1_1BaseMapper.html#a279b5883907a56ada69b41796230b209',1,'vg::BaseMapper']]],
-  ['add',['add',['../classvg_1_1Packer.html#adf805b6fc10679428e97a1f31213e83a',1,'vg::Packer']]],
+  ['add',['add',['../classvg_1_1Packer.html#acf47c57a145fc54c9614f6e343af64ca',1,'vg::Packer']]],
   ['add_5falt_5fallele',['add_alt_allele',['../namespacevg.html#a6391a10ec421fbb6c487f491bd978ef6',1,'vg']]],
   ['add_5fbv',['add_bv',['../classVectorizer.html#a88203fab4049c471c963135c4c52ce03',1,'Vectorizer']]],
   ['add_5fchain_5fchild',['add_chain_child',['../classvg_1_1NetGraph.html#a0fadfaf9261a911ec04b4c10f75c5b9b',1,'vg::NetGraph']]],

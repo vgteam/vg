@@ -2,7 +2,7 @@ var searchData=
 [
   ['a',['a',['../classvg_1_1uniform__real__distribution.html#aac3912d0f456993e6ae7f7bbe4d732d7',1,'vg::uniform_real_distribution::a()'],['../classvg_1_1uniform__int__distribution.html#a2ac06e4375faf1706e7d6171c7e2e14b',1,'vg::uniform_int_distribution::a()']]],
   ['accept_5frecord',['accept_record',['../classvg_1_1VcfRecordFilter.html#a2e39d3d4cb41426f965959c30b0de2d2',1,'vg::VcfRecordFilter']]],
-  ['add',['add',['../classvg_1_1Packer.html#adf805b6fc10679428e97a1f31213e83a',1,'vg::Packer']]],
+  ['add',['add',['../classvg_1_1Packer.html#acf47c57a145fc54c9614f6e343af64ca',1,'vg::Packer']]],
   ['add_5falt_5fallele',['add_alt_allele',['../namespacevg.html#a6391a10ec421fbb6c487f491bd978ef6',1,'vg']]],
   ['add_5fbv',['add_bv',['../classVectorizer.html#a88203fab4049c471c963135c4c52ce03',1,'Vectorizer']]],
   ['add_5fchain_5fchild',['add_chain_child',['../classvg_1_1NetGraph.html#a0fadfaf9261a911ec04b4c10f75c5b9b',1,'vg::NetGraph']]],

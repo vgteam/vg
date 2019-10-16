@@ -5,7 +5,7 @@ var searchData=
   ['edge_5fby_5fsides',['edge_by_sides',['../classvg_1_1VG.html#ab754d45647580a21216bd010b72c6815',1,'vg::VG']]],
   ['edge_5fcache',['edge_cache',['../classvg_1_1Sampler.html#afb7efec11ad329ffaeaf4e5519b797a6',1,'vg::Sampler::edge_cache()'],['../classvg_1_1NGSSimulator.html#a5cfca82fd89f697b066b958aaa4d01ff',1,'vg::NGSSimulator::edge_cache()']]],
   ['edge_5fcoverage_5fciv',['edge_coverage_civ',['../classvg_1_1Packer.html#a11f2e82fc82448717a4e7ad63b777f27',1,'vg::Packer']]],
-  ['edge_5fcoverage_5fdynamic',['edge_coverage_dynamic',['../classvg_1_1Packer.html#ae83f6f93fae1f0c16da4a7c0698d1e97',1,'vg::Packer']]],
+  ['edge_5fcoverage_5fdynamic',['edge_coverage_dynamic',['../classvg_1_1Packer.html#ab22efe1269b60d25769defc8612b956b',1,'vg::Packer']]],
   ['edge_5findex',['edge_index',['../classvg_1_1VG.html#a2e2c02a8216f0bb9b3a78e985845ea1b',1,'vg::VG']]],
   ['edge_5fmax',['edge_max',['../classvg_1_1VariantAdder.html#aa17185d06cdf8969bf249fb316dbf07d',1,'vg::VariantAdder::edge_max()'],['../structPruningParameters.html#a3dbdbc8714fab9d6f2bcb282d9fa7c59',1,'PruningParameters::edge_max()']]],
   ['edge_5fpileups',['edge_pileups',['../structvg_1_1Pileup.html#af21485035738e0f7c01912f4416138b7',1,'vg::Pileup']]],
