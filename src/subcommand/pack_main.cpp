@@ -29,6 +29,7 @@ void help_pack(char** argv) {
          << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
          << "    -q, --qual-adjust      scale coverage by phred quality (combined from mapq and base quality)" << endl
          << "    -Q, --min-mapq N       ignore reads with MAPQ < N and positions with base quality < N [default: 0]" << endl
+         << "    -c, --expected-cov N   expected coverage.  used only for memory tuning [default : 128]" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
 
@@ -49,6 +50,7 @@ int main_pack(int argc, char** argv) {
     bool qual_adjust = false;
     int min_mapq = 0;
     int min_baseq = 0;
+    size_t expected_coverage = 128;
 
     if (argc == 2) {
         help_pack(argv);
@@ -74,11 +76,12 @@ int main_pack(int argc, char** argv) {
             {"bin-size", required_argument, 0, 'b'},
             {"qual-adjust", no_argument, 0, 'q'},
             {"min-mapq", required_argument, 0, 'Q'},
+            {"expected-cov", required_argument, 0, 'c'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:o:i:g:dDt:eb:n:N:qQ:",
+        c = getopt_long (argc, argv, "hx:o:i:g:dDt:eb:n:N:qQ:c:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -132,6 +135,9 @@ int main_pack(int argc, char** argv) {
             min_mapq = parse<int>(optarg);
             min_baseq = min_mapq;
             break;
+        case 'c':
+            expected_coverage = parse<size_t>(optarg);
+            break;
         default:
             abort();
         }
@@ -177,9 +183,21 @@ int main_pack(int argc, char** argv) {
         nli.close();
     }
 
-    // todo one packer per thread and merge
+    // get a data width from our expected coverage, using simple heuristic of counting
+    // bits needed to store double the coverage
+    size_t data_width = std::ceil(std::log2(2 * expected_coverage));
 
-    vg::Packer packer(graph, bin_size, qual_adjust, min_mapq, min_baseq);
+    // create our packers
+    size_t num_packers = !gam_in.empty() ? thread_count : 1;
+    vector<Packer*> packers(num_packers, nullptr);
+#pragma omp parallel for
+    for (int i = 0; i < packers.size(); ++i) {
+        packers[i] = new Packer(graph, bin_size, thread_count, data_width, true, true, record_edits);
+    }
+
+    Packer& packer = *packers[0];
+    
+    // todo one packer per thread and merge
     if (packs_in.size() == 1) {
         packer.load_from_file(packs_in.front());
     } else if (packs_in.size() > 1) {
@@ -187,16 +205,8 @@ int main_pack(int argc, char** argv) {
     }
 
     if (!gam_in.empty()) {
-        vector<vg::Packer*> packers;
-        if (thread_count == 1) {
-            packers.push_back(&packer);
-        } else {
-            for (size_t i = 0; i < thread_count; ++i) {
-                packers.push_back(new Packer(graph, bin_size, qual_adjust, min_mapq, min_baseq));
-            }
-        }
-        std::function<void(Alignment&)> lambda = [&packer,&record_edits,&packers](Alignment& aln) {
-            packers[omp_get_thread_num()]->add(aln, record_edits);
+        std::function<void(Alignment&)> lambda = [&packer,&min_mapq,&min_baseq,&qual_adjust,&packers](Alignment& aln) {
+            packers[omp_get_thread_num()]->add(aln, min_mapq, min_baseq, qual_adjust);
         };
         if (gam_in == "-") {
             vg::io::for_each_parallel(std::cin, lambda);
@@ -209,14 +219,13 @@ int main_pack(int argc, char** argv) {
             vg::io::for_each_parallel(gam_stream, lambda);
             gam_stream.close();
         }
-        if (thread_count == 1) {
-            packers.clear();
-        } else {
-            packer.merge_from_dynamic(packers);
-            for (auto& p : packers) {
-                delete p;
+        if (packers.size() > 1) {
+            vector<Packer*> others(packers.begin() + 1, packers.end());
+            packer.merge_from_dynamic(others);
+            for (auto other : others) {
+                delete other;
             }
-            packers.clear();
+            packers.resize(1);
         }
     }
 
@@ -233,6 +242,11 @@ int main_pack(int argc, char** argv) {
         }
     }
 
+    for (int i = 0; i < packers.size(); ++i) {
+        delete packers[i];
+    }        
+    packers.clear();
+    
     return 0;
 }
 
