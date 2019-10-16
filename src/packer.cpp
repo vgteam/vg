@@ -495,14 +495,14 @@ size_t Packer::edge_vector_size(void) const{
 }
 
 pair<size_t, size_t> Packer::coverage_bin_offset(size_t i) const {
-    size_t bin = min(i / coverage_dynamic[0].size(), coverage_dynamic.size() - 1);
+    size_t bin = min((size_t)(i / coverage_dynamic[0].size()), (size_t)(coverage_dynamic.size() - 1));
     // last bin can have different size so we don't use mod
     size_t offset = i - bin * coverage_dynamic[0].size();
     return make_pair(bin, offset);
 }
 
 pair<size_t, size_t> Packer::edge_coverage_bin_offset(size_t i) const {
-    size_t bin = min(i / edge_coverage_dynamic[0].size(), edge_coverage_dynamic.size() - 1);
+    size_t bin = min((size_t)(i / edge_coverage_dynamic[0].size()), (size_t)(edge_coverage_dynamic.size() - 1));
     // last bin can have different size so we don't use mod
     size_t offset = i - bin * edge_coverage_dynamic[0].size();
     return make_pair(bin, offset);
@@ -689,7 +689,7 @@ int Packer::combine_qualities(int map_quality, int base_quality) const {
             double p_err = logprob_invert(logprob_invert(phred_to_logprob(base_quality)) +
                                           logprob_invert(phred_to_logprob(map_quality)));
             // clamp our quality to 60
-            int qual = min((int)logprob_to_phred(p_err), maximum_quality);
+            int qual = min((int)logprob_to_phred(p_err), (int)maximum_quality);
             // update the cache
             quality_cache->put(make_pair(map_quality, base_quality), qual);
             return qual;
