@@ -1,5 +1,4 @@
 #include "gapless_extender.hpp"
-#include "gbwt_helper.hpp"
 
 #include <algorithm>
 #include <queue>

@@ -672,7 +672,7 @@ unordered_map<id_t, size_t> SupportBasedSnarlCaller::get_ref_offsets(const Snarl
 }
 
 PackedSupportSnarlCaller::PackedSupportSnarlCaller(const Packer& packer, SnarlManager& snarl_manager) :
-    SupportBasedSnarlCaller(*dynamic_cast<const PathHandleGraph*>(packer.graph), snarl_manager),
+    SupportBasedSnarlCaller(*dynamic_cast<const PathHandleGraph*>(packer.get_graph()), snarl_manager),
     packer(packer) {
 }
 

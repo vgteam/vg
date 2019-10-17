@@ -24,6 +24,7 @@
 
 #include <vg/io/vpkg.hpp>
 
+#include <algorithm>
 #include <iostream>
 #include <vector>
 
@@ -38,25 +39,35 @@
 using namespace vg;
 using namespace vg::subcommand;
 
+// Using too many threads just wastes CPU time without speeding up the construction.
+constexpr int DEFAULT_MAX_THREADS = 16;
+
+int get_default_threads() {
+    return std::min(omp_get_max_threads(), DEFAULT_MAX_THREADS);
+}
 
 void help_minimizer(char** argv) {
     std::cerr << "usage: " << argv[0] << " minimizer -g gbwt_name -i index_name [options] graph" << std::endl;
-    std::cerr << "Builds a minimizer index of the input graph, which can be any HandleGraph." << std::endl;
+    std::cerr << std::endl;
+    std::cerr << "Builds a minimizer index of the haplotypes in the GBWT index over the input graph." << std::endl;
+    std::cerr << "The graph can be any HandleGraph, but it will be transformed into a GBWTGraph. The" << std::endl;
+    std::cerr << "transformation can be avoided by providing a prebuilt GBWTGraph and using option -G." << std::endl;
     std::cerr << std::endl;
     std::cerr << "Required options:" << std::endl;
     std::cerr << "    -g, --gbwt-name X      use the GBWT index in file X" << std::endl;
     std::cerr << "    -i, --index-name X     store the index to file X" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Minimizer options:" << std::endl;
-    std::cerr << "    -k, --kmer-length N    length of the kmers in the index (default: " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_LENGTH << ")" << std::endl;
-    std::cerr << "    -w, --window-length N  index the smallest kmer in a window of N kmers (default: " << gbwtgraph::DefaultMinimizerIndex::key_type::WINDOW_LENGTH << ")" << std::endl;
+    std::cerr << "    -k, --kmer-length N    length of the kmers in the index (default " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_LENGTH << ", max " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH << ")" << std::endl;
+    std::cerr << "    -w, --window-length N  choose the minimizer from a window of N kmers (default " << gbwtgraph::DefaultMinimizerIndex::key_type::WINDOW_LENGTH << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -l, --load-index X     load the index from file X and insert the new kmers into it" << std::endl;
     std::cerr << "                           (overrides --kmer-length and --window-length)" << std::endl;
     std::cerr << "    -G, --gbwt-graph       the input graph is a GBWTGraph" << std::endl;
     std::cerr << "    -p, --progress         show progress information" << std::endl;
-    std::cerr << "    -t, --threads N        use N threads for index construction (default: " << omp_get_max_threads() << ")" << std::endl;
+    std::cerr << "    -t, --threads N        use N threads for index construction (default " << get_default_threads() << ")" << std::endl;
+    std::cerr << "                           (using more than " << DEFAULT_MAX_THREADS << " threads rarely helps)" << std::endl;
     std::cerr << std::endl;
 }
 
@@ -73,7 +84,7 @@ int main_minimizer(int argc, char** argv) {
     std::string index_name, load_index, gbwt_name, graph_name;
     bool is_gbwt_graph = false;
     bool progress = false;
-    int threads = omp_get_max_threads();
+    int threads = get_default_threads();
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -122,7 +133,6 @@ int main_minimizer(int argc, char** argv) {
             threads = parse<int>(optarg);
             threads = std::min(threads, omp_get_max_threads());
             threads = std::max(threads, 1);
-            omp_set_num_threads(threads);
             break;
 
         case 'h':
@@ -142,6 +152,7 @@ int main_minimizer(int argc, char** argv) {
         return 1;
     }
     graph_name = argv[optind];
+    omp_set_num_threads(threads);
 
     double start = gbwt::readTimer();
 
