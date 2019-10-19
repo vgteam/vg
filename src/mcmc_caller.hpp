@@ -21,18 +21,15 @@ namespace vg{
 
     class MCMCCaller : public VCFOutputCaller {
     public:    
-        const PathHandleGraph& graph;
         SnarlManager& snarl_manager;
-        const string& sample_name;
-        const vector<string>& ref_paths = {};
+        const string& sample_name = "SAMPLE";
         const vector<size_t>& ref_path_offsets = {};
         const vector<size_t>& ref_path_lengths = {};
         ostream& out_stream; 
+        int i =0;
     
-    
-    
-    
-        MCMCCaller(const PathHandleGraph& graph,
+
+        MCMCCaller(const PathPositionHandleGraph& graph,
                     SnarlManager& snarl_manager,
                     const string& sample_name,
                     const vector<string>& ref_paths = {},
@@ -41,16 +38,37 @@ namespace vg{
                     ostream& out_stream = cout );
 
         virtual ~MCMCCaller(); 
+        
+        /// Run call_snarl() on every top-level snarl in the manager.
+        /// For any that return false, try the children, etc. (when recurse_on_fail true)
+        /// Snarls are processed in parallel
+        void call_top_level_snarls(bool recurse_on_fail = true) ;
+    
+    protected:   
+        /// the graph
+        const PathPositionHandleGraph& graph;
 
-        protected:
+        /// keep track of the reference paths
+        vector<string> ref_paths;
+
+        /// keep track of offsets in the reference paths
+        map<string, size_t> ref_offsets; 
 
         /// print a vcf variant 
-        void process_variant(const Snarl& snarl, TraversalFinder& trav_finder, const vector<SnarlTraversal>& called_traversals,
-                      const vector<int>& genotype, const string& ref_path_name) ;
+        void emit_variant(const Snarl& snarl, const vector<int>& genotype, const string& ref_path_name, const vector<SnarlTraversal>& haplo_travs) const;
 
+        /// Call a given snarl, and print the output to out_stream
+        bool call_snarl(const Snarl& snarl);
 
-        /// Our Genotyper
-        //TODO: find out how this is being used to possibly substitute or remove completely (SnarlCaller)
+        /// check if a site can be handled by the RepresentativeTraversalFinder
+        bool is_traversable(const Snarl& snarl);
+
+        /// get the position of a snarl from our reference path using the PathPositionHandleGraph interface
+        /// the bool is true if the snarl's backward on the path
+        pair<size_t, bool> get_ref_position(const Snarl& snarl, const string& ref_path_name) const;
+
+        /// clean up the alleles to not share common prefixes / suffixes
+        void flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const;
 
 
     };

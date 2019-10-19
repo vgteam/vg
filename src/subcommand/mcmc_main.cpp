@@ -187,51 +187,16 @@ int main_mcmc(int argc, char** argv) {
     // finds all ref paths that run through snarl and saves into trav_results
     CactusSnarlFinder snarl_finder(*graph);
     SnarlManager snarl_manager = snarl_finder.find_snarls();
-    PathTraversalFinder trav_finder(*graph, snarl_manager);
-
-    MCMCCaller mcmc_caller(*graph, snarl_manager, sample_name, ref_paths, ref_path_offsets, cout);
+    
+    MCMCCaller mcmc_caller(*dynamic_cast<PathPositionHandleGraph*>(graph.get()), snarl_manager, sample_name, ref_paths, ref_path_offsets, ref_path_lengths, cout);
     
         
     //print header to std out
     cout << mcmc_caller.vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
     
-    //loop start
-    //TODO: iterate through snarls send to find_traversals, need a loop
-    // how to access the deque<SnarlRecord> snarls (private)
+    // current implimentation is writing vcf record after each variant processed
+    //mcmc_caller.call_top_level_snarls();
 
-    //TODO:look at glenns top level snarls method
-    auto trav_results = trav_finder.find_path_traversals(snarl);
-    vector<SnarlTraversal> ref_path = trav_results.first;
-
-    // top level snarls
-    // snarl_manager can access children 
-    
-    
-   
- 
-    //If it can't find any traversals, you can't output the snarl In VCF.
-    if(!ref_path.empty()){
-        // continue the loop of snarl without printing VCF file 
-    }else{
-        //In practice there should be only one reference path, 
-        //so you can just choose the first one returned
-        SnarlTraversal first_returned = ref_path[0];
-        
-        vector<pair<step_handle_t, step_handle_t> > steps = trav_results.second;
-        pair<step_handle_t, step_handle_t> first_step_returned = steps[0];
-
-        pair<size_t, bool> ref_pos;
-        
-        
-
-    }
-    //TODO: write variants right after variant object processed 
-    //write VCF
-    // vcf_caller->write_variants(cout);
-
-    //loop end
-    
-        
     return 0;
 
 
