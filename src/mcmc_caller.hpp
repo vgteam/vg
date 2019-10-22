@@ -13,6 +13,7 @@
 #include "snarls.hpp"
 #include "graph_caller.hpp"
 #include "traversal_finder.hpp"
+#include "phased_genome.hpp"
 #include "region.hpp"
 
 namespace vg{
@@ -21,15 +22,17 @@ namespace vg{
 
     class MCMCCaller : public VCFOutputCaller {
     public:    
+        PhasedGenome& genome;
         SnarlManager& snarl_manager;
         const string& sample_name = "SAMPLE";
         const vector<size_t>& ref_path_offsets = {};
         const vector<size_t>& ref_path_lengths = {};
         ostream& out_stream; 
-        int i =0;
+        const SnarlTraversal trav;
     
 
         MCMCCaller(const PathPositionHandleGraph& graph,
+                    PhasedGenome& genome,
                     SnarlManager& snarl_manager,
                     const string& sample_name,
                     const vector<string>& ref_paths = {},

@@ -2,7 +2,7 @@
 #include "graph_caller.hpp"
 #include "algorithms/expand_context.hpp"
 #include "memoizing_graph.hpp"
-
+#include "phased_genome.hpp"
 
 namespace vg {
 
@@ -10,13 +10,15 @@ namespace vg {
      * MCMCCaller : Inherits from VCFOutputCaller    
      */         
     MCMCCaller::MCMCCaller(const PathPositionHandleGraph& graph,
+                           PhasedGenome& genome,
                            SnarlManager& snarl_manager,
                            const string& sample_name,
                            const vector<string>& ref_paths,
                            const vector<size_t>& ref_path_offsets,
                            const vector<size_t>& ref_path_lengths,
                            ostream& out_stream) :
-        graph(graph), snarl_manager(snarl_manager), VCFOutputCaller(sample_name), sample_name(sample_name), ref_paths(ref_paths), ref_path_offsets(ref_path_offsets),
+        graph(graph), genome(genome), snarl_manager(snarl_manager), VCFOutputCaller(sample_name), 
+        sample_name(sample_name), ref_paths(ref_paths), ref_path_offsets(ref_path_offsets),
         ref_path_lengths(ref_path_lengths), out_stream(out_stream) {
         
         /// keep track of offsets in the reference paths
@@ -39,7 +41,9 @@ namespace vg {
 
     // Run the snarl caller on a snarl, and queue up the children if it fails
     auto process_snarl = [&](const Snarl* snarl) {
+        cerr << "before call_snarl"<<endl;
         bool was_called = call_snarl(*snarl);
+        cerr << "after call_snarl"<<endl;
         if (!was_called && recurse_on_fail) {
             const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
 #pragma omp critical (snarl_queue)
@@ -67,11 +71,11 @@ namespace vg {
     bool MCMCCaller::call_snarl(const Snarl& snarl){
          // if we can't handle the snarl, then the GraphCaller framework will recurse on its children
         if (!is_traversable(snarl)) {
+            cerr<< "snarl is not traversable" <<endl;
             return false;
         }
         
         PathTraversalFinder trav_finder(graph, snarl_manager);
-        
         auto trav_results = trav_finder.find_path_traversals(snarl);
         vector<SnarlTraversal> ref_path = trav_results.first;
         
@@ -79,46 +83,88 @@ namespace vg {
         if(!ref_path.empty()){
             // continue the loop of snarl without printing VCF file
             return 0;
-     
         }else{
             //In practice there should be only one reference path, 
             //so you can just choose the first one returned
-            SnarlTraversal trav = ref_path[0];
-            
-            
+            SnarlTraversal ref_trav = ref_path[0];
+                  
             vector<pair<step_handle_t, step_handle_t> > steps = trav_results.second;
             //<start_step, end_step>
             pair<step_handle_t, step_handle_t> start_and_end_pair = steps[0];
             step_handle_t first_start_step = start_and_end_pair.first;
 
-
-            string ref_path_name  = trav.name();;
+            cerr <<"94"<<endl;
+            function<string(const SnarlTraversal&)> trav_string = [&](const SnarlTraversal& trav) {
+            string seq;
             for (int i = 0; i < trav.visit_size(); ++i) {
-                const Visit& visit = trav.visit(i);
-                //get sequence of reference path by visiting each node
-
-                
-
-                if(visit.backward() == true){
-                    //use reverse_compliment??
-                }
-            
+                seq += graph.get_sequence(graph.get_handle(trav.visit(i).node_id(), trav.visit(i).backward()));
             }
-
-            //pair<size_t, bool> ref_pos;
+            return seq;
+            };
+            cerr <<"102"<<endl;
+            // set ref_path name and seq 
+            string ref_path_name  = ref_trav.name();
+            string ref_path_seq = trav_string(ref_trav);
             
-            vector<SnarlTraversal> haplo_travs;
-
+            //get haplotypes that pass snarl
+            vector<id_t> haplos_pass_snarl = genome.get_haplotypes_with_snarl(&snarl);
             
+            vector<SnarlTraversal> haplo_travs = {haplos_pass_snarl.size(), SnarlTraversal()};
+            vector<vector<NodeTraversal>> haplo_nodes;
             vector<int> genotype;
+            int haplo_count =1;
+            cerr <<"114"<<endl;
+            //build SnarlTraversal obj for each haplotype that passes through snarl 
+            // loop through haplotypes that pass through snarl
+            for(int i = 0; i <haplos_pass_snarl.size(); i++ ){
+                
+                // get_allele() does not add the start of the snarl so we have to add it manually
+                *haplo_travs[i].add_visit() = snarl.start();
+                //push back NdeTraversal for haplotype id in ith position of array 
+                haplo_nodes.push_back( genome.get_allele(snarl,haplos_pass_snarl[i]) );
+                // iterate through NodeTraversal nodes
+                for (auto iter = haplo_nodes[i].begin(); iter < haplo_nodes[i].end(); iter++){
+                
+                    int64_t n_id = iter->node->id();
+                    bool backward = iter->backward;
+                    Visit* v = haplo_travs[i].add_visit();
+                    v->set_node_id(n_id);
+                    v->set_backward(backward);
+                    *haplo_travs[i].add_visit() = snarl.end();
+                } 
+                // get_allele() does not add the end of the snarl so we have to add it manually
+                *haplo_travs[i].add_visit() = snarl.end();
+
+                //get the sequence for the SnarlTraversal
+                string trav_seq = trav_string(haplo_travs[i]);
+
+                //compare the sequence 
+                if(trav_seq.compare(ref_path_seq)< 0){
+                    //strings don't match ref path
+                    genotype[i] = haplo_count;
+                    haplo_count++;
+                    
+                }else if(trav_seq.compare(ref_path_seq) ==0){
+                    //strings match ref path 
+                    genotype[i] = 0;
+                }
+                
+            }
+            
+
+            //TODO: store GT numbers of two phased haplotype alleles
+            // haplo_travs[i] and genotype[i] are associated 
+            // if haplo_travs[0] = "AATA" (and matches with ref)
+            // genotype[0] = 0 (can be 0,1,2)
+            
             //emit variant
             emit_variant(snarl, genotype, ref_path_name, haplo_travs);
         
         }
-        i++;
-        return 1;
+        return true;
     
     }
+
     void MCMCCaller::emit_variant(const Snarl& snarl, const vector<int>& genotype, 
                                  const string& ref_path_name, const vector<SnarlTraversal>& haplo_travs) const{
         
@@ -149,7 +195,11 @@ namespace vg {
                 break;
             }
         }
-        
+        if(site_traversals.empty()){
+            //if none of the haplotypes matched, get reference SnarlTraversal 
+            // and convert to string
+            site_traversals.push_back(trav);
+        }
         out_variant.ref = trav_string(site_traversals[0]);
         
         // deduplicate alleles and compute the site traversals and genotype
@@ -186,20 +236,20 @@ namespace vg {
         out_variant.position = get_ref_position(snarl, ref_path_name).first + ref_offsets.find(ref_path_name)->second + 1;
         out_variant.id = std::to_string(snarl.start().node_id()) + "_" + std::to_string(snarl.end().node_id());
         out_variant.filter = "PASS";
-        //out_variant.updateAlleleIndexes();
+        out_variant.updateAlleleIndexes();
 
         // add the genotype
         out_variant.format.push_back("GT");
         auto& genotype_vector = out_variant.samples[sample_name]["GT"];
         
-        // stringstream vcf_gt;
-        // for (int i = 0; i < site_genotype.size(); ++i) {
-        //     vcf_gt << site_genotype[i];
-        //     if (i != site_genotype.size() - 1) {
-        //         vcf_gt << "/";
-        //     }
-        // }
-        // genotype_vector.push_back(vcf_gt.str());
+        stringstream vcf_gt;
+        for (int i = 0; i < site_genotype.size(); ++i) {
+            vcf_gt << site_genotype[i];
+            if (i != site_genotype.size() - 1) {
+                vcf_gt << "/";
+            }
+        }
+        genotype_vector.push_back(vcf_gt.str());
         
         // clean up the alleles to not have so man common prefixes
         flatten_common_allele_ends(out_variant, true);

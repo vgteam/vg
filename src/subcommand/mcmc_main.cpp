@@ -40,7 +40,6 @@ void help_mcmc(char** argv) {
 
 int main_mcmc(int argc, char** argv) {
 
-    string sample_name = "SAMPLE";
     vector<string> ref_paths;
     vector<size_t> ref_path_offsets;
     vector<size_t> ref_path_lengths;
@@ -53,6 +52,7 @@ int main_mcmc(int argc, char** argv) {
     // initialize parameters with their default options
     int n_iterations = 1000;
     int seed = 1;
+    string sample_name = "SAMPLE";
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -116,6 +116,8 @@ int main_mcmc(int argc, char** argv) {
     unique_ptr<VG> graph = (vg::io::VPKG::load_one<VG>(graph_file));
     unique_ptr<SnarlManager> snarls = (vg::io::VPKG::load_one<SnarlManager>(snarls_file));
 
+    
+
     // Check our paths
     for (const string& ref_path : ref_paths) {
         if (!graph->has_path(ref_path)) {
@@ -144,6 +146,10 @@ int main_mcmc(int argc, char** argv) {
                 }
             });
     }
+
+    // No lengths specified: calculate them from path names
+    
+    
     
       /*
     *########################################################################################
@@ -188,14 +194,15 @@ int main_mcmc(int argc, char** argv) {
     CactusSnarlFinder snarl_finder(*graph);
     SnarlManager snarl_manager = snarl_finder.find_snarls();
     
-    MCMCCaller mcmc_caller(*dynamic_cast<PathPositionHandleGraph*>(graph.get()), snarl_manager, sample_name, ref_paths, ref_path_offsets, ref_path_lengths, cout);
-    
+    MCMCCaller mcmc_caller(*dynamic_cast<PathPositionHandleGraph*>(graph.get()), *genome, snarl_manager, sample_name, ref_paths, ref_path_offsets, ref_path_lengths, cout);
         
     //print header to std out
     cout << mcmc_caller.vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
+
     
     // current implimentation is writing vcf record after each variant processed
-    //mcmc_caller.call_top_level_snarls();
+    mcmc_caller.call_top_level_snarls();
+    
 
     return 0;
 
