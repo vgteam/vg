@@ -5,6 +5,7 @@
 #include <map>
 #include <chrono>
 #include <ctime>
+#include <mutex>
 #include "omp.h"
 #include "lru_cache.h"
 #include "alignment.hpp"
@@ -34,6 +35,7 @@ public:
     /// graph : Must implement the VectorizableHandleGraph interface
     /// bin_size : Bin coverage into bins
     /// coverage_bins : Use this many coverage objects.  Using one / thread allows faster merge
+    /// coverage_locks : Number of mutexes to use for each of node and edge coverage.
     /// data_width : Number of bits per entry in the dynamic coverage vector.  Higher values get stored in a map
     /// record_bases : Store the base coverage
     /// record_edges : Store the edge coverage
@@ -113,13 +115,18 @@ private:
     vector<gcsa::CounterArray*> coverage_dynamic;
     // total length of above vectors
     size_t num_bases_dynamic;
+    // one mutex per element of coverage_dynamic
+    std::mutex* base_locks;
     // edge coverage.  we bin to make merging faster
     vector<gcsa::CounterArray*> edge_coverage_dynamic;
     // total length of above
     size_t num_edges_dynamic;
-    vector<string> edit_tmpfile_names;
+    // one mutex per element of edge_coverage_dynamic
+    std::mutex* edge_locks;
     
+    vector<string> edit_tmpfile_names;
     vector<ofstream*> tmpfstreams;
+    std::mutex* tmpfstream_locks;
     // which bin should we use
     size_t bin_for_position(size_t i) const;
     size_t n_bins = 1;
@@ -149,8 +156,8 @@ private:
     int compute_quality(const Alignment& aln, size_t position_in_read) const;
     int combine_qualities(int map_quality, int base_quality) const;
     
-    // Avoid recomputing qualities in above
-    mutable LRUCache<pair<int, int>, int>* quality_cache;
+    // Avoid recomputing qualities in above (one per thread)
+    mutable vector<LRUCache<pair<int, int>, int>*> quality_cache;
     static const int maximum_quality;
     static const int lru_cache_size;
     
