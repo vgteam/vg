@@ -8,10 +8,10 @@ namespace vg {
 const int Packer::maximum_quality = 60;
 const int Packer::lru_cache_size = 50;
 
-Packer::Packer(void) : graph(nullptr), num_bases_dynamic(0), num_edges_dynamic(0), quality_cache(nullptr) { }
+Packer::Packer(void) : graph(nullptr), data_width(8), cov_bin_size(0), edge_cov_bin_size(0), num_bases_dynamic(0), num_edges_dynamic(0), quality_cache(nullptr) { }
 
 Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, size_t data_width, bool record_bases, bool record_edges, bool record_edits) :
-    graph(graph), bin_size(bin_size), record_bases(record_bases), record_edges(record_edges), record_edits(record_edits) {
+    graph(graph), data_width(data_width), bin_size(bin_size), record_bases(record_bases), record_edges(record_edges), record_edits(record_edits) {
     // get the size of the base coverage counter
     num_bases_dynamic = 0;
     if (record_bases) {
@@ -35,14 +35,14 @@ Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, 
     coverage_dynamic.reserve(coverage_bins);
     edge_coverage_dynamic.reserve(coverage_bins);
 
-    // initialize a coverage counter for each bin (totally independent from the edit coverage bins)
-    for (size_t i = 0; i < coverage_bins; ++i) {
-        size_t cov_bin_size = num_bases_dynamic / coverage_bins + (i == coverage_bins - 1 ? num_bases_dynamic % coverage_bins : 0);
-        coverage_dynamic.emplace_back(cov_bin_size, data_width);
-        size_t edge_bin_size = num_edges_dynamic / coverage_bins + (i == coverage_bins - 1 ? num_edges_dynamic % coverage_bins : 0);
-        edge_coverage_dynamic.emplace_back(edge_bin_size, data_width);
-    }
-
+    // coverage counter for each bin (totally independent from the edit coverage bins)
+    // they are initialized on-demand to better support sparse use-cases
+    coverage_dynamic.resize(coverage_bins, nullptr);
+    edge_coverage_dynamic.resize(coverage_bins, nullptr);
+    // need this for every lookup, so store here
+    cov_bin_size = coverage_dynamic.size() > 0 ? num_bases_dynamic / coverage_dynamic.size() : 0;
+    edge_cov_bin_size = edge_coverage_dynamic.size() > 0 ? num_edges_dynamic / edge_coverage_dynamic.size() : 0;
+    
     // count the bins if binning
     if (bin_size) {
         n_bins = num_bases_dynamic / bin_size + 1;
@@ -53,6 +53,12 @@ Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, 
 }
 
 Packer::~Packer(void) {
+    for (auto counter : coverage_dynamic) {
+        delete counter;
+    }
+    for (auto counter : edge_coverage_dynamic) {
+        delete counter;
+    }
     close_edit_tmpfiles();
     remove_edit_tmpfiles();
     delete quality_cache;
@@ -173,23 +179,29 @@ void Packer::collect_coverage(const vector<Packer*>& packers) {
 #pragma omp parallel for
     for (size_t i = 0; i < coverage_dynamic.size(); ++i) {
         if (record_bases) {
-            size_t base_offset = i * coverage_dynamic[0].size();
-            for (size_t j = 0; j < coverage_dynamic[i].size(); ++j) {
+            size_t base_offset = i * cov_bin_size;
+            size_t bin_size = coverage_bin_size(i);
+            for (size_t j = 0; j < bin_size; ++j) {
                 size_t inc_cov = 0;
                 for (size_t k = 0; k < packers.size(); ++k) {
                     inc_cov += packers[k]->coverage_at_position(j + base_offset);
                 }
-                increment_coverage(j + base_offset, inc_cov);
+                if (inc_cov > 0) {
+                    increment_coverage(j + base_offset, inc_cov);
+                }
             }
         }
         if (record_edges) {
-            size_t edge_base_offset = i * edge_coverage_dynamic[0].size();
-            for (size_t j = 0; j < edge_coverage_dynamic[i].size(); ++j) {
+            size_t edge_base_offset = i * edge_cov_bin_size;
+            size_t edge_bin_size = edge_coverage_bin_size(i);
+            for (size_t j = 0; j < edge_bin_size; ++j) {
                 size_t inc_edge_cov = 0;
                 for (size_t k = 0; k < packers.size(); ++k) {
                     inc_edge_cov += packers[k]->edge_coverage(j + edge_base_offset);
                 }
-                increment_edge_coverage(j + edge_base_offset, inc_edge_cov);
+                if (inc_edge_cov > 0) {
+                    increment_edge_coverage(j + edge_base_offset, inc_edge_cov);
+                }
             }
         }
     }
@@ -495,37 +507,69 @@ size_t Packer::edge_vector_size(void) const{
 }
 
 pair<size_t, size_t> Packer::coverage_bin_offset(size_t i) const {
-    size_t bin = min((size_t)(i / coverage_dynamic[0].size()), (size_t)(coverage_dynamic.size() - 1));
+    size_t bin = min((size_t)(i / cov_bin_size), (size_t)(coverage_dynamic.size() - 1));
     // last bin can have different size so we don't use mod
-    size_t offset = i - bin * coverage_dynamic[0].size();
+    size_t offset = i - bin * cov_bin_size;
     return make_pair(bin, offset);
 }
 
 pair<size_t, size_t> Packer::edge_coverage_bin_offset(size_t i) const {
-    size_t bin = min((size_t)(i / edge_coverage_dynamic[0].size()), (size_t)(edge_coverage_dynamic.size() - 1));
+    size_t bin = min((size_t)(i / edge_cov_bin_size), (size_t)(edge_coverage_dynamic.size() - 1));
     // last bin can have different size so we don't use mod
-    size_t offset = i - bin * edge_coverage_dynamic[0].size();
+    size_t offset = i - bin * edge_cov_bin_size;
     return make_pair(bin, offset);
+}
+
+size_t Packer::coverage_bin_size(size_t i) const {
+    size_t bin_size = cov_bin_size;
+    if (i == coverage_dynamic.size() - 1) {
+        bin_size += num_bases_dynamic % coverage_dynamic.size();
+    }
+    return bin_size;
+}
+
+size_t Packer::edge_coverage_bin_size(size_t i) const {
+    size_t bin_size = edge_cov_bin_size;
+    if (i == edge_coverage_dynamic.size() - 1) {
+        bin_size += num_edges_dynamic % edge_coverage_dynamic.size();
+    }
+    return bin_size;
+}
+
+void Packer::init_coverage_bin(size_t i) {
+    if (coverage_dynamic[i] == nullptr) {
+        coverage_dynamic[i] = new gcsa::CounterArray(coverage_bin_size(i), data_width);
+    }
+}
+
+void Packer::init_edge_coverage_bin(size_t i) {
+    if (edge_coverage_dynamic[i] == nullptr) {
+        edge_coverage_dynamic[i] = new gcsa::CounterArray(edge_coverage_bin_size(i), data_width);
+    }
 }
 
 void Packer::increment_coverage(size_t i) {
     pair<size_t, size_t> bin_offset = coverage_bin_offset(i);
-    coverage_dynamic.at(bin_offset.first).increment(bin_offset.second);
+    init_coverage_bin(bin_offset.first);
+    coverage_dynamic.at(bin_offset.first)->increment(bin_offset.second);
 }
 
 void Packer::increment_coverage(size_t i, size_t v) {
     pair<size_t, size_t> bin_offset = coverage_bin_offset(i);
-    coverage_dynamic.at(bin_offset.first).increment(bin_offset.second, v);
+    init_coverage_bin(bin_offset.first);
+    coverage_dynamic.at(bin_offset.first)->increment(bin_offset.second, v);
 }
 
 void Packer::increment_edge_coverage(size_t i) {
     pair<size_t, size_t> bin_offset = edge_coverage_bin_offset(i);
-    edge_coverage_dynamic.at(bin_offset.first).increment(bin_offset.second);
+    init_edge_coverage_bin(bin_offset.first);
+    edge_coverage_dynamic.at(bin_offset.first)->increment(bin_offset.second);
 }
 
 void Packer::increment_edge_coverage(size_t i, size_t v) {
     pair<size_t, size_t> bin_offset = edge_coverage_bin_offset(i);
-    edge_coverage_dynamic.at(bin_offset.first).increment(bin_offset.second, v);
+    init_edge_coverage_bin(bin_offset.first);
+    edge_coverage_dynamic.at(bin_offset.first)->increment(bin_offset.second, v);
 }
 
 size_t Packer::coverage_at_position(size_t i) const {
@@ -533,7 +577,11 @@ size_t Packer::coverage_at_position(size_t i) const {
         return coverage_civ[i];
     } else {
         pair<size_t, size_t> bin_offset = coverage_bin_offset(i);
-        return coverage_dynamic.at(bin_offset.first)[bin_offset.second];
+        if (coverage_dynamic[bin_offset.first] == nullptr) {
+            return 0;
+        } else {
+            return (*coverage_dynamic.at(bin_offset.first))[bin_offset.second];
+        }
     }
 }
 
@@ -543,7 +591,11 @@ size_t Packer::edge_coverage(size_t i) const {
     }
     else{
         pair<size_t, size_t> bin_offset = edge_coverage_bin_offset(i);
-        return edge_coverage_dynamic.at(bin_offset.first)[bin_offset.second];
+        if (edge_coverage_dynamic[bin_offset.first] == nullptr) {
+            return 0;
+        } else {
+            return (*edge_coverage_dynamic.at(bin_offset.first))[bin_offset.second];
+        }
     }
 }
 

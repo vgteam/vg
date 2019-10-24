@@ -87,6 +87,12 @@ private:
     /// map from absolute postion to positions in the binned arrays
     pair<size_t, size_t> coverage_bin_offset(size_t i) const;
     pair<size_t, size_t> edge_coverage_bin_offset(size_t i) const;
+    /// get the size of a bin
+    size_t coverage_bin_size(size_t i) const;
+    size_t edge_coverage_bin_size(size_t i) const;
+    /// initialize coverage bins on demand
+    void init_coverage_bin(size_t i);
+    void init_edge_coverage_bin(size_t i);
     
     void ensure_edit_tmpfiles_open(void);
     void close_edit_tmpfiles(void);
@@ -96,13 +102,19 @@ private:
     // base graph
     const HandleGraph* graph;
 
+    // data with for counter arrays
+    size_t data_width;
+    // bin sizes (last bins may be a bit bicker)
+    size_t cov_bin_size;
+    size_t edge_cov_bin_size;
+
     // dynamic model
     // base coverage.  we bin to make merging faster
-    vector<gcsa::CounterArray> coverage_dynamic;
+    vector<gcsa::CounterArray*> coverage_dynamic;
     // total length of above vectors
     size_t num_bases_dynamic;
     // edge coverage.  we bin to make merging faster
-    vector<gcsa::CounterArray> edge_coverage_dynamic;
+    vector<gcsa::CounterArray*> edge_coverage_dynamic;
     // total length of above
     size_t num_edges_dynamic;
     vector<string> edit_tmpfile_names;
