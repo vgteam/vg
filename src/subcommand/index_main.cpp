@@ -1033,7 +1033,6 @@ int main_index(int argc, char** argv) {
             if (!file_names.empty()) {
                 // Get the kmers from a VGset.
                 VGset graphs(file_names);
-                graphs.show_progress = show_progress;
                 size_t kmer_bytes = params.getLimitBytes();
                 dbg_names = graphs.write_gcsa_kmers_binary(kmer_size, kmer_bytes);
                 params.reduceLimit(kmer_bytes);
