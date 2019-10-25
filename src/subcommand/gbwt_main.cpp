@@ -49,7 +49,7 @@ void help_gbwt(char** argv) {
     std::cerr << "    -x, --xg-name FILE      use the node sequences from the graph in FILE" << std::endl;
     std::cerr << "    -l, --local-haplotypes  sample local haplotypes from the input (requires -o)" << std::endl;
     std::cerr << "    -P, --path-cover        build GBWT from a greedy path cover (requires -o)" << std::endl;
-    std::cerr << "    -n, --num-paths N       find N paths per component in -l or -P (default" << gbwtgraph::PATH_COVER_DEFAULT_N << ")" << std::endl;
+    std::cerr << "    -n, --num-paths N       find N paths per component in -l or -P (default " << gbwtgraph::PATH_COVER_DEFAULT_N << ")" << std::endl;
     std::cerr << "    -k, --context-length N  use N-node contexts in -l or -P (default " << gbwtgraph::PATH_COVER_DEFAULT_K << ")" << std::endl;
     std::cerr << "    -b, --buffer-size N     GBWT construction buffer size in millions of nodes (default " << (gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION) << ")" << std::endl;
     std::cerr << "    -i, --id-interval N     store path ids at one out of N positions (default " << gbwt::DynamicGBWT::SAMPLE_INTERVAL << ")" << std::endl;
