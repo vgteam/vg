@@ -191,8 +191,18 @@ int main_pack(int argc, char** argv) {
     // bits needed to store double the coverage
     size_t data_width = std::ceil(std::log2(2 * expected_coverage));
 
+    // use some naive heuristics to come up with bin count and batch size based on thread count
+    // more bins: finer grained parallelism at cost of more mutexes and allocations
+    // bigger batch size: more robustness to sorted input at cost of less parallelism
+    size_t num_threads = get_thread_count();
+    size_t batch_size = max((size_t)128, (size_t)(pow(2, 14 - log2(num_threads))));
+    if (batch_size % 2 != 0) {
+        ++batch_size;
+    }
+    size_t bin_count = pow(2, log2(num_threads) + 14);
+
     // create our packer
-    Packer packer(graph, bin_size, 65536, data_width, true, true, record_edits);
+    Packer packer(graph, bin_size, bin_count, data_width, true, true, record_edits);
     
     // todo one packer per thread and merge
     if (packs_in.size() == 1) {
@@ -206,14 +216,14 @@ int main_pack(int argc, char** argv) {
             packer.add(aln, min_mapq, min_baseq, qual_adjust);
         };
         if (gam_in == "-") {
-            vg::io::for_each_parallel(std::cin, lambda, 32768);
+            vg::io::for_each_parallel(std::cin, lambda, batch_size);
         } else {
             ifstream gam_stream(gam_in);
             if (!gam_stream) {
                 cerr << "[vg pack] error reading gam file: " << gam_in << endl;
                 return 1;
             }
-            vg::io::for_each_parallel(gam_stream, lambda, 32768);
+            vg::io::for_each_parallel(gam_stream, lambda, batch_size);
             gam_stream.close();
         }
     }
