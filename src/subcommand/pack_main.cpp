@@ -42,7 +42,6 @@ int main_pack(int argc, char** argv) {
     string gam_in;
     bool write_table = false;
     bool write_edge_table = false;
-    int thread_count = 1;
     bool record_edits = false;
     size_t bin_size = 0;
     vector<vg::id_t> node_ids;
@@ -120,8 +119,15 @@ int main_pack(int argc, char** argv) {
             bin_size = atoll(optarg);
             break;
         case 't':
-            thread_count = parse<int>(optarg);
+        {
+            int num_threads = parse<int>(optarg);
+            if (num_threads <= 0) {
+                cerr << "error:[vg call] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                exit(1);
+            }
+            omp_set_num_threads(num_threads);
             break;
+        }
         case 'n':
             node_ids.push_back(parse<int>(optarg));
             break;
@@ -142,8 +148,6 @@ int main_pack(int argc, char** argv) {
             abort();
         }
     }
-
-    omp_set_num_threads(thread_count);
 
     unique_ptr<HandleGraph> handle_graph;
     HandleGraph* graph = nullptr;
@@ -202,14 +206,14 @@ int main_pack(int argc, char** argv) {
             packer.add(aln, min_mapq, min_baseq, qual_adjust);
         };
         if (gam_in == "-") {
-            vg::io::for_each_parallel(std::cin, lambda);
+            vg::io::for_each_parallel(std::cin, lambda, 32768);
         } else {
             ifstream gam_stream(gam_in);
             if (!gam_stream) {
                 cerr << "[vg pack] error reading gam file: " << gam_in << endl;
                 return 1;
             }
-            vg::io::for_each_parallel(gam_stream, lambda);
+            vg::io::for_each_parallel(gam_stream, lambda, 32768);
             gam_stream.close();
         }
     }
