@@ -247,22 +247,51 @@ void Packer::make_compact(void) {
     }
     // sync edit file
     close_edit_tmpfiles();
+    
     // temporaries for construction
     size_t basis_length = coverage_size();
     int_vector<> coverage_iv;
-    util::assign(coverage_iv, int_vector<>(basis_length));
+    size_t edge_coverage_length = edge_vector_size();
+    int_vector<> edge_coverage_iv;
+#pragma omp parallel
+    {
+#pragma omp single
+        {
+#pragma omp task
+            {
+                util::assign(coverage_iv, int_vector<>(basis_length));
+            }
+#pragma omp task
+            {
+                util::assign(edge_coverage_iv, int_vector<>(edge_coverage_length));
+            }
+        }
+    }
+#pragma omp parallel for
     for (size_t i = 0; i < basis_length; ++i) {
         coverage_iv[i] = coverage_at_position(i);
     }
-    size_t edge_coverage_length = edge_vector_size();
-    int_vector<> edge_coverage_iv;
-    util::assign(edge_coverage_iv, int_vector<>(edge_coverage_length));
+#pragma omp parallel for
     for (size_t i = 0; i < edge_coverage_length; ++i) {
         edge_coverage_iv[i] = edge_coverage(i);
     }
-    util::assign(edge_coverage_civ, edge_coverage_iv);
+
+    #pragma omp parallel
+    {
+#pragma omp single
+        {
+#pragma omp task
+            {
+                util::assign(coverage_civ, coverage_iv);
+            }
+#pragma omp task
+            {
+                util::assign(edge_coverage_civ, edge_coverage_iv);
+            }
+        }
+    }
+    
     edit_csas.resize(edit_tmpfile_names.size());
-    util::assign(coverage_civ, coverage_iv);
     construct_config::byte_algo_sa = SE_SAIS;
 #pragma omp parallel for
     for (size_t i = 0; i < edit_tmpfile_names.size(); ++i) {
