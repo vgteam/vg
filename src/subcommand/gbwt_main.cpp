@@ -47,8 +47,10 @@ void help_gbwt(char** argv) {
     std::cerr << "GBWTGraph construction (0 or 1 GBWT files as input args):" << std::endl;
     std::cerr << "    -g, --graph-name FILE   build GBWTGraph and serialize it to FILE (requires -x)" << std::endl;
     std::cerr << "    -x, --xg-name FILE      use the node sequences from the graph in FILE" << std::endl;
-    std::cerr << "    -P, --path-cover N      build GBWT from a greedy path cover of N paths per component (requires -o)" << std::endl;
-    std::cerr << "    -k, --context-length N  use N-node contexts for finding the path cover (default " << gbwtgraph::PATH_COVER_DEFAULT_K << ")" << std::endl;
+    std::cerr << "    -l, --local-haplotypes  sample local haplotypes from the input (requires -o)" << std::endl;
+    std::cerr << "    -P, --path-cover        build GBWT from a greedy path cover (requires -o)" << std::endl;
+    std::cerr << "    -n, --num-paths N       find N paths per component in -l or -P (default " << gbwtgraph::PATH_COVER_DEFAULT_N << ")" << std::endl;
+    std::cerr << "    -k, --context-length N  use N-node contexts in -l or -P (default " << gbwtgraph::PATH_COVER_DEFAULT_K << ")" << std::endl;
     std::cerr << "    -b, --buffer-size N     GBWT construction buffer size in millions of nodes (default " << (gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION) << ")" << std::endl;
     std::cerr << "    -i, --id-interval N     store path ids at one out of N positions (default " << gbwt::DynamicGBWT::SAMPLE_INTERVAL << ")" << std::endl;
     std::cerr << std::endl;
@@ -78,7 +80,8 @@ int main_gbwt(int argc, char** argv)
     bool show_progress = false;
     bool count_threads = false;
     bool metadata = false, contigs = false, haplotypes = false, samples = false, list_names = false, thread_names = false;
-    size_t path_cover = 0, context_length = gbwtgraph::PATH_COVER_DEFAULT_K;
+    bool local_haplotypes = false, path_cover = false;
+    size_t num_paths = gbwtgraph::PATH_COVER_DEFAULT_N, context_length = gbwtgraph::PATH_COVER_DEFAULT_K;
     size_t buffer_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
     size_t id_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
     string gbwt_output, thread_output;
@@ -105,7 +108,9 @@ int main_gbwt(int argc, char** argv)
                 // GBWTGraph
                 { "graph-name", required_argument, 0, 'g' },
                 { "xg-name", required_argument, 0, 'x' },
-                { "path-cover", required_argument, 0, 'P' },
+                { "local-haplotypes", no_argument, 0, 'l' },
+                { "path-cover", no_argument, 0, 'P' },
+                { "num-paths", required_argument, 0, 'n' },
                 { "context-length", required_argument, 0, 'k' },
                 { "buffer-size", required_argument, 0, 'b' },
                 { "id-interval", required_argument, 0, 'i' },
@@ -124,7 +129,7 @@ int main_gbwt(int argc, char** argv)
             };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "o:pmfce:g:x:P:k:b:i:MCHSLTR:h?", long_options, &option_index);
+        c = getopt_long(argc, argv, "o:pmfce:g:x:lPn:k:b:i:MCHSLTR:h?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -167,8 +172,14 @@ int main_gbwt(int argc, char** argv)
         case 'x':
             xg_name = optarg;
             break;
+        case 'l':
+            local_haplotypes = true;
+            break;
         case 'P':
-            path_cover = parse<size_t>(optarg);
+            path_cover = true;
+            break;
+        case 'n':
+            num_paths = parse<size_t>(optarg);
             break;
         case 'k':
             context_length = parse<size_t>(optarg);
@@ -358,7 +369,23 @@ int main_gbwt(int argc, char** argv)
 
     // GBWTGraph construction.
     if (build_graph) {
-        if (path_cover > 0) {
+        if (local_haplotypes || path_cover) {
+            if (local_haplotypes && path_cover) {
+                std::cerr << "error: [vg gbwt] cannot build both local haplotypes and path cover" << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            if (local_haplotypes && optind + 1 != argc) {
+                std::cerr << "error: [vg gbwt] no input GBWT given for finding local haplotypes" << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            if (path_cover && optind != argc) {
+                std::cerr << "error: [vg gbwt] input GBWTs are not used with path cover" << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            if (num_paths == 0) {
+                std::cerr << "error: [vg gbwt] number of paths must be non-zero for -l and -P" << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
             if (context_length < gbwtgraph::PATH_COVER_MIN_K) {
                 std::cerr << "error: [vg gbwt] context length must be at least " << gbwtgraph::PATH_COVER_MIN_K << " for path cover" << std::endl;
                 std::exit(EXIT_FAILURE);
@@ -367,17 +394,13 @@ int main_gbwt(int argc, char** argv)
                 std::cerr << "error: [vg gbwt] GBWT construction buffer size cannot be 0" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
-            if (optind != argc) {
-                std::cerr << "error: [vg gbwt] input GBWTs are not used with path cover" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
             if (gbwt_output.empty()) {
                 std::cerr << "error: [vg gbwt] output file not specified for path cover GBWT" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
         } else {
             if (optind + 1 != argc) {
-                std::cerr << "error: [vg gbwt] GBWTGraph construction requires one input GBWT or a path cover" << std::endl;
+                std::cerr << "error: [vg gbwt] no input GBWT given for GBWTGraph construction" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
         }
@@ -398,8 +421,20 @@ int main_gbwt(int argc, char** argv)
 
         // Load or build GBWT.
         std::unique_ptr<gbwt::GBWT> loaded_gbwt(nullptr);
-        gbwt::GBWT path_cover_gbwt;
-        if (path_cover == 0) {
+        gbwt::GBWT generated_gbwt;
+        if (path_cover) {
+            if (show_progress) {
+                std::cerr << "Finding " << num_paths << "-path cover with context length " << context_length << std::endl;
+            }
+            double start = gbwt::readTimer();
+            generated_gbwt = gbwtgraph::path_cover_gbwt(*handle_graph, num_paths, context_length, buffer_size, id_interval, show_progress);
+            if (show_progress) {
+                double seconds = gbwt::readTimer() - start;
+                std::cerr << "GBWT built in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
+                std::cerr << "Serializing path cover GBWT to " << gbwt_output << std::endl;
+            }
+            vg::io::VPKG::save(generated_gbwt, gbwt_output);
+        } else {
             if (show_progress) {
                 std::cerr << "Loading GBWT " << argv[optind] << std::endl;
             }
@@ -408,20 +443,26 @@ int main_gbwt(int argc, char** argv)
                 std::cerr << "error: [vg gbwt]: could not load GBWT " << argv[optind] << std::endl;
                 std::exit(EXIT_FAILURE);
             }
-        } else {
-            if (show_progress) {
-                std::cerr << "Finding " << path_cover << "-path cover with context length " << context_length << std::endl;
+            if (local_haplotypes) {
+                if (show_progress) {
+                    std::cerr << "Building temporary GBWTGraph" << std::endl;
+                }
+                gbwtgraph::GBWTGraph temp_graph(*loaded_gbwt, *handle_graph);
+                if (show_progress) {
+                    std::cerr << "Finding " << num_paths << "-path cover with context length " << context_length << std::endl;
+                }
+                double start = gbwt::readTimer();
+                generated_gbwt = gbwtgraph::local_haplotypes(temp_graph, num_paths, context_length, buffer_size, id_interval, show_progress);
+                if (show_progress) {
+                    double seconds = gbwt::readTimer() - start;
+                    std::cerr << "GBWT built in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
+                    std::cerr << "Serializing local haplotypes to " << gbwt_output << std::endl;
+                }
+                vg::io::VPKG::save(generated_gbwt, gbwt_output);
+                loaded_gbwt.reset();
             }
-            double start = gbwt::readTimer();
-            path_cover_gbwt = gbwtgraph::path_cover_gbwt(*handle_graph, path_cover, context_length, buffer_size, id_interval, show_progress);
-            if (show_progress) {
-                double seconds = gbwt::readTimer() - start;
-                std::cerr << "GBWT built in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
-                std::cerr << "Serializing path cover GBWT to " << gbwt_output << std::endl;
-            }
-            vg::io::VPKG::save(path_cover_gbwt, gbwt_output);
         }
-        const gbwt::GBWT& selected_gbwt = (path_cover == 0 ? *loaded_gbwt : path_cover_gbwt);
+        const gbwt::GBWT& selected_gbwt = ((path_cover || local_haplotypes) ? generated_gbwt : *loaded_gbwt);
 
         if (show_progress) {
             std::cerr << "Building GBWTGraph" << std::endl;
