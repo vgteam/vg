@@ -3,6 +3,7 @@ var searchData=
   ['dagify',['dagify',['../classvg_1_1VG.html#a7958e987d875acb903acabf9903a8a88',1,'vg::VG']]],
   ['dagify_5fsteps',['dagify_steps',['../classvg_1_1Genotyper.html#a384f22f52c2a1f78b7ca613468e2e186',1,'vg::Genotyper']]],
   ['data',['data',['../structhandlegraph_1_1handle__t.html#a83dd8888c344b33ba7e3ebf8c0b578a9',1,'handlegraph::handle_t::data()'],['../structhandlegraph_1_1path__handle__t.html#a887f73bef5f50884ab956f6cb7b544c0',1,'handlegraph::path_handle_t::data()'],['../structhandlegraph_1_1step__handle__t.html#ad62b1978c001199b0077ea154c350dfe',1,'handlegraph::step_handle_t::data()']]],
+  ['data_5fwidth',['data_width',['../classvg_1_1Packer.html#a2ebdd5cb535ee0264886e084dbdd00f4',1,'vg::Packer']]],
   ['db',['db',['../classvg_1_1Index.html#a1e594e1678d5644e579e9ea915312cbc',1,'vg::Index']]],
   ['db_5foptions',['db_options',['../classvg_1_1Index.html#ad2dd73cd581069d8718b0d576b7d1961',1,'vg::Index']]],
   ['debug',['debug',['../classvg_1_1BaseMapper.html#a5ce344e730fbb7cdc6b6d57b4ca76cf2',1,'vg::BaseMapper']]],

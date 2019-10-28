@@ -20,6 +20,7 @@ var searchData=
   ['banded_5fmatrices',['banded_matrices',['../classvg_1_1BandedGlobalAligner.html#ab61c92f8ff975ce22553b7118267b9c7',1,'vg::BandedGlobalAligner']]],
   ['base',['base',['../classvg_1_1WideningPRNG.html#a9b5354cb704288d9e1e1f32420fdc38a',1,'vg::WideningPRNG::base()'],['../structvg_1_1io_1_1hFILE__cppstream.html#a5be044ba653125da78a8cba8b8a47354',1,'vg::io::hFILE_cppstream::base()']]],
   ['base_5fgraph',['base_graph',['../structvg_1_1AugmentedGraph.html#a0022757311c1ac569ebfa42e651637af',1,'vg::AugmentedGraph']]],
+  ['base_5flocks',['base_locks',['../classvg_1_1Packer.html#a737fd5df5675c766e4b7873ca0570e28',1,'vg::Packer']]],
   ['base_5fpileup',['base_pileup',['../structvg_1_1NodePileup.html#a7ce88a430f079f1d72f96659edeb02de',1,'vg::NodePileup']]],
   ['bases',['bases',['../structvg_1_1BasePileup.html#ab1ca874f6f9ee568866822a408300ba8',1,'vg::BasePileup']]],
   ['bases_5fper_5fchunk',['bases_per_chunk',['../classvg_1_1Constructor.html#ae525487466a66456d7169cc5047abf90',1,'vg::Constructor']]],

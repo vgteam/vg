@@ -5,7 +5,7 @@ var searchData=
   ['pack_5fmain_2ecpp',['pack_main.cpp',['../pack__main_8cpp.html',1,'']]],
   ['pack_5fnames',['pack_names',['../classvg_1_1Viz.html#abb3fd61d416351930f2e7399e6f6001b',1,'vg::Viz']]],
   ['packedsupportsnarlcaller',['PackedSupportSnarlCaller',['../classvg_1_1PackedSupportSnarlCaller.html',1,'vg::PackedSupportSnarlCaller'],['../classvg_1_1PackedSupportSnarlCaller.html#a72481f192a9d438e33f079293c846055',1,'vg::PackedSupportSnarlCaller::PackedSupportSnarlCaller()']]],
-  ['packer',['Packer',['../classvg_1_1Packer.html',1,'vg::Packer'],['../classvg_1_1PackedSupportSnarlCaller.html#a97af038a395322059ce5dea52d88ce54',1,'vg::PackedSupportSnarlCaller::packer()'],['../classvg_1_1Packer.html#a23ca736ab7fa0690ae575aa1d7a4de73',1,'vg::Packer::Packer(void)'],['../classvg_1_1Packer.html#a8466ed5bda4742b1dd577e5adf8a65ed',1,'vg::Packer::Packer(const HandleGraph *graph, size_t bin_size=0, size_t coverage_bins=1, size_t data_width=8, bool record_bases=true, bool record_edges=true, bool record_edits=true)']]],
+  ['packer',['Packer',['../classvg_1_1Packer.html',1,'vg::Packer'],['../classvg_1_1Packer.html#a23ca736ab7fa0690ae575aa1d7a4de73',1,'vg::Packer::Packer(void)'],['../classvg_1_1Packer.html#a8466ed5bda4742b1dd577e5adf8a65ed',1,'vg::Packer::Packer(const HandleGraph *graph, size_t bin_size=0, size_t coverage_bins=1, size_t data_width=8, bool record_bases=true, bool record_edges=true, bool record_edits=true)'],['../classvg_1_1PackedSupportSnarlCaller.html#a97af038a395322059ce5dea52d88ce54',1,'vg::PackedSupportSnarlCaller::packer()']]],
   ['packer_2ecpp',['packer.cpp',['../packer_8cpp.html',1,'']]],
   ['packer_2ehpp',['packer.hpp',['../packer_8hpp.html',1,'']]],
   ['packers',['Packers',['../classvg_1_1Packers.html',1,'vg']]],

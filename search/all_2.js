@@ -39,6 +39,7 @@ var searchData=
   ['base_5fedge',['base_edge',['../structvg_1_1AugmentedGraph.html#acfd8bc29f1837a8a9bd87a8d2d36d757',1,'vg::AugmentedGraph']]],
   ['base_5fentry_5fto_5fstring',['base_entry_to_string',['../classvg_1_1Index.html#a1426dd5881bf343842232d86c7ce24e3',1,'vg::Index']]],
   ['base_5fgraph',['base_graph',['../structvg_1_1AugmentedGraph.html#a0022757311c1ac569ebfa42e651637af',1,'vg::AugmentedGraph']]],
+  ['base_5flocks',['base_locks',['../classvg_1_1Packer.html#a737fd5df5675c766e4b7873ca0570e28',1,'vg::Packer']]],
   ['base_5fpileup',['base_pileup',['../structvg_1_1NodePileup.html#a7ce88a430f079f1d72f96659edeb02de',1,'vg::NodePileup']]],
   ['basealigner',['BaseAligner',['../classvg_1_1BaseAligner.html',1,'vg']]],
   ['basemapper',['BaseMapper',['../classvg_1_1BaseMapper.html',1,'vg::BaseMapper'],['../classvg_1_1BaseMapper.html#a9a924463193888114237a20617f9485e',1,'vg::BaseMapper::BaseMapper(PathPositionHandleGraph *xidex, gcsa::GCSA *g, gcsa::LCPArray *a, haplo::ScoreProvider *haplo_score_provider=nullptr)'],['../classvg_1_1BaseMapper.html#a895c239d974f084e7a0a83025e104fd8',1,'vg::BaseMapper::BaseMapper(void)']]],

@@ -169,18 +169,18 @@ Functions</h2></td></tr>
 <tr class="memitem:a32c791466c3bae889ab6cc86eb6fd0a5"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:a32c791466c3bae889ab6cc86eb6fd0a5"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a32c791466c3bae889ab6cc86eb6fd0a5">for_each</a> (std::istream &amp;in, const std::function&lt; void(T &amp;)&gt; &amp;lambda)</td></tr>
 <tr class="separator:a32c791466c3bae889ab6cc86eb6fd0a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a006bfbf2cc5d2587df41976f02dad442"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a006bfbf2cc5d2587df41976f02dad442"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a006bfbf2cc5d2587df41976f02dad442">for_each_parallel_impl</a> (std::istream &amp;in, const std::function&lt; void(T &amp;, T &amp;)&gt; &amp;lambda2, const std::function&lt; void(T &amp;)&gt; &amp;lambda1, const std::function&lt; bool(void)&gt; &amp;single_threaded_until_true)</td></tr>
-<tr class="separator:a006bfbf2cc5d2587df41976f02dad442"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aca5ff6521b4484a9a72b6c371b86dc9b"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:aca5ff6521b4484a9a72b6c371b86dc9b"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#aca5ff6521b4484a9a72b6c371b86dc9b">for_each_interleaved_pair_parallel</a> (std::istream &amp;in, const std::function&lt; void(T &amp;, T &amp;)&gt; &amp;lambda2)</td></tr>
-<tr class="separator:aca5ff6521b4484a9a72b6c371b86dc9b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a150703f003697c1cc823c1eb72e538df"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a150703f003697c1cc823c1eb72e538df"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a150703f003697c1cc823c1eb72e538df">for_each_interleaved_pair_parallel_after_wait</a> (std::istream &amp;in, const std::function&lt; void(T &amp;, T &amp;)&gt; &amp;lambda2, const std::function&lt; bool(void)&gt; &amp;single_threaded_until_true)</td></tr>
-<tr class="separator:a150703f003697c1cc823c1eb72e538df"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acd1da7c424519997c9f4e11cb60f8c06"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:acd1da7c424519997c9f4e11cb60f8c06"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#acd1da7c424519997c9f4e11cb60f8c06">for_each_parallel</a> (std::istream &amp;in, const std::function&lt; void(T &amp;)&gt; &amp;lambda1)</td></tr>
-<tr class="separator:acd1da7c424519997c9f4e11cb60f8c06"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adadc366b7eabb876f34b3f0f0f79ec90"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:adadc366b7eabb876f34b3f0f0f79ec90"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#adadc366b7eabb876f34b3f0f0f79ec90">for_each_parallel_impl</a> (std::istream &amp;in, const std::function&lt; void(T &amp;, T &amp;)&gt; &amp;lambda2, const std::function&lt; void(T &amp;)&gt; &amp;lambda1, const std::function&lt; bool(void)&gt; &amp;single_threaded_until_true, const size_t batch_size)</td></tr>
+<tr class="separator:adadc366b7eabb876f34b3f0f0f79ec90"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae91f319911353b606799afdefe88f7da"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:ae91f319911353b606799afdefe88f7da"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ae91f319911353b606799afdefe88f7da">for_each_interleaved_pair_parallel</a> (std::istream &amp;in, const std::function&lt; void(T &amp;, T &amp;)&gt; &amp;lambda2, size_t batch_size=256)</td></tr>
+<tr class="separator:ae91f319911353b606799afdefe88f7da"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8bc54e920105c8bf53fe936cc196f323"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a8bc54e920105c8bf53fe936cc196f323"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a8bc54e920105c8bf53fe936cc196f323">for_each_interleaved_pair_parallel_after_wait</a> (std::istream &amp;in, const std::function&lt; void(T &amp;, T &amp;)&gt; &amp;lambda2, const std::function&lt; bool(void)&gt; &amp;single_threaded_until_true, size_t batch_size=256)</td></tr>
+<tr class="separator:a8bc54e920105c8bf53fe936cc196f323"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6a3ddf4b05771fabe7c543dae992e13a"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a6a3ddf4b05771fabe7c543dae992e13a"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a6a3ddf4b05771fabe7c543dae992e13a">for_each_parallel</a> (std::istream &amp;in, const std::function&lt; void(T &amp;)&gt; &amp;lambda1, size_t batch_size=256)</td></tr>
+<tr class="separator:a6a3ddf4b05771fabe7c543dae992e13a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
 Variables</h2></td></tr>
@@ -395,8 +395,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="aca5ff6521b4484a9a72b6c371b86dc9b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aca5ff6521b4484a9a72b6c371b86dc9b">&#9670;&nbsp;</a></span>for_each_interleaved_pair_parallel()</h2>
+<a id="ae91f319911353b606799afdefe88f7da"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae91f319911353b606799afdefe88f7da">&#9670;&nbsp;</a></span>for_each_interleaved_pair_parallel()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -413,7 +413,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const std::function&lt; void(T &amp;, T &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>lambda2</em>&#160;</td>
+          <td class="paramname"><em>lambda2</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>batch_size</em> = <code>256</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -425,8 +431,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a150703f003697c1cc823c1eb72e538df"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a150703f003697c1cc823c1eb72e538df">&#9670;&nbsp;</a></span>for_each_interleaved_pair_parallel_after_wait()</h2>
+<a id="a8bc54e920105c8bf53fe936cc196f323"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8bc54e920105c8bf53fe936cc196f323">&#9670;&nbsp;</a></span>for_each_interleaved_pair_parallel_after_wait()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -449,7 +455,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const std::function&lt; bool(void)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>single_threaded_until_true</em>&#160;</td>
+          <td class="paramname"><em>single_threaded_until_true</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>batch_size</em> = <code>256</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -461,8 +473,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="acd1da7c424519997c9f4e11cb60f8c06"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acd1da7c424519997c9f4e11cb60f8c06">&#9670;&nbsp;</a></span>for_each_parallel()</h2>
+<a id="a6a3ddf4b05771fabe7c543dae992e13a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6a3ddf4b05771fabe7c543dae992e13a">&#9670;&nbsp;</a></span>for_each_parallel()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -479,7 +491,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const std::function&lt; void(T &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>lambda1</em>&#160;</td>
+          <td class="paramname"><em>lambda1</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>batch_size</em> = <code>256</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -491,8 +509,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a006bfbf2cc5d2587df41976f02dad442"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a006bfbf2cc5d2587df41976f02dad442">&#9670;&nbsp;</a></span>for_each_parallel_impl()</h2>
+<a id="adadc366b7eabb876f34b3f0f0f79ec90"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adadc366b7eabb876f34b3f0f0f79ec90">&#9670;&nbsp;</a></span>for_each_parallel_impl()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -521,7 +539,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const std::function&lt; bool(void)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>single_threaded_until_true</em>&#160;</td>
+          <td class="paramname"><em>single_threaded_until_true</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const size_t&#160;</td>
+          <td class="paramname"><em>batch_size</em>&#160;</td>
         </tr>
         <tr>
           <td></td>

@@ -138,6 +138,7 @@ var searchData=
   ['counts',['Counts',['../structvg_1_1ReadFilter_1_1Counts.html#acd9ea4208c5f7419c834c2b17f112da1',1,'vg::ReadFilter::Counts']]],
   ['coverage_5fat_5fposition',['coverage_at_position',['../classvg_1_1Packer.html#a40c607faa60ebbd6bf6723744461dddf',1,'vg::Packer']]],
   ['coverage_5fbin_5foffset',['coverage_bin_offset',['../classvg_1_1Packer.html#a22b05709f04be8c616f52ff0d600b171',1,'vg::Packer']]],
+  ['coverage_5fbin_5fsize',['coverage_bin_size',['../classvg_1_1Packer.html#a18a02dddbc6787823cd4e01d92047af1',1,'vg::Packer']]],
   ['coverage_5ffilter',['coverage_filter',['../classvg_1_1Filter.html#a663ae4f690064447baa5ed353e31e10f',1,'vg::Filter']]],
   ['coverage_5fsize',['coverage_size',['../classvg_1_1Packer.html#a6a52cb316ba20fa21c7b41b5ed4fc6b9',1,'vg::Packer']]],
   ['create',['create',['../namespacevg_1_1temp__file.html#a84ef71efd10b4010f206ae8510545f40',1,'vg::temp_file::create(const string &amp;base)'],['../namespacevg_1_1temp__file.html#a24d977ff5083290a0ed89afac03d4810',1,'vg::temp_file::create()']]],
