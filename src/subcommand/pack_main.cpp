@@ -42,7 +42,6 @@ int main_pack(int argc, char** argv) {
     string gam_in;
     bool write_table = false;
     bool write_edge_table = false;
-    int thread_count = 1;
     bool record_edits = false;
     size_t bin_size = 0;
     vector<vg::id_t> node_ids;
@@ -120,8 +119,15 @@ int main_pack(int argc, char** argv) {
             bin_size = atoll(optarg);
             break;
         case 't':
-            thread_count = parse<int>(optarg);
+        {
+            int num_threads = parse<int>(optarg);
+            if (num_threads <= 0) {
+                cerr << "error:[vg call] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                exit(1);
+            }
+            omp_set_num_threads(num_threads);
             break;
+        }
         case 'n':
             node_ids.push_back(parse<int>(optarg));
             break;
@@ -142,8 +148,6 @@ int main_pack(int argc, char** argv) {
             abort();
         }
     }
-
-    omp_set_num_threads(thread_count);
 
     unique_ptr<HandleGraph> handle_graph;
     HandleGraph* graph = nullptr;
@@ -187,15 +191,18 @@ int main_pack(int argc, char** argv) {
     // bits needed to store double the coverage
     size_t data_width = std::ceil(std::log2(2 * expected_coverage));
 
-    // create our packers
-    size_t num_packers = !gam_in.empty() ? thread_count : 1;
-    vector<Packer*> packers(num_packers, nullptr);
-#pragma omp parallel for
-    for (int i = 0; i < packers.size(); ++i) {
-        packers[i] = new Packer(graph, bin_size, thread_count, data_width, true, true, record_edits);
+    // use some naive heuristics to come up with bin count and batch size based on thread count
+    // more bins: finer grained parallelism at cost of more mutexes and allocations
+    // bigger batch size: more robustness to sorted input at cost of less parallelism
+    size_t num_threads = get_thread_count();
+    size_t batch_size = max((size_t)128, (size_t)(pow(2, 14 - log2(num_threads))));
+    if (batch_size % 2 != 0) {
+        ++batch_size;
     }
+    size_t bin_count = pow(2, log2(num_threads) + 14);
 
-    Packer& packer = *packers[0];
+    // create our packer
+    Packer packer(graph, bin_size, bin_count, data_width, true, true, record_edits);
     
     // todo one packer per thread and merge
     if (packs_in.size() == 1) {
@@ -205,27 +212,19 @@ int main_pack(int argc, char** argv) {
     }
 
     if (!gam_in.empty()) {
-        std::function<void(Alignment&)> lambda = [&packer,&min_mapq,&min_baseq,&qual_adjust,&packers](Alignment& aln) {
-            packers[omp_get_thread_num()]->add(aln, min_mapq, min_baseq, qual_adjust);
+        std::function<void(Alignment&)> lambda = [&packer,&min_mapq,&min_baseq,&qual_adjust](Alignment& aln) {
+            packer.add(aln, min_mapq, min_baseq, qual_adjust);
         };
         if (gam_in == "-") {
-            vg::io::for_each_parallel(std::cin, lambda);
+            vg::io::for_each_parallel(std::cin, lambda, batch_size);
         } else {
             ifstream gam_stream(gam_in);
             if (!gam_stream) {
                 cerr << "[vg pack] error reading gam file: " << gam_in << endl;
                 return 1;
             }
-            vg::io::for_each_parallel(gam_stream, lambda);
+            vg::io::for_each_parallel(gam_stream, lambda, batch_size);
             gam_stream.close();
-        }
-        if (packers.size() > 1) {
-            vector<Packer*> others(packers.begin() + 1, packers.end());
-            packer.merge_from_dynamic(others);
-            for (auto other : others) {
-                delete other;
-            }
-            packers.resize(1);
         }
     }
 
@@ -242,11 +241,6 @@ int main_pack(int argc, char** argv) {
         }
     }
 
-    for (int i = 0; i < packers.size(); ++i) {
-        delete packers[i];
-    }        
-    packers.clear();
-    
     return 0;
 }
 
