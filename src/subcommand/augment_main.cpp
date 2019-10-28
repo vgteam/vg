@@ -25,12 +25,14 @@
 #include "../xg.hpp"
 #include "../vg.hpp"
 #include "../augment.hpp"
+#include "../packer.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/mutable_path_mutable_handle_graph.hpp>
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
 #include "bdsg/odgi.hpp"
+#include <bdsg/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -47,6 +49,8 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "    -Z, --translation FILE      save translations from augmented back to base graph to FILE" << endl
          << "    -A, --alignment-out FILE    save augmented GAM reads to FILE" << endl
          << "    -s, --subgraph              graph is a subgraph of the one used to create GAM. ignore alignments with missing nodes" << endl
+         << "    -m, --min-coverage N        minimum coverage of a breakpoint required for it to be added to the graph" << endl
+         << "    -c, --expected-cov N        expected coverage.  used only for memory tuning [default : 128]" << endl
          << "    -h, --help                  print this help message" << endl
          << "    -p, --progress              show progress" << endl
          << "    -v, --verbose               print information and warnings about vcf generation" << endl
@@ -89,14 +93,18 @@ int main_augment(int argc, char** argv) {
     // fail when nodes are missing
     bool is_subgraph = false;
 
+    // Min coverage for graph to be broken at a breakpoint
+    // Whene non-zero, the Packer will be used to collect breakpoints
+    size_t min_coverage = 0;
+
+    // Used to set data_width for Packer
+    size_t expected_coverage = 128;
+
     // Print some progress messages to screen
     bool show_progress = false;
 
     // Print verbose message
     bool verbose = false;
-
-    // Number of threads to use (will default to all if not specified)
-    int thread_count = 0;
 
     static const struct option long_options[] = {
         // Deprecated Options
@@ -108,6 +116,8 @@ int main_augment(int argc, char** argv) {
         {"cut-softclips", no_argument, 0, 'C'},
         {"label-paths", no_argument, 0, 'B'},
         {"subgraph", no_argument, 0, 's'},
+        {"min-coverage", required_argument, 0, 'm'},
+        {"expected-cov", required_argument, 0, 'c'},        
         {"help", no_argument, 0, 'h'},
         {"progress", required_argument, 0, 'p'},
         {"verbose", no_argument, 0, 'v'},
@@ -117,7 +127,7 @@ int main_augment(int argc, char** argv) {
         {"include-gt", required_argument, 0, 'L'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "a:Z:A:iCBhpvt:l:L:s";
+    static const char* short_options = "a:Z:A:iCBhpvt:l:L:sm:c:";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -148,6 +158,12 @@ int main_augment(int argc, char** argv) {
         case 's':
             is_subgraph = true;
             break;
+        case 'm':
+            min_coverage = parse<size_t>(optarg);
+            break;
+        case 'c':
+            expected_coverage = parse<size_t>(optarg);
+            break;            
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -159,12 +175,18 @@ int main_augment(int argc, char** argv) {
             break;
         case 'v':
             verbose = true;
-            break;            
-        case 't':
-            thread_count = parse<int>(optarg);
             break;
-
-            // Loci Options
+        case 't':
+        {
+            int num_threads = parse<int>(optarg);
+            if (num_threads <= 0) {
+                cerr << "error:[vg call] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                exit(1);
+            }
+            omp_set_num_threads(num_threads);
+            break;
+        }            
+        // Loci Options
         case 'l':
             loci_file = optarg;
             break;
@@ -180,12 +202,6 @@ int main_augment(int argc, char** argv) {
 
     // Parse the command line options, updating optind.
     parser.parse(argc, argv);
-
-    if (thread_count != 0) {
-        // Use a non-default number of threads
-        omp_set_num_threads(thread_count);
-    }
-    thread_count = get_thread_count();
 
     // Parse the two positional arguments
     if (optind + 1 > argc) {
@@ -227,6 +243,15 @@ int main_augment(int argc, char** argv) {
             graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(in);
         });
     VG* vg_graph = dynamic_cast<VG*>(graph.get());
+    HandleGraph* vectorizable_graph = nullptr;
+    unique_ptr<Packer> packer;
+    bdsg::VectorizableOverlayHelper overlay_helper;
+    if (min_coverage > 0) {
+        vectorizable_graph = dynamic_cast<HandleGraph*>(overlay_helper.apply(graph.get()));
+        size_t data_width = Packer::estimate_data_width(expected_coverage);
+        size_t bin_count = Packer::estimate_bin_count(get_thread_count());
+        packer = make_unique<Packer>(vectorizable_graph, 0, bin_count, data_width, true, false, false);
+    }
     
     if (label_paths) {
         // Just add path names with extend()
@@ -302,7 +327,9 @@ int main_augment(int argc, char** argv) {
                     include_paths,
                     include_paths,
                     !include_softclips,
-                    is_subgraph);
+                    is_subgraph,
+                    packer.get(),
+                    min_coverage);
         } else {
             // much better to stream from a file so we can do two passes without storing in memory
             get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
@@ -313,7 +340,9 @@ int main_augment(int argc, char** argv) {
                             include_paths,
                             include_paths,
                             !include_softclips,
-                            is_subgraph);
+                            is_subgraph,
+                            packer.get(),
+                            min_coverage);
                 });
         }
 

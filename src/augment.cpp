@@ -3,6 +3,7 @@
 
 #include "augment.hpp"
 #include "alignment.hpp"
+#include "packer.hpp"
 
 //#define debug
 
@@ -18,15 +19,21 @@ void augment(MutablePathMutableHandleGraph* graph,
              bool embed_paths,
              bool break_at_ends,
              bool remove_softclips,
-             bool filter_out_of_graph_alignments) {
+             bool filter_out_of_graph_alignments,
+             Packer* packer,
+             size_t min_bp_coverage) {
 
-    function<void(function<void(Alignment&)>, bool)> iterate_gam =
-        [&gam_stream] (function<void(Alignment&)> aln_callback, bool reset_stream) {
+    function<void(function<void(Alignment&)>, bool, bool)> iterate_gam =
+        [&gam_stream] (function<void(Alignment&)> aln_callback, bool reset_stream, bool parallel) {
         if (reset_stream) {
             gam_stream.clear();
             gam_stream.seekg(0, ios_base::beg);
         }
-        vg::io::for_each(gam_stream, aln_callback);
+        if (parallel) {
+            vg::io::for_each_parallel(gam_stream, aln_callback, Packer::estimate_batch_size(get_thread_count()));
+        } else {
+            vg::io::for_each(gam_stream, aln_callback);
+        }
     };
 
     augment_impl(graph,
@@ -36,7 +43,9 @@ void augment(MutablePathMutableHandleGraph* graph,
                  embed_paths,
                  break_at_ends,
                  remove_softclips,
-                 filter_out_of_graph_alignments);
+                 filter_out_of_graph_alignments,
+                 packer,
+                 min_bp_coverage);
 }
 
 void augment(MutablePathMutableHandleGraph* graph,
@@ -46,15 +55,30 @@ void augment(MutablePathMutableHandleGraph* graph,
              bool embed_paths,
              bool break_at_ends,
              bool remove_softclips,
-             bool filter_out_of_graph_alignments) {
+             bool filter_out_of_graph_alignments,
+             Packer* packer,
+             size_t min_bp_coverage) {
     
-    function<void(function<void(Alignment&)>, bool)> iterate_gam =
-        [&path_vector] (function<void(Alignment&)> aln_callback, bool reset_stream) {
-        for (Path& path : path_vector) {
-            Alignment aln;
-            *aln.mutable_path() = path;
-            aln.set_name(path.name());
-            aln_callback(aln);
+    function<void(function<void(Alignment&)>, bool, bool)> iterate_gam =
+        [&path_vector] (function<void(Alignment&)> aln_callback, bool reset_stream, bool parallel) {
+        if (parallel) {
+#pragma omp parallel for
+            for (size_t i = 0; i < path_vector.size(); ++i) {
+                Path& path = path_vector[i];
+                Alignment aln;
+                *aln.mutable_path() = path;
+                aln.set_name(path.name());
+                aln_callback(aln);
+            }
+            
+        }
+        else {
+            for (Path& path : path_vector) {
+                Alignment aln;
+                *aln.mutable_path() = path;
+                aln.set_name(path.name());
+                aln_callback(aln);
+            }
         }
     };
 
@@ -65,20 +89,28 @@ void augment(MutablePathMutableHandleGraph* graph,
                  embed_paths,
                  break_at_ends,
                  remove_softclips,
-                 filter_out_of_graph_alignments);
+                 filter_out_of_graph_alignments,
+                 packer,
+                 min_bp_coverage);
 }
 
 void augment_impl(MutablePathMutableHandleGraph* graph,
-                  function<void(function<void(Alignment&)>, bool)> iterate_gam,
+                  function<void(function<void(Alignment&)>, bool, bool)> iterate_gam,
                   vector<Translation>* out_translations,
                   ostream* gam_out_stream,
                   bool embed_paths,
                   bool break_at_ends,
                   bool remove_softclips,
-                  bool filter_out_of_graph_alignments) {
-    // Collect the breakpoints
-    unordered_map<id_t, set<pos_t>> breakpoints;
+                  bool filter_out_of_graph_alignments,
+                  Packer* packer,
+                  size_t min_bp_coverage) {
 
+    // toggle between using Packer to store breakpoints or the STL map
+    bool packed_mode = min_bp_coverage > 0;
+    assert(!packed_mode || packer != nullptr);
+    
+    unordered_map<id_t, set<pos_t>> breakpoints;
+        
     // Check if alignment contains node that's not in the graph
     function<bool(const Path&)> check_in_graph = [&graph](const Path& path) {
         for (size_t i = 0; i < path.mapping_size(); ++i) {
@@ -106,14 +138,21 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
             // Mapping (because we don't have or want a breakpoint there)
             Path simplified_path = simplify(aln.path());
 
-
             // Add in breakpoints from each path
-            find_breakpoints(simplified_path, breakpoints, break_at_ends);
+            if (packed_mode) {
+                find_packed_breakpoints(simplified_path, *packer, break_at_ends);
+            } else {
+                find_breakpoints(simplified_path, breakpoints, break_at_ends);
+            }
+        }, false, packed_mode);
 
-        }, false);
-
-    // Invert the breakpoints that are on the reverse strand
-    breakpoints = forwardize_breakpoints(graph, breakpoints);
+    if (packed_mode) {
+        // Filter the breakpoints by coverage
+        unordered_map<id_t, set<pos_t>> breakpoints = filter_breakpoints_by_coverage(*packer, min_bp_coverage);
+    } else {
+        // Invert the breakpoints that are on the reverse strand
+        breakpoints = forwardize_breakpoints(graph, breakpoints);
+    }
 
     // get the node sizes, for use when making the translation
     unordered_map<id_t, size_t> orig_node_sizes;
@@ -187,7 +226,7 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                 gam_buffer.push_back(aln);
                 vg::io::write_buffered(*gam_out_stream, gam_buffer, 100);
             }
-    }, true);
+        }, true, false);
     if (gam_out_stream != nullptr) {
         // Flush the buffer
         vg::io::write_buffered(*gam_out_stream, gam_buffer, 0);
@@ -234,7 +273,6 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
     }
 
 }
-
 
 // returns breakpoints on the forward strand of the nodes
 void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpoints, bool break_ends) {
@@ -332,15 +370,6 @@ void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpo
 
 }
 
-path_handle_t add_path_to_graph(MutablePathHandleGraph* graph, const Path& path) {
-    path_handle_t path_handle = graph->create_path_handle(path.name(), path.is_circular());
-    for (int i = 0; i < path.mapping_size(); ++i) {
-        graph->append_step(path_handle, graph->get_handle(path.mapping(i).position().node_id(),
-                                                          path.mapping(i).position().is_reverse()));
-    }
-    return path_handle;
-}
-
 unordered_map<id_t, set<pos_t>> forwardize_breakpoints(const HandleGraph* graph,
                                                        const unordered_map<id_t, set<pos_t>>& breakpoints) {
     unordered_map<id_t, set<pos_t>> fwd;
@@ -370,6 +399,63 @@ unordered_map<id_t, set<pos_t>> forwardize_breakpoints(const HandleGraph* graph,
         }
     }
     return fwd;
+}
+
+
+// returns breakpoints on the forward strand of the nodes
+void find_packed_breakpoints(const Path& path, Packer& packed_breakpoints, bool break_ends) {
+    // use existing methods to find the breakpoints, then copy them into a packer
+    // todo: streamline?
+    unordered_map<id_t, set<pos_t>> breakpoints;
+    find_breakpoints(path, breakpoints, break_ends);
+    breakpoints = forwardize_breakpoints(packed_breakpoints.get_graph(), breakpoints);
+    const HandleGraph* graph = packed_breakpoints.get_graph();
+    for (auto& id_set : breakpoints) {
+        size_t node_len = graph->get_length(graph->get_handle(id_set.first));
+        Position position;
+        position.set_node_id(id_set.first);
+        for (auto pos : id_set.second) {
+            size_t offset = get_offset(pos);
+            if (offset < node_len - 1) {
+                position.set_offset(offset);
+                packed_breakpoints.increment_coverage(packed_breakpoints.position_in_basis(position));
+            }
+        }
+    }
+}
+
+unordered_map<id_t, set<pos_t>> filter_breakpoints_by_coverage(const Packer& packed_breakpoints, size_t min_bp_coverage) {
+    vector<unordered_map<id_t, set<pos_t>>> bp_maps(get_thread_count());
+    size_t n = packed_breakpoints.coverage_size();
+    const VectorizableHandleGraph* vec_graph = dynamic_cast<const VectorizableHandleGraph*>(packed_breakpoints.get_graph());
+    // we assume our position vector is much larger than the number of filtered breakpoints
+    // and scan it in parallel in a first pass
+#pragma omp parallel for
+    for (size_t i = 0; i < n; ++i) {
+        if (packed_breakpoints.coverage_at_position(i) >= min_bp_coverage) {
+            auto& bp_map = bp_maps[omp_get_thread_num()];
+            nid_t node_id = vec_graph->node_at_vector_offset(i+1);
+            size_t offset = i - vec_graph->node_vector_offset(node_id);
+            bp_map[node_id].insert(make_pos_t(node_id, false, offset));
+        }
+    }
+    // then collect up the breakpoints sequentially in a second pass
+    for (size_t i = 1; i < bp_maps.size(); ++i) {
+        for (auto& kv : bp_maps[i]) {
+            bp_maps[0][kv.first].insert(kv.second.begin(), kv.second.end());
+        }
+    }
+    return bp_maps[0];
+}
+    
+
+path_handle_t add_path_to_graph(MutablePathHandleGraph* graph, const Path& path) {
+    path_handle_t path_handle = graph->create_path_handle(path.name(), path.is_circular());
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        graph->append_step(path_handle, graph->get_handle(path.mapping(i).position().node_id(),
+                                                          path.mapping(i).position().is_reverse()));
+    }
+    return path_handle;
 }
 
 map<pos_t, id_t> ensure_breakpoints(MutableHandleGraph* graph,

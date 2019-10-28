@@ -9,6 +9,22 @@ namespace vg {
 const int Packer::maximum_quality = 60;
 const int Packer::lru_cache_size = 4096;
 
+size_t Packer::estimate_data_width(size_t expected_coverage) {
+    return std::ceil(std::log2(2 * expected_coverage));
+}
+
+size_t Packer::estimate_batch_size(size_t num_threads) {
+    size_t batch_size = max((size_t)128, (size_t)(pow(2, 14 - log2(num_threads))));
+    if (batch_size % 2 != 0) {
+        ++batch_size;
+    }
+    return batch_size;
+}
+
+size_t Packer::estimate_bin_count(size_t num_threads) {
+    return pow(2, log2(num_threads) + 14);
+}
+
 Packer::Packer(void) : graph(nullptr), data_width(8), cov_bin_size(0), edge_cov_bin_size(0), num_bases_dynamic(0), base_locks(nullptr), num_edges_dynamic(0), edge_locks(nullptr), tmpfstream_locks(nullptr) { }
 
 Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, size_t data_width, bool record_bases, bool record_edges, bool record_edits) :
@@ -527,7 +543,7 @@ string Packer::unescape_delim(const string& s, char d) const {
     return unescaped;
 }
 
-size_t Packer::coverage_size(void) {
+size_t Packer::coverage_size(void) const {
     if (is_compacted){
         return coverage_civ.size();
     }
