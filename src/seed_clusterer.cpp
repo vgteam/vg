@@ -10,8 +10,16 @@ namespace vg {
                                             dist_index(dist_index){
     };
 
-    tuple<vector<vector<size_t>>,vector<vector<size_t>>> SnarlSeedClusterer::cluster_seeds (
-                  vector<pos_t> seeds, int64_t read_distance_limit,
+    vector<vector<size_t>> cluster_seeds (vector<pos_t> seeds, int64_t read_distance_limit) const {
+        vector<vector<pos_t>> all_seeds;
+        all_seeds.push_back(std::move(seeds));
+        tuple<vector<vector<vector<size_t>>>,vector<vector<size_t>>> all_clusters = 
+            cluster_seeds(all_seeds, distance_limit);
+        return std::get<0>(all_clusters)[0];
+    };
+
+    tuple<vector<vector<vector<size_t>>>,vector<vector<size_t>>> SnarlSeedClusterer::cluster_seeds (
+                  vector<vector<pos_t>> all_seeds, int64_t read_distance_limit,
                   int64_t fragment_distance_limit) const {
         /* Given a vector of seeds and a limit, find a clustering of seeds where
          * seeds that are closer than the limit cluster together.
@@ -37,7 +45,7 @@ cerr << endl << "New cluster calculation:" << endl;
         //This stores all the tree relationships and cluster information
         //for a single level of the snarl tree as it is being processed
         //It also keeps track of the parents of the current level
-        TreeState tree_state (&seeds, read_distance_limit, fragment_distance_limit);
+        TreeState tree_state (&all_seeds, read_distance_limit, fragment_distance_limit);
 
         //Populate tree_state.node_to_seeds (mapping each node to the seeds it
         //contains) and snarl_to_nodes_by_level
@@ -108,25 +116,27 @@ cerr << endl << "New cluster calculation:" << endl;
                                                                snarl_to_nodes) const {
 
         // Assign each seed to a node.
-        tree_state.node_to_seeds.reserve(tree_state.seeds->size());
+        tree_state.node_to_seeds.reserve(tree_state.all_seeds->size());
         for (size_t i = 0; i < tree_state.seeds->size(); i++) {
-            id_t id = get_id(tree_state.seeds->at(i));
-            tree_state.node_to_seeds.emplace_back(id, i);
-            //For each seed, assign it to a node and the node to a snarl
+            for (size_t j = 0 ; j < tree_state.all_seeds[i].size() ; j++) {
+                id_t id = get_id(tree_state.all_seeds->at(i)->at(j));
+                tree_state.node_to_seeds.emplace_back(id, i, j);
+                //For each seed, assign it to a node and the node to a snarl
+            }
         }
         std::sort(tree_state.node_to_seeds.begin(), tree_state.node_to_seeds.end());
 
         // Assign each node to a snarl.
         id_t prev_node = -1;
         for (auto mapping : tree_state.node_to_seeds) {
-            if (mapping.first == prev_node) {
+            if (get<0>(mapping) == prev_node) {
                 continue;
             }
             prev_node = mapping.first;
-            size_t snarl_i = dist_index.getPrimaryAssignment(mapping.first);
+            size_t snarl_i = dist_index.getPrimaryAssignment(get<0>(mapping));
             size_t depth = dist_index.snarl_indexes[snarl_i].depth;
             snarl_to_nodes[depth][snarl_i].emplace_back(
-                     NetgraphNode(mapping.first, NODE), NodeClusters());
+                     NetgraphNode(get<0>(mapping), NODE), NodeClusters());
         }
     }
 
@@ -271,7 +281,7 @@ cerr << endl << "New cluster calculation:" << endl;
         auto seed_range_start = std::lower_bound(
             tree_state.node_to_seeds.begin(),
             tree_state.node_to_seeds.end(),
-            std::pair<id_t, size_t>(node_id, 0));
+            std::tuple<id_t, size_t, size_t>(node_id, 0, 0));
 
         //indices of union find group ids of clusters in this node
         NodeClusters node_clusters;
@@ -287,7 +297,7 @@ cerr << endl << "New cluster calculation:" << endl;
                 //And find the shortest distance from any seed to both
                 //ends of the node
 
-                pos_t seed = tree_state.seeds->at(iter->second);
+                pos_t seed = tree_state.all_seeds->at(std::get<1>(*iter)).at(std::get<2>(*iter));
                 int64_t dist_left = is_rev(seed) ? node_length- get_offset(seed)
                                                  : get_offset(seed) + 1;
                 int64_t dist_right = is_rev(seed) ? get_offset(seed) + 1

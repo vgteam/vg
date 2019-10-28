@@ -18,15 +18,24 @@ class SnarlSeedClusterer {
         //cluster the seeds such that two seeds whose minimum distance
         //between them (including both of the positions) is less than
         // the distance limit are in the same cluster
-        //If a fragment_distance_limit is give, then also cluster based on
-        //this distance for paired-end clusters. fragment_distance_limit
-        //must be greater than read_distance_limit
-        //If fragment_distance_limit is 0, then ignore it
+        //
         //Returns a vector of clusters. Each cluster is a vector of
         //indices into seeds
-        tuple<vector<vector<size_t>>,vector<vector<size_t>>> cluster_seeds ( 
-                vector<pos_t> seeds,
+        vector<vector<size_t>> cluster_seeds ( 
+                vector<pos_t> seeds, int64_t read_distance_limit) const;
+        
+        ///The same thing, but for paired end reads.
+        //Given seeds from multiple reads of a fragment, cluster each set of seeds
+        //by the read distance and all seeds by the fragment distance limit
+        //fragment_distance_limit must be greater than read_distance_limit
+        //Returns clusters for each read and clusters of all the seeds in all reads
+        //The read clusters refer to seeds by their indexes in the input vectors of seeds
+        //The fragment clusters give seeds the index they would get if the vectors of
+        // seeds were appended to each other in the order given
+        tuple<vector<vector<vector<size_t>>>,vector<vector<size_t>>> cluster_seeds ( 
+                vector<vector<pos_t>> all_seeds,
                 int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
+
     private:
 
         MinimumDistanceIndex& dist_index;
@@ -117,8 +126,11 @@ class SnarlSeedClusterer {
             //As clustering occurs at the current level, the parent level
             //is updated to know about its children
 
-            //Vector of all the seeds
-            vector<pos_t>* seeds; 
+            //Vector of all the seeds for each read
+            vector<vector<pos_t>>* all_seeds; 
+
+            //Vector of the offset of indices for each seed
+            vector<size_t> seed_index_offsets;
 
             //The minimum distance between nodes for them to be put in the
             //same cluster
@@ -129,7 +141,7 @@ class SnarlSeedClusterer {
             //////////Data structures to hold clustering information
 
             //Structure to hold the clustering of the seeds
-            structures::UnionFind read_union_find;
+            vector<structures::UnionFind> read_union_find;
             structures::UnionFind fragment_union_find;
 
             //For each seed, store the distances to the left and right ends
@@ -146,7 +158,7 @@ class SnarlSeedClusterer {
             //Maps each node to a vector of the seeds that are contained in it
             //seeds are represented by indexes into the seeds vector
             //The array is sorted.
-            vector<pair<id_t, size_t>> node_to_seeds;
+            vector<tuple<id_t, size_t, size_t>> node_to_seeds;
 
             //Map from snarl (index into dist_index.snarl_indexes) i
             //to the netgraph nodes contained in the snarl as well as the 
@@ -172,14 +184,19 @@ class SnarlSeedClusterer {
                                                           parent_snarl_to_nodes;
 
             //Constructor takes in a pointer to the seeds and the distance limit 
-            TreeState (vector<pos_t>* seeds, int64_t read_distance_limit, 
+            TreeState (vector<vector<pos_t>>* all_seeds, int64_t read_distance_limit, 
                        int64_t fragment_distance_limit) :
-                seeds(seeds),
+                all_seeds(all_seeds),
                 read_cluster_dists(seeds->size(), make_pair(-1, -1)),
                 read_union_find (seeds->size(), false),
                 fragment_union_find (seeds->size(), false),
                 read_distance_limit(read_distance_limit),
                 fragment_distance_limit(fragment_distance_limit){
+                    seed_index_offsets.push_back(0);
+                    for (auto& v : all_seeds) {
+                        size_t offset = seed_index_offsets.back() + v.size();
+                        seed_index_offsets.push_back(offset);
+                    }
             }
         };
 
