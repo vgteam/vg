@@ -76,21 +76,31 @@ Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, 
     }
 }
 
-Packer::~Packer(void) {
-    for (auto counter : coverage_dynamic) {
+void Packer::clear() {
+    for (auto& counter : coverage_dynamic) {
         delete counter;
+        counter = nullptr;
     }
-    for (auto counter : edge_coverage_dynamic) {
+    for (auto& counter : edge_coverage_dynamic) {
         delete counter;
+        counter = nullptr;
     }
     delete [] base_locks;
+    base_locks = nullptr;
     delete [] edge_locks;
+    edge_locks = nullptr;
     delete [] tmpfstream_locks;
+    tmpfstream_locks = nullptr;
     close_edit_tmpfiles();
     remove_edit_tmpfiles();
-    for (auto lru_cache : quality_cache) {
+    for (auto& lru_cache : quality_cache) {
         delete lru_cache;
+        lru_cache = nullptr;
     }
+}
+
+Packer::~Packer() {
+    clear();
 }
 
 void Packer::load_from_file(const string& file_name) {

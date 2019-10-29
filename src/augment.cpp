@@ -148,10 +148,15 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
 
     if (packed_mode) {
         // Filter the breakpoints by coverage
-        unordered_map<id_t, set<pos_t>> breakpoints = filter_breakpoints_by_coverage(*packer, min_bp_coverage);
+        breakpoints = filter_breakpoints_by_coverage(*packer, min_bp_coverage);
     } else {
         // Invert the breakpoints that are on the reverse strand
         breakpoints = forwardize_breakpoints(graph, breakpoints);
+    }
+
+    // don't need this anymore: free up some memory
+    if (packer != nullptr) {
+        packer->clear();
     }
 
     // get the node sizes, for use when making the translation
@@ -189,6 +194,12 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
             // Note: We're electing to re-simplify in a second pass to avoid storing all
             // the input paths in memory
             Path simplified_path = simplify(aln.path());
+
+            // Filter out edits corresponding to breakpoints that didn't meet our coverage
+            // criteria
+            if (min_bp_coverage > 0) {
+                simplify_filtered_edits(graph, simplified_path, node_translation, orig_node_sizes);
+            }
 
             // Now go through each new path again, by reference so we can overwrite.
         
@@ -445,6 +456,7 @@ unordered_map<id_t, set<pos_t>> filter_breakpoints_by_coverage(const Packer& pac
             bp_maps[0][kv.first].insert(kv.second.begin(), kv.second.end());
         }
     }
+    
     return bp_maps[0];
 }
     
@@ -551,6 +563,100 @@ map<pos_t, id_t> ensure_breakpoints(MutableHandleGraph* graph,
     return toReturn;
 }
 
+// We use this function to get the id of the node that contains a position on an
+// original node.
+static nid_t find_new_node(HandleGraph* graph, pos_t old_pos, const map<pos_t, id_t>& node_translation) {
+    if(node_translation.find(make_pos_t(id(old_pos), false, 0)) == node_translation.end()) {
+        // The node is unchanged
+        return id(old_pos);
+    }
+    // Otherwise, get the first new node starting after that position, and
+    // then look left.
+    auto found = node_translation.upper_bound(old_pos);
+    assert(found != node_translation.end());
+    if (id(found->first) != id(old_pos)
+        || is_rev(found->first) != is_rev(old_pos)) {
+        return id_t(0);
+    }
+    // Get the thing before that (last key <= the position we want
+    --found;
+    assert(graph->has_node(found->second));
+
+    // Return the node we found.
+    return found->second;
+};
+
+
+void simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id_t>& node_translation,
+                             const unordered_map<id_t, size_t>& orig_node_sizes) {
+
+    // check if an edit position is chopped at its next or prev position
+    auto is_chopped = [&](pos_t edit_position, bool look_next) {
+        // are we adding to the offset?
+        bool forward = look_next != is_rev(edit_position);
+        bool chopped = true;
+        if (forward) {
+            // check if its chopped in the original graph
+            chopped = offset(edit_position) == orig_node_sizes.find(id(edit_position))->second - 1;
+            // check if its chopped in the translation
+            if (!chopped) {
+                auto edit_next_position = edit_position;
+                ++get_offset(edit_next_position);
+                chopped = find_new_node(graph, edit_position, node_translation) != find_new_node(graph, edit_next_position, node_translation);
+            }
+        } else {
+            // check if its chopped in the original graph
+            chopped = offset(edit_position) == 0;
+            // check if its chopped in the translation
+            if (!chopped) {
+                auto edit_prev_position = edit_position;
+                --get_offset(edit_prev_position);
+                chopped = find_new_node(graph, edit_position, node_translation) != find_new_node(graph, edit_prev_position, node_translation);
+            }
+        }
+        return chopped;
+    };
+
+    bool path_modified = false;
+
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        // For each Mapping in the path
+        Mapping& m = *path.mutable_mapping(i);
+
+        // What node are we on? In old node ID space.
+        id_t node_id = m.position().node_id();
+
+        // See where the next edit starts in the node. It is always included
+        // (even when the edit runs backward), unless the edit has 0 length in
+        // the reference.
+        pos_t edit_first_position = make_pos_t(m.position());
+
+        for(size_t j = 0; j < m.edit_size(); ++j) {
+            // For each Edit in the mapping
+            Edit& e = *m.mutable_edit(j);
+
+            // Work out where its end position on the original node is (inclusive)
+            // We don't use this on insertions, so 0-from-length edits don't matter.
+            pos_t edit_last_position = edit_first_position;
+            get_offset(edit_last_position) += (e.from_length()?e.from_length()-1:0);
+
+            // skip edits whose breakpoitns weren't added due to the coverage filter
+            if (!edit_is_match(e) && (!is_chopped(edit_first_position, true) || !is_chopped(edit_last_position, false))) {
+                e.set_to_length(e.from_length());
+                e.set_sequence("");
+                path_modified = true;
+            }
+
+            // Advance in the right direction along the original node for this edit.
+            // This way the next one will start at the right place.
+            get_offset(edit_first_position) += e.from_length();
+        }
+    }
+
+    if (path_modified) {
+        path = simplify(path);
+    }
+}
 
 Path add_nodes_and_edges(MutableHandleGraph* graph,
                          const Path& path,
@@ -571,6 +677,7 @@ Path add_nodes_and_edges(MutableHandleGraph* graph,
         max_node_size);  
 
 }
+
 
 Path add_nodes_and_edges(MutableHandleGraph* graph,
                          const Path& path,
@@ -604,36 +711,13 @@ Path add_nodes_and_edges(MutableHandleGraph* graph,
     Path embedded;
     embedded.set_name(path.name());
 
-    // We use this function to get the id of the node that contains a position on an
-    // original node.
-    auto find_new_node = [&](pos_t old_pos) {
-        if(node_translation.find(make_pos_t(id(old_pos), false, 0)) == node_translation.end()) {
-            // The node is unchanged
-            return id(old_pos);
-        }
-        // Otherwise, get the first new node starting after that position, and
-        // then look left.
-        auto found = node_translation.upper_bound(old_pos);
-        assert(found != node_translation.end());
-        if (id(found->first) != id(old_pos)
-            || is_rev(found->first) != is_rev(old_pos)) {
-            return id_t(0);
-        }
-        // Get the thing before that (last key <= the position we want
-        --found;
-        assert(graph->has_node(found->second));
-
-        // Return the node we found.
-        return found->second;
-    };
-
     auto create_new_mappings = [&](pos_t p1, pos_t p2, bool is_rev) {
         vector<Mapping> mappings;
         vector<id_t> nodes;
         for (pos_t p = p1; p <= p2; ++get_offset(p)) {
-            auto n = find_new_node(p);
+            auto n = find_new_node(graph, p, node_translation);
             assert(n != 0);
-            nodes.push_back(find_new_node(p));
+            nodes.push_back(find_new_node(graph, p, node_translation));
         }
         auto np = nodes.begin();
         while (np != nodes.end()) {
@@ -858,8 +942,8 @@ Path add_nodes_and_edges(MutableHandleGraph* graph,
                 // have additional breakpoints in the middle. So we need the
                 // left node, that contains the first base of the match, and the
                 // right node, that contains the last base of the match.
-                id_t left_node = find_new_node(edit_first_position);
-                id_t right_node = find_new_node(edit_last_position);
+                id_t left_node = find_new_node(graph, edit_first_position, node_translation);
+                id_t right_node = find_new_node(graph, edit_last_position, node_translation);
 
                 // TODO: we just assume the outer edges of these nodes are in
                 // the right places. They should be if we cut the breakpoints

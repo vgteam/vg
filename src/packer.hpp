@@ -47,7 +47,8 @@ public:
     /// record_edges : Store the edge coverage
     /// record_edits : Store the edits
     Packer(const HandleGraph* graph, size_t bin_size = 0, size_t coverage_bins = 1, size_t data_width = 8, bool record_bases = true, bool record_edges = true, bool record_edits = true);
-    ~Packer(void);
+    ~Packer();
+    void clear();
 
     /// Add coverage from given alignment to the indexes
     /// aln : given alignemnt

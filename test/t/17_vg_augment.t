@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 15
+plan tests 18
 
 vg view -J -v pileup/tiny.json > tiny.vg
 
@@ -18,7 +18,11 @@ vg augment -a direct tiny.vg edits.gam -A edits-embedded.gam > augmented.vg
 is "$(vg view -aj edits-embedded.gam | jq -c '.path.mapping[].edit[].sequence' | grep null | wc -l)" "36" "direct augmentation embeds reads fully for well-supported SNPs"
 is "$(vg stats -N augmented.vg)" "18" "adding a well-supported SNP by direct augmentation adds 3 more nodes"
 
-rm -f edits.gam edits-embedded.gam augmented.vg
+# Run again but with packed logic.  output should be identical with min threshold of 1
+vg augment -a direct tiny.vg edits.gam -A edits-embedded.gam -m 1 > augmented.m1.vg
+is "$(vg stats -N augmented.m1.vg)" "18" "adding a well-supported SNP by direct augmentation adds 3 more nodes with -m 1"
+
+rm -f edits.gam edits-embedded.gam augmented.vg augmented.m1.vg
 
 # Make sure every edit is augmented in
 vg view -J -a -G pileup/edit.json > edit.gam
@@ -74,6 +78,18 @@ vg index -x flat.xg -g flat.gcsa -k 16 flat.vg
 vg map -g flat.gcsa -x flat.xg -G 2snp.sim -k 8 >2snp.gam
 is $(vg augment flat.vg 2snp.gam -i | vg mod -D - | vg mod -n - | vg view - | grep ^S | wc -l) 7 "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
 
+vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTATCTGGAGTTCTATTATATCCCAACTCTCTG/' | vg view -Fv - >2err.vg
+vg sim -l 30 -x 2err.vg -n 10 -a >2err.sim
+vg map -g flat.gcsa -x flat.xg -G 2err.sim -k 8 >2err.gam
+cat 2snp.gam 2err.gam > 4edits.gam
+vg augment flat.vg 2snp.gam | vg view - | grep S | awk '{print $3}' | sort >  2snp_default.nodes
+vg augment flat.vg 2snp.gam -m 1 | vg view - | grep S | awk '{print $3}' | sort >  2snp_m1.nodes
+diff 2snp_default.nodes 2snp_m1.nodes
+is "$?" 0 "augmenting 2 snps with -m 1 produces the same nodes as default"
+vg augment flat.vg 4edits.gam -m 11 | vg view - | grep S | awk '{print $3}' | sort > 4edits_m11.nodes
+diff 2snp_default.nodes 4edits_m11.nodes
+is "$?" 0 "augmenting 2 snps and 2 errors with -m 11 produces the same nodes as with just the snps"
+
 vg augment flat.vg 2snp.gam | vg view - | grep S | awk '{print $3}' | sort > vg_augment.nodes
 vg convert flat.vg -p > flat.pg
 vg augment flat.pg 2snp.gam | vg convert -v - | vg view - | grep S | awk '{print $3}' | sort > packed_graph_augment.nodes
@@ -85,3 +101,4 @@ diff vg_augment.nodes hash_graph_augment.nodes
 is "$?" 0 "augmenting a hash graph produces same results as a vg graph"
 
 rm -f flat.vg flat.gcsa flat.xg flat.pg flat.hg 2snp.vg 2snp.xg 2snp.sim 2snp.gam vg_augment.nodes packed_graph_augment.nodes hash_graph_augment.nodes
+rm -f 2err.sim 2err.gam 4edits.gam 2snp_default.nodes 2snp_m1.nodes 4edits_m11.nodes

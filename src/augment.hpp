@@ -117,6 +117,12 @@ unordered_map<id_t, set<pos_t>> filter_breakpoints_by_coverage(const Packer& pac
 map<pos_t, id_t> ensure_breakpoints(MutableHandleGraph* graph,
                                     const unordered_map<id_t, set<pos_t>>& breakpoints);
 
+/// Remove edits in our graph that don't correspond to breakpoints (ie were effectively filtered
+/// out due to insufficient coverage.  This way, subsequent logic in add_nodes_and_edges
+/// can be run correctly
+void simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id_t>& node_translation,
+                             const unordered_map<id_t, size_t>& orig_node_sizes);
+
 /// Given a path on nodes that may or may not exist, and a map from start
 /// position in the old graph to a node in the current graph, add all the
 /// new sequence and edges required by the path. The given path must not
