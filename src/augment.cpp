@@ -197,45 +197,49 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
 
             // Filter out edits corresponding to breakpoints that didn't meet our coverage
             // criteria
+            bool has_edits = true;
             if (min_bp_coverage > 0) {
-                simplify_filtered_edits(graph, simplified_path, node_translation, orig_node_sizes);
+                has_edits = simplify_filtered_edits(graph, simplified_path, node_translation, orig_node_sizes);
             }
 
             // Now go through each new path again, by reference so we can overwrite.
+            // but only if we have a reason to
+            if (has_edits || gam_out_stream != nullptr || embed_paths) {
         
-            // Create new nodes/wire things up. Get the added version of the path.
-            Path added = add_nodes_and_edges(graph, simplified_path, node_translation, added_seqs,
-                                             added_nodes, orig_node_sizes);
+                // Create new nodes/wire things up. Get the added version of the path.
+                Path added = add_nodes_and_edges(graph, simplified_path, node_translation, added_seqs,
+                                                 added_nodes, orig_node_sizes);
 
-            // Copy over the name
-            *added.mutable_name() = aln.name();
+                // Copy over the name
+                *added.mutable_name() = aln.name();
 
-            if (embed_paths) {
-                add_path_to_graph(graph, added);
-            }
-
-            // something is off about this check.
-            // assuming the GAM path is sorted, let's double-check that its edges are here
-            for (size_t i = 1; i < added.mapping_size(); ++i) {
-                auto& m1 = added.mapping(i-1);
-                auto& m2 = added.mapping(i);
-                // we're no longer sorting our input paths, so we assume they are sorted
-                assert((m1.rank() == 0 && m2.rank() == 0) || (m1.rank() + 1 == m2.rank()));
-                //if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
-                auto s1 = graph->get_handle(m1.position().node_id(), m1.position().is_reverse());
-                auto s2 = graph->get_handle(m2.position().node_id(), m2.position().is_reverse());
-                // check that we always have an edge between the two nodes in the correct direction
-                if (!graph->has_edge(s1, s2)) {
-                    // force these edges in
-                    graph->create_edge(s1, s2);
+                if (embed_paths) {
+                    add_path_to_graph(graph, added);
                 }
-            }
 
-            // optionally write out the modified path to GAM
-            if (gam_out_stream != nullptr) {
-                *aln.mutable_path() = added;
-                gam_buffer.push_back(aln);
-                vg::io::write_buffered(*gam_out_stream, gam_buffer, 100);
+                // something is off about this check.
+                // assuming the GAM path is sorted, let's double-check that its edges are here
+                for (size_t i = 1; i < added.mapping_size(); ++i) {
+                    auto& m1 = added.mapping(i-1);
+                    auto& m2 = added.mapping(i);
+                    // we're no longer sorting our input paths, so we assume they are sorted
+                    assert((m1.rank() == 0 && m2.rank() == 0) || (m1.rank() + 1 == m2.rank()));
+                    //if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
+                    auto s1 = graph->get_handle(m1.position().node_id(), m1.position().is_reverse());
+                    auto s2 = graph->get_handle(m2.position().node_id(), m2.position().is_reverse());
+                    // check that we always have an edge between the two nodes in the correct direction
+                    if (!graph->has_edge(s1, s2)) {
+                        // force these edges in
+                        graph->create_edge(s1, s2);
+                    }
+                }
+
+                // optionally write out the modified path to GAM
+                if (gam_out_stream != nullptr) {
+                    *aln.mutable_path() = added;
+                    gam_buffer.push_back(aln);
+                    vg::io::write_buffered(*gam_out_stream, gam_buffer, 100);
+                }
             }
         }, true, false);
     if (gam_out_stream != nullptr) {
@@ -587,7 +591,7 @@ static nid_t find_new_node(HandleGraph* graph, pos_t old_pos, const map<pos_t, i
 };
 
 
-void simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id_t>& node_translation,
+bool simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id_t>& node_translation,
                              const unordered_map<id_t, size_t>& orig_node_sizes) {
 
     // check if an edit position is chopped at its next or prev position
@@ -658,13 +662,12 @@ void simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id
         }
     }
 
-    if (!kept_an_edit) {
-        // no edits in the path, let's zap it so we don't waste time scanning it again.
-        path.clear_mapping();
-    }  else if (filtered_an_edit) {
+    if (filtered_an_edit) {
         // there's something to simplify
         path = simplify(path);
     }
+
+    return kept_an_edit;
 }
 
 Path add_nodes_and_edges(MutableHandleGraph* graph,

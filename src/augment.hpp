@@ -119,8 +119,8 @@ map<pos_t, id_t> ensure_breakpoints(MutableHandleGraph* graph,
 
 /// Remove edits in our graph that don't correspond to breakpoints (ie were effectively filtered
 /// out due to insufficient coverage.  This way, subsequent logic in add_nodes_and_edges
-/// can be run correctly
-void simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id_t>& node_translation,
+/// can be run correctly.  Returns true if at least one edit survived the filter.
+bool simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id_t>& node_translation,
                              const unordered_map<id_t, size_t>& orig_node_sizes);
 
 /// Given a path on nodes that may or may not exist, and a map from start

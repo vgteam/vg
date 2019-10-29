@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 18
+plan tests 21
 
 vg view -J -v pileup/tiny.json > tiny.vg
 
@@ -43,6 +43,12 @@ vg index -k 11 -g t.idx.gcsa -x t.idx.xg t.vg
 
 is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | wc -l) 1 "path inclusion does not modify the graph when alignment is a perfect match"
 
+is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAATATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i -m 2 | vg view - | grep ^S | wc -l) 1 "path inclusion does not modify the graph when alignment has a SNP but doesnt meet the coverage threshold"
+
+is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAATATATTCCAACTCTCTG -V read -d t.idx | vg augment t.vg - -i -m 2 -A read_aug.gam | vg view - | grep ^P | awk '{print $4}' | uniq) "50M" "path inclusion does not modify the included path when alignment has a SNP but doesnt meet the coverage threshold"
+
+is $(vg view -a read_aug.gam | jq. | grep edit | wc) 1 "output GAM has single edit when SNP was filtered out due to coverage"
+
 is $(vg map -s CAAATAAGGCTTGGAAAGGGTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | wc -l) 5 "path inclusion with a complex variant introduces the right number of nodes"
 
 # checks that we get a node with the id 4, which is the ref-matching dual to the deletion
@@ -51,7 +57,7 @@ is $(vg map -s CAAAAAGGCTTGGAAAGGGTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg
 is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGCAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | wc -l) 4 "SNPs can be included in the graph"
 
 rm t.vg
-rm -rf t.idx.xg t.idx.gcsa
+rm -rf t.idx.xg t.idx.gcsa read_aug.gam
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa >t.vg
 vg align -s GGGGGGGAAATTTTCTGGAGTTCTATTATATTCCAAAAAAAAAA t.vg >t.gam
