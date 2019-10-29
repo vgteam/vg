@@ -617,7 +617,8 @@ void simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id
         return chopped;
     };
 
-    bool path_modified = false;
+    bool filtered_an_edit = false;
+    bool kept_an_edit = false;
 
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         // For each Mapping in the path
@@ -641,10 +642,14 @@ void simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id
             get_offset(edit_last_position) += (e.from_length()?e.from_length()-1:0);
 
             // skip edits whose breakpoitns weren't added due to the coverage filter
-            if (!edit_is_match(e) && (!is_chopped(edit_first_position, true) || !is_chopped(edit_last_position, false))) {
-                e.set_to_length(e.from_length());
-                e.set_sequence("");
-                path_modified = true;
+            if (!edit_is_match(e)) {
+                if (!is_chopped(edit_first_position, true) || !is_chopped(edit_last_position, false)) {
+                    e.set_to_length(e.from_length());
+                    e.set_sequence("");
+                    filtered_an_edit = true;
+                } else {
+                    kept_an_edit = true;
+                }
             }
 
             // Advance in the right direction along the original node for this edit.
@@ -653,7 +658,11 @@ void simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id
         }
     }
 
-    if (path_modified) {
+    if (!kept_an_edit) {
+        // no edits in the path, let's zap it so we don't waste time scanning it again.
+        path.clear_mapping();
+    }  else if (filtered_an_edit) {
+        // there's something to simplify
         path = simplify(path);
     }
 }
