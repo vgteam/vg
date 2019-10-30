@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 21
+plan tests 23
 
 vg view -J -v pileup/tiny.json > tiny.vg
 
@@ -96,6 +96,22 @@ vg augment flat.vg 4edits.gam -m 11 | vg view - | grep S | awk '{print $3}' | so
 diff 2snp_default.nodes 4edits_m11.nodes
 is "$?" 0 "augmenting 2 snps and 2 errors with -m 11 produces the same nodes as with just the snps"
 
+# 2 snps, but one has a low quality, and one has a high quality
+echo "@read" > qual.fq
+echo "CAAATAAGGCTTGGAAATTGTCTGGAGTTCTATTATATGCCAACTCTCTG" >> qual.fq
+echo "+" >> qual.fq
+echo "BBBBBBBBBBBBBBBBBBB+BBBBBBBBBBBBBBBBBBKBBBBBBBBBBB" >> qual.fq
+# reverse complement
+echo "@daer" >> qual.fq
+echo "CAGAGAGTTGGCATATAATAGAACTCCAGACAATTTCCAAGCCTTATTTG" >> qual.fq
+echo "+" >> qual.fq
+echo "BBBBBBBBBBBKBBBBBBBBBBBBBBBBBB+BBBBBBBBBBBBBBBBBBB" >> qual.fq
+vg map -g flat.gcsa -x flat.xg -f qual.fq -k 8 > 2qual.gam
+# sanity check:
+is $(vg augment flat.vg 2qual.gam -m 2 | vg view - | grep ^S | wc -l) 7 "augmenting with 2snps makes correct number of nodes"
+# test quality filter
+is $(vg augment flat.vg 2qual.gam -m 2 -q 30 | vg view - | grep ^S | wc -l) 4 "low-quality snp is filtered"
+
 vg augment flat.vg 2snp.gam | vg view - | grep S | awk '{print $3}' | sort > vg_augment.nodes
 vg convert flat.vg -p > flat.pg
 vg augment flat.pg 2snp.gam | vg convert -v - | vg view - | grep S | awk '{print $3}' | sort > packed_graph_augment.nodes
@@ -107,4 +123,4 @@ diff vg_augment.nodes hash_graph_augment.nodes
 is "$?" 0 "augmenting a hash graph produces same results as a vg graph"
 
 rm -f flat.vg flat.gcsa flat.xg flat.pg flat.hg 2snp.vg 2snp.xg 2snp.sim 2snp.gam vg_augment.nodes packed_graph_augment.nodes hash_graph_augment.nodes
-rm -f 2err.sim 2err.gam 4edits.gam 2snp_default.nodes 2snp_m1.nodes 4edits_m11.nodes
+rm -f 2err.sim 2err.gam 4edits.gam 2snp_default.nodes 2snp_m1.nodes 4edits_m11.nodes 2qual.gam qual.fq

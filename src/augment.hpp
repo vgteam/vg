@@ -35,6 +35,8 @@ using namespace std;
 /// before processing, and the dangling ends won't end up in the graph
 /// If filter_out_of_graph_alignments is true, some extra time will be taken to check if
 /// all nodes in the alignment are in the graph.  If they aren't, then it will be ignored
+/// If an edit sequence's avg base quality is less than min_baseq it will be ignored (considered a match)
+/// If an alignment's mapping quality
 void augment(MutablePathMutableHandleGraph* graph,
              istream& gam_stream,
              vector<Translation>* out_translation = nullptr,
@@ -43,6 +45,8 @@ void augment(MutablePathMutableHandleGraph* graph,
              bool break_at_ends = false,
              bool remove_soft_clips = false,
              bool filter_out_of_graph_alignments = false,
+             double min_baseq = 0,
+             double min_mapq = 0,
              Packer* packer = nullptr,
              size_t min_bp_coverage = 0);
 
@@ -56,6 +60,8 @@ void augment(MutablePathMutableHandleGraph* graph,
              bool break_at_ends = false,
              bool remove_soft_clips = false,
              bool filter_out_of_graph_alignments = false,
+             double min_baseq = 0,
+             double min_mapq = 0,
              Packer* packer = nullptr,
              size_t min_bp_coverage = 0);
 
@@ -68,6 +74,8 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                   bool break_at_ends,
                   bool remove_soft_clips,
                   bool filter_out_of_graph_alignments,
+                  double min_baseq,
+                  double min_mapq,
                   Packer* packer,
                   size_t min_bp_coverage);
 
@@ -76,6 +84,11 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
 /// to exist exactly in the graph
 path_handle_t add_path_to_graph(MutablePathHandleGraph* graph, const Path& path);
 
+/// Compute the average base quality of an edit.
+/// If the edit has no sequence or there are no base_quals given,
+/// then double_max is returned. 
+double get_avg_baseq(const Edit& edit, const string& base_quals, size_t position_in_read);
+
 /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
 /// them to the given map by node ID of sets of bases in the node that will need
 /// to become the starts of new nodes.
@@ -89,7 +102,8 @@ path_handle_t add_path_to_graph(MutablePathHandleGraph* graph, const Path& path)
 ///
 /// If break_ends is true, emits breakpoints at the ends of the path, even
 /// if it starts/ends with perfect matches.
-void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpoints, bool break_ends = true);
+void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpoints, bool break_ends = true,
+                      const string& base_quals = "", double min_baseq = 0);
 
 /// Flips the breakpoints onto the forward strand.
 unordered_map<id_t, set<pos_t>> forwardize_breakpoints(const HandleGraph* graph,
@@ -97,7 +111,8 @@ unordered_map<id_t, set<pos_t>> forwardize_breakpoints(const HandleGraph* graph,
 
 
 /// Like "find_breakpoints", but store in packed structure (better for large gams and enables coverage filter)
-void find_packed_breakpoints(const Path& path, Packer& packed_breakpoints, bool break_ends = true);
+void find_packed_breakpoints(const Path& path, Packer& packed_breakpoints, bool break_ends = true,
+                             const string& base_quals = "", double min_baseq = 0);
 
 /// Filters the breakpoints by coverage, and converts them back from the Packer to the STL map
 /// expected by following methods
@@ -121,7 +136,8 @@ map<pos_t, id_t> ensure_breakpoints(MutableHandleGraph* graph,
 /// out due to insufficient coverage.  This way, subsequent logic in add_nodes_and_edges
 /// can be run correctly.  Returns true if at least one edit survived the filter.
 bool simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id_t>& node_translation,
-                             const unordered_map<id_t, size_t>& orig_node_sizes);
+                             const unordered_map<id_t, size_t>& orig_node_sizes,
+                             const string& base_quals = "", double min_baseq = 0);
 
 /// Given a path on nodes that may or may not exist, and a map from start
 /// position in the old graph to a node in the current graph, add all the

@@ -51,10 +51,12 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "    -s, --subgraph              graph is a subgraph of the one used to create GAM. ignore alignments with missing nodes" << endl
          << "    -m, --min-coverage N        minimum coverage of a breakpoint required for it to be added to the graph" << endl
          << "    -c, --expected-cov N        expected coverage.  used only for memory tuning [default : 128]" << endl
+         << "    -q, --min-baseq N           ignore edits whose sequence have average base quality < N" << endl
+         << "    -Q, --min-mapq N            ignore alignments with mapping quality < N" << endl
          << "    -h, --help                  print this help message" << endl
          << "    -p, --progress              show progress" << endl
          << "    -v, --verbose               print information and warnings about vcf generation" << endl
-         << "    -t, --threads N             number of threads to use" << endl
+         << "    -t, --threads N             number of threads (only 1st pass with -m or -q option is multithreaded)" << endl
          << "loci file options:" << endl
          << "    -l, --include-loci FILE     merge all alleles in loci into the graph" << endl       
          << "    -L, --include-gt FILE       merge only the alleles in called genotypes into the graph" << endl;
@@ -100,6 +102,12 @@ int main_augment(int argc, char** argv) {
     // Used to set data_width for Packer
     size_t expected_coverage = 128;
 
+    // Minimum average base quality in an edit's sequence for it to be used
+    double min_baseq = 0;
+
+    // Minimum mapping quality of an alignment for it to be used
+    double min_mapq = 0;
+
     // Print some progress messages to screen
     bool show_progress = false;
 
@@ -117,7 +125,9 @@ int main_augment(int argc, char** argv) {
         {"label-paths", no_argument, 0, 'B'},
         {"subgraph", no_argument, 0, 's'},
         {"min-coverage", required_argument, 0, 'm'},
-        {"expected-cov", required_argument, 0, 'c'},        
+        {"expected-cov", required_argument, 0, 'c'},
+        {"min-baseq", required_argument, 0, 'q'},
+        {"min-mapq", required_argument, 0, 'Q'},
         {"help", no_argument, 0, 'h'},
         {"progress", required_argument, 0, 'p'},
         {"verbose", no_argument, 0, 'v'},
@@ -127,7 +137,7 @@ int main_augment(int argc, char** argv) {
         {"include-gt", required_argument, 0, 'L'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "a:Z:A:iCBhpvt:l:L:sm:c:";
+    static const char* short_options = "a:Z:A:iCBhpvt:l:L:sm:c:q:Q:";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -163,7 +173,13 @@ int main_augment(int argc, char** argv) {
             break;
         case 'c':
             expected_coverage = parse<size_t>(optarg);
-            break;            
+            break;
+        case 'q':
+            min_baseq = parse<double>(optarg);
+            break;
+        case 'Q':
+            min_mapq = parse<double>(optarg);
+            break;
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -246,7 +262,9 @@ int main_augment(int argc, char** argv) {
     HandleGraph* vectorizable_graph = nullptr;
     unique_ptr<Packer> packer;
     bdsg::VectorizableOverlayHelper overlay_helper;
-    if (min_coverage > 0) {
+    // the packer's required for any kind of filtering logic -- so we use it when
+    // baseq is present as well.
+    if (min_coverage > 0 || min_baseq ) {
         vectorizable_graph = dynamic_cast<HandleGraph*>(overlay_helper.apply(graph.get()));
         size_t data_width = Packer::estimate_data_width(expected_coverage);
         size_t bin_count = Packer::estimate_bin_count(get_thread_count());
@@ -328,6 +346,8 @@ int main_augment(int argc, char** argv) {
                     include_paths,
                     !include_softclips,
                     is_subgraph,
+                    min_baseq,
+                    min_mapq,
                     packer.get(),
                     min_coverage);
         } else {
@@ -341,6 +361,8 @@ int main_augment(int argc, char** argv) {
                             include_paths,
                             !include_softclips,
                             is_subgraph,
+                            min_baseq,
+                            min_mapq,
                             packer.get(),
                             min_coverage);
                 });

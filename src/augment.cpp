@@ -20,6 +20,8 @@ void augment(MutablePathMutableHandleGraph* graph,
              bool break_at_ends,
              bool remove_softclips,
              bool filter_out_of_graph_alignments,
+             double min_baseq,
+             double min_mapq,
              Packer* packer,
              size_t min_bp_coverage) {
 
@@ -44,6 +46,8 @@ void augment(MutablePathMutableHandleGraph* graph,
                  break_at_ends,
                  remove_softclips,
                  filter_out_of_graph_alignments,
+                 min_baseq,
+                 min_mapq,                 
                  packer,
                  min_bp_coverage);
 }
@@ -56,6 +60,8 @@ void augment(MutablePathMutableHandleGraph* graph,
              bool break_at_ends,
              bool remove_softclips,
              bool filter_out_of_graph_alignments,
+             double min_baseq,
+             double min_mapq,
              Packer* packer,
              size_t min_bp_coverage) {
     
@@ -90,6 +96,8 @@ void augment(MutablePathMutableHandleGraph* graph,
                  break_at_ends,
                  remove_softclips,
                  filter_out_of_graph_alignments,
+                 min_baseq,
+                 min_mapq,
                  packer,
                  min_bp_coverage);
 }
@@ -102,11 +110,13 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                   bool break_at_ends,
                   bool remove_softclips,
                   bool filter_out_of_graph_alignments,
+                  double min_baseq,
+                  double min_mapq,
                   Packer* packer,
                   size_t min_bp_coverage) {
 
     // toggle between using Packer to store breakpoints or the STL map
-    bool packed_mode = min_bp_coverage > 0;
+    bool packed_mode = min_bp_coverage > 0 || min_baseq > 0;
     assert(!packed_mode || packer != nullptr);
     
     unordered_map<id_t, set<pos_t>> breakpoints;
@@ -126,7 +136,7 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
 #ifdef debug
             cerr << pb2json(aln.path()) << endl;
 #endif
-            if (filter_out_of_graph_alignments && !check_in_graph(aln.path())) {
+            if (aln.mapping_quality() < min_mapq || (filter_out_of_graph_alignments && !check_in_graph(aln.path()))) {
                 return;
             }
 
@@ -140,9 +150,11 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
 
             // Add in breakpoints from each path
             if (packed_mode) {
-                find_packed_breakpoints(simplified_path, *packer, break_at_ends);
+                find_packed_breakpoints(simplified_path, *packer, break_at_ends, aln.quality(), min_baseq);
             } else {
-                find_breakpoints(simplified_path, breakpoints, break_at_ends);
+                // note: we cannot pass non-zero min_baseq here.  it relies on filter_breakpoints_by_coverage
+                // to work correctly, and must be passed in only via find_packed_breakpoints.
+                find_breakpoints(simplified_path, breakpoints, break_at_ends, "", 0);
             }
         }, false, packed_mode);
 
@@ -181,7 +193,7 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
 
     // Second pass: add the nodes and edges
     iterate_gam((function<void(Alignment&)>)[&](Alignment& aln) {
-            if (filter_out_of_graph_alignments && !check_in_graph(aln.path())) {
+            if (aln.mapping_quality() < min_mapq || (filter_out_of_graph_alignments && !check_in_graph(aln.path()))) {
                 return;
             }
             
@@ -289,14 +301,30 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
 
 }
 
+double get_avg_baseq(const Edit& edit, const string& base_quals, size_t position_in_read) {
+    double avg_qual = numeric_limits<int>::max();
+    if (!base_quals.empty() && !edit.sequence().empty() && (edit_is_sub(edit) || edit_is_insertion(edit))) {
+        double tot_qual = 0;
+        for (int i = 0; i < edit.sequence().length(); ++i) {
+            tot_qual += base_quals[position_in_read + i];
+        }
+        avg_qual = tot_qual / (double)edit.sequence().length();
+    }
+    return avg_qual;
+}
+
 // returns breakpoints on the forward strand of the nodes
-void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpoints, bool break_ends) {
+void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpoints, bool break_ends,
+                      const string& base_quals, double min_baseq) {
     // We need to work out what offsets we will need to break each node at, if
     // we want to add in all the new material and edges in this path.
 
 #ifdef debug
     cerr << "Processing path..." << endl;
 #endif
+
+    // The base position in the edit
+    size_t position_in_read = 0;
 
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         // For each Mapping in the path
@@ -338,38 +366,41 @@ void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpo
             cerr << pb2json(e) << endl;
 #endif
 
-            if (!edit_is_match(e) || (j == 0 && (i != 0 || break_ends))) {
-                // If this edit is not a perfect match, or if this is the first
-                // edit in this mapping and either we had a previous mapping we
-                // may need to connect to or we want to break at the path's
-                // start, we need to make sure we have a breakpoint at the start
-                // of this edit.
+            // Do the base quality check if applicable.  If it fails we just ignore the edit
+            if (min_baseq == 0 || get_avg_baseq(e, base_quals, position_in_read) >= min_baseq) {
+                
+                if (!edit_is_match(e) || (j == 0 && (i != 0 || break_ends))) {
+                    // If this edit is not a perfect match, or if this is the first
+                    // edit in this mapping and either we had a previous mapping we
+                    // may need to connect to or we want to break at the path's
+                    // start, we need to make sure we have a breakpoint at the start
+                    // of this edit.
 
 #ifdef debug
-                cerr << "Need to break " << node_id << " at edit lower end " <<
-                    edit_first_position << endl;
+                    cerr << "Need to break " << node_id << " at edit lower end " <<
+                        edit_first_position << endl;
 #endif
 
-                // We need to snip between edit_first_position and edit_first_position - direction.
-                // Note that it doesn't matter if we put breakpoints at 0 and 1-past-the-end; those will be ignored.
-                breakpoints[node_id].insert(edit_first_position);
-            }
+                    // We need to snip between edit_first_position and edit_first_position - direction.
+                    // Note that it doesn't matter if we put breakpoints at 0 and 1-past-the-end; those will be ignored.
+                    breakpoints[node_id].insert(edit_first_position);
+                }
 
-            if (!edit_is_match(e) || (j == m.edit_size() - 1 && (i != path.mapping_size() - 1 || break_ends))) {
-                // If this edit is not a perfect match, or if it is the last
-                // edit in a mapping and we have a subsequent mapping we might
-                // need to connect to or we want to break at the path ends, make
-                // sure we have a breakpoint at the end of this edit.
+                if (!edit_is_match(e) || (j == m.edit_size() - 1 && (i != path.mapping_size() - 1 || break_ends))) {
+                    // If this edit is not a perfect match, or if it is the last
+                    // edit in a mapping and we have a subsequent mapping we might
+                    // need to connect to or we want to break at the path ends, make
+                    // sure we have a breakpoint at the end of this edit.
 
 #ifdef debug
-                cerr << "Need to break " << node_id << " at past edit upper end " <<
-                    edit_last_position << endl;
+                    cerr << "Need to break " << node_id << " at past edit upper end " <<
+                        edit_last_position << endl;
 #endif
 
-                // We also need to snip between edit_last_position and edit_last_position + direction.
-                breakpoints[node_id].insert(edit_last_position);
+                    // We also need to snip between edit_last_position and edit_last_position + direction.
+                    breakpoints[node_id].insert(edit_last_position);
+                }
             }
-
             // TODO: for an insertion or substitution, note that we need a new
             // node and two new edges.
 
@@ -380,6 +411,8 @@ void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpo
             // Use up the portion of the node taken by this mapping, so we know
             // where the next mapping will start.
             edit_first_position = edit_last_position;
+
+            position_in_read += e.to_length();
         }
     }
 
@@ -418,11 +451,12 @@ unordered_map<id_t, set<pos_t>> forwardize_breakpoints(const HandleGraph* graph,
 
 
 // returns breakpoints on the forward strand of the nodes
-void find_packed_breakpoints(const Path& path, Packer& packed_breakpoints, bool break_ends) {
+void find_packed_breakpoints(const Path& path, Packer& packed_breakpoints, bool break_ends,
+                             const string& base_quals, double min_baseq) {
     // use existing methods to find the breakpoints, then copy them into a packer
     // todo: streamline?
     unordered_map<id_t, set<pos_t>> breakpoints;
-    find_breakpoints(path, breakpoints, break_ends);
+    find_breakpoints(path, breakpoints, break_ends, base_quals, min_baseq);
     breakpoints = forwardize_breakpoints(packed_breakpoints.get_graph(), breakpoints);
     const HandleGraph* graph = packed_breakpoints.get_graph();
     for (auto& id_set : breakpoints) {
@@ -592,7 +626,8 @@ static nid_t find_new_node(HandleGraph* graph, pos_t old_pos, const map<pos_t, i
 
 
 bool simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id_t>& node_translation,
-                             const unordered_map<id_t, size_t>& orig_node_sizes) {
+                             const unordered_map<id_t, size_t>& orig_node_sizes,
+                             const string& base_quals, double min_baseq) {
 
     // check if an edit position is chopped at its next or prev position
     auto is_chopped = [&](pos_t edit_position, bool look_next) {
@@ -624,6 +659,9 @@ bool simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id
     bool filtered_an_edit = false;
     bool kept_an_edit = false;
 
+    // The base position in the edit
+    size_t position_in_read = 0;
+
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         // For each Mapping in the path
         Mapping& m = *path.mutable_mapping(i);
@@ -646,8 +684,10 @@ bool simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id
             get_offset(edit_last_position) += (e.from_length()?e.from_length()-1:0);
 
             // skip edits whose breakpoitns weren't added due to the coverage filter
+            // or edits whose avg base quality fails the min_baseq filter
             if (!edit_is_match(e)) {
-                if (!is_chopped(edit_first_position, true) || !is_chopped(edit_last_position, false)) {
+                if (!is_chopped(edit_first_position, true) || !is_chopped(edit_last_position, false)
+                    || (min_baseq > 0 && get_avg_baseq(e, base_quals, position_in_read) < min_baseq)) {
                     e.set_to_length(e.from_length());
                     e.set_sequence("");
                     filtered_an_edit = true;
@@ -659,6 +699,8 @@ bool simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id
             // Advance in the right direction along the original node for this edit.
             // This way the next one will start at the right place.
             get_offset(edit_first_position) += e.from_length();
+
+            position_in_read += e.to_length();
         }
     }
 
