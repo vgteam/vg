@@ -146,7 +146,7 @@ var searchData=
   ['for_5feach_5fnode',['for_each_node',['../classvg_1_1VG.html#af585f2161de09403d197e05fbcfb9a07',1,'vg::VG::for_each_node(function&lt; void(Node *)&gt; lambda)'],['../classvg_1_1VG.html#a23b34b164590c0537bf704dd1b816760',1,'vg::VG::for_each_node(function&lt; void(const Node *)&gt; lambda) const']]],
   ['for_5feach_5fnode_5fparallel',['for_each_node_parallel',['../classvg_1_1VG.html#a39790d52fe4c09804086d58164258fcf',1,'vg::VG']]],
   ['for_5feach_5fparallel',['for_each_parallel',['../namespacevg_1_1io.html#a6a3ddf4b05771fabe7c543dae992e13a',1,'vg::io']]],
-  ['for_5feach_5fparallel_5fimpl',['for_each_parallel_impl',['../namespacevg_1_1io.html#adadc366b7eabb876f34b3f0f0f79ec90',1,'vg::io']]],
+  ['for_5feach_5fparallel_5fimpl',['for_each_parallel_impl',['../namespacevg_1_1io.html#afb82f7ea648c689f84cf5d492934a9aa',1,'vg::io']]],
   ['for_5feach_5fpath_5fhandle',['for_each_path_handle',['../classhandlegraph_1_1PathHandleGraph.html#aa3f1d0595543d760322042770201297c',1,'handlegraph::PathHandleGraph']]],
   ['for_5feach_5fpath_5fhandle_5fimpl',['for_each_path_handle_impl',['../classvg_1_1MemoizingGraph.html#a37322d14220aeea194062380da0cc943',1,'vg::MemoizingGraph::for_each_path_handle_impl()'],['../classvg_1_1VG.html#a527e1ab441e93f73902b7a02b29c1bd6',1,'vg::VG::for_each_path_handle_impl()'],['../classhandlegraph_1_1PathHandleGraph.html#a79f48793555f6be311f6df6603324e7b',1,'handlegraph::PathHandleGraph::for_each_path_handle_impl()']]],
   ['for_5feach_5fpostorder',['for_each_postorder',['../structvg_1_1TreeNode.html#a28eeb006a851d066d62cb26b93cd4b24',1,'vg::TreeNode::for_each_postorder()'],['../structvg_1_1Tree.html#af5981fac59c0b2549cc0f70b98b675d2',1,'vg::Tree::for_each_postorder()']]],
