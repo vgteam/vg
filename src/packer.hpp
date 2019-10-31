@@ -30,6 +30,12 @@ using namespace sdsl;
 /// In memory, the coverages are stored in SDSL int vectors (dynamic) and on disk they are compressed int vectors
 class Packer {
 public:
+    
+    /// Some helper functions to heuristically estimate input parameters for constructor
+    static size_t estimate_data_width(size_t expected_coverage);
+    static size_t estimate_batch_size(size_t num_threads);
+    static size_t estimate_bin_count(size_t num_threads);
+    
     Packer(void);
     /// Create a Packer
     /// graph : Must implement the VectorizableHandleGraph interface
@@ -41,7 +47,8 @@ public:
     /// record_edges : Store the edge coverage
     /// record_edits : Store the edits
     Packer(const HandleGraph* graph, size_t bin_size = 0, size_t coverage_bins = 1, size_t data_width = 8, bool record_bases = true, bool record_edges = true, bool record_edits = true);
-    ~Packer(void);
+    ~Packer();
+    void clear();
 
     /// Add coverage from given alignment to the indexes
     /// aln : given alignemnt
@@ -75,7 +82,7 @@ public:
     size_t get_n_bins(void) const;
     bool is_dynamic(void) const;
     const HandleGraph* get_graph() const;
-    size_t coverage_size(void);
+    size_t coverage_size(void) const ;
     void increment_coverage(size_t i);
     void increment_coverage(size_t i, size_t v);
 
@@ -84,7 +91,8 @@ public:
     size_t edge_vector_size(void) const;
     size_t edge_index(const Edge& e) const;
     void increment_edge_coverage(size_t i);
-    void increment_edge_coverage(size_t i, size_t v);
+    void increment_edge_coverage(size_t i, size_t v);    
+   
 private:
     /// map from absolute postion to positions in the binned arrays
     pair<size_t, size_t> coverage_bin_offset(size_t i) const;
