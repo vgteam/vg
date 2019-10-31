@@ -41,7 +41,7 @@ void help_index(char** argv) {
          << "    -t, --threads N        number of threads to use" << endl
          << "    -p, --progress         show progress" << endl
          << "xg options:" << endl
-         << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of the graph(s), or read for GCSA indexing" << endl
+         << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of the graph(s), or read for GCSA or distance indexing" << endl
          << "    -L, --xg-alts          include alt paths in xg" << endl
          << "gbwt options:" << endl
          << "    -v, --vcf-phasing FILE generate threads from the haplotypes in the VCF file FILE" << endl
@@ -1234,6 +1234,8 @@ int main_index(int argc, char** argv) {
         if (file_names.empty() && xg_name.empty()) {
             cerr << "error: [vg index] one graph is required to build a distance index" << endl;
             return 1;
+        } else if (file_names.size() > 1 || (file_names.size() == 1 && !xg_name.empty())) {
+            cerr << "error: [vg index] only one graph at a time can be used to build a distance index" << endl;
         } else if (dist_name.empty()) {
             cerr << "error: [vg index] distance index requires an output file" << endl;
             return 1;
@@ -1253,31 +1255,25 @@ int main_index(int argc, char** argv) {
 
             //Get graph and build dist index
             if (file_names.empty() && !xg_name.empty()) {
+                // We were given a -x specifically to read as XG
                 
                 ifstream xg_stream(xg_name);
                 auto xg = vg::io::VPKG::load_one<xg::XG>(xg_stream);
 
                 // Create the MinimumDistanceIndex
-                MinimumDistanceIndex di (xg.get(), snarl_manager);
+                MinimumDistanceIndex di(xg.get(), snarl_manager);
                 // Save the completed DistanceIndex
-                ofstream ostream (dist_name);
+                ofstream ostream(dist_name);
                 di.serialize(ostream);
 
             } else {
-                ifstream vg_stream(file_names.at(0));
-                
-                if (!vg_stream) {
-                    cerr << "error: [vg index] cannot open VG file" << endl;
-                    exit(1);
-                }
-
-                VG vg(vg_stream);
-                vg_stream.close();
+                // We were given a graph generically
+                auto graph = vg::io::VPKG::load_one<handlegraph::HandleGraph>(file_names.at(0));
     
                 // Create the MinimumDistanceIndex
-                MinimumDistanceIndex di (&vg, snarl_manager);
+                MinimumDistanceIndex di(graph.get(), snarl_manager);
                 // Save the completed DistanceIndex
-                ofstream ostream (dist_name);
+                ofstream ostream(dist_name);
                 di.serialize(ostream);
 //                vg::io::VPKG::save(di, dist_name);
             }
