@@ -65,6 +65,7 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pub-static-methods">Static Public Member Functions</a> &#124;
 <a href="#pri-methods">Private Member Functions</a> &#124;
 <a href="#pri-attribs">Private Attributes</a> &#124;
 <a href="#pri-static-attribs">Static Private Attributes</a> &#124;
@@ -82,8 +83,10 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a23ca736ab7fa0690ae575aa1d7a4de73"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8466ed5bda4742b1dd577e5adf8a65ed"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a8466ed5bda4742b1dd577e5adf8a65ed">Packer</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *<a class="el" href="classvg_1_1Packer.html#a52ac5f2ff5549fe1b296efc53204e94f">graph</a>, size_t <a class="el" href="classvg_1_1Packer.html#a528fbf835285899061cd6947e163976d">bin_size</a>=0, size_t coverage_bins=1, size_t <a class="el" href="classvg_1_1Packer.html#a2ebdd5cb535ee0264886e084dbdd00f4">data_width</a>=8, bool <a class="el" href="classvg_1_1Packer.html#a7a3debd842c660a3fc4755fc887c74ec">record_bases</a>=true, bool <a class="el" href="classvg_1_1Packer.html#ab6fa0636229479a7368286e43f20ffa2">record_edges</a>=true, bool <a class="el" href="classvg_1_1Packer.html#a8200ea3c39e408f3394c4a65fe2e3786">record_edits</a>=true)</td></tr>
 <tr class="separator:a8466ed5bda4742b1dd577e5adf8a65ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a65a8bbaf02215e1e8c4f1385101ffbd4"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a65a8bbaf02215e1e8c4f1385101ffbd4">~Packer</a> (void)</td></tr>
-<tr class="separator:a65a8bbaf02215e1e8c4f1385101ffbd4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a771083c86ded80dc5076bc9112a463d7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a771083c86ded80dc5076bc9112a463d7">~Packer</a> ()</td></tr>
+<tr class="separator:a771083c86ded80dc5076bc9112a463d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0680bd0b5bbe74029e94b33e2f1ea666"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a0680bd0b5bbe74029e94b33e2f1ea666">clear</a> ()</td></tr>
+<tr class="separator:a0680bd0b5bbe74029e94b33e2f1ea666"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acf47c57a145fc54c9614f6e343af64ca"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#acf47c57a145fc54c9614f6e343af64ca">add</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, int min_mapq=0, int min_baseq=0, bool qual_adjust=false)</td></tr>
 <tr class="separator:acf47c57a145fc54c9614f6e343af64ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af857449c08a56dd66c6a4bc0402231cb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#af857449c08a56dd66c6a4bc0402231cb">merge_from_files</a> (const vector&lt; string &gt; &amp;file_names)</td></tr>
@@ -132,8 +135,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a370e8ef56ffd369c6a498aa36ed9c570"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a19b5aa3c38b65c9e35e2ab7604bdbec4"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a19b5aa3c38b65c9e35e2ab7604bdbec4">get_graph</a> () const</td></tr>
 <tr class="separator:a19b5aa3c38b65c9e35e2ab7604bdbec4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6a52cb316ba20fa21c7b41b5ed4fc6b9"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a6a52cb316ba20fa21c7b41b5ed4fc6b9">coverage_size</a> (void)</td></tr>
-<tr class="separator:a6a52cb316ba20fa21c7b41b5ed4fc6b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a58e12b20148d88c47d9fbf504bb9918b"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a58e12b20148d88c47d9fbf504bb9918b">coverage_size</a> (void) const</td></tr>
+<tr class="separator:a58e12b20148d88c47d9fbf504bb9918b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab97f6f0bb52c3641aceb5ffe4359492d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#ab97f6f0bb52c3641aceb5ffe4359492d">increment_coverage</a> (size_t i)</td></tr>
 <tr class="separator:ab97f6f0bb52c3641aceb5ffe4359492d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4da9199584ad1279a1e0a54aea12c6c1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a4da9199584ad1279a1e0a54aea12c6c1">increment_coverage</a> (size_t i, size_t v)</td></tr>
@@ -150,6 +153,16 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a7e2313be4468ea83a3e8b6a75b00cd7c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abdc73870b8a141908a21eb7ff7c31d4f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#abdc73870b8a141908a21eb7ff7c31d4f">increment_edge_coverage</a> (size_t i, size_t v)</td></tr>
 <tr class="separator:abdc73870b8a141908a21eb7ff7c31d4f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
+Static Public Member Functions</h2></td></tr>
+<tr class="memitem:adda3242dea599a49f281fc56c66e5965"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#adda3242dea599a49f281fc56c66e5965">estimate_data_width</a> (size_t expected_coverage)</td></tr>
+<tr class="memdesc:adda3242dea599a49f281fc56c66e5965"><td class="mdescLeft">&#160;</td><td class="mdescRight">Some helper functions to heuristically estimate input parameters for constructor.  <a href="#adda3242dea599a49f281fc56c66e5965">More...</a><br /></td></tr>
+<tr class="separator:adda3242dea599a49f281fc56c66e5965"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad155cc551af3e3f306c35c36ec3d048f"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#ad155cc551af3e3f306c35c36ec3d048f">estimate_batch_size</a> (size_t num_threads)</td></tr>
+<tr class="separator:ad155cc551af3e3f306c35c36ec3d048f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad88597461d2fdf1eb998a609c91bda0d"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#ad88597461d2fdf1eb998a609c91bda0d">estimate_bin_count</a> (size_t num_threads)</td></tr>
+<tr class="separator:ad88597461d2fdf1eb998a609c91bda0d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -337,8 +350,8 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a65a8bbaf02215e1e8c4f1385101ffbd4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a65a8bbaf02215e1e8c4f1385101ffbd4">&#9670;&nbsp;</a></span>~Packer()</h2>
+<a id="a771083c86ded80dc5076bc9112a463d7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a771083c86ded80dc5076bc9112a463d7">&#9670;&nbsp;</a></span>~Packer()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -346,7 +359,6 @@ Static Private Attributes</h2></td></tr>
         <tr>
           <td class="memname">vg::Packer::~Packer </td>
           <td>(</td>
-          <td class="paramtype">void&#160;</td>
           <td class="paramname"></td><td>)</td>
           <td></td>
         </tr>
@@ -481,6 +493,23 @@ Static Private Attributes</h2></td></tr>
 <span class="mlabels"><span class="mlabel">private</span></span>  </td>
   </tr>
 </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a0680bd0b5bbe74029e94b33e2f1ea666"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0680bd0b5bbe74029e94b33e2f1ea666">&#9670;&nbsp;</a></span>clear()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Packer::clear </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
 </div><div class="memdoc">
 
 </div>
@@ -675,8 +704,8 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a6a52cb316ba20fa21c7b41b5ed4fc6b9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6a52cb316ba20fa21c7b41b5ed4fc6b9">&#9670;&nbsp;</a></span>coverage_size()</h2>
+<a id="a58e12b20148d88c47d9fbf504bb9918b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a58e12b20148d88c47d9fbf504bb9918b">&#9670;&nbsp;</a></span>coverage_size()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -686,7 +715,7 @@ Static Private Attributes</h2></td></tr>
           <td>(</td>
           <td class="paramtype">void&#160;</td>
           <td class="paramname"></td><td>)</td>
-          <td></td>
+          <td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -948,6 +977,86 @@ Static Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="ad155cc551af3e3f306c35c36ec3d048f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad155cc551af3e3f306c35c36ec3d048f">&#9670;&nbsp;</a></span>estimate_batch_size()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::Packer::estimate_batch_size </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>num_threads</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ad88597461d2fdf1eb998a609c91bda0d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad88597461d2fdf1eb998a609c91bda0d">&#9670;&nbsp;</a></span>estimate_bin_count()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::Packer::estimate_bin_count </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>num_threads</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="adda3242dea599a49f281fc56c66e5965"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adda3242dea599a49f281fc56c66e5965">&#9670;&nbsp;</a></span>estimate_data_width()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::Packer::estimate_data_width </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>expected_coverage</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Some helper functions to heuristically estimate input parameters for constructor. </p>
 
 </div>
 </div>

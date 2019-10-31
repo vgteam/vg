@@ -146,6 +146,7 @@ var searchData=
   ['simpleconsistencycalculator',['SimpleConsistencyCalculator',['../classvg_1_1SimpleConsistencyCalculator.html',1,'vg']]],
   ['simpletraversalsupportcalculator',['SimpleTraversalSupportCalculator',['../classvg_1_1SimpleTraversalSupportCalculator.html',1,'vg']]],
   ['simplify',['simplify',['../classvg_1_1RareVariantSimplifier.html#af17e24fe2acb6700bb7b6d39514af7af',1,'vg::RareVariantSimplifier::simplify()'],['../classvg_1_1SmallSnarlSimplifier.html#a9abe74e35298d7e22f13039a4c6ea5ba',1,'vg::SmallSnarlSimplifier::simplify()'],['../namespacevg.html#a486054f13a4dc43e37c0f0131f6a51ad',1,'vg::simplify(const Alignment &amp;a, bool trim_internal_deletions)'],['../namespacevg.html#a86653c665afe3c8932f60cc39163e202',1,'vg::simplify(const Path &amp;p, bool trim_internal_deletions)'],['../namespacevg.html#a9514446da89671007ae40e420c1297d7',1,'vg::simplify(const Mapping &amp;m, bool trim_internal_deletions)']]],
+  ['simplify_5ffiltered_5fedits',['simplify_filtered_edits',['../namespacevg.html#aef2a5ea7fd0c0e5e3a80c3599de24275',1,'vg']]],
   ['simplify_5ffrom_5fsiblings',['simplify_from_siblings',['../classvg_1_1VG.html#a171c17f06d7bb0645776f466fe3d3a1d',1,'vg::VG']]],
   ['simplify_5fmain_2ecpp',['simplify_main.cpp',['../simplify__main_8cpp.html',1,'']]],
   ['simplify_5fonce',['simplify_once',['../classvg_1_1SmallSnarlSimplifier.html#afc5525b90ddf851ee7d43a6476acd99d',1,'vg::SmallSnarlSimplifier']]],

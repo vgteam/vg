@@ -64,6 +64,7 @@ var searchData=
   ['get_5falt_5ftraversal',['get_alt_traversal',['../classvg_1_1VCFTraversalFinder.html#a468ffc67d512bf4211bd11162fefde3e',1,'vg::VCFTraversalFinder']]],
   ['get_5fannotation',['get_annotation',['../namespacevg.html#a1fda752e24eaed100f6c30904d2ca3e1',1,'vg::get_annotation(const Annotated &amp;annotated, const string &amp;name)'],['../namespacevg.html#a1c9f371af54160a44a44afd80c6cf71a',1,'vg::get_annotation(Annotated *annotated, const string &amp;name)']]],
   ['get_5faverage_5ftraversal_5fsupport_5fswitch_5fthreshold',['get_average_traversal_support_switch_threshold',['../classvg_1_1SupportBasedSnarlCaller.html#a12f3117542a1994dcc54044fafebfd9c',1,'vg::SupportBasedSnarlCaller']]],
+  ['get_5favg_5fbaseq',['get_avg_baseq',['../namespacevg.html#a680a465e72fbddeed584f27a6c3f7b27',1,'vg']]],
   ['get_5favg_5fnode_5fsupport',['get_avg_node_support',['../classvg_1_1SupportBasedSnarlCaller.html#acc085bf1fe3a372ff6fa4a39f38931e2',1,'vg::SupportBasedSnarlCaller::get_avg_node_support()'],['../classvg_1_1PackedSupportSnarlCaller.html#a5f9d60051f99acde7f4c1ac862f6f409',1,'vg::PackedSupportSnarlCaller::get_avg_node_support()']]],
   ['get_5fbase',['get_base',['../classvg_1_1VG.html#a7cb582e352f75cc9d66e6eff0f4ba659',1,'vg::VG::get_base()'],['../classhandlegraph_1_1HandleGraph.html#a64d58c3e26e9e7954dd25c3eff7af521',1,'handlegraph::HandleGraph::get_base()']]],
   ['get_5fbest_5falignment_5fagainst_5fany_5ftree',['get_best_alignment_against_any_tree',['../classvg_1_1MinimizerMapper.html#a5520caca736306020df277dc3293eec8',1,'vg::MinimizerMapper']]],

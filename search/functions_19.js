@@ -66,7 +66,7 @@ var searchData=
   ['_7eoptioninterface',['~OptionInterface',['../classvg_1_1OptionInterface.html#a064598bb6752f1e24c95a91e472448fe',1,'vg::OptionInterface']]],
   ['_7eorienteddistancemeasurer',['~OrientedDistanceMeasurer',['../classvg_1_1OrientedDistanceMeasurer.html#a5352a20621ca5018d567728fac12a44f',1,'vg::OrientedDistanceMeasurer']]],
   ['_7epackedsupportsnarlcaller',['~PackedSupportSnarlCaller',['../classvg_1_1PackedSupportSnarlCaller.html#ac4d4e281c29fb951e4f59ca699ccfc74',1,'vg::PackedSupportSnarlCaller']]],
-  ['_7epacker',['~Packer',['../classvg_1_1Packer.html#a65a8bbaf02215e1e8c4f1385101ffbd4',1,'vg::Packer']]],
+  ['_7epacker',['~Packer',['../classvg_1_1Packer.html#a771083c86ded80dc5076bc9112a463d7',1,'vg::Packer']]],
   ['_7epathbasedtraversalfinder',['~PathBasedTraversalFinder',['../classvg_1_1PathBasedTraversalFinder.html#ad60a772a43a10e819d2b2655f1602762',1,'vg::PathBasedTraversalFinder']]],
   ['_7epathchunker',['~PathChunker',['../classvg_1_1PathChunker.html#a49b9500998c8e6faace1206d587ac67d',1,'vg::PathChunker']]],
   ['_7epathforeachsocket',['~PathForEachSocket',['../classhandlegraph_1_1PathForEachSocket.html#a982a69f458a874ddd5e5feaf61d950f8',1,'handlegraph::PathForEachSocket']]],
