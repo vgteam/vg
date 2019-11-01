@@ -17,30 +17,32 @@ namespace algorithms {
 
 using namespace std;
 
-/// Estimate the depth of coverage of a given (sub) graph using the packer
-/// Coverage is computed relative to the given path
-double packed_depth(const PathHandleGraph& graph, const Packer& packer, const string& ref_path);
+/// print path-name offset base-coverage for every base on a path (just like samtools depth)
+/// ignoring things below min_coverage.  offsets are 1-based in output stream
+void packed_depths(const Packer& packer, const string& path_name, size_t min_coverage, ostream& out_stream);
 
-/// Estimate the binned coverage along a path using the packer
-/// ref_path is scanned, and every "step" bases as subgraph is extracted using the given number of context steps
-/// If threads is 0, all the threads are used
-map<size_t, double> binned_packed_depth(const PathHandleGraph& graph, const Packer& packer, const string& ref_path,
-                                        size_t step, size_t context, size_t threads = 0);
+/// Estimate the coverage along a given reference path interval [start_step, end_plus_one_step)
+/// Coverage is obtained only from positions along the path, and variation is not counted
+/// Except if "include_deletions" is true, then reference path positions covered by a deletion edge
+/// (which is contained in the bin) will get the deletion edge's coverage counted.
+/// Other types of events (such as SNPs) can throw off coverage in similar ways but deletions tend to be bigger
+/// (and easier to find), so we hope that counting them is enough.
+pair<double, double> packed_depth_of_bin(const Packer& packer, step_handle_t start_step, step_handle_t end_plus_one_step,
+                                         size_t min_coverage, bool include_deletions);
 
+/// Use all available threads to estimate the binned packed coverage of a path using above fucntion
+/// Each element is a bin's 0-based open-ended interval in the path, and its coverage mean,variance. 
+vector<tuple<size_t, size_t, double, double>> binned_packed_depth(const Packer& packer, const string& path_name, size_t bin_size,
+                                                          size_t min_coverage, bool include_deletions);
 
-/// Get the depth of a bin
-/// the "k_nearest" closest bins to the given position are used
-/// bins with coverage below min_coverage are ignored
-double get_binned_depth(const unordered_map<size_t, double>& binned_depths, size_t pos, size_t k_nearest = 3, double min_coverage = 1.0);
-
-/// Return the average depth of coverage of randomly sampled nodes from a GAM
+/// Return the mean and variance of coverage of randomly sampled nodes from a GAM
 /// Nodes with less than min_coverage are ignored
 /// The stream is scanned in parallel with all threads
 /// max_nodes is used to keep memory down
-double sample_gam_depth(const HandleGraph& graph, istream& gam_stream, size_t max_nodes, size_t random_seed, size_t min_coverage = 1.0);
+pair<double, double> sample_gam_depth(const HandleGraph& graph, istream& gam_stream, size_t max_nodes, size_t random_seed, size_t min_coverage, size_t min_mapq);
 
 /// As above, but read a vector instead of a stream
-double sample_gam_depth(const HandleGraph& graph, const vector<Alignment>& alignments, size_t max_nodes, size_t random_seed, size_t min_coverage = 1.0);
+pair<double, double> sample_gam_depth(const HandleGraph& graph, const vector<Alignment>& alignments, size_t max_nodes, size_t random_seed, size_t min_coverage, size_t min_mapq);
 
 }
 }

@@ -28,15 +28,16 @@ using namespace vg::subcommand;
 void help_depth(char** argv) {
     cerr << "usage: " << argv[0] << " depth [options] <graph>" << endl
          << "options:" << endl
-         << "  packed coverage depth:" << endl
-         << "    -k, --pack FILE       Supports created from vg pack for given input graph" << endl
-         << "    -p, --ref-path NAME   Reference path to call on (multipile allowed.  defaults to all paths)" << endl
-         << "    -c, --context-size N  Context size (steps) for expanding bin subgraphs [50]" << endl
-         << "    -b, --bin-size N      Bin size (in bases) [10000000]" << endl
-         << "  GAM coverage depth:" << endl
-         << "    -g, --gam FILE        read alignments from this file (could be '-' for stdin)" << endl
-         << "    -n, --max-nodes N     maximum nodes to consider [1000000]" << endl
-         << "    -s, --random-seed N   random seed for sampling nodes to consider" << endl
+         << "  packed coverage depth (print positional depths along path):" << endl
+         << "    -k, --pack FILE        Supports created from vg pack for given input graph" << endl
+         << "    -p, --ref-path NAME    Reference path to call on (multipile allowed.  defaults to all paths)" << endl
+         << "    -b, --bin-size N       Bin size (in bases) [1] (2 extra columns printed when N>1: bin-end-pos and stddev)" << endl
+         << "    -d, --count-dels       Count deletion edges within the bin as covering reference positions" << endl
+         << "  GAM coverage depth (print <mean> <stddev> for depth):" << endl
+         << "    -g, --gam FILE         read alignments from this file (could be '-' for stdin)" << endl
+         << "    -n, --max-nodes N      maximum nodes to consider [1000000]" << endl
+         << "    -s, --random-seed N    random seed for sampling nodes to consider" << endl
+         << "    -Q, --min-mapq N      ignore alignments with mapping quality < N" << endl
          << "  common options:" << endl
          << "    -m, --min-coverage N  ignore nodes with less than N coverage [1]" << endl
          << "    -t, --threads N       Number of threads to use [all available]" << endl;
@@ -51,12 +52,13 @@ int main_depth(int argc, char** argv) {
 
     string pack_filename;
     vector<string> ref_paths;
-    size_t context_steps = 50;
-    size_t bin_size = 10000000;
+    size_t bin_size = 1;
+    bool count_dels = false;
     
     string gam_filename;
     size_t max_nodes = 1000000;
     int random_seed = time(NULL);
+    size_t min_mapq = 0;
 
     size_t min_coverage = 1;
 
@@ -67,11 +69,12 @@ int main_depth(int argc, char** argv) {
         static const struct option long_options[] = {
             {"pack", required_argument, 0, 'k'},            
             {"ref-path", required_argument, 0, 'p'},
-            {"context-size", required_argument, 0, 'c'},
             {"bin-size", required_argument, 0, 'b'},
+            {"count-dels", no_argument, 0, 'd'},
             {"gam", required_argument, 0, 'g'},
             {"max-nodes", required_argument, 0, 'n'},
             {"random-seed", required_argument, 0, 's'},
+            {"min-mapq", required_argument, 0, 'Q'},
             {"min-coverage", required_argument, 0, 'm'},
             {"threads", required_argument, 0, 't'},
             {"help", no_argument, 0, 'h'},
@@ -79,7 +82,7 @@ int main_depth(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:p:c:b:g:n:s:m:t:",
+        c = getopt_long (argc, argv, "hk:p:c:b:dg:n:s:m:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -94,12 +97,12 @@ int main_depth(int argc, char** argv) {
         case 'p':
             ref_paths.push_back(optarg);
             break;            
-        case 'c':
-            context_steps = parse<size_t>(optarg);
-            break;
         case 'b':
             bin_size = parse<size_t>(optarg);
             break;
+        case 'd':
+            count_dels = true;
+            break;            
         case 'g':
             gam_filename = optarg;
             break;
@@ -108,6 +111,9 @@ int main_depth(int argc, char** argv) {
             break;
         case 's':
             random_seed = parse<size_t>(optarg);
+            break;
+        case 'Q':
+            min_mapq = parse<size_t>(optarg);
             break;
         case 'm':
             min_coverage = parse<size_t>(optarg);
@@ -172,25 +178,38 @@ int main_depth(int argc, char** argv) {
                         ref_paths.push_back(path_name);
                     }
                 });
+        } else {
+            for (const string& ref_name : ref_paths) {
+                if (!graph->has_path(ref_name)) {
+                    cerr << "error:[vg depth] Path \"" << ref_name << "\" not found in graph" << endl;
+                }
+            }
         }
+        
 
         for (const string& ref_path : ref_paths) {
-            map<size_t, double> binned_depth = algorithms::binned_packed_depth(*graph, *packer, ref_path, bin_size, get_thread_count());
-            for (auto& bin_cov : binned_depth) {
-                cerr << ref_path << "\t" << bin_cov.first << "\t" << bin_cov.second << endl;
+            if (bin_size > 1) {
+                vector<tuple<size_t, size_t, double, double>> binned_depth =
+                    algorithms::binned_packed_depth(*packer, ref_path, bin_size, min_coverage, count_dels);
+                for (auto& bin_cov : binned_depth) {
+                    cout << ref_path << "\t" << (get<0>(bin_cov) + 1)<< "\t" << (get<1>(bin_cov) + 1) << "\t" << get<2>(bin_cov)
+                         << "\t" << sqrt(get<3>(bin_cov)) << endl;
+                }
+            } else {
+                algorithms::packed_depths(*packer, ref_path, min_coverage, cout);
             }
         }
     }
 
     // Process the gam
     if (!gam_filename.empty()) {
-        double gam_cov;
+        pair<double, double> gam_cov;
         get_input_file(gam_filename, [&] (istream& gam_stream) {
-                gam_cov = algorithms::sample_gam_depth(*graph, gam_stream, max_nodes, random_seed, min_coverage);
+                gam_cov = algorithms::sample_gam_depth(*graph, gam_stream, max_nodes, random_seed, min_coverage, min_mapq);
             });
-        cerr << "gam-coverage\t" << gam_cov << endl;
+        cout << gam_cov.first << "\t" << sqrt(gam_cov.second) << endl;
     }
-
+        
     return 0;
 
 }
