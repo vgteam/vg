@@ -7,25 +7,35 @@ set -e
 usage() {
     # Print usage to stderr
     exec 1>&2
-    printf "Usage: $0 [Options] FASTA XG_INDEX GCSA_INDEX GBWT_INDEX MINIMIZER_INDEX DISTANCE_INDEX SIM_GAM REAL_FASTQ \n"
-    printf "Options:\n\n"
+    printf "Usage: $0 [Options] FASTA XG_INDEX GCSA_INDEX GBWT_INDEX MINIMIZER_INDEX DISTANCE_INDEX SIM_GAM REAL_FASTQ\n"
+    printf "\n"
+    printf "Options:\n"
+    printf "  -t N  Use N threads\n"
+    printf "\n"
     exit 1
 }
 
-while getopts "" o; do
+# Define the thread count for everyone. Can be changed with -t.
+# Should fit on a NUMA node
+THREAD_COUNT=24
+
+while getopts ":t:" o; do
     case "${o}" in
-        *)
+        t)
+            THREAD_COUNT=$OPTARG
+            ;;
+        ?)
             usage
             ;;
     esac
 done
-
 shift $((OPTIND-1))
-
 if [[ "$#" -lt "8" ]]; then
     # Too few arguments
     usage
 fi
+
+echo "Using ${THREAD_COUNT} threads"
 
 fetch_input() {
     # Download the specified file, if not a file already.
@@ -81,11 +91,7 @@ echo "${SIM_GAM}"
 echo "${REAL_FASTQ}"
 
 # Define the Giraffe parameters
-GIRAFFE_OPTS=(-s75 -u 0.1 -v 1 -w 5 -C 600)
-
-# And the thread count for everyone.
-# Should fit on a NUMA node
-THREAD_COUNT=24
+GIRAFFE_OPTS=(-C 1500 -F 0.8 -e 300 -a 4 -s 50 -u 0.3 -v 1 -w 20)
 
 # Define a work directory
 # TODO: this requires GNU mptemp

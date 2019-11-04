@@ -187,6 +187,7 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
         cerr << "ERROR: Signal "<< signalNumber << " occurred. VG has crashed. Run 'vg bugs --new' to report a bug." << endl;
         // Print path for stack trace file
         cerr << "Stack trace path: "<< dirName << "/stacktrace.txt" << endl;
+        cerr << "Please include the stack trace file in your bug report!" << endl;
     }
     // Make sure to exit with the right code
     exit(signalNumber + 128);

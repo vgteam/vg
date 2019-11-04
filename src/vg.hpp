@@ -23,7 +23,6 @@
 #include "path.hpp"
 #include "utility.hpp"
 #include "alignment.hpp"
-#include "prune.hpp"
 #include "mem.hpp"
 
 #include <vg/vg.pb.h>

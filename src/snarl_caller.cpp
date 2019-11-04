@@ -22,13 +22,16 @@ SupportBasedSnarlCaller::~SupportBasedSnarlCaller() {
     
 }
 
-void SupportBasedSnarlCaller::set_het_bias(double het_bias) {
+void SupportBasedSnarlCaller::set_het_bias(double het_bias, double ref_het_bias) {
     // want to move away from ugly hacks that treat the reference traversal differently,
     // so keep all these set the same
     if (het_bias >= 0) {
         max_het_bias = het_bias;
         max_ref_het_bias = het_bias;
         max_indel_het_bias = het_bias;
+    }
+    if (ref_het_bias >= 0) {
+        max_ref_het_bias = ref_het_bias;
     }
 }
 
@@ -669,7 +672,7 @@ unordered_map<id_t, size_t> SupportBasedSnarlCaller::get_ref_offsets(const Snarl
 }
 
 PackedSupportSnarlCaller::PackedSupportSnarlCaller(const Packer& packer, SnarlManager& snarl_manager) :
-    SupportBasedSnarlCaller(*dynamic_cast<const PathHandleGraph*>(packer.graph), snarl_manager),
+    SupportBasedSnarlCaller(*dynamic_cast<const PathHandleGraph*>(packer.get_graph()), snarl_manager),
     packer(packer) {
 }
 
