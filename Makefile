@@ -376,22 +376,15 @@ test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/json2pb.h $
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
 	+. ./source_me.sh && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
 
-$(LIB_DIR)/libsdsl.a: $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp $(SDSL_DIR)/build/lib/libsdsl.a $(SDSL_DIR)/build/external/libdivsufsort/lib/libdivsufsort.a $(SDSL_DIR)/build/external/libdivsufsort/lib/libdivsufsort64.a
+# Use fake patterns to tell Make that this rule generates all these files when run once.
+# Here % should always match "lib" which is a common substring.
+# See https://stackoverflow.com/a/19822767
+$(LIB_DIR)/%sdsl.a $(LIB_DIR)/%divsufsort.a $(LIB_DIR)/%divsufsort64.a : $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
 ifeq ($(shell uname -s),Darwin)
 	+. ./source_me.sh && cd $(SDSL_DIR) && AS_INTEGRATED_ASSEMBLER=1 BUILD_PORTABLE=1 ./install.sh $(CWD) $(FILTER)
 else
 	+. ./source_me.sh && cd $(SDSL_DIR) && BUILD_PORTABLE=1 ./install.sh $(CWD) $(FILTER)
 endif
-
-# Make sure the divsufsort libraries also come from SDSL
-# They might get deleted after libsdsl is installed
-$(LIB_DIR)/libdivsufsort.a: $(LIB_DIR)/libsdsl.a
-	cp $(SDSL_DIR)/build/external/libdivsufsort/lib/libdivsufsort.a $(LIB_DIR)/libdivsufsort.a
-
-$(LIB_DIR)/libdivsufsort64.a: $(LIB_DIR)/libsdsl.a
-	cp $(SDSL_DIR)/build/external/libdivsufsort/lib/libdivsufsort64.a $(LIB_DIR)/libdivsufsort64.a
-	
-.SECONDARY: $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a
 
 $(LIB_DIR)/libssw.a: $(SSW_DIR)/*.c $(SSW_DIR)/*.h
 	+. ./source_me.sh && cd $(SSW_DIR) && $(MAKE) $(FILTER) && ar rs $(CWD)/$(LIB_DIR)/libssw.a ssw.o ssw_cpp.o && cp ssw_cpp.h ssw.h $(CWD)/$(LIB_DIR)
