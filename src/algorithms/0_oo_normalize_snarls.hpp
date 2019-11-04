@@ -4,6 +4,8 @@
 #include "../vg.hpp"
 #include "count_walks.hpp"
 #include <string>
+#include <gbwtgraph/gbwtgraph.h>
+
 
 namespace vg {
 
@@ -11,7 +13,7 @@ class SnarlNormalizer {
   public:
     virtual ~SnarlNormalizer() = default;
 
-    SnarlNormalizer(MutablePathDeletableHandleGraph &graph, const GBWTGraph &haploGraph,
+    SnarlNormalizer(MutablePathDeletableHandleGraph &graph, const gbwtgraph::GBWTGraph &haploGraph,
                     const int &max_alignment_size = 200,
                     const string &path_finder = "GBWT" /*alternative is "exhaustive"*/);
 
@@ -25,7 +27,7 @@ class SnarlNormalizer {
     MutablePathDeletableHandleGraph &_graph;
     // GBWT graph with snarls to normalize, includes the embedded threads needed for the
     // GBWTPathFinder approach.
-    const GBWTGraph &_haploGraph;
+    const gbwtgraph::GBWTGraph &_haploGraph;
     // the maximum number of threads allowed to align in a given snarl. If the number of
     // threads exceeds this threshold, the snarl is skipped.
     int _max_alignment_size;
@@ -34,7 +36,7 @@ class SnarlNormalizer {
     const string &_path_finder;
 
     tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
-    extract_gbwt_haplotypes(const SubHandleGraph &snarl, const GBWTGraph &graph,
+    extract_gbwt_haplotypes(const SubHandleGraph &snarl, const gbwtgraph::GBWTGraph &graph,
                             const id_t &source_id, const id_t &sink_id);
 
     pair<vector<string>, unordered_set<handle_t>> source_to_sink_exhaustive_path_finder();

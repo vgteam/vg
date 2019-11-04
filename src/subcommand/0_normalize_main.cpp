@@ -5,13 +5,15 @@
 #include <omp.h>
 #include <unistd.h>
 
+#include <gbwtgraph/gbwtgraph.h>
+
 #include "subcommand.hpp"
 
 #include "../../include/bdsg/hash_graph.hpp"
 #include "../../include/vg/io/vpkg.hpp"
 // #include "../algorithms/0_draft_haplotype_realignment.hpp"
-#include "../algorithms/0_oo_normalize_snarls.hpp"
 #include "../algorithms/0_draft_snarl_normalization_evaluation.cpp"
+#include "../algorithms/0_oo_normalize_snarls.hpp"
 #include "../gbwt_helper.hpp"
 
 #include <chrono> // for high_resolution_clock
@@ -95,9 +97,16 @@ int main_normalize(int argc, char **argv) {
         }
     }
 
-    bdsg::HashGraph *graph;
-    get_input_file(optind, argc, argv,
-                   [&](istream &in) { graph = new bdsg::HashGraph(in); });
+    cerr << "getting hashgraph" << endl;
+    unique_ptr<MutablePathDeletableHandleGraph> graph;
+    get_input_file(optind, argc, argv, [&](istream &in) {
+        graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
+    });
+
+    // bdsg::HashGraph *graph;
+    // get_input_file(optind, argc, argv,
+    //                [&](istream &in) { graph = new bdsg::HashGraph(in); });
+    cerr << "got hashgraph" << endl;
 
     if (normalize) {
         cerr << "running normalize!" << endl;
@@ -109,7 +118,7 @@ int main_normalize(int argc, char **argv) {
         // Load the GBWT from its container
         unique_ptr<gbwt::GBWT> gbwt;
         gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
-        GBWTGraph haploGraph = vg::GBWTGraph(*gbwt, *graph);
+        gbwtgraph::GBWTGraph haploGraph = gbwtgraph::GBWTGraph(*gbwt, *graph);
 
         std::ifstream snarl_stream;
         string snarl_file = snarls;
@@ -122,13 +131,15 @@ int main_normalize(int argc, char **argv) {
         // Record start time
         auto start = chrono::high_resolution_clock::now();
 
-        SnarlNormalizer normalizer = SnarlNormalizer(*graph, haploGraph, max_alignment_size);
+        SnarlNormalizer normalizer =
+            SnarlNormalizer(*graph, haploGraph, max_alignment_size);
 
         // run test code on all snarls in graph.
         normalizer.normalize_top_level_snarls(snarl_stream);
 
         // // run test code on all snarls in graph. (non obj-oriented code)
-        // disambiguate_top_level_snarls(*graph, haploGraph, snarl_stream, max_alignment_size);
+        // disambiguate_top_level_snarls(*graph, haploGraph, snarl_stream,
+        // max_alignment_size);
 
         // Record end time
         auto finish = std::chrono::high_resolution_clock::now();
@@ -137,19 +148,22 @@ int main_normalize(int argc, char **argv) {
     }
 
     if (evaluate) {
-        // std::ifstream snarl_stream;
-        // string snarl_file = snarls;
-        // snarl_stream.open(snarl_file);
-        // cerr << "about to evaluate normalized snarls" << endl;
-        // vg::evaluate_normalized_snarls(snarl_stream);
+        std::ifstream snarl_stream;
+        string snarl_file = snarls;
+        snarl_stream.open(snarl_file);
+        cerr << "about to evaluate normalized snarls" << endl;
+        vg::evaluate_normalized_snarls(snarl_stream);
     }
 
     // TODO: NOTE: this may be cumbersome code if we decide to add more argument types.
     // Consider changing.
+
     if (normalize) {
-        graph->serialize(std::cout);
+        vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph *>(graph.get()), cout);
+
+        // graph->serialize(std::cout);
     }
-    delete graph;
+    // delete graph;
 
     return 0;
 }
