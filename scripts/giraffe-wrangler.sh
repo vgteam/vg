@@ -254,8 +254,13 @@ if [[ ! -z "${REAL_FASTQ}" ]] ; then
 fi
 
 if [[ ! -z "${OUTPUT_DEST}" ]] ; then
-    # Save our intermediates
-    aws s3 cp --recursive "${WORK}" "${OUTPUT_DEST}"
+    if [[ "${OUTPUT_DEST}" == s3://* ]] ; then
+        # Save our intermediates to S3
+        aws s3 cp --recursive "${WORK}" "${OUTPUT_DEST}"
+    else
+        # Save our intermediates to disk
+        cp -R "${WORK}" "${OUTPUT_DEST}"
+    fi
 fi
 
 rm -Rf "${WORK}"
