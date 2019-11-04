@@ -376,7 +376,7 @@ test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/json2pb.h $
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
 	+. ./source_me.sh && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
 
-$(LIB_DIR)/libsdsl.a: $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
+$(LIB_DIR)/libsdsl.a: $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp $(SDSL_DIR)/build/lib/libsdsl.a $(SDSL_DIR)/build/external/libdivsufsort/lib/libdivsufsort.a $(SDSL_DIR)/build/external/libdivsufsort/lib/libdivsufsort64.a
 ifeq ($(shell uname -s),Darwin)
 	+. ./source_me.sh && cd $(SDSL_DIR) && AS_INTEGRATED_ASSEMBLER=1 BUILD_PORTABLE=1 ./install.sh $(CWD) $(FILTER)
 else
@@ -384,11 +384,12 @@ else
 endif
 
 # Make sure the divsufsort libraries also come from SDSL
+# They might get deleted after libsdsl is installed
 $(LIB_DIR)/libdivsufsort.a: $(LIB_DIR)/libsdsl.a
-	@
+	cp $(SDSL_DIR)/build/external/libdivsufsort/lib/libdivsufsort.a $(LIB_DIR)/libdivsufsort.a
 
 $(LIB_DIR)/libdivsufsort64.a: $(LIB_DIR)/libsdsl.a
-	@
+	cp $(SDSL_DIR)/build/external/libdivsufsort/lib/libdivsufsort64.a $(LIB_DIR)/libdivsufsort64.a
 	
 .SECONDARY: $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a
 
