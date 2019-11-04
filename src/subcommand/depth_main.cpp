@@ -29,18 +29,18 @@ void help_depth(char** argv) {
     cerr << "usage: " << argv[0] << " depth [options] <graph>" << endl
          << "options:" << endl
          << "  packed coverage depth (print positional depths along path):" << endl
-         << "    -k, --pack FILE        Supports created from vg pack for given input graph" << endl
-         << "    -p, --ref-path NAME    Reference path to call on (multipile allowed.  defaults to all paths)" << endl
-         << "    -b, --bin-size N       Bin size (in bases) [1] (2 extra columns printed when N>1: bin-end-pos and stddev)" << endl
-         << "    -d, --count-dels       Count deletion edges within the bin as covering reference positions" << endl
+         << "    -k, --pack FILE        supports created from vg pack for given input graph" << endl
+         << "    -p, --ref-path NAME    reference path to call on (multipile allowed.  defaults to all paths)" << endl
+         << "    -b, --bin-size N       bin size (in bases) [1] (2 extra columns printed when N>1: bin-end-pos and stddev)" << endl
+         << "    -d, --count-dels       count deletion edges within the bin as covering reference positions" << endl
          << "  GAM coverage depth (print <mean> <stddev> for depth):" << endl
          << "    -g, --gam FILE         read alignments from this file (could be '-' for stdin)" << endl
          << "    -n, --max-nodes N      maximum nodes to consider [1000000]" << endl
          << "    -s, --random-seed N    random seed for sampling nodes to consider" << endl
-         << "    -Q, --min-mapq N      ignore alignments with mapping quality < N" << endl
+         << "    -Q, --min-mapq N       ignore alignments with mapping quality < N [0]" << endl
          << "  common options:" << endl
-         << "    -m, --min-coverage N  ignore nodes with less than N coverage [1]" << endl
-         << "    -t, --threads N       Number of threads to use [all available]" << endl;
+         << "    -m, --min-coverage N   ignore nodes with less than N coverage [1]" << endl
+         << "    -t, --threads N        number of threads to use [all available]" << endl;
 }
 
 int main_depth(int argc, char** argv) {
@@ -192,8 +192,11 @@ int main_depth(int argc, char** argv) {
                 vector<tuple<size_t, size_t, double, double>> binned_depth =
                     algorithms::binned_packed_depth(*packer, ref_path, bin_size, min_coverage, count_dels);
                 for (auto& bin_cov : binned_depth) {
-                    cout << ref_path << "\t" << (get<0>(bin_cov) + 1)<< "\t" << (get<1>(bin_cov) + 1) << "\t" << get<2>(bin_cov)
-                         << "\t" << sqrt(get<3>(bin_cov)) << endl;
+                    // bins can ben nan if min_coverage filters everything out.  just skip
+                    if (!isnan(get<3>(bin_cov))) {
+                        cout << ref_path << "\t" << (get<0>(bin_cov) + 1)<< "\t" << (get<1>(bin_cov) + 1) << "\t" << get<2>(bin_cov)
+                             << "\t" << sqrt(get<3>(bin_cov)) << endl;
+                    }
                 }
             } else {
                 algorithms::packed_depths(*packer, ref_path, min_coverage, cout);

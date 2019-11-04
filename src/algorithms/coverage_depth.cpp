@@ -23,7 +23,9 @@ void packed_depths(const Packer& packer, const string& path_name, size_t min_cov
         for (size_t i = 0; i < cur_len; ++i) {
             cur_pos.set_offset(i);
             size_t pos_coverage = packer.coverage_at_position(packer.position_in_basis(cur_pos));
-            out_stream << path_name << "\t" << path_offset << "\t" << pos_coverage << "\n";
+            if (pos_coverage >= min_coverage) {
+                out_stream << path_name << "\t" << path_offset << "\t" << pos_coverage << "\n";
+            }
             ++path_offset;
         }
     }

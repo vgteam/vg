@@ -27,6 +27,8 @@ void packed_depths(const Packer& packer, const string& path_name, size_t min_cov
 /// (which is contained in the bin) will get the deletion edge's coverage counted.
 /// Other types of events (such as SNPs) can throw off coverage in similar ways but deletions tend to be bigger
 /// (and easier to find), so we hope that counting them is enough.
+/// If one wants to infer deletions from the coverage, obviously this should be false, but if looking for
+/// a background coverage for genotyping, then setting it to true may be helpful
 pair<double, double> packed_depth_of_bin(const Packer& packer, step_handle_t start_step, step_handle_t end_plus_one_step,
                                          size_t min_coverage, bool include_deletions);
 
