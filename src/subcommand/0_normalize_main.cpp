@@ -97,16 +97,26 @@ int main_normalize(int argc, char **argv) {
         }
     }
 
-    cerr << "getting hashgraph" << endl;
+    // //get a VG graph:
+    // cerr << "getting a vg graph" << endl;
+    // unique_ptr<VG> graph;
+    // get_input_file(optind, argc, argv, [&](istream &in) {
+    //     graph = vg::io::VPKG::load_one<VG>(in);
+    // });
+    // cerr << "got a vg graph" << endl;
+
+
+    //getting graph of any type, requires vpkg wrapping:
     unique_ptr<MutablePathDeletableHandleGraph> graph;
     get_input_file(optind, argc, argv, [&](istream &in) {
         graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
     });
 
+    // cerr << "getting hashgraph" << endl;
     // bdsg::HashGraph *graph;
     // get_input_file(optind, argc, argv,
     //                [&](istream &in) { graph = new bdsg::HashGraph(in); });
-    cerr << "got hashgraph" << endl;
+    // cerr << "got hashgraph" << endl;
 
     if (normalize) {
         cerr << "running normalize!" << endl;
