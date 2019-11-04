@@ -31,7 +31,8 @@ namespace vg{
         const SnarlTraversal trav;
     
 
-        MCMCCaller(const PathPositionHandleGraph& graph,
+        MCMCCaller(const unique_ptr<VG>& graph,
+                    const PathPositionHandleGraph* path_position_handle_graph,
                     PhasedGenome& genome,
                     SnarlManager& snarl_manager,
                     const string& sample_name,
@@ -49,7 +50,10 @@ namespace vg{
     
     protected:   
         /// the graph
-        const PathPositionHandleGraph& graph;
+        const unique_ptr<VG>& graph;
+
+        /// path position handle graph
+        const PathPositionHandleGraph* path_position_handle_graph;
 
         /// keep track of the reference paths
         vector<string> ref_paths;
@@ -63,11 +67,10 @@ namespace vg{
         /// Call a given snarl, and print the output to out_stream
         bool call_snarl(const Snarl& snarl);
 
-        /// check if a site can be handled by the RepresentativeTraversalFinder
+        /// check if a site can be handled 
         bool is_traversable(const Snarl& snarl);
 
-        /// get the position of a snarl from our reference path using the PathPositionHandleGraph interface
-        /// the bool is true if the snarl's backward on the path
+        /// get position of reference path 
         pair<size_t, bool> get_ref_position(const Snarl& snarl, const string& ref_path_name) const;
 
         /// clean up the alleles to not share common prefixes / suffixes

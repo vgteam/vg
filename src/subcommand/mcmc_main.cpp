@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <iostream>
+#include <typeinfo>
 #include <cassert>
 #include <vector>
 #include "subcommand.hpp"
@@ -17,6 +18,7 @@
 #include "../mcmc_caller.hpp"
 #include "../graph_caller.hpp"
 #include <vg/io/stream.hpp>
+#include <bdsg/overlay_helper.hpp>
 
 
 
@@ -108,16 +110,25 @@ int main_mcmc(int argc, char** argv) {
         }
     }
 
-
     string multipath_file =  get_input_file_name(optind, argc, argv);
     string graph_file =  get_input_file_name(optind, argc, argv);
     string snarls_file =  get_input_file_name(optind, argc, argv);
-
+    cerr << "file name is : " <<graph_file << endl;
     unique_ptr<VG> graph = (vg::io::VPKG::load_one<VG>(graph_file));
+
+    if(graph.get() == nullptr || graph.get() == 0){
+        cerr << "Graph is NULL" <<endl;
+        exit(1);
+    }
     unique_ptr<SnarlManager> snarls = (vg::io::VPKG::load_one<SnarlManager>(snarls_file));
 
+    // // creaate a PathHandleGraph 
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_file);
+    PathPositionHandleGraph* path_position_handle_graph = nullptr;
+    path_position_handle_graph = overlay_helper.apply(path_handle_graph.get());
     
-
     // Check our paths
     for (const string& ref_path : ref_paths) {
         if (!graph->has_path(ref_path)) {
@@ -145,10 +156,8 @@ int main_mcmc(int argc, char** argv) {
                     ref_paths.push_back(name);
                 }
             });
+   
     }
-
-    // No lengths specified: calculate them from path names
-    
     
     
       /*
@@ -181,7 +190,7 @@ int main_mcmc(int argc, char** argv) {
         
         graph->append_step(path_handle, graph->get_handle((*iter).node->id()));
         
-    }
+        }
     }
 
     /*
@@ -189,19 +198,24 @@ int main_mcmc(int argc, char** argv) {
     *                      VCF OUTPUT
     *########################################################################################
     **/
-
+    
     // finds all ref paths that run through snarl and saves into trav_results
     CactusSnarlFinder snarl_finder(*graph);
     SnarlManager snarl_manager = snarl_finder.find_snarls();
     
-    MCMCCaller mcmc_caller(*dynamic_cast<PathPositionHandleGraph*>(graph.get()), *genome, snarl_manager, sample_name, ref_paths, ref_path_offsets, ref_path_lengths, cout);
-        
+    //MCMCCaller mcmc_caller(*dynamic_cast<PathPositionHandleGraph*>(graph.get()), *genome, snarl_manager, sample_name, ref_paths, ref_path_offsets, ref_path_lengths, cout);
+    MCMCCaller mcmc_caller(graph, path_position_handle_graph, *genome, snarl_manager, sample_name, ref_paths, ref_path_offsets, ref_path_lengths, cout);
+
+
     //print header to std out
-    cout << mcmc_caller.vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
+    // cout << mcmc_caller.vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
+    cerr << mcmc_caller.vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
 
     
     // current implimentation is writing vcf record after each variant processed
     mcmc_caller.call_top_level_snarls();
+
+    mcmc_caller.write_variants(cerr);
     
 
     return 0;

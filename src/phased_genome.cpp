@@ -235,13 +235,14 @@ namespace vg {
         id_t id = 0;
         for (Haplotype* haplotype : haplotypes){
             bool found = haplotype->sites.count(snarl_to_find);
+
             if(found){
                 // add the ID to the haplotype to the vector 
                 matched_haplotype_ids.push_back(id);
             }
             id++;
         }
-
+        
         return matched_haplotype_ids;
 
     }
@@ -253,13 +254,15 @@ namespace vg {
 
         // iterate through the genome and all its haplotypes
         for(int i = 0; i < haplo_num; i++){
-            cout << "Haplotype ID is: " << i <<endl;
+            cerr << "********************************" <<endl;
+            cerr << "Haplotype ID is: " << i <<endl;
             // iterate through each node in the haplotype
             for(auto iter = begin(i); iter != end(i); iter++ ){
-                //cerr << "The node is: "<< (*iter).node <<endl;
+                cerr << "node ID is " << (*iter).node->id() <<endl;
                 cerr << "The sequence is: " << (*iter).node->sequence() <<endl;
+                
             }   
-            
+            cerr << "********************************" <<endl;
         }
         
 
