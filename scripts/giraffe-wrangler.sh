@@ -13,7 +13,7 @@ usage() {
     printf "\n"
     printf "Arguments:\n"
     printf "  FASTA            FASTA reference to run bwa-mem against; may be \"\"\n"
-    printf "  XG_INDEX         XG to annotate reads with positions\n"
+    printf "  XG_INDEX         XG to annotate reads with positions, with corresponding .gg GBWTGraph\n"
     printf "  GCSA_INDEX       GCSA (with LCP) for running vg map\n"
     printf "  GBWT_INDEX       Haplotypes for mapping with Giraffe\n"
     printf "  MINIMIZER_INDEX  Minimizers for mapping with Giraffe\n"
