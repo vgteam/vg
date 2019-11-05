@@ -68,7 +68,11 @@ Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, 
     if (bin_size) {
         n_bins = num_bases_dynamic / bin_size + 1;
     }
-    tmpfstream_locks = new std::mutex[n_bins];
+    if (record_edits) { 
+        tmpfstream_locks = new std::mutex[n_bins];
+        // open tmpfile if needed
+        ensure_edit_tmpfiles_open();
+    }
 
     // speed up quality computation if necessary
     for (size_t i = 0; i < get_thread_count(); ++i) {
@@ -385,8 +389,6 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq , bool qual_a
     if (aln.mapping_quality() < min_mapq) {
         return;
     }
-    // open tmpfile if needed
-    ensure_edit_tmpfiles_open();
     // count the nodes, edges, and edits
     Mapping prev_mapping;
     bool has_prev_mapping = false;
