@@ -27,6 +27,8 @@ var searchData=
   ['watcher_5floop',['watcher_loop',['../classvg_1_1Watchdog.html#ad2e2c831258c42fdba7f2d0fa8625cc9',1,'vg::Watchdog']]],
   ['weight',['weight',['../classvg_1_1MEMChainModelVertex.html#ad73c85aeb85dde48dd3201260720956b',1,'vg::MEMChainModelVertex::weight()'],['../classvg_1_1MEMClusterer_1_1HitEdge.html#a5e9984583bd37a31e8b172fea582e6fd',1,'vg::MEMClusterer::HitEdge::weight()'],['../classvg_1_1AlignmentChainModelVertex.html#a874c1b3121234990ab1c1519921b9c6c',1,'vg::AlignmentChainModelVertex::weight()']]],
   ['weightedgraph',['WeightedGraph',['../structvg_1_1FlowSort_1_1WeightedGraph.html',1,'vg::FlowSort']]],
+  ['wellford_5fmean_5fvar',['wellford_mean_var',['../namespacevg.html#a4b96cd801bc780d426db346f80ab2172',1,'vg']]],
+  ['wellford_5fupdate',['wellford_update',['../namespacevg.html#a614c672ed69c280b699a278ce0f34ade',1,'vg']]],
   ['what',['what',['../classvg_1_1NoAlignmentInBandException.html#a006dddb79b9d1c6035c2466c35dbcacf',1,'vg::NoAlignmentInBandException::what()'],['../classvg_1_1indexOpenException.html#a333df86cfbb0c05dadd25081e69ac210',1,'vg::indexOpenException::what()'],['../classvg_1_1keyNotFoundException.html#ac67561e57be6703921105f1b46a81ccf',1,'vg::keyNotFoundException::what()'],['../classj2pb__error.html#a4ac3313fff0e2721ca9480b61ebe6a8b',1,'j2pb_error::what()']]],
   ['which_5fhaplotype',['which_haplotype',['../classvg_1_1PhasedGenome_1_1iterator.html#a02b60bd3c0ec6d86a8bec582e717ea15',1,'vg::PhasedGenome::iterator']]],
   ['whole_5falignment_5fcutoff',['whole_alignment_cutoff',['../classvg_1_1VariantAdder.html#ab40df39042e4ce4fee3eeea919be1c96',1,'vg::VariantAdder']]],

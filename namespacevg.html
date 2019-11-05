@@ -1653,6 +1653,10 @@ Functions</h2></td></tr>
 <tr class="separator:aa74ef603900cf05ce35dbab813d21deb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6eef175773ce8532826ba78eee0cece5"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6eef175773ce8532826ba78eee0cece5">median</a> (std::vector&lt; int &gt; &amp;v)</td></tr>
 <tr class="separator:a6eef175773ce8532826ba78eee0cece5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a614c672ed69c280b699a278ce0f34ade"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a614c672ed69c280b699a278ce0f34ade">wellford_update</a> (size_t &amp;count, double &amp;mean, double &amp;M2, double new_val)</td></tr>
+<tr class="separator:a614c672ed69c280b699a278ce0f34ade"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4b96cd801bc780d426db346f80ab2172"><td class="memItemLeft" align="right" valign="top">pair&lt; double, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4b96cd801bc780d426db346f80ab2172">wellford_mean_var</a> (size_t count, double mean, double M2, bool sample_variance)</td></tr>
+<tr class="separator:a4b96cd801bc780d426db346f80ab2172"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a931d9271de88fc786030fdd0ab4bf534"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a931d9271de88fc786030fdd0ab4bf534">range_vector</a> (size_t begin, size_t end)</td></tr>
 <tr class="separator:a931d9271de88fc786030fdd0ab4bf534"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7c950dca7cd25a5ce9846be2a6b93e13"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7c950dca7cd25a5ce9846be2a6b93e13">have_input_file</a> (int &amp;optind, int argc, char **argv)</td></tr>
@@ -17318,6 +17322,86 @@ template&lt;typename T &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Thomas Wang's integer hash function. In many implementations, std::hash is identity function for integers, which leads to performance issues. </p>
+
+</div>
+</div>
+<a id="a4b96cd801bc780d426db346f80ab2172"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4b96cd801bc780d426db346f80ab2172">&#9670;&nbsp;</a></span>wellford_mean_var()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">pair&lt; double, double &gt; vg::wellford_mean_var </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>count</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>mean</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>M2</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>sample_variance</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a614c672ed69c280b699a278ce0f34ade"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a614c672ed69c280b699a278ce0f34ade">&#9670;&nbsp;</a></span>wellford_update()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::wellford_update </td>
+          <td>(</td>
+          <td class="paramtype">size_t &amp;&#160;</td>
+          <td class="paramname"><em>count</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double &amp;&#160;</td>
+          <td class="paramname"><em>mean</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double &amp;&#160;</td>
+          <td class="paramname"><em>M2</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>new_val</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
