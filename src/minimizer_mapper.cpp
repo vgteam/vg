@@ -15,7 +15,6 @@
 #include <algorithm>
 #include <cmath>
 
-
 namespace vg {
 
 using namespace std;
@@ -31,6 +30,10 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph, const gbwtgr
 
 void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // For each input alignment
+    
+#ifdef debug
+    cerr << "Read " << aln.name() << ": " << aln.sequence() << endl;
+#endif
 
     // Make a new funnel instrumenter to watch us map this read.
     Funnel funnel;
@@ -109,7 +112,17 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // of the selected minimizers is not high enough.
         size_t hits = minimizer_index.count(minimizers[minimizer_num]);
         
-        if (hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
+#ifdef debug
+        cerr << "Minimizer " << minimizer_num << " = " << minimizers[minimizer_num].key.decode(minimizer_index.k())
+            << " has " << hits << " hits" << endl;
+#endif
+        
+        if (hits == 0) {
+            // A minimizer with no hits can't go on.
+            if (track_provenance) {
+                funnel.fail("any-hits", minimizer_num);
+            }
+        } else if (hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
             // Locate the hits.
             for (auto& hit : minimizer_index.find(minimizers[minimizer_num])) {
                 // Reverse the hits for a reverse minimizer
@@ -125,6 +138,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             if (track_provenance) {
                 // Record in the funnel that this minimizer gave rise to these seeds.
+                funnel.pass("any-hits", minimizer_num);
                 funnel.pass("hard-hit-cap", minimizer_num);
                 funnel.pass("hit-cap||score-fraction", minimizer_num, selected_score  / base_target_score);
                 funnel.expand(minimizer_num, hits);
@@ -133,6 +147,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             // Passed hard hit cap but failed score fraction/normal hit cap
             rejected_count++;
             if (track_provenance) {
+                funnel.pass("any-hits", minimizer_num);
                 funnel.pass("hard-hit-cap", minimizer_num);
                 funnel.fail("hit-cap||score-fraction", minimizer_num, (selected_score + minimizer_score[minimizer_num]) / base_target_score);
             }
@@ -140,6 +155,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             // Failed hard hit cap
             rejected_count++;
             if (track_provenance) {
+                funnel.pass("any-hits", minimizer_num);
                 funnel.fail("hard-hit-cap", minimizer_num);
             }
         }
@@ -177,7 +193,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     }
         
 #ifdef debug
-    cerr << "Read " << aln.name() << ": " << aln.sequence() << endl;
     cerr << "Found " << seeds.size() << " seeds from " << (minimizers.size() - rejected_count) << " minimizers, rejected " << rejected_count << endl;
 #endif
 
@@ -304,7 +319,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             vector<size_t>& cluster = clusters[cluster_num];
 
 #ifdef debug
-            cerr << "Cluster " << cluster_num << " rank " << i << ": " << endl;
+            cerr << "Cluster " << cluster_num << endl;
 #endif
              
             // Pack the seeds for GaplessExtender.
