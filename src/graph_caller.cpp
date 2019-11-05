@@ -296,8 +296,8 @@ LegacyCaller::LegacyCaller(const PathPositionHandleGraph& graph,
                                                              0,
                                                              0,
                                                              get_path_index,
-                                                             [&](id_t id) { return snarl_caller.get_min_node_support(id);},
-                                                             [&](edge_t edge) { return snarl_caller.get_edge_support(edge);});
+                                                             [&](id_t id) { return snarl_caller.get_support_finder().get_min_node_support(id);},
+                                                             [&](edge_t edge) { return snarl_caller.get_support_finder().get_edge_support(edge);});
 
     } else {
         // our graph is not in vg format.  we will make graphs for each site as needed and work with those
@@ -364,7 +364,7 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         // determine the support threshold for the traversal finder.  if we're using average
         // support, then we don't use any (set to 0), other wise, use the minimum support for a call
         SupportBasedSnarlCaller& support_caller = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller);
-        size_t threshold = support_caller.get_average_traversal_support_switch_threshold();
+        size_t threshold = support_caller.get_support_finder().get_average_traversal_support_switch_threshold();
         double support_cutoff = total_snarl_length <= threshold ? support_caller.get_min_total_support_for_call() : 0;
         rep_trav_finder = new RepresentativeTraversalFinder(vg_graph, snarl_manager,
                                                             max_search_depth,
@@ -373,10 +373,10 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
                                                             support_cutoff,
                                                             support_cutoff,
                                                             get_path_index,
-                                                            [&](id_t id) { return support_caller.get_min_node_support(id);},
+                                                            [&](id_t id) { return support_caller.get_support_finder().get_min_node_support(id);},
                                                             // note: because our traversal finder and support caller have
                                                             // different graphs, they can't share edge handles
-                                                            [&](edge_t edge) { return support_caller.get_edge_support(
+                                                            [&](edge_t edge) { return support_caller.get_support_finder().get_edge_support(
                                                                     vg_graph.get_id(edge.first), vg_graph.get_is_reverse(edge.first),
                                                                     vg_graph.get_id(edge.second), vg_graph.get_is_reverse(edge.second));});
                                                             

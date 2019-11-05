@@ -248,11 +248,16 @@ int main_call(int argc, char** argv) {
 
     // Make a Packed Support Caller
     unique_ptr<Packer> packer;
+    unique_ptr<TraversalSupportFinder> support_finder;
     if (!pack_filename.empty()) {        
         // Load our packed supports (they must have come from vg pack on graph)
         packer = unique_ptr<Packer>(new Packer(graph));
         packer->load_from_file(pack_filename);
-        PackedSupportSnarlCaller* packed_caller = new PackedSupportSnarlCaller(*packer, *snarl_manager);
+        // Make a packed traversal support finder
+        PackedTraversalSupportFinder* packed_support_finder = new PackedTraversalSupportFinder(*packer, *snarl_manager);
+        support_finder = unique_ptr<TraversalSupportFinder>(packed_support_finder);
+        // Make a support caller
+        SupportBasedSnarlCaller* packed_caller = new SupportBasedSnarlCaller(*graph, *snarl_manager, *packed_support_finder);
         if (het_bias >= 0) {
             packed_caller->set_het_bias(het_bias, ref_het_bias);
         }
@@ -263,7 +268,7 @@ int main_call(int argc, char** argv) {
     }
 
     if (!snarl_caller) {
-        cerr << "error [vg call]: pack file (-p) is required" << endl;
+        cerr << "error [vg call]: pack file (-k) is required" << endl;
         return 1;
     }
 
