@@ -189,17 +189,14 @@ int main_pack(int argc, char** argv) {
 
     // get a data width from our expected coverage, using simple heuristic of counting
     // bits needed to store double the coverage
-    size_t data_width = std::ceil(std::log2(2 * expected_coverage));
+    size_t data_width = Packer::estimate_data_width(expected_coverage);
 
     // use some naive heuristics to come up with bin count and batch size based on thread count
     // more bins: finer grained parallelism at cost of more mutexes and allocations
     // bigger batch size: more robustness to sorted input at cost of less parallelism
     size_t num_threads = get_thread_count();
-    size_t batch_size = max((size_t)128, (size_t)(pow(2, 14 - log2(num_threads))));
-    if (batch_size % 2 != 0) {
-        ++batch_size;
-    }
-    size_t bin_count = pow(2, log2(num_threads) + 14);
+    size_t batch_size = Packer::estimate_batch_size(num_threads);
+    size_t bin_count = Packer::estimate_bin_count(num_threads);
 
     // create our packer
     Packer packer(graph, bin_size, bin_count, data_width, true, true, record_edits);

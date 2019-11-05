@@ -336,6 +336,24 @@ double median(std::vector<int> &v) {
         return 0.5*(vn+v[n-1]);
     }
 }
+
+// from Python exmaple here:
+// https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
+void wellford_update(size_t& count, double& mean, double& M2, double new_val) {
+    ++count;
+    double delta = new_val - mean;
+    mean += delta / (double)count;
+    double delta2 = new_val - mean;
+    M2 += delta * delta2;
+}
+
+pair<double, double> wellford_mean_var(size_t count, double mean, double M2, bool sample_variance) {
+    if (count == 0 || (sample_variance && count == 1)) {
+        return make_pair(nan(""), nan(""));
+    } else {
+        return make_pair(mean, M2 / (double)(sample_variance ? count - 1 : count));
+    }
+}
     
 vector<size_t> range_vector(size_t begin, size_t end) {
     size_t len = end - begin;
