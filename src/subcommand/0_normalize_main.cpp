@@ -105,6 +105,11 @@ int main_normalize(int argc, char **argv) {
     // });
     // cerr << "got a vg graph" << endl;
 
+    // //using vpkg for just HashGraph:
+    // unique_ptr<MutablePathDeletableHandleGraph> graph;
+    // get_input_file(optind, argc, argv, [&](istream &in) {
+    //     graph = vg::io::VPKG::load_one<bdsg::HashGraph>(in);
+    // });
 
     //getting graph of any type, requires vpkg wrapping:
     unique_ptr<MutablePathDeletableHandleGraph> graph;
