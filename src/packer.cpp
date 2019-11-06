@@ -63,6 +63,7 @@ Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, 
     // mutexes for coverage
     base_locks = new std::mutex[coverage_dynamic.size()];
     edge_locks = new std::mutex[edge_coverage_dynamic.size()];
+    tmpfstream_locks = nullptr;
     
     // count the bins if binning
     if (bin_size) {
