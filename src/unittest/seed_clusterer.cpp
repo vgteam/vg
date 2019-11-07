@@ -130,7 +130,7 @@ namespace unittest {
             }
             vector<pos_t> seeds1;
             for (id_t n : seed_nodes1) {
-                seeds.push_back(make_pos_t(n, false, 0));
+                seeds1.push_back(make_pos_t(n, false, 0));
             }
             vector<vector<pos_t>> all_seeds;
             all_seeds.push_back(seeds);
@@ -142,41 +142,35 @@ namespace unittest {
             vector<vector<vector<size_t>>> read_clusters = std::get<0>(paired_clusters);
             //Should be [[[0,1,2]],[[3,4,5,6]]] 
             vector<vector<size_t>> fragment_clusters = std::get<1>(paired_clusters);
-            vector<hash_set<size_t>> cluster_sets;
+            vector<hash_set<size_t>> read_set_1;
             for (vector<size_t> v : read_clusters[0]) {
                 hash_set<size_t> h;
                 for (size_t s : v) {
                     h.insert(s);
                 }
-                cluster_sets.push_back(h);
+                read_set_1.push_back(h);
             }
+            vector<hash_set<size_t>> read_set_2;
             for (vector<size_t> v : read_clusters[1]) {
                 hash_set<size_t> h;
                 for (size_t s : v) {
                     h.insert(s);
                 }
-                cluster_sets.push_back(h);
+                read_set_2.push_back(h);
             }
             REQUIRE( read_clusters.size() == 2);
-            REQUIRE( (read_clusters[0].size() == 3 || read_clusters[1].size() == 3));
-            REQUIRE( (read_clusters[0].size() == 4 || read_clusters[1].size() == 4));
+            REQUIRE( (read_clusters[0][0].size() == 3 || read_clusters[1][0].size() == 3));
+            REQUIRE( (read_clusters[0][0].size() == 4 || read_clusters[1][0].size() == 4));
             REQUIRE( fragment_clusters.size() == 1);
-            REQUIRE (((cluster_sets[0].count(0) == 1 &&
-                       cluster_sets[0].count(1) == 1 &&
-                       cluster_sets[0].count(2) == 1 &&
-                       cluster_sets[1].count(3) == 1 &&
-                       cluster_sets[1].count(4) == 1 &&
-                       cluster_sets[1].count(5) == 1 &&
-                       cluster_sets[1].count(6) == 1  ) ||
-
-                     ( cluster_sets[1].count(0) == 1 &&
-                       cluster_sets[1].count(1) == 1 &&
-                       cluster_sets[1].count(2) == 1 &&
-                       cluster_sets[0].count(3) == 1 &&
-                       cluster_sets[0].count(4) == 1 &&
-                       cluster_sets[0].count(5) == 1 &&
-                       cluster_sets[0].count(6) == 1  )));
-
+            REQUIRE ( read_set_1.size() == 1);
+            REQUIRE (( read_set_1[0].count(0) == 1 &&
+                       read_set_1[0].count(1) == 1 &&
+                       read_set_1[0].count(2) == 1));
+            REQUIRE (read_set_2.size() == 1);
+            REQUIRE (( read_set_2[0].count(0) == 1 &&
+                       read_set_2[0].count(1) == 1 &&
+                       read_set_2[0].count(2) == 1 &&
+                       read_set_2[0].count(3) == 1 ));
         }
         SECTION( "Two fragment clusters" ) {
  
@@ -190,7 +184,7 @@ namespace unittest {
             }
             vector<pos_t> seeds1;
             for (id_t n : seed_nodes1) {
-                seeds.push_back(make_pos_t(n, false, 0));
+                seeds1.push_back(make_pos_t(n, false, 0));
             }
             vector<vector<pos_t>> all_seeds;
             all_seeds.push_back(seeds);
