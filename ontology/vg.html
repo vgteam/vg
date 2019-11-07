@@ -144,13 +144,13 @@
 </tr>
 <tr><td><a href="#Properties">
                                     Properties (
-                                    7
+                                    8
                                     )
                             </a></td></tr>
 <tr>
 <td><a style="objectPropertySearch" href="#ObjectProperties">
                                     Object properties (
-                                    6
+                                    7
                                     )
                             </a></td>
 <td><select onChange="window.location.hash = document.getElementById('navi3').value" id="navi3"><option value="linksForwardToForward">
@@ -163,6 +163,8 @@
 				vg:linksReverseToReverse</option>
 <option value="node">
 				vg:node</option>
+<option value="position">
+				vg:position</option>
 <option value="reverseOfNode">
 				vg:reverseOfNode</option></select></td>
 </tr>
@@ -829,8 +831,50 @@
 <tr>
 <td><a href="http://www.w3.org/2000/01/rdf-schema#range">
 					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Node">
+				vg:Node</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#position"></a><tbody>
+<tr><th id="position">
+				vg:position<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"This is the position on the reference path at which this step starts."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Step">
 				vg:Step</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"position"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://www.w3.org/2001/XMLSchema#positiveInteger">
+				xsd:positiveInteger</a></td>
 </tr>
 </tbody>
 </table>
