@@ -14,6 +14,8 @@ class SnarlSeedClusterer {
 
         SnarlSeedClusterer(MinimumDistanceIndex& dist_index);
 
+        typedef vector<vector<size_t>> cluster_group_t;
+
         ///Given a vector of seeds (pos_t) and a distance limit, 
         //cluster the seeds such that two seeds whose minimum distance
         //between them (including both of the positions) is less than
@@ -21,8 +23,7 @@ class SnarlSeedClusterer {
         //
         //Returns a vector of clusters. Each cluster is a vector of
         //indices into seeds
-        vector<vector<size_t>> cluster_seeds ( 
-                vector<pos_t> seeds, int64_t read_distance_limit) const;
+        cluster_group_t cluster_seeds ( vector<pos_t> seeds, int64_t read_distance_limit) const;
         
         ///The same thing, but for paired end reads.
         //Given seeds from multiple reads of a fragment, cluster each set of seeds
@@ -32,7 +33,7 @@ class SnarlSeedClusterer {
         //The read clusters refer to seeds by their indexes in the input vectors of seeds
         //The fragment clusters give seeds the index they would get if the vectors of
         // seeds were appended to each other in the order given
-        tuple<vector<vector<vector<size_t>>>,vector<vector<size_t>>> cluster_seeds ( 
+        tuple<vector<cluster_group_t>, cluster_group_t> cluster_seeds ( 
                 vector<vector<pos_t>> all_seeds,
                 int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
 
@@ -41,6 +42,7 @@ class SnarlSeedClusterer {
         MinimumDistanceIndex& dist_index;
 
         enum ChildNodeType {CHAIN, SNARL, NODE};
+
         
         static inline string typeToString(ChildNodeType t) {
             switch (t) {
@@ -105,18 +107,24 @@ class SnarlSeedClusterer {
             // snarl/chain that is a node the parent snarl's netgraph,
             // or a snarl in a chain
 
+
             //set of the indices of heads of clusters (group ids in the 
             //union find)
-            hash_set<size_t> cluster_heads;
+            //TODO: Add cluster distances here
+            //pair of read index, seed index
+            hash_set<pair<size_t,size_t>> read_cluster_heads;
 
             //The shortest distance from any seed in any cluster to the 
             //left/right end of the snarl tree node that contains these
             //clusters
-            int64_t best_left;
-            int64_t best_right;
+            int64_t fragment_best_left;
+            int64_t fragment_best_right;
+            vector<int64_t> read_best_left;
+            vector<int64_t> read_best_right;
 
-            NodeClusters() :
-                best_left(-1), best_right(-1) {}
+            NodeClusters(size_t read_count) :
+                fragment_best_left(-1), fragment_best_right(-1),
+                read_best_left(read_count, -1), read_best_right(read_count, -1){}
         };
 
 
@@ -130,7 +138,7 @@ class SnarlSeedClusterer {
             vector<vector<pos_t>>* all_seeds; 
 
             //Vector of the offset of indices for each seed
-            vector<size_t> seed_index_offsets;
+            vector<size_t> read_index_offsets;
 
             //The minimum distance between nodes for them to be put in the
             //same cluster
@@ -148,7 +156,8 @@ class SnarlSeedClusterer {
             //of the netgraph node of the cluster it belongs to
             //These values are only relevant for seeds that represent a cluster
             //in union_find_reads
-            vector<pair<int64_t, int64_t>> read_cluster_dists;
+            vector<vector<pair<int64_t, int64_t>>> read_cluster_dists;
+            vector<pair<int64_t, int64_t>> fragment_cluster_dists;
 
 
 
@@ -158,7 +167,7 @@ class SnarlSeedClusterer {
             //Maps each node to a vector of the seeds that are contained in it
             //seeds are represented by indexes into the seeds vector
             //The array is sorted.
-            vector<tuple<id_t, size_t, size_t>> node_to_seeds;
+            vector<vector<pair<id_t, size_t>>> node_to_seeds;
 
             //Map from snarl (index into dist_index.snarl_indexes) i
             //to the netgraph nodes contained in the snarl as well as the 
@@ -185,18 +194,23 @@ class SnarlSeedClusterer {
 
             //Constructor takes in a pointer to the seeds and the distance limit 
             TreeState (vector<vector<pos_t>>* all_seeds, int64_t read_distance_limit, 
-                       int64_t fragment_distance_limit) :
+                       int64_t fragment_distance_limit, size_t seed_count) :
                 all_seeds(all_seeds),
-                read_cluster_dists(seeds->size(), make_pair(-1, -1)),
-                read_union_find (seeds->size(), false),
-                fragment_union_find (seeds->size(), false),
+                fragment_cluster_dists(all_seeds->size(), make_pair(-1, -1)),
                 read_distance_limit(read_distance_limit),
-                fragment_distance_limit(fragment_distance_limit){
-                    seed_index_offsets.push_back(0);
-                    for (auto& v : all_seeds) {
-                        size_t offset = seed_index_offsets.back() + v.size();
-                        seed_index_offsets.push_back(offset);
-                    }
+                fragment_distance_limit(fragment_distance_limit),
+                fragment_union_find (seed_count, false) {
+
+                read_index_offsets.push_back(0);
+                size_t total_seeds = 0;
+                for (vector<pos_t>& v : *all_seeds) {
+                    total_seeds += v.size();
+                    size_t offset = read_index_offsets.back() + v.size();
+                    read_index_offsets.push_back(offset);
+                    read_cluster_dists.emplace_back(v.size(), make_pair(-1,-1));
+                    node_to_seeds.emplace_back();
+                    read_union_find.emplace_back(v.size(), false);
+                }
             }
         };
 

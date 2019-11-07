@@ -187,7 +187,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     }
         
     // Cluster the seeds. Get sets of input seed indexes that go together.
-    vector<vector<size_t>> clusters paired_clusters = clusterer.cluster_seeds(seeds, distance_limit);
+    vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit);
     
     if (track_provenance) {
         funnel.substage("score");
