@@ -11,7 +11,6 @@
 #include "handle.hpp"
 #include "packer.hpp"
 
-
 namespace vg {
 namespace algorithms {
 
@@ -35,7 +34,21 @@ pair<double, double> packed_depth_of_bin(const Packer& packer, step_handle_t sta
 /// Use all available threads to estimate the binned packed coverage of a path using above fucntion
 /// Each element is a bin's 0-based open-ended interval in the path, and its coverage mean,variance. 
 vector<tuple<size_t, size_t, double, double>> binned_packed_depth(const Packer& packer, const string& path_name, size_t bin_size,
-                                                          size_t min_coverage, bool include_deletions);
+                                                                  size_t min_coverage, bool include_deletions);
+
+/// Use the above function to retrieve the binned depths of a list of paths, and store them indexed by start
+/// coordinate.  If std_err is true, store <mean, stderr> instead of <mean, variance>
+using BinnedDepthIndex = unordered_map<string, map<size_t, pair<double, double>>>;
+BinnedDepthIndex binned_packed_depth_index(const Packer& packer,
+                                           const vector<string>& path_names,
+                                           size_t bin_size,
+                                           size_t min_coverage,
+                                           bool include_deletions,
+                                           bool std_err);
+
+/// Query index created above
+/// Todo: optionally smooth over adjacent bins?
+const pair<double, double>& get_depth_from_index(const BinnedDepthIndex& depth_index, const string& path_name, size_t offset);
 
 /// Return the mean and variance of coverage of randomly sampled nodes from a GAM
 /// Nodes with less than min_coverage are ignored

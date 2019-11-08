@@ -1,5 +1,5 @@
-#ifndef VG_SUPPORT_FINDER_HPP_INCLUDED
-#define VG_SUPPORT_FINDER_HPP_INCLUDED
+#ifndef VG_TRAVERSAL_SUPPORT_HPP_INCLUDED
+#define VG_TRAVERSAL_SUPPORT_HPP_INCLUDED
 
 #include <iostream>
 #include <algorithm>
@@ -52,10 +52,13 @@ public:
     /// exclusive_count is like exclusive only except shared traversals will be counted (as 0)
     /// when doing average and min support
     /// if the ref_trav_idx is given, it will be used for computing (deletion) edge lengths
+    /// if unique is true, then every node or edge will only be counted once
+    /// (useful for total support)
     virtual vector<Support> get_traversal_set_support(const vector<SnarlTraversal>& traversals,
                                                       const vector<int>& shared_travs,
                                                       bool exclusive_only,
                                                       bool exclusive_count,
+                                                      bool unique,
                                                       int ref_trav_idx = -1) const;
 
     /// Get the total length of all nodes in the traversal

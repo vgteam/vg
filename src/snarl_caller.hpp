@@ -12,6 +12,7 @@
 #include "snarls.hpp"
 #include "genotypekit.hpp"
 #include "traversal_support.hpp"
+#include "algorithms/coverage_depth.hpp"
 
 namespace vg {
 
@@ -27,11 +28,18 @@ public:
     virtual ~SnarlCaller();
 
     /// Get the genotype of a site
+    /// snarl : site
+    /// traversals : all traversals to consider
+    /// ref_trav_idx : index of reference path traversal in traversals (in case it needs special treatment)
+    /// ref_path : the reference path associated with the snarl
+    /// ref_range : the interval along the reference path (forward coordinates) spanned by snarl
     virtual vector<int> genotype(const Snarl& snarl,
                                  const vector<SnarlTraversal>& traversals,
                                  int ref_trav_idx,
-                                 int ploidy) = 0;
-
+                                 int ploidy,
+                                 const string& ref_path_name,
+                                 pair<size_t, size_t> ref_range) = 0;
+    
     /// Update INFO and FORMAT fields of the called variant
     virtual void update_vcf_info(const Snarl& snarl,
                                  const vector<SnarlTraversal>& traversals,
@@ -47,23 +55,81 @@ public:
 };
 
 /**
- * Find the genotype of some traversals in a site using read support
+ * Interface for a caller that relies on a TraversalSupportFinder
+ * and has a few very basic support-based cutoffs
+ * Not every exciting but is currently required for the LegacySupportCaller
+ * which needs this to interface with the RepresentativeTraversalFinder
  */ 
 class SupportBasedSnarlCaller : public SnarlCaller {
 public:
     SupportBasedSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager,
                             TraversalSupportFinder& support_finder);
+
     virtual ~SupportBasedSnarlCaller();
+
+    virtual void update_vcf_info(const Snarl& snarl,
+                                 const vector<SnarlTraversal>& traversals,
+                                 const vector<int>& genotype,
+                                 const string& sample_name,
+                                 vcflib::Variant& variant);
+
+    /// Set some of the parameters
+    void set_min_supports(double min_mad_for_call, double min_support_for_call, double min_site_support);
+    
+    /// Get the traversal support finder
+    const TraversalSupportFinder& get_support_finder() const;
+
+    /// Get the minimum total support for call
+    virtual int get_min_total_support_for_call() const;
+
+protected:
+
+    /// Get the best support out of a list of supports, ignoring skips
+    static int get_best_support(const vector<Support>& supports, const vector<int>& skips);
+
+    /// Relic from old code
+    static double support_val(const Support& support) { return total(support); };
+
+    const PathHandleGraph& graph;
+
+    SnarlManager& snarl_manager;    
+
+    /// Get support from traversals
+    TraversalSupportFinder& support_finder;
+    
+    /// What's the minimum integer number of reads that must support a call? We
+    /// don't necessarily want to call a SNP as het because we have a single
+    // supporting read, even if there are only 10 reads on the site.
+    int min_total_support_for_call = 1;
+    /// what's the minimum ref or alt allele depth to give a PASS in the filter
+    /// column? Also used as a min actual support for a second-best allele call
+    size_t min_mad_for_filter = 1;
+    /// what's the minimum total support (over all alleles) of the site to make
+    /// a call
+    size_t min_site_depth = 3;
+};
+
+
+/**
+ * Find the genotype of some traversals in a site using read support and
+ * a bias ratio to tell heterozygous from homozygous
+ */ 
+class RatioSupportSnarlCaller : public SupportBasedSnarlCaller {
+public:
+    RatioSupportSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager,
+                            TraversalSupportFinder& support_finder);
+    virtual ~RatioSupportSnarlCaller();
 
     /// Set some of the parameters
     void set_het_bias(double het_bias, double ref_het_bias = 0.);
-    void set_min_supports(double min_mad_for_call, double min_support_for_call, double min_site_support);
 
     /// Get the genotype of a site
     virtual vector<int> genotype(const Snarl& snarl,
                                  const vector<SnarlTraversal>& traversals,
                                  int ref_trav_idx,
-                                 int ploidy);
+                                 int ploidy,
+                                 const string& ref_path_name,
+                                 pair<size_t, size_t> ref_range);
 
     /// Update INFO and FORMAT fields of the called variant
     virtual void update_vcf_info(const Snarl& snarl,
@@ -78,19 +144,7 @@ public:
     /// Use min_alt_path_support threshold as cutoff
     virtual function<bool(const SnarlTraversal&)> get_skip_allele_fn() const;
 
-    /// Get the minimum total support for call
-    virtual int get_min_total_support_for_call() const;
-
-    /// Get the traversal support finder
-    const TraversalSupportFinder& get_support_finder() const;
-
 protected:
-
-    /// Get the best support out of a list of supports, ignoring skips
-    static int get_best_support(const vector<Support>& supports, const vector<int>& skips);
-
-    /// Relic from old code
-    static double support_val(const Support& support) { return total(support); };
 
     /// Get the bias used to for comparing two traversals
     /// (It differrs heuristically depending whether they are alt/ref/het/hom/snp/indel
@@ -104,10 +158,6 @@ protected:
 
     /// Tuning
 
-    /// What's the minimum integer number of reads that must support a call? We
-    /// don't necessarily want to call a SNP as het because we have a single
-    // supporting read, even if there are only 10 reads on the site.
-    int min_total_support_for_call = 1;
     /// What fraction of the reads supporting an alt are we willing to discount?
     /// At 2, if twice the reads support one allele as the other, we'll call
     /// homozygous instead of heterozygous. At infinity, every call will be
@@ -120,25 +170,70 @@ protected:
     /// Used for calling 1/2 calls.  If both alts (times this bias) are greater than
     /// the reference, the call is made.  set to 0 to deactivate.
     double max_ma_bias = 0;
-    /// what's the minimum ref or alt allele depth to give a PASS in the filter
-    /// column? Also used as a min actual support for a second-best allele call
-    size_t min_mad_for_filter = 1;
-    /// what's the minimum total support (over all alleles) of the site to make
-    /// a call
-    size_t min_site_depth = 3;
     /// what's the min log likelihood for allele depth assignments to PASS?
     double min_ad_log_likelihood_for_filter = -9;
     /// used only for pruning alleles in the VCFTraversalFinder:  minimum support
     /// of an allele's alt-path for it to be considered in the brute-force enumeration
     double min_alt_path_support = 0.2;
-
-    const PathHandleGraph& graph;
-
-    SnarlManager& snarl_manager;
-
-    TraversalSupportFinder& support_finder;
     
 };
+
+/**
+ * Find the genotype of some traversals in a site using read support 
+ * and a Poisson model based on expected depth.  Inspired, in part,
+ * by Paragraph, which uses a similar approach for genotyping break points
+ * 
+ **/ 
+class PoissonSupportSnarlCaller : public SupportBasedSnarlCaller {
+public:
+    PoissonSupportSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager,
+                              TraversalSupportFinder& support_finder,
+                              const algorithms::BinnedDepthIndex& depth_index);
+    virtual ~PoissonSupportSnarlCaller();
+
+    /// Get the genotype of a site
+    virtual vector<int>  genotype(const Snarl& snarl,
+                                       const vector<SnarlTraversal>& traversals,
+                                       int ref_trav_idx,
+                                       int ploidy,
+                                       const string& ref_path_name,
+                                       pair<size_t, size_t> ref_range);
+    
+    /// Update INFO and FORMAT fields of the called variant
+    virtual void update_vcf_info(const Snarl& snarl,
+                                 const vector<SnarlTraversal>& traversals,
+                                 const vector<int>& genotype,
+                                 const string& sample_name,
+                                 vcflib::Variant& variant);
+
+    /// Define any header fields needed by the above
+    virtual void update_vcf_header(string& header) const;
+
+protected:
+
+    /// Compute likelihood of genotype as product of poisson probabilities
+    /// P[allele1] * P[allle2] * P[uncalled alleles]
+    /// Homozygous alleles are split into two, with half support each
+    /// The (natural) logoarithm is returned
+    double genotype_likelihood(const vector<int>& genotype,
+                               const vector<Support>& genotype_supports,
+                               const vector<SnarlTraversal>& traversals,
+                               int ref_trav_idx, double exp_depth, double depth_err);
+
+    /// Rank supports
+    vector<int> rank_by_support(const vector<Support>& supports);
+
+    /// Baseline mapping error rate (gets added to the standard error from coverage)
+    double baseline_mapping_error = 0.05;
+
+    /// Consider up to the top-k traversals (based on support) for genotyping
+    size_t top_k = 25;
+    
+    /// Map path name to <mean, std_err> of depth coverage from the packer
+    const algorithms::BinnedDepthIndex& depth_index;
+
+};
+
 
 // debug helpers
 inline string to_string(const HandleGraph& graph, handle_t handle) {

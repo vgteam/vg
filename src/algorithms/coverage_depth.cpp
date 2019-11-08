@@ -130,6 +130,35 @@ vector<tuple<size_t, size_t, double, double>> binned_packed_depth(const Packer& 
     return binned_depths;
 }
 
+unordered_map<string, map<size_t, pair<double, double>>> binned_packed_depth_index(const Packer& packer,
+                                                                                   const vector<string>& path_names,
+                                                                                   size_t bin_size,
+                                                                                   size_t min_coverage,
+                                                                                   bool include_deletions,
+                                                                                   bool std_err) {
+    unordered_map<string, map<size_t, pair<double, double>>> depth_index;
+    for (const string& path_name : path_names) {
+        vector<tuple<size_t, size_t, double, double>> binned_depths = binned_packed_depth(packer, path_name, bin_size,
+                                                                                          min_coverage, include_deletions);
+        // todo: probably more efficent to just leave in sorted vector
+        map<size_t, pair<double, double>>& depth_map = depth_index[path_name];
+        for (auto& binned_depth : binned_depths) {
+            double var = get<3>(binned_depth);
+            // optionally convert variance to standard error
+            if (std_err) {
+                var = sqrt(var / (double)(get<1>(binned_depth) - get<2>(binned_depth)));
+            }
+            depth_map[get<0>(binned_depth)] = make_pair(get<2>(binned_depth), var);
+        }
+    }
+
+    return depth_index;
+}
+
+const pair<double, double>& get_depth_from_index(const unordered_map<string, map<size_t, pair<double, double>>>& depth_index,
+                                          const string& path_name, size_t offset) {
+    return depth_index.at(path_name).lower_bound(offset)->second;
+}
 
 // draw (roughly) max_nodes nodes from the graph using the random seed
 static unordered_map<nid_t, size_t> sample_nodes(const HandleGraph& graph, size_t max_nodes, size_t random_seed) {

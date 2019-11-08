@@ -143,8 +143,12 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
             }
         }
 
+        // find a path range corresponding to our snarl by way of the VCF variants.
+        tuple<string, size_t, size_t> ref_positions = get_ref_positions(variants);
+
         // use our support caller to choose our genotype (int traversal coordinates)
-        vector<int> trav_genotype = snarl_caller.genotype(snarl, travs, ref_trav_idx, 2);
+        vector<int> trav_genotype = snarl_caller.genotype(snarl, travs, ref_trav_idx, 2, get<0>(ref_positions),
+                                                          make_pair(get<1>(ref_positions), get<2>(ref_positions)));
 
         assert(trav_genotype.empty() || trav_genotype.size() == 2);
 
@@ -229,6 +233,35 @@ string VCFGenotyper::vcf_header(const PathHandleGraph& graph, const vector<strin
     assert(output_vcf.openForOutput(header));
     header += "\n";
     return header;
+}
+
+tuple<string, size_t, size_t> VCFGenotyper::get_ref_positions(const vector<vcflib::Variant*>& variants) const {
+    // if there is more than one path in our snarl (unlikely for most graphs we'll vcf-genoetype)
+    // then we return the one with the biggest interval
+    map<string, pair<size_t, size_t>> path_offsets;
+    for (const vcflib::Variant* var : variants) {
+        if (path_offsets.count(var->sequenceName)) {
+            pair<size_t, size_t>& record = path_offsets[var->ref];
+            record.first = std::min((size_t)var->position, record.first);
+            record.second = std::max((size_t)var->position + var->ref.length(), record.second);
+        } else {
+            path_offsets[var->sequenceName] = make_pair(var->position, var->position + var->ref.length());
+        }
+    }
+
+    string ref_path;
+    size_t ref_range_size = 0;
+    pair<size_t, size_t> ref_range;
+    for (auto& path_offset : path_offsets) {
+        size_t len = path_offset.second.second - path_offset.second.first;
+        if (len > ref_range_size) {
+            ref_range_size = len;
+            ref_path = path_offset.first;
+            ref_range = path_offset.second;
+        }
+    }
+
+    return make_tuple(ref_path, ref_range.first, ref_range.second);
 }
 
 unordered_map<string, size_t> VCFGenotyper::scan_contig_lengths() const {
@@ -387,7 +420,8 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         string path_name = find_index(snarl, is_vg ? path_indexes : site_path_indexes).first;
 
         // orient the snarl along the reference path
-        if (get_ref_position(snarl, path_name).second == true) {
+        tuple<size_t, size_t, bool> ref_interval = get_ref_interval(snarl, path_name);
+        if (get<2>(ref_interval) == true) {
             snarl_manager.flip(&snarl);
         }
 
@@ -396,12 +430,14 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         // these integers map the called traversals to their positions in the list of all traversals
         // of the top level snarl.  
         vector<int> genotype;
-        std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, 2);
+        std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, 2,
+                                                                  path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
     
         if (!called_traversals.empty()) {
             // regenotype our top-level traversals now that we know they aren't nested, and we have a
             // good idea of all the sizes
-            std::tie(called_traversals, genotype) = re_genotype(snarl, *rep_trav_finder, called_traversals, genotype, 2);
+            std::tie(called_traversals, genotype) = re_genotype(snarl, *rep_trav_finder, called_traversals, genotype, 2,
+                                                                path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
             // emit our vcf variant
             emit_variant(snarl, *rep_trav_finder, called_traversals, genotype, path_name);
@@ -431,13 +467,14 @@ string LegacyCaller::vcf_header(const PathHandleGraph& graph, const vector<strin
     return header;
 }
 
-pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::top_down_genotype(const Snarl& snarl, TraversalFinder& trav_finder, int ploidy) const {
+pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::top_down_genotype(const Snarl& snarl, TraversalFinder& trav_finder, int ploidy,
+                                                                          const string& ref_path_name, pair<size_t, size_t> ref_interval) const {
 
     // get the traversals through the site
     vector<SnarlTraversal> traversals = trav_finder.find_traversals(snarl);
 
     // use our support caller to choose our genotype
-    vector<int> trav_genotype = snarl_caller.genotype(snarl, traversals, 0, ploidy);
+    vector<int> trav_genotype = snarl_caller.genotype(snarl, traversals, 0, ploidy, ref_path_name, ref_interval);
     if (trav_genotype.empty()) {
         return make_pair(vector<SnarlTraversal>(), vector<int>());
     }
@@ -470,7 +507,7 @@ pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::top_down_genotype(const 
                     snarl_manager.flip(into_snarl);
                 }
                 vector<SnarlTraversal> child_genotype = top_down_genotype(*into_snarl,
-                                                                          trav_finder, hom ? 2: 1).first;                
+                                                                          trav_finder, hom ? 2: 1, ref_path_name, ref_interval).first;                
                 if (child_genotype.empty()) {
                     return make_pair(vector<SnarlTraversal>(), vector<int>());
                 }
@@ -533,9 +570,11 @@ SnarlTraversal LegacyCaller::get_reference_traversal(const Snarl& snarl, Travers
 pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::re_genotype(const Snarl& snarl, TraversalFinder& trav_finder,
                                                                     const vector<SnarlTraversal>& in_traversals,
                                                                     const vector<int>& in_genotype,
-                                                                    int ploidy) const {
+                                                                    int ploidy,
+                                                                    const string& ref_path_name,
+                                                                    pair<size_t, size_t> ref_interval) const {
     assert(in_traversals.size() == in_genotype.size());
-
+    
     // create a set of unique traversal candidates that must include the reference first
     vector<SnarlTraversal> rg_traversals;
     // add our reference traversal to the front
@@ -556,7 +595,7 @@ pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::re_genotype(const Snarl&
     }
 
     // re-genotype the candidates
-    vector<int> rg_genotype = snarl_caller.genotype(snarl, rg_traversals, 0, ploidy);
+    vector<int> rg_genotype = snarl_caller.genotype(snarl, rg_traversals, 0, ploidy, ref_path_name, ref_interval);
 
     // convert our output to something that emit_variant() will understand
     // todo: this is needlessly inefficient and should be streamlined to operate
@@ -634,7 +673,7 @@ void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder
     // fill out the rest of the variant
     out_variant.sequenceName = ref_path_name;
     // +1 to convert to 1-based VCF
-    out_variant.position = get_ref_position(snarl, ref_path_name).first + ref_offsets.find(ref_path_name)->second + 1; 
+    out_variant.position = get<0>(get_ref_interval(snarl, ref_path_name)) + ref_offsets.find(ref_path_name)->second + 1; 
     out_variant.id = std::to_string(snarl.start().node_id()) + "_" + std::to_string(snarl.end().node_id());
     out_variant.filter = "PASS";
     out_variant.updateAlleleIndexes();
@@ -691,7 +730,7 @@ pair<string, PathIndex*> LegacyCaller::find_index(const Snarl& snarl, const vect
     return make_pair("", nullptr);
 }
 
-pair<size_t, bool> LegacyCaller::get_ref_position(const Snarl& snarl, const string& ref_path_name) const {
+tuple<size_t, size_t, bool> LegacyCaller::get_ref_interval(const Snarl& snarl, const string& ref_path_name) const {
     path_handle_t path_handle = graph.get_path_handle(ref_path_name);
 
     handle_t start_handle = graph.get_handle(snarl.start().node_id(), snarl.start().backward());
@@ -743,7 +782,11 @@ pair<size_t, bool> LegacyCaller::get_ref_position(const Snarl& snarl, const stri
     size_t end_position = end_step == end_steps.begin()->second ? end_steps.begin()->first : graph.get_position_of_step(end_step);
     bool backward = end_position < start_position;
 
-    return make_pair(backward ? end_position : start_position, backward);
+    if (backward) {
+        return make_tuple(end_position, start_position, backward);
+    } else {
+        return make_tuple(start_position, end_position, backward);
+    }
 }
 
 void LegacyCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const {

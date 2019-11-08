@@ -60,15 +60,17 @@ tuple<Support, Support, int> TraversalSupportFinder::get_child_support(const Sna
 
 
 Support TraversalSupportFinder::get_traversal_support(const SnarlTraversal& traversal) const {
-    return get_traversal_set_support({traversal}, {}, false, false).at(0);
+    return get_traversal_set_support({traversal}, {}, false, false, false).at(0);
 }
 
 vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<SnarlTraversal>& traversals,
-                                                                   const vector<int>& shared_travs,
-                                                                   bool exclusive_only,
-                                                                   bool exclusive_count,
-                                                                   int ref_trav_idx) const {
-
+                                                                  const vector<int>& shared_travs,
+                                                                  bool exclusive_only,
+                                                                  bool exclusive_count,
+                                                                  bool unique,
+                                                                  int ref_trav_idx) const {
+    assert(!unique || (exclusive_count || exclusive_only));
+    
     // pass 1: how many times have we seen a node or edge
     unordered_map<id_t, int> node_counts;
     unordered_map<edge_t, int> edge_counts;
@@ -169,12 +171,16 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
                 length = graph.get_length(graph.get_handle(visit.node_id()));
                 if (node_counts.count(visit.node_id())) {
                     share_count = node_counts[visit.node_id()];
+                } else if (unique) {
+                    node_counts[visit.node_id()] = 1;
                 }
             } else {
                 // get the child support
                 tie(min_support, avg_support, length) = get_child_support(visit.snarl());
                 if (child_counts.count(visit.snarl())) {
                     share_count = child_counts[visit.snarl()];
+                } else if (unique) {
+                    child_counts[visit.snarl()] = 1;
                 }
             }
             if (count_end_nodes || (visit_idx > 0 && visit_idx < trav.visit_size() - 1)) {
@@ -188,7 +194,9 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
                 min_support = get_edge_support(edge);
                 length = get_edge_length(edge, ref_offsets);
                 if (edge_counts.count(edge)) {
-                    share_count = edge_counts[edge];
+                    share_count = edge_counts[edge];                    
+                } else if (unique) {
+                    edge_counts[edge] = 1;
                 }
                 update_support(trav_idx, min_support, min_support, length, share_count);
             }
