@@ -33,11 +33,11 @@ RUN apt-get -qq -y update && \
     sudo
 
 # To increase portability of the docker image, set the target CPU architecture to
-# Ivy Bridge (2012) rather than auto-detecting the build machine's CPU.
-# Since we build and run protoc, we need ivybridge or later to actually build the container.
-# But we then don't depend on the build host's architecture
-RUN sed -i s/march=native/march=ivybridge/ deps/sdsl-lite/CMakeLists.txt
-RUN make get-deps && . ./source_me.sh && env && make include/vg_git_version.hpp && CXXFLAGS=" -march=ivybridge " make -j$(nproc) && make static && strip bin/vg
+# Nehalem (2008) rather than auto-detecting the build machine's CPU.
+# This has no AVX1, AVX2, or PCLMUL, but it does have SSE4.2.
+# UCSC has a Nehalem machine that we want to support.
+RUN sed -i s/march=native/march=nehalem/ deps/sdsl-lite/CMakeLists.txt
+RUN make get-deps && . ./source_me.sh && env && make include/vg_git_version.hpp && CXXFLAGS=" -march=nehalem " make -j$(nproc) && make static && strip bin/vg
 
 ENV PATH /vg/bin:$PATH
 

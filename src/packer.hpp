@@ -5,6 +5,7 @@
 #include <map>
 #include <chrono>
 #include <ctime>
+#include <mutex>
 #include "omp.h"
 #include "lru_cache.h"
 #include "alignment.hpp"
@@ -29,17 +30,25 @@ using namespace sdsl;
 /// In memory, the coverages are stored in SDSL int vectors (dynamic) and on disk they are compressed int vectors
 class Packer {
 public:
+    
+    /// Some helper functions to heuristically estimate input parameters for constructor
+    static size_t estimate_data_width(size_t expected_coverage);
+    static size_t estimate_batch_size(size_t num_threads);
+    static size_t estimate_bin_count(size_t num_threads);
+    
     Packer(void);
     /// Create a Packer
     /// graph : Must implement the VectorizableHandleGraph interface
     /// bin_size : Bin coverage into bins
     /// coverage_bins : Use this many coverage objects.  Using one / thread allows faster merge
+    /// coverage_locks : Number of mutexes to use for each of node and edge coverage.
     /// data_width : Number of bits per entry in the dynamic coverage vector.  Higher values get stored in a map
     /// record_bases : Store the base coverage
     /// record_edges : Store the edge coverage
     /// record_edits : Store the edits
     Packer(const HandleGraph* graph, size_t bin_size = 0, size_t coverage_bins = 1, size_t data_width = 8, bool record_bases = true, bool record_edges = true, bool record_edits = true);
-    ~Packer(void);
+    ~Packer();
+    void clear();
 
     /// Add coverage from given alignment to the indexes
     /// aln : given alignemnt
@@ -73,7 +82,7 @@ public:
     size_t get_n_bins(void) const;
     bool is_dynamic(void) const;
     const HandleGraph* get_graph() const;
-    size_t coverage_size(void);
+    size_t coverage_size(void) const ;
     void increment_coverage(size_t i);
     void increment_coverage(size_t i, size_t v);
 
@@ -82,11 +91,18 @@ public:
     size_t edge_vector_size(void) const;
     size_t edge_index(const Edge& e) const;
     void increment_edge_coverage(size_t i);
-    void increment_edge_coverage(size_t i, size_t v);
+    void increment_edge_coverage(size_t i, size_t v);    
+   
 private:
     /// map from absolute postion to positions in the binned arrays
     pair<size_t, size_t> coverage_bin_offset(size_t i) const;
     pair<size_t, size_t> edge_coverage_bin_offset(size_t i) const;
+    /// get the size of a bin
+    size_t coverage_bin_size(size_t i) const;
+    size_t edge_coverage_bin_size(size_t i) const;
+    /// initialize coverage bins on demand
+    void init_coverage_bin(size_t i);
+    void init_edge_coverage_bin(size_t i);
     
     void ensure_edit_tmpfiles_open(void);
     void close_edit_tmpfiles(void);
@@ -96,18 +112,29 @@ private:
     // base graph
     const HandleGraph* graph;
 
+    // data with for counter arrays
+    size_t data_width;
+    // bin sizes (last bins may be a bit bicker)
+    size_t cov_bin_size;
+    size_t edge_cov_bin_size;
+
     // dynamic model
     // base coverage.  we bin to make merging faster
-    vector<gcsa::CounterArray> coverage_dynamic;
+    vector<gcsa::CounterArray*> coverage_dynamic;
     // total length of above vectors
     size_t num_bases_dynamic;
+    // one mutex per element of coverage_dynamic
+    std::mutex* base_locks;
     // edge coverage.  we bin to make merging faster
-    vector<gcsa::CounterArray> edge_coverage_dynamic;
+    vector<gcsa::CounterArray*> edge_coverage_dynamic;
     // total length of above
     size_t num_edges_dynamic;
-    vector<string> edit_tmpfile_names;
+    // one mutex per element of edge_coverage_dynamic
+    std::mutex* edge_locks;
     
+    vector<string> edit_tmpfile_names;
     vector<ofstream*> tmpfstreams;
+    std::mutex* tmpfstream_locks;
     // which bin should we use
     size_t bin_for_position(size_t i) const;
     size_t n_bins = 1;
@@ -137,8 +164,8 @@ private:
     int compute_quality(const Alignment& aln, size_t position_in_read) const;
     int combine_qualities(int map_quality, int base_quality) const;
     
-    // Avoid recomputing qualities in above
-    mutable LRUCache<pair<int, int>, int>* quality_cache;
+    // Avoid recomputing qualities in above (one per thread)
+    mutable vector<LRUCache<pair<int, int>, int>*> quality_cache;
     static const int maximum_quality;
     static const int lru_cache_size;
     
