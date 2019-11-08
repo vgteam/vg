@@ -1,3 +1,4 @@
+#include <thread>
 #include "packer.hpp"
 #include "../vg.hpp"
 
@@ -6,12 +7,28 @@
 namespace vg {
 
 const int Packer::maximum_quality = 60;
-const int Packer::lru_cache_size = 50;
+const int Packer::lru_cache_size = 4096;
 
-Packer::Packer(void) : graph(nullptr), num_bases_dynamic(0), num_edges_dynamic(0), quality_cache(nullptr) { }
+size_t Packer::estimate_data_width(size_t expected_coverage) {
+    return std::ceil(std::log2(2 * expected_coverage));
+}
+
+size_t Packer::estimate_batch_size(size_t num_threads) {
+    size_t batch_size = max((size_t)128, (size_t)(pow(2, 14 - log2(num_threads))));
+    if (batch_size % 2 != 0) {
+        ++batch_size;
+    }
+    return batch_size;
+}
+
+size_t Packer::estimate_bin_count(size_t num_threads) {
+    return pow(2, log2(num_threads) + 14);
+}
+
+Packer::Packer(void) : graph(nullptr), data_width(8), cov_bin_size(0), edge_cov_bin_size(0), num_bases_dynamic(0), base_locks(nullptr), num_edges_dynamic(0), edge_locks(nullptr), tmpfstream_locks(nullptr) { }
 
 Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, size_t data_width, bool record_bases, bool record_edges, bool record_edits) :
-    graph(graph), bin_size(bin_size), record_bases(record_bases), record_edges(record_edges), record_edits(record_edits) {
+    graph(graph), data_width(data_width), bin_size(bin_size), record_bases(record_bases), record_edges(record_edges), record_edits(record_edits) {
     // get the size of the base coverage counter
     num_bases_dynamic = 0;
     if (record_bases) {
@@ -35,27 +52,60 @@ Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, 
     coverage_dynamic.reserve(coverage_bins);
     edge_coverage_dynamic.reserve(coverage_bins);
 
-    // initialize a coverage counter for each bin (totally independent from the edit coverage bins)
-    for (size_t i = 0; i < coverage_bins; ++i) {
-        size_t cov_bin_size = num_bases_dynamic / coverage_bins + (i == coverage_bins - 1 ? num_bases_dynamic % coverage_bins : 0);
-        coverage_dynamic.emplace_back(cov_bin_size, data_width);
-        size_t edge_bin_size = num_edges_dynamic / coverage_bins + (i == coverage_bins - 1 ? num_edges_dynamic % coverage_bins : 0);
-        edge_coverage_dynamic.emplace_back(edge_bin_size, data_width);
-    }
+    // coverage counter for each bin (totally independent from the edit coverage bins)
+    // they are initialized on-demand to better support sparse use-cases
+    coverage_dynamic.resize(coverage_bins, nullptr);
+    edge_coverage_dynamic.resize(coverage_bins, nullptr);
+    // need this for every lookup, so store here
+    cov_bin_size = coverage_dynamic.size() > 0 ? num_bases_dynamic / coverage_dynamic.size() : 0;
+    edge_cov_bin_size = edge_coverage_dynamic.size() > 0 ? num_edges_dynamic / edge_coverage_dynamic.size() : 0;
 
+    // mutexes for coverage
+    base_locks = new std::mutex[coverage_dynamic.size()];
+    edge_locks = new std::mutex[edge_coverage_dynamic.size()];
+    tmpfstream_locks = nullptr;
+    
     // count the bins if binning
     if (bin_size) {
         n_bins = num_bases_dynamic / bin_size + 1;
     }
+    if (record_edits) { 
+        tmpfstream_locks = new std::mutex[n_bins];
+        // open tmpfile if needed
+        ensure_edit_tmpfiles_open();
+    }
 
     // speed up quality computation if necessary
-    quality_cache = new LRUCache<pair<int, int>, int>(lru_cache_size);
+    for (size_t i = 0; i < get_thread_count(); ++i) {
+        quality_cache.push_back(new LRUCache<pair<int, int>, int>(lru_cache_size));
+    }
 }
 
-Packer::~Packer(void) {
+void Packer::clear() {
+    for (auto& counter : coverage_dynamic) {
+        delete counter;
+        counter = nullptr;
+    }
+    for (auto& counter : edge_coverage_dynamic) {
+        delete counter;
+        counter = nullptr;
+    }
+    delete [] base_locks;
+    base_locks = nullptr;
+    delete [] edge_locks;
+    edge_locks = nullptr;
+    delete [] tmpfstream_locks;
+    tmpfstream_locks = nullptr;
     close_edit_tmpfiles();
     remove_edit_tmpfiles();
-    delete quality_cache;
+    for (auto& lru_cache : quality_cache) {
+        delete lru_cache;
+        lru_cache = nullptr;
+    }
+}
+
+Packer::~Packer() {
+    clear();
 }
 
 void Packer::load_from_file(const string& file_name) {
@@ -173,8 +223,9 @@ void Packer::collect_coverage(const vector<Packer*>& packers) {
 #pragma omp parallel for
     for (size_t i = 0; i < coverage_dynamic.size(); ++i) {
         if (record_bases) {
-            size_t base_offset = i * coverage_dynamic[0].size();
-            for (size_t j = 0; j < coverage_dynamic[i].size(); ++j) {
+            size_t base_offset = i * cov_bin_size;
+            size_t bin_size = coverage_bin_size(i);
+            for (size_t j = 0; j < bin_size; ++j) {
                 size_t inc_cov = 0;
                 for (size_t k = 0; k < packers.size(); ++k) {
                     inc_cov += packers[k]->coverage_at_position(j + base_offset);
@@ -183,8 +234,9 @@ void Packer::collect_coverage(const vector<Packer*>& packers) {
             }
         }
         if (record_edges) {
-            size_t edge_base_offset = i * edge_coverage_dynamic[0].size();
-            for (size_t j = 0; j < edge_coverage_dynamic[i].size(); ++j) {
+            size_t edge_base_offset = i * edge_cov_bin_size;
+            size_t edge_bin_size = edge_coverage_bin_size(i);
+            for (size_t j = 0; j < edge_bin_size; ++j) {
                 size_t inc_edge_cov = 0;
                 for (size_t k = 0; k < packers.size(); ++k) {
                     inc_edge_cov += packers[k]->edge_coverage(j + edge_base_offset);
@@ -226,22 +278,51 @@ void Packer::make_compact(void) {
     }
     // sync edit file
     close_edit_tmpfiles();
+    
     // temporaries for construction
     size_t basis_length = coverage_size();
     int_vector<> coverage_iv;
-    util::assign(coverage_iv, int_vector<>(basis_length));
+    size_t edge_coverage_length = edge_vector_size();
+    int_vector<> edge_coverage_iv;
+#pragma omp parallel
+    {
+#pragma omp single
+        {
+#pragma omp task
+            {
+                util::assign(coverage_iv, int_vector<>(basis_length));
+            }
+#pragma omp task
+            {
+                util::assign(edge_coverage_iv, int_vector<>(edge_coverage_length));
+            }
+        }
+    }
+#pragma omp parallel for
     for (size_t i = 0; i < basis_length; ++i) {
         coverage_iv[i] = coverage_at_position(i);
     }
-    size_t edge_coverage_length = edge_vector_size();
-    int_vector<> edge_coverage_iv;
-    util::assign(edge_coverage_iv, int_vector<>(edge_coverage_length));
+#pragma omp parallel for
     for (size_t i = 0; i < edge_coverage_length; ++i) {
         edge_coverage_iv[i] = edge_coverage(i);
     }
-    util::assign(edge_coverage_civ, edge_coverage_iv);
+
+    #pragma omp parallel
+    {
+#pragma omp single
+        {
+#pragma omp task
+            {
+                util::assign(coverage_civ, coverage_iv);
+            }
+#pragma omp task
+            {
+                util::assign(edge_coverage_civ, edge_coverage_iv);
+            }
+        }
+    }
+    
     edit_csas.resize(edit_tmpfile_names.size());
-    util::assign(coverage_civ, coverage_iv);
     construct_config::byte_algo_sa = SE_SAIS;
 #pragma omp parallel for
     for (size_t i = 0; i < edit_tmpfile_names.size(); ++i) {
@@ -309,8 +390,6 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq , bool qual_a
     if (aln.mapping_quality() < min_mapq) {
         return;
     }
-    // open tmpfile if needed
-    ensure_edit_tmpfiles_open();
     // count the nodes, edges, and edits
     Mapping prev_mapping;
     bool has_prev_mapping = false;
@@ -361,6 +440,7 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq , bool qual_a
                 string pos_repr = pos_key(i);
                 string edit_repr = edit_value(edit, mapping.position().is_reverse());
                 size_t bin = bin_for_position(i);
+                std::lock_guard<std::mutex> guard(tmpfstream_locks[bin]);
                 *tmpfstreams[bin] << pos_repr << edit_repr;
             } 
             if (mapping.position().is_reverse()) {
@@ -476,7 +556,7 @@ string Packer::unescape_delim(const string& s, char d) const {
     return unescaped;
 }
 
-size_t Packer::coverage_size(void) {
+size_t Packer::coverage_size(void) const {
     if (is_compacted){
         return coverage_civ.size();
     }
@@ -495,37 +575,77 @@ size_t Packer::edge_vector_size(void) const{
 }
 
 pair<size_t, size_t> Packer::coverage_bin_offset(size_t i) const {
-    size_t bin = min((size_t)(i / coverage_dynamic[0].size()), (size_t)(coverage_dynamic.size() - 1));
+    size_t bin = min((size_t)(i / cov_bin_size), (size_t)(coverage_dynamic.size() - 1));
     // last bin can have different size so we don't use mod
-    size_t offset = i - bin * coverage_dynamic[0].size();
+    size_t offset = i - bin * cov_bin_size;
     return make_pair(bin, offset);
 }
 
 pair<size_t, size_t> Packer::edge_coverage_bin_offset(size_t i) const {
-    size_t bin = min((size_t)(i / edge_coverage_dynamic[0].size()), (size_t)(edge_coverage_dynamic.size() - 1));
+    size_t bin = min((size_t)(i / edge_cov_bin_size), (size_t)(edge_coverage_dynamic.size() - 1));
     // last bin can have different size so we don't use mod
-    size_t offset = i - bin * edge_coverage_dynamic[0].size();
+    size_t offset = i - bin * edge_cov_bin_size;
     return make_pair(bin, offset);
+}
+
+size_t Packer::coverage_bin_size(size_t i) const {
+    size_t bin_size = cov_bin_size;
+    if (i == coverage_dynamic.size() - 1) {
+        bin_size += num_bases_dynamic % coverage_dynamic.size();
+    }
+    return bin_size;
+}
+
+size_t Packer::edge_coverage_bin_size(size_t i) const {
+    size_t bin_size = edge_cov_bin_size;
+    if (i == edge_coverage_dynamic.size() - 1) {
+        bin_size += num_edges_dynamic % edge_coverage_dynamic.size();
+    }
+    return bin_size;
+}
+
+void Packer::init_coverage_bin(size_t i) {
+    if (coverage_dynamic[i] == nullptr) {
+        coverage_dynamic[i] = new gcsa::CounterArray(coverage_bin_size(i), data_width);
+    }
+}
+
+void Packer::init_edge_coverage_bin(size_t i) {
+    if (edge_coverage_dynamic[i] == nullptr) {
+        edge_coverage_dynamic[i] = new gcsa::CounterArray(edge_coverage_bin_size(i), data_width);
+    }
 }
 
 void Packer::increment_coverage(size_t i) {
     pair<size_t, size_t> bin_offset = coverage_bin_offset(i);
-    coverage_dynamic.at(bin_offset.first).increment(bin_offset.second);
+    std::lock_guard<std::mutex> guard(base_locks[bin_offset.first]);
+    init_coverage_bin(bin_offset.first);
+    coverage_dynamic.at(bin_offset.first)->increment(bin_offset.second);
 }
 
 void Packer::increment_coverage(size_t i, size_t v) {
-    pair<size_t, size_t> bin_offset = coverage_bin_offset(i);
-    coverage_dynamic.at(bin_offset.first).increment(bin_offset.second, v);
+    if (v > 0) {
+        pair<size_t, size_t> bin_offset = coverage_bin_offset(i);
+        std::lock_guard<std::mutex> guard(base_locks[bin_offset.first]);
+        init_coverage_bin(bin_offset.first);
+        coverage_dynamic.at(bin_offset.first)->increment(bin_offset.second, v);
+    }
 }
 
 void Packer::increment_edge_coverage(size_t i) {
     pair<size_t, size_t> bin_offset = edge_coverage_bin_offset(i);
-    edge_coverage_dynamic.at(bin_offset.first).increment(bin_offset.second);
+    std::lock_guard<std::mutex> guard(edge_locks[bin_offset.first]);
+    init_edge_coverage_bin(bin_offset.first);
+    edge_coverage_dynamic.at(bin_offset.first)->increment(bin_offset.second);
 }
 
 void Packer::increment_edge_coverage(size_t i, size_t v) {
-    pair<size_t, size_t> bin_offset = edge_coverage_bin_offset(i);
-    edge_coverage_dynamic.at(bin_offset.first).increment(bin_offset.second, v);
+    if (v > 0) {
+        pair<size_t, size_t> bin_offset = edge_coverage_bin_offset(i);
+        std::lock_guard<std::mutex> guard(edge_locks[bin_offset.first]);
+        init_edge_coverage_bin(bin_offset.first);
+        edge_coverage_dynamic.at(bin_offset.first)->increment(bin_offset.second, v);
+    }
 }
 
 size_t Packer::coverage_at_position(size_t i) const {
@@ -533,7 +653,11 @@ size_t Packer::coverage_at_position(size_t i) const {
         return coverage_civ[i];
     } else {
         pair<size_t, size_t> bin_offset = coverage_bin_offset(i);
-        return coverage_dynamic.at(bin_offset.first)[bin_offset.second];
+        if (coverage_dynamic[bin_offset.first] == nullptr) {
+            return 0;
+        } else {
+            return (*coverage_dynamic.at(bin_offset.first))[bin_offset.second];
+        }
     }
 }
 
@@ -543,7 +667,11 @@ size_t Packer::edge_coverage(size_t i) const {
     }
     else{
         pair<size_t, size_t> bin_offset = edge_coverage_bin_offset(i);
-        return edge_coverage_dynamic.at(bin_offset.first)[bin_offset.second];
+        if (edge_coverage_dynamic[bin_offset.first] == nullptr) {
+            return 0;
+        } else {
+            return (*edge_coverage_dynamic.at(bin_offset.first))[bin_offset.second];
+        }
     }
 }
 
@@ -680,7 +808,8 @@ int Packer::combine_qualities(int map_quality, int base_quality) const {
         }
 
         // look up the mapping and base quality in the cache to avoid recomputing
-        pair<int, bool> cached = quality_cache->retrieve(make_pair(map_quality, base_quality));
+        auto& qual_cache = *quality_cache[omp_get_thread_num()];
+        pair<int, bool> cached = qual_cache.retrieve(make_pair(map_quality, base_quality));
         if (cached.second == true) {
             return cached.first;
         } else {
@@ -691,7 +820,7 @@ int Packer::combine_qualities(int map_quality, int base_quality) const {
             // clamp our quality to 60
             int qual = min((int)logprob_to_phred(p_err), (int)maximum_quality);
             // update the cache
-            quality_cache->put(make_pair(map_quality, base_quality), qual);
+            qual_cache.put(make_pair(map_quality, base_quality), qual);
             return qual;
         }
     }

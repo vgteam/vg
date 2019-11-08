@@ -3,6 +3,7 @@
 
 #include "augment.hpp"
 #include "alignment.hpp"
+#include "packer.hpp"
 
 //#define debug
 
@@ -18,15 +19,23 @@ void augment(MutablePathMutableHandleGraph* graph,
              bool embed_paths,
              bool break_at_ends,
              bool remove_softclips,
-             bool filter_out_of_graph_alignments) {
+             bool filter_out_of_graph_alignments,
+             double min_baseq,
+             double min_mapq,
+             Packer* packer,
+             size_t min_bp_coverage) {
 
-    function<void(function<void(Alignment&)>, bool)> iterate_gam =
-        [&gam_stream] (function<void(Alignment&)> aln_callback, bool reset_stream) {
+    function<void(function<void(Alignment&)>, bool, bool)> iterate_gam =
+        [&gam_stream] (function<void(Alignment&)> aln_callback, bool reset_stream, bool parallel) {
         if (reset_stream) {
             gam_stream.clear();
             gam_stream.seekg(0, ios_base::beg);
         }
-        vg::io::for_each(gam_stream, aln_callback);
+        if (parallel) {
+            vg::io::for_each_parallel(gam_stream, aln_callback, Packer::estimate_batch_size(get_thread_count()));
+        } else {
+            vg::io::for_each(gam_stream, aln_callback);
+        }
     };
 
     augment_impl(graph,
@@ -36,7 +45,11 @@ void augment(MutablePathMutableHandleGraph* graph,
                  embed_paths,
                  break_at_ends,
                  remove_softclips,
-                 filter_out_of_graph_alignments);
+                 filter_out_of_graph_alignments,
+                 min_baseq,
+                 min_mapq,                 
+                 packer,
+                 min_bp_coverage);
 }
 
 void augment(MutablePathMutableHandleGraph* graph,
@@ -46,15 +59,32 @@ void augment(MutablePathMutableHandleGraph* graph,
              bool embed_paths,
              bool break_at_ends,
              bool remove_softclips,
-             bool filter_out_of_graph_alignments) {
+             bool filter_out_of_graph_alignments,
+             double min_baseq,
+             double min_mapq,
+             Packer* packer,
+             size_t min_bp_coverage) {
     
-    function<void(function<void(Alignment&)>, bool)> iterate_gam =
-        [&path_vector] (function<void(Alignment&)> aln_callback, bool reset_stream) {
-        for (Path& path : path_vector) {
-            Alignment aln;
-            *aln.mutable_path() = path;
-            aln.set_name(path.name());
-            aln_callback(aln);
+    function<void(function<void(Alignment&)>, bool, bool)> iterate_gam =
+        [&path_vector] (function<void(Alignment&)> aln_callback, bool reset_stream, bool parallel) {
+        if (parallel) {
+#pragma omp parallel for
+            for (size_t i = 0; i < path_vector.size(); ++i) {
+                Path& path = path_vector[i];
+                Alignment aln;
+                *aln.mutable_path() = path;
+                aln.set_name(path.name());
+                aln_callback(aln);
+            }
+            
+        }
+        else {
+            for (Path& path : path_vector) {
+                Alignment aln;
+                *aln.mutable_path() = path;
+                aln.set_name(path.name());
+                aln_callback(aln);
+            }
         }
     };
 
@@ -65,20 +95,32 @@ void augment(MutablePathMutableHandleGraph* graph,
                  embed_paths,
                  break_at_ends,
                  remove_softclips,
-                 filter_out_of_graph_alignments);
+                 filter_out_of_graph_alignments,
+                 min_baseq,
+                 min_mapq,
+                 packer,
+                 min_bp_coverage);
 }
 
 void augment_impl(MutablePathMutableHandleGraph* graph,
-                  function<void(function<void(Alignment&)>, bool)> iterate_gam,
+                  function<void(function<void(Alignment&)>, bool, bool)> iterate_gam,
                   vector<Translation>* out_translations,
                   ostream* gam_out_stream,
                   bool embed_paths,
                   bool break_at_ends,
                   bool remove_softclips,
-                  bool filter_out_of_graph_alignments) {
-    // Collect the breakpoints
-    unordered_map<id_t, set<pos_t>> breakpoints;
+                  bool filter_out_of_graph_alignments,
+                  double min_baseq,
+                  double min_mapq,
+                  Packer* packer,
+                  size_t min_bp_coverage) {
 
+    // toggle between using Packer to store breakpoints or the STL map
+    bool packed_mode = min_bp_coverage > 0 || min_baseq > 0;
+    assert(!packed_mode || packer != nullptr);
+    
+    unordered_map<id_t, set<pos_t>> breakpoints;
+        
     // Check if alignment contains node that's not in the graph
     function<bool(const Path&)> check_in_graph = [&graph](const Path& path) {
         for (size_t i = 0; i < path.mapping_size(); ++i) {
@@ -94,7 +136,7 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
 #ifdef debug
             cerr << pb2json(aln.path()) << endl;
 #endif
-            if (filter_out_of_graph_alignments && !check_in_graph(aln.path())) {
+            if (aln.mapping_quality() < min_mapq || (filter_out_of_graph_alignments && !check_in_graph(aln.path()))) {
                 return;
             }
 
@@ -106,14 +148,28 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
             // Mapping (because we don't have or want a breakpoint there)
             Path simplified_path = simplify(aln.path());
 
-
             // Add in breakpoints from each path
-            find_breakpoints(simplified_path, breakpoints, break_at_ends);
+            if (packed_mode) {
+                find_packed_breakpoints(simplified_path, *packer, break_at_ends, aln.quality(), min_baseq);
+            } else {
+                // note: we cannot pass non-zero min_baseq here.  it relies on filter_breakpoints_by_coverage
+                // to work correctly, and must be passed in only via find_packed_breakpoints.
+                find_breakpoints(simplified_path, breakpoints, break_at_ends, "", 0);
+            }
+        }, false, packed_mode);
 
-        }, false);
+    if (packed_mode) {
+        // Filter the breakpoints by coverage
+        breakpoints = filter_breakpoints_by_coverage(*packer, min_bp_coverage);
+    } else {
+        // Invert the breakpoints that are on the reverse strand
+        breakpoints = forwardize_breakpoints(graph, breakpoints);
+    }
 
-    // Invert the breakpoints that are on the reverse strand
-    breakpoints = forwardize_breakpoints(graph, breakpoints);
+    // don't need this anymore: free up some memory
+    if (packer != nullptr) {
+        packer->clear();
+    }
 
     // get the node sizes, for use when making the translation
     unordered_map<id_t, size_t> orig_node_sizes;
@@ -137,7 +193,7 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
 
     // Second pass: add the nodes and edges
     iterate_gam((function<void(Alignment&)>)[&](Alignment& aln) {
-            if (filter_out_of_graph_alignments && !check_in_graph(aln.path())) {
+            if (aln.mapping_quality() < min_mapq || (filter_out_of_graph_alignments && !check_in_graph(aln.path()))) {
                 return;
             }
             
@@ -151,43 +207,53 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
             // the input paths in memory
             Path simplified_path = simplify(aln.path());
 
-            // Now go through each new path again, by reference so we can overwrite.
-        
-            // Create new nodes/wire things up. Get the added version of the path.
-            Path added = add_nodes_and_edges(graph, simplified_path, node_translation, added_seqs,
-                                             added_nodes, orig_node_sizes);
-
-            // Copy over the name
-            *added.mutable_name() = aln.name();
-
-            if (embed_paths) {
-                add_path_to_graph(graph, added);
+            // Filter out edits corresponding to breakpoints that didn't meet our coverage
+            // criteria
+            bool has_edits = true;
+            if (min_bp_coverage > 0) {
+                has_edits = simplify_filtered_edits(graph, simplified_path, node_translation, orig_node_sizes);
             }
 
-            // something is off about this check.
-            // assuming the GAM path is sorted, let's double-check that its edges are here
-            for (size_t i = 1; i < added.mapping_size(); ++i) {
-                auto& m1 = added.mapping(i-1);
-                auto& m2 = added.mapping(i);
-                // we're no longer sorting our input paths, so we assume they are sorted
-                assert((m1.rank() == 0 && m2.rank() == 0) || (m1.rank() + 1 == m2.rank()));
-                //if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
-                auto s1 = graph->get_handle(m1.position().node_id(), m1.position().is_reverse());
-                auto s2 = graph->get_handle(m2.position().node_id(), m2.position().is_reverse());
-                // check that we always have an edge between the two nodes in the correct direction
-                if (!graph->has_edge(s1, s2)) {
-                    // force these edges in
-                    graph->create_edge(s1, s2);
+            // Now go through each new path again, by reference so we can overwrite.
+            // but only if we have a reason to
+            if (has_edits || gam_out_stream != nullptr || embed_paths) {
+        
+                // Create new nodes/wire things up. Get the added version of the path.
+                Path added = add_nodes_and_edges(graph, simplified_path, node_translation, added_seqs,
+                                                 added_nodes, orig_node_sizes);
+
+                // Copy over the name
+                *added.mutable_name() = aln.name();
+
+                if (embed_paths) {
+                    add_path_to_graph(graph, added);
+                }
+
+                // something is off about this check.
+                // assuming the GAM path is sorted, let's double-check that its edges are here
+                for (size_t i = 1; i < added.mapping_size(); ++i) {
+                    auto& m1 = added.mapping(i-1);
+                    auto& m2 = added.mapping(i);
+                    // we're no longer sorting our input paths, so we assume they are sorted
+                    assert((m1.rank() == 0 && m2.rank() == 0) || (m1.rank() + 1 == m2.rank()));
+                    //if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
+                    auto s1 = graph->get_handle(m1.position().node_id(), m1.position().is_reverse());
+                    auto s2 = graph->get_handle(m2.position().node_id(), m2.position().is_reverse());
+                    // check that we always have an edge between the two nodes in the correct direction
+                    if (!graph->has_edge(s1, s2)) {
+                        // force these edges in
+                        graph->create_edge(s1, s2);
+                    }
+                }
+
+                // optionally write out the modified path to GAM
+                if (gam_out_stream != nullptr) {
+                    *aln.mutable_path() = added;
+                    gam_buffer.push_back(aln);
+                    vg::io::write_buffered(*gam_out_stream, gam_buffer, 100);
                 }
             }
-
-            // optionally write out the modified path to GAM
-            if (gam_out_stream != nullptr) {
-                *aln.mutable_path() = added;
-                gam_buffer.push_back(aln);
-                vg::io::write_buffered(*gam_out_stream, gam_buffer, 100);
-            }
-    }, true);
+        }, true, false);
     if (gam_out_stream != nullptr) {
         // Flush the buffer
         vg::io::write_buffered(*gam_out_stream, gam_buffer, 0);
@@ -235,15 +301,30 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
 
 }
 
+double get_avg_baseq(const Edit& edit, const string& base_quals, size_t position_in_read) {
+    double avg_qual = numeric_limits<int>::max();
+    if (!base_quals.empty() && !edit.sequence().empty() && (edit_is_sub(edit) || edit_is_insertion(edit))) {
+        double tot_qual = 0;
+        for (int i = 0; i < edit.sequence().length(); ++i) {
+            tot_qual += base_quals[position_in_read + i];
+        }
+        avg_qual = tot_qual / (double)edit.sequence().length();
+    }
+    return avg_qual;
+}
 
 // returns breakpoints on the forward strand of the nodes
-void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpoints, bool break_ends) {
+void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpoints, bool break_ends,
+                      const string& base_quals, double min_baseq) {
     // We need to work out what offsets we will need to break each node at, if
     // we want to add in all the new material and edges in this path.
 
 #ifdef debug
     cerr << "Processing path..." << endl;
 #endif
+
+    // The base position in the edit
+    size_t position_in_read = 0;
 
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         // For each Mapping in the path
@@ -285,38 +366,41 @@ void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpo
             cerr << pb2json(e) << endl;
 #endif
 
-            if (!edit_is_match(e) || (j == 0 && (i != 0 || break_ends))) {
-                // If this edit is not a perfect match, or if this is the first
-                // edit in this mapping and either we had a previous mapping we
-                // may need to connect to or we want to break at the path's
-                // start, we need to make sure we have a breakpoint at the start
-                // of this edit.
+            // Do the base quality check if applicable.  If it fails we just ignore the edit
+            if (min_baseq == 0 || get_avg_baseq(e, base_quals, position_in_read) >= min_baseq) {
+                
+                if (!edit_is_match(e) || (j == 0 && (i != 0 || break_ends))) {
+                    // If this edit is not a perfect match, or if this is the first
+                    // edit in this mapping and either we had a previous mapping we
+                    // may need to connect to or we want to break at the path's
+                    // start, we need to make sure we have a breakpoint at the start
+                    // of this edit.
 
 #ifdef debug
-                cerr << "Need to break " << node_id << " at edit lower end " <<
-                    edit_first_position << endl;
+                    cerr << "Need to break " << node_id << " at edit lower end " <<
+                        edit_first_position << endl;
 #endif
 
-                // We need to snip between edit_first_position and edit_first_position - direction.
-                // Note that it doesn't matter if we put breakpoints at 0 and 1-past-the-end; those will be ignored.
-                breakpoints[node_id].insert(edit_first_position);
-            }
+                    // We need to snip between edit_first_position and edit_first_position - direction.
+                    // Note that it doesn't matter if we put breakpoints at 0 and 1-past-the-end; those will be ignored.
+                    breakpoints[node_id].insert(edit_first_position);
+                }
 
-            if (!edit_is_match(e) || (j == m.edit_size() - 1 && (i != path.mapping_size() - 1 || break_ends))) {
-                // If this edit is not a perfect match, or if it is the last
-                // edit in a mapping and we have a subsequent mapping we might
-                // need to connect to or we want to break at the path ends, make
-                // sure we have a breakpoint at the end of this edit.
+                if (!edit_is_match(e) || (j == m.edit_size() - 1 && (i != path.mapping_size() - 1 || break_ends))) {
+                    // If this edit is not a perfect match, or if it is the last
+                    // edit in a mapping and we have a subsequent mapping we might
+                    // need to connect to or we want to break at the path ends, make
+                    // sure we have a breakpoint at the end of this edit.
 
 #ifdef debug
-                cerr << "Need to break " << node_id << " at past edit upper end " <<
-                    edit_last_position << endl;
+                    cerr << "Need to break " << node_id << " at past edit upper end " <<
+                        edit_last_position << endl;
 #endif
 
-                // We also need to snip between edit_last_position and edit_last_position + direction.
-                breakpoints[node_id].insert(edit_last_position);
+                    // We also need to snip between edit_last_position and edit_last_position + direction.
+                    breakpoints[node_id].insert(edit_last_position);
+                }
             }
-
             // TODO: for an insertion or substitution, note that we need a new
             // node and two new edges.
 
@@ -327,18 +411,11 @@ void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpo
             // Use up the portion of the node taken by this mapping, so we know
             // where the next mapping will start.
             edit_first_position = edit_last_position;
+
+            position_in_read += e.to_length();
         }
     }
 
-}
-
-path_handle_t add_path_to_graph(MutablePathHandleGraph* graph, const Path& path) {
-    path_handle_t path_handle = graph->create_path_handle(path.name(), path.is_circular());
-    for (int i = 0; i < path.mapping_size(); ++i) {
-        graph->append_step(path_handle, graph->get_handle(path.mapping(i).position().node_id(),
-                                                          path.mapping(i).position().is_reverse()));
-    }
-    return path_handle;
 }
 
 unordered_map<id_t, set<pos_t>> forwardize_breakpoints(const HandleGraph* graph,
@@ -370,6 +447,65 @@ unordered_map<id_t, set<pos_t>> forwardize_breakpoints(const HandleGraph* graph,
         }
     }
     return fwd;
+}
+
+
+// returns breakpoints on the forward strand of the nodes
+void find_packed_breakpoints(const Path& path, Packer& packed_breakpoints, bool break_ends,
+                             const string& base_quals, double min_baseq) {
+    // use existing methods to find the breakpoints, then copy them into a packer
+    // todo: streamline?
+    unordered_map<id_t, set<pos_t>> breakpoints;
+    find_breakpoints(path, breakpoints, break_ends, base_quals, min_baseq);
+    breakpoints = forwardize_breakpoints(packed_breakpoints.get_graph(), breakpoints);
+    const HandleGraph* graph = packed_breakpoints.get_graph();
+    for (auto& id_set : breakpoints) {
+        size_t node_len = graph->get_length(graph->get_handle(id_set.first));
+        Position position;
+        position.set_node_id(id_set.first);
+        for (auto pos : id_set.second) {
+            size_t offset = get_offset(pos);
+            if (offset < node_len - 1) {
+                position.set_offset(offset);
+                packed_breakpoints.increment_coverage(packed_breakpoints.position_in_basis(position));
+            }
+        }
+    }
+}
+
+unordered_map<id_t, set<pos_t>> filter_breakpoints_by_coverage(const Packer& packed_breakpoints, size_t min_bp_coverage) {
+    vector<unordered_map<id_t, set<pos_t>>> bp_maps(get_thread_count());
+    size_t n = packed_breakpoints.coverage_size();
+    const VectorizableHandleGraph* vec_graph = dynamic_cast<const VectorizableHandleGraph*>(packed_breakpoints.get_graph());
+    // we assume our position vector is much larger than the number of filtered breakpoints
+    // and scan it in parallel in a first pass
+#pragma omp parallel for
+    for (size_t i = 0; i < n; ++i) {
+        if (packed_breakpoints.coverage_at_position(i) >= min_bp_coverage) {
+            auto& bp_map = bp_maps[omp_get_thread_num()];
+            nid_t node_id = vec_graph->node_at_vector_offset(i+1);
+            size_t offset = i - vec_graph->node_vector_offset(node_id);
+            bp_map[node_id].insert(make_pos_t(node_id, false, offset));
+        }
+    }
+    // then collect up the breakpoints sequentially in a second pass
+    for (size_t i = 1; i < bp_maps.size(); ++i) {
+        for (auto& kv : bp_maps[i]) {
+            bp_maps[0][kv.first].insert(kv.second.begin(), kv.second.end());
+        }
+    }
+    
+    return bp_maps[0];
+}
+    
+
+path_handle_t add_path_to_graph(MutablePathHandleGraph* graph, const Path& path) {
+    path_handle_t path_handle = graph->create_path_handle(path.name(), path.is_circular());
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        graph->append_step(path_handle, graph->get_handle(path.mapping(i).position().node_id(),
+                                                          path.mapping(i).position().is_reverse()));
+    }
+    return path_handle;
 }
 
 map<pos_t, id_t> ensure_breakpoints(MutableHandleGraph* graph,
@@ -465,6 +601,116 @@ map<pos_t, id_t> ensure_breakpoints(MutableHandleGraph* graph,
     return toReturn;
 }
 
+// We use this function to get the id of the node that contains a position on an
+// original node.
+static nid_t find_new_node(HandleGraph* graph, pos_t old_pos, const map<pos_t, id_t>& node_translation) {
+    if(node_translation.find(make_pos_t(id(old_pos), false, 0)) == node_translation.end()) {
+        // The node is unchanged
+        return id(old_pos);
+    }
+    // Otherwise, get the first new node starting after that position, and
+    // then look left.
+    auto found = node_translation.upper_bound(old_pos);
+    assert(found != node_translation.end());
+    if (id(found->first) != id(old_pos)
+        || is_rev(found->first) != is_rev(old_pos)) {
+        return id_t(0);
+    }
+    // Get the thing before that (last key <= the position we want
+    --found;
+    assert(graph->has_node(found->second));
+
+    // Return the node we found.
+    return found->second;
+};
+
+
+bool simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id_t>& node_translation,
+                             const unordered_map<id_t, size_t>& orig_node_sizes,
+                             const string& base_quals, double min_baseq) {
+
+    // check if an edit position is chopped at its next or prev position
+    auto is_chopped = [&](pos_t edit_position, bool look_next) {
+        // are we adding to the offset?
+        bool forward = look_next != is_rev(edit_position);
+        bool chopped = true;
+        if (forward) {
+            // check if its chopped in the original graph
+            chopped = offset(edit_position) == orig_node_sizes.find(id(edit_position))->second - 1;
+            // check if its chopped in the translation
+            if (!chopped) {
+                auto edit_next_position = edit_position;
+                ++get_offset(edit_next_position);
+                chopped = find_new_node(graph, edit_position, node_translation) != find_new_node(graph, edit_next_position, node_translation);
+            }
+        } else {
+            // check if its chopped in the original graph
+            chopped = offset(edit_position) == 0;
+            // check if its chopped in the translation
+            if (!chopped) {
+                auto edit_prev_position = edit_position;
+                --get_offset(edit_prev_position);
+                chopped = find_new_node(graph, edit_position, node_translation) != find_new_node(graph, edit_prev_position, node_translation);
+            }
+        }
+        return chopped;
+    };
+
+    bool filtered_an_edit = false;
+    bool kept_an_edit = false;
+
+    // The base position in the edit
+    size_t position_in_read = 0;
+
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        // For each Mapping in the path
+        Mapping& m = *path.mutable_mapping(i);
+
+        // What node are we on? In old node ID space.
+        id_t node_id = m.position().node_id();
+
+        // See where the next edit starts in the node. It is always included
+        // (even when the edit runs backward), unless the edit has 0 length in
+        // the reference.
+        pos_t edit_first_position = make_pos_t(m.position());
+
+        for(size_t j = 0; j < m.edit_size(); ++j) {
+            // For each Edit in the mapping
+            Edit& e = *m.mutable_edit(j);
+
+            // Work out where its end position on the original node is (inclusive)
+            // We don't use this on insertions, so 0-from-length edits don't matter.
+            pos_t edit_last_position = edit_first_position;
+            get_offset(edit_last_position) += (e.from_length()?e.from_length()-1:0);
+
+            // skip edits whose breakpoitns weren't added due to the coverage filter
+            // or edits whose avg base quality fails the min_baseq filter
+            if (!edit_is_match(e)) {
+                if (!is_chopped(edit_first_position, true) || !is_chopped(edit_last_position, false)
+                    || (min_baseq > 0 && get_avg_baseq(e, base_quals, position_in_read) < min_baseq)) {
+                    e.set_to_length(e.from_length());
+                    e.set_sequence("");
+                    filtered_an_edit = true;
+                } else {
+                    kept_an_edit = true;
+                }
+            }
+
+            // Advance in the right direction along the original node for this edit.
+            // This way the next one will start at the right place.
+            get_offset(edit_first_position) += e.from_length();
+
+            position_in_read += e.to_length();
+        }
+    }
+
+    if (filtered_an_edit) {
+        // there's something to simplify
+        path = simplify(path);
+    }
+
+    return kept_an_edit;
+}
 
 Path add_nodes_and_edges(MutableHandleGraph* graph,
                          const Path& path,
@@ -485,6 +731,7 @@ Path add_nodes_and_edges(MutableHandleGraph* graph,
         max_node_size);  
 
 }
+
 
 Path add_nodes_and_edges(MutableHandleGraph* graph,
                          const Path& path,
@@ -518,36 +765,13 @@ Path add_nodes_and_edges(MutableHandleGraph* graph,
     Path embedded;
     embedded.set_name(path.name());
 
-    // We use this function to get the id of the node that contains a position on an
-    // original node.
-    auto find_new_node = [&](pos_t old_pos) {
-        if(node_translation.find(make_pos_t(id(old_pos), false, 0)) == node_translation.end()) {
-            // The node is unchanged
-            return id(old_pos);
-        }
-        // Otherwise, get the first new node starting after that position, and
-        // then look left.
-        auto found = node_translation.upper_bound(old_pos);
-        assert(found != node_translation.end());
-        if (id(found->first) != id(old_pos)
-            || is_rev(found->first) != is_rev(old_pos)) {
-            return id_t(0);
-        }
-        // Get the thing before that (last key <= the position we want
-        --found;
-        assert(graph->has_node(found->second));
-
-        // Return the node we found.
-        return found->second;
-    };
-
     auto create_new_mappings = [&](pos_t p1, pos_t p2, bool is_rev) {
         vector<Mapping> mappings;
         vector<id_t> nodes;
         for (pos_t p = p1; p <= p2; ++get_offset(p)) {
-            auto n = find_new_node(p);
+            auto n = find_new_node(graph, p, node_translation);
             assert(n != 0);
-            nodes.push_back(find_new_node(p));
+            nodes.push_back(find_new_node(graph, p, node_translation));
         }
         auto np = nodes.begin();
         while (np != nodes.end()) {
@@ -772,8 +996,8 @@ Path add_nodes_and_edges(MutableHandleGraph* graph,
                 // have additional breakpoints in the middle. So we need the
                 // left node, that contains the first base of the match, and the
                 // right node, that contains the last base of the match.
-                id_t left_node = find_new_node(edit_first_position);
-                id_t right_node = find_new_node(edit_last_position);
+                id_t left_node = find_new_node(graph, edit_first_position, node_translation);
+                id_t right_node = find_new_node(graph, edit_last_position, node_translation);
 
                 // TODO: we just assume the outer edges of these nodes are in
                 // the right places. They should be if we cut the breakpoints

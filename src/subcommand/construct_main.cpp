@@ -22,9 +22,9 @@ void help_construct(char** argv) {
          << "construct from a reference and variant calls:" << endl
          << "    -r, --reference FILE   input FASTA reference (may repeat)" << endl
          << "    -v, --vcf FILE         input VCF (may repeat)" << endl
-         << "    -n, --rename V=F       rename contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
+         << "    -n, --rename V=F       match contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
          << "    -a, --alt-paths        save paths for alts of variants by variant ID" << endl
-         << "    -R, --region REGION    specify a particular chromosome or 1-based inclusive region" << endl
+         << "    -R, --region REGION    specify a VCF contig name or 1-based inclusive region" << endl
          << "    -C, --region-is-chrom  don't attempt to parse the region (use when the reference" << endl
          << "                           sequence name could be inadvertently parsed as a region)" << endl
          << "    -z, --region-size N    variants per region to parallelize (default: 1024)" << endl
