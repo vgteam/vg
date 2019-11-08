@@ -512,7 +512,9 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
             // doesn't meet a certain cutoff
             vector<Support> secondary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, true, false, false, ref_trav_idx);
             for (int j = 0; j < secondary_exclusive_supports.size(); ++j) {
-                if (j != best_allele && support_val(secondary_exclusive_supports[j]) <= min_total_support_for_call) {
+                if (j != best_allele &&
+                    support_val(secondary_exclusive_supports[j]) < min_total_support_for_call &&
+                    support_val(secondary_exclusive_supports[j]) < support_val(supports[j])) {
                     skips.insert(j);
                 }
             }
