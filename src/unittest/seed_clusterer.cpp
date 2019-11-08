@@ -845,7 +845,7 @@ namespace unittest {
 
             uniform_int_distribution<int> randSnarlIndex(0, allSnarls.size()-1);
             default_random_engine generator(time(NULL));
-            for (size_t k = 0; k < 100 ; k++) {
+            for (size_t k = 0; k < 1000 ; k++) {
                 vector<vector<pos_t>> all_seeds;
                 all_seeds.emplace_back();
                 all_seeds.emplace_back();
@@ -892,7 +892,6 @@ namespace unittest {
                         for (size_t a = 0; a < one_read_clusters.size(); a++) {
                             // For each cluster -cluster this cluster to ensure that 
                             // there is only one
-                            cerr << a << " of " << one_read_clusters.size() << endl;
                             vector<size_t> clust = one_read_clusters[a];
                             
                             structures::UnionFind new_clusters (clust.size(), false);

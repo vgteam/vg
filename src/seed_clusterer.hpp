@@ -14,27 +14,26 @@ class SnarlSeedClusterer {
 
         SnarlSeedClusterer(MinimumDistanceIndex& dist_index);
 
+        //Represents all clusters for one vector of seeds
+        //Each cluster is a vector of indexes into the vector of seeds 
         typedef vector<vector<size_t>> cluster_group_t;
 
         ///Given a vector of seeds (pos_t) and a distance limit, 
         //cluster the seeds such that two seeds whose minimum distance
         //between them (including both of the positions) is less than
         // the distance limit are in the same cluster
-        //
-        //Returns a vector of clusters. Each cluster is a vector of
-        //indices into seeds
         cluster_group_t cluster_seeds ( vector<pos_t> seeds, int64_t read_distance_limit) const;
         
         ///The same thing, but for paired end reads.
-        //Given seeds from multiple reads of a fragment, cluster each set of seeds
-        //by the read distance and all seeds by the fragment distance limit
+        //Given seeds from multiple reads of a fragment, cluster each read
+        //by the read distance and all seeds by the fragment distance limit.
         //fragment_distance_limit must be greater than read_distance_limit
         //Returns clusters for each read and clusters of all the seeds in all reads
         //The read clusters refer to seeds by their indexes in the input vectors of seeds
         //The fragment clusters give seeds the index they would get if the vectors of
         // seeds were appended to each other in the order given
         tuple<vector<cluster_group_t>, cluster_group_t> cluster_seeds ( 
-                vector<vector<pos_t>> all_seeds,
+                vector<vector<pos_t>>& all_seeds,
                 int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
 
     private:
@@ -137,7 +136,8 @@ class SnarlSeedClusterer {
             //Vector of all the seeds for each read
             vector<vector<pos_t>>* all_seeds; 
 
-            //Vector of the offset of indices for each seed
+            //prefix sum vector of the number of seeds per read
+            //To get the index of a seed for the fragment clusters
             vector<size_t> read_index_offsets;
 
             //The minimum distance between nodes for them to be put in the
@@ -191,7 +191,8 @@ class SnarlSeedClusterer {
             hash_map<size_t,vector<pair<NetgraphNode,NodeClusters>>>
                                                           parent_snarl_to_nodes;
 
-            //Constructor takes in a pointer to the seeds and the distance limit 
+            //Constructor takes in a pointer to the seeds, the distance limits, and 
+            //the total number of seeds in all_seeds
             TreeState (vector<vector<pos_t>>* all_seeds, int64_t read_distance_limit, 
                        int64_t fragment_distance_limit, size_t seed_count) :
                 all_seeds(all_seeds),
@@ -200,9 +201,7 @@ class SnarlSeedClusterer {
                 fragment_union_find (seed_count, false),
                 read_index_offsets(1,0){
 
-                size_t total_seeds = 0;
                 for (vector<pos_t>& v : *all_seeds) {
-                    total_seeds += v.size();
                     size_t offset = read_index_offsets.back() + v.size();
                     read_index_offsets.push_back(offset);
                     read_cluster_dists.emplace_back(v.size(), make_pair(-1,-1));
@@ -231,8 +230,7 @@ class SnarlSeedClusterer {
         //Cluster all the chains at the current level
         void cluster_chains(TreeState& tree_state, size_t depth) const;
 
-        //Given a node and the indices of seeds on that node, root, 
-        //cluster the seeds
+        //Cluster the seeds on the specified node
         NodeClusters cluster_one_node(TreeState& tree_state, 
                                           id_t node_id, int64_t node_length) const; 
 
@@ -243,7 +241,6 @@ class SnarlSeedClusterer {
 
         //Cluster the seeds in a snarl given by snarl_index_i, an index into
         //dist_index.snarl_indexes
-        //rev is true if this snarl is reversed in its parent
         NodeClusters cluster_one_snarl(TreeState& tree_state,
                                        size_t snarl_index_i) const;
 

@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#define DEBUG_CLUSTER
+//#define DEBUG_CLUSTER
 
 namespace vg {
 
@@ -12,14 +12,14 @@ namespace vg {
 
     SnarlSeedClusterer::cluster_group_t SnarlSeedClusterer::cluster_seeds (vector<pos_t> seeds, int64_t read_distance_limit) const {
         vector<vector<pos_t>> all_seeds;
-        all_seeds.push_back(std::move(seeds));
-        tuple<vector<vector<vector<size_t>>>,vector<vector<size_t>>> all_clusters =
+        all_seeds.push_back(seeds);
+        tuple<vector<SnarlSeedClusterer::cluster_group_t>,SnarlSeedClusterer::cluster_group_t> all_clusters =
             cluster_seeds(all_seeds, read_distance_limit, 0);
         return std::get<0>(all_clusters)[0];
     };
 
     tuple<vector<SnarlSeedClusterer::cluster_group_t>,SnarlSeedClusterer::cluster_group_t> SnarlSeedClusterer::cluster_seeds (
-                  vector<vector<pos_t>> all_seeds, int64_t read_distance_limit,
+                  vector<vector<pos_t>>& all_seeds, int64_t read_distance_limit,
                   int64_t fragment_distance_limit) const {
         /* Given a vector of seeds and a limit, find a clustering of seeds where
          * seeds that are closer than the limit cluster together.
@@ -122,7 +122,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
             cerr << endl;
         }
 #endif
-        vector<vector<vector<size_t>>> read_clusters;
+        vector<SnarlSeedClusterer::cluster_group_t> read_clusters;
         for (auto& uf : tree_state.read_union_find) {
             read_clusters.emplace_back(uf.all_groups());
         }
@@ -320,7 +320,6 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
                 if (seed_range_start != tree_state.node_to_seeds[read_num].end() && seed_range_start->first == node_id) {
 
                     size_t group_id = seed_range_start->second;
-                    if (fragment_group_id == -1 ) fragment_group_id = seed_range_start->second + tree_state.read_index_offsets[read_num];
 
                     for (auto iter = seed_range_start; iter != tree_state.node_to_seeds[read_num].end() && iter->first == node_id; ++iter) {
                         //For each seed on this node, add it to the cluster
@@ -344,6 +343,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
 
                         tree_state.read_union_find[read_num].union_groups(group_id, iter->second);
                         if (tree_state.fragment_distance_limit != 0 ) {
+                            if (fragment_group_id == -1 ) fragment_group_id = seed_range_start->second + tree_state.read_index_offsets[read_num];
                             tree_state.fragment_union_find.union_groups(fragment_group_id, iter->second + tree_state.read_index_offsets[read_num]);
                         }
 
@@ -444,8 +444,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
             size_t read_num = std::get<0>(s);
 
             if (read_last_offset[read_num] != -1 &&
-                abs(std::get<2>(s) - read_last_offset[read_num]) <= tree_state.read_distance_limit) {
-                //TODO: Need abs?
+                std::get<2>(s) - read_last_offset[read_num] <= tree_state.read_distance_limit) {
                 //If this seed is in the same read cluster as the previous one,
                 //union them
 
@@ -474,7 +473,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
                         make_pair(read_last_offset[read_num], node_length - read_last_offset[read_num] + 1);
                 if (tree_state.fragment_distance_limit != 0) {
                     if (fragment_last_offset != -1 &&
-                        abs(std::get<2>(s) - fragment_last_offset) <= tree_state.fragment_distance_limit) {
+                        std::get<2>(s) - fragment_last_offset <= tree_state.fragment_distance_limit) {
                         //If this is a new read cluster but the same fragment cluster
                         tree_state.fragment_union_find.union_groups(std::get<1>(s)+tree_state.read_index_offsets[read_num], fragment_last_cluster);
                         fragment_last_cluster = tree_state.fragment_union_find.find_group(fragment_last_cluster);
@@ -619,7 +618,6 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
                 fragment_combined_group = tree_state.fragment_union_find.find_group(
                                                      new_group + tree_state.read_index_offsets[read_num]);
             }
-            cerr << endl;
             return;
         };
         //The clusters of the chain that are built from the snarl clusters
@@ -1331,7 +1329,6 @@ cerr << "  Combining this cluster from the right" << endl;
                 pair<int64_t, int64_t> dists_c = tree_state.read_cluster_dists[child_cluster_head.first][child_cluster_head.second];
                 old_dists[child_cluster_head] = dists_c;
 
-                //TODO: Do this only once
                 pair<int64_t, int64_t> new_dists = snarl_index.distToEnds(node_rank,
                                         dists_c.first,dists_c.second);
 #ifdef DEBUG_CLUSTER
@@ -1431,35 +1428,35 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                             //from the left of both of them
                             int64_t read_dist = other_node_clusters.read_best_left[read_num] == -1 ? -1 :
                                   dist_l_l + dists_c.first + other_node_clusters.read_best_left[read_num]-1;
+                            int64_t fragment_dist = dist_l_l + dists_c.first + other_node_clusters.fragment_best_left-1;
                             combine_clusters(c_group, group_l_l[read_num], fragment_group_l_l,
-                                  dist_l_l + dists_c.first + other_node_clusters.fragment_best_left-1,
-                                  read_dist,  read_num);
+                                  fragment_dist, read_dist,  read_num);
                         }
 
                         if (dist_l_r != -1 && dists_c.first != -1
                             && other_node_clusters.fragment_best_right != -1 ) {
                             //If it can be combined from the left to the right of j
+                            int64_t fragment_dist = dist_l_r + dists_c.first + other_node_clusters.fragment_best_right-1;
                             int64_t read_dist = other_node_clusters.read_best_right[read_num] == -1 ? -1 :
                                  dist_l_r + dists_c.first + other_node_clusters.read_best_right[read_num]-1;
                             combine_clusters(c_group, group_l_r[read_num], fragment_group_l_r,
-                                 dist_l_r + dists_c.first + other_node_clusters.fragment_best_right-1,
-                                 read_dist, read_num);
+                                 fragment_dist, read_dist, read_num);
                         }
                         if (dist_r_l != -1 && dists_c.second != -1
                             && other_node_clusters.fragment_best_left != -1 ) {
+                            int64_t fragment_dist = dist_r_l + dists_c.second + other_node_clusters.fragment_best_left-1;
                             int64_t read_dist = other_node_clusters.read_best_left[read_num] == -1 ? -1 :
                                 dist_r_l + dists_c.second + other_node_clusters.read_best_left[read_num]-1;
                             combine_clusters(c_group, group_r_l[read_num], fragment_group_r_l,
-                                dist_r_l + dists_c.second + other_node_clusters.fragment_best_left-1,
-                                read_dist,  read_num);
+                                fragment_dist, read_dist,  read_num);
                         }
                         if (dist_r_r != -1 && dists_c.second != -1
                             && other_node_clusters.fragment_best_right != -1 ) {
+                            int64_t fragment_dist = dist_r_r + dists_c.second + other_node_clusters.fragment_best_right-1;
                             int64_t read_dist = other_node_clusters.read_best_right[read_num] == -1 ? -1 :
                                 dist_r_r + dists_c.second + other_node_clusters.read_best_right[read_num]-1;
                             combine_clusters(c_group, group_r_r[read_num], fragment_group_r_r,
-                                dist_r_r + dists_c.second + other_node_clusters.fragment_best_right-1,
-                                read_dist, read_num);
+                                fragment_dist, read_dist, read_num);
                         }
 
                     }
@@ -1484,39 +1481,38 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                         if (dist_l_l != -1 && curr_child_clusters.fragment_best_left != -1
                            && dists_k.first != -1 ){
 
+                            int64_t fragment_dist = dist_l_l + curr_child_clusters.fragment_best_left + dists_k.first-1;
                             int64_t read_dist = curr_child_clusters.read_best_left[read_num] == -1 ? -1 :
                                 dist_l_l + curr_child_clusters.read_best_left[read_num] + dists_k.first-1;
                             combine_clusters(k_group, group_l_l[read_num], fragment_group_l_l,
-                                dist_l_l + curr_child_clusters.fragment_best_left + dists_k.first-1,
-                                read_dist, read_num);
+                                fragment_dist,read_dist, read_num);
                         }
                         if (dist_l_r != -1 && curr_child_clusters.fragment_best_left != -1
                              && dists_k.second != -1  ) {
 
                             int64_t read_dist = curr_child_clusters.read_best_left[read_num] == -1 ? -1 :
                                dist_l_r + curr_child_clusters.read_best_left[read_num] + dists_k.second-1;
-
+                            int64_t fragment_dist = dist_l_r + curr_child_clusters.fragment_best_left + dists_k.second-1;
                             combine_clusters(k_group, group_l_r[read_num], fragment_group_l_r,
-                               dist_l_r + curr_child_clusters.fragment_best_left + dists_k.second-1, 
-                               read_dist, read_num);
+                               fragment_dist, read_dist, read_num);
                         }
                         if (dist_r_l != -1 && curr_child_clusters.fragment_best_right != -1
                             && dists_k.first != -1  ) {
 
+                            int64_t fragment_dist = dist_r_l + curr_child_clusters.fragment_best_right + dists_k.first-1;
                             int64_t read_dist = curr_child_clusters.read_best_right[read_num] == -1 ? -1 :
                                 dist_r_l + curr_child_clusters.read_best_right[read_num] + dists_k.first-1;
                             combine_clusters(k_group, group_r_l[read_num], fragment_group_r_l,
-                                dist_r_l + curr_child_clusters.fragment_best_right + dists_k.first-1,
-                                read_dist, read_num);
+                                fragment_dist, read_dist, read_num);
                         }
                         if (dist_r_r != -1 && curr_child_clusters.fragment_best_right != -1
                            && dists_k.second != -1 ) {
 
+                            int64_t fragment_dist = dist_r_r + curr_child_clusters.fragment_best_right + dists_k.second-1;
                             int64_t read_dist = curr_child_clusters.read_best_right[read_num] == -1 ? -1 :
                                dist_r_r + curr_child_clusters.read_best_right[read_num] + dists_k.second-1;
                             combine_clusters(k_group, group_r_r[read_num], fragment_group_r_r,
-                               dist_r_r + curr_child_clusters.fragment_best_right + dists_k.second-1, 
-                               read_dist, read_num);
+                               fragment_dist, read_dist, read_num);
                         }
                     }
                 }
