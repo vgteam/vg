@@ -491,10 +491,17 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
     // the candidate genotypes and their supports.  the numbers here are alleles as indexed in traversals[]
     map<vector<int>, vector<Support>> candidates;
 
+    // pre-filter out some alleles based on poor exclusive support
+    set<int> skips;
+
     // consider each of the top 25 traversals as our top_traversal
     for (int i = 0; i < max_trav; ++i) {
         
         int best_allele = ranked_traversals[i];
+
+        if (skips.count(best_allele)) {
+            continue;
+        }
 
         if (ploidy == 1) {
             candidates[{best_allele}] = {supports[best_allele]}; 
@@ -504,7 +511,6 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
             // we prune out traversals whose exclusive support (structure that is not shared with best traversal)
             // doesn't meet a certain cutoff
             vector<Support> secondary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, true, false, false, ref_trav_idx);
-            set<int> skips = {best_allele};
             for (int j = 0; j < secondary_exclusive_supports.size(); ++j) {
                 if (j != best_allele && support_val(secondary_exclusive_supports[j]) <= min_total_support_for_call) {
                     skips.insert(j);
@@ -562,6 +568,9 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
         }
     }
 
+#ifdef debug
+    cerr << " best genotype: "; for (auto a : best_genotype) {cerr << a <<",";} cerr << " gl=" << best_genotype_likelihood << endl;
+#endif
     return best_genotype;
 }
 
@@ -746,8 +755,10 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
 }
 
 void PoissonSupportSnarlCaller::update_vcf_header(string& header) const {
-
-
+    header += "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">\n";
+    header += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">\n";
+    header += "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">\n";
+    header += "##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype Likelihood, log10-scaled likelihoods of the data given the called genotype for each possible genotype generated from the reference and alternate alleles given the sample ploidy\">\n";
 }
 
 vector<int> PoissonSupportSnarlCaller::rank_by_support(const vector<Support>& supports) {

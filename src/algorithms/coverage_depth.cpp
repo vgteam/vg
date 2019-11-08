@@ -157,7 +157,10 @@ unordered_map<string, map<size_t, pair<double, double>>> binned_packed_depth_ind
 
 const pair<double, double>& get_depth_from_index(const unordered_map<string, map<size_t, pair<double, double>>>& depth_index,
                                           const string& path_name, size_t offset) {
-    return depth_index.at(path_name).lower_bound(offset)->second;
+
+    auto ub = depth_index.at(path_name).upper_bound(offset);
+    --ub;
+    return ub->second;
 }
 
 // draw (roughly) max_nodes nodes from the graph using the random seed

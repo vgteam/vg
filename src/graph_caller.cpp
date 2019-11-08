@@ -241,7 +241,7 @@ tuple<string, size_t, size_t> VCFGenotyper::get_ref_positions(const vector<vcfli
     map<string, pair<size_t, size_t>> path_offsets;
     for (const vcflib::Variant* var : variants) {
         if (path_offsets.count(var->sequenceName)) {
-            pair<size_t, size_t>& record = path_offsets[var->ref];
+            pair<size_t, size_t>& record = path_offsets[var->sequenceName];
             record.first = std::min((size_t)var->position, record.first);
             record.second = std::max((size_t)var->position + var->ref.length(), record.second);
         } else {
