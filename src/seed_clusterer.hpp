@@ -157,7 +157,6 @@ class SnarlSeedClusterer {
             //These values are only relevant for seeds that represent a cluster
             //in union_find_reads
             vector<vector<pair<int64_t, int64_t>>> read_cluster_dists;
-            vector<pair<int64_t, int64_t>> fragment_cluster_dists;
 
 
 
@@ -196,12 +195,11 @@ class SnarlSeedClusterer {
             TreeState (vector<vector<pos_t>>* all_seeds, int64_t read_distance_limit, 
                        int64_t fragment_distance_limit, size_t seed_count) :
                 all_seeds(all_seeds),
-                fragment_cluster_dists(all_seeds->size(), make_pair(-1, -1)),
                 read_distance_limit(read_distance_limit),
                 fragment_distance_limit(fragment_distance_limit),
-                fragment_union_find (seed_count, false) {
+                fragment_union_find (seed_count, false),
+                read_index_offsets(1,0){
 
-                read_index_offsets.push_back(0);
                 size_t total_seeds = 0;
                 for (vector<pos_t>& v : *all_seeds) {
                     total_seeds += v.size();

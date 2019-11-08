@@ -26,7 +26,7 @@ namespace vg {
          * Returns a vector of cluster assignments
          */
 #ifdef DEBUG_CLUSTER
-cerr << endl << "New cluster calculation:" << endl;
+cerr << endl << endl << endl << endl << "New cluster calculation:" << endl;
 #endif
         if (fragment_distance_limit != 0 &&
             fragment_distance_limit < read_distance_limit) {
@@ -48,6 +48,7 @@ cerr << endl << "New cluster calculation:" << endl;
         size_t seed_count = 0;
         for (auto& v : all_seeds) seed_count+= v.size();
         TreeState tree_state (&all_seeds, read_distance_limit, fragment_distance_limit, seed_count);
+
 
         //Populate tree_state.node_to_seeds (mapping each node to the seeds it
         //contains) and snarl_to_nodes_by_level
@@ -74,6 +75,12 @@ cerr << endl << "New cluster calculation:" << endl;
                                        move(snarl_to_nodes_by_level[depth - 1]);
             }
 
+#ifdef DEBUG_CLUSTER
+assert(tree_state.read_index_offsets[0] == 0);
+for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
+    assert (tree_state.read_index_offsets[i] + tree_state.all_seeds->at(i).size() == tree_state.read_index_offsets[i+1]);
+}
+#endif
             //Cluster all the snarls at this depth
             //Also records which snarls are in chains and the parents of these
             //snarls in tree_state.parent_snarl_to_node
@@ -131,7 +138,7 @@ cerr << endl << "New cluster calculation:" << endl;
 
     void SnarlSeedClusterer::get_nodes( TreeState& tree_state,
               vector<hash_map<size_t,vector<pair<NetgraphNode, NodeClusters>>>>&
-                                                               snarl_to_nodes) const {
+                                                               snarl_to_nodes_by_level) const {
 
         // Assign each seed to a node.
         for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++){ 
@@ -145,17 +152,16 @@ cerr << endl << "New cluster calculation:" << endl;
         }
 
         // Assign each node to a snarl.
-        id_t prev_node = -1;
+        hash_set<id_t> seen_nodes;
         for (auto& read_node :tree_state.node_to_seeds) {
             for (auto& mapping : read_node) {
-                if (mapping.first == prev_node) {
-                    continue;
+                if (seen_nodes.count(mapping.first) < 1) {
+                    seen_nodes.insert( mapping.first);
+                    size_t snarl_i = dist_index.getPrimaryAssignment(mapping.first);
+                    size_t depth = dist_index.snarl_indexes[snarl_i].depth;
+                    snarl_to_nodes_by_level[depth][snarl_i].emplace_back(
+                             NetgraphNode(mapping.first, NODE), NodeClusters(tree_state.all_seeds->size()));
                 }
-                prev_node = mapping.first;
-                size_t snarl_i = dist_index.getPrimaryAssignment(mapping.first);
-                size_t depth = dist_index.snarl_indexes[snarl_i].depth;
-                snarl_to_nodes[depth][snarl_i].emplace_back(
-                         NetgraphNode(mapping.first, NODE), NodeClusters(tree_state.all_seeds->size()));
             }
         }
     }
@@ -305,15 +311,16 @@ cerr << endl << "New cluster calculation:" << endl;
             //If the limit is greater than the node length, then all the
             //seeds on this node must be in the same cluster
 
+            size_t fragment_group_id = -1;
             for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
                 auto seed_range_start = std::lower_bound(
                     tree_state.node_to_seeds[read_num].begin(),
                     tree_state.node_to_seeds[read_num].end(),
                     std::pair<id_t, size_t>(node_id, 0));
-                if (seed_range_start != tree_state.node_to_seeds[read_num].end()) {
+                if (seed_range_start != tree_state.node_to_seeds[read_num].end() && seed_range_start->first == node_id) {
 
                     size_t group_id = seed_range_start->second;
-                    size_t fragment_group_id = seed_range_start->second + tree_state.read_index_offsets[read_num];
+                    if (fragment_group_id == -1 ) fragment_group_id = seed_range_start->second + tree_state.read_index_offsets[read_num];
 
                     for (auto iter = seed_range_start; iter != tree_state.node_to_seeds[read_num].end() && iter->first == node_id; ++iter) {
                         //For each seed on this node, add it to the cluster
@@ -350,33 +357,48 @@ cerr << endl << "New cluster calculation:" << endl;
 
                     if (tree_state.fragment_distance_limit != 0) {
                         fragment_group_id = tree_state.fragment_union_find.find_group(fragment_group_id);
-                        tree_state.fragment_cluster_dists[fragment_group_id] = make_pair(node_clusters.fragment_best_left,
-                                                            node_clusters.fragment_best_right);
                     }
+                }
+            }
 #ifdef DEBUG_CLUSTER
-                    assert (group_id == tree_state.read_union_find[read_num].find_group(group_id));
-                    cerr << "Found single cluster on node " << node_id << "with fragment dists " << node_clusters.fragment_best_left << " " << node_clusters.fragment_best_right << endl;
-                    bool got_left = false;
-                    bool got_right = false;
-                    for (pair<size_t,size_t> c : node_clusters.read_cluster_heads) {
+            cerr << "Found single cluster on node " << node_id << " with fragment dists " << node_clusters.fragment_best_left << " " << node_clusters.fragment_best_right << endl;
+
+            bool got_left = false;
+            bool got_right = false;
+            for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
+                cerr << " for read num " << read_num << " best left: " << node_clusters.read_best_left[read_num] << " best right: " << node_clusters.read_best_right[read_num] << endl;
+                bool got_read_left=false;
+                bool got_read_right = false;
+                for (pair<size_t,size_t> c : node_clusters.read_cluster_heads) {
+                    if (c.first == read_num) {
                         pair<int64_t, int64_t> dists = tree_state.read_cluster_dists[c.first][c.second];
+                        cerr << "\t" << c.first << ":"<<c.second << ": left: " << dists.first << " right : " << dists.second << ": ";
+                        bool has_seeds = false;
+                        for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first).size() ; x++) {
+                            if (tree_state.read_union_find[c.first].find_group(x) == c.second) {
+                                cerr << tree_state.all_seeds->at(c.first)[x] << " ";
+                                has_seeds = true;
+                            }
+                        }
                         assert(dists.first == -1 || dists.first >= node_clusters.read_best_left[read_num]);
                         assert(dists.second == -1 || dists.second >= node_clusters.read_best_right[read_num]);
                         assert(dists.first == -1 || dists.first >= node_clusters.fragment_best_left);
                         assert(dists.second == -1 || dists.second >= node_clusters.fragment_best_right);
                         if (dists.first == node_clusters.fragment_best_left) {got_left = true;}
                         if (dists.second == node_clusters.fragment_best_right) {got_right = true;}
-                        //if (dists.first == node_clusters.read_best_left[read_num]) {got_all_left[read_num] = true;}
-                        //if (dists.second == node_clusters.read_best_right[read_num]) {got_all_right[read_num] = true;}
-                        cerr << "\t" << c.first << ":"<<c.second << ": left: " << dists.first << " right : " <<
-                                                                   dists.second << endl;
+                        if (dists.first == node_clusters.read_best_left[read_num]) {got_read_left = true;}
+                        if (dists.second == node_clusters.read_best_right[read_num]) {got_read_right = true;}
+                        cerr << endl;
+                        assert(has_seeds);
                     }
-                    assert(got_left);
-                    assert(got_right);
+                }
+                assert(got_read_left || node_clusters.read_best_left[read_num] == -1);
+                assert(got_read_right || node_clusters.read_best_right[read_num] == -1);
+            }
+            assert(got_left);
+            assert(got_right);
 
 #endif
-                }
-            }
             return node_clusters;
         }
 
@@ -437,10 +459,8 @@ cerr << endl << "New cluster calculation:" << endl;
                 if (tree_state.fragment_distance_limit != 0) {
                     //If we are also clustering paired end reads by fragment distance,
                     //cluster these together
-                    int64_t prev_dist_left = tree_state.fragment_cluster_dists[fragment_last_cluster].first;
                     tree_state.fragment_union_find.union_groups(std::get<1>(s)+tree_state.read_index_offsets[read_num], fragment_last_cluster);
                     fragment_last_cluster = tree_state.fragment_union_find.find_group(std::get<1>(s)+tree_state.read_index_offsets[read_num]);
-                    tree_state.fragment_cluster_dists[fragment_last_cluster] = make_pair(prev_dist_left, node_length-std::get<2>(s)+1);
                     fragment_last_offset = std::get<2>(s);
                 }
             } else {
@@ -454,19 +474,16 @@ cerr << endl << "New cluster calculation:" << endl;
                         make_pair(read_last_offset[read_num], node_length - read_last_offset[read_num] + 1);
                 if (tree_state.fragment_distance_limit != 0) {
                     if (fragment_last_offset != -1 &&
-                        abs(read_last_offset[read_num] - fragment_last_offset) <= tree_state.fragment_distance_limit) {
+                        abs(std::get<2>(s) - fragment_last_offset) <= tree_state.fragment_distance_limit) {
                         //If this is a new read cluster but the same fragment cluster
-                        int64_t prev_dist_left = tree_state.fragment_cluster_dists[fragment_last_cluster].first;
                         tree_state.fragment_union_find.union_groups(std::get<1>(s)+tree_state.read_index_offsets[read_num], fragment_last_cluster);
                         fragment_last_cluster = tree_state.fragment_union_find.find_group(fragment_last_cluster);
-                        tree_state.fragment_cluster_dists[fragment_last_cluster] = make_pair(prev_dist_left, node_length-std::get<2>(s)+1);
+                        fragment_last_offset = std::get<2>(s);
 
                     } else {
                         //If this is a new fragment cluster as well
                         fragment_last_cluster = std::get<1>(s)+tree_state.read_index_offsets[read_num];
                         fragment_last_offset = std::get<2>(s);
-                        tree_state.fragment_cluster_dists[fragment_last_cluster] = 
-                                make_pair(fragment_last_offset, node_length-fragment_last_offset+1);
                     }
                 }
             }
@@ -480,21 +497,40 @@ cerr << endl << "New cluster calculation:" << endl;
 #ifdef DEBUG_CLUSTER
 
         cerr << "Found read clusters on node " << node_id << endl;
+
         bool got_left = false;
         bool got_right = false;
-
-        for (pair<size_t,size_t> c : node_clusters.read_cluster_heads) {
-            pair<int64_t, int64_t> dists = tree_state.read_cluster_dists[c.first][c.second];
-            assert(dists.first == -1 || dists.first >= node_clusters.read_best_left[c.first]);
-            assert(dists.second == -1 || dists.second >= node_clusters.read_best_right[c.first]);
-            assert(dists.first == -1 || dists.first >= node_clusters.fragment_best_left);
-            assert(dists.second == -1 || dists.second >= node_clusters.fragment_best_right);
-            if (dists.first == node_clusters.fragment_best_left) {got_left = true;}
-            if (dists.second == node_clusters.fragment_best_right) {got_right = true;}
-            cerr << "\t" << c.first << ":"<<c.second << ": left: " << dists.first << " right : " <<
-                                                       dists.second << endl;
+        for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
+            cerr << " for read num " << read_num << " best left: " << node_clusters.read_best_left[read_num] << " best right: " << node_clusters.read_best_right[read_num] << endl;
+            bool got_read_left=false;
+            bool got_read_right = false;
+            for (pair<size_t,size_t> c : node_clusters.read_cluster_heads) {
+                if (c.first == read_num) {
+                    pair<int64_t, int64_t> dists = tree_state.read_cluster_dists[c.first][c.second];
+                    cerr << "\t" << c.first << ":"<<c.second << ": left: " << dists.first << " right : " << dists.second << ": ";
+                    bool has_seeds = false;
+                    for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first).size() ; x++) {
+                        if (tree_state.read_union_find[c.first].find_group(x) == c.second) {
+                            cerr << tree_state.all_seeds->at(c.first)[x] << " ";
+                            has_seeds = true;
+                        }
+                    }
+                    assert(dists.first == -1 || dists.first >= node_clusters.read_best_left[read_num]);
+                    assert(dists.second == -1 || dists.second >= node_clusters.read_best_right[read_num]);
+                    assert(dists.first == -1 || dists.first >= node_clusters.fragment_best_left);
+                    assert(dists.second == -1 || dists.second >= node_clusters.fragment_best_right);
+                    if (dists.first == node_clusters.fragment_best_left) {got_left = true;}
+                    if (dists.second == node_clusters.fragment_best_right) {got_right = true;}
+                    if (dists.first == node_clusters.read_best_left[read_num]) {got_read_left = true;}
+                    if (dists.second == node_clusters.read_best_right[read_num]) {got_read_right = true;}
+                    cerr << endl;
+                    assert(has_seeds);
+                }
+            }
+            assert(got_read_left || node_clusters.read_best_left[read_num] == -1);
+            assert(got_read_right || node_clusters.read_best_right[read_num] == -1);
         }
-        assert(got_left );
+        assert(got_left);
         assert(got_right);
         for (pair<size_t, size_t> group_id : node_clusters.read_cluster_heads) {
             assert (group_id.second == tree_state.read_union_find[group_id.first].find_group(group_id.second));
@@ -531,7 +567,7 @@ cerr << endl << "New cluster calculation:" << endl;
             //Used when two clusters in the same snarl can be combined by
             //looping in the chain
 
-            if (read_dist <= tree_state.read_distance_limit) {
+            if (read_dist != -1 && read_dist <= tree_state.read_distance_limit) {
                 if (combined_group == -1) {
                     combined_group = new_group;
                 } else {
@@ -576,12 +612,12 @@ cerr << endl << "New cluster calculation:" << endl;
                         fragment_dist <= tree_state.fragment_distance_limit) {
                 //If these aren't in the same read cluster but are in
                 //the same fragment cluster
-                if (fragment_combined_group == -1) {
-                    fragment_combined_group = new_group;
-                } else {
-                    tree_state.fragment_union_find.union_groups(new_group, fragment_combined_group);
-                    fragment_combined_group = tree_state.fragment_union_find.find_group(new_group);
+                if (fragment_combined_group != -1) {
+                    tree_state.fragment_union_find.union_groups(fragment_combined_group,
+                                                        new_group + tree_state.read_index_offsets[read_num]);
                 }
+                fragment_combined_group = tree_state.fragment_union_find.find_group(
+                                                     new_group + tree_state.read_index_offsets[read_num]);
             }
             cerr << endl;
             return;
@@ -765,17 +801,18 @@ cerr << "  (Possibly) updating looping distance to right of snarl cluster " << r
 #endif
 
 
-                    if (snarl_clusters.read_best_left[read_num] != -1 && snarl_dists.first != -1 ) {
+                    if (snarl_clusters.fragment_best_left!= -1 && snarl_dists.first != -1 ) {
                         //If this cluster can be combined with another cluster
                         //from the left
 
 #ifdef DEBUG_CLUSTER
 cerr << "  Combining this cluster from the left " ;
 #endif
+                        int64_t read_dist =  snarl_clusters.read_best_left[read_num] == -1 ? -1 :  
+                                     snarl_clusters.read_best_left[read_num] + snarl_dists.first + loop_dist_start - start_length - 1;
                         combine_snarl_clusters(cluster_head.second, snarl_cluster_left[read_num], fragment_snarl_cluster_left,
                                      to_erase, snarl_clusters.fragment_best_left + snarl_dists.first + loop_dist_start - start_length - 1,
-                                     snarl_clusters.read_best_left[read_num] + snarl_dists.first + loop_dist_start - start_length - 1,
-                                     snarl_dists, read_num);
+                                     read_dist, snarl_dists, read_num);
                     }
 
                 }
@@ -798,18 +835,19 @@ cerr << "Updating looping distance to left of snarl cluster " << read_num << ":"
 #endif
                     }
 
-                    if (snarl_clusters.read_best_right[read_num] != -1 && snarl_dists.second != -1 ) {
+                    if (snarl_clusters.fragment_best_right != -1 && snarl_dists.second != -1 ) {
                         //If this cluster can be combined with another cluster
                         //from the right
 
 #ifdef DEBUG_CLUSTER
 cerr << "  Combining this cluster from the right" << endl;
 #endif
+                        int64_t read_dist = snarl_clusters.read_best_right[read_num] == -1 ? -1 :
+                            snarl_clusters.read_best_right[read_num] + snarl_dists.second  + loop_dist_end - end_length - 1;
                         combine_snarl_clusters(cluster_head.second, snarl_cluster_right[read_num],
                              fragment_snarl_cluster_right, to_erase,
                             snarl_clusters.fragment_best_right + snarl_dists.second + loop_dist_end - end_length - 1,
-                            snarl_clusters.read_best_right[read_num] + snarl_dists.second  + loop_dist_end - end_length - 1,
-                            snarl_dists, read_num);
+                            read_dist, snarl_dists, read_num);
                     }
                 }
 
@@ -855,7 +893,7 @@ cerr << "  Combining this cluster from the right" << endl;
                     //If the snarl cluster does not get combined with any of
                     //the existing chain clusters, then it becomes a new chain cluster
                     if (tree_state.fragment_distance_limit != 0 && fragment_chain_right != -1 && snarl_dists.first != -1 &&
-                           snarl_dists.first+fragment_chain_right-start_length-1 <= tree_state.read_distance_limit) {
+                           snarl_dists.first+fragment_chain_right-start_length-1 <= tree_state.fragment_distance_limit) {
                         //Cluster in the same fragment but not the same read
                         if (fragment_combined_cluster != -1) {
                             //Also cluster by fragment
@@ -1045,7 +1083,10 @@ cerr << "  Combining this cluster from the right" << endl;
                     } else {
                         tree_state.read_union_find[read_num].union_groups(combined_cluster[read_num], cluster_head.second);
                         if (tree_state.fragment_distance_limit != 0) {
-                            tree_state.fragment_union_find.union_groups(fragment_combined_cluster, cluster_head.second + tree_state.all_seeds->size());
+                            if (fragment_combined_cluster != -1) {
+                                tree_state.fragment_union_find.union_groups(fragment_combined_cluster, cluster_head.second+tree_state.read_index_offsets[read_num]);
+                            }
+                            fragment_combined_cluster = tree_state.fragment_union_find.find_group(cluster_head.second+tree_state.read_index_offsets[read_num]);
                         }
                         size_t new_group = tree_state.read_union_find[read_num].find_group(cluster_head.second);
                         if (new_group == cluster_head.second) {
@@ -1087,35 +1128,47 @@ cerr << "  Combining this cluster from the right" << endl;
         cerr << "best left : " << chain_clusters.fragment_best_left << " best right : "
              << chain_clusters.fragment_best_right << endl;
         for (pair<size_t, size_t> c : chain_clusters.read_cluster_heads) {
-            cerr << "\tcluster " << c.first << ":" << c.second;
-            bool has_seeds = false;
-            for (size_t x = 0 ; x < tree_state.all_seeds->size() ; x++) {
-                if (tree_state.read_union_find[c.first].find_group(x) == c.second) {
-                    cerr << tree_state.all_seeds->at(c.first)[x] << " ";
-                    has_seeds = true;
-                }
-            }
-            assert(has_seeds);
-            cerr << endl;
         }
         bool got_left = false;
         bool got_right = false;
-        for (pair<size_t, size_t> c : chain_clusters.read_cluster_heads) {
-            pair<int64_t, int64_t> dists = tree_state.read_cluster_dists[c.first][c.second];
-            if (!chain_index.is_looping_chain){
-                assert(dists.first == -1 || dists.first >= chain_clusters.fragment_best_left);
-                assert(dists.second == -1 || dists.second >= chain_clusters.fragment_best_right);
-                assert(dists.first == -1 || dists.first >= chain_clusters.read_best_left[c.first]);
-                assert(dists.second == -1 || dists.second >= chain_clusters.read_best_right[c.first]);
+        for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
+            cerr << " for read num " << read_num << " best left: " << chain_clusters.read_best_left[read_num] << " best right: " << chain_clusters.read_best_right[read_num] << endl;
+            bool got_read_left=false;
+            bool got_read_right = false;
+            bool any_clusters = false;
+            for (pair<size_t,size_t> c : chain_clusters.read_cluster_heads) {
+                if (c.first == read_num) {
+                    any_clusters = true;
+                    pair<int64_t, int64_t> dists = tree_state.read_cluster_dists[c.first][c.second];
+                    cerr << "\t" << c.first << ":"<<c.second << ": left: " << dists.first << " right : " << dists.second << ": ";
+                    bool has_seeds = false;
+                    for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first).size() ; x++) {
+                        if (tree_state.read_union_find[c.first].find_group(x) == c.second) {
+                            cerr << tree_state.all_seeds->at(c.first)[x] << " ";
+                            has_seeds = true;
+                        }
+                    }
+                    assert(dists.first == -1 || dists.first >= chain_clusters.read_best_left[read_num]);
+                    assert(dists.second == -1 || dists.second >= chain_clusters.read_best_right[read_num]);
+                    assert(dists.first == -1 || dists.first >= chain_clusters.fragment_best_left);
+                    assert(dists.second == -1 || dists.second >= chain_clusters.fragment_best_right);
+                    if (dists.first == chain_clusters.fragment_best_left) {got_left = true;}
+                    if (dists.second == chain_clusters.fragment_best_right) {got_right = true;}
+                    if (dists.first == chain_clusters.read_best_left[read_num]) {got_read_left = true;}
+                    if (dists.second == chain_clusters.read_best_right[read_num]) {got_read_right = true;}
+                    cerr << endl;
+                    assert(has_seeds);
+                }
             }
-            if (dists.first == chain_clusters.fragment_best_left) {got_left = true;}
-            if (dists.second == chain_clusters.fragment_best_right) {got_right = true;}
-            cerr << "\t" << c.first << ":" << c.second << ": left: " << dists.first << " right : "
-                 << dists.second << endl;
+            if (!chain_index.is_looping_chain) {
+                assert(!any_clusters || got_read_left || chain_clusters.read_best_left[read_num] > tree_state.read_distance_limit || chain_clusters.read_best_left[read_num] == -1);
+                assert(!any_clusters || got_read_right || chain_clusters.read_best_right[read_num] > tree_state.read_distance_limit || chain_clusters.read_best_right[read_num] == -1);
+            }
         }
+
         if (!chain_index.is_looping_chain) {
-            assert(got_left);
-            assert(got_right);
+            assert(got_left || chain_clusters.fragment_best_left > tree_state.fragment_distance_limit);
+            assert(got_right ||chain_clusters.fragment_best_right > tree_state.fragment_distance_limit );
         }
         for (pair<size_t, size_t> group_id : chain_clusters.read_cluster_heads) {
 
@@ -1143,14 +1196,13 @@ cerr << "  Combining this cluster from the right" << endl;
         NodeClusters snarl_clusters(tree_state.all_seeds->size());
 
         auto combine_clusters = [&] (size_t& new_group, size_t& combined_group,
-                                    size_t& fragment_combined_group, int64_t read_dist,
-                                    int64_t fragment_dist,
-                                    pair<int64_t, int64_t>& end_dists, size_t read_num){
+                                    size_t& fragment_combined_group,
+                                    int64_t fragment_dist, int64_t read_dist, size_t read_num){
             //Helper function to compare and combine clusters in two nodes of the same snarl
             //If the distance between two clusters is small enough, then combine them
             //for the read clusters and, if applicable, for the fragment clusters
             //Updates the distances stored for the read clusters
-            if (read_dist <= tree_state.read_distance_limit) {
+            if (read_dist != -1 && read_dist <= tree_state.read_distance_limit) {
                 //If the clusters are close enough to combine in the read
                 if (tree_state.fragment_distance_limit != 0) {
                     if (fragment_combined_group != -1) {
@@ -1160,6 +1212,8 @@ cerr << "  Combining this cluster from the right" << endl;
                     }
                     fragment_combined_group = tree_state.fragment_union_find.find_group(new_group+tree_state.read_index_offsets[read_num]);
                 }
+                pair<int64_t, int64_t>& end_dists = tree_state.read_cluster_dists[read_num][new_group];
+
                 if (combined_group == -1) {
                     snarl_clusters.read_cluster_heads.emplace(read_num,new_group);
                     tree_state.read_cluster_dists[read_num][new_group] = end_dists;
@@ -1192,13 +1246,12 @@ cerr << "  Combining this cluster from the right" << endl;
                   && fragment_dist <= tree_state.fragment_distance_limit) {
 
                 //Same fragment
-                if (fragment_combined_group == -1) {
-                    fragment_combined_group = new_group;
-                } else {
-                    tree_state.fragment_union_find.union_groups(
-                            new_group + tree_state.read_index_offsets[read_num], fragment_combined_group);
-                    fragment_combined_group = tree_state.fragment_union_find.find_group(new_group);
+                if (fragment_combined_group != -1) {
+                    //Also combine fragment clusters
+                    tree_state.fragment_union_find.union_groups(new_group+tree_state.read_index_offsets[read_num], 
+                                                                fragment_combined_group);
                 }
+                fragment_combined_group = tree_state.fragment_union_find.find_group(new_group+tree_state.read_index_offsets[read_num]);
             }
             return;
         };
@@ -1250,7 +1303,7 @@ cerr << "  Combining this cluster from the right" << endl;
             cerr << "Node rank is " << node_rank << " fwd, " << rev_rank
                  << " rev of " << snarl_index.num_nodes * 2 << endl;
             cerr << "Clusters at this child:" << endl;
-            for (pair<size_t, size_t> c : child_nodes[i].second.read_cluster_heads) {
+            for (pair<size_t, size_t> c : curr_child_clusters.read_cluster_heads) {
                 cerr << "\tdist left: " << tree_state.read_cluster_dists[c.first][c.second].first
                 << " dist right: " << tree_state.read_cluster_dists[c.first][c.second].second << endl;
                 cerr << "\t\t";
@@ -1369,8 +1422,6 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                         pair<size_t, size_t> child_cluster_head = children_i[c_i];
                         size_t read_num = child_cluster_head.first;
                         size_t c_group = tree_state.read_union_find[read_num].find_group(child_cluster_head.second);
-
-                        pair<int64_t, int64_t> new_dists = tree_state.read_cluster_dists[read_num][c_group];
                         pair<int64_t, int64_t> dists_c = old_dists[child_cluster_head];
 
 
@@ -1378,33 +1429,37 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                                  && other_node_clusters.fragment_best_left != -1 ) {
                             //If cluster child_cluster_head can be combined with clusters in j
                             //from the left of both of them
+                            int64_t read_dist = other_node_clusters.read_best_left[read_num] == -1 ? -1 :
+                                  dist_l_l + dists_c.first + other_node_clusters.read_best_left[read_num]-1;
                             combine_clusters(c_group, group_l_l[read_num], fragment_group_l_l,
                                   dist_l_l + dists_c.first + other_node_clusters.fragment_best_left-1,
-                                  dist_l_l + dists_c.first + other_node_clusters.read_best_left[read_num]-1,
-                                  new_dists, read_num);
+                                  read_dist,  read_num);
                         }
 
                         if (dist_l_r != -1 && dists_c.first != -1
                             && other_node_clusters.fragment_best_right != -1 ) {
                             //If it can be combined from the left to the right of j
+                            int64_t read_dist = other_node_clusters.read_best_right[read_num] == -1 ? -1 :
+                                 dist_l_r + dists_c.first + other_node_clusters.read_best_right[read_num]-1;
                             combine_clusters(c_group, group_l_r[read_num], fragment_group_l_r,
                                  dist_l_r + dists_c.first + other_node_clusters.fragment_best_right-1,
-                                 dist_l_r + dists_c.first + other_node_clusters.read_best_right[read_num]-1,
-                                 new_dists, read_num);
+                                 read_dist, read_num);
                         }
                         if (dist_r_l != -1 && dists_c.second != -1
                             && other_node_clusters.fragment_best_left != -1 ) {
+                            int64_t read_dist = other_node_clusters.read_best_left[read_num] == -1 ? -1 :
+                                dist_r_l + dists_c.second + other_node_clusters.read_best_left[read_num]-1;
                             combine_clusters(c_group, group_r_l[read_num], fragment_group_r_l,
                                 dist_r_l + dists_c.second + other_node_clusters.fragment_best_left-1,
-                                dist_r_l + dists_c.second + other_node_clusters.read_best_left[read_num]-1, 
-                                new_dists, read_num);
+                                read_dist,  read_num);
                         }
                         if (dist_r_r != -1 && dists_c.second != -1
                             && other_node_clusters.fragment_best_right != -1 ) {
+                            int64_t read_dist = other_node_clusters.read_best_right[read_num] == -1 ? -1 :
+                                dist_r_r + dists_c.second + other_node_clusters.read_best_right[read_num]-1;
                             combine_clusters(c_group, group_r_r[read_num], fragment_group_r_r,
                                 dist_r_r + dists_c.second + other_node_clusters.fragment_best_right-1,
-                                dist_r_r + dists_c.second + other_node_clusters.read_best_right[read_num]-1,
-                                new_dists, read_num);
+                                read_dist, read_num);
                         }
 
                     }
@@ -1422,42 +1477,46 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                         //snarl_cluster heads
                         pair<size_t,size_t> child_cluster_head = children_j[k_i];
                         size_t read_num = child_cluster_head.first;
-                        pair<int64_t, int64_t>& dist_bounds_k = old_dists[child_cluster_head];
+                        pair<int64_t, int64_t>& dists_k = old_dists[child_cluster_head];
                         size_t k_group = tree_state.read_union_find[read_num].find_group(child_cluster_head.second);
-                        pair<int64_t, int64_t> dists_k = tree_state.read_cluster_dists[read_num][k_group];
 
 
-                        if (dist_l_l != -1 && curr_child_clusters.read_best_left[read_num] != -1
-                           && dist_bounds_k.first != -1 ){
+                        if (dist_l_l != -1 && curr_child_clusters.fragment_best_left != -1
+                           && dists_k.first != -1 ){
 
+                            int64_t read_dist = curr_child_clusters.read_best_left[read_num] == -1 ? -1 :
+                                dist_l_l + curr_child_clusters.read_best_left[read_num] + dists_k.first-1;
                             combine_clusters(k_group, group_l_l[read_num], fragment_group_l_l,
-                                dist_l_l + curr_child_clusters.fragment_best_left + dist_bounds_k.first-1,
-                                dist_l_l + curr_child_clusters.read_best_left[read_num] + dist_bounds_k.first-1, 
-                                dists_k, read_num);
+                                dist_l_l + curr_child_clusters.fragment_best_left + dists_k.first-1,
+                                read_dist, read_num);
                         }
-                        if (dist_l_r != -1 && curr_child_clusters.read_best_left[read_num] != -1
-                             && dist_bounds_k.second != -1  ) {
+                        if (dist_l_r != -1 && curr_child_clusters.fragment_best_left != -1
+                             && dists_k.second != -1  ) {
+
+                            int64_t read_dist = curr_child_clusters.read_best_left[read_num] == -1 ? -1 :
+                               dist_l_r + curr_child_clusters.read_best_left[read_num] + dists_k.second-1;
 
                             combine_clusters(k_group, group_l_r[read_num], fragment_group_l_r,
-                               dist_l_r + curr_child_clusters.fragment_best_left + dist_bounds_k.second-1, 
-                               dist_l_r + curr_child_clusters.read_best_left[read_num] + dist_bounds_k.second-1, 
-                               dists_k, read_num);
+                               dist_l_r + curr_child_clusters.fragment_best_left + dists_k.second-1, 
+                               read_dist, read_num);
                         }
-                        if (dist_r_l != -1 && curr_child_clusters.read_best_right[read_num] != -1
-                            && dist_bounds_k.first != -1  ) {
+                        if (dist_r_l != -1 && curr_child_clusters.fragment_best_right != -1
+                            && dists_k.first != -1  ) {
 
+                            int64_t read_dist = curr_child_clusters.read_best_right[read_num] == -1 ? -1 :
+                                dist_r_l + curr_child_clusters.read_best_right[read_num] + dists_k.first-1;
                             combine_clusters(k_group, group_r_l[read_num], fragment_group_r_l,
-                                dist_r_l + curr_child_clusters.fragment_best_right + dist_bounds_k.first-1,
-                                dist_r_l + curr_child_clusters.read_best_right[read_num] + dist_bounds_k.first-1,
-                                dists_k,read_num);
+                                dist_r_l + curr_child_clusters.fragment_best_right + dists_k.first-1,
+                                read_dist, read_num);
                         }
-                        if (dist_r_r != -1 && curr_child_clusters.read_best_right[read_num] != -1
-                           && dist_bounds_k.second != -1 ) {
+                        if (dist_r_r != -1 && curr_child_clusters.fragment_best_right != -1
+                           && dists_k.second != -1 ) {
 
+                            int64_t read_dist = curr_child_clusters.read_best_right[read_num] == -1 ? -1 :
+                               dist_r_r + curr_child_clusters.read_best_right[read_num] + dists_k.second-1;
                             combine_clusters(k_group, group_r_r[read_num], fragment_group_r_r,
-                               dist_r_r + curr_child_clusters.fragment_best_right + dist_bounds_k.second-1, 
-                               dist_r_r + curr_child_clusters.read_best_right[read_num] + dist_bounds_k.second-1, 
-                               dists_k, read_num);
+                               dist_r_r + curr_child_clusters.fragment_best_right + dists_k.second-1, 
+                               read_dist, read_num);
                         }
                     }
                 }
@@ -1470,22 +1529,37 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
              << snarl_clusters.fragment_best_right << endl;
         bool got_left = false;
         bool got_right = false;
-        for (pair<size_t, size_t> c : snarl_clusters.read_cluster_heads) {
-            pair<int64_t, int64_t> dists = tree_state.read_cluster_dists[c.first][c.second];
-            if (dists.first == snarl_clusters.fragment_best_left) {got_left = true;}
-            if (dists.second == snarl_clusters.fragment_best_right) {got_right = true;}
-            cerr << "\t" << c.first << ":" << c.second << ": left: " << dists.first << " right : "
-                 << dists.second << endl;
-            cerr << "\t\t";
-            bool has_seeds = false;
-            for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first).size() ; x++) {
-                if (tree_state.read_union_find[c.first].find_group(x) == c.second) {
-                    cerr << tree_state.all_seeds->at(c.first)[x] << " ";
-                    has_seeds = true;
+        for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
+            cerr << " for read num " << read_num << " best left: " << snarl_clusters.read_best_left[read_num] << " best right: " << snarl_clusters.read_best_right[read_num] << endl;
+            bool got_read_left=false;
+            bool got_read_right = false;
+            bool any_clusters = false;
+            for (pair<size_t,size_t> c : snarl_clusters.read_cluster_heads) {
+                if (c.first == read_num) {
+                    any_clusters = true;
+                    pair<int64_t, int64_t> dists = tree_state.read_cluster_dists[c.first][c.second];
+                    cerr << "\t" << c.first << ":"<<c.second << ": left: " << dists.first << " right : " << dists.second << ": ";
+                    bool has_seeds = false;
+                    for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first).size() ; x++) {
+                        if (tree_state.read_union_find[c.first].find_group(x) == c.second) {
+                            cerr << tree_state.all_seeds->at(c.first)[x] << " ";
+                            has_seeds = true;
+                        }
+                    }
+                    assert(dists.first == -1 || dists.first >= snarl_clusters.read_best_left[read_num]);
+                    assert(dists.second == -1 || dists.second >= snarl_clusters.read_best_right[read_num]);
+                    assert(dists.first == -1 || dists.first >= snarl_clusters.fragment_best_left);
+                    assert(dists.second == -1 || dists.second >= snarl_clusters.fragment_best_right);
+                    if (dists.first == snarl_clusters.fragment_best_left) {got_left = true;}
+                    if (dists.second == snarl_clusters.fragment_best_right) {got_right = true;}
+                    if (dists.first == snarl_clusters.read_best_left[read_num]) {got_read_left = true;}
+                    if (dists.second == snarl_clusters.read_best_right[read_num]) {got_read_right = true;}
+                    cerr << endl;
+                    assert(has_seeds);
                 }
             }
-            assert(has_seeds);
-            cerr << endl;
+            assert(!any_clusters ||got_read_left ||  snarl_clusters.read_best_left[read_num] == -1);
+            assert(!any_clusters ||got_read_right ||  snarl_clusters.read_best_right[read_num] == -1);
         }
         assert(got_left);
         assert(got_right);
