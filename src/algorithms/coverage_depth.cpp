@@ -146,7 +146,7 @@ unordered_map<string, map<size_t, pair<double, double>>> binned_packed_depth_ind
             double var = get<3>(binned_depth);
             // optionally convert variance to standard error
             if (std_err) {
-                var = sqrt(var / (double)(get<1>(binned_depth) - get<2>(binned_depth)));
+                var = sqrt(var / (double)(get<1>(binned_depth) - get<0>(binned_depth)));
             }
             depth_map[get<0>(binned_depth)] = make_pair(get<2>(binned_depth), var);
         }

@@ -610,7 +610,7 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
     }
 
     // how many reads would we expect to not map to our genotype due to error
-    double error_rate = std::min(0.95, depth_err + baseline_mapping_error);
+    double error_rate = std::min(0.25, depth_err + baseline_mapping_error);
     double other_poisson_lambda = error_rate * exp_depth; //support_val(total_site_support);
 
     // and our likelihood for the unmapped reads we see:
@@ -733,8 +733,13 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
             }
             double gl = genotype_likelihood({i, j}, genotype_supports, traversals, 0, exp_depth, depth_err);
             // convert from natural log to log10 by dividing by ln(10)
-            gl /= 2.30258;
-            variant.samples[sample_name]["GL"].push_back(std::to_string(gl));
+            variant.samples[sample_name]["GL"].push_back(std::to_string(gl / 2.30258));
+
+            // use our likelihood as the VCF quality
+            // todo: check if there's something more conventional to use
+            if ((genotype[0] == i && genotype[1] == j) || (genotype[0] == j && genotype[1] == i)) {
+                variant.quality = logprob_to_phred(gl);
+            }
         }
     }
 
