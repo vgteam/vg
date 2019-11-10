@@ -87,10 +87,11 @@ using namespace std;
                                path_handle_t best_path_handle,
                                string& path_name_out, int64_t& path_pos_out, bool& path_rev_out) const;
         
-        // make a sentinel meant to indicate an unmapped read
+        /// make a sentinel meant to indicate an unmapped read
         static Alignment make_null_alignment(const Alignment& source);
         
-        const PathPositionHandleGraph* graph;
+        /// the graph we're surjecting onto
+        const PathPositionHandleGraph* graph = nullptr;
     };
 }
 
