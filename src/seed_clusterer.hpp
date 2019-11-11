@@ -225,10 +225,10 @@ class SnarlSeedClusterer {
 
         //Cluster all the snarls at the current level and update the tree_state
         //to add each of the snarls to the parent level
-        void cluster_snarls(TreeState& tree_state, size_t depth) const;
+        void cluster_snarl_level(TreeState& tree_state, size_t depth) const;
 
         //Cluster all the chains at the current level
-        void cluster_chains(TreeState& tree_state, size_t depth) const;
+        void cluster_chain_level(TreeState& tree_state, size_t depth) const;
 
         //Cluster the seeds on the specified node
         NodeClusters cluster_one_node(TreeState& tree_state, 
