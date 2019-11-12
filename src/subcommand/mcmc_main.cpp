@@ -206,10 +206,10 @@ int main_mcmc(int argc, char** argv) {
     //MCMCCaller mcmc_caller(*dynamic_cast<PathPositionHandleGraph*>(graph.get()), *genome, snarl_manager, sample_name, ref_paths, ref_path_offsets, ref_path_lengths, cout);
     MCMCCaller mcmc_caller(graph, path_position_handle_graph, *genome, snarl_manager, sample_name, ref_paths, ref_path_offsets, ref_path_lengths, cout);
 
-
+    
     //print header to std out
     // cout << mcmc_caller.vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
-    cerr << mcmc_caller.vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
+    cerr << mcmc_caller.vcf_header(*path_handle_graph, ref_paths, ref_path_lengths) << flush;
 
     
     // current implimentation is writing vcf record after each variant processed

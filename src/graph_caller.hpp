@@ -77,7 +77,7 @@ protected:
     /// output buffer (for sorting)
     mutable vector<vcflib::Variant> output_variants;
 };
-    
+
 /**
  * VCFGenotyper : Genotype variants in a given VCF file
  */

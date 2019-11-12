@@ -17,7 +17,7 @@ void GraphCaller::call_top_level_snarls(bool recurse_on_fail) {
     // Used to recurse on children of parents that can't be called
     vector<const Snarl*> snarl_queue;
 
-    // Run the snarl caller on a snarl, and queue up the children if it fails
+    // Run the snarl cal#pragma omp critical (snarl_queue)ler on a snarl, and queue up the children if it fails
     auto process_snarl = [&](const Snarl* snarl) {
         bool was_called = call_snarl(*snarl);
         if (!was_called && recurse_on_fail) {

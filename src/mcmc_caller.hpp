@@ -47,6 +47,10 @@ namespace vg{
         /// For any that return false, try the children, etc. (when recurse_on_fail true)
         /// Snarls are processed in parallel
         void call_top_level_snarls(bool recurse_on_fail = true) ;
+
+        /// print vcf header
+        virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& ref_paths,
+                                const vector<size_t>& contig_length_overrides) const ;
     
     protected:   
         /// the graph
@@ -60,6 +64,8 @@ namespace vg{
 
         /// keep track of offsets in the reference paths
         map<string, size_t> ref_offsets; 
+
+        
 
         /// print a vcf variant 
         void emit_variant(const Snarl& snarl, const vector<int>& genotype, const string& ref_path_name, const vector<SnarlTraversal>& haplo_travs) const;

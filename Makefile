@@ -315,8 +315,8 @@ LINK_DEPS =
 
 ifneq ($(shell uname -s),Darwin)
     # Use jemalloc
-	LINK_DEPS += $(LIB_DIR)/libjemalloc.a
-	LD_LIB_FLAGS += -ljemalloc
+	# LINK_DEPS += $(LIB_DIR)/libjemalloc.a
+	# LD_LIB_FLAGS += -ljemalloc
 endif
 
 .PHONY: clean get-deps deps test set-path static static-docker docs .pre-build .check-environment .check-git .no-git 

@@ -41,6 +41,17 @@ namespace vg {
     MCMCCaller:: ~MCMCCaller(){
 
     }
+    string MCMCCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& ref_paths,
+                                const vector<size_t>& contig_length_overrides) const {
+        string header = VCFOutputCaller::vcf_header(graph, ref_paths, contig_length_overrides);
+        header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
+        header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
+        header += "##SAMPLE=<ID=" + sample_name + ">\n";
+        header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name;
+        assert(output_vcf.openForOutput(header));
+        header += "\n";
+        return header;
+}
 
 
     void MCMCCaller::call_top_level_snarls(bool recurse_on_fail) {
@@ -118,7 +129,6 @@ namespace vg {
             
 
             // set ref_path name and seq 
-            
             path_handle_t path_handle = graph->get_path_handle_of_step(first_start_step);
             string ref_path_name  = graph->get_path_name(path_handle);
             cerr << "ref_path_name " << ref_path_name << endl;
@@ -131,40 +141,42 @@ namespace vg {
             genome.print_phased_genome();
             cerr << snarl.start() <<endl;
             cerr << snarl.end() << endl;
-        
-            assert(!haplos_pass_snarl.empty());
-
-
-            for(int i = 0; i< haplos_pass_snarl.size(); i++){
-                cerr << "haplos passing snarl " << haplos_pass_snarl[i] << endl;
-            }
             
+            // assert(!haplos_pass_snarl.empty());
+
+
+            // for(int i = 0; i< haplos_pass_snarl.size(); i++){
+            //     cerr << "haplos passing snarl " << haplos_pass_snarl[i] << endl;
+            // }
+            
+            //traversals of each haplotype through the snarl
             vector<SnarlTraversal> haplo_travs = {haplos_pass_snarl.size(), SnarlTraversal()};
             vector<vector<NodeTraversal>> haplo_nodes;
             vector<int> genotype;
             int haplo_count =1;
-
+            
             //build SnarlTraversal obj for each haplotype that passes through snarl 
             // loop through haplotypes that pass through snarl
             for(int i = 0; i <haplos_pass_snarl.size(); i++ ){
                 
                 // get_allele() does not add the start of the snarl so we have to add it manually
                 *haplo_travs[i].add_visit() = snarl.start();
-                //push back NdeTraversal for haplotype id in ith position of array 
+                //push back NodeTraversal for haplotype id in ith position of array 
                 haplo_nodes.push_back( genome.get_allele(snarl,haplos_pass_snarl[i]) );
                 // iterate through NodeTraversal nodes
                 for (auto iter = haplo_nodes[i].begin(); iter < haplo_nodes[i].end(); iter++){
-                
+                    
                     int64_t n_id = iter->node->id();
                     bool backward = iter->backward;
-                    Visit* v = haplo_travs[i].add_visit();
+                    Visit* v = haplo_travs[i].add_visit(); 
                     v->set_node_id(n_id);
                     v->set_backward(backward);
-                    *haplo_travs[i].add_visit() = snarl.end();
+                    *haplo_travs[i].add_visit() = *v;
                 } 
                 // get_allele() does not add the end of the snarl so we have to add it manually
                 *haplo_travs[i].add_visit() = snarl.end();
 
+                assert(!haplo_travs.empty());
                 //get the sequence for the SnarlTraversal
                 string trav_seq = trav_string(haplo_travs[i]);
                 cerr << "trav_seq" <<trav_seq << endl;
@@ -181,12 +193,13 @@ namespace vg {
                     genotype[i] = 0;
                 }
                 
+                
             }
             assert(!genotype.empty());
-            assert(!haplo_travs.empty());
+            
             for(int i = 0; i < genotype.size(); i++){
                     cerr << "genotype ID" << genotype[i] <<endl;
-                }
+            }
             
 
             //TODO: store GT numbers of two phased haplotype alleles
