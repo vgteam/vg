@@ -670,10 +670,8 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     }
 
     // get the genotype likelihoods
-    // as above, there's some overlap in these computations as those used in genotype() to begin with
-    // this is an issue with the class interface which probably tries too hard to avoid being VCF-dependent
-    // but if it causes a slowdown (hasn't seemed to be a factor so far), the code could be re-organized
-    // to either store some of this information, or comptue the genotype and vcf fields in a single shot
+    vector<double> gen_likelihoods;
+    double gen_likelihood;    
     variant.format.push_back("GL");
 
     // expected depth from our coverage
@@ -687,12 +685,33 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     for (int i = 0; i < traversals.size(); ++i) {
         for (int j = i; j < traversals.size(); ++j) {
             double gl = genotype_likelihood({i, j}, traversals, 0, exp_depth, depth_err);
+            gen_likelihoods.push_back(gl);
+            if (vector<int>({i, j}) == genotype || vector<int>({j,i}) == genotype) {
+                gen_likelihood = gl;
+            }
             // convert from natural log to log10 by dividing by ln(10)
             variant.samples[sample_name]["GL"].push_back(std::to_string(gl / 2.30258));
         }
     }
 
-    // use old quality for now
+    // get the GQ
+    double prior = log(1. / (double)traversals.size());
+    double p_reads = prior + gen_likelihoods[0];
+    // note that we should be summing over all the likelihoods as considered in genotype()
+    // todo: figure out a way how to move this to that method.
+    // (or make sure more uncalled stuff makes it into the vcf so we have more traversals to sum over here)
+    /*
+    for (int i = 1; i < gen_likelihoods.size(); ++i) {
+        p_reads = add_log(p_reads, prior + gen_likelihoods[i]);
+    }
+    double posterior = gen_likelihood + prior - p_reads;
+    double gq = logprob_to_phred(logprob_invert(posterior));
+    variant.format.push_back("GQ");
+    variant.samples[sample_name]["GQ"].push_back(std::to_string(gq));
+    */
+
+    // our old min-support based quality as hack until
+    // qual / gq properly sorted out
     variant.quality = min_site_support;
 
     // Now do the filters
@@ -712,6 +731,11 @@ void PoissonSupportSnarlCaller::update_vcf_header(string& header) const {
     header += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">\n";
     header += "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">\n";
     header += "##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype Likelihood, log10-scaled likelihoods of the data given the called genotype for each possible genotype generated from the reference and alternate alleles given the sample ploidy\">\n";
+    //header += "##FORMAT=<ID=GQ,Number=1,Type=Float,Description=\"Genotype Quality, the Phred-scaled probability of the called genotype\">\n";
+    header += "##FILTER=<ID=lowad,Description=\"Variant does not meet minimum allele read support threshold of " +
+        std::to_string(min_mad_for_filter) + "\">\n";
+    header += "##FILTER=<ID=lowdepth,Description=\"Variant has read depth less than " +
+        std::to_string(min_site_depth) + "\">\n";    
 }
 
 vector<int> PoissonSupportSnarlCaller::rank_by_support(const vector<Support>& supports) {
