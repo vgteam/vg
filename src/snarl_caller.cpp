@@ -589,7 +589,7 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
     }
     
     // how many reads would we expect to not map to our genotype due to error
-    double error_rate = std::min(0.25, depth_err + baseline_mapping_error);
+    double error_rate = std::min(0.05, depth_err + baseline_mapping_error);
     double other_poisson_lambda = error_rate * exp_depth; //support_val(total_site_support);
 
     // and our likelihood for the unmapped reads we see:

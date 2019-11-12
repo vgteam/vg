@@ -273,7 +273,7 @@ int main_call(int argc, char** argv) {
 
         if (ratio_caller == false) {
             // Make a depth index
-            depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, 500000, 0, true, true);
+            depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, 50, 0, true, true);
             // Make a new-stype probablistic caller
             auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder, depth_index);
             packed_caller = poisson_caller;
