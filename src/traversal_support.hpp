@@ -46,19 +46,33 @@ public:
     /// Child snarls are handled as in the old call code: their maximum support is used
     virtual Support get_traversal_support(const SnarlTraversal& traversal) const;
 
-    /// Get the support of a set of traversals.  Any support overlapping traversals in shared_travs
-    /// will have their support split.  If exclusive_only is true, then any split support gets
-    /// rounded down to 0 (and ignored when computing mins or averages) .
-    /// exclusive_count is like exclusive only except shared traversals will be counted (as 0)
-    /// when doing average and min support
-    /// if the ref_trav_idx is given, it will be used for computing (deletion) edge lengths
-    /// if unique is true, then every node or edge will only be counted once
-    /// (useful for total support)
+    /// wrapper for using get_traversal_set_support to get the total support
+    /// (sets shared_travs to the whole set, mutual_shared to true, then
+    /// sums over the results)
+    virtual Support get_total_traversal_set_support(const vector<SnarlTraversal>& traversals,
+                                                    int ref_trav_idx = -1) const;
+
+    /// wrapper for using get_traversal_set_support to get the support for
+    /// some alleles in a genotype, where everything is split evently among them
+    /// anything not in the genotype gets a support using "exclusive_count"
+    /// where nodes taken by the genotype are counted as 0
+    virtual vector<Support> get_traversal_genotype_support(const vector<SnarlTraversal>& traversals,
+                                                         const vector<int>& genotype,
+                                                         int ref_trav_idx = -1);
+    
+    /// traversals:      get support for each traversal in this set
+    /// shared_travs:    if a node appears N times in shared_travs, then it will count as 1 / (N+1) support
+    /// tgt_travs:       if not empty, only compute support for these traversals (remaining slots in output vector left 0)
+    /// eclusive_only:   shared_travs are completely ignored
+    /// exclusive_count: anything in shared_travs treated as 0
+    /// mutual_shared:   shared_travs count as 1/N support (instead of 1/(N+1)).  usefuly for total support
+    /// ref_trav_idx:    index of reference traversal if known
     virtual vector<Support> get_traversal_set_support(const vector<SnarlTraversal>& traversals,
                                                       const vector<int>& shared_travs,
+                                                      const set<int>& tgt_travs,
                                                       bool exclusive_only,
                                                       bool exclusive_count,
-                                                      bool unique,
+                                                      bool mutual_shared,
                                                       int ref_trav_idx = -1) const;
 
     /// Get the total length of all nodes in the traversal

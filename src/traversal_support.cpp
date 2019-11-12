@@ -60,16 +60,55 @@ tuple<Support, Support, int> TraversalSupportFinder::get_child_support(const Sna
 
 
 Support TraversalSupportFinder::get_traversal_support(const SnarlTraversal& traversal) const {
-    return get_traversal_set_support({traversal}, {}, false, false, false).at(0);
+    return get_traversal_set_support({traversal}, {}, {}, false, false, false).at(0);
+}
+
+Support TraversalSupportFinder::get_total_traversal_set_support(const vector<SnarlTraversal>& traversals,
+                                                                int ref_trav_idx) const {
+    // share everything
+    vector<int> shared_travs(traversals.size());
+    for (int i = 0; i < shared_travs.size(); ++i) {
+        shared_travs[i] = i;
+    }
+
+    // get the support of everything, where all shared nodes and edges are scaled by the number of times they're shared
+    vector<Support> supports = get_traversal_set_support(traversals, shared_travs, {}, false, false, true, ref_trav_idx);
+
+    // sum it up
+    Support total;
+    for (const Support& support : supports) {
+        total += support;
+    }
+
+    return total;
+}
+
+vector<Support> TraversalSupportFinder::get_traversal_genotype_support(const vector<SnarlTraversal>& traversals,
+                                                                       const vector<int>& genotype,
+                                                                       int ref_trav_idx) {
+    set<int> tgt_trav_set(genotype.begin(), genotype.end());
+    vector<int> tgt_travs(tgt_trav_set.begin(), tgt_trav_set.end());
+    // get the support of just the alleles in the genotype, evenly splitting shared stuff
+    vector<Support> allele_support = get_traversal_set_support(traversals, tgt_travs, tgt_trav_set, false, false, true, ref_trav_idx);
+    // get the support of everythin else, treating stuff in the genotype alleles as 0
+    vector<Support> other_support = get_traversal_set_support(traversals, tgt_travs, {}, false, true, false, ref_trav_idx);
+    // combine the above two vectors
+    for (int allele : tgt_travs) {
+        other_support[allele] = allele_support[allele];
+    }
+    return other_support;
 }
 
 vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<SnarlTraversal>& traversals,
                                                                   const vector<int>& shared_travs,
+                                                                  const set<int>& tgt_travs,
                                                                   bool exclusive_only,
                                                                   bool exclusive_count,
-                                                                  bool unique,
+                                                                  bool mutual_shared,
                                                                   int ref_trav_idx) const {
-    assert(!unique || (exclusive_count || exclusive_only));
+
+    // mutual_shared only makes sense when everything is shared
+    assert(!mutual_shared || shared_travs.size() == traversals.size() || shared_travs.size() == tgt_travs.size());
     
     // pass 1: how many times have we seen a node or edge
     unordered_map<id_t, int> node_counts;
@@ -139,7 +178,8 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
         max_trav_size = std::max(tot_sizes_all[trav_idx], max_trav_size);
 
         // apply the scaling
-        double scale_factor = ((exclusive_only || exclusive_count) && share_count > 0) ? 0. : 1. / (1. + share_count);
+        double denom_add = mutual_shared ? 0 : 1;
+        double scale_factor = ((exclusive_only || exclusive_count) && share_count > 0) ? 0. : 1. / (denom_add + share_count);
         
         // when looking at exclusive support, we don't normalize by skipped lengths
         if (scale_factor != 0 || !exclusive_only || exclusive_count) {
@@ -156,6 +196,10 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
     };
 
     for (int trav_idx = 0; trav_idx < traversals.size(); ++trav_idx) {
+        // target_set filter here
+        if (!tgt_travs.empty() && !tgt_travs.count(trav_idx)) {
+            continue;
+        }
         const SnarlTraversal& trav = traversals[trav_idx];
         for (int visit_idx = 0; visit_idx < trav.visit_size(); ++visit_idx) {
             const Visit& visit = trav.visit(visit_idx);
@@ -171,17 +215,13 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
                 length = graph.get_length(graph.get_handle(visit.node_id()));
                 if (node_counts.count(visit.node_id())) {
                     share_count = node_counts[visit.node_id()];
-                } else if (unique) {
-                    node_counts[visit.node_id()] = 1;
-                }
+                } 
             } else {
                 // get the child support
                 tie(min_support, avg_support, length) = get_child_support(visit.snarl());
                 if (child_counts.count(visit.snarl())) {
                     share_count = child_counts[visit.snarl()];
-                } else if (unique) {
-                    child_counts[visit.snarl()] = 1;
-                }
+                } 
             }
             if (count_end_nodes || (visit_idx > 0 && visit_idx < trav.visit_size() - 1)) {
                 update_support(trav_idx, min_support, avg_support, length, share_count);
@@ -195,15 +235,14 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
                 length = get_edge_length(edge, ref_offsets);
                 if (edge_counts.count(edge)) {
                     share_count = edge_counts[edge];                    
-                } else if (unique) {
-                    edge_counts[edge] = 1;
-                }
+                } 
                 update_support(trav_idx, min_support, min_support, length, share_count);
             }
         }
     }
 
     // correct for case where no exclusive support found
+    // or we're ignoring some traversals vg tgt_set interface
     for (int i = 0; i < min_supports_min.size(); ++i) {
         if (!has_support[i]) {
             min_supports_min[i] = Support();

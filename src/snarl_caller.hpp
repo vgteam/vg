@@ -216,7 +216,6 @@ protected:
     /// Homozygous alleles are split into two, with half support each
     /// The (natural) logoarithm is returned
     double genotype_likelihood(const vector<int>& genotype,
-                               const vector<Support>& genotype_supports,
                                const vector<SnarlTraversal>& traversals,
                                int ref_trav_idx, double exp_depth, double depth_err);
 
