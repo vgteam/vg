@@ -823,6 +823,49 @@ namespace unittest {
         }
     }//end test case
 
+
+    /*
+    TEST_CASE("Load graph", "[cluster]"){
+
+        ifstream vg_stream("testGraph");
+        VG vg(vg_stream);
+        vg_stream.close();
+        CactusSnarlFinder bubble_finder(vg);
+        SnarlManager snarl_manager = bubble_finder.find_snarls();
+
+        MinimumDistanceIndex dist_index (&vg, &snarl_manager);
+        SnarlSeedClusterer clusterer(dist_index);
+
+        int64_t read_lim = 20;// Distance between read clusters
+        int64_t fragment_lim = 30;// Distance between fragment clusters
+
+        vector<vector<pos_t>> all_seeds;
+        all_seeds.emplace_back();
+        all_seeds.emplace_back();
+
+
+        all_seeds[0].push_back(make_pos_t(206, true, 9));
+        all_seeds[0].push_back(make_pos_t(277, false, 1));
+        all_seeds[0].push_back(make_pos_t(263, true, 11));
+        all_seeds[0].push_back(make_pos_t(280, false, 10));
+        all_seeds[0].push_back(make_pos_t(279, true, 3));
+        all_seeds[0].push_back(make_pos_t(282, false, 0));
+        all_seeds[0].push_back(make_pos_t(300, false, 0));
+        all_seeds[0].push_back(make_pos_t(248, false, 0));
+        all_seeds[0].push_back(make_pos_t(245, false, 0));
+        all_seeds[0].push_back(make_pos_t(248, true, 0));
+
+        tuple<vector<vector<vector<size_t>>>, vector<vector<size_t>>> paired_clusters = 
+            clusterer.cluster_seeds(all_seeds, read_lim, fragment_lim); 
+        vector<vector<vector<size_t>>> read_clusters = std::get<0>(paired_clusters);
+        vector<vector<size_t>> fragment_clusters = std::get<1>(paired_clusters);
+        cerr << "read cluster: " << read_clusters[0].size() << endl << "fragment clusters: " << fragment_clusters.size() << endl;
+
+        REQUIRE(fragment_clusters.size() == 2);
+        REQUIRE((fragment_clusters[0].size() == 4 ||
+                fragment_clusters[1].size() == 4));
+    }//end test case
+    */
     TEST_CASE("Random graphs", "[cluster]"){
 
         for (int i = 0; i < 1000; i++) {
@@ -846,13 +889,14 @@ namespace unittest {
             uniform_int_distribution<int> randSnarlIndex(0, allSnarls.size()-1);
             default_random_engine generator(time(NULL));
             for (size_t k = 0; k < 1000 ; k++) {
+
                 vector<vector<pos_t>> all_seeds;
                 all_seeds.emplace_back();
                 all_seeds.emplace_back();
-                int64_t read_lim = 20;// Distance between read clusters
+                int64_t read_lim = 15;// Distance between read clusters
                 int64_t fragment_lim = 30;// Distance between fragment clusters
                 for (size_t read = 0 ; read < 2 ; read ++) {
-                    for (int j = 0; j < 20; j++) {
+                    for (int j = 0; j < 200; j++) {
                         //Check clusters of j random positions 
                         const Snarl* snarl1 = allSnarls[randSnarlIndex(generator)];
 
@@ -899,9 +943,7 @@ namespace unittest {
                             for (size_t i1 = 0 ; i1 < clust.size() ; i1++) {
                                 pos_t pos1 = all_seeds[read_num][clust[i1]];
                                 size_t len1 = graph.get_length(graph.get_handle(get_id(pos1), false));
-                                pos_t rev1 = make_pos_t(get_id(pos1), 
-                                                    !is_rev(pos1),
-                                                    len1 - get_offset(pos1)-1); 
+                                pos_t rev1 = make_pos_t(get_id(pos1), !is_rev(pos1),len1 - get_offset(pos1)-1); 
 
                                 for (size_t b = 0 ; b < one_read_clusters.size() ; b++) {
                                     if (b != a) {
