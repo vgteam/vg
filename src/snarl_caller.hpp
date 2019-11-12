@@ -75,8 +75,6 @@ public:
 
     /// Set some of the parameters
     void set_min_supports(double min_mad_for_call, double min_support_for_call, double min_site_support);
-
-    void set_het_bias(double het_bias, double ref_het_bias = 0.);
     
     /// Get the traversal support finder
     const TraversalSupportFinder& get_support_finder() const;
@@ -91,12 +89,6 @@ protected:
 
     /// Relic from old code
     static double support_val(const Support& support) { return total(support); };
-
-    /// Get the bias used to for comparing two traversals
-    /// (It differrs heuristically depending whether they are alt/ref/het/hom/snp/indel
-    ///  see tuning parameters below)
-    double get_bias(const vector<int>& traversal_sizes, int best_trav,
-                    int second_best_trav, int ref_trav_idx) const;
 
     const PathHandleGraph& graph;
 
@@ -115,15 +107,6 @@ protected:
     /// what's the minimum total support (over all alleles) of the site to make
     /// a call
     size_t min_site_depth = 3;
-    /// What fraction of the reads supporting an alt are we willing to discount?
-    /// At 2, if twice the reads support one allele as the other, we'll call
-    /// homozygous instead of heterozygous. At infinity, every call will be
-    /// heterozygous if even one read supports each allele.
-    double max_het_bias = 6;
-    /// Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double max_ref_het_bias = 6;
-    /// Like the max het bias, but applies to novel indels.
-    double max_indel_het_bias = 6;
 };
 
 
@@ -136,6 +119,9 @@ public:
     RatioSupportSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager,
                             TraversalSupportFinder& support_finder);
     virtual ~RatioSupportSnarlCaller();
+
+    /// Set some of the parameters
+    void set_het_bias(double het_bias, double ref_het_bias = 0.);
 
     /// Get the genotype of a site
     virtual vector<int> genotype(const Snarl& snarl,
@@ -160,12 +146,27 @@ public:
 
 protected:
 
+    /// Get the bias used to for comparing two traversals
+    /// (It differrs heuristically depending whether they are alt/ref/het/hom/snp/indel
+    ///  see tuning parameters below)
+    double get_bias(const vector<int>& traversal_sizes, int best_trav,
+                    int second_best_trav, int ref_trav_idx) const;
+
     /// get a map of the beginning of a node (in forward orientation) on a traversal
     /// used for up-weighting large deletion edges in complex snarls with average support
     unordered_map<id_t, size_t> get_ref_offsets(const SnarlTraversal& ref_trav) const;
 
     /// Tuning
 
+    /// What fraction of the reads supporting an alt are we willing to discount?
+    /// At 2, if twice the reads support one allele as the other, we'll call
+    /// homozygous instead of heterozygous. At infinity, every call will be
+    /// heterozygous if even one read supports each allele.
+    double max_het_bias = 6;
+    /// Like above, but applied to ref / alt ratio (instead of alt / ref)
+    double max_ref_het_bias = 6;
+    /// Like the max het bias, but applies to novel indels.
+    double max_indel_het_bias = 6;
     /// Used for calling 1/2 calls.  If both alts (times this bias) are greater than
     /// the reference, the call is made.  set to 0 to deactivate.
     double max_ma_bias = 0;
@@ -217,14 +218,13 @@ protected:
     double genotype_likelihood(const vector<int>& genotype,
                                const vector<Support>& genotype_supports,
                                const vector<SnarlTraversal>& traversals,
-                               const vector<int>& traversal_sizes,                               
                                int ref_trav_idx, double exp_depth, double depth_err);
 
     /// Rank supports
     vector<int> rank_by_support(const vector<Support>& supports);
 
     /// Baseline mapping error rate (gets added to the standard error from coverage)
-    double baseline_mapping_error = 0.005;
+    double baseline_mapping_error = 0.05;
 
     /// Consider up to the top-k traversals (based on support) for genotyping
     size_t top_k = 25;

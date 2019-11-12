@@ -54,19 +54,6 @@ void SupportBasedSnarlCaller::set_min_supports(double min_mad_for_call, double m
     }
 }
 
-void SupportBasedSnarlCaller::set_het_bias(double het_bias, double ref_het_bias) {
-    // want to move away from ugly hacks that treat the reference traversal differently,
-    // so keep all these set the same
-    if (het_bias >= 0) {
-        max_het_bias = het_bias;
-        max_ref_het_bias = het_bias;
-        max_indel_het_bias = het_bias;
-    }
-    if (ref_het_bias >= 0) {
-        max_ref_het_bias = ref_het_bias;
-    }
-}
-
 int SupportBasedSnarlCaller::get_best_support(const vector<Support>& supports, const vector<int>& skips) {
     int best_allele = -1;
     for(size_t i = 0; i < supports.size(); i++) {
@@ -78,38 +65,6 @@ int SupportBasedSnarlCaller::get_best_support(const vector<Support>& supports, c
     return best_allele;
 }
 
-double SupportBasedSnarlCaller::get_bias(const vector<int>& traversal_sizes, int best_trav,
-                                         int second_best_trav, int ref_trav_idx) const {
-    bool is_indel = ((best_trav >= 0 && traversal_sizes[best_trav] != traversal_sizes[ref_trav_idx]) ||
-                     (second_best_trav >=0 && traversal_sizes[second_best_trav] != traversal_sizes[ref_trav_idx]));
-
-    double bias_limit = 1;
-
-    if (best_trav >= 0 && second_best_trav >=0) {
-        if (best_trav == ref_trav_idx) {
-            // Use ref bias limit
-            
-            // We decide closeness differently depending on whether best is ref
-            // or not. In practice, we use this to slightly penalize homozygous
-            // ref calls (by setting max_ref_het_bias higher than max_het_bias)
-            // and rather make a less supported alt call instead.  This boost
-            // max sensitivity, and because everything is homozygous ref by
-            // default in VCF, any downstream filters will effectively reset
-            // these calls back to homozygous ref. TODO: This shouldn't apply
-            // when off the primary path!
-            bias_limit = max_ref_het_bias;
-        } else if (is_indel) {
-            // This is an indel
-            // Use indel bias limit
-            bias_limit = max_indel_het_bias;
-        } else {
-            // Use normal het bias limit
-            bias_limit = max_het_bias;
-        }
-    }
-    return bias_limit;
-}
-
 RatioSupportSnarlCaller::RatioSupportSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager,
                                                  TraversalSupportFinder& support_finder) :
     SupportBasedSnarlCaller(graph, snarl_manager, support_finder)  {
@@ -117,6 +72,19 @@ RatioSupportSnarlCaller::RatioSupportSnarlCaller(const PathHandleGraph& graph, S
 
 RatioSupportSnarlCaller::~RatioSupportSnarlCaller() {
     
+}
+
+void RatioSupportSnarlCaller::set_het_bias(double het_bias, double ref_het_bias) {
+    // want to move away from ugly hacks that treat the reference traversal differently,
+    // so keep all these set the same
+    if (het_bias >= 0) {
+        max_het_bias = het_bias;
+        max_ref_het_bias = het_bias;
+        max_indel_het_bias = het_bias;
+    }
+    if (ref_het_bias >= 0) {
+        max_ref_het_bias = ref_het_bias;
+    }
 }
 
 vector<int> RatioSupportSnarlCaller::genotype(const Snarl& snarl,
@@ -450,6 +418,39 @@ function<bool(const SnarlTraversal&)> RatioSupportSnarlCaller::get_skip_allele_f
     };
 }
 
+double RatioSupportSnarlCaller::get_bias(const vector<int>& traversal_sizes, int best_trav,
+                                         int second_best_trav, int ref_trav_idx) const {
+    bool is_indel = ((best_trav >= 0 && traversal_sizes[best_trav] != traversal_sizes[ref_trav_idx]) ||
+                     (second_best_trav >=0 && traversal_sizes[second_best_trav] != traversal_sizes[ref_trav_idx]));
+
+    double bias_limit = 1;
+
+    if (best_trav >= 0 && second_best_trav >=0) {
+        if (best_trav == ref_trav_idx) {
+            // Use ref bias limit
+            
+            // We decide closeness differently depending on whether best is ref
+            // or not. In practice, we use this to slightly penalize homozygous
+            // ref calls (by setting max_ref_het_bias higher than max_het_bias)
+            // and rather make a less supported alt call instead.  This boost
+            // max sensitivity, and because everything is homozygous ref by
+            // default in VCF, any downstream filters will effectively reset
+            // these calls back to homozygous ref. TODO: This shouldn't apply
+            // when off the primary path!
+            bias_limit = max_ref_het_bias;
+        } else if (is_indel) {
+            // This is an indel
+            // Use indel bias limit
+            bias_limit = max_indel_het_bias;
+        } else {
+            // Use normal het bias limit
+            bias_limit = max_het_bias;
+        }
+    }
+    return bias_limit;
+}
+
+
 PoissonSupportSnarlCaller::PoissonSupportSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager,
                                                      TraversalSupportFinder& support_finder,
                                                      const algorithms::BinnedDepthIndex& depth_index) :
@@ -562,7 +563,7 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
     double best_genotype_likelihood = -numeric_limits<double>::max();
     vector<int> best_genotype;
     for (const auto& candidate : candidates) {
-        double gl = genotype_likelihood(candidate.first, candidate.second, traversals, traversal_sizes, ref_trav_idx, exp_depth, depth_err);
+        double gl = genotype_likelihood(candidate.first, candidate.second, traversals, ref_trav_idx, exp_depth, depth_err);
         if (gl > best_genotype_likelihood) {
             best_genotype_likelihood = gl;
             best_genotype = candidate.first;
@@ -578,7 +579,6 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
 double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotype,
                                                       const vector<Support>& genotype_supports,
                                                       const vector<SnarlTraversal>& traversals,
-                                                      const vector<int>& traversal_sizes,
                                                       int ref_trav_idx, double exp_depth, double depth_err) {
     
     assert(genotype_supports.size() == genotype.size());
@@ -602,24 +602,6 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
             fixed_genotype_supports[i] = genotype_supports[i] / (double)genotype_supports.size();
         }
     }
-
-    // we preserve our het-bias from RatioSupportSnarlCaller as something prior-like here
-    // todo: use something better
-    double het_prior = 0.;
-    double ew_prior = 0.;
-    if (genotype.size() == 2) {
-        double het_bias = get_bias(traversal_sizes, genotype[0], genotype[1], ref_trav_idx);
-        if (genotype[0] != genotype[1]) {
-            // if the het_bias is greater than 1 (usually it's 6 by default), then
-            // we get a prior of 5/6 for a het
-            het_prior = log(1. - 1. / het_bias);
-            ew_prior = ewens_af_prob_ln({2, 0}, 0.001);
-        } else {
-            // and 1/6 for a hom
-            het_prior = log(1. / het_bias);
-            ew_prior = ewens_af_prob_ln({0, 1}, 0.001);
-        }
-    }    
     
     // total support of the site
     Support total_site_support = total_other_support;
@@ -661,12 +643,11 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
     }
 
 #ifdef debug
-    cerr  << " allele-log-prob " << alleles_log_likelihood << " other-log-prob " << other_log_likelihood << " prior " << het_prior
-          << " ew prior " << ew_prior
-          << " total-prob " << (alleles_log_likelihood + other_log_likelihood + het_prior) << endl;
+    cerr  << " allele-log-prob " << alleles_log_likelihood << " other-log-prob " << other_log_likelihood
+          << " total-prob " << (alleles_log_likelihood + other_log_likelihood) << endl;
 #endif
 
-    return alleles_log_likelihood + other_log_likelihood + het_prior;
+    return alleles_log_likelihood + other_log_likelihood;
 }
 
 void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
@@ -687,8 +668,6 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     }
     double total_site_depth = support_val(site_support);
 
-    vector<int> traversal_sizes = support_finder.get_traversal_sizes(traversals);
-
     // Set the variant's total depth            
     string depth_string = std::to_string((int64_t)round(total_site_depth));
     variant.format.push_back("DP");
@@ -700,7 +679,6 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     // get the allele depths
     variant.format.push_back("AD");
     set<int> called_allele_set(genotype.begin(), genotype.end());
-    double min_site_support = genotype.size() > 0 ? INFINITY : 0;
 
     for (int i = 0; i < traversals.size(); ++i) {
         vector<int> shared_travs;
@@ -720,10 +698,6 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
         // there is certainly room for optimization via remembering some of this stuff here
         vector<Support> allele_supports = support_finder.get_traversal_set_support(traversals, shared_travs, false, !in_genotype, false);
         variant.samples[sample_name]["AD"].push_back(std::to_string((int64_t)round(support_val(allele_supports[i]))));
-        if (in_genotype) {
-            // update the minimum support
-            min_site_support = min(min_site_support, total(allele_supports[i]));
-        }
     }
 
     // get the genotype likelihoods
@@ -757,7 +731,7 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
                 gt_supports = support_finder.get_traversal_set_support(traversals, {i}, false, false, false);
                 genotype_supports.push_back(gt_supports[j]);
             }
-            double gl = genotype_likelihood({i, j}, genotype_supports, traversals, traversal_sizes, 0, exp_depth, depth_err);
+            double gl = genotype_likelihood({i, j}, genotype_supports, traversals, 0, exp_depth, depth_err);
             // convert from natural log to log10 by dividing by ln(10)
             variant.samples[sample_name]["GL"].push_back(std::to_string(gl / 2.30258));
 
@@ -768,9 +742,6 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
             }
         }
     }
-
-    // use old quality for now
-    variant.quality = min_site_support;
 
     // todo
     /*

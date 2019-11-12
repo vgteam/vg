@@ -224,6 +224,11 @@ int main_call(int argc, char** argv) {
         cerr << "error [vg call]: when using -l, the same number paths must be given with -p" << endl;
         return 1;
     }
+    // Check bias option
+    if (!bias_string.empty() && !ratio_caller) {
+        cerr << "error [vg call]: -b can only be used with -B" << endl;
+        return 1;
+    }
 
     // No paths specified: use them all
     if (ref_paths.empty()) {
@@ -268,20 +273,20 @@ int main_call(int argc, char** argv) {
 
         if (ratio_caller == false) {
             // Make a depth index
-            depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, 50000, 0, true, true);
+            depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, 500000, 0, true, true);
             // Make a new-stype probablistic caller
             auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder, depth_index);
             packed_caller = poisson_caller;
         } else {
             // Make an old-style ratio support caller
             auto ratio_caller = new RatioSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder);
+            if (het_bias >= 0) {
+                ratio_caller->set_het_bias(het_bias, ref_het_bias);
+            }
             packed_caller = ratio_caller;
         }
         if (min_allele_support >= 0) {
             packed_caller->set_min_supports(min_allele_support, min_allele_support, min_site_support);
-        }
-        if (het_bias >= 0) {
-            packed_caller->set_het_bias(het_bias, ref_het_bias);
         }
         
         snarl_caller = unique_ptr<SnarlCaller>(packed_caller);
