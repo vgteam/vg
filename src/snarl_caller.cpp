@@ -596,8 +596,7 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
     // split the homozygous support into two
     // from now on we'll treat it like two separate observations, each with half coverage
     vector<Support> fixed_genotype_supports = genotype_supports;
-    if (std::equal(genotype_supports.begin() + 1, genotype_supports.end(), genotype_supports.begin(),
-                   [&](const Support& s1, const Support& s2) { return support_val(s1) == support_val(s2); })) {
+    if (std::equal(genotype.begin() + 1, genotype.end(), genotype.begin())) {
         for (int i = 0; i < genotype_supports.size(); ++i) {
             fixed_genotype_supports[i] = genotype_supports[i] / (double)genotype_supports.size();
         }
@@ -679,6 +678,7 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     // get the allele depths
     variant.format.push_back("AD");
     set<int> called_allele_set(genotype.begin(), genotype.end());
+    double min_site_support = genotype.size() > 0 ? INFINITY : 0;
 
     for (int i = 0; i < traversals.size(); ++i) {
         vector<int> shared_travs;
@@ -698,6 +698,10 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
         // there is certainly room for optimization via remembering some of this stuff here
         vector<Support> allele_supports = support_finder.get_traversal_set_support(traversals, shared_travs, false, !in_genotype, false);
         variant.samples[sample_name]["AD"].push_back(std::to_string((int64_t)round(support_val(allele_supports[i]))));
+        if (in_genotype) {
+            // update the minimum support
+            min_site_support = min(min_site_support, total(allele_supports[i]));
+        }
     }
 
     // get the genotype likelihoods
@@ -743,22 +747,19 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
         }
     }
 
-    // todo
-    /*
+    // use old quality for now
+    variant.quality = min_site_support;
+
     // Now do the filters
+    // todo: fix and share with other caller
     variant.filter = "PASS";            
     if (min_site_support < min_mad_for_filter) {
         // Apply Min Allele Depth cutoff across all alleles (even ref)
         variant.filter = "lowad";
-    } else if (min_ad_log_likelihood_for_filter != 0 &&
-               ad_log_likelihood < min_ad_log_likelihood_for_filter) {
-        // We have a het, but the assignment of reads between the two branches is just too weird
-        variant.filter = "lowxadl";
-    } else if ((int64_t)round(total(total_support)) < min_site_depth) {
+    } else if ((int64_t)round(total_site_depth) < min_site_depth) {
         // we don't have enough support to want to make a call
         variant.filter = "lowdepth";
     }
-    */
 }
 
 void PoissonSupportSnarlCaller::update_vcf_header(string& header) const {
