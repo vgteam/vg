@@ -23,7 +23,7 @@ void help_convert(char** argv) {
          << "    -a, --hash-out         output in HashGraph format" << endl
          << "    -p, --packed-out       output in PackedGraph format" << endl
          << "    -x, --xg-out           output in XG format" << endl
-         << "    -o, --odgi-out           output in ODGI format" << endl;
+         << "    -o, --odgi-out         output in ODGI format" << endl;
 }
 
 int main_convert(int argc, char** argv) {

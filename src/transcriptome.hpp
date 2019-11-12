@@ -125,7 +125,7 @@ class Transcriptome {
         void embed_transcript_paths(const bool add_reference_paths, const bool add_non_reference_paths, const bool rebuild_indexes);
 
         /// Add transcript paths as threads in GBWT index.
-        void construct_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool output_reference_transcripts) const;
+        void construct_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool output_reference_transcripts, const bool add_bidirectional) const;
         
         /// Writes transcript paths as alignments to a gam file.
         void write_alignments(ostream * gam_ostream, const bool output_reference_transcripts) const;

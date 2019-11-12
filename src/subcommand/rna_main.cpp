@@ -33,6 +33,7 @@ void help_rna(char** argv) {
          << "    -a, --add-non-ref-paths    add non-reference transcripts as embedded paths in the splice graph" << endl
          << "    -u, --out-ref-paths        output reference transcripts in GBWT, fasta and info" << endl
          << "    -b, --write-gbwt FILE      write transcripts as threads to GBWT index file" << endl
+         << "    -g, --gbwt-bidirectional   add transcripts as bidirectional threads to GBWT index" << endl
          << "    -f, --write-fasta FILE     write transcripts as sequences to fasta file" << endl
          << "    -i, --write-info FILE      write transcript origin info to tsv file" << endl
          << "    -t, --threads INT          number of compute threads to use [1]" << endl
@@ -59,6 +60,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     bool add_non_reference_transcript_paths = false;
     bool output_reference_transcript_paths = false;
     string gbwt_out_filename = "";
+    bool gbwt_add_bidirectional = false;
     string fasta_out_filename = "";
     string info_out_filename = "";
     int32_t num_threads = 1;
@@ -81,6 +83,7 @@ int32_t main_rna(int32_t argc, char** argv) {
                 {"add-non-ref-paths",  no_argument, 0, 'a'},
                 {"out-ref-paths",  no_argument, 0, 'u'},           
                 {"write-gbwt",  no_argument, 0, 'b'},
+                {"gbwt-bidirectional",  no_argument, 0, 'g'},
                 {"write-fasta",  no_argument, 0, 'f'},
                 {"write-info",  no_argument, 0, 'i'},
                 {"threads",  no_argument, 0, 't'},
@@ -90,7 +93,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             };
 
         int32_t option_index = 0;
-        c = getopt_long(argc, argv, "n:s:l:ercdoraub:f:i:t:ph?", long_options, &option_index);
+        c = getopt_long(argc, argv, "n:s:l:ercdoraub:gf:i:t:ph?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -141,6 +144,10 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         case 'b':
             gbwt_out_filename = optarg;
+            break;
+
+        case 'g':
+            gbwt_add_bidirectional = true;
             break;
 
         case 'f':
@@ -283,13 +290,13 @@ int32_t main_rna(int32_t argc, char** argv) {
     // Construct and write GBWT index of transcript paths in transcriptome.
     if (!gbwt_out_filename.empty()) {
 
-        if (show_progress) { cerr << "[vg rna] Writing transcripts as threads to GBWT index file ..." << endl; }
+        if (show_progress) { cerr << "[vg rna] Writing transcripts as " << ((gbwt_add_bidirectional) ? "bidirectional " : "") << "threads to GBWT index file ..." << endl; }
 
         // Silence GBWT index construction. 
         gbwt::Verbosity::set(gbwt::Verbosity::SILENT); 
         gbwt::GBWTBuilder gbwt_builder(gbwt::bit_length(gbwt::Node::encode(transcriptome.splice_graph().max_node_id(), true)));
 
-        transcriptome.construct_gbwt(&gbwt_builder, output_reference_transcript_paths);
+        transcriptome.construct_gbwt(&gbwt_builder, output_reference_transcript_paths, gbwt_add_bidirectional);
 
         // Finish contruction and recode index.
         gbwt_builder.finish();

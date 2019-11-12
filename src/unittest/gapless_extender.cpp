@@ -131,7 +131,7 @@ void alignment_matches(const Path& path, const std::vector<std::pair<pos_t, std:
     }
 }
 
-void full_length_match(const std::vector<std::pair<pos_t, size_t>>& seeds, const std::string& read, const std::vector<std::pair<pos_t, std::string>>& correct_alignment, const GaplessExtender& extender, size_t error_bound) {
+void full_length_match(const std::vector<std::pair<pos_t, size_t>>& seeds, const std::string& read, const std::vector<std::pair<pos_t, std::string>>& correct_alignment, const GaplessExtender& extender, size_t error_bound, bool check_seeds) {
     GaplessExtender::cluster_type cluster;
     for (auto seed : seeds) {
         cluster.insert(GaplessExtender::to_seed(seed.first, seed.second));
@@ -152,6 +152,30 @@ void full_length_match(const std::vector<std::pair<pos_t, size_t>>& seeds, const
         REQUIRE(result.front().mismatches() <= error_bound);
         correct_score(result.front(), *(extender.aligner));
         alignment_matches(result.front().to_path(*(extender.graph), read), correct_alignment);
+
+        // This extension should contain all the seeds. Check that contains() works correctly.
+        if (check_seeds) {
+            for (auto seed : cluster) {
+                REQUIRE(result.front().contains(*(extender.graph), seed));
+            }
+        }
+    }
+}
+
+void full_length_matches(const std::vector<std::pair<pos_t, size_t>>& seeds, const std::string& read, const std::vector<std::vector<std::pair<pos_t, std::string>>>& correct_alignments, const GaplessExtender& extender, size_t error_bound) {
+    GaplessExtender::cluster_type cluster;
+    for (auto seed : seeds) {
+        cluster.insert(GaplessExtender::to_seed(seed.first, seed.second));
+    }
+    auto result = extender.extend(cluster, read, error_bound);
+
+    REQUIRE(result.size() == correct_alignments.size());
+    for (size_t i = 0; i < result.size(); i++) {
+        REQUIRE(!result[i].empty());
+        REQUIRE(result[i].full());
+        REQUIRE(result[i].mismatches() <= error_bound);
+        correct_score(result[i], *(extender.aligner));
+        alignment_matches(result[i].to_path(*(extender.graph), read), correct_alignments[i]);
     }
 }
 
@@ -361,7 +385,7 @@ TEST_CASE("Full-length alignments", "[gapless_extender]") {
             { make_pos_t(9, false, 0), "1" }
         };
         size_t error_bound = 0;
-        full_length_match(seeds, read, correct_alignment, extender, error_bound);
+        full_length_match(seeds, read, correct_alignment, extender, error_bound, true);
     }
 
     SECTION("read matches with errors") {
@@ -378,7 +402,7 @@ TEST_CASE("Full-length alignments", "[gapless_extender]") {
             { make_pos_t(7, false, 0), "1" }
         };
         size_t error_bound = 1;
-        full_length_match(seeds, read, correct_alignment, extender, error_bound);
+        full_length_match(seeds, read, correct_alignment, extender, error_bound, true);
     }
 
     SECTION("false seeds do not matter") {
@@ -396,7 +420,7 @@ TEST_CASE("Full-length alignments", "[gapless_extender]") {
             { make_pos_t(7, false, 0), "1" }
         };
         size_t error_bound = 1;
-        full_length_match(seeds, read, correct_alignment, extender, error_bound);
+        full_length_match(seeds, read, correct_alignment, extender, error_bound, false);
     }
 
     SECTION("read matches reverse complement and ends within a node") {
@@ -412,7 +436,7 @@ TEST_CASE("Full-length alignments", "[gapless_extender]") {
             { make_pos_t(4, true, 0), "1T" }
         };
         size_t error_bound = 1;
-        full_length_match(seeds, read, correct_alignment, extender, error_bound);
+        full_length_match(seeds, read, correct_alignment, extender, error_bound, true);
     }
 
     SECTION("there is no full-length alignment") {
@@ -422,7 +446,31 @@ TEST_CASE("Full-length alignments", "[gapless_extender]") {
         };
         std::string read = "AGAGTAC";
         size_t error_bound = 1;
-        full_length_match(seeds, read, { }, extender, error_bound);
+        full_length_match(seeds, read, { }, extender, error_bound, false);
+    }
+
+    SECTION("there is a secondary alignment") {
+        std::vector<std::pair<pos_t, size_t>> seeds {
+            { make_pos_t(4, false, 2), 0 },
+            { make_pos_t(6, true, 0), 1 }
+        };
+        std::string read = "GTAC";
+        size_t error_bound = 1;
+        std::vector<std::vector<std::pair<pos_t, std::string>>> correct_alignments {
+            {
+                { make_pos_t(4, false, 2), "1" },
+                { make_pos_t(5, false, 0), "1" },
+                { make_pos_t(6, false, 0), "1" },
+                { make_pos_t(7, false, 0), "1" }
+            },
+            {
+                { make_pos_t(7, true, 0), "1" },
+                { make_pos_t(6, true, 0), "1" },
+                { make_pos_t(5, true, 0), "1" },
+                { make_pos_t(4, true, 0), "1" }
+            }
+        };
+        full_length_matches(seeds, read, correct_alignments, extender, error_bound);
     }
 }
 

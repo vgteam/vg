@@ -1109,7 +1109,7 @@ void Transcriptome::embed_transcript_paths(const bool add_reference_paths, const
     }
 }
 
-void Transcriptome::construct_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool output_reference_transcripts) const {
+void Transcriptome::construct_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool output_reference_transcripts, const bool add_bidirectional) const {
 
     vector<string> sample_names;
     sample_names.reserve(size());
@@ -1131,7 +1131,7 @@ void Transcriptome::construct_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool 
             }
 
             // Insert transcript path as thread into GBWT index.
-            gbwt_builder->insert(gbwt_thread, false);
+            gbwt_builder->insert(gbwt_thread, add_bidirectional);
 
             // Insert transcript path name into GBWT index.
             gbwt_builder->index.metadata.addPath({static_cast<gbwt::PathName::path_name_type>(sample_names.size()), 0, 0, 0});
