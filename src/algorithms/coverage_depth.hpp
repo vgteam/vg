@@ -38,7 +38,7 @@ vector<tuple<size_t, size_t, double, double>> binned_packed_depth(const Packer& 
 
 /// Use the above function to retrieve the binned depths of a list of paths, and store them indexed by start
 /// coordinate.  If std_err is true, store <mean, stderr> instead of <mean, variance>
-using BinnedDepthIndex = unordered_map<string, map<size_t, pair<double, double>>>;
+using BinnedDepthIndex = unordered_map<string, map<size_t, pair<float, float>>>;
 BinnedDepthIndex binned_packed_depth_index(const Packer& packer,
                                            const vector<string>& path_names,
                                            size_t bin_size,
@@ -47,8 +47,8 @@ BinnedDepthIndex binned_packed_depth_index(const Packer& packer,
                                            bool std_err);
 
 /// Query index created above
-/// Todo: optionally smooth over adjacent bins?
-const pair<double, double>& get_depth_from_index(const BinnedDepthIndex& depth_index, const string& path_name, size_t offset);
+const pair<float, float>& get_depth_from_index(const BinnedDepthIndex& depth_index, const string& path_name, size_t offset);
+pair<float, float> get_depth_from_index(const BinnedDepthIndex& depth_index, const string& path_name, size_t start_offset, size_t end_offset);
 
 /// Return the mean and variance of coverage of randomly sampled nodes from a GAM
 /// Nodes with less than min_coverage are ignored

@@ -297,8 +297,10 @@ void RatioSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
         shared_travs.push_back(genotype[0]);
     }
     // compute the support of our called alleles
-    // todo: I think this undercounts support.  shuold be fixed (as in Poisson version)
     vector<Support> allele_supports = support_finder.get_traversal_genotype_support(traversals, genotype, 0);
+    
+    // Compute the total support for all the alts that will be appearing
+    Support total_support = std::accumulate(allele_supports.begin(), allele_supports.end(), Support());    
         
     // Set up the depth format field
     variant.format.push_back("DP");
@@ -309,9 +311,7 @@ void RatioSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     variant.format.push_back("XADL");
     // Also the alt allele depth
     variant.format.push_back("XAAD");
-
-    // Compute the total support for all the alts that will be appearing
-    Support total_support = support_finder.get_total_traversal_set_support(traversals, 0);
+    
     // And total alt allele depth for the alt alleles
     Support alt_support;
     // Find the min total support of anything called
@@ -536,10 +536,9 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
     }
 
     // expected depth from our coverage
-    const pair<double, double>& start_depth = algorithms::get_depth_from_index(depth_index, ref_path_name, ref_range.first);
-    const pair<double, double>& end_depth = algorithms::get_depth_from_index(depth_index, ref_path_name, ref_range.second);
-    double exp_depth = (start_depth.first + end_depth.first) / 2.;
-    double depth_err = (start_depth.second + end_depth.second) / 2.;
+    auto depth_info = algorithms::get_depth_from_index(depth_index, ref_path_name, ref_range.first, ref_range.second);
+    double exp_depth = depth_info.first;
+    double depth_err = depth_info.second;
     assert(!isnan(exp_depth) && !isnan(depth_err));
 
     // genotype (log) likelihoods
@@ -565,23 +564,21 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
     
     assert(genotype.size() == 1 || genotype.size() == 2);
 
-    // get the total support over the site
-    // todo: bump this to calling method to not recompute for each genotype!!!
-    Support total_site_support = support_finder.get_total_traversal_set_support(traversals, ref_trav_idx);
-
     // get the genotype support
-    // todo : we aren't using the non-genotype allele supports in this method, add flag to not compute them here!
     vector<Support> genotype_supports = support_finder.get_traversal_genotype_support(traversals, genotype, ref_trav_idx);
 
-    // get the total support of traversals *not* in the genotype
-    // note that if we sum it up from allele_supports, it will likely be underestimated when using min (instead of avg supports)
-    // so we subtract it out of the total instead
-    Support total_other_support = total_site_support;
-    set<int> genotype_set(genotype.begin(), genotype.end());
-    for (int allele : genotype_set) {
-        total_other_support += -1. * genotype_supports[allele];
-    }
+    // get the total support over the site
+    Support total_site_support = std::accumulate(genotype_supports.begin(), genotype_supports.end(), Support());    
 
+    // get the total support of traversals *not* in the genotype
+    Support total_other_support;
+    set<int> genotype_set(genotype.begin(), genotype.end());
+    for (int i = 0; i < traversals.size(); ++i) {
+        if (!genotype_set.count(i)) {
+            total_other_support += genotype_supports[i];
+        }
+    }
+ 
     // split the homozygous support into two
     // from now on we'll treat it like two separate observations, each with half coverage
     vector<Support> fixed_genotype_supports = genotype_supports;
@@ -641,10 +638,11 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
 
     assert(traversals.size() == variant.alleles.size());
 
-    // Get the depth of the site
-    // todo: pass this down to genotype_likelihood
+    // get the genotype support
+    vector<Support> genotype_supports = support_finder.get_traversal_genotype_support(traversals, genotype, 0);
 
-    Support total_site_support = support_finder.get_total_traversal_set_support(traversals, 0);    
+    // Get the depth of the site
+    Support total_site_support = std::accumulate(genotype_supports.begin(), genotype_supports.end(), Support());    
     double total_site_depth = support_val(total_site_support);
 
     // Set the variant's total depth            
@@ -658,8 +656,6 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     // get the allele depths
     variant.format.push_back("AD");
 
-    // get the genotype support
-    vector<Support> genotype_supports = support_finder.get_traversal_genotype_support(traversals, genotype, 0);
     set<int> genotype_set(genotype.begin(), genotype.end());
     double min_site_support = genotype.size() > 0 ? INFINITY : 0;
 
@@ -682,10 +678,9 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
 
     // expected depth from our coverage
     pair<size_t, size_t> ref_range = make_pair(variant.position, variant.position + variant.ref.length());
-    const pair<double, double>& start_depth = algorithms::get_depth_from_index(depth_index, variant.sequenceName, ref_range.first);
-    const pair<double, double>& end_depth = algorithms::get_depth_from_index(depth_index, variant.sequenceName, ref_range.second);
-    double exp_depth = (start_depth.first + end_depth.first) / 2.;
-    double depth_err = (start_depth.second + end_depth.second) / 2.;
+    auto depth_info = algorithms::get_depth_from_index(depth_index, variant.sequenceName, ref_range.first, ref_range.second);
+    double exp_depth = depth_info.first;
+    double depth_err = depth_info.second;
     assert(!isnan(exp_depth) && !isnan(depth_err));
 
     // assume ploidy 2

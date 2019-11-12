@@ -63,26 +63,6 @@ Support TraversalSupportFinder::get_traversal_support(const SnarlTraversal& trav
     return get_traversal_set_support({traversal}, {}, {}, false, false, false).at(0);
 }
 
-Support TraversalSupportFinder::get_total_traversal_set_support(const vector<SnarlTraversal>& traversals,
-                                                                int ref_trav_idx) const {
-    // share everything
-    vector<int> shared_travs(traversals.size());
-    for (int i = 0; i < shared_travs.size(); ++i) {
-        shared_travs[i] = i;
-    }
-
-    // get the support of everything, where all shared nodes and edges are scaled by the number of times they're shared
-    vector<Support> supports = get_traversal_set_support(traversals, shared_travs, {}, false, false, true, ref_trav_idx);
-
-    // sum it up
-    Support total;
-    for (const Support& support : supports) {
-        total += support;
-    }
-
-    return total;
-}
-
 vector<Support> TraversalSupportFinder::get_traversal_genotype_support(const vector<SnarlTraversal>& traversals,
                                                                        const vector<int>& genotype,
                                                                        int ref_trav_idx) {

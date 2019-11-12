@@ -130,18 +130,18 @@ vector<tuple<size_t, size_t, double, double>> binned_packed_depth(const Packer& 
     return binned_depths;
 }
 
-unordered_map<string, map<size_t, pair<double, double>>> binned_packed_depth_index(const Packer& packer,
+unordered_map<string, map<size_t, pair<float, float>>> binned_packed_depth_index(const Packer& packer,
                                                                                    const vector<string>& path_names,
                                                                                    size_t bin_size,
                                                                                    size_t min_coverage,
                                                                                    bool include_deletions,
                                                                                    bool std_err) {
-    unordered_map<string, map<size_t, pair<double, double>>> depth_index;
+    unordered_map<string, map<size_t, pair<float, float>>> depth_index;
     for (const string& path_name : path_names) {
         vector<tuple<size_t, size_t, double, double>> binned_depths = binned_packed_depth(packer, path_name, bin_size,
                                                                                           min_coverage, include_deletions);
         // todo: probably more efficent to just leave in sorted vector
-        map<size_t, pair<double, double>>& depth_map = depth_index[path_name];
+        map<size_t, pair<float, float>>& depth_map = depth_index[path_name];
         for (auto& binned_depth : binned_depths) {
             double var = get<3>(binned_depth);
             // optionally convert variance to standard error
@@ -155,12 +155,28 @@ unordered_map<string, map<size_t, pair<double, double>>> binned_packed_depth_ind
     return depth_index;
 }
 
-const pair<double, double>& get_depth_from_index(const unordered_map<string, map<size_t, pair<double, double>>>& depth_index,
-                                          const string& path_name, size_t offset) {
+const pair<float, float>& get_depth_from_index(const unordered_map<string, map<size_t, pair<float, float>>>& depth_index,
+                                               const string& path_name, size_t offset) {
 
     auto ub = depth_index.at(path_name).upper_bound(offset);
     --ub;
     return ub->second;
+}
+
+pair<float, float> get_depth_from_index(const BinnedDepthIndex& depth_index, const string& path_name, size_t start_offset, size_t end_offset) {
+    auto ub = depth_index.at(path_name).upper_bound(start_offset);
+    --ub;
+    auto ub_end = depth_index.at(path_name).upper_bound(end_offset);
+    size_t count = 0;
+    pair<float, float> total = make_pair(0, 0);
+    for (auto cur = ub; cur != ub_end; ++cur, ++count) {
+        total.first += cur->second.first;
+        total.second += cur->second.second;
+    }
+    // todo: better way of combining?
+    total.first /= (double)count;
+    total.second /= (double)count;
+    return total;
 }
 
 // draw (roughly) max_nodes nodes from the graph using the random seed

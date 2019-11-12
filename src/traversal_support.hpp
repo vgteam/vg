@@ -45,13 +45,7 @@ public:
     /// Get the support of a traversal
     /// Child snarls are handled as in the old call code: their maximum support is used
     virtual Support get_traversal_support(const SnarlTraversal& traversal) const;
-
-    /// wrapper for using get_traversal_set_support to get the total support
-    /// (sets shared_travs to the whole set, mutual_shared to true, then
-    /// sums over the results)
-    virtual Support get_total_traversal_set_support(const vector<SnarlTraversal>& traversals,
-                                                    int ref_trav_idx = -1) const;
-
+ 
     /// wrapper for using get_traversal_set_support to get the support for
     /// some alleles in a genotype, where everything is split evently among them
     /// anything not in the genotype gets a support using "exclusive_count"
