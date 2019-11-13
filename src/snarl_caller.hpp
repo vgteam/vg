@@ -51,7 +51,7 @@ public:
     virtual void update_vcf_header(string& header) const = 0;
 
     /// Optional method used for pruning searches
-    virtual function<bool(const SnarlTraversal&)> get_skip_allele_fn() const;
+    virtual function<bool(const SnarlTraversal&, int iteration)> get_skip_allele_fn() const;
 };
 
 /**
@@ -82,6 +82,9 @@ public:
     /// Get the minimum total support for call
     virtual int get_min_total_support_for_call() const;
 
+    /// Use min_alt_path_support threshold as cutoff
+    virtual function<bool(const SnarlTraversal&, int iteration)> get_skip_allele_fn() const;
+
 protected:
 
     /// Get the best support out of a list of supports, ignoring skips
@@ -107,6 +110,9 @@ protected:
     /// what's the minimum total support (over all alleles) of the site to make
     /// a call
     size_t min_site_depth = 3;
+    /// used only for pruning alleles in the VCFTraversalFinder:  minimum support
+    /// of an allele's alt-path for it to be considered in the brute-force enumeration
+    double min_alt_path_support = 0.2;
 };
 
 
@@ -141,9 +147,6 @@ public:
     /// Define any header fields needed by the above
     virtual void update_vcf_header(string& header) const;
 
-    /// Use min_alt_path_support threshold as cutoff
-    virtual function<bool(const SnarlTraversal&)> get_skip_allele_fn() const;
-
 protected:
 
     /// Get the bias used to for comparing two traversals
@@ -171,11 +174,7 @@ protected:
     /// the reference, the call is made.  set to 0 to deactivate.
     double max_ma_bias = 0;
     /// what's the min log likelihood for allele depth assignments to PASS?
-    double min_ad_log_likelihood_for_filter = -9;
-    /// used only for pruning alleles in the VCFTraversalFinder:  minimum support
-    /// of an allele's alt-path for it to be considered in the brute-force enumeration
-    double min_alt_path_support = 0.2;
-    
+    double min_ad_log_likelihood_for_filter = -9;    
 };
 
 /**

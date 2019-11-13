@@ -8,9 +8,9 @@ namespace vg {
 SnarlCaller::~SnarlCaller() {
 }
 
-function<bool(const SnarlTraversal&)> SnarlCaller::get_skip_allele_fn() const {
+function<bool(const SnarlTraversal&, int)> SnarlCaller::get_skip_allele_fn() const {
     // default implementation says don't skip anything
-    return [](const SnarlTraversal&) { return false; };
+    return [](const SnarlTraversal&, int) { assert(false); return false; };
 }
 
 SupportBasedSnarlCaller::SupportBasedSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager,
@@ -63,6 +63,14 @@ int SupportBasedSnarlCaller::get_best_support(const vector<Support>& supports, c
         }
     }
     return best_allele;
+}
+
+function<bool(const SnarlTraversal&, int)> SupportBasedSnarlCaller::get_skip_allele_fn() const {
+    // port over cutoff used in old support caller (there avg support used all the time, here
+    // we use the same toggles as when genotyping)
+    return [&](const SnarlTraversal& trav, int iteration) -> bool {
+        return support_val(support_finder.get_traversal_support(trav)) < pow(2, iteration) * min_alt_path_support;
+    };
 }
 
 RatioSupportSnarlCaller::RatioSupportSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager,
@@ -402,14 +410,6 @@ void RatioSupportSnarlCaller::update_vcf_header(string& header) const {
         std::to_string(min_ad_log_likelihood_for_filter) + "\">\n";
     header += "##FILTER=<ID=lowdepth,Description=\"Variant has read depth less than " +
         std::to_string(min_site_depth) + "\">\n";    
-}
-
-function<bool(const SnarlTraversal&)> RatioSupportSnarlCaller::get_skip_allele_fn() const {
-    // port over cutoff used in old support caller (there avg support used all the time, here
-    // we use the same toggles as when genotyping)
-    return [&](const SnarlTraversal& trav) -> bool {
-        return support_val(support_finder.get_traversal_support(trav)) < min_alt_path_support;
-    };
 }
 
 double RatioSupportSnarlCaller::get_bias(const vector<int>& traversal_sizes, int best_trav,

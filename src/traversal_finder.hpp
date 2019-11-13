@@ -416,13 +416,19 @@ protected:
 
     /// Use this method to prune the search space by selecting alt-alleles
     /// to skip by considering their paths (in SnarlTraversal) format
-    function<bool(const SnarlTraversal& alt_path)> skip_alt;
+    /// It will try again and again until enough traversals are pruned,
+    /// with iteration keeping track of how many tries (so it should become stricter
+    /// as iteration increases)
+    function<bool(const SnarlTraversal& alt_path, int iteration)> skip_alt;
 
     /// If a snarl has more than this many traversals, return nothing and print
     /// a warning.  Dense and large deletions will make this happen from time
     /// to time.  In practice, skip_alt (above) can be used to prune down
     /// the search space by selecting alleles to ignore.
     size_t max_traversal_cutoff;
+
+    /// Maximum number of pruning iterations
+    size_t max_prune_iterations = 1000;
     
     /// Include snarl endpoints in traversals
     bool include_endpoints = true;
@@ -446,7 +452,7 @@ public:
                        const vector<string>& ref_path_names = {},
                        FastaReference* fasta_ref = nullptr,
                        FastaReference* ins_ref = nullptr,
-                       function<bool(const SnarlTraversal&)> skip_alt = nullptr,
+                       function<bool(const SnarlTraversal&, int)> skip_alt = nullptr,
                        size_t max_traversal_cutoff = 500000);
         
     virtual ~VCFTraversalFinder();
