@@ -896,6 +896,34 @@ int main_gaffe(int argc, char** argv) {
             start = std::chrono::system_clock::now();
 
             if (interleaved) {
+                
+                // Define how to align and output a read pair, in a thread.
+                auto map_read_pair = [&](Alignment& aln1, Alignment& aln2) {
+                    // TODO: actually pair
+                    // For now just map separately
+                    minimizer_mapper.map(aln1, *alignment_emitter);
+                    minimizer_mapper.map(aln2, *alignment_emitter);
+                    // Record that we mapped a read.
+                    reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
+                };
+
+                // Define how to know if the paired end distribution is ready
+                auto distribution_is_ready = []() {
+                    return true;
+                };
+
+                for (auto& gam_name : gam_filenames) {
+                    // For every GAM file to remap
+                    get_input_file(gam_name, [&](istream& in) {
+                        // Map pairs of reads to the emitter
+                        vg::io::for_each_interleaved_pair_parallel_after_wait<Alignment>(in, map_read_pair, distribution_is_ready);
+                    });
+                }
+
+                for (auto& fastq_name : fastq_filenames) {
+                    // For every FASTQ file to map, map all its pairs in parallel.
+                    fastq_paired_interleaved_for_each_parallel_after_wait(fastq_name, map_read_pair, distribution_is_ready);
+                }
             } else {
                 // Map single-ended
             
