@@ -296,6 +296,7 @@ void help_gaffe(char** argv) {
     << "input options:" << endl
     << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE (may repeat)" << endl
     << "  -f, --fastq-in FILE           read and align FASTQ-format reads from FILE (may repeat)" << endl
+    << "  -i, --interleaved             GAM/FASTQ input is interleaved pairs, for paired-end alignment" << endl
     << "output options:" << endl
     << "  -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
     << "  -N, --sample NAME             add this sample name" << endl
@@ -355,6 +356,8 @@ int main_gaffe(int argc, char** argv) {
     // What FASTQs should we align.
     // Note: multiple FASTQs are not interpreted as paired.
     vector<string> fastq_filenames;
+    // Is the input interleaved/are we in paired-end mode?
+    bool interleaved = false;
     // How many mappings per read can we emit?
     Range<size_t> max_multimaps = 1;
     // How many clusters should we extend?
@@ -409,6 +412,7 @@ int main_gaffe(int argc, char** argv) {
             {"progress", no_argument, 0, 'p'},
             {"gam-in", required_argument, 0, 'G'},
             {"fastq-in", required_argument, 0, 'f'},
+            {"interleaved", no_argument, 0, 'i'},
             {"max-multimaps", required_argument, 0, 'M'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
@@ -433,7 +437,7 @@ int main_gaffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:D:F:e:a:s:u:v:w:Ot:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:nc:C:D:F:e:a:s:u:v:w:Ot:",
                          long_options, &option_index);
 
 
@@ -493,6 +497,10 @@ int main_gaffe(int argc, char** argv) {
             
             case 'f':
                 fastq_filenames.push_back(optarg);
+                break;
+
+            case 'i':
+                interleaved = true;
                 break;
                 
             case 'M':
@@ -762,6 +770,9 @@ int main_gaffe(int argc, char** argv) {
             
             s << output_basename;
             
+            if (interleaved) {
+                s << "-i";
+            }
             s << "-D" << distance_limit;
             s << "-c" << hit_cap;
             s << "-C" << hard_hit_cap;
@@ -781,6 +792,10 @@ int main_gaffe(int argc, char** argv) {
     
         if (progress) {
             cerr << "Mapping reads to \"" << output_filename << "\"..." << endl;
+        }
+
+        if (progress && interleaved) {
+            cerr << "--interleaved" << endl;
         }
 
         if (progress) {
@@ -879,26 +894,31 @@ int main_gaffe(int argc, char** argv) {
 
             // Start timing overall mapping time now that indexes are loaded.
             start = std::chrono::system_clock::now();
+
+            if (interleaved) {
+            } else {
+                // Map single-ended
             
-            // Define how to align and output a read, in a thread.
-            auto map_read = [&](Alignment& aln) {
-                // Map the read with the MinimizerMapper.
-                minimizer_mapper.map(aln, *alignment_emitter);
-                // Record that we mapped a read.
-                reads_mapped_by_thread.at(omp_get_thread_num())++;
-            };
+                // Define how to align and output a read, in a thread.
+                auto map_read = [&](Alignment& aln) {
+                    // Map the read with the MinimizerMapper.
+                    minimizer_mapper.map(aln, *alignment_emitter);
+                    // Record that we mapped a read.
+                    reads_mapped_by_thread.at(omp_get_thread_num())++;
+                };
+                    
+                for (auto& gam_name : gam_filenames) {
+                    // For every GAM file to remap
+                    get_input_file(gam_name, [&](istream& in) {
+                        // Open it and map all the reads in parallel.
+                        vg::io::for_each_parallel<Alignment>(in, map_read);
+                    });
+                }
                 
-            for (auto& gam_name : gam_filenames) {
-                // For every GAM file to remap
-                get_input_file(gam_name, [&](istream& in) {
-                    // Open it and map all the reads in parallel.
-                    vg::io::for_each_parallel<Alignment>(in, map_read);
-                });
-            }
-            
-            for (auto& fastq_name : fastq_filenames) {
-                // For every FASTQ file to map, map all its reads in parallel.
-                fastq_unpaired_for_each_parallel(fastq_name, map_read);
+                for (auto& fastq_name : fastq_filenames) {
+                    // For every FASTQ file to map, map all its reads in parallel.
+                    fastq_unpaired_for_each_parallel(fastq_name, map_read);
+                }
             }
         
         } // Make sure alignment emitter is destroyed and all alignments are on disk.
