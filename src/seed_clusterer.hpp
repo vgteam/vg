@@ -38,6 +38,11 @@ class SnarlSeedClusterer {
 
     private:
 
+        //Actual clustering function that takes a vector of pointers to seeds
+        tuple<vector<cluster_group_t>, cluster_group_t> cluster_seeds ( 
+                const vector<const vector<pos_t>*>& all_seeds,
+                int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
+
         MinimumDistanceIndex& dist_index;
 
         enum ChildNodeType {CHAIN, SNARL, NODE};
@@ -135,7 +140,7 @@ class SnarlSeedClusterer {
             //is updated to know about its children
 
             //Vector of all the seeds for each read
-            const vector<vector<pos_t>>* all_seeds; 
+            const vector<const vector<pos_t>*>* all_seeds; 
 
             //prefix sum vector of the number of seeds per read
             //To get the index of a seed for the fragment clusters
@@ -191,7 +196,7 @@ class SnarlSeedClusterer {
 
             //Constructor takes in a pointer to the seeds, the distance limits, and 
             //the total number of seeds in all_seeds
-            TreeState (const vector<vector<pos_t>>* all_seeds, int64_t read_distance_limit, 
+            TreeState (const vector<const vector<pos_t>*>* all_seeds, int64_t read_distance_limit, 
                        int64_t fragment_distance_limit, size_t seed_count) :
                 all_seeds(all_seeds),
                 read_distance_limit(read_distance_limit),
@@ -200,13 +205,13 @@ class SnarlSeedClusterer {
                 read_index_offsets(1,0){
 
                 for (size_t i = 0 ; i < all_seeds->size() ; i++) {
-                    const vector<pos_t>& v = all_seeds->at(i);
-                    size_t offset = read_index_offsets.back() + v.size();
+                    size_t size = all_seeds->at(i)->size();
+                    size_t offset = read_index_offsets.back() + size;
                     read_index_offsets.push_back(offset);
-                    read_cluster_dists.emplace_back(v.size(), make_pair(-1,-1));
+                    read_cluster_dists.emplace_back(size, make_pair(-1,-1));
                     node_to_seeds.emplace_back();
-                    node_to_seeds.back().reserve(v.size());
-                    read_union_find.emplace_back(v.size(), false);
+                    node_to_seeds.back().reserve(size);
+                    read_union_find.emplace_back(size, false);
                 }
             }
         };

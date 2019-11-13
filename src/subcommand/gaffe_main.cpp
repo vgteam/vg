@@ -358,9 +358,9 @@ int main_gaffe(int argc, char** argv) {
     // How many mappings per read can we emit?
     Range<size_t> max_multimaps = 1;
     // How many clusters should we extend?
-    Range<size_t> max_extensions = 150;
+    Range<size_t> max_extensions = 300;
     // How many extended clusters should we align, max?
-    Range<size_t> max_alignments = 4;
+    Range<size_t> max_alignments = 6;
     //Throw away cluster with scores that are this amount below the best
     Range<double> cluster_score = 50;
     //Throw away clusters with coverage this amount below the best 
