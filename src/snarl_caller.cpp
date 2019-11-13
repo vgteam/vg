@@ -496,6 +496,9 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
         if (skips.count(best_allele)) {
             continue;
         }
+        if (support_val(supports[best_allele]) < min_total_support_for_call) {
+            break;
+        }
 
         if (ploidy == 1) {
             candidates.insert({best_allele});
@@ -524,6 +527,9 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
             size_t sec_count = 0;
             for (int j = 0; j < ranked_secondary_traversals.size() && sec_count < top_k; ++j) {
                 int second_best_allele = ranked_secondary_traversals[j];
+                if (support_val(secondary_supports[second_best_allele]) < min_total_support_for_call) {
+                    break;
+                }
                 if (!skips.count(second_best_allele) && second_best_allele != best_allele) {
                     // canonical ordering for our set
                     candidates.insert({min(best_allele, second_best_allele), max(best_allele, second_best_allele)});

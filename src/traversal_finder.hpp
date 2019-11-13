@@ -428,7 +428,7 @@ protected:
     size_t max_traversal_cutoff;
 
     /// Maximum number of pruning iterations
-    size_t max_prune_iterations = 1000;
+    size_t max_prune_iterations = 2;
     
     /// Include snarl endpoints in traversals
     bool include_endpoints = true;
@@ -453,7 +453,7 @@ public:
                        FastaReference* fasta_ref = nullptr,
                        FastaReference* ins_ref = nullptr,
                        function<bool(const SnarlTraversal&, int)> skip_alt = nullptr,
-                       size_t max_traversal_cutoff = 500000);
+                       size_t max_traversal_cutoff = 50000);
         
     virtual ~VCFTraversalFinder();
     

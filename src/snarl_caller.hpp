@@ -112,7 +112,7 @@ protected:
     size_t min_site_depth = 3;
     /// used only for pruning alleles in the VCFTraversalFinder:  minimum support
     /// of an allele's alt-path for it to be considered in the brute-force enumeration
-    double min_alt_path_support = 0.2;
+    double min_alt_path_support = 0.5;
 };
 
 
