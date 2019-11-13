@@ -31,7 +31,7 @@ var searchData=
   ['hash_5foriented_5fedge',['hash_oriented_edge',['../structvg_1_1Genotyper_1_1hash__oriented__edge.html',1,'vg::Genotyper']]],
   ['hash_5fset',['hash_set',['../classvg_1_1hash__set.html',1,'vg']]],
   ['hash_5fset_3c_20k_20_2a_20_3e',['hash_set&lt; K * &gt;',['../classvg_1_1hash__set_3_01K_01_5_01_4.html',1,'vg']]],
-  ['hash_5fset_3c_20size_5ft_20_3e',['hash_set&lt; size_t &gt;',['../classvg_1_1hash__set.html',1,'vg']]],
+  ['hash_5fset_3c_20pair_3c_20size_5ft_2c_20size_5ft_20_3e_20_3e',['hash_set&lt; pair&lt; size_t, size_t &gt; &gt;',['../classvg_1_1hash__set.html',1,'vg']]],
   ['hash_5fset_3c_20vg_3a_3aid_5ft_20_3e',['hash_set&lt; vg::id_t &gt;',['../classvg_1_1hash__set.html',1,'vg']]],
   ['hdp_5fgbwt_5fgraph_5faccessor',['hDP_gbwt_graph_accessor',['../classhaplo_1_1hDP__gbwt__graph__accessor.html',1,'haplo']]],
   ['hfile_5fbackend',['hFILE_backend',['../structhFILE__backend.html',1,'']]],

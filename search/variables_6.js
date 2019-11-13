@@ -33,6 +33,8 @@ var searchData=
   ['frag_5fstats',['frag_stats',['../classvg_1_1Mapper.html#a2574eba87f3d7e8e93bf3fee99dacf27',1,'vg::Mapper']]],
   ['fragl_5fsupports',['fragl_supports',['../structvg_1_1BREAKPOINT.html#a282d8840a4a956ce5d76ca1638871df7',1,'vg::BREAKPOINT']]],
   ['fragment',['fragment',['../classvg_1_1MaximalExactMatch.html#aba77f1e25d2845c54f13e2ebc774b0b3',1,'vg::MaximalExactMatch::fragment()'],['../structvg_1_1Alignment.html#a600fa84d6905316c0964dd035ac48687',1,'vg::Alignment::fragment()']]],
+  ['fragment_5fbest_5fleft',['fragment_best_left',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#a1c85a3f1a7cb3094be7c960cb6b9271f',1,'vg::SnarlSeedClusterer::NodeClusters']]],
+  ['fragment_5fbest_5fright',['fragment_best_right',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#ace22e652d7abfeb400ddca12ae656154',1,'vg::SnarlSeedClusterer::NodeClusters']]],
   ['fragment_5fdirections',['fragment_directions',['../classvg_1_1FragmentLengthStatistics.html#a04cfcfa9321c794d2b29c9e88e30cc22',1,'vg::FragmentLengthStatistics']]],
   ['fragment_5fdistance_5flimit',['fragment_distance_limit',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#ad7499be89705bf49a2b433a32ea615ac',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['fragment_5flength_5fcache_5fsize',['fragment_length_cache_size',['../classvg_1_1FragmentLengthStatistics.html#a8616a97cafb7618fed2b27c08e91afee',1,'vg::FragmentLengthStatistics']]],

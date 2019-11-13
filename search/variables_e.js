@@ -35,7 +35,7 @@ var searchData=
   ['node_5fpos',['node_pos',['../classvg_1_1DepthMap.html#a917e2d1b80a2d02b97faa65b20ea3bed',1,'vg::DepthMap']]],
   ['node_5fsupports',['node_supports',['../structvg_1_1SupportAugmentedGraph.html#ad904715950e1e9ffcb6ed6676868debe',1,'vg::SupportAugmentedGraph']]],
   ['node_5fto_5fposition',['node_to_position',['../classvg_1_1Filter.html#aa3a0cf6a83085d33f0983e681c078625',1,'vg::Filter']]],
-  ['node_5fto_5fseeds',['node_to_seeds',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a86ede62c42c75d6d71ec8229e6920ee4',1,'vg::SnarlSeedClusterer::TreeState']]],
+  ['node_5fto_5fseeds',['node_to_seeds',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a5f4e285d7f441d87c85e50192011babe',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['node_5fto_5fvariant',['node_to_variant',['../classvg_1_1VCFTraversalFinder.html#a133068b1a172eb5f5490ff7c47fd567f',1,'vg::VCFTraversalFinder']]],
   ['node_5ftraversal',['node_traversal',['../structvg_1_1PhasedGenome_1_1HaplotypeNode.html#a6347ba68d0d1a79fa623928b2d2eadcc',1,'vg::PhasedGenome::HaplotypeNode']]],
   ['node_5ftype',['node_type',['../structvg_1_1SnarlSeedClusterer_1_1NetgraphNode.html#a7359005eabd30a001fbbab49d777d2d1',1,'vg::SnarlSeedClusterer::NetgraphNode']]],

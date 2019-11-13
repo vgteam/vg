@@ -84,7 +84,7 @@ var searchData=
   ['travs_5fto',['travs_to',['../classvg_1_1VG.html#a0a962957210c079fa242b383d5c65de3',1,'vg::VG']]],
   ['tree',['Tree',['../structvg_1_1Tree.html#a2583e3d479b8b3fa66e8eb0065417934',1,'vg::Tree']]],
   ['treenode',['TreeNode',['../structvg_1_1TreeNode.html#a386f7b2ec0948165140022155dda8c04',1,'vg::TreeNode']]],
-  ['treestate',['TreeState',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#acf36c1fe7c6821bd11f6ce921a80d570',1,'vg::SnarlSeedClusterer::TreeState']]],
+  ['treestate',['TreeState',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a68101ac124752706412afcd998464eec',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['treesubgraph',['TreeSubgraph',['../classvg_1_1TreeSubgraph.html#aa43b054cfbc6f2f96fbc8fcef42887c5',1,'vg::TreeSubgraph']]],
   ['trim',['trim',['../classvg_1_1GaplessExtender.html#a090ac720e375bf997230e964f7274a47',1,'vg::GaplessExtender']]],
   ['trim_5falignment',['trim_alignment',['../namespacevg.html#ad83da8607e104967dd51d9230f4b51bb',1,'vg']]],

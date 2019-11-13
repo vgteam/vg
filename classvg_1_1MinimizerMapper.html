@@ -173,6 +173,9 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:ad1d26750893360d1eb785473cc3fe741"><td class="memTemplParams" colspan="2">template&lt;typename Item , typename Score  = double&gt; </td></tr>
 <tr class="memitem:ad1d26750893360d1eb785473cc3fe741"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ad1d26750893360d1eb785473cc3fe741">process_until_threshold</a> (const vector&lt; Item &gt; &amp;items, const vector&lt; Score &gt; &amp;scores, double threshold, size_t min_count, size_t max_count, const function&lt; bool(size_t)&gt; &amp;process_item, const function&lt; void(size_t)&gt; &amp;discard_item_by_count, const function&lt; void(size_t)&gt; &amp;discard_item_by_score) const</td></tr>
 <tr class="separator:ad1d26750893360d1eb785473cc3fe741"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab6816ca0320791d2d432a07ffb502b4c"><td class="memTemplParams" colspan="2">template&lt;typename Item , typename Score  = double&gt; </td></tr>
+<tr class="memitem:ab6816ca0320791d2d432a07ffb502b4c"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab6816ca0320791d2d432a07ffb502b4c">process_until_threshold</a> (const vector&lt; Item &gt; &amp;items, const vector&lt; Score &gt; &amp;scores, const function&lt; bool(size_t, size_t)&gt; &amp;comparator, double threshold, size_t min_count, size_t max_count, const function&lt; bool(size_t)&gt; &amp;process_item, const function&lt; void(size_t)&gt; &amp;discard_item_by_count, const function&lt; void(size_t)&gt; &amp;discard_item_by_score) const</td></tr>
+<tr class="separator:ab6816ca0320791d2d432a07ffb502b4c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:ab180631766b1e787e29dd202ad455d90 inherit pro_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#ab180631766b1e787e29dd202ad455d90">AlignerClient</a> (double <a class="el" href="classvg_1_1AlignerClient.html#a65428f092aaa5d894b709e247cf0121a">gc_content_estimate</a>=vg::default_gc_content)</td></tr>
 <tr class="separator:ab180631766b1e787e29dd202ad455d90 inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -687,7 +690,7 @@ Protected Attributes</h2></td></tr>
 </div>
 </div>
 <a id="a83680e98c2c476a0eb64508e36a5417c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a83680e98c2c476a0eb64508e36a5417c">&#9670;&nbsp;</a></span>process_until_threshold() <span class="overload">[1/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a83680e98c2c476a0eb64508e36a5417c">&#9670;&nbsp;</a></span>process_until_threshold() <span class="overload">[1/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -765,7 +768,7 @@ template&lt;typename Item , typename Score &gt; </div>
 </div>
 </div>
 <a id="ad1d26750893360d1eb785473cc3fe741"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad1d26750893360d1eb785473cc3fe741">&#9670;&nbsp;</a></span>process_until_threshold() <span class="overload">[2/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#ad1d26750893360d1eb785473cc3fe741">&#9670;&nbsp;</a></span>process_until_threshold() <span class="overload">[2/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -836,6 +839,87 @@ template&lt;typename Item , typename Score &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Same as the other process_until_threshold overload, except using a vector to supply scores. </p>
+
+</div>
+</div>
+<a id="ab6816ca0320791d2d432a07ffb502b4c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab6816ca0320791d2d432a07ffb502b4c">&#9670;&nbsp;</a></span>process_until_threshold() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Item , typename Score &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MinimizerMapper::process_until_threshold </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; Item &gt; &amp;&#160;</td>
+          <td class="paramname"><em>items</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; Score &gt; &amp;&#160;</td>
+          <td class="paramname"><em>scores</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; bool(size_t, size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>comparator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>threshold</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>min_count</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_count</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; bool(size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>process_item</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>discard_item_by_count</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>discard_item_by_score</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Same as the other process_until_threshold overload, except user supplies comparator to sort the items (must still be sorted by score). </p>
 
 </div>
 </div>

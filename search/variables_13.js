@@ -18,7 +18,7 @@ var searchData=
   ['secondary_5fsnarl_5fassignments',['secondary_snarl_assignments',['../classvg_1_1MinimumDistanceIndex.html#ade884bcf2f53950760090a8e82fe4f5f',1,'vg::MinimumDistanceIndex']]],
   ['secondary_5fsnarl_5franks',['secondary_snarl_ranks',['../classvg_1_1MinimumDistanceIndex.html#af5552e3252a707a900daf39986181718',1,'vg::MinimumDistanceIndex']]],
   ['seed',['seed',['../classvg_1_1MCMCGenotyper.html#aa2399e6a45d2595e08053cdb66207b37',1,'vg::MCMCGenotyper::seed()'],['../classvg_1_1NGSSimulator.html#ae24dec0a78bc0166a7f27356632f135a',1,'vg::NGSSimulator::seed()']]],
-  ['seeds',['seeds',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a7451a72162f19b00d1bd44fc62be0297',1,'vg::BandedGlobalAligner::BAMatrix::seeds()'],['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#abd836877c4cf1ea41c7e8ba30288a2db',1,'vg::SnarlSeedClusterer::TreeState::seeds()']]],
+  ['seeds',['seeds',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a7451a72162f19b00d1bd44fc62be0297',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['seek',['seek',['../structhFILE__backend.html#a93b5b1dcb35560b106e1cccb38476ddb',1,'hFILE_backend']]],
   ['seq',['seq',['../structvg_1_1kmer__t.html#a98b04ac70a36cf6feae80b03b3a32eb2',1,'vg::kmer_t::seq()'],['../structvg_1_1Region.html#a938cc852fd08f11656bdfbd204843017',1,'vg::Region::seq()'],['../structvg_1_1VG_1_1Plan.html#a4bb5a9fa8f5bb32c2e94d3c038f9cf95',1,'vg::VG::Plan::seq()']]],
   ['seq_5flength',['seq_length',['../classvg_1_1Viz.html#a2f5862e76ca098060b503d03de76c024',1,'vg::Viz']]],

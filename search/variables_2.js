@@ -25,8 +25,6 @@ var searchData=
   ['bases',['bases',['../structvg_1_1BasePileup.html#ab1ca874f6f9ee568866822a408300ba8',1,'vg::BasePileup']]],
   ['bases_5fper_5fchunk',['bases_per_chunk',['../classvg_1_1Constructor.html#ae525487466a66456d7169cc5047abf90',1,'vg::Constructor']]],
   ['begin',['begin',['../structvg_1_1kmer__t.html#ace8cd88692b6bb3c25a2989a4c505d1a',1,'vg::kmer_t::begin()'],['../classvg_1_1MaximalExactMatch.html#a894b11889ee0ef652acbfb84527e5225',1,'vg::MaximalExactMatch::begin()'],['../classvg_1_1PathNode.html#a4b103c45ebef87573a2b0288a2fc483c',1,'vg::PathNode::begin()'],['../structvg_1_1walk__t.html#af2f0816d239b918c2f2d76f9b696ab1b',1,'vg::walk_t::begin()']]],
-  ['best_5fleft',['best_left',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#a18e86ee375128ff9d9af4f81d3aff20e',1,'vg::SnarlSeedClusterer::NodeClusters']]],
-  ['best_5fright',['best_right',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#a3332e5306eb19de39a875f0202d1ac65',1,'vg::SnarlSeedClusterer::NodeClusters']]],
   ['bgzf_5ffooter_5flength',['BGZF_FOOTER_LENGTH',['../classvg_1_1HTSAlignmentEmitter.html#afd92ecc2668078e7601a02133d7619d9',1,'vg::HTSAlignmentEmitter']]],
   ['bgzip_5fin',['bgzip_in',['../classvg_1_1io_1_1MessageIterator.html#a7102e7dfdf1fbcfcd0b037eb39b8d21f',1,'vg::io::MessageIterator']]],
   ['bgzip_5fout',['bgzip_out',['../classvg_1_1io_1_1MessageEmitter.html#a591f1c1d3271301d0df6999cf15eb801',1,'vg::io::MessageEmitter']]],

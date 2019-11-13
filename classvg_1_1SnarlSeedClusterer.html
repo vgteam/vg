@@ -65,6 +65,7 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
+<a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pri-types">Private Types</a> &#124;
 <a href="#pri-methods">Private Member Functions</a> &#124;
@@ -87,13 +88,21 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html">TreeState</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
+Public Types</h2></td></tr>
+<tr class="memitem:aa70774352ed8422bb9c42093b87354d4"><td class="memItemLeft" align="right" valign="top">typedef vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#aa70774352ed8422bb9c42093b87354d4">cluster_group_t</a></td></tr>
+<tr class="separator:aa70774352ed8422bb9c42093b87354d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a0d509b0a72cf8bc1345eef47b8b930b4"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#a0d509b0a72cf8bc1345eef47b8b930b4">SnarlSeedClusterer</a> (<a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> &amp;<a class="el" href="classvg_1_1SnarlSeedClusterer.html#ace2d2116219ae73c9b1b8900ae74877e">dist_index</a>)</td></tr>
 <tr class="separator:a0d509b0a72cf8bc1345eef47b8b930b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acacdcbd5a8491b65e967463700de4899"><td class="memItemLeft" align="right" valign="top">tuple&lt; vector&lt; vector&lt; size_t &gt; &gt;, vector&lt; vector&lt; size_t &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#acacdcbd5a8491b65e967463700de4899">cluster_seeds</a> (vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; seeds, int64_t read_distance_limit, int64_t fragment_distance_limit=0) const</td></tr>
-<tr class="memdesc:acacdcbd5a8491b65e967463700de4899"><td class="mdescLeft">&#160;</td><td class="mdescRight">Given a vector of seeds (pos_t) and a distance limit,.  <a href="#acacdcbd5a8491b65e967463700de4899">More...</a><br /></td></tr>
-<tr class="separator:acacdcbd5a8491b65e967463700de4899"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaa3aa93deb65dd119360dbed2ea98dc5"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#aa70774352ed8422bb9c42093b87354d4">cluster_group_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#aaa3aa93deb65dd119360dbed2ea98dc5">cluster_seeds</a> (const vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; &amp;seeds, int64_t read_distance_limit) const</td></tr>
+<tr class="memdesc:aaa3aa93deb65dd119360dbed2ea98dc5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Given a vector of seeds (pos_t) and a distance limit,.  <a href="#aaa3aa93deb65dd119360dbed2ea98dc5">More...</a><br /></td></tr>
+<tr class="separator:aaa3aa93deb65dd119360dbed2ea98dc5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9f6532b423bc0437ca0ceae1e65ee2b8"><td class="memItemLeft" align="right" valign="top">tuple&lt; vector&lt; <a class="el" href="classvg_1_1SnarlSeedClusterer.html#aa70774352ed8422bb9c42093b87354d4">cluster_group_t</a> &gt;, <a class="el" href="classvg_1_1SnarlSeedClusterer.html#aa70774352ed8422bb9c42093b87354d4">cluster_group_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#a9f6532b423bc0437ca0ceae1e65ee2b8">cluster_seeds</a> (const vector&lt; vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&gt; &amp;all_seeds, int64_t read_distance_limit, int64_t fragment_distance_limit=0) const</td></tr>
+<tr class="memdesc:a9f6532b423bc0437ca0ceae1e65ee2b8"><td class="mdescLeft">&#160;</td><td class="mdescRight">The same thing, but for paired end reads.  <a href="#a9f6532b423bc0437ca0ceae1e65ee2b8">More...</a><br /></td></tr>
+<tr class="separator:a9f6532b423bc0437ca0ceae1e65ee2b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-types"></a>
 Private Types</h2></td></tr>
@@ -105,12 +114,14 @@ Private Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
+<tr class="memitem:ae09cfb965681d818dbd9f56159f6cc5c"><td class="memItemLeft" align="right" valign="top">tuple&lt; vector&lt; <a class="el" href="classvg_1_1SnarlSeedClusterer.html#aa70774352ed8422bb9c42093b87354d4">cluster_group_t</a> &gt;, <a class="el" href="classvg_1_1SnarlSeedClusterer.html#aa70774352ed8422bb9c42093b87354d4">cluster_group_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#ae09cfb965681d818dbd9f56159f6cc5c">cluster_seeds</a> (const vector&lt; const vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; *&gt; &amp;all_seeds, int64_t read_distance_limit, int64_t fragment_distance_limit=0) const</td></tr>
+<tr class="separator:ae09cfb965681d818dbd9f56159f6cc5c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3086c1a3932b73487b7eb67cefbc897a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#a3086c1a3932b73487b7eb67cefbc897a">get_nodes</a> (<a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html">TreeState</a> &amp;tree_state, vector&lt; <a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; size_t, vector&lt; pair&lt; <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1NetgraphNode.html">NetgraphNode</a>, <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html">NodeClusters</a> &gt;&gt;&gt;&gt; &amp;snarl_to_nodes_by_level) const</td></tr>
 <tr class="separator:a3086c1a3932b73487b7eb67cefbc897a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0ff462731b815f03ac7d6843e99d6862"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#a0ff462731b815f03ac7d6843e99d6862">cluster_snarls</a> (<a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html">TreeState</a> &amp;tree_state, size_t depth) const</td></tr>
-<tr class="separator:a0ff462731b815f03ac7d6843e99d6862"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a23b0f939dd47623a9fddeb61e39204f4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#a23b0f939dd47623a9fddeb61e39204f4">cluster_chains</a> (<a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html">TreeState</a> &amp;tree_state, size_t depth) const</td></tr>
-<tr class="separator:a23b0f939dd47623a9fddeb61e39204f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad7ab210a41212b4b4fc83a5e8f49be05"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#ad7ab210a41212b4b4fc83a5e8f49be05">cluster_snarl_level</a> (<a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html">TreeState</a> &amp;tree_state, size_t depth) const</td></tr>
+<tr class="separator:ad7ab210a41212b4b4fc83a5e8f49be05"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a70753cefb57f26c2e428836e03214456"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#a70753cefb57f26c2e428836e03214456">cluster_chain_level</a> (<a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html">TreeState</a> &amp;tree_state, size_t depth) const</td></tr>
+<tr class="separator:a70753cefb57f26c2e428836e03214456"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a92e0e0dc4526592d4623e6d63686f237"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html">NodeClusters</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#a92e0e0dc4526592d4623e6d63686f237">cluster_one_node</a> (<a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html">TreeState</a> &amp;tree_state, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> node_id, int64_t node_length) const</td></tr>
 <tr class="separator:a92e0e0dc4526592d4623e6d63686f237"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7a546a5c8bcd20f1e8a55453f72c7cc6"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html">NodeClusters</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#a7a546a5c8bcd20f1e8a55453f72c7cc6">cluster_one_chain</a> (<a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html">TreeState</a> &amp;tree_state, size_t chain_index_i) const</td></tr>
@@ -128,6 +139,21 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:ace2d2116219ae73c9b1b8900ae74877e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#ace2d2116219ae73c9b1b8900ae74877e">dist_index</a></td></tr>
 <tr class="separator:ace2d2116219ae73c9b1b8900ae74877e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
+<h2 class="groupheader">Member Typedef Documentation</h2>
+<a id="aa70774352ed8422bb9c42093b87354d4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa70774352ed8422bb9c42093b87354d4">&#9670;&nbsp;</a></span>cluster_group_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef vector&lt;vector&lt;size_t&gt; &gt; <a class="el" href="classvg_1_1SnarlSeedClusterer.html#aa70774352ed8422bb9c42093b87354d4">vg::SnarlSeedClusterer::cluster_group_t</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <h2 class="groupheader">Member Enumeration Documentation</h2>
 <a id="a835e4f3125a877f2baebd11886750225"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a835e4f3125a877f2baebd11886750225">&#9670;&nbsp;</a></span>ChildNodeType</h2>
@@ -176,8 +202,8 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a23b0f939dd47623a9fddeb61e39204f4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a23b0f939dd47623a9fddeb61e39204f4">&#9670;&nbsp;</a></span>cluster_chains()</h2>
+<a id="a70753cefb57f26c2e428836e03214456"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a70753cefb57f26c2e428836e03214456">&#9670;&nbsp;</a></span>cluster_chain_level()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -186,7 +212,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::SnarlSeedClusterer::cluster_chains </td>
+          <td class="memname">void vg::SnarlSeedClusterer::cluster_chain_level </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html">TreeState</a> &amp;&#160;</td>
           <td class="paramname"><em>tree_state</em>, </td>
@@ -326,17 +352,47 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="acacdcbd5a8491b65e967463700de4899"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acacdcbd5a8491b65e967463700de4899">&#9670;&nbsp;</a></span>cluster_seeds()</h2>
+<a id="aaa3aa93deb65dd119360dbed2ea98dc5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaa3aa93deb65dd119360dbed2ea98dc5">&#9670;&nbsp;</a></span>cluster_seeds() <span class="overload">[1/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">tuple&lt; vector&lt; vector&lt; size_t &gt; &gt;, vector&lt; vector&lt; size_t &gt; &gt; &gt; vg::SnarlSeedClusterer::cluster_seeds </td>
+          <td class="memname"><a class="el" href="classvg_1_1SnarlSeedClusterer.html#aa70774352ed8422bb9c42093b87354d4">SnarlSeedClusterer::cluster_group_t</a> vg::SnarlSeedClusterer::cluster_seeds </td>
           <td>(</td>
-          <td class="paramtype">vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&#160;</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>seeds</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>read_distance_limit</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Given a vector of seeds (pos_t) and a distance limit,. </p>
+
+</div>
+</div>
+<a id="a9f6532b423bc0437ca0ceae1e65ee2b8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9f6532b423bc0437ca0ceae1e65ee2b8">&#9670;&nbsp;</a></span>cluster_seeds() <span class="overload">[2/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">tuple&lt; vector&lt; <a class="el" href="classvg_1_1SnarlSeedClusterer.html#aa70774352ed8422bb9c42093b87354d4">SnarlSeedClusterer::cluster_group_t</a> &gt;, <a class="el" href="classvg_1_1SnarlSeedClusterer.html#aa70774352ed8422bb9c42093b87354d4">SnarlSeedClusterer::cluster_group_t</a> &gt; vg::SnarlSeedClusterer::cluster_seeds </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>all_seeds</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -358,12 +414,12 @@ Private Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Given a vector of seeds (pos_t) and a distance limit,. </p>
+<p>The same thing, but for paired end reads. </p>
 
 </div>
 </div>
-<a id="a0ff462731b815f03ac7d6843e99d6862"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0ff462731b815f03ac7d6843e99d6862">&#9670;&nbsp;</a></span>cluster_snarls()</h2>
+<a id="ae09cfb965681d818dbd9f56159f6cc5c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae09cfb965681d818dbd9f56159f6cc5c">&#9670;&nbsp;</a></span>cluster_seeds() <span class="overload">[3/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -372,7 +428,49 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::SnarlSeedClusterer::cluster_snarls </td>
+          <td class="memname">tuple&lt; vector&lt; <a class="el" href="classvg_1_1SnarlSeedClusterer.html#aa70774352ed8422bb9c42093b87354d4">SnarlSeedClusterer::cluster_group_t</a> &gt;, <a class="el" href="classvg_1_1SnarlSeedClusterer.html#aa70774352ed8422bb9c42093b87354d4">SnarlSeedClusterer::cluster_group_t</a> &gt; vg::SnarlSeedClusterer::cluster_seeds </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; const vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; *&gt; &amp;&#160;</td>
+          <td class="paramname"><em>all_seeds</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>read_distance_limit</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>fragment_distance_limit</em> = <code>0</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ad7ab210a41212b4b4fc83a5e8f49be05"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad7ab210a41212b4b4fc83a5e8f49be05">&#9670;&nbsp;</a></span>cluster_snarl_level()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::SnarlSeedClusterer::cluster_snarl_level </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html">TreeState</a> &amp;&#160;</td>
           <td class="paramname"><em>tree_state</em>, </td>
