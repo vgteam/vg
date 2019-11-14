@@ -265,8 +265,8 @@ int main_call(int argc, char** argv) {
         // Load our packed supports (they must have come from vg pack on graph)
         packer = unique_ptr<Packer>(new Packer(graph));
         packer->load_from_file(pack_filename);
-        // Make a packed traversal support finder
-        PackedTraversalSupportFinder* packed_support_finder = new PackedTraversalSupportFinder(*packer, *snarl_manager);
+        // Make a packed traversal support finder (using cached veresion important for poisson caller)
+        PackedTraversalSupportFinder* packed_support_finder = new CachedPackedTraversalSupportFinder(*packer, *snarl_manager);
         support_finder = unique_ptr<TraversalSupportFinder>(packed_support_finder);
         
         SupportBasedSnarlCaller* packed_caller = nullptr;

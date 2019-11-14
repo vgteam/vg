@@ -305,7 +305,7 @@ Support PackedTraversalSupportFinder::get_edge_support(const edge_t& edge) const
 }
 
 Support PackedTraversalSupportFinder::get_edge_support(id_t from, bool from_reverse,
-                                                   id_t to, bool to_reverse) const {
+                                                       id_t to, bool to_reverse) const {
     Edge proto_edge;
     proto_edge.set_from(from);
     proto_edge.set_from_start(from_reverse);
@@ -342,6 +342,69 @@ Support PackedTraversalSupportFinder::get_avg_node_support(id_t node) const {
     Support support;
     support.set_forward((double)coverage / (double)length);
     return support;
+}
+
+
+CachedPackedTraversalSupportFinder::CachedPackedTraversalSupportFinder(const Packer& packer, SnarlManager& snarl_manager, size_t cache_size) :
+    PackedTraversalSupportFinder(packer, snarl_manager) {
+    size_t num_threads = get_thread_count();
+    min_node_support_cache.resize(num_threads);
+    avg_node_support_cache.resize(num_threads);
+    edge_support_cache.resize(num_threads);
+    for (size_t i = 0; i < num_threads; ++i) {
+        min_node_support_cache[i] = new LRUCache<nid_t, Support>(cache_size);
+        avg_node_support_cache[i] = new LRUCache<nid_t, Support>(cache_size);
+        edge_support_cache[i] = new LRUCache<edge_t, Support>(cache_size);
+    }
+}
+
+CachedPackedTraversalSupportFinder::~CachedPackedTraversalSupportFinder() {
+    for (size_t i = 0; i < min_node_support_cache.size(); ++i) {
+        delete min_node_support_cache[i];
+        delete avg_node_support_cache[i];
+        delete edge_support_cache[i];
+    }
+}
+
+Support CachedPackedTraversalSupportFinder::get_edge_support(id_t from, bool from_reverse,
+                                                             id_t to, bool to_reverse) const {
+    const HandleGraph* graph = packer.get_graph();
+    edge_t edge = graph->edge_handle(graph->get_handle(from, from_reverse),
+                                     graph->get_handle(to, to_reverse));
+    
+    auto& support_cache = *edge_support_cache[omp_get_thread_num()];
+    pair<Support, bool> cached = support_cache.retrieve(edge);
+    if (cached.second == true) {
+        return cached.first;
+    } else {
+        Support support = PackedTraversalSupportFinder::get_edge_support(from, from_reverse, to, to_reverse);
+        support_cache.put(edge, support);
+        return support;
+    }
+}
+
+Support CachedPackedTraversalSupportFinder::get_min_node_support(id_t node) const {
+    auto& support_cache = *min_node_support_cache[omp_get_thread_num()];
+    pair<Support, bool> cached = support_cache.retrieve(node);
+    if (cached.second == true) {
+        return cached.first;
+    } else {
+        Support support = PackedTraversalSupportFinder::get_min_node_support(node);
+        support_cache.put(node, support);
+        return support;
+    }
+}
+
+Support CachedPackedTraversalSupportFinder::get_avg_node_support(id_t node) const {
+    auto& support_cache = *avg_node_support_cache[omp_get_thread_num()];
+    pair<Support, bool> cached = support_cache.retrieve(node);
+    if (cached.second == true) {
+        return cached.first;
+    } else {
+        Support support = PackedTraversalSupportFinder::get_avg_node_support(node);
+        support_cache.put(node, support);
+        return support;
+    }
 }
 
 

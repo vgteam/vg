@@ -119,6 +119,34 @@ protected:
     const Packer& packer;
 };
 
+/**
+ * Add a caching overlay to the PackedTravesalSupportFinder to avoid frequent
+ * base queries which can become expensive.  Even caching the edges seems
+ * to have an impact
+ */
+class CachedPackedTraversalSupportFinder : public PackedTraversalSupportFinder {
+public:
+    CachedPackedTraversalSupportFinder(const Packer& packer, SnarlManager& snarl_manager, size_t cache_size = 100000);
+    virtual ~CachedPackedTraversalSupportFinder();
+
+    /// Support of an edge
+    virtual Support get_edge_support(id_t from, bool from_reverse, id_t to, bool to_reverse) const;
+    
+    /// Minimum support of a node
+    virtual Support get_min_node_support(id_t node) const;
+
+    /// Average support of a node
+    virtual Support get_avg_node_support(id_t node) const;
+    
+protected:
+
+    /// One node cache per threade
+    mutable vector<LRUCache<edge_t, Support>*> edge_support_cache;
+    mutable vector<LRUCache<nid_t, Support>*> min_node_support_cache;
+    mutable vector<LRUCache<nid_t, Support>*> avg_node_support_cache;
+};
+
+
 }
 
 #endif
