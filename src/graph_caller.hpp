@@ -74,8 +74,8 @@ protected:
     /// Sample name
     string sample_name;
 
-    /// output buffer (for sorting)
-    mutable vector<vcflib::Variant> output_variants;
+    /// output buffers (1/thread) (for sorting)
+    mutable vector<vector<vcflib::Variant>> output_variants;
 };
     
 /**

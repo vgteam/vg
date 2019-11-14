@@ -45,6 +45,7 @@ void GraphCaller::call_top_level_snarls(bool recurse_on_fail) {
 }
 
 VCFOutputCaller::VCFOutputCaller(const string& sample_name) : sample_name(sample_name) {
+    output_variants.resize(get_thread_count());
 }
 
 VCFOutputCaller::~VCFOutputCaller() {
@@ -74,17 +75,19 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
 }
 
 void VCFOutputCaller::add_variant(vcflib::Variant& var) const {
-#pragma omp critical(add_variant)
-    {
-        output_variants.push_back(var);
-    }
+    output_variants[omp_get_thread_num()].push_back(var);
 }
 
 void VCFOutputCaller::write_variants(ostream& out_stream) const {
-    std::sort(output_variants.begin(), output_variants.end(), [](const vcflib::Variant& v1, const vcflib::Variant& v2) {
+    vector<vcflib::Variant> all_variants;
+    for (const auto& buf : output_variants) {
+        all_variants.reserve(all_variants.size() + buf.size());
+        std::move(buf.begin(), buf.end(), std::back_inserter(all_variants));
+    }
+    std::sort(all_variants.begin(), all_variants.end(), [](const vcflib::Variant& v1, const vcflib::Variant& v2) {
             return v1.sequenceName < v2.sequenceName || (v1.sequenceName == v2.sequenceName && v1.position < v2.position);
         });
-    for (auto v : output_variants) {
+    for (auto v : all_variants) {
         v.setVariantCallFile(output_vcf);
         out_stream << v << endl;
     }
