@@ -65,13 +65,14 @@ Support TraversalSupportFinder::get_traversal_support(const SnarlTraversal& trav
 
 vector<Support> TraversalSupportFinder::get_traversal_genotype_support(const vector<SnarlTraversal>& traversals,
                                                                        const vector<int>& genotype,
+                                                                       const set<int>& other_trav_subset,
                                                                        int ref_trav_idx) {
     set<int> tgt_trav_set(genotype.begin(), genotype.end());
     vector<int> tgt_travs(tgt_trav_set.begin(), tgt_trav_set.end());
     // get the support of just the alleles in the genotype, evenly splitting shared stuff
     vector<Support> allele_support = get_traversal_set_support(traversals, tgt_travs, tgt_trav_set, false, false, true, ref_trav_idx);
     // get the support of everythin else, treating stuff in the genotype alleles as 0
-    vector<Support> other_support = get_traversal_set_support(traversals, tgt_travs, {}, false, true, false, ref_trav_idx);
+    vector<Support> other_support = get_traversal_set_support(traversals, tgt_travs, other_trav_subset, false, true, false, ref_trav_idx);
     // combine the above two vectors
     for (int allele : tgt_travs) {
         other_support[allele] = allele_support[allele];

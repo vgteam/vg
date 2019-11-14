@@ -214,8 +214,11 @@ protected:
     /// P[allele1] * P[allle2] * P[uncalled alleles]
     /// Homozygous alleles are split into two, with half support each
     /// The (natural) logoarithm is returned
+    /// If trav_subset is not empty, traversals outside that set (and genotype)
+    /// will be ignored to save time
     double genotype_likelihood(const vector<int>& genotype,
                                const vector<SnarlTraversal>& traversals,
+                               const set<int>& trav_subset,
                                int ref_trav_idx, double exp_depth, double depth_err);
 
     /// Rank supports
@@ -225,7 +228,10 @@ protected:
     double baseline_mapping_error = 0.005;
 
     /// Consider up to the top-k traversals (based on support) for genotyping
-    size_t top_k = 25;
+    size_t top_k = 20;
+    /// Consider up to the tom-m secondary traversals (based on support) for each top traversal
+    /// (so at most top_k * top_m considered)
+    size_t top_m = 100;
     
     /// Map path name to <mean, std_err> of depth coverage from the packer
     const algorithms::BinnedDepthIndex& depth_index;
