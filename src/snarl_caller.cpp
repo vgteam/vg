@@ -481,7 +481,7 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
     // sort the traversals by support
     vector<int> ranked_traversals = rank_by_support(supports);
     size_t max_trav = std::min(top_k, (size_t)ranked_traversals.size());
-    size_T max_sec_trav = std::min(top_m, (size_t)ranked_traversals.size());
+    size_t max_sec_trav = std::min(top_m, (size_t)ranked_traversals.size());
     // take the top-m traversals in order to check against the top traversal
     set<int> top_traversals(ranked_traversals.begin(), ranked_traversals.begin() + max_sec_trav);
 
