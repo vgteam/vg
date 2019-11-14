@@ -15,17 +15,16 @@ GraphCaller::~GraphCaller() {
 void GraphCaller::call_top_level_snarls(bool recurse_on_fail) {
 
     // Used to recurse on children of parents that can't be called
-    vector<const Snarl*> snarl_queue;
+    size_t thread_count = get_thread_count();
+    vector<vector<const Snarl*>> snarl_queue(thread_count);
 
     // Run the snarl caller on a snarl, and queue up the children if it fails
     auto process_snarl = [&](const Snarl* snarl) {
         bool was_called = call_snarl(*snarl);
         if (!was_called && recurse_on_fail) {
             const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
-#pragma omp critical (snarl_queue)
-            {
-                snarl_queue.insert(snarl_queue.end(), children.begin(), children.end());
-            }
+            vector<const Snarl*>& thread_queue = snarl_queue[omp_get_thread_num()];
+            thread_queue.insert(thread_queue.end(), children.begin(), children.end());
         }
     };
 
@@ -33,9 +32,14 @@ void GraphCaller::call_top_level_snarls(bool recurse_on_fail) {
     snarl_manager.for_each_top_level_snarl_parallel(process_snarl);
 
     // Then recurse on any children the snarl caller failed to handle
-    while (!snarl_queue.empty()) {
+    while (!std::all_of(snarl_queue.begin(), snarl_queue.end(),
+                        [](const vector<const Snarl*>& snarl_vec) {return snarl_vec.empty();})) {
         vector<const Snarl*> cur_queue;
-        std::swap(snarl_queue, cur_queue);
+        for (vector<const Snarl*>& thread_queue : snarl_queue) {
+            cur_queue.reserve(cur_queue.size() + thread_queue.size());
+            std::move(thread_queue.begin(), thread_queue.end(), std::back_inserter(cur_queue));
+            thread_queue.clear();
+        }
 #pragma omp parallel for
         for (int i = 0; i < cur_queue.size(); ++i) {
             process_snarl(cur_queue[i]);
