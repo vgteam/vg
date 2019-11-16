@@ -29,7 +29,6 @@ public:
      * Construct a new MinimizerMapper using the given indexes. The PathPositionhandleGraph can be nullptr,
      * as we only use it for correctness tracking.
      */
-
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
          MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph = nullptr);
 
@@ -38,6 +37,40 @@ public:
      * TODO: Can't be const because the clusterer's cluster_seeds isn't const.
      */
     void map(Alignment& aln, AlignmentEmitter& alignment_emitter);
+    
+    /**
+     * Map the given read. Return a vector of alignments that it maps to, winner first.
+     */
+    vector<Alignment> map(Alignment& aln);
+    
+    // The idea here is that the subcommand feeds all the reads to the version
+    // of map_paired that takes a buffer, and then empties the buffer by
+    // iterating over it in parallel with the version that doesn't.
+    // TODO: how will we warn about not having a pair distribution yet then?
+    
+    /**
+     * Map the given pair of reads, where aln1 is upstream of aln2 and both are
+     * oriented in the same direction in the graph.
+     *
+     * If the reads are ambiguous and there's no fragment length distribution
+     * fixed yet, they will be dropped into ambiguous_pair_buffer.
+     *
+     * Otherwise, at least one result will be returned for them (although it
+     * may be the unmapped alignment).
+     */
+    vector<pair<Alignment, Alignment>> map_paired(Alignment& aln1, Alignment& aln2,
+        vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer);
+        
+    /**
+     * Map the given pair of reads, where aln1 is upstream of aln2 and both are
+     * oriented in the same direction in the graph.
+     *
+     * If the fragment length distribution is not yet fixed, reads will be
+     * mapped independently. Otherwise, they will be mapped according to the
+     * fragment length distribution.
+     */
+    vector<pair<Alignment, Alignment>> map_paired(Alignment& aln1, Alignment& aln2)
+     
 
     // Mapping settings.
     // TODO: document each

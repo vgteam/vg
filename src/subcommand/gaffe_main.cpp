@@ -896,20 +896,66 @@ int main_gaffe(int argc, char** argv) {
             start = std::chrono::system_clock::now();
 
             if (interleaved) {
-                
-                // Define how to align and output a read pair, in a thread.
-                auto map_read_pair = [&](Alignment& aln1, Alignment& aln2) {
-                    // TODO: actually pair
-                    // For now just map separately
-                    minimizer_mapper.map(aln1, *alignment_emitter);
-                    minimizer_mapper.map(aln2, *alignment_emitter);
-                    // Record that we mapped a read.
-                    reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
-                };
 
+                // a buffer to hold read pairs that can't be unambiguously mapped before the fragment length distribution
+                // is estimated
+                // note: sufficient to have only one buffer because multithreading code enforces single threaded mode
+                // during distribution estimation
+                vector<pair<Alignment, Alignment>> ambiguous_pair_buffer;
+                
                 // Define how to know if the paired end distribution is ready
                 auto distribution_is_ready = []() {
                     return true;
+                };
+                
+                // Define how to align and output a read pair, in a thread.
+                auto map_read_pair = [&](Alignment& aln1, Alignment& aln2) {
+                    
+                    
+                    // Assume reads are in inward orientations on input, and
+                    // convert to rightward orientations before sending to the
+                    // mapping code, which needs to flip the second read back
+                    // before output (???)
+                    
+                    // So convert to rightward orientations
+                    
+                    // remove the path so we won't try to RC it (the path may not refer to this graph)
+                    aln2.clear_path();
+                    reverse_complement_alignment_in_place(&aln2, [&](vg::id_t node_id) {
+                        return gbwt_graph->get_length(gbwt_graph->get_handle(node_id));
+                    });
+                    
+                    if (distribution_is_ready()) {
+                        // If the distribution is ready, map the reads paired according to it.
+                        
+                        // TODO: actually pair
+                        
+                        // For now just map separately
+                        minimizer_mapper.map(aln1, *alignment_emitter);
+                        // Flip aln2 back to input orientation
+                        reverse_complement_alignment_in_place(&aln2, [&](vg::id_t node_id) {
+                            return gbwt_graph->get_length(gbwt_graph->get_handle(node_id));
+                        });
+                        minimizer_mapper.map(aln2, *alignment_emitter);
+                        // Record that we mapped a read.
+                        reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
+                    } else {
+                        // If the distribution isn't ready and we are mapping single-threaded, map each end separately
+                        
+                        // Map to Alignments we can hold.
+                        vector<Alignment> alns1(minimizer_mapper.map(aln1));
+                        vector<Alignment> alns2(minimizer_mapper.map(aln2));
+                        
+                        // Check if the separately-mapped ends are both sufficiently perfect and sufficiently unique
+                        
+                        // And that they have an actual pair distance and set of relative orientations
+                        
+                        // If that all checks out, say they're mapped, emit them, and register their distance and orientations
+                        
+                        // Otherwise, discard the mappings and put them in the ambiguous buffer
+                    }
+                    
+                    
                 };
 
                 for (auto& gam_name : gam_filenames) {
