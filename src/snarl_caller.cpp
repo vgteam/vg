@@ -599,7 +599,12 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
     }
     
     // how many reads would we expect to not map to our genotype due to error
-    double error_rate = std::min(0.05, depth_err + baseline_mapping_error);
+    // Note: The bin size is set quite a bit smaller than originally intended as it seems to
+    // help nearly nevery benchmark.  But the small bin sizes means that depth_err, the
+    // error from the binned coverage, is way too high and including it only causes trouble.
+    // tldr: just use the baseline_mapping_error constant and forget about depth_err for now. 
+    //double error_rate = std::min(0.05, depth_err + baseline_mapping_error);
+    double error_rate = baseline_mapping_error;
     double other_poisson_lambda = error_rate * exp_depth; //support_val(total_site_support);
 
     // and our likelihood for the unmapped reads we see:
@@ -648,6 +653,9 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
 
     assert(traversals.size() == variant.alleles.size());
 
+    // get the traversal sizes
+    vector<int> traversal_sizes = support_finder.get_traversal_sizes(traversals);
+
     // get the genotype support
     vector<Support> genotype_supports = support_finder.get_traversal_genotype_support(traversals, genotype, {}, 0);
 
@@ -684,8 +692,13 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     double gen_likelihood;    
     variant.format.push_back("GL");
 
-    // expected depth from our coverage
-    pair<size_t, size_t> ref_range = make_pair(variant.position, variant.position + variant.ref.length());
+    // expected depth from our coverage.  we look at the reference-range from the snarl plus a bit of padding,
+    // averaging over every depth bin this touches.  todo: adaptively compute nearby coverage without bins
+    // (requires VCFGenotyper to be refactored to require a PathPositionIndex)
+    size_t longest_traversal = *max_element(traversal_sizes.begin(), traversal_sizes.end());
+    size_t padding = (depth_padding_factor * longest_traversal) / 2;
+    pair<size_t, size_t> ref_range = make_pair(max((long)0, (long)(variant.position - padding)),
+					       variant.position + variant.ref.length() + padding);
     auto depth_info = algorithms::get_depth_from_index(depth_index, variant.sequenceName, ref_range.first, ref_range.second);
     double exp_depth = depth_info.first;
     double depth_err = depth_info.second;

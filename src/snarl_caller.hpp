@@ -232,6 +232,9 @@ protected:
     /// Consider up to the tom-m secondary traversals (based on support) for each top traversal
     /// (so at most top_k * top_m considered)
     size_t top_m = 100;
+
+    /// padding to apply wrt to longest traversal to snarl ranges when looking up binned depth
+    double depth_padding_factor = 1.;
     
     /// Map path name to <mean, std_err> of depth coverage from the packer
     const algorithms::BinnedDepthIndex& depth_index;
