@@ -35,7 +35,7 @@ static pair<unordered_set<Node*>, unordered_set<Edge*> > pb_contents(
     return ret;
 }
 
-int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
+int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
     //Distance using djikstras algorithm
 
     auto cmp = [] (pair<pair<id_t, bool> , int64_t> x, 
@@ -664,9 +664,9 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
             REQUIRE(di.minDistance( make_pos_t(5, true, 2), make_pos_t(6, false, 0)) == 11);
             REQUIRE(di.minDistance(make_pos_t(2, false, 0), make_pos_t(7, false, 0)) == 6);
 
-            REQUIRE(min_distance(&graph, make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 4);
-            REQUIRE(min_distance(&graph, make_pos_t(5, true, 2), make_pos_t(6, false, 0)) == 11);
-            REQUIRE(min_distance(&graph, make_pos_t(2, false, 0), make_pos_t(7, false, 0)) == 6);
+            REQUIRE(minDistance(&graph, make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 4);
+            REQUIRE(minDistance(&graph, make_pos_t(5, true, 2), make_pos_t(6, false, 0)) == 11);
+            REQUIRE(minDistance(&graph, make_pos_t(2, false, 0), make_pos_t(7, false, 0)) == 6);
 
       
         }
@@ -878,9 +878,9 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
             REQUIRE(di.minDistance(make_pos_t(2, false, 0), 
                                    make_pos_t(7, true, 0)) == 11);
 
-            REQUIRE(min_distance(&graph, make_pos_t(4, false, 0),  
+            REQUIRE(minDistance(&graph, make_pos_t(4, false, 0),  
                                          make_pos_t(6, true, 0)) == 25);
-            REQUIRE(min_distance(&graph, make_pos_t(2, false, 0),
+            REQUIRE(minDistance(&graph, make_pos_t(2, false, 0),
                                          make_pos_t(7, true, 0)) == 11);
         }
         SECTION ("Max distance") {
@@ -938,7 +938,7 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
             pos_t pos1 = make_pos_t(1, false, 0);
             pos_t pos2 = make_pos_t(2, false, 0);
 
-            REQUIRE(di.minDistance(pos1, pos2) == min_distance(&graph, pos1, pos2));
+            REQUIRE(di.minDistance(pos1, pos2) == minDistance(&graph, pos1, pos2));
 
 
 
@@ -959,7 +959,7 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
         di.printSelf();
         pos_t pos1 = make_pos_t(208, true, 4);
         pos_t pos2 = make_pos_t(256, false, 2); 
-        REQUIRE(di.minDistance(pos1, pos2) == min_distance(&vg, pos1, pos2));
+        REQUIRE(di.minDistance(pos1, pos2) == minDistance(&vg, pos1, pos2));
 */
 
         for (int i = 0; i < 0; i++) {
@@ -1029,7 +1029,7 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
 
                     int64_t myDist = di.minDistance(pos1, pos2);
                     int64_t maxDist = di.maxDistance(pos1, pos2);
-                    int64_t actDist = min_distance(&graph, pos1, pos2);
+                    int64_t actDist = minDistance(&graph, pos1, pos2);
 
 
          
@@ -1336,6 +1336,236 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
         }
     } //end test case
 */
-}
+    TEST_CASE( "Simple snarl subgraph",
+                   "[min_dist][min_subgraph]" ) {
+        VG graph;
 
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("G");
+        Node* n8 = graph.create_node("CTGA");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n8);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n6);
+        Edge* e5 = graph.create_edge(n3, n4);
+        Edge* e6 = graph.create_edge(n3, n5);
+        Edge* e7 = graph.create_edge(n4, n5);
+        Edge* e8 = graph.create_edge(n5, n7);
+        Edge* e9 = graph.create_edge(n6, n7);
+        Edge* e10 = graph.create_edge(n7, n8);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+
+        SECTION("Subgraph extraction") {
+
+            SubHandleGraph sub_graph(&graph);
+            handle_t handle = graph.get_handle(2, false);
+            path_handle_t path_handle = graph.create_path_handle("path");
+            graph.append_step(path_handle, handle);
+            Path path = path_from_path_handle(graph, path_handle);
+
+            MinimumDistanceIndex dist_index (&graph, &snarl_manager);
+            dist_index.subgraphInRange(path, &graph, 4, 6, sub_graph, false); 
+
+            REQUIRE(!sub_graph.has_node(3));
+            REQUIRE(sub_graph.has_node(4));
+            REQUIRE(sub_graph.has_node(5));
+            REQUIRE(!sub_graph.has_node(6));
+            REQUIRE(!sub_graph.has_node(7));
+            REQUIRE(sub_graph.has_node(8));
+        } 
+        SECTION("Subgraph extraction same node") {
+
+            SubHandleGraph sub_graph(&graph);
+            handle_t handle = graph.get_handle(3, false);
+            path_handle_t path_handle = graph.create_path_handle("path");
+            graph.append_step(path_handle, handle);
+            Path path = path_from_path_handle(graph, path_handle);
+
+            MinimumDistanceIndex dist_index (&graph, &snarl_manager);
+            dist_index.subgraphInRange(path, &graph, 3, 6, sub_graph, false); 
+
+            REQUIRE(!sub_graph.has_node(3));
+            REQUIRE(sub_graph.has_node(4));
+            REQUIRE(sub_graph.has_node(5));
+            REQUIRE(!sub_graph.has_node(6));
+            REQUIRE(sub_graph.has_node(7));
+            REQUIRE(sub_graph.has_node(8));
+        } 
+    } //end test case
+    TEST_CASE("Chain subgraph", "[min_dist][min_subgraph]") {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("G");
+        Node* n8 = graph.create_node("CTGA");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n8);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n5, n6);
+        Edge* e5 = graph.create_edge(n2, n4);
+        Edge* e6 = graph.create_edge(n3, n5);
+        Edge* e7 = graph.create_edge(n4, n5);
+        Edge* e8 = graph.create_edge(n5, n7);
+        Edge* e9 = graph.create_edge(n6, n7);
+        Edge* e10 = graph.create_edge(n7, n8);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+
+        SECTION("Subgraph extraction") {
+
+            SubHandleGraph sub_graph(&graph);
+            handle_t handle = graph.get_handle(2, false);
+            path_handle_t path_handle = graph.create_path_handle("path");
+            graph.append_step(path_handle, handle);
+            Path path = path_from_path_handle(graph, path_handle);
+
+            MinimumDistanceIndex dist_index (&graph, &snarl_manager);
+            dist_index.subgraphInRange(path, &graph, 3, 6, sub_graph, false); 
+
+            REQUIRE(!sub_graph.has_node(3));
+            REQUIRE(sub_graph.has_node(4));
+            REQUIRE(sub_graph.has_node(5));
+            REQUIRE(sub_graph.has_node(6));
+            REQUIRE(sub_graph.has_node(7));
+            REQUIRE(sub_graph.has_node(8));
+        }
+        SECTION ("Another subgraph") {
+            SubHandleGraph sub_graph(&graph);
+            handle_t handle = graph.get_handle(2, false);
+            path_handle_t path_handle = graph.create_path_handle("path");
+            graph.append_step(path_handle, handle);
+            Path path = path_from_path_handle(graph, path_handle);
+
+            MinimumDistanceIndex dist_index (&graph, &snarl_manager);
+            dist_index.subgraphInRange(path, &graph, 6, 6, sub_graph, false); 
+
+            REQUIRE(!sub_graph.has_node(3));
+            REQUIRE(!sub_graph.has_node(4));
+            REQUIRE(!sub_graph.has_node(5));
+            REQUIRE(!sub_graph.has_node(6));
+            REQUIRE(!sub_graph.has_node(7));
+            REQUIRE(sub_graph.has_node(8));
+            REQUIRE(!sub_graph.has_node(3));
+        }
+        SECTION ("Skip snarl") {
+            SubHandleGraph sub_graph(&graph);
+            handle_t handle = graph.get_handle(2, false);
+            path_handle_t path_handle = graph.create_path_handle("path");
+            graph.append_step(path_handle, handle);
+            Path path = path_from_path_handle(graph, path_handle);
+
+            MinimumDistanceIndex dist_index (&graph, &snarl_manager);
+            dist_index.subgraphInRange(path, &graph, 5, 5, sub_graph, false); 
+
+            REQUIRE(!sub_graph.has_node(3));
+            REQUIRE(!sub_graph.has_node(4));
+            REQUIRE(!sub_graph.has_node(5));
+            REQUIRE(sub_graph.has_node(6));
+            REQUIRE(sub_graph.has_node(7));
+            REQUIRE(!sub_graph.has_node(8));
+            REQUIRE(!sub_graph.has_node(3));
+        }
+
+    }//end test case
+
+    TEST_CASE("Random test subgraph", "[min_dist][min_subgraph][rand]") {
+
+
+        for (int i = 0; i < 1000; i++) {
+            //1000 different graphs
+            VG graph;
+            random_graph(1000, 20, 100, &graph);
+
+            CactusSnarlFinder bubble_finder(graph);
+            SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+            MinimumDistanceIndex dist_index (&graph, &snarl_manager);
+
+            vector<const Snarl*> allSnarls;
+            auto addSnarl = [&] (const Snarl* s) {
+                allSnarls.push_back(s);
+            };
+            snarl_manager.for_each_snarl_preorder(addSnarl);
+
+            uniform_int_distribution<int> randSnarlIndex(0, allSnarls.size()-1);
+            default_random_engine generator(time(NULL));
+            int64_t min = 20; int64_t max = 50;
+            for (int j = 0; j < 100; j++) {
+                //Check distances for random pairs of positions 
+                const Snarl* snarl1 = allSnarls[randSnarlIndex(generator)];
+                 
+                pair<unordered_set<Node*>, unordered_set<Edge*>> contents1 = 
+                    pb_contents(graph, snarl_manager.shallow_contents(snarl1, graph, true));
+ 
+                vector<Node*> nodes1 (contents1.first.begin(), contents1.first.end());
+
+                uniform_int_distribution<int> randNodeIndex1(0,nodes1.size()-1);
+ 
+                Node* node1 = nodes1[randNodeIndex1(generator)];
+                id_t nodeID1 = node1->id();
+                handle_t handle = graph.get_handle(nodeID1, false);
+                path_handle_t path_handle = graph.create_path_handle("test_path");
+                graph.append_step(path_handle, handle);
+                Path path = path_from_path_handle(graph, path_handle);
+                pos_t pos1 = make_pos_t(nodeID1, false, graph.get_length(handle) );
+
+                SubHandleGraph sub_graph(&graph);
+                dist_index.subgraphInRange(path, &graph, min, max, sub_graph, false); 
+
+                graph.for_each_handle([&] (const handle_t h ) { 
+                    id_t node_id = graph.get_id(h);
+                    int64_t len = graph.get_length(h);
+                    int64_t dist_start_fd = dist_index.minDistance(pos1, make_pos_t(node_id, false, 0));
+                    int64_t dist_end_fd = dist_start_fd == -1 ? -1 : dist_start_fd + len;
+
+                    bool start_forward = dist_start_fd != -1 && (dist_start_fd >= min && dist_start_fd <= max);
+                    bool end_forward = dist_end_fd != -1 && (dist_end_fd >= min && dist_end_fd <= max);
+                    bool in_forward = dist_start_fd != -1 && dist_end_fd == -1 || (dist_start_fd <= min && dist_end_fd >= max);
+                
+                    int64_t dist_start_bk = dist_index.minDistance(pos1, make_pos_t(node_id, true, 0));
+                    int64_t dist_end_bk = dist_start_bk == -1 ? -1 : dist_start_bk + len;
+
+                    bool start_backward = dist_start_bk != -1 && (dist_start_bk >= min && dist_start_bk <= max);
+                    bool end_backward = dist_end_bk != -1 && (dist_end_bk >= min && dist_end_bk <= max);
+                    bool in_backward = dist_start_bk != -1 && dist_end_bk == -1 || (dist_start_bk <= min && dist_end_bk >= max);
+                    if (sub_graph.has_node(node_id)) {
+                        //If this node is in the subgraph, then the node must be within the range
+
+                        if (!(start_forward || end_forward || in_forward || start_backward || end_backward || in_backward)) {
+                            cerr << "Node " << node_id << " from pos " << pos1 << " with distances " 
+                                 << dist_index.minDistance(pos1, make_pos_t(node_id, false, 0)) << " and " 
+                                 << dist_index.minDistance(pos1, make_pos_t(node_id, true, 0)) 
+                                 << " is in the subgraph but shouldn't be " << endl;
+                            graph.serialize_to_file("testGraph");
+                        }
+                        REQUIRE((start_forward || end_forward || in_forward || start_backward || end_backward || in_backward));
+                    } else {
+                        if (start_forward || end_forward || in_forward || start_backward || end_backward || in_backward) {
+                            cerr << "Node " << node_id << " from pos " << pos1 <<" with distances " 
+                                 << dist_index.minDistance(pos1, make_pos_t(node_id, false, 0)) << " and " 
+                                 << dist_index.minDistance(pos1, make_pos_t(node_id, true, 0)) 
+                                 << " is not in the subgraph but should be " << endl;
+                            graph.serialize_to_file("testGraph");
+                        }
+                        REQUIRE(!(start_forward || end_forward || in_forward || start_backward || end_backward || in_backward));
+                    }
+                });
+            }
+        }
+    }//End test case
+}
 }

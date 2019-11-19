@@ -1,5 +1,6 @@
 //#define debugIndex
 //#define debugDistance
+#define debugSubgraph
 
 #include "min_distance.hpp"
 
@@ -334,10 +335,8 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
 
         //Get the start of the chain
         auto first_visit = get_start_of(*chain);
-        chain_indexes.emplace_back(parent_id, first_visit.node_id(),
-                                   rev_in_parent,
-                                   first_visit.node_id() 
-                                            == get_end_of(*chain).node_id(),
+        chain_indexes.emplace_back(parent_id, first_visit.node_id(), get_end_of(*chain).node_id(),
+                                   rev_in_parent,first_visit.node_id()  == get_end_of(*chain).node_id(),
                                    chain->size());
 
         chain_assignments[first_visit.node_id()-min_node_id] = 
@@ -465,12 +464,12 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
         if (trivial_chain) {
             //The parent is the parent snarl
             snarl_indexes.emplace_back(parent_id, rev_in_parent, 
-                           snarl_start_id, snarl_start_id == snarl_end_id, 
+                           snarl_start_id, snarl_end_id, snarl_start_id == snarl_end_id, 
                            depth, all_nodes.size()/2, false);
         } else {
             //The parent is the chain
             snarl_indexes.emplace_back(get_start_of(*chain).node_id(), 
-                               snarl_rev_in_chain, start_in_chain, 
+                               snarl_rev_in_chain, start_in_chain, end_in_chain, 
                                snarl_start_id == snarl_end_id,
                                depth, all_nodes.size()/2, true);
         }
@@ -478,7 +477,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
 
         for (pair<id_t, bool> start_id : all_nodes){
 
-            //Use each node in the snarl as start of djikstra search
+            //Use each node in the snarl as start of dijkstra search
 
             //Index of the start node in the current snarl
             size_t start_node_rank = 
@@ -492,17 +491,14 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                 start_node_rank = start_node_rank % 2 == 0 ? start_node_rank + 1
                                                           : start_node_rank - 1;
             }
-            handle_t start_handle = 
-                           graph->get_handle(start_id.first, start_id.second);
+            handle_t start_handle = graph->get_handle(start_id.first, start_id.second);
             //Priority queue of reachable nodes (pair of node id and direction)
-            priority_queue<  pair<pair<id_t, bool>, int64_t>,  
-                         vector<pair<pair<id_t, bool>, int64_t>>, 
+            priority_queue< pair<pair<id_t, bool>, int64_t>, vector<pair<pair<id_t, bool>, int64_t>>, 
                                      decltype(cmp)> reachable(cmp);
-            reachable.push(make_pair(start_id, 0));
+            reachable.emplace(start_id, 0);
 
             #ifdef debugIndex
-                cerr << "  Start Node: " << start_id.first << "," 
-                    << start_id.second << endl;
+                cerr << "  Start Node: " << start_id.first << ","  << start_id.second << endl;
                 assert( primary_snarl_assignments[start_id.first - min_node_id]-1 == snarl_assignment ||  secondary_snarl_assignments[start_id.first - min_node_id]-1 == snarl_assignment);
             #endif
             bool first_loop = true;
@@ -512,8 +508,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                 pair<pair<id_t, bool>, int64_t> next = reachable.top();
                 reachable.pop();
                 pair<id_t, bool> curr_id = next.first;
-                handle_t curr_handle = ng.get_handle(curr_id.first, 
-                                                        curr_id.second);
+                handle_t curr_handle = ng.get_handle(curr_id.first, curr_id.second);
                 int64_t curr_dist = next.second;
                 if ( seen_nodes.count(curr_id) == 0) {
                     //If node has not already been found:
@@ -521,15 +516,12 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                     //Record distance from start to current node 
                     if (!first_loop) {
                         size_t curr_node_rank = 
-                          primary_snarl_assignments[curr_id.first-min_node_id]-1
-                                                       == snarl_assignment
+                          primary_snarl_assignments[curr_id.first-min_node_id]-1 == snarl_assignment
                           ? primary_snarl_ranks[curr_id.first-min_node_id] -1
                           : secondary_snarl_ranks[curr_id.first-min_node_id]-1;
 
                         if (curr_id.second) {
-                            curr_node_rank = curr_node_rank % 2 == 0 
-                                           ? curr_node_rank + 1
-                                           : curr_node_rank - 1;
+                            curr_node_rank = curr_node_rank % 2 == 0 ? curr_node_rank + 1 : curr_node_rank - 1;
                         }
 
                         snarl_indexes[snarl_assignment].insertDistance(
@@ -548,8 +540,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                     const Snarl* temp_snarl = snarl_manager->into_which_snarl(
                                               curr_id.first, curr_id.second);
                     const Snarl* curr_snarl = temp_snarl == NULL ? 
-                          snarl_manager->into_which_snarl(curr_id.first, 
-                                                          !curr_id.second) :
+                          snarl_manager->into_which_snarl(curr_id.first, !curr_id.second) :
                           temp_snarl; 
 
                     if (curr_id.first != snarl_start_id &&
@@ -560,8 +551,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                         if (snarl_manager->in_nontrivial_chain(curr_snarl)) {
                            //The node is a chain
 
-                            const Chain* curr_chain= snarl_manager->chain_of(
-                                                                    curr_snarl);
+                            const Chain* curr_chain= snarl_manager->chain_of(curr_snarl);
                             size_t chain_start = get_start_of(*curr_chain).node_id();
 
                             if (chain_assignments[chain_start-min_node_id]!= 0){
@@ -573,8 +563,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                 node_len = chain_dists.chainLength();
        
                                 //Get loop dist- enter and exit chain at same side
-                                if (get_start_of(*curr_chain).backward() 
-                                                            == curr_id.second) {
+                                if (get_start_of(*curr_chain).backward() == curr_id.second) {
                                     //If traversing chain forward in snarl
 
                                     loop_dist = chain_dists.loop_fd[0] - 1;
@@ -582,11 +571,9 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                     if (loop_dist != -1) {
                                         auto visit = get_start_of(*curr_chain);
                                         handle_t temp_handle= graph->get_handle(
-                                                             visit.node_id(),
-                                                             visit.backward());
+                                                            visit.node_id(), visit.backward());
 
-                                       loop_dist = loop_dist + 
-                                               graph->get_length(temp_handle) ;
+                                       loop_dist = loop_dist + graph->get_length(temp_handle) ;
                                      }
 
                                 } else {
@@ -597,10 +584,8 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
 
                                         auto end_visit= get_end_of(*curr_chain);
                                         handle_t temp_handle= graph->get_handle(
-                                                   end_visit.node_id(),
-                                                   end_visit.backward());
-                                        loop_dist = loop_dist + 
-                                           graph->get_length(temp_handle);
+                                                   end_visit.node_id(), end_visit.backward());
+                                        loop_dist = loop_dist + graph->get_length(temp_handle);
                                      }
                                 }
 
@@ -608,44 +593,31 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                 #ifdef debugIndex
                                     cerr << " recurse" << endl;
                                 #endif
-                                bool rev_in_snarl = curr_id.first ==
-                                            get_start_of(*curr_chain).node_id()
-                                          ? get_start_of(*curr_chain).backward()
-                                          : !get_end_of(*curr_chain).backward();
-                                node_len = calculateMinIndex(graph, 
-                                             snarl_manager, curr_chain, 
-                                             start_in_chain, rev_in_snarl,
-                                             false, depth + 1);
+                                bool rev_in_snarl = curr_id.first == get_start_of(*curr_chain).node_id()
+                                          ? get_start_of(*curr_chain).backward() : !get_end_of(*curr_chain).backward();
+                                node_len = calculateMinIndex(graph,  snarl_manager, curr_chain, 
+                                             start_in_chain, rev_in_snarl, false, depth + 1);
 
-                                const ChainIndex& curr_chain_dists = chain_indexes[
-                                  chain_assignments[chain_start-min_node_id]-1];
-                                if (get_start_of( *curr_chain).backward()
-                                                 == curr_id.second) {
+                                const ChainIndex& curr_chain_dists = chain_indexes[chain_assignments[chain_start-min_node_id]-1];
+                                if (get_start_of( *curr_chain).backward() == curr_id.second) {
                                     //If traversing snarl forward in chain
 
                                     loop_dist = curr_chain_dists.loop_fd[0] - 1;
 
                                     if (loop_dist != -1) {
                                         auto visit = get_start_of(*curr_chain);
-                                        handle_t temp_handle= graph->get_handle(
-                                                             visit.node_id(),
-                                                             visit.backward());
+                                        handle_t temp_handle= graph->get_handle(visit.node_id(), visit.backward());
 
-                                       loop_dist = loop_dist + 
-                                               graph->get_length(temp_handle) ;
+                                        loop_dist = loop_dist + graph->get_length(temp_handle) ;
                                     }
                                 } else {
 
-                                    loop_dist = curr_chain_dists.loop_rev[
-                                        curr_chain_dists.loop_rev.size()-1] - 1;
+                                    loop_dist = curr_chain_dists.loop_rev[curr_chain_dists.loop_rev.size()-1] - 1;
 
                                     if (loop_dist != -1) {
                                         auto end_visit = get_end_of(*curr_chain);
-                                        handle_t temp_handle = graph->get_handle(
-                                                     end_visit.node_id(),
-                                                     end_visit.backward());
-                                        loop_dist = loop_dist +
-                                           graph->get_length(temp_handle);
+                                        handle_t temp_handle = graph->get_handle(end_visit.node_id(), end_visit.backward());
+                                        loop_dist = loop_dist + graph->get_length(temp_handle);
                                      }
                                 } 
                             }
@@ -657,12 +629,9 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                             bool end_rev = curr_snarl->end().backward();
   
 
-                            if (primary_snarl_assignments[snarl_id-min_node_id]
-                                != 0) {
+                            if (primary_snarl_assignments[snarl_id-min_node_id] != 0) {
                                 //Already found
-                                const SnarlIndex& snarl_dists = snarl_indexes[
-                                                  primary_snarl_assignments[
-                                                       snarl_id-min_node_id]-1];
+                                const SnarlIndex& snarl_dists = snarl_indexes[primary_snarl_assignments[snarl_id-min_node_id]-1];
                                 node_len = snarl_dists.snarlLength();
 
                                 //Find the distance to enter and exit snarl
@@ -672,28 +641,19 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                     loop_dist = snarl_dists.snarlDistance(0, 1);
 
                                      if (loop_dist != -1) { 
-                                         handle_t temp_handle =
-                                              graph->get_handle(
-                                                curr_snarl->start().node_id(),
-                                                curr_snarl->start().backward());
-                                         loop_dist = loop_dist
-                                             + 2*graph->get_length(temp_handle);
+                                         handle_t temp_handle = graph->get_handle(
+                                                curr_snarl->start().node_id(), curr_snarl->start().backward());
+                                         loop_dist = loop_dist + 2*graph->get_length(temp_handle);
                                      }
                                 } else {
-                                    size_t end_in = snarl_dists.is_unary_snarl ?
-                                              0 : snarl_dists.num_nodes * 2 - 1;
-                                    size_t end_out= snarl_dists.is_unary_snarl ?
-                                              1 : snarl_dists.num_nodes * 2 - 2;
-                                    loop_dist = snarl_dists.snarlDistance(
-                                             end_in, end_out);
+                                    size_t end_in = snarl_dists.is_unary_snarl ? 0 : snarl_dists.num_nodes * 2 - 1;
+                                    size_t end_out= snarl_dists.is_unary_snarl ? 1 : snarl_dists.num_nodes * 2 - 2;
+                                    loop_dist = snarl_dists.snarlDistance(end_in, end_out);
 
                                      if (loop_dist != -1) {
-                                         handle_t temp_handle =
-                                              graph->get_handle(
-                                                  curr_snarl->end().node_id(),
-                                                  curr_snarl->end().backward());
-                                         loop_dist = loop_dist + 
-                                                2*graph->get_length(temp_handle);
+                                         handle_t temp_handle = graph->get_handle(
+                                                  curr_snarl->end().node_id(), curr_snarl->end().backward());
+                                         loop_dist = loop_dist + 2*graph->get_length(temp_handle);
                                      }
                                 }
                             } else {//Haven't recursed on snarl yet
@@ -705,16 +665,12 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                 Chain curr_chain;
 
                                 curr_chain.emplace_back(curr_snarl, false);
-                                bool rev_in_snarl = curr_id.first == snarl_id 
-                                              ? snarl_rev 
-                                              : !end_rev;
-                                calculateMinIndex(graph, snarl_manager,
-                                                 &curr_chain, start_in_chain,
+                                bool rev_in_snarl = curr_id.first == snarl_id ? snarl_rev : !end_rev;
+                                calculateMinIndex(graph, snarl_manager, &curr_chain, start_in_chain,
                                                  rev_in_snarl, true, depth + 1);
 
                                 const SnarlIndex& curr_snarl_dists = snarl_indexes[
-                                          primary_snarl_assignments[
-                                                snarl_id-min_node_id]-1];
+                                          primary_snarl_assignments[snarl_id-min_node_id]-1];
 
                                 node_len = curr_snarl_dists.snarlLength(); 
 
@@ -724,33 +680,22 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
 
                                     loop_dist = curr_snarl_dists.snarlDistance(0, 1);
 
-                                    handle_t temp_handle = 
-                                          graph->get_handle(
+                                    handle_t temp_handle = graph->get_handle(
                                              curr_snarl->start().node_id(),
                                              curr_snarl->start().backward());
                                      if (loop_dist != -1) { 
-                                         loop_dist = loop_dist 
-                                             + 2*graph->get_length(curr_handle);
+                                         loop_dist = loop_dist  + 2*graph->get_length(curr_handle);
                                      }
 
                                  } else {
 
-                                    size_t end_in = 
-                                         curr_snarl_dists.is_unary_snarl ?
-                                         0 : curr_snarl_dists.num_nodes * 2 - 1;
-                                    size_t end_out = 
-                                             curr_snarl_dists.is_unary_snarl ?
-                                         1 : curr_snarl_dists.num_nodes * 2 - 2;
-                                     loop_dist = curr_snarl_dists.snarlDistance(
-                                               end_in, end_out);
+                                    size_t end_in = curr_snarl_dists.is_unary_snarl ? 0 : curr_snarl_dists.num_nodes * 2 - 1;
+                                    size_t end_out = curr_snarl_dists.is_unary_snarl ? 1 : curr_snarl_dists.num_nodes * 2 - 2;
+                                    loop_dist = curr_snarl_dists.snarlDistance(end_in, end_out);
 
                                      if (loop_dist != -1) { 
-                                         handle_t temp_handle = 
-                                               graph->get_handle(
-                                                  curr_snarl->end().node_id(),
-                                                  curr_snarl->end().backward());
-                                         loop_dist = loop_dist + 
-                                               2*graph->get_length(temp_handle);
+                                         handle_t temp_handle = graph->get_handle(curr_snarl->end().node_id(),curr_snarl->end().backward());
+                                         loop_dist = loop_dist + 2*graph->get_length(temp_handle);
                                       }
                                  }
                             }
@@ -761,8 +706,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                     }
  
                     if (curr_id == start_id) {
-                        snarl_indexes[snarl_assignment].distances[
-                                            start_node_rank/2]  = node_len + 1; 
+                        snarl_indexes[snarl_assignment].distances[start_node_rank/2]  = node_len + 1; 
                     }
        
 
@@ -773,16 +717,12 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                           Do not add this distance if the current node is the 
                           starting node */
 
-                        handle_t rev_handle = ng.get_handle(
-                                          ng.get_id(curr_handle), 
-                                          !ng.get_is_reverse(curr_handle)); 
+                        handle_t rev_handle = ng.get_handle(ng.get_id(curr_handle), !ng.get_is_reverse(curr_handle)); 
                             
 
                         auto add_rev_handle = [&](const handle_t& h)-> bool {
-                            pair<id_t, bool> node = make_pair(
-                                        ng.get_id(h), ng.get_is_reverse(h));
-                            reachable.push(make_pair(node, 
-                                                     curr_dist + loop_dist));
+                            pair<id_t, bool> node = make_pair(ng.get_id(h), ng.get_is_reverse(h));
+                            reachable.emplace(node, curr_dist + loop_dist);
  
 
                              return true;
@@ -793,10 +733,9 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
 
                     //Add reachable nodes to priority queue
                     auto add_handle = [&](const handle_t& h)-> bool {
-                         pair<id_t, bool> node = make_pair(
-                                    ng.get_id(h), ng.get_is_reverse(h));
+                       pair<id_t, bool> node = make_pair(ng.get_id(h), ng.get_is_reverse(h));
                        if (node_len != -1) {
-                       reachable.push(make_pair(node, curr_dist + node_len));
+                       reachable.emplace(node, curr_dist + node_len);
                        }
                       
                          #ifdef debugIndex
@@ -806,9 +745,8 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                     };
                     //Add reachable nodes to priority queue for unary snarl that doesn't loop - 0 distance
                     auto add_handle0 = [&](const handle_t& h)-> bool {
-                         pair<id_t, bool> node = make_pair(
-                                    ng.get_id(h), ng.get_is_reverse(h));
-                       reachable.push(make_pair(node, 0));
+                         pair<id_t, bool> node = make_pair(ng.get_id(h), ng.get_is_reverse(h));
+                       reachable.emplace(node, 0);
                        
                          #ifdef debugIndex
                              cerr << node.first << " " << node.second << ", ";
@@ -841,8 +779,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
 
                     //Add edges between the boundary nodes that are not in 
                     //the net graph
-                    int64_t next_dist = curr_id == start_id ? 0 
-                                                           : curr_dist+node_len;
+                    int64_t next_dist = curr_id == start_id ? 0 : curr_dist+node_len;
 
                     if ((curr_id.first == snarl_start_id &&
                         curr_id.second != snarl_start_rev) ||
@@ -855,7 +792,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                     ng.get_id(h), ng.get_is_reverse(h));
                              if ( node.first == snarl_start_id || 
                                   node.first == snarl_end_id ) {
-                               reachable.push(make_pair(node, next_dist));
+                               reachable.emplace(node, next_dist);
                             }
                             return true;
                         };
@@ -1199,9 +1136,7 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) const {
     unordered_set<pair<id_t, bool>> ancestors1;
 
     //set of all ancestor snarls and chains (true) of node1
-    pair<id_t, bool> ancestor1 ( snarl_indexes[getPrimaryAssignment(
-                                         node_id1)].id_in_parent,
-                                 false);
+    pair<id_t, bool> ancestor1 ( snarl_indexes[getPrimaryAssignment(node_id1)].id_in_parent, false);
 
 #ifdef debugDistance
     cerr << "Ancestors of 1: ";
@@ -1233,9 +1168,7 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) const {
 #endif
 
 
-    pair<id_t, bool> ancestor2 ( snarl_indexes[getPrimaryAssignment(
-                                      node_id2)].id_in_parent,
-                                  false);
+    pair<id_t, bool> ancestor2 ( snarl_indexes[getPrimaryAssignment(node_id2)].id_in_parent,false);
     while (ancestor2.first != 0) {
 
 #ifdef debugDistance
@@ -1328,8 +1261,7 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) const {
                 //If this is the lowest common ancestor, then there are two
                 //separate nodes that need to be found
                
-               const SnarlIndex& snarl_index2 = snarl_indexes[
-                             getPrimaryAssignment( snarl_tree_node2.first)];
+               const SnarlIndex& snarl_index2 = snarl_indexes[getPrimaryAssignment( snarl_tree_node2.first)];
                start_rank2 = getChainRank(snarl_index2.id_in_parent);
                end_rank2 = start_rank2+1; 
                if (snarl_index2.rev_in_parent) {
@@ -1403,8 +1335,7 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) const {
                                     
             //Get the lengths of start, end, and current node
             int64_t chain_start_len = snarl_indexes[getPrimaryAssignment(
-                   chain_index.id_in_parent)].nodeLength(
-                       getPrimaryRank(chain_index.id_in_parent));
+                   chain_index.id_in_parent)].nodeLength(getPrimaryRank(chain_index.id_in_parent));
 
             int64_t chain_end_len = chain_index.prefix_sum[chain_index.prefix_sum.size()-1] 
                                 - chain_index.prefix_sum[chain_index.prefix_sum.size()-2];
@@ -1458,8 +1389,7 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) const {
             distL2 = minPos(dsr2, dsl2);
             distR2 = minPos(der2, del2);
 
-            snarl_tree_node1 = make_pair(chain_index.id_in_parent,
-                                         chain_index.rev_in_parent);
+            snarl_tree_node1 = make_pair(chain_index.id_in_parent,chain_index.rev_in_parent);
 
 
 #        ifdef debugDistance
@@ -1540,8 +1470,7 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) const {
             tie (distL2, distR2) = snarl_index.distToEnds(rank2, distL2, distR2);
              
 
-            snarl_tree_node1 = make_pair(snarl_index.id_in_parent,
-                                         snarl_index.rev_in_parent);
+            snarl_tree_node1 = make_pair(snarl_index.id_in_parent, snarl_index.rev_in_parent);
 
 #        ifdef debugDistance
             cerr << "At ancestor snarl " << snarl_indexes[getPrimaryAssignment( parent.first)].id_in_parent << endl;
@@ -1645,20 +1574,10 @@ cerr << distL << " " << distR << endl;
                      chain_index.prefix_sum[chain_index.prefix_sum.size()-1] 
                     - chain_index.prefix_sum[chain_index.prefix_sum.size()-2];
 
-            int64_t dsl = chain_index.chainDistance(make_pair(0, false), 
-                                          make_pair(start_rank, false),
-                                          chain_start_len, start_len);
-            int64_t dsr = chain_index.chainDistance(make_pair(0, false), 
-                                          make_pair(end_rank, true),
-                                          chain_start_len, end_len);
-            int64_t der =chain_index.chainDistance(
-                                           make_pair(chain_end_rank, true),
-                                           make_pair(end_rank, true),
-                                           chain_end_len, end_len);
-            int64_t del =chain_index.chainDistance(
-                                          make_pair(chain_end_rank, true),
-                                          make_pair(start_rank, false),
-                                          chain_end_len, start_len);
+            int64_t dsl = chain_index.chainDistance(make_pair(0, false), make_pair(start_rank, false),chain_start_len, start_len);
+            int64_t dsr = chain_index.chainDistance(make_pair(0, false), make_pair(end_rank, true), chain_start_len, end_len);
+            int64_t der =chain_index.chainDistance(make_pair(chain_end_rank, true),make_pair(end_rank, true), chain_end_len, end_len);
+            int64_t del =chain_index.chainDistance(make_pair(chain_end_rank, true), make_pair(start_rank, false), chain_end_len, start_len);
 
             dsl = dsl == -1 || distL == -1? -1 : distL + dsl;
             dsr = dsr == -1 || distR == -1? -1 : distR + dsr;
@@ -1670,8 +1589,7 @@ cerr << distL << " " << distR << endl;
 
             node_id = chain_index.id_in_parent;
             node_rev = chain_index.rev_in_parent;
-            parent = make_pair(getPrimaryAssignment(chain_index.parent_id),
-                               false);
+            parent = make_pair(getPrimaryAssignment(chain_index.parent_id), false);
 
     #ifdef debugDistance
         cerr << "  At ancestor chain " << chain_index.id_in_parent ;
@@ -1682,9 +1600,7 @@ cerr << distL << " " << distR << endl;
             //If the parent is a snarl
             
             const SnarlIndex& snarl_index = snarl_indexes[parent.first];
-            size_t node_rank = at_node 
-                              ? getPrimaryRank(node_id) 
-                              : getSecondaryRank(node_id);
+            size_t node_rank = at_node ? getPrimaryRank(node_id) : getSecondaryRank(node_id);
             if (node_rev) {
                 //Get the rank of this node in reverse
                 node_rank = node_rank % 2 == 1 ? node_rank - 1 : node_rank + 1;
@@ -1696,8 +1612,7 @@ cerr << distL << " " << distR << endl;
             node_id = snarl_index.id_in_parent;
             node_rev = snarl_index.rev_in_parent;
             if (snarl_index.in_chain) {
-                parent = make_pair(getChainAssignment(snarl_index.parent_id), 
-                                    true);
+                parent = make_pair(getChainAssignment(snarl_index.parent_id),  true);
             } else {
                 parent = make_pair(getPrimaryAssignment(snarl_index.parent_id), false);
             }
@@ -1762,10 +1677,10 @@ void MinimumDistanceIndex::printSelf() {
 
 
 MinimumDistanceIndex::SnarlIndex::SnarlIndex(
-                       id_t parent_id, bool rev_in_parent, id_t id_in_parent, 
+                       id_t parent_id, bool rev_in_parent, id_t id_in_parent, id_t end_id, 
                        bool is_unary_snarl, size_t depth, size_t num_nodes, 
                        bool in_chain) :
-                       parent_id(parent_id), id_in_parent(id_in_parent), 
+                       parent_id(parent_id), id_in_parent(id_in_parent), end_id(end_id), 
                        rev_in_parent(rev_in_parent), 
                        is_unary_snarl(is_unary_snarl), in_chain(in_chain), 
                        depth(depth), num_nodes(num_nodes) {
@@ -1786,6 +1701,7 @@ void MinimumDistanceIndex::SnarlIndex::load(istream& in){
     sdsl::read_member(parent_id, in);
     sdsl::read_member(rev_in_parent, in);
     sdsl::read_member(id_in_parent, in);
+    sdsl::read_member(end_id, in);
     sdsl::read_member(num_nodes, in);
     sdsl::read_member(depth, in);
     sdsl::read_member(is_unary_snarl, in);
@@ -1803,6 +1719,7 @@ void MinimumDistanceIndex::SnarlIndex::serialize(ostream& out) const {
     sdsl::write_member(parent_id, out);
     sdsl::write_member(rev_in_parent, out);
     sdsl::write_member(id_in_parent, out);
+    sdsl::write_member(end_id, out);
     sdsl::write_member(num_nodes, out);
     sdsl::write_member(depth, out);
     sdsl::write_member(is_unary_snarl, out);
@@ -1954,9 +1871,9 @@ void MinimumDistanceIndex::SnarlIndex::printSelf() {
 //ChainDistance methods
 
 MinimumDistanceIndex::ChainIndex::ChainIndex( 
-                       size_t parent_id, size_t id_in_parent, 
+                       id_t parent_id, id_t id_in_parent, id_t end_id, 
                        bool rev_in_parent, bool loops, size_t length):
-                parent_id(parent_id), id_in_parent(id_in_parent), 
+                parent_id(parent_id), id_in_parent(id_in_parent), end_id(end_id), 
                 is_looping_chain(loops), rev_in_parent(rev_in_parent) {
     
 
@@ -1977,6 +1894,7 @@ void MinimumDistanceIndex::ChainIndex::load(istream& in){
     sdsl::read_member(parent_id, in);
     sdsl::read_member(rev_in_parent, in);
     sdsl::read_member(id_in_parent, in);
+    sdsl::read_member(end_id, in);
     sdsl::read_member(is_looping_chain, in);
 }
 
@@ -1993,6 +1911,7 @@ void MinimumDistanceIndex::ChainIndex::serialize(ostream& out) const {
     sdsl::write_member(parent_id, out);
     sdsl::write_member(rev_in_parent, out);
     sdsl::write_member(id_in_parent, out);
+    sdsl::write_member(end_id, out);
     sdsl::write_member(is_looping_chain, out);
    
 
@@ -2266,5 +2185,314 @@ void MinimumDistanceIndex::printSnarlStats() {
     }
     cout << endl;
 }
+
+bool MinimumDistanceIndex::addNodesInRange(const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, int64_t node_distance,
+                                           SubHandleGraph& sub_graph, handle_t start_handle, id_t start, id_t end ) {
+    //Starting from a given handle in the super_graph, traverse the graph and add all nodes within the distance range to sub_graph
+    
+#ifdef debugSubgraph
+    cerr << "Starting search from node " << super_graph->get_id(start_handle) << " " << super_graph->get_is_reverse(start_handle)
+         << " with distance " << node_distance << endl;
+    if (start != 0 && end != 0) {
+        cerr << "Bounded by snarl " << start << ":" << end << endl;
+    }
+#endif
+    bool added_nodes = false;
+    auto cmp =  [] (const tuple<handle_t, int64_t> a, const tuple<handle_t, int64_t> b ) {
+            return std::get<1>(a) > std::get<1>(b);
+        };
+    priority_queue< tuple<handle_t, int64_t>, vector<tuple<handle_t, int64_t>>, decltype(cmp)> next_handles (cmp);
+    id_t start_id = super_graph->get_id(start_handle);
+    next_handles.emplace(start_handle, node_distance);
+    hash_set<pair<id_t, bool>> seen_nodes;
+
+    bool is_first = true;
+    while (next_handles.size() > 0) {
+        //Traverse the graph, adding nodes if they are within the range
+        handle_t curr_handle; int64_t curr_distance;
+        std::tie(curr_handle, curr_distance) = next_handles.top();
+        next_handles.pop();
+        if (!is_first && (start != 0 && end != 0 ) && ((start_id != start && super_graph->get_id(curr_handle) == start)
+             || (start_id != end && super_graph->get_id(curr_handle) == end)) && !added_nodes) {
+            //If we're restricted to this snarl and we've reached the end of the snarl without finding anything
+            return added_nodes;
+        }
+        is_first = false;
+        
+
+        int64_t node_len = super_graph->get_length(curr_handle);
+        int64_t curr_distance_end = curr_distance + node_len - 1;
+        if ((curr_distance >= min_distance && curr_distance <= max_distance) ||
+             (curr_distance_end >= min_distance && curr_distance_end <= max_distance) ||
+             (curr_distance <= min_distance && curr_distance_end >= max_distance)) {
+            sub_graph.add_handle(curr_handle);
+            added_nodes = true;
+#ifdef debugSubgraph
+            cerr << "\tadding node " << super_graph->get_id(curr_handle) << " " << super_graph->get_is_reverse(curr_handle) << " with distance "
+                 << curr_distance << " and node length " << node_len << endl;
+#endif
+        }
+#ifdef debugSubgraph
+        else {
+            cerr << "\tdisregarding node " << super_graph->get_id(curr_handle) << " " << super_graph->get_is_reverse(curr_handle) 
+                 << " with distance " << curr_distance << endl;
+        }
+#endif
+        
+        curr_distance += node_len;
+
+        //If the end of this node is still within the range, add the next nodes that are within 
+        if (curr_distance-1 <= max_distance ) {
+            super_graph->follow_edges(curr_handle, false, [&](const handle_t& next) {
+                    id_t next_id = super_graph->get_id(next);
+                    if (seen_nodes.count(make_pair(next_id, super_graph->get_is_reverse(next))) == 0) {
+                        next_handles.emplace(next, curr_distance); 
+                    }
+                    seen_nodes.emplace(next_id, super_graph->get_is_reverse(next));
+                    return true;
+                });
+        }
+
+    }
+    return added_nodes;
+}
+
+void MinimumDistanceIndex::subgraphInRange(Path& path, const HandleGraph* super_graph, int64_t min_distance, 
+                                           int64_t max_distance, SubHandleGraph& sub_graph, bool look_upstream){
+
+    pos_t start_pos;
+    int64_t node_len;
+    if (look_upstream ){
+        start_pos = initial_position(path);
+        node_len = super_graph->get_length(super_graph->get_handle(get_id(start_pos)));;
+        start_pos = reverse_base_pos(start_pos, node_len);
+    } else {
+        start_pos = final_position(path);
+        node_len = super_graph->get_length(super_graph->get_handle(get_id(start_pos)));
+    }
+
+
+    //The distance from the position to the ends of the current node
+    int64_t dist_to_curr_start = is_rev(start_pos) ? node_len - get_offset(start_pos) + 1 : -1 ;
+    int64_t dist_to_curr_end = is_rev(start_pos) ? -1 : node_len - get_offset(start_pos) + 1; 
+    //Graph node of the start and end of the current node(/snarl/chain) pointing out
+    pair<id_t, bool> start_node (get_id(start_pos), true); 
+    pair<id_t, bool> end_node (get_id(start_pos), false); 
+    int64_t start_len = node_len; int64_t end_len = node_len;
+
+    //The rank of the current node in its parent 
+    size_t curr_rank = getPrimaryRank(get_id(start_pos));
+    bool curr_rev = false;
+    bool passed_root = false;//This becomes true when we need to stop traversing up the tree
+    //The parent of the current node. bool is true if it is a chain, size_t is the index to snarl/chain_indexes
+    pair<bool, size_t> parent_structure (false, getPrimaryAssignment(get_id(start_pos)));
+    const SnarlIndex& snarl_index = snarl_indexes[parent_structure.second];
+
+
+#ifdef debugSubgraph
+    cerr << endl << endl << endl << "Finding subgraph within range " << min_distance << "-" << max_distance << " starting from " << start_pos << endl;
+    cerr << "\tstart with distances on node " << dist_to_curr_start << " " << dist_to_curr_end << endl;
+#endif
+    if (addNodesInRange(super_graph, min_distance, max_distance, is_rev(start_pos) ? dist_to_curr_start-node_len : dist_to_curr_end-node_len, 
+                    sub_graph, super_graph->get_handle(start_node.first, is_rev(start_pos)), 
+                    snarl_index.id_in_parent, snarl_index.end_id)) {
+        return;
+    }
+
+    //Walk up the snarl tree until the distance to the end of the containing structure is at least the min_distance
+    while (!passed_root) {
+        //TODO: I think this should just walk all the way up the snarl tree 
+        if (parent_structure.first) {
+            //If the parent is a chain
+            
+            const ChainIndex& chain_index = chain_indexes[parent_structure.second];
+
+            //Find the rank of the end node and current node in the chain
+            size_t chain_end_rank = chain_index.prefix_sum.size() - 2;
+                                    
+            //Get the lengths of start, end, and current node
+
+            int64_t chain_start_len = chain_index.prefix_sum[0];
+
+            int64_t chain_end_len =  chain_index.prefix_sum[chain_index.prefix_sum.size()-1] 
+                                   - chain_index.prefix_sum[chain_index.prefix_sum.size()-2];
+
+            int64_t dsl = chain_index.chainDistance(make_pair(0, false), make_pair(curr_rank, false), chain_start_len, start_len);
+            int64_t dsr = chain_index.chainDistance(make_pair(0, false),  make_pair(curr_rank + 1, true), chain_start_len, end_len);
+            int64_t der = chain_index.chainDistance(make_pair(chain_end_rank, true), make_pair(curr_rank + 1, true), chain_end_len, end_len);
+            int64_t del = chain_index.chainDistance(make_pair(chain_end_rank, true),make_pair(curr_rank, false),chain_end_len, start_len);
+
+            dsl = dsl == -1 || dist_to_curr_start == -1 ? -1 : dist_to_curr_start + dsl;
+            dsr = dsr == -1 || dist_to_curr_end == -1 ? -1 : dist_to_curr_end + dsr;
+            der = der == -1 || dist_to_curr_end == -1 ? -1 : dist_to_curr_end + der;
+            del = del == -1 || dist_to_curr_start == -1 ? -1 : dist_to_curr_start + del;
+ 
+            int64_t dist_start = minPos(dsr, dsl);
+            int64_t dist_end = minPos(der, del);
+            if ((dist_start!= -1 || dist_start < min_distance) && (dist_end == -1 || dist_end < min_distance)) {
+                //If we haven't reached the min distance yet, update distances and nodes
+                dist_to_curr_start = chain_index.rev_in_parent ? dist_end : dist_start;
+                dist_to_curr_end = chain_index.rev_in_parent ? dist_start : dist_end;
+                if (parent_structure.second == 0) {
+                    passed_root = true;
+                } else {
+                    parent_structure = make_pair(false, getPrimaryAssignment(chain_index.parent_id));
+                    curr_rank = getPrimaryRank(chain_index.id_in_parent);
+                    start_node = make_pair(chain_index.id_in_parent, !(getPrimaryRank(chain_index.id_in_parent) % 2));//TODO: Check orientations 
+                    end_node = make_pair(chain_index.end_id, getPrimaryRank(chain_index.end_id) % 2); 
+                }
+#ifdef debugSubgraph
+                cerr << "At chain " << start_node.first << ", reached ends with distances " << dist_to_curr_start << " and " << dist_to_curr_end << endl;
+#endif
+
+            } else {
+#ifdef debugSubgraph
+                cerr << "At chain " << start_node.first << ", reached ends with distances " << dist_start << " and " << dist_end
+                     << ", within distance range" << endl;
+#endif
+
+                if (dist_start != -1 && dist_start >= min_distance) {
+                    //If the start of the chain is within the minimum distance range, walk backward in the chain to just before
+                    //the distance reaches the minimum distance
+                    
+#ifdef debugSubgraph
+                    cerr << "\tsearching left in chain: ";
+#endif
+                    bool got_start = false;
+                    for (size_t i = curr_rank - 1; i >= 0 && !got_start; i --) {
+                        id_t next_start = snarl_indexes[getPrimaryAssignment(start_node.first)].id_in_parent;
+                        int64_t next_len = snarl_indexes[getPrimaryAssignment(next_start)].nodeLength(getPrimaryRank(next_start));
+
+                        int64_t chain_dist_start = chain_index.chainDistance(make_pair(i, false), make_pair(curr_rank, false), 
+                            next_len, start_len);
+                        int64_t chain_dist_end = chain_index.chainDistance(make_pair(i, false), make_pair(curr_rank+1, true), 
+                            next_len, end_len);
+
+                        if (dist_to_curr_start + chain_dist_start >= min_distance || dist_to_curr_end + chain_dist_end >= min_distance){
+                            int64_t prev_len = snarl_indexes[getPrimaryAssignment(start_node.first)].nodeLength(getPrimaryRank(start_node.first));
+                            int64_t last_snarl_len = i+1 == curr_rank ? 0 : 
+                                    chain_index.chainDistance(make_pair(i+1, false), make_pair(curr_rank, false), prev_len, start_len);
+                            chain_dist_start = chain_dist_start == -1 || dist_to_curr_start == -1 ? -1 :
+                                               chain_dist_start + dist_to_curr_start - last_snarl_len;
+                            chain_dist_end = chain_dist_end == -1 || dist_to_curr_end == -1 ? -1 :
+                                             chain_dist_end + dist_to_curr_end - last_snarl_len;
+                            int64_t dist_to_start = minPos(chain_dist_start, chain_dist_end);
+#ifdef debugSubgraph
+                            cerr << " at snarl " << start_node.first << " dist is " << dist_to_start << endl;
+#endif
+                            addNodesInRange(super_graph, min_distance, max_distance, dist_to_curr_start-prev_len, sub_graph, 
+                                            super_graph->get_handle(start_node.first, start_node.second));
+                            got_start = true;
+                        }
+                        start_node = make_pair(next_start, !(getPrimaryAssignment(next_start) % 2));
+                    }
+                } else if (dist_start != -1) {
+                    //TODO: This might be slow but probably not by much?
+#ifdef debugSubgraph
+                    cerr << "\tLeft boundary of chain is too far" << endl;
+#endif
+                    addNodesInRange(super_graph, min_distance, max_distance, dist_start-chain_start_len, sub_graph, 
+                                    super_graph->get_handle(chain_index.id_in_parent, !(getPrimaryRank(chain_index.id_in_parent) % 2)));
+                }
+                if (dist_end != -1 && dist_end >= min_distance) {
+                    //If the end of the chain is within the distance range, walk forward in the chain to just 
+                    //before the distance reaches the minimum distance
+#ifdef debugSubgraph
+                    cerr << "\tsearching right in chain:  ";
+#endif
+                    bool got_end = false;
+                    for (size_t i = curr_rank + 2 ; i < chain_index.prefix_sum.size() - 1 && !got_end ; i++) {
+                        id_t next_end = snarl_indexes[getPrimaryAssignment(end_node.first)].end_id;
+                        int64_t chain_dist_start = chain_index.chainDistance( make_pair(i, true), make_pair(curr_rank, false),  
+                            snarl_indexes[getPrimaryAssignment(next_end)].nodeLength(getPrimaryRank(next_end)), start_len);
+                        int64_t chain_dist_end = chain_index.chainDistance( make_pair(i, true), make_pair(curr_rank+1, true),  
+                            snarl_indexes[getPrimaryAssignment(next_end)].nodeLength(getPrimaryRank(next_end)), end_len);
+
+                        if ( (dist_to_curr_start != -1 && chain_dist_start != -1 && dist_to_curr_start + chain_dist_start >= min_distance)
+                            || (dist_to_curr_end != -1 && chain_dist_end != -1 && dist_to_curr_end + chain_dist_end >= min_distance)){
+
+                            int64_t last_len = snarl_indexes[getPrimaryAssignment(end_node.first)].nodeLength(getPrimaryRank(end_node.first));
+
+                            int64_t chain_dist_start = chain_index.chainDistance( make_pair(i-1, true), make_pair(curr_rank, false),  
+                                last_len, start_len);
+                            int64_t chain_dist_end = i+1 == curr_rank+1 ? 0 :
+                                    chain_index.chainDistance( make_pair(i-1, true), make_pair(curr_rank+1, true), last_len, end_len);
+                            chain_dist_start = chain_dist_start == -1 || dist_to_curr_start == -1 ? -1 : dist_to_curr_start+chain_dist_start;
+                            chain_dist_end = chain_dist_end == -1 || dist_to_curr_end == -1 ? -1 : dist_to_curr_end+chain_dist_end;
+                            int64_t dist_to_end = minPos( chain_dist_start, chain_dist_end);
+#ifdef debugSubgraph
+                            cerr << " at snarl " << end_node.first << " dist is " << dist_to_end << endl;
+#endif
+                            addNodesInRange(super_graph, min_distance, max_distance, dist_to_end-last_len, sub_graph, 
+                                            super_graph->get_handle(end_node.first, end_node.second));
+                            got_end = true;
+                        }
+                        end_node = make_pair(next_end, getPrimaryRank(next_end) % 2);
+                    }
+                } else if (dist_end != -1) {
+#ifdef debugSubgraph
+                    cerr << "\tRight boundary of chain is too far" << endl;
+#endif
+                    addNodesInRange(super_graph, min_distance, max_distance, dist_end-chain_end_len, sub_graph, 
+                                    super_graph->get_handle(chain_index.end_id, !(getSecondaryRank(chain_index.id_in_parent) % 2)));
+                }
+                return;
+            }
+            start_len = chain_start_len;
+            end_len = chain_end_len;
+        } else {
+            //If the parent is a snarl
+            
+            const SnarlIndex& snarl_index = snarl_indexes[parent_structure.second];
+            pair<int64_t, int64_t> new_dists = snarl_index.distToEnds(curr_rank, dist_to_curr_start, dist_to_curr_end);
+
+            if ((new_dists.first != -1 && new_dists.first > min_distance) || (new_dists.second != -1 && new_dists.second > min_distance)) {
+                //If this goes past the minimum distance
+#ifdef debugSubgraph
+                cerr << "At snarl " << start_node.first << ", reached ends with distances " << new_dists.first << " and " << new_dists.second
+                     << " within range " << endl;
+#endif
+                
+                if (dist_to_curr_start != -1 ) {
+                    addNodesInRange(super_graph, min_distance, max_distance, dist_to_curr_start-start_len, sub_graph,  
+                                    super_graph->get_handle(start_node.first, start_node.second));
+                }
+                if (dist_to_curr_end != -1 ) {
+                    addNodesInRange(super_graph, min_distance, max_distance, dist_to_curr_end-end_len, sub_graph, 
+                                    super_graph->get_handle(end_node.first, end_node.second));
+                }
+                return;
+            } else {
+                //Update current distances and nodes
+                dist_to_curr_start = snarl_index.rev_in_parent ? new_dists.second : new_dists.first;
+                dist_to_curr_end = snarl_index.rev_in_parent ? new_dists.first : new_dists.second;
+
+                if (parent_structure.second == 0) {
+                    passed_root = true;
+                } else {
+                    if (snarl_index.in_chain) {
+                        //If the parent is a chain
+                        parent_structure = make_pair(true, getChainAssignment(snarl_index.parent_id));
+                        curr_rank = getChainRank(snarl_index.id_in_parent);
+                    } else {
+                        parent_structure = make_pair(false, getPrimaryAssignment(snarl_index.parent_id));
+                        curr_rank = getPrimaryRank(snarl_index.id_in_parent);
+                    }
+                    start_node = make_pair(snarl_index.id_in_parent, getPrimaryRank(snarl_index.id_in_parent) % 2);//TODO: Check orientations 
+                    end_node = make_pair(snarl_index.end_id, getPrimaryRank(snarl_index.end_id) % 2) ; 
+                    start_len = snarl_index.nodeLength(0);
+                    end_len = snarl_index.nodeLength(snarl_index.num_nodes*2 - 1);
+                }
+#ifdef debugSubgraph
+                cerr << "At snarl " << start_node.first << ", reached ends with distances " << dist_to_curr_start << " and " << dist_to_curr_end << endl;
+#endif
+            }
+        }
+    }
+
+
+    return;
+}
+
 
 }

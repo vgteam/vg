@@ -59,6 +59,12 @@ class MinimumDistanceIndex {
     ///Returns a positive value even if the two nodes are unreachable
     int64_t maxDistance(pos_t pos1, pos_t pos2) const;
 
+    //Given an alignment to a graph and a range, populate  a subgraph 
+    //with all nodes in the graph whose minimimum distance to the alignment
+    //is less than the range
+    void subgraphInRange(Path& path, const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
+                         SubHandleGraph& sub_graph, bool look_upstream);
+
     ///Helper function to find the minimum value that is not -1
     static int64_t minPos(vector<int64_t> vals);
 
@@ -87,7 +93,7 @@ class MinimumDistanceIndex {
             ///if inChain is true, parent_id and rev_in_parent are for the chain
             /// chain the snarl participates in. otherwise, for the parent snarl
             SnarlIndex(id_t parent_id, bool rev_in_parent, 
-                       id_t id_in_parent, bool is_unary_snarl, size_t depth,
+                       id_t id_in_parent, id_t end_id, bool is_unary_snarl, size_t depth,
                        size_t num_nodes, bool in_chain);
            
             //Construct an empty SnarlIndex. Must call load after construction to populate it 
@@ -126,7 +132,7 @@ class MinimumDistanceIndex {
             ///Given distances from a position to either end of a node, find the
             ///shortest distance from that position to the start and end 
             ///nodes of the snarl
-            ///node is the index of the node in the forward direction
+            ///rank is in the forward direction, but checks both forward and reverse
             
             pair<int64_t, int64_t> distToEnds(size_t rank, 
                                               int64_t distL, int64_t distR) const;
@@ -158,10 +164,12 @@ class MinimumDistanceIndex {
 
             bool rev_in_parent;
 
-            ///Id of this snarl in the parent. If the parent is a chain, then 
+            ///id of this snarl in the parent. If the parent is a chain, then 
             ///the id of the boundary node that occurs first in the order of 
             ///the chain
             id_t id_in_parent;
+            //id of the boundary node opposite id_in_parent
+            id_t end_id;
 
             ///Number of nodes in the snarl
             size_t num_nodes;
@@ -193,7 +201,7 @@ class MinimumDistanceIndex {
             /// loops is true if the chain loops - the start and end node are
             /// the same
             /// length is the number of snarls in the chain
-            ChainIndex(size_t parent_id, size_t id_in_parent, bool rev_in_parent,
+            ChainIndex(id_t parent_id, id_t id_in_parent, id_t end_id, bool rev_in_parent,
                        bool loops, size_t length);
 
             //Constructor from vector of ints after serialization
@@ -256,6 +264,8 @@ class MinimumDistanceIndex {
 
             //Id of the start node of this chain 
             id_t id_in_parent; 
+            //id of the end node in the chain
+            id_t end_id;
 
             //True if the chain loops - if the start and end node are the same
             bool is_looping_chain; 
@@ -371,6 +381,14 @@ class MinimumDistanceIndex {
     ///Only used if include_maximum is true
     void calculateMaxIndex(const HandleGraph* graph, int64_t cap); 
 
+
+    ///Helper for subgraphInRange
+    /// Given a starting handle in the super graph and the distance to the handle, add all nodes within the given
+    //distance range to the subgraph
+    //If start and end are give, only search within the snarl between start and end
+    bool addNodesInRange(const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
+                         int64_t node_distance, SubHandleGraph& sub_graph, handle_t start_handle,
+                         id_t start = 0, id_t end = 0);
 
     ///Helper function for distance calculation
     ///Returns the distance to the start of and end of a node/snarl in
