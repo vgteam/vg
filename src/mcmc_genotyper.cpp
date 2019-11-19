@@ -37,10 +37,10 @@ namespace vg {
         for(int i = 0; i< n_iterations; i++){
             
             // holds the previous sample allele
-            double x_prev = log_target(*genome, reads);
+            double x_prev = log_target(genome, reads);
         
             // get contents from proposal_sample
-            tuple<int, const Snarl*, vector<NodeTraversal> > to_receive = proposal_sample(*genome);
+            tuple<int, const Snarl*, vector<NodeTraversal> > to_receive = proposal_sample(genome);
             int& modified_haplo = get<0>(to_receive);         
             
             // if the to_receive contents are invalid keep the new allele
@@ -53,7 +53,7 @@ namespace vg {
                 vector<NodeTraversal>& old_allele = get<2>(to_receive); 
  
                 // holds new sample allele
-                double x_new = log_target(*genome, reads);
+                double x_new = log_target(genome, reads);
 
                 // calculate likelihood ratio of posterior distribution 
                 double likelihood_ratio = exp(log_base*(x_new - x_prev));
@@ -102,16 +102,16 @@ namespace vg {
             // cerr << "return genome"<<endl;
             // cerr << "************FINAL******************************************" <<endl;
             // genome->print_phased_genome();
-            return std::move(genome); 
+            return genome; 
         }else{
             // cerr << "return optimal"<<endl;
             // cerr << "************FINAL******************************************" <<endl;
             // optimal->print_phased_genome();
-            return std::move(optimal); 
+            return optimal; 
         }
 
     }   
-    double MCMCGenotyper::log_target(PhasedGenome& phased_genome, const vector<MultipathAlignment>& reads)const{
+    double MCMCGenotyper::log_target(unique_ptr<PhasedGenome>& phased_genome, const vector<MultipathAlignment>& reads)const{
         
         // sum of scores given the reads aligned on the haplotype 
         int32_t sum_scores = 0; 
@@ -119,14 +119,14 @@ namespace vg {
         // get scores for mp alignments 
         for(MultipathAlignment mp : reads){
             identify_start_subpaths(mp);
-            sum_scores += phased_genome.optimal_score_on_genome(mp, graph);
+            sum_scores += phased_genome->optimal_score_on_genome(mp, graph);
             
         } 
         
         return sum_scores;
     }
 
-    tuple<int, const Snarl*, vector<NodeTraversal> > MCMCGenotyper::proposal_sample(PhasedGenome& current)const{
+    tuple<int, const Snarl*, vector<NodeTraversal> > MCMCGenotyper::proposal_sample(unique_ptr<PhasedGenome>& current)const{
         // get a different traversal through the snarl by uniformly choosing from all possible ways to traverse the snarl
         
         // bookkeeping: haplotype ID, snarl* (site that we replaced at), get_allele())
@@ -151,7 +151,7 @@ namespace vg {
 
 
         // get list of haplotypes that contain the snarl
-        vector<id_t> matched_haplotypes = current.get_haplotypes_with_snarl(random_snarl);
+        vector<id_t> matched_haplotypes = current->get_haplotypes_with_snarl(random_snarl);
 
 
         if(matched_haplotypes.empty()){
@@ -263,10 +263,10 @@ namespace vg {
             
         }
         // save old allele so we can swap back to it if we need to 
-        old_allele = current.get_allele(*random_snarl, random_haplotype);
+        old_allele = current->get_allele(*random_snarl, random_haplotype);
         
         // set new allele with random allele, replace with previous allele 
-        current.set_allele(*random_snarl , allele.rbegin(), allele.rend(), random_haplotype);
+        current->set_allele(*random_snarl , allele.rbegin(), allele.rend(), random_haplotype);
         
  
         return to_return;
@@ -318,7 +318,7 @@ namespace vg {
         // index sites
         genome->build_indices();
 
-        return std::move(genome);
+        return genome;
     }
 
 }

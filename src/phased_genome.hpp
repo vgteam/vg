@@ -51,8 +51,15 @@ namespace vg {
         /// Constructor
         PhasedGenome(const SnarlManager& snarl_manager);
         ~PhasedGenome();
+        /// overloaded constructor
         PhasedGenome(PhasedGenome& phased_genome);
-        PhasedGenome&  operator =(PhasedGenome& phased_genome);
+        /// move assignment ctor
+        PhasedGenome(PhasedGenome&& other) = delete;
+        /// move assignment operator 
+        PhasedGenome& operator =(PhasedGenome&& phased_genome) = delete;
+
+        /// copy assignment operator
+        PhasedGenome& operator =(PhasedGenome& phased_genome);
         
         /// Build a haplotype in place from an iterator that returns NodeTraversal objects from its
         /// dereference operator (allows construction without instantiating the haplotype elsewhere)

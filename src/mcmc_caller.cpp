@@ -141,13 +141,14 @@ namespace vg {
             genome.print_phased_genome();
             cerr << snarl.start() <<endl;
             cerr << snarl.end() << endl;
+            cerr << &snarl <<endl;
             
-            // assert(!haplos_pass_snarl.empty());
+            assert(!haplos_pass_snarl.empty());
 
 
-            // for(int i = 0; i< haplos_pass_snarl.size(); i++){
-            //     cerr << "haplos passing snarl " << haplos_pass_snarl[i] << endl;
-            // }
+            for(int i = 0; i< haplos_pass_snarl.size(); i++){
+                cerr << "haplos passing snarl " << haplos_pass_snarl[i] << endl;
+            }
             
             //traversals of each haplotype through the snarl
             vector<SnarlTraversal> haplo_travs = {haplos_pass_snarl.size(), SnarlTraversal()};

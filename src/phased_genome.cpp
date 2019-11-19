@@ -52,15 +52,21 @@ namespace vg {
         *this = rhs;
     }
     PhasedGenome& PhasedGenome::operator = (PhasedGenome& phased_genome){
-        this->~PhasedGenome();
-        
+
         snarl_manager = phased_genome.snarl_manager;
 
+        for (Haplotype* haplotype : haplotypes) {
+            delete haplotype;
+        }
+        node_locations.clear();
+        site_starts.clear();
+        site_ends.clear();
         haplotypes.clear();
         
         for(int i = 0; i < phased_genome.haplotypes.size(); i++ ){
             // build haplotypes    
             Haplotype* new_haplo = new Haplotype(phased_genome.begin(i), phased_genome.end(i)); 
+            
             haplotypes.push_back(new_haplo);
         }
                      
@@ -231,7 +237,7 @@ namespace vg {
 
         // interate through the vector of haplotype pointers and do a lookup for snarl_to_find
         // if found then we add it to the list of matched haplotypes 
-
+        
         id_t id = 0;
         for (Haplotype* haplotype : haplotypes){
             bool found = haplotype->sites.count(snarl_to_find);
@@ -259,12 +265,29 @@ namespace vg {
             // iterate through each node in the haplotype
             for(auto iter = begin(i); iter != end(i); iter++ ){
                 cerr << "node ID is " << (*iter).node->id() <<endl;
+                cerr <<"node address is " << (*iter).node <<endl;
                 cerr << "The sequence is: " << (*iter).node->sequence() <<endl;
                 
+                //check snarl address of starting node 
+                unordered_map<int64_t, const Snarl*> ::const_iterator got_start = site_starts.find(1);
+                if(got_start == site_starts.end()){
+                    cerr << "not found" <<endl;
+                }else{
+                    cerr << "node 1: " << &got_start->second <<endl; 
+                }
+                // check to see snarl address of end node 
+                unordered_map<int64_t, const Snarl*> ::const_iterator got_end = site_ends.find(6);
+                if(got_end == site_ends.end()){
+                    cerr << "not found" <<endl;
+                }else{
+                    cerr << "node 6: " << &got_end->second <<endl; 
+                }
             }   
             cerr << "********************************" <<endl;
+
+  
         }
-        
+ 
 
     }
     
