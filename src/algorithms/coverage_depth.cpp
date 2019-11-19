@@ -90,7 +90,7 @@ pair<double, double> packed_depth_of_bin(const Packer& packer,
             }
         }
     }
-    return wellford_mean_var(bin_length, mean, M2, true);
+    return wellford_mean_var(bin_length, mean, M2);
 }
 
 vector<tuple<size_t, size_t, double, double>> binned_packed_depth(const Packer& packer, const string& path_name, size_t bin_size,
@@ -225,7 +225,7 @@ static pair<double, double> combine_and_average_node_coverages(const HandleGraph
         }
     }
 
-    return wellford_mean_var(count, mean, M2, count < graph.get_node_count());
+    return wellford_mean_var(count, mean, M2);
 }
 
 

@@ -547,8 +547,9 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
     // expected depth from our coverage
     auto depth_info = algorithms::get_depth_from_index(depth_index, ref_path_name, ref_range.first, ref_range.second);
     double exp_depth = depth_info.first;
-    double depth_err = depth_info.second;
-    assert(!isnan(exp_depth) && !isnan(depth_err));
+    assert(!isnan(exp_depth));
+    // variance/std-err can be nan when binsize < 2.  We just clamp it to 0
+    double depth_err = depth_info.second ? !isnan(depth_info.second) : 0.;
 
     // genotype (log) likelihoods
     double best_genotype_likelihood = -numeric_limits<double>::max();
@@ -701,8 +702,9 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
 					       variant.position + variant.ref.length() + padding);
     auto depth_info = algorithms::get_depth_from_index(depth_index, variant.sequenceName, ref_range.first, ref_range.second);
     double exp_depth = depth_info.first;
-    double depth_err = depth_info.second;
-    assert(!isnan(exp_depth) && !isnan(depth_err));
+    assert(!isnan(exp_depth));
+    // variance/std-err can be nan when binsize < 2.  We just clamp it to 0
+    double depth_err = depth_info.second ? !isnan(depth_info.second) : 0.;
 
     // assume ploidy 2
     for (int i = 0; i < traversals.size(); ++i) {
