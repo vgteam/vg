@@ -86,8 +86,8 @@ Inheritance diagram for vg::VCFTraversalFinder:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a95dd05b374a57b57b7d0534bb74a8765"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a95dd05b374a57b57b7d0534bb74a8765">VCFTraversalFinder</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;<a class="el" href="classvg_1_1VCFTraversalFinder.html#ac8e35bbc2e0c34475f13f8d6989fa5b6">graph</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1VCFTraversalFinder.html#ae2fac6aac1b86163b495ef183e3340d9">snarl_manager</a>, vcflib::VariantCallFile &amp;vcf, const vector&lt; string &gt; &amp;ref_path_names={}, FastaReference *fasta_ref=nullptr, FastaReference *ins_ref=nullptr, function&lt; bool(const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;)&gt; <a class="el" href="classvg_1_1VCFTraversalFinder.html#a84e59fb19522583376ea7ca292a5a155">skip_alt</a>=nullptr, size_t <a class="el" href="classvg_1_1VCFTraversalFinder.html#a2ece2a9a96c909c7859bd88d54daa559">max_traversal_cutoff</a>=500000)</td></tr>
-<tr class="separator:a95dd05b374a57b57b7d0534bb74a8765"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaa8aa0b5cbe8a0e2ff664b6b385339da"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#aaa8aa0b5cbe8a0e2ff664b6b385339da">VCFTraversalFinder</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;<a class="el" href="classvg_1_1VCFTraversalFinder.html#ac8e35bbc2e0c34475f13f8d6989fa5b6">graph</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1VCFTraversalFinder.html#ae2fac6aac1b86163b495ef183e3340d9">snarl_manager</a>, vcflib::VariantCallFile &amp;vcf, const vector&lt; string &gt; &amp;ref_path_names={}, FastaReference *fasta_ref=nullptr, FastaReference *ins_ref=nullptr, function&lt; bool(const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;, int)&gt; <a class="el" href="classvg_1_1VCFTraversalFinder.html#acc753182667fd49d9afe5eba697c92da">skip_alt</a>=nullptr, size_t <a class="el" href="classvg_1_1VCFTraversalFinder.html#a2ece2a9a96c909c7859bd88d54daa559">max_traversal_cutoff</a>=50000)</td></tr>
+<tr class="separator:aaa8aa0b5cbe8a0e2ff664b6b385339da"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a574fb1c2bdcf2752e75626f4c21bc90c"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a574fb1c2bdcf2752e75626f4c21bc90c">~VCFTraversalFinder</a> ()</td></tr>
 <tr class="separator:a574fb1c2bdcf2752e75626f4c21bc90c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad660814265b5989408dace8da768edfe"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; pair&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>, vector&lt; int &gt; &gt; &gt;, vector&lt; vcflib::Variant * &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#ad660814265b5989408dace8da768edfe">find_allele_traversals</a> (<a class="el" href="structvg_1_1Snarl.html">Snarl</a> site)</td></tr>
@@ -134,10 +134,13 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:ae2fac6aac1b86163b495ef183e3340d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a133068b1a172eb5f5490ff7c47fd567f"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, list&lt; vcflib::Variant * &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a133068b1a172eb5f5490ff7c47fd567f">node_to_variant</a></td></tr>
 <tr class="separator:a133068b1a172eb5f5490ff7c47fd567f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a84e59fb19522583376ea7ca292a5a155"><td class="memItemLeft" align="right" valign="top">function&lt; bool(const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;alt_path)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a84e59fb19522583376ea7ca292a5a155">skip_alt</a></td></tr>
-<tr class="separator:a84e59fb19522583376ea7ca292a5a155"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acc753182667fd49d9afe5eba697c92da"><td class="memItemLeft" align="right" valign="top">function&lt; bool(const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;alt_path, int iteration)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#acc753182667fd49d9afe5eba697c92da">skip_alt</a></td></tr>
+<tr class="separator:acc753182667fd49d9afe5eba697c92da"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2ece2a9a96c909c7859bd88d54daa559"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a2ece2a9a96c909c7859bd88d54daa559">max_traversal_cutoff</a></td></tr>
 <tr class="separator:a2ece2a9a96c909c7859bd88d54daa559"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a667a1499ac092df03deaa7ec0813d6df"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a667a1499ac092df03deaa7ec0813d6df">max_prune_iterations</a> = 2</td></tr>
+<tr class="memdesc:a667a1499ac092df03deaa7ec0813d6df"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maximum number of pruning iterations.  <a href="#a667a1499ac092df03deaa7ec0813d6df">More...</a><br /></td></tr>
+<tr class="separator:a667a1499ac092df03deaa7ec0813d6df"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a27189437955d4b5f8b8ca92433c8fac2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a27189437955d4b5f8b8ca92433c8fac2">include_endpoints</a> = true</td></tr>
 <tr class="memdesc:a27189437955d4b5f8b8ca92433c8fac2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Include snarl endpoints in traversals.  <a href="#a27189437955d4b5f8b8ca92433c8fac2">More...</a><br /></td></tr>
 <tr class="separator:a27189437955d4b5f8b8ca92433c8fac2"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -148,8 +151,8 @@ Protected Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>This <a class="el" href="classvg_1_1TraversalFinder.html">TraversalFinder</a> returns a traversals and their corresponding genotypes from an input vcf. It relies on alt-paths in the graph (via construct -a) to map between the vcf and the graph. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a95dd05b374a57b57b7d0534bb74a8765"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a95dd05b374a57b57b7d0534bb74a8765">&#9670;&nbsp;</a></span>VCFTraversalFinder()</h2>
+<a id="aaa8aa0b5cbe8a0e2ff664b6b385339da"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaa8aa0b5cbe8a0e2ff664b6b385339da">&#9670;&nbsp;</a></span>VCFTraversalFinder()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -193,14 +196,14 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">function&lt; bool(const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;)&gt;&#160;</td>
+          <td class="paramtype">function&lt; bool(const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;, int)&gt;&#160;</td>
           <td class="paramname"><em>skip_alt</em> = <code>nullptr</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_traversal_cutoff</em> = <code>500000</code>&#160;</td>
+          <td class="paramname"><em>max_traversal_cutoff</em> = <code>50000</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -210,7 +213,7 @@ Protected Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Make a new <a class="el" href="classvg_1_1VCFTraversalFinder.html">VCFTraversalFinder</a>. Builds the indexes needed to find all the variants in a site.</p>
-<p>The <a class="el" href="classvg_1_1VCFTraversalFinder.html#a84e59fb19522583376ea7ca292a5a155">skip_alt()</a> method is defined, it is run on the alt-path of each variant allele in the snarl. If it returns true, that alt-path will never be included in any traversals returned in <a class="el" href="classvg_1_1VCFTraversalFinder.html#acd33847fcb02a4ea1eb6bd2768549daf">find_traversals()</a>. This is used to, for example, use read support to prune the number of traversals that are enumerated. </p>
+<p>The <a class="el" href="classvg_1_1VCFTraversalFinder.html#acc753182667fd49d9afe5eba697c92da">skip_alt()</a> method is defined, it is run on the alt-path of each variant allele in the snarl. If it returns true, that alt-path will never be included in any traversals returned in <a class="el" href="classvg_1_1VCFTraversalFinder.html#acd33847fcb02a4ea1eb6bd2768549daf">find_traversals()</a>. This is used to, for example, use read support to prune the number of traversals that are enumerated. </p>
 
 </div>
 </div>
@@ -817,6 +820,30 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a667a1499ac092df03deaa7ec0813d6df"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a667a1499ac092df03deaa7ec0813d6df">&#9670;&nbsp;</a></span>max_prune_iterations</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::VCFTraversalFinder::max_prune_iterations = 2</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Maximum number of pruning iterations. </p>
+
+</div>
+</div>
 <a id="a2ece2a9a96c909c7859bd88d54daa559"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a2ece2a9a96c909c7859bd88d54daa559">&#9670;&nbsp;</a></span>max_traversal_cutoff</h2>
 
@@ -886,8 +913,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a84e59fb19522583376ea7ca292a5a155"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a84e59fb19522583376ea7ca292a5a155">&#9670;&nbsp;</a></span>skip_alt</h2>
+<a id="acc753182667fd49d9afe5eba697c92da"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acc753182667fd49d9afe5eba697c92da">&#9670;&nbsp;</a></span>skip_alt</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -896,7 +923,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">function&lt;bool(const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>&amp; alt_path)&gt; vg::VCFTraversalFinder::skip_alt</td>
+          <td class="memname">function&lt;bool(const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>&amp; alt_path, int iteration)&gt; vg::VCFTraversalFinder::skip_alt</td>
         </tr>
       </table>
   </td>
@@ -905,7 +932,7 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Use this method to prune the search space by selecting alt-alleles to skip by considering their paths (in <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>) format </p>
+<p>Use this method to prune the search space by selecting alt-alleles to skip by considering their paths (in <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>) format It will try again and again until enough traversals are pruned, with iteration keeping track of how many tries (so it should become stricter as iteration increases) </p>
 
 </div>
 </div>

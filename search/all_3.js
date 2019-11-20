@@ -6,6 +6,7 @@ var searchData=
   ['cached_5ffragment_5flength_5fstdev',['cached_fragment_length_stdev',['../classvg_1_1FragmentLengthStatistics.html#ab1e6c7664c21e3ab33a68fd3e37e48d0',1,'vg::FragmentLengthStatistics']]],
   ['cached_5ffragment_5forientation_5fsame',['cached_fragment_orientation_same',['../classvg_1_1FragmentLengthStatistics.html#ac7d06aa4fc1cc543f395ac2f7edaf583',1,'vg::FragmentLengthStatistics']]],
   ['cached_5fgenotypes',['cached_genotypes',['../classvg_1_1WindowedVcfBuffer.html#a3ad6b744291240805d0a810a9399c1fc',1,'vg::WindowedVcfBuffer']]],
+  ['cachedpackedtraversalsupportfinder',['CachedPackedTraversalSupportFinder',['../classvg_1_1CachedPackedTraversalSupportFinder.html',1,'vg::CachedPackedTraversalSupportFinder'],['../classvg_1_1CachedPackedTraversalSupportFinder.html#a0b3418baef9a7bf8fe11b49e4a3c3ea3',1,'vg::CachedPackedTraversalSupportFinder::CachedPackedTraversalSupportFinder()']]],
   ['cacheentry',['CacheEntry',['../structvg_1_1IndexedVG_1_1CacheEntry.html',1,'vg::IndexedVG::CacheEntry'],['../structvg_1_1IndexedVG_1_1CacheEntry.html#aab15096460395eb73cf757068bd33b11',1,'vg::IndexedVG::CacheEntry::CacheEntry(cursor_t &amp;to_read)'],['../structvg_1_1IndexedVG_1_1CacheEntry.html#ad0d6214f5d1f91aee27e67788f203e97',1,'vg::IndexedVG::CacheEntry::CacheEntry(CacheEntry &amp;&amp;other)=default']]],
   ['cactus_2ecpp',['cactus.cpp',['../cactus_8cpp.html',1,'']]],
   ['cactus_2ehpp',['cactus.hpp',['../cactus_8hpp.html',1,'']]],

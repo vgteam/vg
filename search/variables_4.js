@@ -19,6 +19,8 @@ var searchData=
   ['delim1',['delim1',['../classvg_1_1Packer.html#acffc9465bdaa0bb770372edf788aad48',1,'vg::Packer']]],
   ['delim2',['delim2',['../classvg_1_1Packer.html#a0d1336853823c62812b2009e80085800',1,'vg::Packer']]],
   ['depth',['depth',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#acf3587bcb06ec3af96a739fa785115c0',1,'vg::MinimumDistanceIndex::SnarlIndex::depth()'],['../classvg_1_1SRPE.html#a8a7019bfb559eb108b1e7ca22a8afa08',1,'vg::SRPE::depth()']]],
+  ['depth_5findex',['depth_index',['../classvg_1_1PoissonSupportSnarlCaller.html#adebf4d923f033aa67032c4340d9ebb1e',1,'vg::PoissonSupportSnarlCaller']]],
+  ['depth_5fpadding_5ffactor',['depth_padding_factor',['../classvg_1_1PoissonSupportSnarlCaller.html#a53eec737bc91a46f91161c18ddc26cd7',1,'vg::PoissonSupportSnarlCaller']]],
   ['depths',['depths',['../classvg_1_1DepthMap.html#a141527582d1f3bb5eca852c62289bad5',1,'vg::DepthMap']]],
   ['description',['description',['../classvg_1_1BaseOption.html#a4468cf61e5b31a06929303e91f096f6d',1,'vg::BaseOption::description()'],['../classvg_1_1subcommand_1_1Subcommand.html#ab74ec1dfb7410088f2a0fa0d368a34f9',1,'vg::subcommand::Subcommand::description()']]],
   ['diploid_5fprior_5flogprob',['diploid_prior_logprob',['../classvg_1_1Genotyper.html#ac748204c3fb19573569172ee57b1d082',1,'vg::Genotyper']]],

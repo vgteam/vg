@@ -1,7 +1,7 @@
 var searchData=
 [
   ['pack',['pack',['../structhandlegraph_1_1number__bool__packing.html#af5082dc39a2f308585402bd19de0caa8',1,'handlegraph::number_bool_packing']]],
-  ['packedsupportsnarlcaller',['PackedSupportSnarlCaller',['../classvg_1_1PackedSupportSnarlCaller.html#a72481f192a9d438e33f079293c846055',1,'vg::PackedSupportSnarlCaller']]],
+  ['packedtraversalsupportfinder',['PackedTraversalSupportFinder',['../classvg_1_1PackedTraversalSupportFinder.html#a5bb7b3f0b3fd9c72597403ce75f8791c',1,'vg::PackedTraversalSupportFinder']]],
   ['packer',['Packer',['../classvg_1_1Packer.html#a23ca736ab7fa0690ae575aa1d7a4de73',1,'vg::Packer::Packer(void)'],['../classvg_1_1Packer.html#a8466ed5bda4742b1dd577e5adf8a65ed',1,'vg::Packer::Packer(const HandleGraph *graph, size_t bin_size=0, size_t coverage_bins=1, size_t data_width=8, bool record_bases=true, bool record_edges=true, bool record_edits=true)']]],
   ['pair_5fclusters',['pair_clusters',['../classvg_1_1MEMClusterer.html#a68482212691d8c1d4ead37f8d8d9d54c',1,'vg::MEMClusterer::pair_clusters()'],['../classvg_1_1OrientedDistanceClusterer.html#aaac0ae293bf575e99a9d0295bc95fa27',1,'vg::OrientedDistanceClusterer::pair_clusters()'],['../classvg_1_1TVSClusterer.html#af07f8aa48eed316f77f9dec991fbe043',1,'vg::TVSClusterer::pair_clusters()'],['../classvg_1_1MinDistanceClusterer.html#a6f355a5f216d667a21855bc6b3d8b487',1,'vg::MinDistanceClusterer::pair_clusters()']]],
   ['pair_5fconsistent',['pair_consistent',['../classvg_1_1Mapper.html#ad3a62e0a91818c4e20508ab2a0f47fa5',1,'vg::Mapper']]],
@@ -104,6 +104,7 @@ var searchData=
   ['pmax',['pmax',['../namespacevg.html#ac7f5da8e25414026729f0c4d09243f6d',1,'vg']]],
   ['pointerfy',['pointerfy',['../namespacevg.html#ae6a210206858f806b345f8eb5c2c292a',1,'vg']]],
   ['poisson_5fprob_5fln',['poisson_prob_ln',['../namespacevg.html#a9238b15cc78a87f27c335fc1e3627a62',1,'vg']]],
+  ['poissonsupportsnarlcaller',['PoissonSupportSnarlCaller',['../classvg_1_1PoissonSupportSnarlCaller.html#a5cfa35b77f2a1e0343a146e2dcc15d42',1,'vg::PoissonSupportSnarlCaller']]],
   ['populate_5fpath_5ffrom_5ftraceback',['populate_path_from_traceback',['../namespacevg.html#a856b55f4d89ae8bd7e6dacaa70fba0e0',1,'vg']]],
   ['pos_5fchar',['pos_char',['../classvg_1_1Sampler.html#a72d922b802775f51f2b02046398d3417',1,'vg::Sampler']]],
   ['pos_5fkey',['pos_key',['../classvg_1_1Packer.html#a128c9b21b9a784c6ea27501463b23862',1,'vg::Packer']]],

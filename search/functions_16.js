@@ -12,7 +12,7 @@ var searchData=
   ['vcfbuffer',['VcfBuffer',['../classvg_1_1VcfBuffer.html#a402d5cadd95f5725876b22b8c9bd830b',1,'vg::VcfBuffer::VcfBuffer(vcflib::VariantCallFile *file=nullptr)'],['../classvg_1_1VcfBuffer.html#ad388f47df62ebab69ab9188efd37be1e',1,'vg::VcfBuffer::VcfBuffer(const VcfBuffer &amp;other)=delete']]],
   ['vcfgenotyper',['VCFGenotyper',['../classvg_1_1VCFGenotyper.html#a477075df158ff07f7ff903f5437d9cd0',1,'vg::VCFGenotyper']]],
   ['vcfoutputcaller',['VCFOutputCaller',['../classvg_1_1VCFOutputCaller.html#ad758f9180a51784374ef044b54883f87',1,'vg::VCFOutputCaller']]],
-  ['vcftraversalfinder',['VCFTraversalFinder',['../classvg_1_1VCFTraversalFinder.html#a95dd05b374a57b57b7d0534bb74a8765',1,'vg::VCFTraversalFinder']]],
+  ['vcftraversalfinder',['VCFTraversalFinder',['../classvg_1_1VCFTraversalFinder.html#aaa8aa0b5cbe8a0e2ff664b6b385339da',1,'vg::VCFTraversalFinder']]],
   ['vectorizer',['Vectorizer',['../classVectorizer.html#ac6f2b56806bc2e8444492cb3d32f42be',1,'Vectorizer']]],
   ['verify_5fpath',['verify_path',['../namespacevg.html#a3ed0a4f26673002b2081832a7602e9bd',1,'vg']]],
   ['verify_5fpaths',['verify_paths',['../classvg_1_1PhaseUnfolder.html#a910deba7dd5b5f9bce7a1da4e53cfeb1',1,'vg::PhaseUnfolder']]],

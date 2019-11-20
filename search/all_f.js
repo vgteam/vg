@@ -86,7 +86,7 @@ var searchData=
   ['output_5fpng',['output_png',['../classvg_1_1Viz.html#a8b50b34356875c1c0aa3917c7c67e445',1,'vg::Viz']]],
   ['output_5fsvg',['output_svg',['../classvg_1_1Viz.html#a82a23ca5a5a6ababff6176743247be04',1,'vg::Viz']]],
   ['output_5ftabbed',['output_tabbed',['../classVectorizer.html#a7be5208d3a51438a989dd406fb808fd9',1,'Vectorizer']]],
-  ['output_5fvariants',['output_variants',['../classvg_1_1VCFOutputCaller.html#a9a8f422b4d18b4932c9a1440b07ab21e',1,'vg::VCFOutputCaller']]],
+  ['output_5fvariants',['output_variants',['../classvg_1_1VCFOutputCaller.html#a062e34518eddb55df7831c33a6136ca8',1,'vg::VCFOutputCaller']]],
   ['output_5fvcf',['output_vcf',['../classvg_1_1VCFOutputCaller.html#a1556bdec270d47b22e5c91b6956a23c0',1,'vg::VCFOutputCaller']]],
   ['output_5fversion',['OUTPUT_VERSION',['../classvg_1_1StreamIndexBase.html#ad8e4be116b6b053e08a4221da069a092',1,'vg::StreamIndexBase']]],
   ['output_5fwabbit_5fmap',['output_wabbit_map',['../classVectorizer.html#a788aaec704ce78d29f55459ff2eaedb4',1,'Vectorizer']]],

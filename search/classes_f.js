@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['packedsupportsnarlcaller',['PackedSupportSnarlCaller',['../classvg_1_1PackedSupportSnarlCaller.html',1,'vg']]],
+  ['packedtraversalsupportfinder',['PackedTraversalSupportFinder',['../classvg_1_1PackedTraversalSupportFinder.html',1,'vg']]],
   ['packer',['Packer',['../classvg_1_1Packer.html',1,'vg']]],
   ['packers',['Packers',['../classvg_1_1Packers.html',1,'vg']]],
   ['pair_5fhash_5fmap',['pair_hash_map',['../classvg_1_1pair__hash__map.html',1,'vg']]],
@@ -31,6 +31,7 @@ var searchData=
   ['pileup',['Pileup',['../structvg_1_1Pileup.html',1,'vg']]],
   ['pinchtovgtranslator',['PinchToVGTranslator',['../classvg_1_1PinchToVGTranslator.html',1,'vg']]],
   ['plan',['Plan',['../structvg_1_1VG_1_1Plan.html',1,'vg::VG']]],
+  ['poissonsupportsnarlcaller',['PoissonSupportSnarlCaller',['../classvg_1_1PoissonSupportSnarlCaller.html',1,'vg']]],
   ['position',['Position',['../structvg_1_1Position.html',1,'vg']]],
   ['positionidscanner',['PositionIDScanner',['../structvg_1_1PositionIDScanner.html',1,'vg']]],
   ['progressive',['Progressive',['../classvg_1_1Progressive.html',1,'vg']]],

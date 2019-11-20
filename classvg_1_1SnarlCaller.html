@@ -78,8 +78,9 @@ Inheritance diagram for vg::SnarlCaller:</div>
  <div class="center">
   <img src="classvg_1_1SnarlCaller.png" usemap="#vg::SnarlCaller_map" alt=""/>
   <map id="vg::SnarlCaller_map" name="vg::SnarlCaller_map">
-<area href="classvg_1_1SupportBasedSnarlCaller.html" alt="vg::SupportBasedSnarlCaller" shape="rect" coords="0,56,182,80"/>
-<area href="classvg_1_1PackedSupportSnarlCaller.html" alt="vg::PackedSupportSnarlCaller" shape="rect" coords="0,112,182,136"/>
+<area href="classvg_1_1SupportBasedSnarlCaller.html" alt="vg::SupportBasedSnarlCaller" shape="rect" coords="97,56,281,80"/>
+<area href="classvg_1_1PoissonSupportSnarlCaller.html" alt="vg::PoissonSupportSnarlCaller" shape="rect" coords="0,112,184,136"/>
+<area href="classvg_1_1RatioSupportSnarlCaller.html" alt="vg::RatioSupportSnarlCaller" shape="rect" coords="194,112,378,136"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -87,18 +88,17 @@ Inheritance diagram for vg::SnarlCaller:</div>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:abda61a55c21f1473db0443293144c96d"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlCaller.html#abda61a55c21f1473db0443293144c96d">~SnarlCaller</a> ()</td></tr>
 <tr class="separator:abda61a55c21f1473db0443293144c96d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1659a26128036d46bacc19407aebdd17"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlCaller.html#a1659a26128036d46bacc19407aebdd17">genotype</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, int ref_trav_idx, int ploidy)=0</td></tr>
-<tr class="memdesc:a1659a26128036d46bacc19407aebdd17"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the genotype of a site.  <a href="#a1659a26128036d46bacc19407aebdd17">More...</a><br /></td></tr>
-<tr class="separator:a1659a26128036d46bacc19407aebdd17"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad0315e74aa5ea9df9820aa1000bd0291"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlCaller.html#ad0315e74aa5ea9df9820aa1000bd0291">update_vcf_info</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const vector&lt; int &gt; &amp;<a class="el" href="classvg_1_1SnarlCaller.html#a1659a26128036d46bacc19407aebdd17">genotype</a>, const string &amp;sample_name, vcflib::Variant &amp;variant)=0</td></tr>
+<tr class="memitem:a46f8549911ac82ea984fd7f56bae1c3d"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlCaller.html#a46f8549911ac82ea984fd7f56bae1c3d">genotype</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, int ref_trav_idx, int ploidy, const string &amp;ref_path_name, pair&lt; size_t, size_t &gt; ref_range)=0</td></tr>
+<tr class="separator:a46f8549911ac82ea984fd7f56bae1c3d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad0315e74aa5ea9df9820aa1000bd0291"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlCaller.html#ad0315e74aa5ea9df9820aa1000bd0291">update_vcf_info</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const vector&lt; int &gt; &amp;<a class="el" href="classvg_1_1SnarlCaller.html#a46f8549911ac82ea984fd7f56bae1c3d">genotype</a>, const string &amp;sample_name, vcflib::Variant &amp;variant)=0</td></tr>
 <tr class="memdesc:ad0315e74aa5ea9df9820aa1000bd0291"><td class="mdescLeft">&#160;</td><td class="mdescRight">Update INFO and FORMAT fields of the called variant.  <a href="#ad0315e74aa5ea9df9820aa1000bd0291">More...</a><br /></td></tr>
 <tr class="separator:ad0315e74aa5ea9df9820aa1000bd0291"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7fb3205d6e94505aadf0c9944fac7eb4"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlCaller.html#a7fb3205d6e94505aadf0c9944fac7eb4">update_vcf_header</a> (string &amp;header) const =0</td></tr>
 <tr class="memdesc:a7fb3205d6e94505aadf0c9944fac7eb4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define any header fields needed by the above.  <a href="#a7fb3205d6e94505aadf0c9944fac7eb4">More...</a><br /></td></tr>
 <tr class="separator:a7fb3205d6e94505aadf0c9944fac7eb4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8a469bc2c03cd4f623286669e6410724"><td class="memItemLeft" align="right" valign="top">virtual function&lt; bool(const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlCaller.html#a8a469bc2c03cd4f623286669e6410724">get_skip_allele_fn</a> () const</td></tr>
-<tr class="memdesc:a8a469bc2c03cd4f623286669e6410724"><td class="mdescLeft">&#160;</td><td class="mdescRight">Optional method used for pruning searches.  <a href="#a8a469bc2c03cd4f623286669e6410724">More...</a><br /></td></tr>
-<tr class="separator:a8a469bc2c03cd4f623286669e6410724"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acbc3b71e19fca0c018ff9dd713f2b052"><td class="memItemLeft" align="right" valign="top">virtual function&lt; bool(const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;, int iteration)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlCaller.html#acbc3b71e19fca0c018ff9dd713f2b052">get_skip_allele_fn</a> () const</td></tr>
+<tr class="memdesc:acbc3b71e19fca0c018ff9dd713f2b052"><td class="mdescLeft">&#160;</td><td class="mdescRight">Optional method used for pruning searches.  <a href="#acbc3b71e19fca0c018ff9dd713f2b052">More...</a><br /></td></tr>
+<tr class="separator:acbc3b71e19fca0c018ff9dd713f2b052"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p><a class="el" href="classvg_1_1SnarlCaller.html">SnarlCaller</a>: Given a list of traversals through a site, come up with a genotype come up with a genotype </p>
@@ -129,8 +129,8 @@ Public Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a1659a26128036d46bacc19407aebdd17"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1659a26128036d46bacc19407aebdd17">&#9670;&nbsp;</a></span>genotype()</h2>
+<a id="a46f8549911ac82ea984fd7f56bae1c3d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a46f8549911ac82ea984fd7f56bae1c3d">&#9670;&nbsp;</a></span>genotype()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -160,7 +160,19 @@ Public Member Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>ploidy</em>&#160;</td>
+          <td class="paramname"><em>ploidy</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>ref_path_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">pair&lt; size_t, size_t &gt;&#160;</td>
+          <td class="paramname"><em>ref_range</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -174,15 +186,14 @@ Public Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<p>Get the genotype of a site snarl : site traversals : all traversals to consider ref_trav_idx : index of reference path traversal in traversals (in case it needs special treatment) ref_path : the reference path associated with the snarl ref_range : the interval along the reference path (forward coordinates) spanned by snarl </p>
 
-<p>Get the genotype of a site. </p>
-
-<p>Implemented in <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#adc9597fd0336a6bb227133939eeda7a8">vg::SupportBasedSnarlCaller</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a7433c3ab926b4bbbd0a46050777ee5c7">vg::PoissonSupportSnarlCaller</a>, and <a class="el" href="classvg_1_1RatioSupportSnarlCaller.html#a3f4165aede44c699234b6293ad9e4198">vg::RatioSupportSnarlCaller</a>.</p>
 
 </div>
 </div>
-<a id="a8a469bc2c03cd4f623286669e6410724"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8a469bc2c03cd4f623286669e6410724">&#9670;&nbsp;</a></span>get_skip_allele_fn()</h2>
+<a id="acbc3b71e19fca0c018ff9dd713f2b052"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acbc3b71e19fca0c018ff9dd713f2b052">&#9670;&nbsp;</a></span>get_skip_allele_fn()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -191,7 +202,7 @@ Public Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">function&lt; bool(const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;)&gt; vg::SnarlCaller::get_skip_allele_fn </td>
+          <td class="memname">function&lt; bool(const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;, int)&gt; vg::SnarlCaller::get_skip_allele_fn </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td> const</td>
@@ -206,7 +217,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Optional method used for pruning searches. </p>
 
-<p>Reimplemented in <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a61c1b0c9ff28087add5e4c8b169bad9e">vg::SupportBasedSnarlCaller</a>.</p>
+<p>Reimplemented in <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#aa702e223a90771c4090511c23b7c55a7">vg::SupportBasedSnarlCaller</a>.</p>
 
 </div>
 </div>
@@ -236,7 +247,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Define any header fields needed by the above. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a4fc68060df93ea4a91d7cce0ac5ec19a">vg::SupportBasedSnarlCaller</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a2872f6728e288de01d5403fcdb76a05b">vg::PoissonSupportSnarlCaller</a>, and <a class="el" href="classvg_1_1RatioSupportSnarlCaller.html#ac7a153c3c35bc7d314f69f8ccbc30ae1">vg::RatioSupportSnarlCaller</a>.</p>
 
 </div>
 </div>
@@ -294,7 +305,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Update INFO and FORMAT fields of the called variant. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a0a1e45e1eff5208d489115539d621384">vg::SupportBasedSnarlCaller</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a79486f26596d150530a16d0bcf2e5afa">vg::PoissonSupportSnarlCaller</a>, <a class="el" href="classvg_1_1RatioSupportSnarlCaller.html#af406d7c079351fd6896fdb4bfcae00b9">vg::RatioSupportSnarlCaller</a>, and <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a0a1e45e1eff5208d489115539d621384">vg::SupportBasedSnarlCaller</a>.</p>
 
 </div>
 </div>

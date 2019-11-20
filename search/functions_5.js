@@ -67,6 +67,7 @@ var searchData=
   ['estimate_5fgc_5fcontent',['estimate_gc_content',['../classvg_1_1BaseMapper.html#aa08b00e5a349252d013d76651f754f8d',1,'vg::BaseMapper']]],
   ['estimate_5fmax_5fpossible_5fmapping_5fquality',['estimate_max_possible_mapping_quality',['../classvg_1_1GSSWAligner.html#a1a15539f94b43518a2363332122254ef',1,'vg::GSSWAligner::estimate_max_possible_mapping_quality()'],['../classvg_1_1Mapper.html#ac8613c49c8390b280aef7323151a4fd8',1,'vg::Mapper::estimate_max_possible_mapping_quality()']]],
   ['estimate_5fnext_5fbest_5fscore',['estimate_next_best_score',['../classvg_1_1GSSWAligner.html#aa5cbf3bce1fe039727bf1e91581d7df1',1,'vg::GSSWAligner']]],
+  ['ewens_5faf_5fprob_5fln',['ewens_af_prob_ln',['../namespacevg.html#a59d4b5d91539506f52c32664fc1c0ddd',1,'vg']]],
   ['exact',['exact',['../structvg_1_1GaplessExtension.html#aad05249efda81ed89bc782040bc3ba33',1,'vg::GaplessExtension']]],
   ['exclude_5fdist_5ftree_5fmerges',['exclude_dist_tree_merges',['../classvg_1_1OrientedDistanceClusterer.html#af55b22c582dd1fdeb6a62061830c52ad',1,'vg::OrientedDistanceClusterer']]],
   ['exclude_5fmerges',['exclude_merges',['../classvg_1_1OrientedDistanceMeasurer.html#a738f242df59c42bc9da14b07071b7ea3',1,'vg::OrientedDistanceMeasurer::exclude_merges()'],['../classvg_1_1PathOrientedDistanceMeasurer.html#a1791e7bf9d420b6303c16de3a1d7305e',1,'vg::PathOrientedDistanceMeasurer::exclude_merges()'],['../classvg_1_1SnarlOrientedDistanceMeasurer.html#a77a7d291ff3ea117e59861914ee84998',1,'vg::SnarlOrientedDistanceMeasurer::exclude_merges()']]],

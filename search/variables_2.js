@@ -22,6 +22,7 @@ var searchData=
   ['base_5fgraph',['base_graph',['../structvg_1_1AugmentedGraph.html#a0022757311c1ac569ebfa42e651637af',1,'vg::AugmentedGraph']]],
   ['base_5flocks',['base_locks',['../classvg_1_1Packer.html#a737fd5df5675c766e4b7873ca0570e28',1,'vg::Packer']]],
   ['base_5fpileup',['base_pileup',['../structvg_1_1NodePileup.html#a7ce88a430f079f1d72f96659edeb02de',1,'vg::NodePileup']]],
+  ['baseline_5fmapping_5ferror',['baseline_mapping_error',['../classvg_1_1PoissonSupportSnarlCaller.html#a7101c0898101d20519f0ab538827259b',1,'vg::PoissonSupportSnarlCaller']]],
   ['bases',['bases',['../structvg_1_1BasePileup.html#ab1ca874f6f9ee568866822a408300ba8',1,'vg::BasePileup']]],
   ['bases_5fper_5fchunk',['bases_per_chunk',['../classvg_1_1Constructor.html#ae525487466a66456d7169cc5047abf90',1,'vg::Constructor']]],
   ['begin',['begin',['../structvg_1_1kmer__t.html#ace8cd88692b6bb3c25a2989a4c505d1a',1,'vg::kmer_t::begin()'],['../classvg_1_1MaximalExactMatch.html#a894b11889ee0ef652acbfb84527e5225',1,'vg::MaximalExactMatch::begin()'],['../classvg_1_1PathNode.html#a4b103c45ebef87573a2b0288a2fc483c',1,'vg::PathNode::begin()'],['../structvg_1_1walk__t.html#af2f0816d239b918c2f2d76f9b696ab1b',1,'vg::walk_t::begin()']]],

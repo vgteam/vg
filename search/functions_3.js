@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['cachedpackedtraversalsupportfinder',['CachedPackedTraversalSupportFinder',['../classvg_1_1CachedPackedTraversalSupportFinder.html#a0b3418baef9a7bf8fe11b49e4a3c3ea3',1,'vg::CachedPackedTraversalSupportFinder']]],
   ['cacheentry',['CacheEntry',['../structvg_1_1IndexedVG_1_1CacheEntry.html#aab15096460395eb73cf757068bd33b11',1,'vg::IndexedVG::CacheEntry::CacheEntry(cursor_t &amp;to_read)'],['../structvg_1_1IndexedVG_1_1CacheEntry.html#ad0d6214f5d1f91aee27e67788f203e97',1,'vg::IndexedVG::CacheEntry::CacheEntry(CacheEntry &amp;&amp;other)=default']]],
   ['cactus_5fto_5fvg',['cactus_to_vg',['../namespacevg.html#adf53e86632a6d1d4b54370e6d948d08c',1,'vg']]],
   ['cactusify',['cactusify',['../namespacevg.html#aa4d05bc207717708d48e1da09f83eec6',1,'vg']]],
