@@ -61,8 +61,8 @@ rm -rf t.idx.xg t.idx.gcsa read_aug.gam
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa >t.vg
 vg align -s GGGGGGGAAATTTTCTGGAGTTCTATTATATTCCAAAAAAAAAA t.vg >t.gam
-is $(vg augment -i t.vg t.gam | vg view - | grep ^S | grep $(vg augment -i t.vg t.gam | vg stats  -H - | awk '{ print $3}') | cut -f 3) GGGGG "a soft clip at read start becomes a new head of the graph"
-is $(vg augment -i t.vg t.gam | vg view - | grep ^S | grep $(vg augment -i t.vg t.gam | vg stats  -T - | awk '{ print $3}') | cut -f 3) AAAAAAAA "a soft clip at read end becomes a new tail of the graph"
+is $(vg augment -i -S t.vg t.gam | vg view - | grep ^S | grep $(vg augment -i -S t.vg t.gam | vg stats  -H - | awk '{ print $3}') | cut -f 3) GGGGG "a soft clip at read start becomes a new head of the graph"
+is $(vg augment -i -S t.vg t.gam | vg view - | grep ^S | grep $(vg augment -i -S t.vg t.gam | vg stats  -T - | awk '{ print $3}') | cut -f 3) AAAAAAAA "a soft clip at read end becomes a new tail of the graph"
 vg align -s AAATTTTCTGGAGTTCTAT t.vg >> t.gam
 vg find -x t.vg -n 9 -c 1 > n9.vg
 vg augment n9.vg t.gam -s -A n9_aug.gam > /dev/null
@@ -72,7 +72,7 @@ rm -rf t.vg t.gam n9.vg n9_aug.gam
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 16 x.vg
 vg map -x x.xg -g x.gcsa -G small/x-s1337-n100-e0.01-i0.005.gam -t 1 >x.gam
-vg augment -Z x.trans -i x.vg x.gam >x.mod.vg
+vg augment -Z x.trans -i -S x.vg x.gam >x.mod.vg
 is $(vg view -Z x.trans | wc -l) 1288 "the expected graph translation is exported when the graph is edited"
 rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans
 
@@ -82,17 +82,17 @@ vg index -x 2snp.xg 2snp.vg
 vg sim -l 30 -x 2snp.xg -n 30 -a >2snp.sim
 vg index -x flat.xg -g flat.gcsa -k 16 flat.vg
 vg map -g flat.gcsa -x flat.xg -G 2snp.sim -k 8 >2snp.gam
-is $(vg augment flat.vg 2snp.gam -i | vg mod -D - | vg mod -n - | vg view - | grep ^S | wc -l) 7 "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
+is $(vg augment flat.vg 2snp.gam -i -S | vg mod -D - | vg mod -n - | vg view - | grep ^S | wc -l) 7 "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
 
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTATCTGGAGTTCTATTATATCCCAACTCTCTG/' | vg view -Fv - >2err.vg
 vg sim -l 30 -x 2err.vg -n 10 -a >2err.sim
 vg map -g flat.gcsa -x flat.xg -G 2err.sim -k 8 >2err.gam
 cat 2snp.gam 2err.gam > 4edits.gam
-vg augment flat.vg 2snp.gam | vg view - | grep S | awk '{print $3}' | sort >  2snp_default.nodes
-vg augment flat.vg 2snp.gam -m 1 | vg view - | grep S | awk '{print $3}' | sort >  2snp_m1.nodes
+vg augment flat.vg 2snp.gam -S | vg view - | grep S | awk '{print $3}' | sort >  2snp_default.nodes
+vg augment flat.vg 2snp.gam -m 1 -S | vg view - | grep S | awk '{print $3}' | sort >  2snp_m1.nodes
 diff 2snp_default.nodes 2snp_m1.nodes
 is "$?" 0 "augmenting 2 snps with -m 1 produces the same nodes as default"
-vg augment flat.vg 4edits.gam -m 11 | vg view - | grep S | awk '{print $3}' | sort > 4edits_m11.nodes
+vg augment flat.vg 4edits.gam -m 11 -S | vg view - | grep S | awk '{print $3}' | sort > 4edits_m11.nodes
 diff 2snp_default.nodes 4edits_m11.nodes
 is "$?" 0 "augmenting 2 snps and 2 errors with -m 11 produces the same nodes as with just the snps"
 
