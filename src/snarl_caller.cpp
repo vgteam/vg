@@ -8,31 +8,38 @@ namespace vg {
 SnarlCaller::~SnarlCaller() {
 }
 
-function<bool(const SnarlTraversal&)> SnarlCaller::get_skip_allele_fn() const {
+function<bool(const SnarlTraversal&, int)> SnarlCaller::get_skip_allele_fn() const {
     // default implementation says don't skip anything
-    return [](const SnarlTraversal&) { return false; };
+    return [](const SnarlTraversal&, int) { assert(false); return false; };
 }
 
-SupportBasedSnarlCaller::SupportBasedSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager) :
+SupportBasedSnarlCaller::SupportBasedSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager,
+                                                 TraversalSupportFinder& support_finder) :
     graph(graph),
-    snarl_manager(snarl_manager) {
+    snarl_manager(snarl_manager),
+    support_finder(support_finder) {
+
 }
 
 SupportBasedSnarlCaller::~SupportBasedSnarlCaller() {
     
 }
 
-void SupportBasedSnarlCaller::set_het_bias(double het_bias, double ref_het_bias) {
-    // want to move away from ugly hacks that treat the reference traversal differently,
-    // so keep all these set the same
-    if (het_bias >= 0) {
-        max_het_bias = het_bias;
-        max_ref_het_bias = het_bias;
-        max_indel_het_bias = het_bias;
-    }
-    if (ref_het_bias >= 0) {
-        max_ref_het_bias = ref_het_bias;
-    }
+void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
+                                              const vector<SnarlTraversal>& traversals,
+                                              const vector<int>& genotype,
+                                              const string& sample_name,
+                                              vcflib::Variant& variant) {
+    
+    
+}
+
+const TraversalSupportFinder& SupportBasedSnarlCaller::get_support_finder() const {
+    return support_finder;
+}
+
+int SupportBasedSnarlCaller::get_min_total_support_for_call() const {
+    return min_total_support_for_call;
 }
 
 void SupportBasedSnarlCaller::set_min_supports(double min_mad_for_call, double min_support_for_call, double min_site_support) {
@@ -47,20 +54,63 @@ void SupportBasedSnarlCaller::set_min_supports(double min_mad_for_call, double m
     }
 }
 
-vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
+int SupportBasedSnarlCaller::get_best_support(const vector<Support>& supports, const vector<int>& skips) {
+    int best_allele = -1;
+    for(size_t i = 0; i < supports.size(); i++) {
+        if(std::find(skips.begin(), skips.end(), i) == skips.end() && (
+               best_allele == -1 || support_val(supports[best_allele]) <= support_val(supports[i]))) {
+            best_allele = i;
+        }
+    }
+    return best_allele;
+}
+
+function<bool(const SnarlTraversal&, int)> SupportBasedSnarlCaller::get_skip_allele_fn() const {
+    // port over cutoff used in old support caller (there avg support used all the time, here
+    // we use the same toggles as when genotyping)
+    return [&](const SnarlTraversal& trav, int iteration) -> bool {
+        return support_val(support_finder.get_traversal_support(trav)) < pow(2, iteration) * min_alt_path_support;
+    };
+}
+
+RatioSupportSnarlCaller::RatioSupportSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager,
+                                                 TraversalSupportFinder& support_finder) :
+    SupportBasedSnarlCaller(graph, snarl_manager, support_finder)  {
+}
+
+RatioSupportSnarlCaller::~RatioSupportSnarlCaller() {
+    
+}
+
+void RatioSupportSnarlCaller::set_het_bias(double het_bias, double ref_het_bias) {
+    // want to move away from ugly hacks that treat the reference traversal differently,
+    // so keep all these set the same
+    if (het_bias >= 0) {
+        max_het_bias = het_bias;
+        max_ref_het_bias = het_bias;
+        max_indel_het_bias = het_bias;
+    }
+    if (ref_het_bias >= 0) {
+        max_ref_het_bias = ref_het_bias;
+    }
+}
+
+vector<int> RatioSupportSnarlCaller::genotype(const Snarl& snarl,
                                               const vector<SnarlTraversal>& traversals,
                                               int ref_trav_idx,
-                                              int ploidy) {
+                                              int ploidy,
+                                              const string& ref_path_name,
+                                              pair<size_t, size_t> ref_range) { 
 
 #ifdef debug
     cerr << "Support calling site " << pb2json(snarl) << endl;
 #endif
 
     // get the traversal sizes
-    vector<int> traversal_sizes = get_traversal_sizes(traversals);
+    vector<int> traversal_sizes = support_finder.get_traversal_sizes(traversals);
 
     // get the supports of each traversal independently
-    vector<Support> supports = get_traversal_set_support(traversals, {}, false, false, ref_trav_idx);
+    vector<Support> supports = support_finder.get_traversal_set_support(traversals, {}, {}, false, false, false, ref_trav_idx);
     int best_allele = get_best_support(supports, {});
 
 #ifdef debug
@@ -75,7 +125,7 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
 
     // we prune out traversals whose exclusive support (structure that is not shared with best traversal)
     // doesn't meet a certain cutoff
-    vector<Support> secondary_exclusive_supports = get_traversal_set_support(traversals, {best_allele}, true, false, ref_trav_idx);    
+    vector<Support> secondary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, {}, true, false, false, ref_trav_idx);    
     vector<int> skips = {best_allele};
     for (int i = 0; i < secondary_exclusive_supports.size(); ++i) {
         double bias = get_bias(traversal_sizes, i, best_allele, ref_trav_idx);
@@ -88,7 +138,7 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
         }
     }
     // get the supports of each traversal in light of best
-    vector<Support> secondary_supports = get_traversal_set_support(traversals, {best_allele}, false, false, ref_trav_idx);
+    vector<Support> secondary_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, {}, false, false, false, ref_trav_idx);
     int second_best_allele = get_best_support(secondary_supports, {skips});
 
     // get the supports of each traversal in light of second best
@@ -97,7 +147,7 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
     int third_best_allele = -1;
     if (second_best_allele != -1) {
         // prune out traversals whose exclusive support relative to second best doesn't pass cut
-        vector<Support> tertiary_exclusive_supports = get_traversal_set_support(traversals, {second_best_allele}, true, false, ref_trav_idx);
+        vector<Support> tertiary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {second_best_allele}, {}, true, false, false, ref_trav_idx);
         skips.push_back(best_allele);
         skips.push_back(second_best_allele);
         for (int i = 0; i < tertiary_exclusive_supports.size(); ++i) {
@@ -106,7 +156,7 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
                 skips.push_back(i);
             }
         }
-        tertiary_supports = get_traversal_set_support(traversals, {second_best_allele}, false, false, ref_trav_idx);
+        tertiary_supports = support_finder.get_traversal_set_support(traversals, {second_best_allele}, {}, false, false, false, ref_trav_idx);
         third_best_allele = get_best_support(tertiary_supports, skips);
     }
 
@@ -149,7 +199,7 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
 
     // Single ploidy case when doing recursive genotyping.  Just return the best allele
     if (ploidy == 1) {
-        return {best_allele};
+        return vector<int>(1, best_allele);
     }
     // Call 1/2 : REF-Alt1/Alt2 even if Alt2 has only third best support
     else if (ploidy >= 2 &&
@@ -236,12 +286,14 @@ vector<int> SupportBasedSnarlCaller::genotype(const Snarl& snarl,
             
     }
 
+    // Todo: specify call_info to use new interface, then fix up update_vcf_info to read it,
+    // and move common logic up to SupportBasedCaller if possible.
     return genotype;
 }
 
-void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
+void RatioSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
                                               const vector<SnarlTraversal>& traversals,
-                                              const vector<int>& genotype,                                         
+                                              const vector<int>& genotype,
                                               const string& sample_name,
                                               vcflib::Variant& variant) {
 
@@ -253,11 +305,10 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
         shared_travs.push_back(genotype[0]);
     }
     // compute the support of our called alleles
-    vector<Support> allele_supports = get_traversal_set_support(traversals, shared_travs, false, false, 0);
-
-    // get the support of our uncalled alleles, making sure to not include any called support
-    // TODO: handle shared support within this set
-    vector<Support> uncalled_supports = get_traversal_set_support(traversals, genotype, false, true, 0);
+    vector<Support> allele_supports = support_finder.get_traversal_genotype_support(traversals, genotype, {}, 0);
+    
+    // Compute the total support for all the alts that will be appearing
+    Support total_support = std::accumulate(allele_supports.begin(), allele_supports.end(), Support());    
         
     // Set up the depth format field
     variant.format.push_back("DP");
@@ -268,9 +319,7 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
     variant.format.push_back("XADL");
     // Also the alt allele depth
     variant.format.push_back("XAAD");
-
-    // Compute the total support for all the alts that will be appearing
-    Support total_support;
+    
     // And total alt allele depth for the alt alleles
     Support alt_support;
     // Find the min total support of anything called
@@ -279,13 +328,10 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
     if (!allele_supports.empty()) { //only add info if we made a call
         for (int allele = 0; allele < traversals.size(); ++allele) {
             bool is_called = called_allele_set.count(allele);
-            auto& support = is_called ? allele_supports[allele] : uncalled_supports[allele];
+            auto& support = allele_supports[allele];
             
             // Set up allele-specific stats for the allele
             variant.samples[sample_name]["AD"].push_back(std::to_string((int64_t)round(total(support))));
-                
-            // Sum up into total depth
-            total_support += support;
                 
             if (allele != 0) {
                 // It's not the primary reference allele
@@ -351,7 +397,7 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
     }
 }
 
-void SupportBasedSnarlCaller::update_vcf_header(string& header) const {
+void RatioSupportSnarlCaller::update_vcf_header(string& header) const {
     header += "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">\n";
     header += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">\n";
     header += "##FORMAT=<ID=XADL,Number=1,Type=Float,Description=\"Likelihood of allelic depths for called alleles\">\n";
@@ -366,262 +412,7 @@ void SupportBasedSnarlCaller::update_vcf_header(string& header) const {
         std::to_string(min_site_depth) + "\">\n";    
 }
 
-function<bool(const SnarlTraversal&)> SupportBasedSnarlCaller::get_skip_allele_fn() const {
-    // port over cutoff used in old support caller (there avg support used all the time, here
-    // we use the same toggles as when genotyping)
-    return [&](const SnarlTraversal& trav) -> bool {
-        return support_val(get_traversal_support(trav)) < min_alt_path_support;
-    };
-}
-
-int64_t SupportBasedSnarlCaller::get_edge_length(const edge_t& edge, const unordered_map<id_t, size_t>& ref_offsets) const {
-    int len = -1;
-    // use our reference traversal to try to come up with a deletion length for our edge
-    // idea: if our edge corresponds to a huge deltion, it should be weighted accordingly
-    auto s_it = ref_offsets.find(graph.get_id(edge.first));
-    auto e_it = ref_offsets.find(graph.get_id(edge.second));
-    if (s_it != ref_offsets.end() && e_it != ref_offsets.end()) {
-        size_t start_offset = s_it->second;
-        if (!graph.get_is_reverse(edge.first)) {
-            start_offset += graph.get_length(edge.first);
-        }
-        size_t end_offset = e_it->second;
-        if (graph.get_is_reverse(edge.second)) {
-            end_offset += graph.get_length(edge.second);
-        }
-        if (start_offset > end_offset) {
-            std::swap(start_offset, end_offset);
-        }
-        len = end_offset - start_offset;
-    }
-    return std::max(len, 1);
-}
-
-tuple<Support, Support, int> SupportBasedSnarlCaller::get_child_support(const Snarl& snarl) const {
-    // port over old functionality from support caller
-    // todo: do we need to flag nodes as covered like it does?
-    pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(&snarl, graph, true);
-    Support child_max_support;
-    Support child_total_support;
-    size_t child_size = 0;
-    for (id_t node_id : contents.first) {
-        Support child_support = get_avg_node_support(node_id);
-        child_max_support = support_max(child_max_support, child_support);
-        child_size += graph.get_length(graph.get_handle(node_id));
-        child_total_support += child_support;
-    }
-    Support child_avg_support = child_total_support / child_size;
-    // we always use child_max like the old support_caller.
-    // this is the only way to get top-down recursion to work in many cases
-    // todo: fix to use bottom up, get get support from actual traversals
-    // every time!! 
-    return std::tie(child_max_support, child_max_support, child_size);
-}
-
-
-Support SupportBasedSnarlCaller::get_traversal_support(const SnarlTraversal& traversal) const {
-    return get_traversal_set_support({traversal}, {}, false, false).at(0);
-}
-
-vector<Support> SupportBasedSnarlCaller::get_traversal_set_support(const vector<SnarlTraversal>& traversals,
-                                                                   const vector<int>& shared_travs,
-                                                                   bool exclusive_only,
-                                                                   bool exclusive_count,
-                                                                   int ref_trav_idx) const {
-
-    // pass 1: how many times have we seen a node or edge
-    unordered_map<id_t, int> node_counts;
-    unordered_map<edge_t, int> edge_counts;
-    map<Snarl, int> child_counts;
-
-    for (auto trav_idx : shared_travs) {
-        const SnarlTraversal& trav = traversals[trav_idx];
-        for (int i = 0; i < trav.visit_size(); ++i) {
-            const Visit& visit = trav.visit(i);
-            if (visit.node_id() != 0) {
-                // Count the node once
-                if (node_counts.count(visit.node_id())) {
-                    node_counts[visit.node_id()] += 1;
-                } else {
-                    node_counts[visit.node_id()] = 1;
-                }
-            } else {
-                // Count the child once
-                if (child_counts.count(visit.snarl())) {
-                    child_counts[visit.snarl()] += 1;
-                } else {
-                    child_counts[visit.snarl()] = 1;
-                }
-            }
-            // note: there is no edge between adjacent snarls as they overlap
-            // on their endpoints. 
-            if (i > 0 && (trav.visit(i - 1).node_id() != 0 || trav.visit(i).node_id() != 0)) {
-                edge_t edge = to_edge(graph, trav.visit(i - 1), visit);
-                // Count the edge once
-                if (edge_counts.count(edge)) {
-                    edge_counts[edge] += 1;
-                } else {
-                    edge_counts[edge] = 1;
-                }
-            }
-        }
-    }
-
-    // pass 1.5: get index for looking up deletion edge lengths (so far we aren't dependent
-    // on having anything but a path handle graph, so we index on the fly)
-    unordered_map<id_t, size_t> ref_offsets;
-    if (ref_trav_idx >= 0) {
-        ref_offsets = get_ref_offsets(traversals[ref_trav_idx]);
-    }
-
-    // pass 2: get the supports
-    // we compute the various combinations of min/avg node/trav supports as we don't know which
-    // we will need until all the sizes are known
-    Support max_support;
-    max_support.set_forward(numeric_limits<int>::max());
-    vector<Support> min_supports_min(traversals.size(), max_support); // use min node support
-    vector<Support> min_supports_avg(traversals.size(), max_support); // use avg node support
-    vector<bool> has_support(traversals.size(), false);
-    vector<Support> tot_supports_min(traversals.size()); // weighted by lengths, using min node support
-    vector<Support> tot_supports_avg(traversals.size()); // weighted by lengths, using avg node support
-    vector<int> tot_sizes(traversals.size(), 0); // to compute average from to_supports;
-    vector<int> tot_sizes_all(traversals.size(), 0); // as above, but includes excluded lengths
-    int max_trav_size = 0; // size of longest traversal
-
-    bool count_end_nodes = false; // toggle to include snarl ends
-
-    auto update_support = [&] (int trav_idx, const Support& min_support,
-                               const Support& avg_support, int length, int share_count) {
-        // keep track of overall size of longest traversal
-        tot_sizes_all[trav_idx] += length;
-        max_trav_size = std::max(tot_sizes_all[trav_idx], max_trav_size);
-
-        // apply the scaling
-        double scale_factor = ((exclusive_only || exclusive_count) && share_count > 0) ? 0. : 1. / (1. + share_count);
-        
-        // when looking at exclusive support, we don't normalize by skipped lengths
-        if (scale_factor != 0 || !exclusive_only || exclusive_count) {
-            has_support[trav_idx] = true;
-            Support scaled_support_min = min_support * scale_factor;
-            Support scaled_support_avg = avg_support * scale_factor;
-
-            tot_supports_min[trav_idx] += scaled_support_min;
-            tot_supports_avg[trav_idx] += scaled_support_avg * length;
-            tot_sizes[trav_idx] += length;
-            min_supports_min[trav_idx] = support_min(min_supports_min[trav_idx], scaled_support_min);
-            min_supports_avg[trav_idx] = support_min(min_supports_avg[trav_idx], scaled_support_avg * length);
-        }
-    };
-
-    for (int trav_idx = 0; trav_idx < traversals.size(); ++trav_idx) {
-        const SnarlTraversal& trav = traversals[trav_idx];
-        for (int visit_idx = 0; visit_idx < trav.visit_size(); ++visit_idx) {
-            const Visit& visit = trav.visit(visit_idx);
-            Support min_support;
-            Support avg_support;
-            int64_t length;
-            int share_count = 0;
-
-            if (visit.node_id() != 0) {
-                // get the node support
-                min_support = get_min_node_support(visit.node_id());
-                avg_support = get_avg_node_support(visit.node_id());
-                length = graph.get_length(graph.get_handle(visit.node_id()));
-                if (node_counts.count(visit.node_id())) {
-                    share_count = node_counts[visit.node_id()];
-                }
-            } else {
-                // get the child support
-                tie(min_support, avg_support, length) = get_child_support(visit.snarl());
-                if (child_counts.count(visit.snarl())) {
-                    share_count = child_counts[visit.snarl()];
-                }
-            }
-            if (count_end_nodes || (visit_idx > 0 && visit_idx < trav.visit_size() - 1)) {
-                update_support(trav_idx, min_support, avg_support, length, share_count);
-            }
-            share_count = 0;
-            
-            if (visit_idx > 0 && (trav.visit(visit_idx - 1).node_id() != 0 || trav.visit(visit_idx).node_id() != 0)) {
-                // get the edge support
-                edge_t edge = to_edge(graph, trav.visit(visit_idx - 1), visit);
-                min_support = get_edge_support(edge);
-                length = get_edge_length(edge, ref_offsets);
-                if (edge_counts.count(edge)) {
-                    share_count = edge_counts[edge];
-                }
-                update_support(trav_idx, min_support, min_support, length, share_count);
-            }
-        }
-    }
-
-    // correct for case where no exclusive support found
-    for (int i = 0; i < min_supports_min.size(); ++i) {
-        if (!has_support[i]) {
-            min_supports_min[i] = Support();
-            min_supports_avg[i] = Support();
-        }
-    }
-
-    bool use_avg_trav_support = max_trav_size >= average_traversal_support_switch_threshold;
-    bool use_avg_node_support = max_trav_size >= average_node_support_switch_threshold;
-
-    if (use_avg_trav_support) {
-        vector<Support>& tot_supports = use_avg_node_support ? tot_supports_avg : tot_supports_min;
-        for (int i = 0; i < tot_supports.size(); ++i) {
-            if (tot_sizes[i] > 0) {
-                tot_supports[i] /= (double)tot_sizes[i];
-            } else {
-                tot_supports[i] = Support();
-            }
-        }
-        return tot_supports;
-    } else {
-        return use_avg_node_support ? min_supports_avg : min_supports_min;
-    }
-}   
-
-int SupportBasedSnarlCaller::get_best_support(const vector<Support>& supports, const vector<int>& skips) {
-    int best_allele = -1;
-    for(size_t i = 0; i < supports.size(); i++) {
-        if(std::find(skips.begin(), skips.end(), i) == skips.end() && (
-               best_allele == -1 || support_val(supports[best_allele]) <= support_val(supports[i]))) {
-            best_allele = i;
-        }
-    }
-    return best_allele;
-}
-
-vector<int> SupportBasedSnarlCaller::get_traversal_sizes(const vector<SnarlTraversal>& traversals) const {
-    vector<int> sizes(traversals.size(), 0);
-    for (int i = 0; i < traversals.size(); ++i) {
-        for (int j = 0; j < traversals[i].visit_size(); ++j) {
-            if (traversals[i].visit(j).node_id() != 0) {
-                sizes[i] += graph.get_length(graph.get_handle(traversals[i].visit(j).node_id()));
-            } else {
-                // just summing up the snarl contents, which isn't a great heuristic but will
-                // help in some cases
-                pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(
-                    snarl_manager.into_which_snarl(traversals[i].visit(j)), graph, true);
-                for (id_t node_id : contents.first) {
-                    sizes[i] += graph.get_length(graph.get_handle(node_id));
-                }
-            }
-        }
-    }
-    return sizes;
-    
-}
-
-size_t SupportBasedSnarlCaller::get_average_traversal_support_switch_threshold() const {
-    return average_traversal_support_switch_threshold;
-}
-
-int SupportBasedSnarlCaller::get_min_total_support_for_call() const {
-    return min_total_support_for_call;
-}
-
-double SupportBasedSnarlCaller::get_bias(const vector<int>& traversal_sizes, int best_trav,
+double RatioSupportSnarlCaller::get_bias(const vector<int>& traversal_sizes, int best_trav,
                                          int second_best_trav, int ref_trav_idx) const {
     bool is_indel = ((best_trav >= 0 && traversal_sizes[best_trav] != traversal_sizes[ref_trav_idx]) ||
                      (second_best_trav >=0 && traversal_sizes[second_best_trav] != traversal_sizes[ref_trav_idx]));
@@ -653,75 +444,334 @@ double SupportBasedSnarlCaller::get_bias(const vector<int>& traversal_sizes, int
     return bias_limit;
 }
 
-unordered_map<id_t, size_t> SupportBasedSnarlCaller::get_ref_offsets(const SnarlTraversal& ref_trav) const {
-    unordered_map<id_t, size_t> ref_offsets;
-    size_t offset = 0;
-    for (int i = 0; i < ref_trav.visit_size(); ++i) {
-        const Visit& visit = ref_trav.visit(i);
-        if (visit.node_id() != 0) {
-            if (visit.backward()) {
-                offset += graph.get_length(graph.get_handle(visit.node_id()));
-                ref_offsets[visit.node_id()] = offset;
-            } else {
-                ref_offsets[visit.node_id()] = offset;
-                offset += graph.get_length(graph.get_handle(visit.node_id()));
+
+PoissonSupportSnarlCaller::PoissonSupportSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager,
+                                                     TraversalSupportFinder& support_finder,
+                                                     const algorithms::BinnedDepthIndex& depth_index) :
+    SupportBasedSnarlCaller(graph, snarl_manager, support_finder),
+    depth_index(depth_index) {
+    
+}
+    
+PoissonSupportSnarlCaller::~PoissonSupportSnarlCaller() {
+    
+}
+
+vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
+                                                const vector<SnarlTraversal>& traversals,
+                                                int ref_trav_idx,
+                                                int ploidy,
+                                                const string& ref_path_name,
+                                                pair<size_t, size_t> ref_range) {
+    
+    
+#ifdef debug
+    cerr << "Poisson Support calling site " << pb2json(snarl)
+         << " on path " << ref_path_name << ":" << ref_range.first << "-" << ref_range.second << endl;
+#endif
+
+    assert(ploidy == 2 || ploidy == 1);
+    
+    // get the traversal sizes
+    vector<int> traversal_sizes = support_finder.get_traversal_sizes(traversals);
+
+    // get the supports of each traversal independently
+    vector<Support> supports = support_finder.get_traversal_set_support(traversals, {}, {}, false, false, false, ref_trav_idx);
+
+    // sort the traversals by support
+    vector<int> ranked_traversals = rank_by_support(supports);
+    size_t max_trav = std::min(top_k, (size_t)ranked_traversals.size());
+    size_t max_sec_trav = std::min(top_m, (size_t)ranked_traversals.size());
+    // take the top-m traversals in order to check against the top traversal
+    set<int> top_traversals(ranked_traversals.begin(), ranked_traversals.begin() + max_sec_trav);
+
+    // the candidate genotypes and their supports.  the numbers here are alleles as indexed in traversals[]
+    set<vector<int>> candidates;
+
+    // pre-filter out some alleles based on poor exclusive support
+    set<int> skips;
+
+    // consider each of the top 25 traversals as our top_traversal
+    for (int i = 0; i < max_trav; ++i) {
+        
+        int best_allele = ranked_traversals[i];
+
+        if (skips.count(best_allele)) {
+            continue;
+        }
+        if (support_val(supports[best_allele]) < min_total_support_for_call) {
+            break;
+        }
+
+        if (ploidy == 1) {
+            candidates.insert({best_allele});
+        } else {
+            assert(ploidy == 2);
+        
+            // we prune out traversals whose exclusive support (structure that is not shared with best traversal)
+            // doesn't meet a certain cutoff
+            vector<Support> secondary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, top_traversals, true, false, false, ref_trav_idx);
+            for (int j = 0; j < secondary_exclusive_supports.size(); ++j) {
+                if (j != best_allele &&
+                    support_val(secondary_exclusive_supports[j]) < min_total_support_for_call &&
+                    support_val(secondary_exclusive_supports[j]) < support_val(supports[j])) {
+                    skips.insert(j);
+                }
+            }
+
+            // get the supports of each traversal in light of best
+            vector<Support> secondary_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, top_traversals, false, false, false, ref_trav_idx);
+            vector<int> ranked_secondary_traversals = rank_by_support(secondary_supports);
+
+            // add the homozygous genotype for our best allele
+            candidates.insert({best_allele, best_allele});
+
+            // now look at the top-k second-best traversals
+            size_t sec_count = 0;
+            for (int j = 0; j < ranked_secondary_traversals.size() && sec_count < top_k; ++j) {
+                int second_best_allele = ranked_secondary_traversals[j];
+                if (support_val(secondary_supports[second_best_allele]) < min_total_support_for_call) {
+                    break;
+                }
+                if (!skips.count(second_best_allele) && second_best_allele != best_allele) {
+                    // canonical ordering for our set
+                    candidates.insert({min(best_allele, second_best_allele), max(best_allele, second_best_allele)});
+                    // also make sure we have our homozygous genotype for the second best allele
+                    candidates.insert({second_best_allele, second_best_allele});
+                    ++sec_count;
+                }
             }
         }
     }
-    return ref_offsets;
-}
 
-PackedSupportSnarlCaller::PackedSupportSnarlCaller(const Packer& packer, SnarlManager& snarl_manager) :
-    SupportBasedSnarlCaller(*dynamic_cast<const PathHandleGraph*>(packer.get_graph()), snarl_manager),
-    packer(packer) {
-}
+    // expected depth from our coverage
+    auto depth_info = algorithms::get_depth_from_index(depth_index, ref_path_name, ref_range.first, ref_range.second);
+    double exp_depth = depth_info.first;
+    assert(!isnan(exp_depth));
+    // variance/std-err can be nan when binsize < 2.  We just clamp it to 0
+    double depth_err = depth_info.second ? !isnan(depth_info.second) : 0.;
 
-PackedSupportSnarlCaller::~PackedSupportSnarlCaller() {
-}
-
-Support PackedSupportSnarlCaller::get_edge_support(const edge_t& edge) const {
-    return get_edge_support(graph.get_id(edge.first), graph.get_is_reverse(edge.first),
-                            graph.get_id(edge.second), graph.get_is_reverse(edge.second));
-}
-
-Support PackedSupportSnarlCaller::get_edge_support(id_t from, bool from_reverse,
-                                                   id_t to, bool to_reverse) const {
-    Edge proto_edge;
-    proto_edge.set_from(from);
-    proto_edge.set_from_start(from_reverse);
-    proto_edge.set_to(to);
-    proto_edge.set_to_end(to_reverse);
-    Support support;
-    support.set_forward(packer.edge_coverage(proto_edge));
-    return support;
-}
-
-Support PackedSupportSnarlCaller::get_min_node_support(id_t node) const {
-    Position pos;
-    pos.set_node_id(node);
-    size_t offset = packer.position_in_basis(pos);
-    size_t coverage = packer.coverage_at_position(offset);
-    size_t end_offset = offset + graph.get_length(graph.get_handle(node));
-    for (int i = offset + 1; i < end_offset; ++i) {
-        coverage = min(coverage, packer.coverage_at_position(i));
+    // genotype (log) likelihoods
+    double best_genotype_likelihood = -numeric_limits<double>::max();
+    vector<int> best_genotype;
+    for (const auto& candidate : candidates) {
+        double gl = genotype_likelihood(candidate, traversals, top_traversals, ref_trav_idx, exp_depth, depth_err);
+        if (gl > best_genotype_likelihood) {
+            best_genotype_likelihood = gl;
+            best_genotype = candidate;
+        }
     }
-    Support support;
-    support.set_forward(coverage);
-    return support;
+
+#ifdef debug
+    cerr << " best genotype: "; for (auto a : best_genotype) {cerr << a <<",";} cerr << " gl=" << best_genotype_likelihood << endl;
+#endif
+    return best_genotype;
 }
 
-Support PackedSupportSnarlCaller::get_avg_node_support(id_t node) const {
-    Position pos;
-    pos.set_node_id(node);
-    size_t offset = packer.position_in_basis(pos);
-    size_t coverage = 0;
-    size_t length = graph.get_length(graph.get_handle(node));
-    for (int i = 0; i < length; ++i) {
-        coverage += packer.coverage_at_position(offset + i);
+double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotype,
+                                                      const vector<SnarlTraversal>& traversals,
+                                                      const set<int>& trav_subset, 
+                                                      int ref_trav_idx, double exp_depth, double depth_err) {
+    
+    assert(genotype.size() == 1 || genotype.size() == 2);
+
+    // get the genotype support
+    vector<Support> genotype_supports = support_finder.get_traversal_genotype_support(traversals, genotype, trav_subset, ref_trav_idx);
+
+    // get the total support over the site
+    Support total_site_support = std::accumulate(genotype_supports.begin(), genotype_supports.end(), Support());    
+
+    // get the total support of traversals *not* in the genotype
+    Support total_other_support;
+    set<int> genotype_set(genotype.begin(), genotype.end());
+    for (int i = 0; i < traversals.size(); ++i) {
+        if (!genotype_set.count(i)) {
+            total_other_support += genotype_supports[i];
+        }
     }
-    Support support;
-    support.set_forward((double)coverage / (double)length);
-    return support;
+ 
+    // split the homozygous support into two
+    // from now on we'll treat it like two separate observations, each with half coverage
+    vector<Support> fixed_genotype_supports = genotype_supports;
+    if (std::equal(genotype.begin() + 1, genotype.end(), genotype.begin())) {
+        for (int i = 0; i < genotype_supports.size(); ++i) {
+            fixed_genotype_supports[i] = genotype_supports[i] / (double)genotype.size();
+        }
+    }
+    
+    // how many reads would we expect to not map to our genotype due to error
+    // Note: The bin size is set quite a bit smaller than originally intended as it seems to
+    // help nearly nevery benchmark.  But the small bin sizes means that depth_err, the
+    // error from the binned coverage, is way too high and including it only causes trouble.
+    // tldr: just use the baseline_mapping_error constant and forget about depth_err for now. 
+    //double error_rate = std::min(0.05, depth_err + baseline_mapping_error);
+    double error_rate = baseline_mapping_error;
+    double other_poisson_lambda = error_rate * exp_depth; //support_val(total_site_support);
+
+    // and our likelihood for the unmapped reads we see:
+    double other_log_likelihood = poisson_prob_ln(std::round(support_val(total_other_support)), other_poisson_lambda);
+
+    // how many reads do we expect for an allele?  we use the expected coverage and just
+    // divide it out by the size of the genotype.  
+    double allele_poisson_lambda = (exp_depth / (double)genotype.size()) * (1. - error_rate);
+
+#ifdef debug
+    cerr << "Computing prob of genotype: {";
+    for (int i = 0; i < genotype.size(); ++i) {
+        cerr << genotype[i] << ",";
+    } 
+    cerr << "}: tot_other_sup = " << total_other_support << " tot site sup = " << total_site_support 
+         << " exp-depth = " << exp_depth << " depth-err = " << depth_err << " other-lambda = " << other_poisson_lambda
+         << " allele-lambda " << allele_poisson_lambda << endl;
+#endif
+    
+    // now we compute the likelihood of our genotype
+    double alleles_log_likelihood = 0;
+    for (int allele : genotype) {
+        const Support& allele_support = fixed_genotype_supports[allele];
+        double allele_ll = poisson_prob_ln(std::round(support_val(allele_support)), allele_poisson_lambda);
+        alleles_log_likelihood += allele_ll;
+
+#ifdef debug
+        cerr << "  a[" << allele <<"]=" << " sup=" << genotype_supports[allele] << " fix-sup=" << allele_support
+             << " prob " << allele_ll << endl;
+#endif        
+    }
+
+#ifdef debug
+    cerr  << " allele-log-prob " << alleles_log_likelihood << " other-log-prob " << other_log_likelihood
+          << " total-prob " << (alleles_log_likelihood + other_log_likelihood) << endl;
+#endif
+
+    return alleles_log_likelihood + other_log_likelihood;
+}
+
+void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
+                                                const vector<SnarlTraversal>& traversals,
+                                                const vector<int>& genotype,
+                                                const string& sample_name,
+                                                vcflib::Variant& variant) {
+
+    assert(traversals.size() == variant.alleles.size());
+
+    // get the traversal sizes
+    vector<int> traversal_sizes = support_finder.get_traversal_sizes(traversals);
+
+    // get the genotype support
+    vector<Support> genotype_supports = support_finder.get_traversal_genotype_support(traversals, genotype, {}, 0);
+
+    // Get the depth of the site
+    Support total_site_support = std::accumulate(genotype_supports.begin(), genotype_supports.end(), Support());    
+    double total_site_depth = support_val(total_site_support);
+
+    // Set the variant's total depth            
+    string depth_string = std::to_string((int64_t)round(total_site_depth));
+    variant.format.push_back("DP");
+    variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
+            
+    // And for the sample
+    variant.samples[sample_name]["DP"].push_back(depth_string);            
+
+    // get the allele depths
+    variant.format.push_back("AD");
+
+    set<int> genotype_set(genotype.begin(), genotype.end());
+    double min_site_support = genotype.size() > 0 ? INFINITY : 0;
+
+    // update the allele depths
+    for (int i = 0; i < traversals.size(); ++i) {
+        Support allele_support = genotype_supports[i];
+        variant.samples[sample_name]["AD"].push_back(std::to_string((int64_t)round(support_val(allele_support))));
+        if (genotype_set.count(i)) {
+            // update the minimum support
+            min_site_support = min(min_site_support, total(genotype_supports[i]));
+        }
+    }
+
+    // get the genotype likelihoods
+    vector<double> gen_likelihoods;
+    double gen_likelihood;    
+    variant.format.push_back("GL");
+
+    // expected depth from our coverage.  we look at the reference-range from the snarl plus a bit of padding,
+    // averaging over every depth bin this touches.  todo: adaptively compute nearby coverage without bins
+    // (requires VCFGenotyper to be refactored to require a PathPositionIndex)
+    size_t longest_traversal = *max_element(traversal_sizes.begin(), traversal_sizes.end());
+    size_t padding = (depth_padding_factor * longest_traversal) / 2;
+    pair<size_t, size_t> ref_range = make_pair(max((long)0, (long)(variant.position - padding)),
+					       variant.position + variant.ref.length() + padding);
+    auto depth_info = algorithms::get_depth_from_index(depth_index, variant.sequenceName, ref_range.first, ref_range.second);
+    double exp_depth = depth_info.first;
+    assert(!isnan(exp_depth));
+    // variance/std-err can be nan when binsize < 2.  We just clamp it to 0
+    double depth_err = depth_info.second ? !isnan(depth_info.second) : 0.;
+
+    // assume ploidy 2
+    for (int i = 0; i < traversals.size(); ++i) {
+        for (int j = i; j < traversals.size(); ++j) {
+            double gl = genotype_likelihood({i, j}, traversals, {}, 0, exp_depth, depth_err);
+            gen_likelihoods.push_back(gl);
+            if (vector<int>({i, j}) == genotype || vector<int>({j,i}) == genotype) {
+                gen_likelihood = gl;
+            }
+            // convert from natural log to log10 by dividing by ln(10)
+            variant.samples[sample_name]["GL"].push_back(std::to_string(gl / 2.30258));
+        }
+    }
+
+    // get the GQ
+    double prior = log(1. / (double)traversals.size());
+    double p_reads = prior + gen_likelihoods[0];
+    // note that we should be summing over all the likelihoods as considered in genotype()
+    // todo: figure out a way how to move this to that method.
+    // (or make sure more uncalled stuff makes it into the vcf so we have more traversals to sum over here)
+    /*
+    for (int i = 1; i < gen_likelihoods.size(); ++i) {
+        p_reads = add_log(p_reads, prior + gen_likelihoods[i]);
+    }
+    double posterior = gen_likelihood + prior - p_reads;
+    double gq = logprob_to_phred(logprob_invert(posterior));
+    variant.format.push_back("GQ");
+    variant.samples[sample_name]["GQ"].push_back(std::to_string(gq));
+    */
+
+    // our old min-support based quality as hack until
+    // qual / gq properly sorted out
+    variant.quality = min_site_support;
+
+    // Now do the filters
+    // todo: fix and share with other caller
+    variant.filter = "PASS";            
+    if (min_site_support < min_mad_for_filter) {
+        // Apply Min Allele Depth cutoff across all alleles (even ref)
+        variant.filter = "lowad";
+    } else if ((int64_t)round(total_site_depth) < min_site_depth) {
+        // we don't have enough support to want to make a call
+        variant.filter = "lowdepth";
+    }
+}
+
+void PoissonSupportSnarlCaller::update_vcf_header(string& header) const {
+    header += "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">\n";
+    header += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">\n";
+    header += "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">\n";
+    header += "##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype Likelihood, log10-scaled likelihoods of the data given the called genotype for each possible genotype generated from the reference and alternate alleles given the sample ploidy\">\n";
+    //header += "##FORMAT=<ID=GQ,Number=1,Type=Float,Description=\"Genotype Quality, the Phred-scaled probability of the called genotype\">\n";
+    header += "##FILTER=<ID=lowad,Description=\"Variant does not meet minimum allele read support threshold of " +
+        std::to_string(min_mad_for_filter) + "\">\n";
+    header += "##FILTER=<ID=lowdepth,Description=\"Variant has read depth less than " +
+        std::to_string(min_site_depth) + "\">\n";    
+}
+
+vector<int> PoissonSupportSnarlCaller::rank_by_support(const vector<Support>& supports) {
+    vector<int> ranks(supports.size());
+    for (int i = 0; i < supports.size(); ++i) {
+        ranks[i] = i;
+    }
+    std::sort(ranks.begin(), ranks.end(), [&](int a, int b) {
+            return support_val(supports[a]) > support_val(supports[b]);
+        });
+    return ranks;
 }
 
 

@@ -90,7 +90,7 @@ pair<double, double> packed_depth_of_bin(const Packer& packer,
             }
         }
     }
-    return wellford_mean_var(bin_length, mean, M2, true);
+    return wellford_mean_var(bin_length, mean, M2);
 }
 
 vector<tuple<size_t, size_t, double, double>> binned_packed_depth(const Packer& packer, const string& path_name, size_t bin_size,
@@ -130,6 +130,54 @@ vector<tuple<size_t, size_t, double, double>> binned_packed_depth(const Packer& 
     return binned_depths;
 }
 
+unordered_map<string, map<size_t, pair<float, float>>> binned_packed_depth_index(const Packer& packer,
+                                                                                   const vector<string>& path_names,
+                                                                                   size_t bin_size,
+                                                                                   size_t min_coverage,
+                                                                                   bool include_deletions,
+                                                                                   bool std_err) {
+    unordered_map<string, map<size_t, pair<float, float>>> depth_index;
+    for (const string& path_name : path_names) {
+        vector<tuple<size_t, size_t, double, double>> binned_depths = binned_packed_depth(packer, path_name, bin_size,
+                                                                                          min_coverage, include_deletions);
+        // todo: probably more efficent to just leave in sorted vector
+        map<size_t, pair<float, float>>& depth_map = depth_index[path_name];
+        for (auto& binned_depth : binned_depths) {
+            double var = get<3>(binned_depth);
+            // optionally convert variance to standard error
+            if (std_err) {
+                var = sqrt(var / (double)(get<1>(binned_depth) - get<0>(binned_depth)));
+            }
+            depth_map[get<0>(binned_depth)] = make_pair(get<2>(binned_depth), var);
+        }
+    }
+
+    return depth_index;
+}
+
+const pair<float, float>& get_depth_from_index(const unordered_map<string, map<size_t, pair<float, float>>>& depth_index,
+                                               const string& path_name, size_t offset) {
+
+    auto ub = depth_index.at(path_name).upper_bound(offset);
+    --ub;
+    return ub->second;
+}
+
+pair<float, float> get_depth_from_index(const BinnedDepthIndex& depth_index, const string& path_name, size_t start_offset, size_t end_offset) {
+    auto ub = depth_index.at(path_name).upper_bound(start_offset);
+    --ub;
+    auto ub_end = depth_index.at(path_name).upper_bound(end_offset);
+    size_t count = 0;
+    pair<float, float> total = make_pair(0, 0);
+    for (auto cur = ub; cur != ub_end; ++cur, ++count) {
+        total.first += cur->second.first;
+        total.second += cur->second.second;
+    }
+    // todo: better way of combining?
+    total.first /= (double)count;
+    total.second /= (double)count;
+    return total;
+}
 
 // draw (roughly) max_nodes nodes from the graph using the random seed
 static unordered_map<nid_t, size_t> sample_nodes(const HandleGraph& graph, size_t max_nodes, size_t random_seed) {
@@ -177,7 +225,7 @@ static pair<double, double> combine_and_average_node_coverages(const HandleGraph
         }
     }
 
-    return wellford_mean_var(count, mean, M2, count < graph.get_node_count());
+    return wellford_mean_var(count, mean, M2);
 }
 
 

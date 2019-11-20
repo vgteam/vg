@@ -74,8 +74,8 @@ protected:
     /// Sample name
     string sample_name;
 
-    /// output buffer (for sorting)
-    mutable vector<vcflib::Variant> output_variants;
+    /// output buffers (1/thread) (for sorting)
+    mutable vector<vector<vcflib::Variant>> output_variants;
 };
     
 /**
@@ -101,6 +101,9 @@ public:
                               const vector<size_t>& contig_length_overrides = {}) const;
 
 protected:
+
+    /// get path positions bounding a set of variants
+    tuple<string, size_t, size_t>  get_ref_positions(const vector<vcflib::Variant*>& variants) const;
 
     /// munge out the contig lengths from the VCF header
     virtual unordered_map<string, size_t> scan_contig_lengths() const;
@@ -145,7 +148,8 @@ protected:
 
     /// recursively genotype a snarl
     /// todo: can this be pushed to a more generic class? 
-    pair<vector<SnarlTraversal>, vector<int>> top_down_genotype(const Snarl& snarl, TraversalFinder& trav_finder, int ploidy) const;
+    pair<vector<SnarlTraversal>, vector<int>> top_down_genotype(const Snarl& snarl, TraversalFinder& trav_finder, int ploidy,
+                                                                const string& ref_path_name, pair<size_t, size_t> ref_interval) const;
     
     /// we need the reference traversal for VCF, but if the ref is not called, the above method won't find it. 
     SnarlTraversal get_reference_traversal(const Snarl& snarl, TraversalFinder& trav_finder) const;
@@ -153,10 +157,13 @@ protected:
     /// re-genotype output of top_down_genotype.  it may give slightly different results as
     /// it's working with fully-defined traversals and can exactly determine lengths and supports
     /// it will also make sure the reference traversal is in the beginning of the output
-    pair<vector<SnarlTraversal>, vector<int>> re_genotype(const Snarl& snarl, TraversalFinder& trav_finder,
+    pair<vector<SnarlTraversal>, vector<int>> re_genotype(const Snarl& snarl,
+                                                          TraversalFinder& trav_finder,
                                                           const vector<SnarlTraversal>& in_traversals,
                                                           const vector<int>& in_genotype,
-                                                          int ploidy) const;
+                                                          int ploidy,
+                                                          const string& ref_path_name,
+                                                          pair<size_t, size_t> ref_interval) const;
 
     /// print a vcf variant 
     void emit_variant(const Snarl& snarl, TraversalFinder& trav_finder, const vector<SnarlTraversal>& called_traversals,
@@ -168,9 +175,9 @@ protected:
     /// look up a path index for a site and return its name too
     pair<string, PathIndex*> find_index(const Snarl& snarl, const vector<PathIndex*> path_indexes) const;
 
-    /// get the position of a snarl from our reference path using the PathPositionHandleGraph interface
+    /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
     /// the bool is true if the snarl's backward on the path
-    pair<size_t, bool> get_ref_position(const Snarl& snarl, const string& ref_path_name) const;
+    tuple<size_t, size_t, bool> get_ref_interval(const Snarl& snarl, const string& ref_path_name) const;
 
     /// clean up the alleles to not share common prefixes / suffixes
     void flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const;
