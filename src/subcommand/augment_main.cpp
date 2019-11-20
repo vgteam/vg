@@ -44,7 +44,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << endl
          << "general options:" << endl
          << "    -i, --include-paths         merge the paths implied by alignments into the graph" << endl
-         << "    -C, --cut-softclips         drop softclips from the paths (recommended)" << endl
+         << "    -S, --keep-softclips        include softclips from input alignments (they are cut by default)" << endl
          << "    -B, --label-paths           don't augment with alignments, just use them for labeling the graph" << endl
          << "    -Z, --translation FILE      save translations from augmented back to base graph to FILE" << endl
          << "    -A, --alignment-out FILE    save augmented GAM reads to FILE" << endl
@@ -74,7 +74,7 @@ int main_augment(int argc, char** argv) {
     bool include_paths = false;
 
     // Include the softclips for each path
-    bool include_softclips = true;
+    bool include_softclips = false;
 
     // Just label the paths with the GAM
     bool label_paths = false;
@@ -122,6 +122,7 @@ int main_augment(int argc, char** argv) {
         {"alignment-out", required_argument, 0, 'A'},
         {"include-paths", no_argument, 0, 'i'},
         {"cut-softclips", no_argument, 0, 'C'},
+        {"keep-softclips", no_argument, 0, 'S'},
         {"label-paths", no_argument, 0, 'B'},
         {"subgraph", no_argument, 0, 's'},
         {"min-coverage", required_argument, 0, 'm'},
@@ -137,7 +138,7 @@ int main_augment(int argc, char** argv) {
         {"include-gt", required_argument, 0, 'L'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "a:Z:A:iCBhpvt:l:L:sm:c:q:Q:";
+    static const char* short_options = "a:Z:A:iCSBhpvt:l:L:sm:c:q:Q:";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -160,7 +161,10 @@ int main_augment(int argc, char** argv) {
             include_paths = true;
             break;
         case 'C':
-            include_softclips = false;
+            cerr << "[vg augment] warning: -C / --cut-softclips option is deprecated (now enabled by default)" << endl;
+            break;
+        case 'S':
+            include_softclips = true;
             break;
         case 'B':
             label_paths = true;
