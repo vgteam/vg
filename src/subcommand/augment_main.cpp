@@ -121,6 +121,7 @@ int main_augment(int argc, char** argv) {
         {"translation", required_argument, 0, 'Z'},
         {"alignment-out", required_argument, 0, 'A'},
         {"include-paths", no_argument, 0, 'i'},
+        {"cut-softclips", no_argument, 0, 'C'},
         {"keep-softclips", no_argument, 0, 'S'},
         {"label-paths", no_argument, 0, 'B'},
         {"subgraph", no_argument, 0, 's'},
