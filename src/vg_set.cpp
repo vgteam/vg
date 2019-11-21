@@ -1,72 +1,62 @@
 #include "vg_set.hpp"
 #include <vg/io/stream.hpp>
 #include "source_sink_overlay.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
+#include "io/save_handle_graph.hpp"
 
 namespace vg {
-// sets of VGs on disk
+// sets of MutablePathMutableHandleGraphs on disk
 
-void VGset::transform(std::function<void(VG*)> lambda) {
+void VGset::transform(std::function<void(MutableHandleGraph*)> lambda) {
     for (auto& name : filenames) {
         // load
-        VG* g = NULL;
-        if (name == "-") {
-            g = new VG(std::cin, show_progress & progress_bars);
-        } else {
-            ifstream in(name.c_str());
-            if (!in) throw ifstream::failure("failed to open " + name);
-            g = new VG(in, show_progress & progress_bars);
-            in.close();
+        unique_ptr<MutableHandleGraph> g;
+        get_input_file(name, [&](istream& in) {
+            // Note: I would have liked to just load a MutableHandleGraph here but the resulting pointer
+            // is broken (tested: VG and PackedGraph)
+            g = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(in);
+            });
+        // legacy:
+        VG* vg_g = dynamic_cast<VG*>(g.get());
+        if (vg_g != nullptr) {
+            vg_g->name = name;
         }
-        g->name = name;
         // apply
-        lambda(g);
+        lambda(g.get());
         // write to the same file
-        ofstream out(name.c_str());
-        g->serialize_to_ostream(out);
-        out.close();
-        delete g;
+        vg::io::save_handle_graph(g.get(), name);
     }
 }
 
-void VGset::for_each(std::function<void(VG*)> lambda) {
+void VGset::for_each(std::function<void(HandleGraph*)> lambda) {
     for (auto& name : filenames) {
         // load
-        VG* g = NULL;
-        if (name == "-") {
-            g = new VG(std::cin, show_progress & progress_bars);
-        } else {
-            ifstream in(name.c_str());
-            if (!in) throw ifstream::failure("failed to open " + name);
-            g = new VG(in, show_progress & progress_bars);
-            in.close();
-        }
-        g->name = name;
+        unique_ptr<HandleGraph> g;
+        get_input_file(name, [&](istream& in) {
+                g = vg::io::VPKG::load_one<HandleGraph>(in);
+            });
+        // legacy:
+        VG* vg_g = dynamic_cast<VG*>(g.get());
+        if (vg_g != nullptr) {
+            vg_g->name = name;
+        }        
         // apply
-        lambda(g);
-        delete g;
-    }
-}
-
-void VGset::for_each_graph_chunk(std::function<void(Graph&)> lamda) {
-    for (auto& name : filenames) {
-        ifstream in(name.c_str());
-        vg::io::for_each(in, lamda);
+        lambda(g.get());
     }
 }
 
 id_t VGset::max_node_id(void) {
     id_t max_id = 0;
-    for_each_graph_chunk([&](const Graph& graph) {
-            for (size_t i = 0; i < graph.node_size(); ++i) {
-                max_id = max(graph.node(i).id(), max_id);
-            }
+    for_each([&](HandleGraph* graph) {
+            max_id = max(graph->max_node_id(), max_id);
         });
     return max_id;
 }
 
 int64_t VGset::merge_id_space(void) {
     int64_t max_node_id = 0;
-    auto lambda = [&max_node_id](VG* g) {
+    auto lambda = [&max_node_id](MutableHandleGraph* g) {
         if (max_node_id > 0) g->increment_node_ids(max_node_id);
         max_node_id = g->max_node_id();
     };
@@ -183,9 +173,13 @@ void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_t
 }
 
 void VGset::for_each_kmer_parallel(size_t kmer_size, const function<void(const kmer_t&)>& lambda) {
-    for_each([&lambda, kmer_size, this](VG* g) {
-        g->show_progress = show_progress & progress_bars;
-        g->preload_progress("processing kmers of " + g->name);
+    for_each([&lambda, kmer_size, this](HandleGraph* g) {
+            // legacy
+            VG* vg_g = dynamic_cast<VG*>(g);
+            if (vg_g != nullptr) {
+                vg_g->show_progress = show_progress & progress_bars;
+                vg_g->preload_progress("processing kmers of " + vg_g->name);
+            }
         //g->for_each_kmer_parallel(kmer_size, path_only, edge_max, lambda, stride, allow_dups, allow_negatives);
         for_each_kmer(*g, kmer_size, lambda);
     });
@@ -209,7 +203,7 @@ void VGset::write_gcsa_kmers_ascii(ostream& out, int kmer_size,
         cout << kp << endl;
     };
 
-    for_each([&](VG* g) {
+    for_each([&](HandleGraph* g) {
         // Make an overlay for each graph, without modifying it. Break into tip-less cycle components.
         // Make sure to use a consistent head and tail ID across all graphs in the set.
         SourceSinkOverlay overlay(g, kmer_size, head_id, tail_id);
@@ -234,7 +228,7 @@ void VGset::write_gcsa_kmers_binary(ostream& out, int kmer_size, size_t& size_li
     }
 
     size_t total_size = 0;
-    for_each([&](VG* g) {
+    for_each([&](HandleGraph* g) {
         // Make an overlay for each graph, without modifying it. Break into tip-less cycle components.
         // Make sure to use a consistent head and tail ID across all graphs in the set.
         SourceSinkOverlay overlay(g, kmer_size, head_id, tail_id);
@@ -262,7 +256,7 @@ vector<string> VGset::write_gcsa_kmers_binary(int kmer_size, size_t& size_limit,
 
     vector<string> tmpnames;
     size_t total_size = 0;
-    for_each([&](VG* g) {
+    for_each([&](HandleGraph* g) {
         // Make an overlay for each graph, without modifying it. Break into tip-less cycle components.
         // Make sure to use a consistent head and tail ID across all graphs in the set.
         SourceSinkOverlay overlay(g, kmer_size, head_id, tail_id);

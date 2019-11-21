@@ -26,6 +26,7 @@
 #include "../vg.hpp"
 #include "../augment.hpp"
 #include "../packer.hpp"
+#include "../io/save_handle_graph.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/mutable_path_mutable_handle_graph.hpp>
@@ -33,6 +34,7 @@
 #include "bdsg/hash_graph.hpp"
 #include "bdsg/odgi.hpp"
 #include <bdsg/overlay_helper.hpp>
+
 
 using namespace std;
 using namespace vg;
@@ -388,19 +390,8 @@ int main_augment(int argc, char** argv) {
         }
     } 
 
-    // Serialize the graph using VPKG.  Todo: is there away to do this in one line?
-    // could just call serialie() directly if willing to forego vpkg...
-    if (vg_graph != nullptr) {
-        vg::io::VPKG::save(*vg_graph, cout);
-    } else if (dynamic_cast<bdsg::HashGraph*>(graph.get()) != nullptr) {
-        vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph*>(graph.get()), cout);
-    } else if (dynamic_cast<bdsg::PackedGraph*>(graph.get()) != nullptr) {
-        vg::io::VPKG::save(*dynamic_cast<bdsg::PackedGraph*>(graph.get()), cout);
-    } else if (dynamic_cast<bdsg::ODGI*>(graph.get()) != nullptr) {
-        vg::io::VPKG::save(*dynamic_cast<bdsg::ODGI*>(graph.get()), cout);
-    } else {
-        throw runtime_error("Internal error: vg augment cannot output this graph format");
-    }
+    // Serialize the graph using VPKG.
+    vg::io::save_handle_graph(graph.get(), cout);
     
     return 0;
 }

@@ -15,7 +15,14 @@
 #include "../vg.hpp"
 #include "../vg_set.hpp"
 #include "../algorithms/topological_sort.hpp"
-
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
+#include <handlegraph/mutable_path_mutable_handle_graph.hpp>
+#include "bdsg/packed_graph.hpp"
+#include "bdsg/hash_graph.hpp"
+#include "bdsg/odgi.hpp"
+#include <bdsg/overlay_helper.hpp>
+#include "../io/save_handle_graph.hpp"
 #include <gcsa/support.h>
 
 using namespace std;
@@ -110,19 +117,30 @@ int main_ids(int argc, char** argv) {
     }
 
     if (!join && mapping_name.empty()) {
-        VG* graph;
+        unique_ptr<MutablePathMutableHandleGraph> graph;
         get_input_file(optind, argc, argv, [&](istream& in) {
-            graph = new VG(in);
-        });
+                graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(in);
+            });
 
         if (sort) {
             // Set up the nodes so we go through them in topological order
-            graph->sort();
+            graph->apply_ordering(algorithms::topological_order(graph.get()), true);
         }
 
-        if (compact || sort) {
+        if (compact && !sort) {
             // Compact only, or compact to re-assign IDs after sort
-            graph->compact_ids();
+            VG* vg_graph = dynamic_cast<VG*>(graph.get());
+            if (vg_graph != nullptr) {
+                vg_graph->compact_ids();
+            } else {
+                // try to use thie compact-option from apply_ordering
+                vector<handle_t> graph_ordering(graph->get_node_count());
+                size_t i = 0;
+                graph->for_each_handle([&](handle_t handle) {
+                        graph_ordering[i++] = handle;
+                    });
+                graph->apply_ordering(graph_ordering, true);
+            }
         }
 
         if (increment != 0) {
@@ -130,11 +148,10 @@ int main_ids(int argc, char** argv) {
         }
 
         if (decrement != 0) {
-            graph->decrement_node_ids(decrement);
+            graph->increment_node_ids(-increment);
         }
 
-        graph->serialize_to_ostream(std::cout);
-        delete graph;
+        vg::io::save_handle_graph(graph.get(), cout);
     } else {
 
         vector<string> graph_file_names;
