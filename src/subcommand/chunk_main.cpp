@@ -446,7 +446,9 @@ int main_chunk(int argc, char** argv) {
         graph->for_each_path_handle([&](path_handle_t path_handle) {
                 Region region;
                 region.seq = graph->get_path_name(path_handle);
-                regions.push_back(region);
+                if (!Paths::is_alt(region.seq)) {
+                    regions.push_back(region);
+                }
             });
     }
 
