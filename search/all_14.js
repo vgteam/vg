@@ -119,7 +119,7 @@ var searchData=
   ['transcriptpath',['TranscriptPath',['../structvg_1_1TranscriptPath.html',1,'vg::TranscriptPath'],['../structvg_1_1TranscriptPath.html#a94a5ceb6d352a94e6401b3ed0342a834',1,'vg::TranscriptPath::TranscriptPath()']]],
   ['transfer_5fboundary_5finfo',['transfer_boundary_info',['../namespacevg.html#a82a83d7c54d733abee06d328f91ef5ee',1,'vg']]],
   ['transfer_5fread_5fmetadata',['transfer_read_metadata',['../namespacevg.html#a741300a76b92c74a269946d7f859646c',1,'vg::transfer_read_metadata(const MultipathAlignment &amp;from, MultipathAlignment &amp;to)'],['../namespacevg.html#a43d6f299474100353ddcec9cc68a14b2',1,'vg::transfer_read_metadata(const Alignment &amp;from, MultipathAlignment &amp;to)'],['../namespacevg.html#af5a29ae37efd47f324b7d9d50f132271',1,'vg::transfer_read_metadata(const MultipathAlignment &amp;from, Alignment &amp;to)']]],
-  ['transform',['transform',['../classvg_1_1VGset.html#aef816efa3263b3ff29783143ed645898',1,'vg::VGset']]],
+  ['transform',['transform',['../classvg_1_1VGset.html#aaa5f1b0e3e71bb00a5ad82f210065e81',1,'vg::VGset']]],
   ['transition_5fdistrs_5f1',['transition_distrs_1',['../classvg_1_1NGSSimulator.html#a571f3ff879e38077e8d7dad879157d55',1,'vg::NGSSimulator']]],
   ['transition_5fdistrs_5f2',['transition_distrs_2',['../classvg_1_1NGSSimulator.html#ad3d0c480b5ecd2fa7c5209d86b41911d',1,'vg::NGSSimulator']]],
   ['transitive_5fsibling_5fsets',['transitive_sibling_sets',['../classvg_1_1VG.html#afce50214291804f0d9bdf9bcd39125a4',1,'vg::VG']]],
