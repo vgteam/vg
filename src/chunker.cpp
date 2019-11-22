@@ -19,7 +19,7 @@ PathChunker::~PathChunker() {
 
 }
 
-void PathChunker::extract_subgraph(const Region& region, int context, int length, bool forward_only,
+void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_t length, bool forward_only,
                                    MutablePathMutableHandleGraph& subgraph, Region& out_region) {
     // This method still depends on VG
     // (not a super high priority to port, as calling can now be done at genome scale and we no longer
@@ -277,7 +277,29 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     out_region.end = input_end_pos + graph->get_length(end_handle) + right_padding - 1;
 }
 
-void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context, int length,
+void PathChunker::extract_path_component(const string& path_name, MutablePathMutableHandleGraph& subgraph, Region& out_region) {
+    unordered_set<nid_t> path_ids;
+
+    path_handle_t path_handle = graph->get_path_handle(path_name);
+    for (handle_t handle : graph->scan_path(path_handle)) {
+        path_ids.insert(graph->get_id(handle));
+    }
+    
+    extract_component(path_ids, subgraph);
+    out_region.seq = path_name;
+}
+
+void PathChunker::extract_component(const unordered_set<nid_t>& node_ids, MutablePathMutableHandleGraph& subgraph) {
+
+    for (nid_t node_id : node_ids) {
+        subgraph.create_handle(graph->get_sequence(graph->get_handle(node_id)), node_id);
+    }
+
+    algorithms::expand_subgraph_by_steps(*graph, subgraph, numeric_limits<uint64_t>::max());
+    algorithms::add_subpaths_to_subgraph(*graph, subgraph);
+}
+
+void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int64_t context, int64_t length,
                                    bool forward_only, MutablePathMutableHandleGraph& subgraph,
                                    Region& out_region) {
 
@@ -299,7 +321,7 @@ void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context, in
 }
 
 set<pair<pair<id_t, bool>, pair<id_t, bool>>> PathChunker::get_path_edge_index(step_handle_t start_step,
-                                                                               step_handle_t end_step, int context) const {
+                                                                               step_handle_t end_step, int64_t context) const {
     // we don't use handles as we're going to use this structure to compare edges across different graphs
     set<pair<pair<id_t, bool>, pair<id_t, bool>>> path_edges;
 

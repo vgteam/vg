@@ -8,7 +8,7 @@ void expand_subgraph_by_steps(const HandleGraph& source, MutableHandleGraph& sub
     subgraph.for_each_handle([&](const handle_t& h) {
             curr_handles.push_back(h);
         });
-    for (uint64_t i = 0; i < steps; ++i) {
+    for (uint64_t i = 0; i < steps && !curr_handles.empty(); ++i) {
         std::vector<handle_t> next_handles;
         for (auto& h : curr_handles) {
             handle_t old_h = source.get_handle(subgraph.get_id(h));

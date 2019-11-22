@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 17
+plan tests 20
 
 # Construct a graph with alt paths so we can make a gPBWT and later a GBWT
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
@@ -61,3 +61,31 @@ is $(cat x.chunk/*vg | vg view -V - | grep -v P 2>/dev/null | sort |  md5sum | c
 rm -rf x.sorted.gam x.sorted.gam.gai _chunk_test_bed.bed _chunk_test* x.chunk
 rm -f x.vg x.xg x.gbwt x.gam.json filter_chunk*.gam chunks.bed
 rm -f chunk_*.annotate.txt
+
+vg construct -r small/xy.fa -v small/xy.vcf.gz > xy.vg
+vg construct -r small/xy.fa -v small/xy.vcf.gz -R x > x.vg
+vg construct -r small/xy.fa -v small/xy.vcf.gz -R y > y.vg
+# test that exploding into components works
+vg chunk -x xy.vg -M -b path_chunk -O hg
+vg view x.vg | grep "^S" | awk '{print $3}' | sort > x_nodes.txt
+vg view y.vg | grep "^S" | awk '{print $3}' | sort > y_nodes.txt
+vg convert path_chunk_x.hg -v | vg view - | grep "^S" | awk '{print $3}' | sort > pc_x_nodes.txt
+vg convert path_chunk_y.hg -v | vg view - | grep "^S" | awk '{print $3}' | sort > pc_y_nodes.txt
+diff x_nodes.txt pc_x_nodes.txt && diff y_nodes.txt pc_y_nodes.txt
+is "$?" 0 "path-based components finds subgraphs"
+vg paths -v x.vg -E > x_paths.txt
+vg paths -v path_chunk_x.hg -E > pc_x_paths.txt
+diff pc_x_paths.txt x_paths.txt
+is "$?" 0 "path-based component contains correct path length"
+vg chunk -x xy.vg -C -b components_chunk
+vg view components_chunk_0.vg | grep "^S" | awk '{print $3}' > comp_0_nodes.txt
+vg view components_chunk_1.vg | grep "^S" | awk '{print $3}' > comp_1_nodes.txt
+cat comp_0_nodes.txt comp_1_nodes.txt | sort > comp_nodes.txt
+cat x_nodes.txt y_nodes.txt | sort > nodes.txt
+diff comp_nodes.txt nodes.txt
+is "$?" 0 "components finds subgraphs"
+
+rm -f xy.vg x.vg y.vg x_nodes.txt y_nodes.txt convert path_chunk_x.hg  convert path_chunk_y.hg pc_x_nodes.txt pc_y_nodes.txt x_paths.txt pc_x_paths.txt components_chunk_0.vg components_chunk_1.vg comp_0_nodes.txt comp_1_nodes.txt comp_nodes.txt nodes.txt
+
+
+
