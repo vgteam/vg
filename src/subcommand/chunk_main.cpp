@@ -22,6 +22,8 @@
 #include "../haplotype_extracter.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
 #include <bdsg/overlay_helper.hpp>
+#include "../io/save_handle_graph.hpp"
+#include "convert_handle.hpp"
 
 using namespace std;
 using namespace vg;
@@ -68,6 +70,7 @@ void help_chunk(char** argv) {
          << "    -T, --trace              trace haplotype threads in chunks (and only expand forward from input coordinates)." << endl
          << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl 
          << "    -f, --fully-contained    only return GAM alignments that are fully contained within chunk" << endl
+         << "    -O, --output-fmt         Specifiy output format (vg, pg, hg).  [VG]" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }
@@ -100,6 +103,7 @@ int main_chunk(int argc, char** argv) {
     bool fully_contained = false;
     int n_chunks = 0;
     size_t gam_split_size = 0;
+    string output_format = "vg";
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -127,11 +131,12 @@ int main_chunk(int argc, char** argv) {
             {"n-chunks", required_argument, 0, 'n'},
             {"context-length", required_argument, 0, 'l'},
             {"gam-split-size", required_argument, 0, 'm'},
+            {"output-fmt", required_argument, 0, 'O'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:G:a:gp:P:s:o:e:E:b:c:r:R:Tft:n:l:m:",
+        c = getopt_long (argc, argv, "hx:G:a:gp:P:s:o:e:E:b:c:r:R:Tft:n:l:m:O:",
                 long_options, &option_index);
 
 
@@ -226,6 +231,10 @@ int main_chunk(int argc, char** argv) {
             threads = parse<int>(optarg);
             break;
 
+        case 'O':
+            output_format = optarg;
+            break;
+
         case 'h':
         case '?':
             help_chunk(argv);
@@ -261,6 +270,13 @@ int main_chunk(int argc, char** argv) {
             cerr << "error:[vg chunk] context expansion steps must be specified with -c/--context when chunking on paths" << endl;
             return 1;
         }
+    }
+
+    // check the output format
+    std::transform(output_format.begin(), output_format.end(), output_format.begin(), ::tolower);
+    if (!vg::io::valid_output_format(output_format)) {
+        cerr << "error[vg chunk]: invalid ouput format" << endl;
+        return 1;
     }
 
     // figure out which outputs we want.  the graph always
@@ -518,15 +534,16 @@ int main_chunk(int argc, char** argv) {
         int tid = omp_get_thread_num();
         Region& region = regions[i];
         PathChunker& chunker = chunkers[tid];
-        VG* subgraph = NULL;
+        MutablePathMutableHandleGraph* subgraph = NULL;
         map<string, int> trace_thread_frequencies;
         if (id_range == false) {
-            subgraph = new VG();
+            subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
             chunker.extract_subgraph(region, context_steps, context_length,
                                      trace, *subgraph, output_regions[i]);
+            
         } else {
             if (chunk_graph || context_steps > 0) {
-                subgraph = new VG();
+                subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
                 output_regions[i].seq = region.seq;
                 chunker.extract_id_range(region.start, region.end,
                                          context_steps, context_length, trace,
@@ -556,9 +573,23 @@ int main_chunk(int argc, char** argv) {
             Graph g;
             trace_haplotypes_and_paths(*graph, *gbwt_index.get(), trace_start, trace_steps,
                                        g, trace_thread_frequencies, false);
-            subgraph->paths.for_each([&trace_thread_frequencies](const Path& path) {
-                    trace_thread_frequencies[path.name()] = 1;});            
-            subgraph->extend(g);
+            subgraph->for_each_path_handle([&trace_thread_frequencies, &subgraph](path_handle_t path_handle) {
+                    trace_thread_frequencies[subgraph->get_path_name(path_handle)] = 1;});
+            VG* vg_subgraph = dynamic_cast<VG*>(subgraph);
+            if (vg_subgraph != nullptr) {
+                // our graph is in vg format, just extend it
+                vg_subgraph->extend(g);
+            } else {
+                // our graph is not in vg format.  covert it, extend it, convert it back
+                // this can eventually be avoided by handlifying the haplotype tracer
+                vg_subgraph = new VG();
+                convert_path_handle_graph(subgraph, vg_subgraph);
+                delete subgraph;
+                vg_subgraph->extend(g);
+                subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
+                convert_path_handle_graph(vg_subgraph, subgraph);
+                delete vg_subgraph;
+            }
         }
 
         ofstream out_file;
@@ -580,8 +611,8 @@ int main_chunk(int argc, char** argv) {
                 }
                 out_stream = &out_file;
             }
-            
-            subgraph->serialize_to_ostream(*out_stream);
+
+            vg::io::save_handle_graph(subgraph, *out_stream);
         }
         
         // optional gam chunking

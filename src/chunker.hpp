@@ -40,13 +40,13 @@ public:
      * inclusive. 
      * */
     void extract_subgraph(const Region& region, int context, int length, bool forward_only,
-                          VG& subgraph, Region& out_region);
+                          MutablePathMutableHandleGraph& subgraph, Region& out_region);
 
     /**
      * Like above, but use (inclusive) id range instead of region on path.
      */
     void extract_id_range(vg::id_t start, vg::id_t end, int context, int length, bool forward_only,
-                         VG& subgraph, Region& out_region);
+                         MutablePathMutableHandleGraph& subgraph, Region& out_region);
 
     /**
      * Get a set of all edges in the graph along a path region (to check for discontinuities later on)

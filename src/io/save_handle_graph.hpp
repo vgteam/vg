@@ -56,7 +56,26 @@ inline void save_handle_graph(HandleGraph* graph, const string& dest_path) {
         throw runtime_error("Internal error: unable to serialize graph");
     }    
 }
-    
+
+// Check that output format specifier is a valid graph type
+inline bool valid_output_format(const string& fmt_string) {
+    return fmt_string == "vg" || fmt_string == "pg" || fmt_string == "hg";
+}
+
+// Create a new graph (of handle graph type T) where the implementation is chosen using the format string
+template<class T>
+T* new_output_graph(const string& fmt_string) {
+    if (fmt_string == "vg") {
+        return new VG();
+    } else if (fmt_string == "pg") {
+        return new bdsg::PackedGraph();
+    } else if (fmt_string == "hg") {
+        return new bdsg::HashGraph();
+    } else {
+        return nullptr;
+    }
+}
+
 }
 
 }

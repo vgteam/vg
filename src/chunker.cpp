@@ -3,6 +3,7 @@
 #include <vg/io/stream.hpp>
 #include "chunker.hpp"
 #include "algorithms/subgraph.hpp"
+#include "convert_handle.hpp"
 
 //#define debug
 
@@ -19,7 +20,16 @@ PathChunker::~PathChunker() {
 }
 
 void PathChunker::extract_subgraph(const Region& region, int context, int length, bool forward_only,
-                                   VG& subgraph, Region& out_region) {
+                                   MutablePathMutableHandleGraph& subgraph, Region& out_region) {
+    // This method still depends on VG
+    // (not a super high priority to port, as calling can now be done at genome scale and we no longer
+    // have to chunk up paths)
+    VG* vg_subgraph = dynamic_cast<VG*>(&subgraph);
+    if (vg_subgraph == nullptr) {
+        vg_subgraph = new VG();
+        assert(subgraph.get_node_count() == 0);
+    }
+    
     // extract our path range into the graph
     path_handle_t path_handle = graph->get_path_handle(region.seq);
     step_handle_t start_step = graph->get_step_at_position(path_handle, region.start);
@@ -42,28 +52,28 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
         if (graph->get_is_reverse(step_handle)) {
             step_handle = graph->flip(step_handle);
         }
-        if (!subgraph.has_node(graph->get_id(step_handle))) {
-            subgraph.create_handle(graph->get_sequence(step_handle), graph->get_id(step_handle));
+        if (!vg_subgraph->has_node(graph->get_id(step_handle))) {
+            vg_subgraph->create_handle(graph->get_sequence(step_handle), graph->get_id(step_handle));
         }
     };
     // expand the context and get path information
     // if forward_only true, then we only go forward.
     if (context > 0) {
-        algorithms::expand_subgraph_by_steps(*graph, subgraph, context, forward_only);
+        algorithms::expand_subgraph_by_steps(*graph, *vg_subgraph, context, forward_only);
     }
     if (length > 0) {
-        algorithms::expand_subgraph_by_length(*graph, subgraph, context, forward_only);
+        algorithms::expand_subgraph_by_length(*graph, *vg_subgraph, context, forward_only);
     }
     else if (context == 0 && length == 0) {
-        algorithms::add_connecting_edges_to_subgraph(*graph, subgraph);
+        algorithms::add_connecting_edges_to_subgraph(*graph, *vg_subgraph);
     }
-    algorithms::add_subpaths_to_subgraph(*graph, subgraph);
+    algorithms::add_subpaths_to_subgraph(*graph, *vg_subgraph);
         
     // build the vg of the subgraph
-    subgraph.remove_orphan_edges();
+    vg_subgraph->remove_orphan_edges();
 
     // get our range endpoints before context expansion
-    list<mapping_t>& mappings = subgraph.paths.get_path(region.seq);
+    list<mapping_t>& mappings = vg_subgraph->paths.get_path(region.seq);
     assert(!mappings.empty());
     size_t mappings_size = mappings.size();
     int64_t input_start_node = graph->get_id(start_handle);
@@ -126,13 +136,13 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
             for (; prev_it != mappings.begin(); --prev_it) {
                 cur_it = prev_it;
                 --cur_it;
-                handle_t  prev_handle = subgraph.get_handle(prev_it->node_id(),
+                handle_t  prev_handle = vg_subgraph->get_handle(prev_it->node_id(),
                                                             prev_it->is_reverse());
-                handle_t cur_handle = subgraph.get_handle(cur_it->node_id(),
+                handle_t cur_handle = vg_subgraph->get_handle(cur_it->node_id(),
                                                           cur_it->is_reverse());
-                edge_t edge = subgraph.edge_handle(cur_handle, prev_handle);
-                if (!path_edge_set.count(make_pair(make_pair(subgraph.get_id(edge.first), subgraph.get_is_reverse(edge.first)),
-                                                   make_pair(subgraph.get_id(edge.second), subgraph.get_is_reverse(edge.second))))) {
+                edge_t edge = vg_subgraph->edge_handle(cur_handle, prev_handle);
+                if (!path_edge_set.count(make_pair(make_pair(vg_subgraph->get_id(edge.first), vg_subgraph->get_is_reverse(edge.first)),
+                                                   make_pair(vg_subgraph->get_id(edge.second), vg_subgraph->get_is_reverse(edge.second))))) {
 #ifdef debug
 #pragma omp critical(cerr)
                     {
@@ -150,13 +160,13 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
         cur_it = end_it;
         prev_it = cur_it;
         for (++cur_it; cur_it != mappings.end(); ++prev_it, ++cur_it) {
-            handle_t  prev_handle = subgraph.get_handle(prev_it->node_id(),
+            handle_t  prev_handle = vg_subgraph->get_handle(prev_it->node_id(),
                                                         prev_it->is_reverse());
-            handle_t cur_handle = subgraph.get_handle(cur_it->node_id(),
+            handle_t cur_handle = vg_subgraph->get_handle(cur_it->node_id(),
                                                       cur_it->is_reverse());
-            edge_t edge = subgraph.edge_handle(prev_handle, cur_handle);
-            if (!path_edge_set.count(make_pair(make_pair(subgraph.get_id(edge.first), subgraph.get_is_reverse(edge.first)),
-                                               make_pair(subgraph.get_id(edge.second), subgraph.get_is_reverse(edge.second))))) {
+            edge_t edge = vg_subgraph->edge_handle(prev_handle, cur_handle);
+            if (!path_edge_set.count(make_pair(make_pair(vg_subgraph->get_id(edge.first), vg_subgraph->get_is_reverse(edge.first)),
+                                               make_pair(vg_subgraph->get_id(edge.second), vg_subgraph->get_is_reverse(edge.second))))) {
 #ifdef debug
 #pragma omp critical(cerr)
                     {
@@ -192,64 +202,70 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
 
     // Cut our graph so that our reference path end points are graph tips.  This will let the
     // snarl finder use the path to find telomeres.
-    path_handle_t sg_path_handle = subgraph.get_path_handle(region.seq);
-    Node* start_node = subgraph.get_node(mappings.begin()->node_id());
-    auto sg_start_steps = path_steps_of_handle(subgraph, subgraph.get_handle(start_node->id()), sg_path_handle); 
+    path_handle_t sg_path_handle = vg_subgraph->get_path_handle(region.seq);
+    Node* start_node = vg_subgraph->get_node(mappings.begin()->node_id());
+    auto sg_start_steps = path_steps_of_handle(*vg_subgraph, vg_subgraph->get_handle(start_node->id()), sg_path_handle); 
     if (rewrite_paths && sg_start_steps.size() == 1) {
-        if (!mappings.begin()->is_reverse() && subgraph.start_degree(start_node) != 0) {
-            for (auto edge : subgraph.edges_to(start_node)) {
+        if (!mappings.begin()->is_reverse() && vg_subgraph->start_degree(start_node) != 0) {
+            for (auto edge : vg_subgraph->edges_to(start_node)) {
 #ifdef debug
 #pragma omp crticial(cerr)
                 {
                     cerr << "clipping out edge " << pb2json(*edge) << " in order to make path start a tip" << endl;
                 }
 #endif
-                subgraph.destroy_edge(edge);
+                vg_subgraph->destroy_edge(edge);
             }
-        } else if (mappings.begin()->is_reverse() && subgraph.end_degree(start_node) != 0) {
-            for (auto edge : subgraph.edges_from(start_node)) {
+        } else if (mappings.begin()->is_reverse() && vg_subgraph->end_degree(start_node) != 0) {
+            for (auto edge : vg_subgraph->edges_from(start_node)) {
 #ifdef debug
 #pragma omp crticial(cerr)
                 {
                     cerr << "clipping out edge " << pb2json(*edge) << " in order to make path start a tip" << endl;
                 }
 #endif
-                subgraph.destroy_edge(edge);
+                vg_subgraph->destroy_edge(edge);
             }
         }
     }
-    Node* end_node = subgraph.get_node(mappings.rbegin()->node_id());
-    auto sg_end_steps = path_steps_of_handle(subgraph, subgraph.get_handle(end_node->id()), sg_path_handle); 
+    Node* end_node = vg_subgraph->get_node(mappings.rbegin()->node_id());
+    auto sg_end_steps = path_steps_of_handle(*vg_subgraph, vg_subgraph->get_handle(end_node->id()), sg_path_handle); 
     if (rewrite_paths && sg_end_steps.size() == 1) {
-        if (!mappings.rbegin()->is_reverse() && subgraph.end_degree(end_node) != 0) {
-            for (auto edge : subgraph.edges_from(end_node)) {
+        if (!mappings.rbegin()->is_reverse() && vg_subgraph->end_degree(end_node) != 0) {
+            for (auto edge : vg_subgraph->edges_from(end_node)) {
 #ifdef debug
 #pragma omp crticial(cerr)
                 {
                     cerr << "clipping out edge " << pb2json(*edge) << " in order to make path end a tip" << endl;
                 }
 #endif
-                subgraph.destroy_edge(edge);
+                vg_subgraph->destroy_edge(edge);
             }
-        } else if (mappings.rbegin()->is_reverse() && subgraph.start_degree(end_node) != 0) {
-            for (auto edge : subgraph.edges_to(end_node)) {
+        } else if (mappings.rbegin()->is_reverse() && vg_subgraph->start_degree(end_node) != 0) {
+            for (auto edge : vg_subgraph->edges_to(end_node)) {
 #ifdef debug
 #pragma omp crticial(cerr)
                 {
                     cerr << "clipping out edge " << pb2json(*edge) << " in order to make path end a tip" << endl;
                 }
 #endif
-                subgraph.destroy_edge(edge);
+                vg_subgraph->destroy_edge(edge);
             }
         }
     }
 
     // Sync our updated paths lists back into the Graph protobuf
     if (rewrite_paths) {
-        subgraph.paths.rebuild_node_mapping();
-        subgraph.paths.rebuild_mapping_aux();
-        subgraph.graph.clear_path();
-        subgraph.paths.to_graph(subgraph.graph);
+        vg_subgraph->paths.rebuild_node_mapping();
+        vg_subgraph->paths.rebuild_mapping_aux();
+        vg_subgraph->graph.clear_path();
+        vg_subgraph->paths.to_graph(vg_subgraph->graph);
+    }
+
+    // copy back out of vg if necessary
+    if (dynamic_cast<VG*>(&subgraph) == nullptr) {
+        convert_path_handle_graph(vg_subgraph, &subgraph);
+        delete vg_subgraph;
     }
 
     // start could fall inside a node.  we find out where in the path the
@@ -262,32 +278,22 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
 }
 
 void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context, int length,
-                                   bool forward_only, VG& subgraph,
+                                   bool forward_only, MutablePathMutableHandleGraph& subgraph,
                                    Region& out_region) {
 
-    Graph g;
-
     for (vg::id_t i = start; i <= end; ++i) {
-        Node node;
-        node.set_id(i);
-        node.set_sequence(graph->get_sequence(graph->get_handle(i)));
-        *g.add_node() = node;
+        subgraph.create_handle(graph->get_sequence(graph->get_handle(i)), i);
     }
 
-    VG vg_g(g);
-    
     // expand the context and get path information
     // if forward_only true, then we only go forward.
-    algorithms::expand_subgraph_by_steps(*graph, vg_g, context, forward_only);
+    algorithms::expand_subgraph_by_steps(*graph, subgraph, context, forward_only);
     if (length) {
-        algorithms::expand_subgraph_by_length(*graph, vg_g, context, forward_only);
+        algorithms::expand_subgraph_by_length(*graph, subgraph, context, forward_only);
     }
-    algorithms::add_subpaths_to_subgraph(*graph, vg_g);
+    algorithms::add_subpaths_to_subgraph(*graph, subgraph);
 
     // build the vg
-    subgraph.extend(vg_g);
-    subgraph.remove_orphan_edges();
-
     out_region.start = subgraph.min_node_id();
     out_region.end = subgraph.max_node_id();
 }
