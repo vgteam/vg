@@ -80,12 +80,16 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a5b31a6a4f865a99818f69be54b7f9e40"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a49b9500998c8e6faace1206d587ac67d"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathChunker.html#a49b9500998c8e6faace1206d587ac67d">~PathChunker</a> ()</td></tr>
 <tr class="separator:a49b9500998c8e6faace1206d587ac67d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a731b8de30777f3bba638534326806cc2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathChunker.html#a731b8de30777f3bba638534326806cc2">extract_subgraph</a> (const <a class="el" href="structvg_1_1Region.html">Region</a> &amp;region, int context, int length, bool forward_only, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;subgraph, <a class="el" href="structvg_1_1Region.html">Region</a> &amp;out_region)</td></tr>
-<tr class="separator:a731b8de30777f3bba638534326806cc2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a953946c82b6026d52568efcb1198bac1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathChunker.html#a953946c82b6026d52568efcb1198bac1">extract_id_range</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">vg::id_t</a> start, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">vg::id_t</a> end, int context, int length, bool forward_only, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;subgraph, <a class="el" href="structvg_1_1Region.html">Region</a> &amp;out_region)</td></tr>
-<tr class="separator:a953946c82b6026d52568efcb1198bac1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6ffd28fbf58152e571d536f907403311"><td class="memItemLeft" align="right" valign="top">set&lt; pair&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathChunker.html#a6ffd28fbf58152e571d536f907403311">get_path_edge_index</a> (<a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> start_step, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> end_step, int context) const</td></tr>
-<tr class="separator:a6ffd28fbf58152e571d536f907403311"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a90aac076d1669b467ca5ca5868c7ed2e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathChunker.html#a90aac076d1669b467ca5ca5868c7ed2e">extract_subgraph</a> (const <a class="el" href="structvg_1_1Region.html">Region</a> &amp;region, int64_t context, int64_t length, bool forward_only, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> &amp;subgraph, <a class="el" href="structvg_1_1Region.html">Region</a> &amp;out_region)</td></tr>
+<tr class="separator:a90aac076d1669b467ca5ca5868c7ed2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aca0d2bec2834fdc534d42238a0a53b46"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathChunker.html#aca0d2bec2834fdc534d42238a0a53b46">extract_path_component</a> (const string &amp;path_name, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> &amp;subgraph, <a class="el" href="structvg_1_1Region.html">Region</a> &amp;out_region)</td></tr>
+<tr class="separator:aca0d2bec2834fdc534d42238a0a53b46"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a99497d311a2a2adfc4d7a78f8b6d7f54"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathChunker.html#a99497d311a2a2adfc4d7a78f8b6d7f54">extract_component</a> (const unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;node_ids, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> &amp;subgraph)</td></tr>
+<tr class="separator:a99497d311a2a2adfc4d7a78f8b6d7f54"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a140b4a86b4f8ea18d29a39c7b1aab66f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathChunker.html#a140b4a86b4f8ea18d29a39c7b1aab66f">extract_id_range</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">vg::id_t</a> start, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">vg::id_t</a> end, int64_t context, int64_t length, bool forward_only, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> &amp;subgraph, <a class="el" href="structvg_1_1Region.html">Region</a> &amp;out_region)</td></tr>
+<tr class="separator:a140b4a86b4f8ea18d29a39c7b1aab66f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aef30dd2569597b64d36b19824ebee37f"><td class="memItemLeft" align="right" valign="top">set&lt; pair&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathChunker.html#aef30dd2569597b64d36b19824ebee37f">get_path_edge_index</a> (<a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> start_step, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> end_step, int64_t context) const</td></tr>
+<tr class="separator:aef30dd2569597b64d36b19824ebee37f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -131,8 +135,37 @@ Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a953946c82b6026d52568efcb1198bac1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a953946c82b6026d52568efcb1198bac1">&#9670;&nbsp;</a></span>extract_id_range()</h2>
+<a id="a99497d311a2a2adfc4d7a78f8b6d7f54"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a99497d311a2a2adfc4d7a78f8b6d7f54">&#9670;&nbsp;</a></span>extract_component()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::PathChunker::extract_component </td>
+          <td>(</td>
+          <td class="paramtype">const unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>node_ids</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>subgraph</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Extract a connected component starting from an id set </p>
+
+</div>
+</div>
+<a id="a140b4a86b4f8ea18d29a39c7b1aab66f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a140b4a86b4f8ea18d29a39c7b1aab66f">&#9670;&nbsp;</a></span>extract_id_range()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -152,13 +185,13 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int&#160;</td>
+          <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>context</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int&#160;</td>
+          <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>length</em>, </td>
         </tr>
         <tr>
@@ -170,7 +203,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>subgraph</em>, </td>
         </tr>
         <tr>
@@ -190,8 +223,43 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a731b8de30777f3bba638534326806cc2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a731b8de30777f3bba638534326806cc2">&#9670;&nbsp;</a></span>extract_subgraph()</h2>
+<a id="aca0d2bec2834fdc534d42238a0a53b46"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aca0d2bec2834fdc534d42238a0a53b46">&#9670;&nbsp;</a></span>extract_path_component()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::PathChunker::extract_path_component </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>path_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>subgraph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Region.html">Region</a> &amp;&#160;</td>
+          <td class="paramname"><em>out_region</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Extract a connected component containing a given path </p>
+
+</div>
+</div>
+<a id="a90aac076d1669b467ca5ca5868c7ed2e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a90aac076d1669b467ca5ca5868c7ed2e">&#9670;&nbsp;</a></span>extract_subgraph()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -205,13 +273,13 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int&#160;</td>
+          <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>context</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int&#160;</td>
+          <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>length</em>, </td>
         </tr>
         <tr>
@@ -223,7 +291,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>subgraph</em>, </td>
         </tr>
         <tr>
@@ -244,8 +312,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a6ffd28fbf58152e571d536f907403311"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6ffd28fbf58152e571d536f907403311">&#9670;&nbsp;</a></span>get_path_edge_index()</h2>
+<a id="aef30dd2569597b64d36b19824ebee37f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aef30dd2569597b64d36b19824ebee37f">&#9670;&nbsp;</a></span>get_path_edge_index()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -265,7 +333,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int&#160;</td>
+          <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>context</em>&#160;</td>
         </tr>
         <tr>

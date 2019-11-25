@@ -147,11 +147,13 @@ var searchData=
   ['extra_5fmultimaps',['extra_multimaps',['../classvg_1_1Mapper.html#afe9cdcfbff73199e755c5bead44c9674',1,'vg::Mapper']]],
   ['extra_5fnode_5fgraph_2ecpp',['extra_node_graph.cpp',['../extra__node__graph_8cpp.html',1,'']]],
   ['extra_5fnode_5fgraph_2ehpp',['extra_node_graph.hpp',['../extra__node__graph_8hpp.html',1,'']]],
+  ['extract_5fcomponent',['extract_component',['../classvg_1_1PathChunker.html#a99497d311a2a2adfc4d7a78f8b6d7f54',1,'vg::PathChunker']]],
   ['extract_5ffirst',['extract_first',['../classvg_1_1io_1_1VPKG.html#a770245b13c7784d97e8917184aab3ca0',1,'vg::io::VPKG']]],
-  ['extract_5fid_5frange',['extract_id_range',['../classvg_1_1PathChunker.html#a953946c82b6026d52568efcb1198bac1',1,'vg::PathChunker']]],
+  ['extract_5fid_5frange',['extract_id_range',['../classvg_1_1PathChunker.html#a140b4a86b4f8ea18d29a39c7b1aab66f',1,'vg::PathChunker']]],
   ['extract_5flinearized_5fpath_5fgraph',['extract_linearized_path_graph',['../classvg_1_1Surjector.html#af05f461840ebac9a70156214c843ee39',1,'vg::Surjector']]],
   ['extract_5foverlapping_5fpaths',['extract_overlapping_paths',['../classvg_1_1Surjector.html#a38a7f24992f99835d97d5a212ec6ab51',1,'vg::Surjector']]],
+  ['extract_5fpath_5fcomponent',['extract_path_component',['../classvg_1_1PathChunker.html#aca0d2bec2834fdc534d42238a0a53b46',1,'vg::PathChunker']]],
   ['extract_5fsub_5fmultipath_5falignment',['extract_sub_multipath_alignment',['../namespacevg.html#a3beb4892a91e602904b90307803cf176',1,'vg']]],
-  ['extract_5fsubgraph',['extract_subgraph',['../classvg_1_1PathChunker.html#a731b8de30777f3bba638534326806cc2',1,'vg::PathChunker']]],
+  ['extract_5fsubgraph',['extract_subgraph',['../classvg_1_1PathChunker.html#a90aac076d1669b467ca5ca5868c7ed2e',1,'vg::PathChunker']]],
   ['extranodegraph',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html',1,'vg::ExtraNodeGraph'],['../classvg_1_1ExtraNodeGraph.html#aafddbd22f8123df59e0bbdb634f5ba0a',1,'vg::ExtraNodeGraph::ExtraNodeGraph()']]]
 ];
