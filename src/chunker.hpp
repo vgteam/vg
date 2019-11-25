@@ -39,20 +39,30 @@ public:
      * NOTE: we follow convention of Region coordinates being 0-based 
      * inclusive. 
      * */
-    void extract_subgraph(const Region& region, int context, int length, bool forward_only,
-                          VG& subgraph, Region& out_region);
+    void extract_subgraph(const Region& region, int64_t context, int64_t length, bool forward_only,
+                          MutablePathMutableHandleGraph& subgraph, Region& out_region);
+
+    /**
+     * Extract a connected component containing a given path
+     */
+    void extract_path_component(const string& path_name, MutablePathMutableHandleGraph& subgraph, Region& out_region);
+   
+    /**
+     * Extract a connected component starting from an id set
+     */
+    void extract_component(const unordered_set<nid_t>& node_ids, MutablePathMutableHandleGraph& subgraph);   
 
     /**
      * Like above, but use (inclusive) id range instead of region on path.
      */
-    void extract_id_range(vg::id_t start, vg::id_t end, int context, int length, bool forward_only,
-                         VG& subgraph, Region& out_region);
+    void extract_id_range(vg::id_t start, vg::id_t end, int64_t context, int64_t length, bool forward_only,
+                          MutablePathMutableHandleGraph& subgraph, Region& out_region);
 
     /**
      * Get a set of all edges in the graph along a path region (to check for discontinuities later on)
      */ 
     set<pair<pair<id_t, bool>, pair<id_t, bool>>> get_path_edge_index(step_handle_t start_step,
-                                                                      step_handle_t end_step, int context) const;
+                                                                      step_handle_t end_step, int64_t context) const;
 
 };
 
