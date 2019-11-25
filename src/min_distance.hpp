@@ -182,6 +182,9 @@ class MinimumDistanceIndex {
             ///node is no longer the end node if this is true
             bool is_unary_snarl;
 
+            ///The maximum width of the snarl - max distance from start to end including boundary nodes
+            int64_t max_width;
+
             ///The index into distances for distance start->end
             size_t index(size_t start, size_t end) const;
 
@@ -375,6 +378,8 @@ class MinimumDistanceIndex {
                       const SnarlManager* snarl_manager, const Chain* chain, 
                        size_t parent_id, bool rev_in_parent, 
                        bool trivial_chain, size_t depth); 
+    void populateSnarlIndex(const HandleGraph* graph, const SnarlManager* snarl_manager, const NetGraph& ng,
+                            const Snarl* snarl, bool snarl_rev_in_chain, size_t snarl_assignment, hash_set<pair<id_t, bool>>& all_nodes, size_t depth);
 
     ///Compute min_distances and max_distances, which store
     /// distances needed for maximum distance calculation
@@ -387,8 +392,8 @@ class MinimumDistanceIndex {
     //distance range to the subgraph
     //If start and end are give, only search within the snarl between start and end
     bool addNodesInRange(const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
-                         int64_t node_distance, SubHandleGraph& sub_graph, handle_t start_handle,
-                         id_t start = 0, id_t end = 0);
+                         SubHandleGraph& sub_graph, vector<tuple<handle_t, int64_t>>& start_nodes,
+                         hash_set<pair<id_t, bool>>& seen_nodes,id_t start = 0, id_t end = 0);
 
     ///Helper function for distance calculation
     ///Returns the distance to the start of and end of a node/snarl in
