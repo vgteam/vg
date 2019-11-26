@@ -1,5 +1,5 @@
 = vg-version(1)
-Regents of the University of California
+vgteam
 v1.20.0
 :compat-mode:
 :doctype: manpage
