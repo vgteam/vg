@@ -108,11 +108,11 @@ printf "P\talt2.3\t1+,2+,4+,6+,8+,9+,11+,12+,14+,15+\t8M,1M,1M,3M,1M,19M,1M,4M,1
 printf "P\talt2.3\t1+,2+,4+,6+,8+,9+,11+,12+,14+,15+\t8M,1M,1M,3M,1M,19M,1M,4M,1M,11M\n" >> tiny_names.gfa
 vg view -Fv tiny_names.gfa > tiny_names.vg
 vg index tiny_names.vg -x tiny_names.xg
-vg deconstruct tiny_names.xg -P ref -A alt1,alt2 -e > tiny_names_decon.vcf
+vg deconstruct tiny_names.xg -P ref -A alt1,alt2 -e | sort > tiny_names_decon.vcf
 is $(grep -v "#" tiny_names_decon.vcf | wc -l) 2 "-P -A options return correct number of variants"
 is $(grep -v "#" tiny_names_decon.vcf | grep ref.1 | wc -l) 2 "-P -A options use correct reference name"
 is $(grep -v "#" tiny_names_decon.vcf | grep ref.1 | grep 14 | grep "CONFLICT=alt1" | wc -l) 1 "-P -A identifies conflict in alt1 in second variant"
-vg deconstruct tiny_names.vg -P ref -A alt1,alt2 -e > tiny_names_decon_vg.vcf
+vg deconstruct tiny_names.vg -P ref -A alt1,alt2 -e | sort > tiny_names_decon_vg.vcf
 diff tiny_names_decon.vcf tiny_names_decon_vg.vcf
 is "$?" 0 "deconstructing vg graph gives same output as xg graph"
 
