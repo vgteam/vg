@@ -40,7 +40,8 @@ void GraphCaller::call_top_level_snarls(bool recurse_on_fail) {
             std::move(thread_queue.begin(), thread_queue.end(), std::back_inserter(cur_queue));
             thread_queue.clear();
         }
-#pragma omp parallel for
+
+#pragma omp parallel for schedule(dynamic, 1)
         for (int i = 0; i < cur_queue.size(); ++i) {
             process_snarl(cur_queue[i]);
         }
@@ -364,6 +365,7 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
     function<PathIndex*(const Snarl&)> get_path_index;
     VG vg_graph;
     SupportBasedSnarlCaller& support_caller = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller);
+    bool was_called = false;
     
     if (is_vg) {
         // our graph is in VG format, so we've sorted this out in the constructor
@@ -448,6 +450,8 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
 
             // emit our vcf variant
             emit_variant(snarl, *rep_trav_finder, called_traversals, genotype, path_name);
+
+            was_called = true;
         }
     }        
     if (!is_vg) {
@@ -458,7 +462,7 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         }
     }
 
-    return true;
+    return was_called;
 }
 
 string LegacyCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& ref_paths,
@@ -759,15 +763,16 @@ tuple<size_t, size_t, bool> LegacyCaller::get_ref_interval(const Snarl& snarl, c
     assert(start_steps.size() > 0 && end_steps.size() > 0);
     step_handle_t start_step = start_steps.begin()->second;
     step_handle_t end_step = end_steps.begin()->second;
-    bool scan_backward = graph.get_is_reverse(graph.get_handle_of_step(start_step));
+    bool scan_backward = graph.get_is_reverse(graph.get_handle_of_step(start_step)) != snarl.start().backward();
 
     // if we're on a cycle, we keep our start step and find the end step by scanning the path
     if (start_steps.size() > 1 || end_steps.size() > 1) {
         bool found_end = false;
+
         if (scan_backward) {
             for (step_handle_t cur_step = start_step; graph.has_previous_step(end_step) && !found_end;
                  cur_step = graph.get_previous_step(cur_step)) {
-                if (graph.get_handle_of_step(cur_step) == end_handle) {
+                if (graph.get_id(graph.get_handle_of_step(cur_step)) == graph.get_id(end_handle)) {
                     end_step = cur_step;
                     found_end = true;
                 }
@@ -776,7 +781,7 @@ tuple<size_t, size_t, bool> LegacyCaller::get_ref_interval(const Snarl& snarl, c
         } else {
             for (step_handle_t cur_step = start_step; graph.has_next_step(end_step) && !found_end;
                  cur_step = graph.get_next_step(cur_step)) {
-                if (graph.get_handle_of_step(cur_step) == end_handle) {
+                if (graph.get_id(graph.get_handle_of_step(cur_step)) == graph.get_id(end_handle)) {
                     end_step = cur_step;
                     found_end = true;
                 }
