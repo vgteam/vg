@@ -704,7 +704,7 @@ const vector<const Snarl*>& SnarlManager::top_level_snarls() const {
 }
     
 void SnarlManager::for_each_top_level_snarl_parallel(const function<void(const Snarl*)>& lambda) const {
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic, 1)
     for (int i = 0; i < roots.size(); i++) {
         lambda(roots[i]);
     }
