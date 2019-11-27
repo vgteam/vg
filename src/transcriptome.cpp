@@ -165,7 +165,7 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
 
     if (transcripts.empty()) {
 
-        cerr << "[transcriptome] ERROR: No transcript where parsed (remember to set feature type \"-y\")" << endl;
+        cerr << "[transcriptome] ERROR: No transcripts parsed (remember to set feature type \"-y\")" << endl;
         exit(1);        
     }
 
