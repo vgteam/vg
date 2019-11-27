@@ -91,8 +91,8 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
         transcript_stream.ignore(numeric_limits<streamsize>::max(), '\t');         
         getline(transcript_stream, feature, '\t');
 
-        // Skip all non exon features, such as cds, gene etc.
-        if (feature != "exon") {
+        // Select only relevant feature types.
+        if (feature != feature_type && !feature_type.empty()) {
 
             transcript_stream.ignore(numeric_limits<streamsize>::max(), '\n');  
             continue;
