@@ -163,8 +163,15 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
         add_exon(&(transcripts.back()), make_pair(spos, epos), *chrom_path_index.second);
     }
 
-    reorder_exons(&transcripts.back());
+    if (transcripts.empty()) {
+
+        cerr << "[transcriptome] ERROR: No transcript where parsed (remember to set feature type \"-y\")" << endl;
+        exit(1);        
+    }
+
     delete chrom_path_index.second;
+
+    reorder_exons(&transcripts.back());
 
 #ifdef transcriptome_debug
     double time_parsing_2 = gcsa::readTimer();
