@@ -114,21 +114,24 @@ int main_mcmc(int argc, char** argv) {
     string graph_file =  get_input_file_name(optind, argc, argv);
     string snarls_file =  get_input_file_name(optind, argc, argv);
     cerr << "file name is : " <<graph_file << endl;
-    unique_ptr<VG> graph = (vg::io::VPKG::load_one<VG>(graph_file));
+    
 
-    if(graph.get() == nullptr || graph.get() == 0){
-        cerr << "Graph is NULL" <<endl;
-        exit(1);
-    }
+   
     unique_ptr<SnarlManager> snarls = (vg::io::VPKG::load_one<SnarlManager>(snarls_file));
 
     // // creaate a PathHandleGraph 
-    unique_ptr<PathHandleGraph> path_handle_graph;
+    unique_ptr<VG> vg_graph;
     bdsg::PathPositionOverlayHelper overlay_helper;
-    path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_file);
-    PathPositionHandleGraph* path_position_handle_graph = nullptr;
-    path_position_handle_graph = overlay_helper.apply(path_handle_graph.get());
+    vg_graph = vg::io::VPKG::load_one<VG>(graph_file);
+
+    if(vg_graph.get() == nullptr || vg_graph.get() == 0){
+        cerr << "Graph is NULL" <<endl;
+        exit(1);
+    }
+    PathPositionHandleGraph* graph = nullptr;
+    graph = overlay_helper.apply(vg_graph.get());
     
+     
     // Check our paths
     for (const string& ref_path : ref_paths) {
         if (!graph->has_path(ref_path)) {
@@ -177,21 +180,10 @@ int main_mcmc(int argc, char** argv) {
     });
     double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
     // invoke run genotyper 
-    MCMCGenotyper mcmc_genotyper(*snarls, *graph, n_iterations, seed);
+    MCMCGenotyper mcmc_genotyper(*snarls, *vg_graph, n_iterations, seed);
     unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(reads, log_base );
     
-    
-    for (int i = 0; i < 2; i++){
-        
-        // create two paths tracing each haplotype
-        path_handle_t path_handle = graph->create_path_handle("H" + to_string(i));
-        
-        for(auto iter = genome->begin(i); iter!= genome->end(i); iter++){
-        
-        graph->append_step(path_handle, graph->get_handle((*iter).node->id()));
-        
-        }
-    }
+
 
     /*
     *########################################################################################
@@ -199,17 +191,14 @@ int main_mcmc(int argc, char** argv) {
     *########################################################################################
     **/
     
-    // finds all ref paths that run through snarl and saves into trav_results
-    CactusSnarlFinder snarl_finder(*graph);
-    SnarlManager snarl_manager = snarl_finder.find_snarls();
     
     //MCMCCaller mcmc_caller(*dynamic_cast<PathPositionHandleGraph*>(graph.get()), *genome, snarl_manager, sample_name, ref_paths, ref_path_offsets, ref_path_lengths, cout);
-    MCMCCaller mcmc_caller(graph, path_position_handle_graph, *genome, snarl_manager, sample_name, ref_paths, ref_path_offsets, ref_path_lengths, cout);
+    MCMCCaller mcmc_caller(graph, *genome, *snarls, sample_name, ref_paths, ref_path_offsets, ref_path_lengths, cout);
 
     
     //print header to std out
     // cout << mcmc_caller.vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
-    cerr << mcmc_caller.vcf_header(*path_handle_graph, ref_paths, ref_path_lengths) << flush;
+    cerr << mcmc_caller.vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
 
     
     // current implimentation is writing vcf record after each variant processed
@@ -217,13 +206,6 @@ int main_mcmc(int argc, char** argv) {
 
     mcmc_caller.write_variants(cerr);
     
-
-    return 0;
-
-
-    
-    // will output a graph w/ embedded paths
-    graph->serialize_to_ostream(std::cout);
    
     return 0;
 }

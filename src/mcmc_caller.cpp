@@ -9,8 +9,7 @@ namespace vg {
     /**
      * MCMCCaller : Inherits from VCFOutputCaller    
      */         
-    MCMCCaller::MCMCCaller(const unique_ptr<VG>& graph, 
-                           const PathPositionHandleGraph* path_position_handle_graph,
+    MCMCCaller::MCMCCaller(const PathPositionHandleGraph* path_position_handle_graph,
                            PhasedGenome& genome,
                            SnarlManager& snarl_manager,
                            const string& sample_name,
@@ -18,13 +17,11 @@ namespace vg {
                            const vector<size_t>& ref_path_offsets,
                            const vector<size_t>& ref_path_lengths,
                            ostream& out_stream) :
-        graph(graph),path_position_handle_graph(path_position_handle_graph), genome(genome), snarl_manager(snarl_manager), VCFOutputCaller(sample_name), 
+        path_position_handle_graph(path_position_handle_graph), genome(genome), snarl_manager(snarl_manager), VCFOutputCaller(sample_name), 
         sample_name(sample_name), ref_paths(ref_paths), ref_path_offsets(ref_path_offsets),
         ref_path_lengths(ref_path_lengths), out_stream(out_stream) {
         
-        // cerr << &this->graph << endl;
-        // cerr << &graph << endl;
-        if(&graph == nullptr || &graph == 0){
+        if(&path_position_handle_graph == nullptr || &path_position_handle_graph == 0){
             cerr << "graph is empty" <<endl;
             //exit not succesful
             exit(1);
@@ -41,9 +38,10 @@ namespace vg {
     MCMCCaller:: ~MCMCCaller(){
 
     }
-    string MCMCCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& ref_paths,
+    string MCMCCaller::vcf_header(const PathPositionHandleGraph& pph_graph, const vector<string>& ref_paths,
                                 const vector<size_t>& contig_length_overrides) const {
-        string header = VCFOutputCaller::vcf_header(graph, ref_paths, contig_length_overrides);
+      
+        string header = VCFOutputCaller::vcf_header(pph_graph, ref_paths, contig_length_overrides);
         header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
         header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
         header += "##SAMPLE=<ID=" + sample_name + ">\n";
@@ -51,7 +49,7 @@ namespace vg {
         assert(output_vcf.openForOutput(header));
         header += "\n";
         return header;
-}
+    }
 
 
     void MCMCCaller::call_top_level_snarls(bool recurse_on_fail) {
@@ -97,7 +95,7 @@ namespace vg {
             return false;
         }
         
-        PathTraversalFinder trav_finder(*graph, snarl_manager, ref_paths);
+        PathTraversalFinder trav_finder(*path_position_handle_graph, snarl_manager, ref_paths);
         auto trav_results = trav_finder.find_path_traversals(snarl);
         vector<SnarlTraversal> ref_path = trav_results.first;
 
@@ -122,50 +120,45 @@ namespace vg {
             function<string(const SnarlTraversal&)> trav_string = [&](const SnarlTraversal& trav) {
             string seq;
             for (int i = 0; i < trav.visit_size(); ++i) {
-                seq += graph->get_sequence(graph->get_handle(trav.visit(i).node_id(), trav.visit(i).backward()));
+                seq += path_position_handle_graph->get_sequence(path_position_handle_graph->get_handle(trav.visit(i).node_id(), trav.visit(i).backward()));
             }
             return seq;
             };
             
 
             // set ref_path name and seq 
-            path_handle_t path_handle = graph->get_path_handle_of_step(first_start_step);
-            string ref_path_name  = graph->get_path_name(path_handle);
-            cerr << "ref_path_name " << ref_path_name << endl;
+            path_handle_t path_handle = path_position_handle_graph->get_path_handle_of_step(first_start_step);
+            string ref_path_name  = path_position_handle_graph->get_path_name(path_handle);
+            // cerr << "ref_path_name " << ref_path_name << endl;
             //TODO: check that ref_path name is equal to snarl traversal name 
             string ref_path_seq = trav_string(ref_trav);
-            cerr << "ref_path_seq " << ref_path_seq << endl;
+            
             
             //get haplotypes that pass snarl
             vector<int64_t> haplos_pass_snarl = genome.get_haplotypes_with_snarl(&snarl);
-            genome.print_phased_genome();
-            cerr << snarl.start() <<endl;
-            cerr << snarl.end() << endl;
-            cerr << &snarl <<endl;
+            // genome.print_phased_genome();
+            // cerr << snarl.start()<<endl;
+            // cerr << snarl.end() << endl;
             
             assert(!haplos_pass_snarl.empty());
-
-
-            for(int i = 0; i< haplos_pass_snarl.size(); i++){
-                cerr << "haplos passing snarl " << haplos_pass_snarl[i] << endl;
-            }
             
             //traversals of each haplotype through the snarl
             vector<SnarlTraversal> haplo_travs = {haplos_pass_snarl.size(), SnarlTraversal()};
             vector<vector<NodeTraversal>> haplo_nodes;
             vector<int> genotype;
-            int haplo_count =1;
-            
+            int match_ref = 0;
+            int not_match_ref = 1;
+            string prev_trav_seq = "";
             //build SnarlTraversal obj for each haplotype that passes through snarl 
             // loop through haplotypes that pass through snarl
             for(int i = 0; i <haplos_pass_snarl.size(); i++ ){
-                
+               // cerr <<"haplos pass snarl size " <<haplos_pass_snarl.size() <<endl;
                 // get_allele() does not add the start of the snarl so we have to add it manually
                 *haplo_travs[i].add_visit() = snarl.start();
                 //push back NodeTraversal for haplotype id in ith position of array 
                 haplo_nodes.push_back( genome.get_allele(snarl,haplos_pass_snarl[i]) );
                 // iterate through NodeTraversal nodes
-                for (auto iter = haplo_nodes[i].begin(); iter < haplo_nodes[i].end(); iter++){
+                for (auto iter = haplo_nodes[i].begin(); iter != haplo_nodes[i].end(); iter++){
                     
                     int64_t n_id = iter->node->id();
                     bool backward = iter->backward;
@@ -178,36 +171,45 @@ namespace vg {
                 *haplo_travs[i].add_visit() = snarl.end();
 
                 assert(!haplo_travs.empty());
+                
                 //get the sequence for the SnarlTraversal
                 string trav_seq = trav_string(haplo_travs[i]);
-                cerr << "trav_seq" <<trav_seq << endl;
                 
-                //compare the sequence 
-                if(trav_seq.compare(ref_path_seq)< 0){
-                    //strings don't match ref path
-                    //TODO: if h1=h2 then the int will be the same 
-                    genotype[i] = haplo_count;
-                    haplo_count++;
-                    
-                }else if(trav_seq.compare(ref_path_seq) ==0){
-                    //strings match ref path 
-                    genotype[i] = 0;
-                }
-                
-                
-            }
-            assert(!genotype.empty());
-            
-            for(int i = 0; i < genotype.size(); i++){
-                    cerr << "genotype ID" << genotype[i] <<endl;
-            }
-            
 
-            //TODO: store GT numbers of two phased haplotype alleles
-            // haplo_travs[i] and genotype[i] are associated 
-            // if haplo_travs[0] = "AATA" (and matches with ref)
-            // genotype[0] = 0 (can be 0,1,2)
-            
+                // cerr << "trav_seq      " <<trav_seq << endl;
+                // cerr << "ref_path_seq  " << ref_path_seq << endl;
+                // cerr<< "prev_trav_seq " << prev_trav_seq <<endl;
+                
+                //compare the sequences 
+                if(trav_seq.compare(ref_path_seq) != 0){
+                    //strings don't match ref path
+                    // check if h1=h0, if so index will be equal
+                    if(i == 1  && prev_trav_seq.compare(trav_seq) == 0 ){
+                        // if H1==H2, index will be equal
+                        //cerr << "match 1|1" <<endl;
+                        genotype.push_back(not_match_ref-1);
+                        
+                    }else{
+                        genotype.push_back(not_match_ref);
+                        not_match_ref++;
+                        
+                    }                        
+                }else if(trav_seq.compare(ref_path_seq) == 0){
+                    //strings match ref path 
+                    genotype.push_back(match_ref); 
+                }
+                prev_trav_seq = trav_seq; 
+                
+            }
+            // cerr <<  "genotype vector size "<<genotype.size() <<endl;
+            assert(!genotype.empty());
+            // cerr << "genotype ID < " ;
+            // for(int i = 0; i < genotype.size(); i++){
+            //         cerr << genotype[i];
+            //         cerr << ", ";
+            // }
+            // cerr << " > " ;
+
             //emit variant
             emit_variant(snarl, genotype, ref_path_name, haplo_travs);
         
@@ -222,10 +224,11 @@ namespace vg {
         // convert traversal to string
         // function that converst SnarlTraversals to strings
         // usage: trav_string(SnarlTraversal)
+        
         function<string(const SnarlTraversal&)> trav_string = [&](const SnarlTraversal& trav) {
             string seq;
             for (int i = 0; i < trav.visit_size(); ++i) {
-                seq += graph->get_sequence(graph->get_handle(trav.visit(i).node_id(), trav.visit(i).backward()));
+                seq += path_position_handle_graph->get_sequence(path_position_handle_graph->get_handle(trav.visit(i).node_id(), trav.visit(i).backward()));
             }
             return seq;
         };
@@ -251,7 +254,7 @@ namespace vg {
             // and convert to string
             site_traversals.push_back(trav);
         }
-        cerr << trav_string(site_traversals[0])<<endl;
+        // cerr << trav_string(site_traversals[0])<<endl;
         out_variant.ref = trav_string(site_traversals[0]);
         
         // deduplicate alleles and compute the site traversals and genotype
@@ -284,7 +287,6 @@ namespace vg {
         // fill out the rest of the variant
         out_variant.sequenceName = ref_path_name;
         // +1 to convert to 1-based VCF
-        //out_variant.position = graph.get_position_of_step(first_start_step);
         out_variant.position = get_ref_position(snarl, ref_path_name).first + ref_offsets.find(ref_path_name)->second + 1;
         out_variant.id = std::to_string(snarl.start().node_id()) + "_" + std::to_string(snarl.end().node_id());
         out_variant.filter = "PASS";
@@ -311,10 +313,10 @@ namespace vg {
         if (!out_variant.alt.empty()) {
             add_variant(out_variant);
         }
+        
 
     }
 
-    
     bool MCMCCaller::is_traversable(const Snarl& snarl) {
 
         bool ret;
@@ -322,8 +324,8 @@ namespace vg {
         bool is_DAG = snarl.directed_acyclic_net_graph();
         const Visit& start = snarl.start();
         int64_t node_id = start.node_id();
-        bool has_node_start = graph->has_node(node_id);
-        bool has_node_end = graph->has_node(snarl.end().node_id());
+        bool has_node_start = path_position_handle_graph->has_node(node_id);
+        bool has_node_end = path_position_handle_graph->has_node(snarl.end().node_id());
 
         // we need this to be true all the way down to use the RepresentativeTraversalFinder on our snarl.
         if(is_reachable && is_DAG  && has_node_start && has_node_end ){
@@ -341,20 +343,20 @@ namespace vg {
         return ret;
     }
     pair<size_t, bool> MCMCCaller::get_ref_position(const Snarl& snarl, const string& ref_path_name) const {
-    path_handle_t path_handle = graph->get_path_handle(ref_path_name);
+    path_handle_t path_handle = path_position_handle_graph->get_path_handle(ref_path_name);
 
-    handle_t start_handle = graph->get_handle(snarl.start().node_id(), snarl.start().backward());
+    handle_t start_handle = path_position_handle_graph->get_handle(snarl.start().node_id(), snarl.start().backward());
     map<size_t, step_handle_t> start_steps;
-    graph->for_each_step_on_handle(start_handle, [&](step_handle_t step) {
-            if (graph->get_path_handle_of_step(step) == path_handle) {
+    path_position_handle_graph->for_each_step_on_handle(start_handle, [&](step_handle_t step) {
+            if (path_position_handle_graph->get_path_handle_of_step(step) == path_handle) {
                 start_steps[path_position_handle_graph->get_position_of_step(step)] = step;
             }
         });
 
-    handle_t end_handle = graph->get_handle(snarl.end().node_id(), snarl.end().backward());
+    handle_t end_handle = path_position_handle_graph->get_handle(snarl.end().node_id(), snarl.end().backward());
     map<size_t, step_handle_t> end_steps;
-    graph->for_each_step_on_handle(end_handle, [&](step_handle_t step) {
-            if (graph->get_path_handle_of_step(step) == path_handle) {
+    path_position_handle_graph->for_each_step_on_handle(end_handle, [&](step_handle_t step) {
+            if (path_position_handle_graph->get_path_handle_of_step(step) == path_handle) {
                 end_steps[path_position_handle_graph->get_position_of_step(step)] = step;
             }
         });
@@ -362,24 +364,24 @@ namespace vg {
     assert(start_steps.size() > 0 && end_steps.size() > 0);
     step_handle_t start_step = start_steps.begin()->second;
     step_handle_t end_step = end_steps.begin()->second;
-    bool scan_backward = graph->get_is_reverse(graph->get_handle_of_step(start_step));
+    bool scan_backward = path_position_handle_graph->get_is_reverse(path_position_handle_graph->get_handle_of_step(start_step));
 
     // if we're on a cycle, we keep our start step and find the end step by scanning the path
     if (start_steps.size() > 1 || end_steps.size() > 1) {
         bool found_end = false;
         if (scan_backward) {
-            for (step_handle_t cur_step = start_step; graph->has_previous_step(end_step) && !found_end;
-                 cur_step = graph->get_previous_step(cur_step)) {
-                if (graph->get_handle_of_step(cur_step) == end_handle) {
+            for (step_handle_t cur_step = start_step; path_position_handle_graph->has_previous_step(end_step) && !found_end;
+                 cur_step = path_position_handle_graph->get_previous_step(cur_step)) {
+                if (path_position_handle_graph->get_handle_of_step(cur_step) == end_handle) {
                     end_step = cur_step;
                     found_end = true;
                 }
             }
             assert(found_end);
         } else {
-            for (step_handle_t cur_step = start_step; graph->has_next_step(end_step) && !found_end;
-                 cur_step = graph->get_next_step(cur_step)) {
-                if (graph->get_handle_of_step(cur_step) == end_handle) {
+            for (step_handle_t cur_step = start_step; path_position_handle_graph->has_next_step(end_step) && !found_end;
+                 cur_step = path_position_handle_graph->get_next_step(cur_step)) {
+                if (path_position_handle_graph->get_handle_of_step(cur_step) == end_handle) {
                     end_step = cur_step;
                     found_end = true;
                 }

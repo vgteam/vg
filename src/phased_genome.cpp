@@ -231,13 +231,13 @@ namespace vg {
     }
 
     vector<id_t> PhasedGenome::get_haplotypes_with_snarl(const Snarl* snarl_to_find){
-        
+
         // a vector that will hold the haplotype IDs of haplotypes found to traverse through the snarl
         vector<id_t> matched_haplotype_ids;
 
         // interate through the vector of haplotype pointers and do a lookup for snarl_to_find
         // if found then we add it to the list of matched haplotypes 
-        
+        unordered_map<const Snarl*, pair<HaplotypeNode*, HaplotypeNode*> >::iterator it;
         id_t id = 0;
         for (Haplotype* haplotype : haplotypes){
             bool found = haplotype->sites.count(snarl_to_find);
@@ -265,32 +265,13 @@ namespace vg {
             // iterate through each node in the haplotype
             for(auto iter = begin(i); iter != end(i); iter++ ){
                 cerr << "node ID is " << (*iter).node->id() <<endl;
-                cerr <<"node address is " << (*iter).node <<endl;
                 cerr << "The sequence is: " << (*iter).node->sequence() <<endl;
-                
-                //check snarl address of starting node 
-                unordered_map<int64_t, const Snarl*> ::const_iterator got_start = site_starts.find(1);
-                if(got_start == site_starts.end()){
-                    cerr << "not found" <<endl;
-                }else{
-                    cerr << "node 1: " << &got_start->second <<endl; 
-                }
-                // check to see snarl address of end node 
-                unordered_map<int64_t, const Snarl*> ::const_iterator got_end = site_ends.find(6);
-                if(got_end == site_ends.end()){
-                    cerr << "not found" <<endl;
-                }else{
-                    cerr << "node 6: " << &got_end->second <<endl; 
-                }
-            }   
+            }
             cerr << "********************************" <<endl;
+        }     
 
-  
-        }
- 
 
     }
-    
     vector<NodeTraversal> PhasedGenome::get_allele(const Snarl& site, int which_haplotype) {
         
         Haplotype& haplotype = *haplotypes[which_haplotype];

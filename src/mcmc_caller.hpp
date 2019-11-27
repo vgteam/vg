@@ -31,8 +31,7 @@ namespace vg{
         const SnarlTraversal trav;
     
 
-        MCMCCaller(const unique_ptr<VG>& graph,
-                    const PathPositionHandleGraph* path_position_handle_graph,
+        MCMCCaller(const PathPositionHandleGraph* path_position_handle_graph,
                     PhasedGenome& genome,
                     SnarlManager& snarl_manager,
                     const string& sample_name,
@@ -49,13 +48,10 @@ namespace vg{
         void call_top_level_snarls(bool recurse_on_fail = true) ;
 
         /// print vcf header
-        virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& ref_paths,
+        virtual string vcf_header(const PathPositionHandleGraph& graph, const vector<string>& ref_paths,
                                 const vector<size_t>& contig_length_overrides) const ;
     
     protected:   
-        /// the graph
-        const unique_ptr<VG>& graph;
-
         /// path position handle graph
         const PathPositionHandleGraph* path_position_handle_graph;
 
