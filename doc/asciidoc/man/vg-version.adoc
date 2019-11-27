@@ -1,7 +1,6 @@
 = vg-version(1)
-vgteam
+vgteam contributors
 v1.20.0
-:compat-mode:
 :doctype: manpage
 :manmanual: vg
 :mansource: vg

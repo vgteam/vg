@@ -8,7 +8,7 @@ v1.20.0
 
 == Name
 
-vg-test - run internal *vg* unit tests
+vg-test - run internal vg unit tests
 
 == Synopsis
 
