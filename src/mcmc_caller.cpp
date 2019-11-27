@@ -136,9 +136,6 @@ namespace vg {
             
             //get haplotypes that pass snarl
             vector<int64_t> haplos_pass_snarl = genome.get_haplotypes_with_snarl(&snarl);
-            // genome.print_phased_genome();
-            // cerr << snarl.start()<<endl;
-            // cerr << snarl.end() << endl;
             
             assert(!haplos_pass_snarl.empty());
             
@@ -175,11 +172,6 @@ namespace vg {
                 //get the sequence for the SnarlTraversal
                 string trav_seq = trav_string(haplo_travs[i]);
                 
-
-                // cerr << "trav_seq      " <<trav_seq << endl;
-                // cerr << "ref_path_seq  " << ref_path_seq << endl;
-                // cerr<< "prev_trav_seq " << prev_trav_seq <<endl;
-                
                 //compare the sequences 
                 if(trav_seq.compare(ref_path_seq) != 0){
                     //strings don't match ref path
@@ -201,24 +193,17 @@ namespace vg {
                 prev_trav_seq = trav_seq; 
                 
             }
-            // cerr <<  "genotype vector size "<<genotype.size() <<endl;
             assert(!genotype.empty());
-            // cerr << "genotype ID < " ;
-            // for(int i = 0; i < genotype.size(); i++){
-            //         cerr << genotype[i];
-            //         cerr << ", ";
-            // }
-            // cerr << " > " ;
 
             //emit variant
-            emit_variant(snarl, genotype, ref_path_name, haplo_travs);
+            emit_variant(snarl, genotype, ref_trav, ref_path_name, haplo_travs);
         
         }
         return true;
     
     }
 
-    void MCMCCaller::emit_variant(const Snarl& snarl, const vector<int>& genotype, 
+    void MCMCCaller::emit_variant(const Snarl& snarl, const vector<int>& genotype, SnarlTraversal ref_trav,
                                  const string& ref_path_name, const vector<SnarlTraversal>& haplo_travs) const{
         
         // convert traversal to string
@@ -245,6 +230,7 @@ namespace vg {
         vector<int> site_genotype;
         for (int i = 0; i < genotype.size(); ++i) {
             if (genotype[i] == 0) {
+                // if haplo traversal matches the ref, add to container
                 site_traversals.push_back(haplo_travs[i]);
                 break;
             }
@@ -252,10 +238,10 @@ namespace vg {
         if(site_traversals.empty()){
             //if none of the haplotypes matched, get reference SnarlTraversal 
             // and convert to string
-            site_traversals.push_back(trav);
+            site_traversals.push_back(ref_trav);
         }
-        // cerr << trav_string(site_traversals[0])<<endl;
-        out_variant.ref = trav_string(site_traversals[0]);
+
+        out_variant.ref = trav_string(ref_trav);
         
         // deduplicate alleles and compute the site traversals and genotype
         map<string, int> allele_to_gt;    
@@ -313,6 +299,14 @@ namespace vg {
         if (!out_variant.alt.empty()) {
             add_variant(out_variant);
         }
+        
+
+    }
+    void MCMCCaller::update_vcf_info(const Snarl& snarl,
+                                 const vector<SnarlTraversal>& traversals,
+                                 const vector<int>& genotype,
+                                 const string& sample_name,
+                                 vcflib::Variant& variant) const{
         
 
     }

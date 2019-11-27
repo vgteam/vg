@@ -61,10 +61,15 @@ namespace vg{
         /// keep track of offsets in the reference paths
         map<string, size_t> ref_offsets; 
 
-        
+        /// Update INFO and FORMAT fields of the called variant
+        void update_vcf_info(const Snarl& snarl,
+                                 const vector<SnarlTraversal>& traversals,
+                                 const vector<int>& genotype,
+                                 const string& sample_name,
+                                 vcflib::Variant& variant) const;
 
         /// print a vcf variant 
-        void emit_variant(const Snarl& snarl, const vector<int>& genotype, const string& ref_path_name, const vector<SnarlTraversal>& haplo_travs) const;
+        void emit_variant(const Snarl& snarl, const vector<int>& genotype, SnarlTraversal ref_trav, const string& ref_path_name, const vector<SnarlTraversal>& haplo_travs) const;
 
         /// Call a given snarl, and print the output to out_stream
         bool call_snarl(const Snarl& snarl);
