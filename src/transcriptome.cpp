@@ -57,8 +57,11 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
 
     smatch regex_id_match;
 
-    // Regex used to extract transcript name/id.
-    regex regex_id_exp(transcript_tag + "\\s{1}\"?([^\"]*)\"?");
+    // Regex used to extract transcript name/id from gtf file.
+    regex regex_id_exp_gtf(transcript_tag + "\\s{1}\"?([^\"]*)\"?;?");
+
+    // Regex used to extract transcript name/id from gff file.
+    regex regex_id_exp_gff(transcript_tag + "={1}([^;]*);?");
 
     while (transcript_stream.good()) {
 
@@ -121,8 +124,15 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
 
         string transcript_id = "";
 
-        // Get transcript name/id from attribute column using regex.
-        if (std::regex_search(attributes, regex_id_match, regex_id_exp)) {
+        // Get transcript name/id from gtf attribute column using regex.
+        if (std::regex_search(attributes, regex_id_match, regex_id_exp_gtf)) {
+
+            assert(regex_id_match.size() == 2);
+            transcript_id = regex_id_match[1];
+        }
+
+        // Get transcript name/id from gff attribute column using regex.
+        if (std::regex_search(attributes, regex_id_match, regex_id_exp_gff)) {
 
             assert(regex_id_match.size() == 2);
             transcript_id = regex_id_match[1];
