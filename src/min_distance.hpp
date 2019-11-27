@@ -182,7 +182,8 @@ class MinimumDistanceIndex {
             ///node is no longer the end node if this is true
             bool is_unary_snarl;
 
-            ///The maximum width of the snarl - max distance from start to end including boundary nodes
+            ///The maximum width of the snarl - max distance from start to end including boundary nodes 
+            //without taking any cycles
             int64_t max_width;
 
             ///The index into distances for distance start->end
