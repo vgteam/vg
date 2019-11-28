@@ -57,8 +57,11 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
 
     smatch regex_id_match;
 
-    // Regex used to extract transcript name/id.
-    regex regex_id_exp(transcript_tag + "\\s{1}\"?([^\"]*)\"?");
+    // Regex used to extract transcript name/id from gtf file.
+    regex regex_id_exp_gtf(transcript_tag + "\\s{1}\"?([^\"]*)\"?;?");
+
+    // Regex used to extract transcript name/id from gff file.
+    regex regex_id_exp_gff(transcript_tag + "={1}([^;]*);?");
 
     while (transcript_stream.good()) {
 
@@ -91,8 +94,8 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
         transcript_stream.ignore(numeric_limits<streamsize>::max(), '\t');         
         getline(transcript_stream, feature, '\t');
 
-        // Skip all non exon features, such as cds, gene etc.
-        if (feature != "exon") {
+        // Select only relevant feature types.
+        if (feature != feature_type && !feature_type.empty()) {
 
             transcript_stream.ignore(numeric_limits<streamsize>::max(), '\n');  
             continue;
@@ -121,8 +124,15 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
 
         string transcript_id = "";
 
-        // Get transcript name/id from attribute column using regex.
-        if (std::regex_search(attributes, regex_id_match, regex_id_exp)) {
+        // Get transcript name/id from gtf attribute column using regex.
+        if (std::regex_search(attributes, regex_id_match, regex_id_exp_gtf)) {
+
+            assert(regex_id_match.size() == 2);
+            transcript_id = regex_id_match[1];
+        }
+
+        // Get transcript name/id from gff attribute column using regex.
+        if (std::regex_search(attributes, regex_id_match, regex_id_exp_gff)) {
 
             assert(regex_id_match.size() == 2);
             transcript_id = regex_id_match[1];
@@ -153,8 +163,15 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
         add_exon(&(transcripts.back()), make_pair(spos, epos), *chrom_path_index.second);
     }
 
-    reorder_exons(&transcripts.back());
+    if (transcripts.empty()) {
+
+        cerr << "[transcriptome] ERROR: No transcripts parsed (remember to set feature type \"-y\")" << endl;
+        exit(1);        
+    }
+
     delete chrom_path_index.second;
+
+    reorder_exons(&transcripts.back());
 
 #ifdef transcriptome_debug
     double time_parsing_2 = gcsa::readTimer();

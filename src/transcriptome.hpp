@@ -87,8 +87,11 @@ class Transcriptome {
         /// Number of threads used for transcript path construction. 
         int32_t num_threads = 1;
 
+        /// Feature type to parse in the gtf/gff file. Parse all types if empty. 
+        string feature_type; 
+
         /// Attribute tag used to parse the transcript id/name in the gtf/gff file. 
-        string transcript_tag = "transcript_id";
+        string transcript_tag;
 
         /// Use all paths embedded in the graph for transcript path construction. 
         bool use_embedded_paths = false;

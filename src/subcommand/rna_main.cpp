@@ -23,6 +23,7 @@ void help_rna(char** argv) {
     cerr << "\nusage: " << argv[0] << " rna [options] <graph.vg> > splice_graph.vg" << endl
          << "options:" << endl
          << "    -n, --transcripts FILE     transcript file(s) in gtf/gff format; may repeat (required)" << endl
+         << "    -y, --feature-type NAME    parse only this feature type in the gtf/gff (parse all if empty) [exon]" << endl
          << "    -s, --transcript-tag NAME  use this attribute tag in the gtf/gff file(s) as id [transcript_id]" << endl
          << "    -l, --haplotypes FILE      project transcripts onto haplotypes in GBWT index file" << endl
          << "    -e, --use-embedded-paths   project transcripts onto embedded graph paths" << endl
@@ -50,6 +51,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     }
     
     vector<string> transcript_filenames;
+    string feature_type = "exon";
     string transcript_tag = "transcript_id";
     string haplotypes_filename;
     bool use_embedded_paths = false;
@@ -73,6 +75,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         static struct option long_options[] =
             {
                 {"transcripts",  no_argument, 0, 'n'},
+                {"feature-type",  no_argument, 0, 'y'},
                 {"transcript-tag",  no_argument, 0, 's'},
                 {"haplotypes",  no_argument, 0, 'l'},
                 {"use-embeded-paths",  no_argument, 0, 'e'},
@@ -93,7 +96,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             };
 
         int32_t option_index = 0;
-        c = getopt_long(argc, argv, "n:s:l:ercdoraub:gf:i:t:ph?", long_options, &option_index);
+        c = getopt_long(argc, argv, "n:y:s:l:ercdoraub:gf:i:t:ph?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -104,6 +107,10 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         case 'n':
             transcript_filenames.push_back(optarg);
+            break;
+
+        case 'y':
+            feature_type = optarg;
             break;
 
         case 's':
@@ -219,6 +226,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     if (show_progress) { cerr << "[vg rna] Graph (and index) parsed in " << gcsa::readTimer() - time_parsing_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
 
     transcriptome.num_threads = num_threads;
+    transcriptome.feature_type = feature_type;
     transcriptome.transcript_tag = transcript_tag;
     transcriptome.use_embedded_paths = use_embedded_paths;
     transcriptome.use_reference_paths = (add_reference_transcript_paths || output_reference_transcript_paths);
