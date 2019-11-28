@@ -9,6 +9,7 @@ var searchData=
   ['fasta_5fto_5fvcf_5frenames',['fasta_to_vcf_renames',['../classvg_1_1NameMapper.html#ad908156325375d8008c9ac68790b71e8',1,'vg::NameMapper']]],
   ['fd',['fd',['../classvg_1_1io_1_1fdoutbuf.html#a24cff1494bb89ccb0375e895a4519e19',1,'vg::io::fdoutbuf::fd()'],['../classvg_1_1io_1_1fdinbuf.html#a6ca34c4abbb45cb5ecb87960fdd3a5f1',1,'vg::io::fdinbuf::fd()']]],
   ['feature_5fname',['feature_name',['../structvg_1_1FeatureSet_1_1Feature.html#a0a95f9497d07cd5fed761983787884c6',1,'vg::FeatureSet::Feature']]],
+  ['feature_5ftype',['feature_type',['../classvg_1_1Transcriptome.html#ab06c748015ef113e0c3357c2b99e88cb',1,'vg::Transcriptome']]],
   ['features',['features',['../classvg_1_1FeatureSet.html#a43f00a84d400bf90ee2cb26d1bf561d7',1,'vg::FeatureSet::features()'],['../classvg_1_1SmallSnarlSimplifier.html#af9de906fc14f2cf280aaad638acaa526',1,'vg::SmallSnarlSimplifier::features()']]],
   ['ff',['ff',['../classvg_1_1SRPE.html#a0e30bccfb4cef8cc04d1934a2b658ac1',1,'vg::SRPE']]],
   ['file',['file',['../classvg_1_1VcfBuffer.html#a6d744dafd27fb2fdea09d106b1553a55',1,'vg::VcfBuffer']]],

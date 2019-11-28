@@ -32,6 +32,7 @@ var searchData=
   ['feature_5fset_2ecpp',['feature_set.cpp',['../feature__set_8cpp.html',1,'']]],
   ['feature_5fset_2ehpp',['feature_set.hpp',['../feature__set_8hpp.html',1,'']]],
   ['feature_5ft',['feature_t',['../annotate__main_8cpp.html#a5a0961fa7aa44ef6daf62ffda946003b',1,'annotate_main.cpp']]],
+  ['feature_5ftype',['feature_type',['../classvg_1_1Transcriptome.html#ab06c748015ef113e0c3357c2b99e88cb',1,'vg::Transcriptome']]],
   ['features',['features',['../classvg_1_1FeatureSet.html#a43f00a84d400bf90ee2cb26d1bf561d7',1,'vg::FeatureSet::features()'],['../classvg_1_1SmallSnarlSimplifier.html#af9de906fc14f2cf280aaad638acaa526',1,'vg::SmallSnarlSimplifier::features()']]],
   ['featureset',['FeatureSet',['../classvg_1_1FeatureSet.html',1,'vg']]],
   ['ff',['ff',['../classvg_1_1SRPE.html#a0e30bccfb4cef8cc04d1934a2b658ac1',1,'vg::SRPE']]],
