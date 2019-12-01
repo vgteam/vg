@@ -962,7 +962,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
         REQUIRE(di.minDistance(pos1, pos2) == minDistance(&vg, pos1, pos2));
 */
 
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 0; i++) {
             //1000 different graphs
             VG graph;
             random_graph(1000, 20, 100, &graph);
@@ -1635,8 +1635,28 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
     TEST_CASE("Random test subgraph", "[min_dist][min_subgraph][rand]") {
 
+        int64_t min = 20; int64_t max = 50;
 
-        for (int i = 0; i < 1000; i++) {
+//        ifstream vg_stream("testGraph");
+//        VG vg(vg_stream);
+//        vg_stream.close();
+//        CactusSnarlFinder bubble_finder(vg);
+//        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+//
+//        MinimumDistanceIndex di (&vg, &snarl_manager);
+//        di.printSelf();
+//
+//        handle_t handle = vg.get_handle(30, false);
+//        path_handle_t path_handle = vg.create_path_handle("test_path");
+//        vg.append_step(path_handle, handle);
+//        Path path = path_from_path_handle(vg, path_handle);
+//
+//        SubHandleGraph sub_graph(&vg);
+//        di.subgraphInRange(path, &vg, min, max, sub_graph, false); 
+//
+//        REQUIRE(sub_graph.has_node(27));
+
+        for (int i = 0; i < 0; i++) {
             //1000 different graphs
             VG graph;
             random_graph(1000, 10, 15, &graph);
@@ -1653,7 +1673,6 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
             uniform_int_distribution<int> randSnarlIndex(0, allSnarls.size()-1);
             default_random_engine generator(time(NULL));
-            int64_t min = 20; int64_t max = 50;
             for (int j = 0; j < 100; j++) {
                 //Check distances for random pairs of positions 
                 const Snarl* snarl1 = allSnarls[randSnarlIndex(generator)];

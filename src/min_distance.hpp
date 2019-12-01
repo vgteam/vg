@@ -60,8 +60,8 @@ class MinimumDistanceIndex {
     int64_t maxDistance(pos_t pos1, pos_t pos2) const;
 
     //Given an alignment to a graph and a range, populate  a subgraph 
-    //with all nodes in the graph whose minimimum distance to the alignment
-    //is less than the range
+    //with all nodes in the graph for which the minimum distance from the position to any position in the node
+    //is within the given distance range
     void subgraphInRange(Path& path, const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
                          SubHandleGraph& sub_graph, bool look_upstream);
 
@@ -182,8 +182,8 @@ class MinimumDistanceIndex {
             ///node is no longer the end node if this is true
             bool is_unary_snarl;
 
-            ///The maximum width of the snarl - max distance from start to end including boundary nodes 
-            //without taking any cycles
+            ///The maximum width of the snarl - the maximum of all minimum distance paths from each node to 
+            //both ends of the snarl
             int64_t max_width;
 
             ///The index into distances for distance start->end
@@ -273,7 +273,8 @@ class MinimumDistanceIndex {
 
             //True if the chain loops - if the start and end node are the same
             bool is_looping_chain; 
-
+            //Sum of all max widths of the snarls
+            int64_t max_width;
 
             /// Helper function for chainDistance. Used to find the distance
             /// in a looping chain by taking the extra loop
@@ -389,12 +390,12 @@ class MinimumDistanceIndex {
 
 
     ///Helper for subgraphInRange
-    /// Given a starting handle in the super graph and the distance to the handle, add all nodes within the given
-    //distance range to the subgraph
-    //If start and end are give, only search within the snarl between start and end
-    bool addNodesInRange(const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
+    /// Given starting handles in the super graph and the distances to each handle (including the start position and 
+    //the first position in the handle), add all nodes within the givendistance range to the subgraph
+    //Ignore all nodes in seen_nodes (nodes that are too close)
+    void addNodesInRange(const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
                          SubHandleGraph& sub_graph, vector<tuple<handle_t, int64_t>>& start_nodes,
-                         hash_set<pair<id_t, bool>>& seen_nodes,id_t start = 0, id_t end = 0);
+                         hash_set<pair<id_t, bool>>& seen_nodes);
 
     ///Helper function for distance calculation
     ///Returns the distance to the start of and end of a node/snarl in
