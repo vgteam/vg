@@ -808,6 +808,10 @@ int main_index(int argc, char** argv) {
                 } else {
                     variant_file.setRegion(vcf_contig_name);
                 }
+                
+                if (rename_variants && show_progress) {
+                    cerr << "- Moving variants from " << vcf_contig_name << " to " << path_name << endl;
+                }
 
                 // Parse the variants and the phasings.
                 vcflib::Variant var(variant_file);
@@ -827,7 +831,7 @@ int main_index(int argc, char** argv) {
                         // We need to move the variant over to the contig name
                         // used in the graph, in order to get the right id for
                         // it in the graph.
-                        var.sequenceName = path_name; 
+                        var.sequenceName = path_name;
                     }
 
                     // Determine the reference nodes for the current variant and create a variant site.
