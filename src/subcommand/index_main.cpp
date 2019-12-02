@@ -59,6 +59,7 @@ void help_index(char** argv) {
          << "    -n, --id-interval N    store haplotype ids at one out of N positions (default 1024)" << endl
          << "    -R, --range X..Y       process samples X to Y (inclusive)" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
+         << "    --rename-variants      when renaming contigs, find variants in the graph based on the new name" << endl
          << "    -I, --region C:S-E     operate on only the given 1-based region of the given VCF contig (may repeat)" << endl
          << "    -E, --exclude SAMPLE   exclude any samples with the given name from haplotype indexing" << endl
          << "gcsa options:" << endl
@@ -130,6 +131,7 @@ int main_index(int argc, char** argv) {
     }
 
     #define OPT_BUILD_VGI_INDEX 1000
+    #define OPT_RENAME_VARIANTS 1001
 
     // Which indexes to build.
     bool build_xg = false, build_gbwt = false, write_threads = false, build_gcsa = false, build_rocksdb = false, build_dist = false;
@@ -157,6 +159,7 @@ int main_index(int argc, char** argv) {
     size_t id_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
     std::pair<size_t, size_t> sample_range(0, ~(size_t)0); // The semiopen range of samples to process.
     map<string, string> path_to_vcf; // Path name conversion from --rename.
+    bool rename_variants = false;
     map<string, pair<size_t, size_t>> regions; // Region restrictions for contigs, in VCF name space, as 0-based exclusive-end ranges.
     unordered_set<string> excluded_samples; // Excluded sample names from --exclude.
 
@@ -219,6 +222,7 @@ int main_index(int argc, char** argv) {
             {"id-interval", required_argument, 0, 'n'},
             {"range", required_argument, 0, 'R'},
             {"rename", required_argument, 0, 'r'},
+            {"rename-variants", no_argument, 0, OPT_RENAME_VARIANTS},
             {"region", required_argument, 0, 'I'},
             {"exclude", required_argument, 0, 'E'},
 
@@ -359,6 +363,9 @@ int main_index(int argc, char** argv) {
                 // Add the name mapping
                 path_to_vcf[graph_contig] = vcf_contig;
             }
+            break;
+        case OPT_RENAME_VARIANTS:
+            rename_variants = true;
             break;
         case 'I':
             {
@@ -814,6 +821,13 @@ int main_index(int argc, char** argv) {
                     }
                     if (!isDNA) {
                         continue;
+                    }
+                    
+                    if (rename_variants) {
+                        // We need to move the variant over to the contig name
+                        // used in the graph, in order to get the right id for
+                        // it in the graph.
+                        var.sequenceName = path_name; 
                     }
 
                     // Determine the reference nodes for the current variant and create a variant site.
