@@ -17,7 +17,7 @@ using namespace std;
 using namespace vg::io;
 
 void register_loader_saver_odgi() {
-    Registry::register_bare_loader_saver<bdsg::ODGI, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>("PackedGraph", [](istream& input) -> void* {
+    Registry::register_bare_loader_saver<bdsg::ODGI, MutablePathDeletableHandleGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>("PackedGraph", [](istream& input) -> void* {
         // Allocate a PackedGraph
         bdsg::ODGI* odgi = new bdsg::ODGI();
         
