@@ -1003,12 +1003,12 @@ void Transcriptome::remove_non_transcribed(const bool new_reference_paths) {
 
 void Transcriptome::compact_ordered() {
 
-    // Find and apply topological ordering 
-    _splice_graph->apply_ordering(algorithms::topological_order(_splice_graph.get()), false);
-
-    // TODO: Compact nodes for other graph types
     VG * vg_splice_graph = dynamic_cast<VG *>(_splice_graph.get());
+
     if (vg_splice_graph != nullptr) {
+
+        // Find and apply topological ordering 
+        _splice_graph->apply_ordering(algorithms::topological_order(_splice_graph.get()), false);
 
         // Compact node ids and update embedded paths
         hash_map<id_t, id_t> compacted_nodes;
@@ -1021,6 +1021,21 @@ void Transcriptome::compact_ordered() {
 
                 mapping.mutable_position()->set_node_id(compacted_nodes.at(mapping.position().node_id()));
             }
+        }
+    
+    } else {
+
+        // Add transcript paths to graph in order to compact ids of non-vg graphs. 
+        // TODO: Find better solution.
+        embed_transcript_paths(true, true);
+        _splice_graph->apply_ordering(algorithms::topological_order(_splice_graph.get()), true);
+
+        for (auto & transcript_path: _transcript_paths) {
+
+            auto path_handle = _splice_graph->get_path_handle(transcript_path.name);
+            transcript_path.path = path_from_path_handle(*_splice_graph, path_handle);
+
+            _splice_graph->destroy_path(path_handle);
         }
     }
 }
@@ -1106,7 +1121,7 @@ void Transcriptome::write_sequences(ostream * fasta_ostream, const bool output_r
         if (!transcript_path.haplotype_origins.empty() || output_reference_transcripts) {
 
             // Write transcript path name and sequence.
-            write_fasta_sequence(transcript_path.name, path_sequence(*_splice_graph, transcript_path.path), cout);
+            write_fasta_sequence(transcript_path.name, path_sequence(*_splice_graph, transcript_path.path), *fasta_ostream);
         }
     }
 }
