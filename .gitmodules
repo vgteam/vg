@@ -122,6 +122,6 @@
 [submodule "deps/mmmultimap"]
 	path = deps/mmmultimap
 	url = https://github.com/ekg/mmmultimap.git
-[submodule "deps/BBHash"]
+[submodule "vgteam_bbhash"]
 	path = deps/BBHash
-	url = https://github.com/rizkg/BBHash.git
+	url = https://github.com/vgteam/BBHash.git
