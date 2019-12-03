@@ -73,26 +73,31 @@ SnarlManager CactusSnarlFinder::find_snarls() {
 }
 
 SnarlManager CactusSnarlFinder::find_snarls_parallel() {
-    if (get_thread_count() == 1) {
-        return find_snarls();
-    }
 
     vector<unordered_set<id_t>> weak_components = algorithms::weakly_connected_components(graph);    
     vector<SnarlManager> snarl_managers(weak_components.size());
 
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t i = 0; i < weak_components.size(); ++i) {
-        // turn the component into a graph, and make a cactus finder just for it
-        PathSubgraphOverlay subgraph(graph, &weak_components[i]);
+        const PathHandleGraph* subgraph;
+        if (weak_components.size() == 1) {
+            subgraph = graph;
+        } else {
+            // turn the component into a graph
+            subgraph = new PathSubgraphOverlay(graph, &weak_components[i]);
+        }
         string hint_path = !hint_paths.empty() ? *hint_paths.begin() : "";
-        CactusSnarlFinder finder(subgraph, hint_path);
-        // find the snarls
+        CactusSnarlFinder finder(*subgraph, hint_path);
+        // find the snarls, telling the finder that the graph is a single component
+        // and that we don't want to finish the snarl index
         snarl_managers[i] = finder.find_snarls_impl(true, false);
+        if (weak_components.size() != 1) {
+            // delete our component graph overlay
+            delete subgraph;
+        }
     }
 
     // merge the managers into the biggest one.
-    // todo: we could probably do this without re-indexing, but I'm not sure it'd have enough
-    // of an effect on overall performance to be worth it
     size_t biggest_snarl_idx = 0;
     for (size_t i = 1; i < snarl_managers.size(); ++i) {
         if (snarl_managers[i].num_snarls() > snarl_managers[biggest_snarl_idx].num_snarls()) {

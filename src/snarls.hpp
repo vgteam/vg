@@ -42,7 +42,9 @@ public:
     virtual SnarlManager find_snarls() = 0;
 
     /**
-     * Find all the snarls of weakly connected components in parallel
+     * Find all the snarls of weakly connected components in parallel.
+     * Even single-threaded, this may be worth using as it will use less
+     * memory by only considering one component at a time.
      */
     virtual SnarlManager find_snarls_parallel() = 0;
 };

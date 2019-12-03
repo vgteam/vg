@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 8
+plan tests 9
 
 vg view -J -v snarls/snarls.json > snarls.vg
 is $(vg snarls snarls.vg -r st.pb | vg view -R - | wc -l) 3 "vg snarls made right number of protobuf Snarls"
@@ -54,8 +54,13 @@ rm -f ins_and_del.vg ins_and_del.exhaustive.trav.sort ins_and_del.exhaustive.tra
 
 # parallelizing on components (which is deactivated with -t 1)
 vg construct -r small/xy.fa -v small/xy.vcf.gz > xy.vg
-is $(vg snarls xy.vg | vg view -R - | wc -l) $(vg snarls xy.vg -t 1 | vg view -R - | wc -l) "same number of snarls when parallelizing on components"
-rm -f xy.vg
+vg construct -r small/xy.fa -v small/xy.vcf.gz -R x > x.vg
+vg construct -r small/xy.fa -v small/xy.vcf.gz -R y > y.vg
+vg snarls x.vg > xy.snarls
+vg snarls y.vg >> xy.snarls
+is $(vg snarls xy.vg | vg view -R - | wc -l) 35 "correct number of snarls when parallelizing on compoents"
+is $(vg snarls xy.vg | vg view -R - | wc -l) $(vg view -R xy.snarls | wc -l) "same number of snarls when parallelizing on components"
+rm -f xy.vg xy.snarls
 
 
 
