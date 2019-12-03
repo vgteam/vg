@@ -251,7 +251,7 @@ int main_call(int argc, char** argv) {
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
     } else {
         CactusSnarlFinder finder(*graph);
-        snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls())));
+        snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
     
     unique_ptr<GraphCaller> graph_caller;

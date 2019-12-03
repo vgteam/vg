@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 7
+plan tests 8
 
 vg view -J -v snarls/snarls.json > snarls.vg
 is $(vg snarls snarls.vg -r st.pb | vg view -R - | wc -l) 3 "vg snarls made right number of protobuf Snarls"
@@ -51,4 +51,11 @@ diff ins_and_del.exhaustive.trav.sort ins_and_del.vcf.trav.sort
 is $? 0 "vcf traversals are the same as exhaustive traversals for ins_and_del graph"
 
 rm -f ins_and_del.vg ins_and_del.exhaustive.trav.sort ins_and_del.exhaustive.trav ins_and_del.vcf.trav.sort ins_and_del.vcf.trav
+
+# parallelizing on components (which is deactivated with -t 1)
+vg construct -r small/xy.fa -v small/xy.vcf.gz > xy.vg
+is $(vg snarls xy.vg | vg view -R - | wc -l) $(vg snarls xy.vg -t 1 | vg view -R - | wc -l) "same number of snarls when parallelizing on components"
+rm -f xy.vg
+
+
 

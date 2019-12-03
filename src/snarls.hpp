@@ -35,13 +35,16 @@ class SnarlManager;
 class SnarlFinder {
 public:
     virtual ~SnarlFinder() = default;
-    
+
     /**
-     * Run a function on all root-level NestedSites in parallel. Site trees are
-     * passed by value so they have a clear place to live during parallel
-     * operations.
+     * Find all the snarls, and put them into a SnarlManager.
      */
     virtual SnarlManager find_snarls() = 0;
+
+    /**
+     * Find all the snarls of weakly connected components in parallel
+     */
+    virtual SnarlManager find_snarls_parallel() = 0;
 };
 
 /**
@@ -67,6 +70,13 @@ class CactusSnarlFinder : public SnarlFinder {
     const Snarl* recursively_emit_snarls(const Visit& start, const Visit& end,
         const Visit& parent_start, const Visit& parent_end,
         stList* chains_list, stList* unary_snarls_list, SnarlManager& destination);
+
+    /**
+     * Find all the snarls with Cactus, and put them into a SnarlManager.
+     * Skip breaking into connected components if "known_single_component" is true
+     * Skip making the snarl manager index if finish_index is false
+     */
+    virtual SnarlManager find_snarls_impl(bool known_single_component, bool finish_index);
     
 public:
     /**
@@ -75,18 +85,17 @@ public:
      *
      * Optionally takes a hint path name.
      */
-    CactusSnarlFinder(const PathHandleGraph& graph);
-    
-    /**
-     * Make a new CactusSnarlFinder with a single hinted path to base the
-     * decomposition on.
-     */
-    CactusSnarlFinder(const PathHandleGraph& graph, const string& hint_path);
-    
+    CactusSnarlFinder(const PathHandleGraph& graph, const string& hint_path = "");
+        
     /**
      * Find all the snarls with Cactus, and put them into a SnarlManager.
      */
     virtual SnarlManager find_snarls();
+
+    /**
+     * Find all the snarls of weakly connected components in parallel
+     */
+    virtual SnarlManager find_snarls_parallel();
     
 };
 
@@ -562,6 +571,9 @@ public:
     
     /// Ececute a function on all chains in parallel
     void for_each_chain_parallel(const function<void(const Chain*)>& lambda) const;
+
+    /// Iterate over snarls as they are stored in deque<SnarlRecords>
+    void for_each_snarl_unindexed(const function<void(const Snarl*)>& lambda) const;
         
     /// Given a Snarl that we don't own (like from a Visit), find the
     /// pointer to the managed copy of that Snarl.

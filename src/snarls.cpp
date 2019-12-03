@@ -9,30 +9,27 @@
 #include "json2pb.h"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/is_acyclic.hpp"
+#include "algorithms/weakly_connected_components.hpp"
+#include "subgraph_overlay.hpp"
 
 namespace vg {
 
-CactusSnarlFinder::CactusSnarlFinder(const PathHandleGraph& graph) :
-    graph(&graph) {
-}
-
 CactusSnarlFinder::CactusSnarlFinder(const PathHandleGraph& graph, const string& hint_path) :
-    CactusSnarlFinder(graph) {
-    
-    // Save the hint path
-    hint_paths.insert(hint_path);
-    
-    // TODO: actually use it
+    graph(&graph) {
+    if (!hint_path.empty()) {
+        hint_paths.insert(hint_path);
+        // TODO: actually use it
+    }
 }
 
-SnarlManager CactusSnarlFinder::find_snarls() {
+SnarlManager CactusSnarlFinder::find_snarls_impl(bool known_single_component, bool finish_index) {
     
     if (graph->get_node_count() == 0) {
         // No snarls here!
         return SnarlManager();
     }
     // convert to cactus
-    pair<stCactusGraph*, stList*> cac_pair = handle_graph_to_cactus(*graph, hint_paths);
+    pair<stCactusGraph*, stList*> cac_pair = handle_graph_to_cactus(*graph, hint_paths, known_single_component);
     stCactusGraph* cactus_graph = cac_pair.first;
     stList* telomeres = cac_pair.second;
 
@@ -60,14 +57,59 @@ SnarlManager CactusSnarlFinder::find_snarls() {
 
     // free the cactus graph
     stCactusGraph_destruct(cactus_graph);
-    
-    // Finish the SnarlManager
-    snarl_manager.finish();
+
+    if (finish_index) {
+        // Finish the SnarlManager
+        snarl_manager.finish();
+    }
     
     // Return the completed SnarlManager
     return snarl_manager;
     
 }
+
+SnarlManager CactusSnarlFinder::find_snarls() {
+    return find_snarls_impl(false, true);
+}
+
+SnarlManager CactusSnarlFinder::find_snarls_parallel() {
+    if (get_thread_count() == 1) {
+        return find_snarls();
+    }
+
+    vector<unordered_set<id_t>> weak_components = algorithms::weakly_connected_components(graph);    
+    vector<SnarlManager> snarl_managers(weak_components.size());
+
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t i = 0; i < weak_components.size(); ++i) {
+        // turn the component into a graph, and make a cactus finder just for it
+        PathSubgraphOverlay subgraph(graph, &weak_components[i]);
+        string hint_path = !hint_paths.empty() ? *hint_paths.begin() : "";
+        CactusSnarlFinder finder(subgraph, hint_path);
+        // find the snarls
+        snarl_managers[i] = finder.find_snarls_impl(true, false);
+    }
+
+    // merge the managers into the biggest one.
+    // todo: we could probably do this without re-indexing, but I'm not sure it'd have enough
+    // of an effect on overall performance to be worth it
+    size_t biggest_snarl_idx = 0;
+    for (size_t i = 1; i < snarl_managers.size(); ++i) {
+        if (snarl_managers[i].num_snarls() > snarl_managers[biggest_snarl_idx].num_snarls()) {
+            biggest_snarl_idx = i;
+        }
+    }
+    for (size_t i = 0; i < snarl_managers.size(); ++i) {
+        if (i != biggest_snarl_idx) {
+            snarl_managers[i].for_each_snarl_unindexed([&](const Snarl* snarl) {
+                    snarl_managers[biggest_snarl_idx].add_snarl(*snarl);
+                });
+        }
+    }
+    snarl_managers[biggest_snarl_idx].finish();
+    return std::move(snarl_managers[biggest_snarl_idx]);
+}
+
 
 const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, const Visit& end,
                                                         const Visit& parent_start, const Visit& parent_end,
@@ -784,6 +826,12 @@ void SnarlManager::for_each_chain_parallel(const function<void(const Chain*)>& l
         // Then in parallel through all the snarls, do the child chains in parallel.
         do_chain_list(chains_of(snarl));
     });
+}
+
+void SnarlManager::for_each_snarl_unindexed(const function<void(const Snarl*)>& lambda) const {
+    for (const SnarlRecord& snarl_record : snarls) {
+        lambda(unrecord(&snarl_record));
+    }
 }
 
 const Snarl* SnarlManager::discrete_uniform_sample(minstd_rand0& random_engine)const{
