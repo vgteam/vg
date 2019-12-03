@@ -574,7 +574,7 @@ int main_chunk(int argc, char** argv) {
         int tid = omp_get_thread_num();
         Region& region = regions[i];
         PathChunker& chunker = chunkers[tid];
-        MutablePathMutableHandleGraph* subgraph = NULL;
+        unique_ptr<MutablePathMutableHandleGraph> subgraph;
         map<string, int> trace_thread_frequencies;
         if (!component_ids.empty()) {
             subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
@@ -624,20 +624,19 @@ int main_chunk(int argc, char** argv) {
                                        g, trace_thread_frequencies, false);
             subgraph->for_each_path_handle([&trace_thread_frequencies, &subgraph](path_handle_t path_handle) {
                     trace_thread_frequencies[subgraph->get_path_name(path_handle)] = 1;});
-            VG* vg_subgraph = dynamic_cast<VG*>(subgraph);
+            VG* vg_subgraph = dynamic_cast<VG*>(subgraph.get());
             if (vg_subgraph != nullptr) {
                 // our graph is in vg format, just extend it
                 vg_subgraph->extend(g);
             } else {
                 // our graph is not in vg format.  covert it, extend it, convert it back
                 // this can eventually be avoided by handlifying the haplotype tracer
-                vg_subgraph = new VG();
-                convert_path_handle_graph(subgraph, vg_subgraph);
-                delete subgraph;
-                vg_subgraph->extend(g);
+                VG vg;
+                convert_path_handle_graph(subgraph.get(), &vg);
+                subgraph.reset();
+                vg.extend(g);
                 subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
-                convert_path_handle_graph(vg_subgraph, subgraph);
-                delete vg_subgraph;
+                convert_path_handle_graph(&vg, subgraph.get());
             }
         }
 
@@ -661,7 +660,8 @@ int main_chunk(int argc, char** argv) {
                 out_stream = &out_file;
             }
 
-            vg::io::save_handle_graph(subgraph, *out_stream);
+            assert(subgraph);
+            vg::io::save_handle_graph(subgraph.get(), *out_stream);
         }
         
         // optional gam chunking
@@ -680,9 +680,9 @@ int main_chunk(int argc, char** argv) {
             
                 // Work out the ID ranges to look up
                 vector<pair<vg::id_t, vg::id_t>> region_id_ranges;
-                if (subgraph != NULL) {
+                if (subgraph) {
                     // Use the regions from the graph
-                    region_id_ranges = vg::algorithms::sorted_id_ranges(subgraph);
+                    region_id_ranges = vg::algorithms::sorted_id_ranges(subgraph.get());
                 } else {
                     // Use the region we were asked for
                     region_id_ranges = {{region.start, region.end}};
@@ -706,8 +706,6 @@ int main_chunk(int argc, char** argv) {
                 out_annot_file << tf.first << "\t" << tf.second << endl;
             }
         }
-
-        delete subgraph;
     }
         
     // write a bed file if asked giving a more explicit linking of chunks to files
