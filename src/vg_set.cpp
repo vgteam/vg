@@ -29,23 +29,6 @@ void VGset::transform(std::function<void(MutableHandleGraph*)> lambda) {
     }
 }
 
-void VGset::transform_as_vg(std::function<void(vg::VG*)> lambda) {
-    for (auto& name : filenames) {
-        // load
-        unique_ptr<vg::VG> g;
-        get_input_file(name, [&](istream& in) {
-            // Note: I would have liked to just load a MutableHandleGraph here but the resulting pointer
-            // is broken (tested: VG and PackedGraph)
-            g = vg::io::VPKG::load_one<vg::VG>(in);
-            });
-        g->name = name;
-        // apply
-        lambda(g.get());
-        // write to the same file
-        vg::io::save_handle_graph(g.get(), name);
-    }
-}
-
 void VGset::for_each(std::function<void(HandleGraph*)> lambda) {
     for (auto& name : filenames) {
         // load
@@ -75,14 +58,14 @@ int64_t VGset::merge_id_space(void) {
     int64_t max_node_id = 0;
     // TODO: for now, only vg::VG actually implements increment_node_ids,
     // despite it being in the interface.
-    auto lambda = [&max_node_id](vg::VG* g) {
+    auto lambda = [&max_node_id](MutableHandleGraph* g) {
         int64_t delta = max_node_id - g->min_node_id();
         if (delta >= 0) {
             g->increment_node_ids(delta + 1);
         }
         max_node_id = g->max_node_id();
     };
-    transform_as_vg(lambda);
+    transform(lambda);
     return max_node_id;
 }
 

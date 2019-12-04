@@ -28,8 +28,6 @@ public:
         { };
 
     void transform(std::function<void(MutableHandleGraph*)> lambda);
-    // TODO: some operations still depend on operations only vg::VG supports
-    void transform_as_vg(std::function<void(vg::VG*)> lambda);
     void for_each(std::function<void(HandleGraph*)> lambda);
 
     /// Stream through the files and determine the max node id
