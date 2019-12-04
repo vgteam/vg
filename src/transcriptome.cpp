@@ -862,14 +862,12 @@ bool Transcriptome::add_novel_transcript_junctions(const list<TranscriptPath> & 
 
             auto & cur_mapping = transcript_path.path.mapping(i);
 
-            if (cur_mapping.position().offset() > 0 || cur_mapping.edit_size() > 1 || !edit_is_match(cur_mapping.edit(0)) || !_splice_graph->has_node(cur_mapping.position().node_id()) || _splice_graph->get_length(_splice_graph->get_handle(cur_mapping.position().node_id())) != cur_mapping.edit(0).from_length()) {
+            if (cur_mapping.position().offset() > 0 || cur_mapping.edit_size() > 1 || !edit_is_match(cur_mapping.edit(0)) || _splice_graph->get_length(_splice_graph->get_handle(cur_mapping.position().node_id())) != cur_mapping.edit(0).from_length()) {
 
                 all_junctions_added = false;
                 i++;
-                continue;
-            } 
-
-            if (i > 0) {
+            
+            } else if (i > 0) {
 
                 auto & prev_mapping = transcript_path.path.mapping(i - 1);
 
@@ -970,11 +968,21 @@ const MutablePathDeletableHandleGraph & Transcriptome::splice_graph() const {
 
 void Transcriptome::remove_non_transcribed(const bool new_reference_paths) {
 
-    // Remove non transcript paths.
+    vector<path_handle_t> path_handles;
+    path_handles.reserve(_splice_graph->get_path_count());
+
     assert(_splice_graph->for_each_path_handle([&](const path_handle_t & path_handle) {
 
+        path_handles.emplace_back(path_handle);
+    }));    
+
+    // Remove non transcript paths.
+    for (auto & path_handle: path_handles) {
+
         _splice_graph->destroy_path(path_handle);
-    }));
+    }
+
+    assert(_splice_graph->get_path_count() == 0);
 
     // Find all nodes that are in a transcript path.
     unordered_set<vg::id_t> transcribed_nodes;
@@ -982,23 +990,31 @@ void Transcriptome::remove_non_transcribed(const bool new_reference_paths) {
     for (auto & transcript_path: _transcript_paths) {
 
         assert(transcript_path.path.mapping_size() > 0);
-        transcribed_nodes.emplace(transcript_path.path.mapping(0).position().node_id());
+        for (auto & mapping: transcript_path.path.mapping()) {
 
-        for (size_t i = 1; i < transcript_path.path.mapping_size(); i++) {
-
-            transcribed_nodes.emplace(transcript_path.path.mapping(i).position().node_id());
+            transcribed_nodes.emplace(mapping.position().node_id());
         }    
     }
 
-    // Delete all nodes that are not in a transcript path.
-    vector<vg::id_t> non_transcribed_nodes;
+    vector<handle_t> non_transcribed_handles;
+    non_transcribed_handles.reserve(_splice_graph->get_node_count() - transcribed_nodes.size());
+
+    // Collect all nodes that are not in a transcript path.
     assert(_splice_graph->for_each_handle([&](const handle_t & handle) {
         
         if (transcribed_nodes.count(_splice_graph->get_id(handle)) == 0) {
 
-            _splice_graph->destroy_handle(handle);
-        }
+            non_transcribed_handles.emplace_back(handle); 
+        } 
     }));
+
+    for (auto & handle: non_transcribed_handles) {
+
+        // Delete node and in/out edges. 
+        _splice_graph->destroy_handle(handle);
+    }
+
+    assert(_splice_graph->get_node_count() == transcribed_nodes.size());
 }
 
 void Transcriptome::compact_ordered() {
@@ -1046,16 +1062,14 @@ void Transcriptome::embed_transcript_paths(const bool add_reference_paths, const
     for (auto & transcript_path: _transcript_paths) {
 
         assert(!transcript_path.haplotype_origins.empty() || !transcript_path.reference_origin.empty());
-        auto path_handle = _splice_graph->create_path_handle(transcript_path.name);
 
         if ((add_reference_paths && !transcript_path.reference_origin.empty()) || (add_non_reference_paths && !transcript_path.haplotype_origins.empty())) {
 
+            auto path_handle = _splice_graph->create_path_handle(transcript_path.name);
             for (auto & mapping: transcript_path.path.mapping()) {
 
-                auto handle = _splice_graph->get_handle(mapping.position().node_id(), mapping.position().is_reverse());
-                _splice_graph->append_step(path_handle, handle);
+                _splice_graph->append_step(path_handle, _splice_graph->get_handle(mapping.position().node_id(), mapping.position().is_reverse()));
             }
-
         }
     }
 }
