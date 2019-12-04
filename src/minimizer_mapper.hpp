@@ -39,6 +39,12 @@ public:
      */
     void map(Alignment& aln, AlignmentEmitter& alignment_emitter);
 
+    /**
+     * Map the given paired end reads, and send output to the given AlignmentEmitter. May be run from any thread.
+     * TODO: Can't be const because the clusterer's cluster_seeds isn't const.
+     */
+    void map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmitter& alignment_emitter);
+
     // Mapping settings.
     // TODO: document each
 
@@ -79,6 +85,7 @@ public:
 
     size_t max_multimaps = 1;
     size_t distance_limit = 1000;
+    int64_t expected_fragment_length = 0;
     bool do_dp = true;
     string sample_name;
     string read_group;
