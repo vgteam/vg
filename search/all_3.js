@@ -13,7 +13,7 @@ var searchData=
   ['cactus_5fto_5fvg',['cactus_to_vg',['../namespacevg.html#adf53e86632a6d1d4b54370e6d948d08c',1,'vg']]],
   ['cactusify',['cactusify',['../namespacevg.html#aa4d05bc207717708d48e1da09f83eec6',1,'vg']]],
   ['cactusside',['CactusSide',['../structvg_1_1CactusSide.html',1,'vg']]],
-  ['cactussnarlfinder',['CactusSnarlFinder',['../classvg_1_1CactusSnarlFinder.html',1,'vg::CactusSnarlFinder'],['../classvg_1_1CactusSnarlFinder.html#aca2a5fe4b29acbaf965a1b14543d6330',1,'vg::CactusSnarlFinder::CactusSnarlFinder(const PathHandleGraph &amp;graph)'],['../classvg_1_1CactusSnarlFinder.html#ab7b3dae2202a706ef5503ae1d6333563',1,'vg::CactusSnarlFinder::CactusSnarlFinder(const PathHandleGraph &amp;graph, const string &amp;hint_path)']]],
+  ['cactussnarlfinder',['CactusSnarlFinder',['../classvg_1_1CactusSnarlFinder.html',1,'vg::CactusSnarlFinder'],['../classvg_1_1CactusSnarlFinder.html#a523de5b05cbb527b87940258eed03e9b',1,'vg::CactusSnarlFinder::CactusSnarlFinder()']]],
   ['calculate_5fand_5fsave_5falignment',['calculate_and_save_alignment',['../classvg_1_1XdropAligner.html#a7a06127b2ab0a8166107b627a7d14bc2',1,'vg::XdropAligner']]],
   ['calculate_5fconsistency',['calculate_consistency',['../classvg_1_1ConsistencyCalculator.html#a208c36e5e95ab3c538f2c16175275c39',1,'vg::ConsistencyCalculator::calculate_consistency()'],['../classvg_1_1SimpleConsistencyCalculator.html#a391f08cf329583daf0c2a58cd5e20473',1,'vg::SimpleConsistencyCalculator::calculate_consistency()']]],
   ['calculate_5fi',['calculate_I',['../structhaplo_1_1haplo__DP__rectangle.html#ab2680796767cbf6721c326e5b0273e61',1,'haplo::haplo_DP_rectangle']]],

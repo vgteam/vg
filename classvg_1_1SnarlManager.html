@@ -184,6 +184,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a2d3b980bed56de4cc909590a51264a6c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a2d3b980bed56de4cc909590a51264a6c">for_each_chain_parallel</a> (const function&lt; void(const <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> *)&gt; &amp;lambda) const</td></tr>
 <tr class="memdesc:a2d3b980bed56de4cc909590a51264a6c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Ececute a function on all chains in parallel.  <a href="#a2d3b980bed56de4cc909590a51264a6c">More...</a><br /></td></tr>
 <tr class="separator:a2d3b980bed56de4cc909590a51264a6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a053c63fb829fbb9204b1b1a5502e94dd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a053c63fb829fbb9204b1b1a5502e94dd">for_each_snarl_unindexed</a> (const function&lt; void(const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *)&gt; &amp;lambda) const</td></tr>
+<tr class="memdesc:a053c63fb829fbb9204b1b1a5502e94dd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over snarls as they are stored in deque&lt;SnarlRecords&gt;  <a href="#a053c63fb829fbb9204b1b1a5502e94dd">More...</a><br /></td></tr>
+<tr class="separator:a053c63fb829fbb9204b1b1a5502e94dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adb68da18eef20aa324c498444a9ed77f"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#adb68da18eef20aa324c498444a9ed77f">manage</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;not_owned) const</td></tr>
 <tr class="separator:adb68da18eef20aa324c498444a9ed77f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aff971d38975386cfc73d44560027110a"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#aff971d38975386cfc73d44560027110a">discrete_uniform_sample</a> (minstd_rand0 &amp;random_engine) const</td></tr>
@@ -807,6 +810,26 @@ template&lt;typename SnarlIterator &gt; </div>
 </div><div class="memdoc">
 
 <p>Execute a function on all sites in a preorder traversal. </p>
+
+</div>
+</div>
+<a id="a053c63fb829fbb9204b1b1a5502e94dd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a053c63fb829fbb9204b1b1a5502e94dd">&#9670;&nbsp;</a></span>for_each_snarl_unindexed()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::SnarlManager::for_each_snarl_unindexed </td>
+          <td>(</td>
+          <td class="paramtype">const function&lt; void(const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>lambda</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Iterate over snarls as they are stored in deque&lt;SnarlRecords&gt; </p>
 
 </div>
 </div>

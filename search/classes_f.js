@@ -24,6 +24,7 @@ var searchData=
   ['pathrestrictedtraversalfinder',['PathRestrictedTraversalFinder',['../classvg_1_1PathRestrictedTraversalFinder.html',1,'vg']]],
   ['paths',['Paths',['../classvg_1_1Paths.html',1,'vg']]],
   ['pathsubgraph',['PathSubgraph',['../classvg_1_1PathSubgraph.html',1,'vg']]],
+  ['pathsubgraphoverlay',['PathSubgraphOverlay',['../classvg_1_1PathSubgraphOverlay.html',1,'vg']]],
   ['pathtraversalfinder',['PathTraversalFinder',['../classvg_1_1PathTraversalFinder.html',1,'vg']]],
   ['phasedgenome',['PhasedGenome',['../classvg_1_1PhasedGenome.html',1,'vg']]],
   ['phaseunfolder',['PhaseUnfolder',['../classvg_1_1PhaseUnfolder.html',1,'vg']]],

@@ -88,6 +88,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aa2511b024b03f3902ac149f3d6a055d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a28d2aa85a748836df818c8c4ac8a8fd9"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlFinder.html#a28d2aa85a748836df818c8c4ac8a8fd9">find_snarls</a> ()=0</td></tr>
 <tr class="separator:a28d2aa85a748836df818c8c4ac8a8fd9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a33c72efed97f46434623b5fa24eddb85"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlFinder.html#a33c72efed97f46434623b5fa24eddb85">find_snarls_parallel</a> ()=0</td></tr>
+<tr class="separator:a33c72efed97f46434623b5fa24eddb85"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Represents a strategy for finding (nested) sites in a vg graph that can be described by snarls. Polymorphic base class/interface. </p>
@@ -140,9 +142,37 @@ Public Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Run a function on all root-level NestedSites in parallel. Site trees are passed by value so they have a clear place to live during parallel operations. </p>
+<p>Find all the snarls, and put them into a <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a>. </p>
 
 <p>Implemented in <a class="el" href="classvg_1_1CactusSnarlFinder.html#a3060bcff3b01e21176f17ebb74d31452">vg::CactusSnarlFinder</a>.</p>
+
+</div>
+</div>
+<a id="a33c72efed97f46434623b5fa24eddb85"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a33c72efed97f46434623b5fa24eddb85">&#9670;&nbsp;</a></span>find_snarls_parallel()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> vg::SnarlFinder::find_snarls_parallel </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Find all the snarls of weakly connected components in parallel. Even single-threaded, this may be worth using as it will use less memory by only considering one component at a time. </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1CactusSnarlFinder.html#a712cd81719c13a172c3da46349419524">vg::CactusSnarlFinder</a>.</p>
 
 </div>
 </div>

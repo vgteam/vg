@@ -31,6 +31,7 @@ var searchData=
   ['path_5foffset',['path_offset',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a58b1c09d2f45e4942afd52d975c85b9a',1,'vg::GraphSynchronizer::Lock']]],
   ['path_5frestricted',['path_restricted',['../classvg_1_1Deconstructor.html#aecaa984fc9780a4714afac84d4b5e2c6',1,'vg::Deconstructor']]],
   ['path_5fsampler',['path_sampler',['../classvg_1_1Sampler.html#a8125a49b29eecf4d5037067c813b2cd7',1,'vg::Sampler::path_sampler()'],['../classvg_1_1NGSSimulator.html#a6101d443a8c314416fbc23dbfd3d5bde',1,'vg::NGSSimulator::path_sampler()']]],
+  ['path_5fsubset',['path_subset',['../classvg_1_1PathSubgraphOverlay.html#aef82f75c24c686645b0255685bc4c6f2',1,'vg::PathSubgraphOverlay']]],
   ['path_5fto_5fsample',['path_to_sample',['../classvg_1_1Deconstructor.html#a38b458b541ea01415d938e8c8ff7d615',1,'vg::Deconstructor']]],
   ['path_5ftrav_5ffinder',['path_trav_finder',['../classvg_1_1Deconstructor.html#a73c6c008333acfbb0ffd6fde2360518c',1,'vg::Deconstructor']]],
   ['paths',['paths',['../classvg_1_1PathTraversalFinder.html#a5a931da9269d7834dcc04e5fb578ff45',1,'vg::PathTraversalFinder::paths()'],['../classvg_1_1VG.html#a7c5150aba84e7ed2bde7986462a79989',1,'vg::VG::paths()']]],

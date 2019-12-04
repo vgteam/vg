@@ -33,6 +33,7 @@ var searchData=
   ['string_5fhash_5fmap',['string_hash_map',['../classvg_1_1string__hash__map.html',1,'vg']]],
   ['string_5fhash_5fset',['string_hash_set',['../classvg_1_1string__hash__set.html',1,'vg']]],
   ['subcommand',['Subcommand',['../classvg_1_1subcommand_1_1Subcommand.html',1,'vg::subcommand']]],
+  ['subgraphoverlay',['SubgraphOverlay',['../classvg_1_1SubgraphOverlay.html',1,'vg']]],
   ['subhandlegraph',['SubHandleGraph',['../classvg_1_1SubHandleGraph.html',1,'vg']]],
   ['subpath',['Subpath',['../structvg_1_1Subpath.html',1,'vg']]],
   ['support',['Support',['../structvg_1_1Support.html',1,'vg']]],
