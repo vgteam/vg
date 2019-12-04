@@ -64,26 +64,46 @@ void load_proto_to_graph(const vg::io::message_sender_function_t& for_each_messa
                 if (destination->has_node(id)) {
                     // But we do have the node in the destination graph already.
                     dest = destination->get_handle(id, is_reverse);
+                    assert(destination->get_id(dest) == id);
+                    assert(destination->get_is_reverse(dest) == is_reverse);
                     return true;
                 } else {
                     // The node doesn't exist yet.
                     return false;
                 }
             } else {
-                // Handle is cached
-                dest = handle_iter->second;
+                // Handle is cached. All we have to do is get the correct orientation.
+                dest = is_reverse ? destination->flip(handle_iter->second) : handle_iter->second;
+                assert(destination->get_id(dest) == id);
+                assert(destination->get_is_reverse(dest) == is_reverse);
                 return true;
             }
         };
         
         for (auto& n : g.node()) {
             // Create all the nodes
+            
+#ifdef debug
+                cerr << "Found node " << n.id() << endl;
+#endif
+            
             node_to_handle[n.id()] = destination->create_handle(n.sequence(), n.id());
             
             auto edges_waiting = deferred_edges.find(n.id());
             if (edges_waiting != deferred_edges.end()) {
+            
+#ifdef debug
+                cerr << "Node has deferred edges waiting on it" << endl;
+#endif
+            
                 // There were edges waiting for this node. Make them and get them out of our memory.
                 for (auto& edge : edges_waiting->second) {
+                
+#ifdef debug
+                    cerr << "Make deferred edge " << get<0>(edge) << " " << get<1>(edge)
+                        << " " << get<2>(edge) << " " << get<3>(edge) << endl;
+#endif
+                
                     // For each edge that only lacked this node, get the handles.
                     handle_t from_handle;
                     handle_t to_handle;
@@ -112,15 +132,32 @@ void load_proto_to_graph(const vg::io::message_sender_function_t& for_each_messa
             handle_t to_handle;
             if (!get_handle(e.from(), e.from_start(), from_handle)) {
                 // From node isn't made yet. Defer the edge.
+                
+#ifdef debug
+                cerr << "Defer edge " << e.from() << " " << e.from_start() << " "
+                     << e.to() << " " << e.to_end() << " on " << e.from() << endl;
+#endif
+                
                 deferred_edges[e.from()].emplace_back(e.from(), e.from_start(), e.to(), e.to_end());
                 // Don't do the edge now.
                 continue;
             } else if (!get_handle(e.to(), e.to_end(), to_handle)) {
                 // To node isn't made yet. Defer the edge.
+                
+#ifdef debug
+                cerr << "Defer edge " << e.from() << " " << e.from_start() << " "
+                     << e.to() << " " << e.to_end() << " on " << e.to() << endl;
+#endif
+                
                 deferred_edges[e.to()].emplace_back(e.from(), e.from_start(), e.to(), e.to_end());
                 // Don't do the edge now.
                 continue;
             }
+            
+#ifdef debug
+            cerr << "Make edge " << e.from() << " " << e.from_start() << " "
+                << e.to() << " " << e.to_end() << endl;
+#endif
             
             // Make the edge
             destination->create_edge(from_handle, to_handle);
