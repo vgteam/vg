@@ -15,7 +15,9 @@
 
 #include "../utility.hpp"
 #include "../vg.hpp"
+#include "../convert_handle.hpp"
 #include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 
 using namespace std;
 using namespace vg;
@@ -171,13 +173,27 @@ int main_align(int argc, char** argv) {
         }
     }
 
-    VG* graph = nullptr;
+    unique_ptr<PathHandleGraph> graph;
     if (ref_seq.empty()) {
         // Only look at a filename if we don't have an explicit reference
         // sequence.
         get_input_file(optind, argc, argv, [&](istream& in) {
-            graph = new VG(in);
+            graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
         });
+    }
+    
+    // Look at the graph as a vg if possible
+    VG* vg_graph = dynamic_cast<vg::VG*>(graph.get());
+    
+    if (vg_graph == nullptr) {
+        // Copy instead. Should be fine because we on;y ever want to run this on small graphs anyway.
+        // TODO: Replace VG::align with non-vg-specific alignment algorithm!
+        // TODO: This converts from VG protobuf and then back to it when loading a Protobuf graph!
+        vg_graph = new vg::VG();
+        convert_path_handle_graph(graph.get(), vg_graph);
+        
+        // Give the unique_ptr ownership and delete the graph we loaded.
+        graph.reset(vg_graph);
     }
 
     ifstream matrix_stream;
@@ -200,8 +216,8 @@ int main_align(int argc, char** argv) {
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus, vg::default_gc_content, seq.size());
         if(matrix_stream.is_open()) aligner.load_scoring_matrix(matrix_stream);
-        alignment = graph->align(seq, &aligner, true, false, 0, pinned_alignment, pin_left,
-                                 banded_global, 0, 0, 0, 0, debug);
+        alignment = vg_graph->align(seq, &aligner, true, false, 0, pinned_alignment, pin_left,
+                                    banded_global, 0, 0, 0, 0, debug);
     }
 
     if (!seq_name.empty()) {
@@ -217,10 +233,6 @@ int main_align(int argc, char** argv) {
             };
         vg::io::write(cout, 1, lambda);
         vg::io::finish(cout);
-    }
-
-    if (graph != nullptr) {
-        delete graph;
     }
 
     return 0;

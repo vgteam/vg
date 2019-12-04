@@ -1,8 +1,8 @@
-#ifndef VG_IO_SAVE_HANDLE_GRAPH_IO_HPP_INCLUDED
-#define VG_IO_REGISTER_LIBVG_IO_HPP_INCLUDED
+#ifndef VG_IO_SAVE_HANDLE_GRAPH_HPP_INCLUDED
+#define VG_IO_SAVE_HANDLE_GRAPH_HPP_INCLUDED
 
 /**
- * \save_handle_graph.hpp
+ * \file save_handle_graph.hpp
  * Use vpkg to serialize a HandleGraph object
  */
 
