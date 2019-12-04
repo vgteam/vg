@@ -339,13 +339,19 @@ void Paths::append_mapping(const string& name, const mapping_t& m, bool warn_on_
 }
 
 int64_t Paths::get_path_id(const string& name) const {
-    auto f = name_to_id.find(name);
-    if (f == name_to_id.end()) {
-        // Assign an ID.
-        // These members are mutable.
-        ++max_path_id;
-        name_to_id[name] = max_path_id;
-        id_to_name[max_path_id] = name;
+    if (!name_to_id.count(name)) {
+#pragma omp critical (path_id_map)
+        {
+            // in order to keep the critical section inside above if (so it's only touched when initializing)
+            // we need the second check here
+            if (!name_to_id.count(name)) {
+                // Assign an ID.
+                // These members are mutable.
+                ++max_path_id;
+                name_to_id[name] = max_path_id;
+                id_to_name[max_path_id] = name;
+            }
+        }
     }
     return name_to_id[name];
 }
