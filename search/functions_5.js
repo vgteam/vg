@@ -28,7 +28,7 @@ var searchData=
   ['edit_5fvalue',['edit_value',['../classvg_1_1Packer.html#aff566a3e094a0e28bbc51a468d60b800',1,'vg::Packer']]],
   ['edits_5fat_5fposition',['edits_at_position',['../classvg_1_1Packer.html#a8b632f64e269417895cbc84d0e377a8a',1,'vg::Packer']]],
   ['elementary_5fcycles',['elementary_cycles',['../classvg_1_1VG.html#a310f10ff59e15468e8350844465f15e7',1,'vg::VG']]],
-  ['embed_5ftranscript_5fpaths',['embed_transcript_paths',['../classvg_1_1Transcriptome.html#a6ab7915a3aa73ebad0d0ca874d0024be',1,'vg::Transcriptome']]],
+  ['embed_5ftranscript_5fpaths',['embed_transcript_paths',['../classvg_1_1Transcriptome.html#a58770b10a484be61e85cfa6342363ea9',1,'vg::Transcriptome']]],
   ['emit',['emit',['../classvg_1_1TSVAlignmentEmitter.html#a7bb4b18649cd40e77924cb926c415462',1,'vg::TSVAlignmentEmitter::emit()'],['../classVectorizer.html#a086dc2c83d1627780103d9367b7d3191',1,'Vectorizer::emit()']]],
   ['emit_5fgroup',['emit_group',['../classvg_1_1io_1_1MessageEmitter.html#a1f37b89141a12819675b1d2a9dccdb10',1,'vg::io::MessageEmitter::emit_group()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a55b19615de43ba7ef0fc38487fe7e811',1,'vg::io::ProtobufEmitter::emit_group()']]],
   ['emit_5fmapped_5fpair',['emit_mapped_pair',['../classvg_1_1AlignmentEmitter.html#ace1ae6b6682ee81431caf8d98243d258',1,'vg::AlignmentEmitter']]],

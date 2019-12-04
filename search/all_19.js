@@ -105,7 +105,6 @@ var searchData=
   ['_7eswaphaplotypescommand',['~SwapHaplotypesCommand',['../structvg_1_1SwapHaplotypesCommand.html#a1c95200d197a7635ebd54facdf1b2257',1,'vg::SwapHaplotypesCommand']]],
   ['_7etargetvaluesearch',['~TargetValueSearch',['../classvg_1_1TargetValueSearch.html#a11e6bc6d502a87f0bab3ef5cfa012eb6',1,'vg::TargetValueSearch']]],
   ['_7etipanchoredmaxdistance',['~TipAnchoredMaxDistance',['../classvg_1_1TipAnchoredMaxDistance.html#a7a02421438454a8639035fdecbead5e6',1,'vg::TipAnchoredMaxDistance']]],
-  ['_7etranscriptome',['~Transcriptome',['../classvg_1_1Transcriptome.html#a2f00f4b62a5fd18eab72365c4c159a33',1,'vg::Transcriptome']]],
   ['_7etraversalfinder',['~TraversalFinder',['../classvg_1_1TraversalFinder.html#aa42ea2599b925f21244928ad5b997168',1,'vg::TraversalFinder']]],
   ['_7etraversalsupportcalculator',['~TraversalSupportCalculator',['../classvg_1_1TraversalSupportCalculator.html#acd55c7b07d365ae00206ac88bf1e3ff9',1,'vg::TraversalSupportCalculator']]],
   ['_7etraversalsupportfinder',['~TraversalSupportFinder',['../classvg_1_1TraversalSupportFinder.html#a86fe98aaabf74546462d2d52017f69a5',1,'vg::TraversalSupportFinder']]],
