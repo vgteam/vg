@@ -757,8 +757,7 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
     cerr << "Read " << aln.name() << ": " << aln.sequence() << endl;
 #endif
 
-    //TODO: Figure out how to make the funnel work with two reads
-    // Make a new funnel instrumenter to watch us map this read.
+    // Make two new funnel instrumenters to watch us map this read pair.
     vector<Funnel> funnels;
     funnels.resize(2);
     // Start this alignment 
@@ -786,16 +785,16 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
     
     // This will hold all the minimizers in the query
     vector<vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type>> minimizers;
-    // Find minimizers in the query
-    minimizers.emplace_back(minimizer_index.minimizers(aln1.sequence()));
-    minimizers.emplace_back(minimizer_index.minimizers(aln2.sequence()));
 
     // And either way this will map from seed to minimizer that generated it
     vector<vector<size_t>> seed_to_source;
     vector<vector<double>> minimizer_score;
     
     for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
-        //For each read, find the minimizers
+        // Find minimizers in the query
+        minimizers.emplace_back(read_num == 0 ? minimizer_index.minimizers(aln1.sequence()) : 
+                                                minimizer_index.minimizers(aln2.sequence()) );
+
         seeds.emplace_back();
         seed_to_source.emplace_back();
         
@@ -847,10 +846,10 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
             // of the selected minimizers is not high enough.
             size_t hits = minimizer_index.count(minimizers.back()[minimizer_num]);
             
-    #ifdef debug
-            cerr << "Minimizer " << minimizer_num << " = " << minimizers.back()[minimizer_num].key.decode(minimizer_index.k())
+#ifdef debug
+            cerr << "Minimizer " << minimizer_num << " in read " << read_num << " = " << minimizers.back()[minimizer_num].key.decode(minimizer_index.k())
                 << " has " << hits << " hits" << endl;
-    #endif
+#endif
             
             if (hits == 0) {
                 // A minimizer with no hits can't go on.
@@ -902,45 +901,28 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
 #ifdef debug
         cerr << "For read " << read_num << ", found " << seeds.back().size() << " seeds from " << (minimizers.back().size() - rejected_count) << " minimizers, rejected " << rejected_count << endl;
 #endif
-    }
-    if (track_provenance && track_correctness) {
-        // Tag seeds with correctness based on proximity along paths to the input read's refpos
-        funnels[0].substage("correct");
-        funnels[1].substage("correct");
-      
-        if (path_graph == nullptr) {
-            cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
-            exit(1);
-        }
-        
-        if (aln1.refpos_size() != 0) {
-            // Take the first refpos as the true position.
-            auto& true_pos = aln1.refpos(0);
-            
-            for (size_t i = 0; i < seeds[0].size(); i++) {
-                // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
-                auto offsets = algorithms::nearest_offsets_in_paths(path_graph, seeds[0][i], 100);
-                for (auto& hit_pos : offsets[path_graph->get_path_handle(true_pos.name())]) {
-                    // Look at all the ones on the path the read's true position is on.
-                    if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
-                        // Call this seed hit close enough to be correct
-                        funnels[0].tag_correct(i);
-                    }
-                }
+        if (track_provenance && track_correctness) {
+            // Tag seeds with correctness based on proximity along paths to the input read's refpos
+            funnels[read_num].substage("correct");
+          
+            if (path_graph == nullptr) {
+                cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
+                exit(1);
             }
-        }
-        if (aln2.refpos_size() != 0) {
-            // Take the first refpos as the true position.
-            auto& true_pos = aln2.refpos(0);
             
-            for (size_t i = 0; i < seeds[1].size(); i++) {
-                // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
-                auto offsets = algorithms::nearest_offsets_in_paths(path_graph, seeds[1][i], 100);
-                for (auto& hit_pos : offsets[path_graph->get_path_handle(true_pos.name())]) {
-                    // Look at all the ones on the path the read's true position is on.
-                    if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
-                        // Call this seed hit close enough to be correct
-                        funnels[1].tag_correct(i);
+            if (read_num == 0 ? (aln1.refpos_size() != 0) :  (aln2.refpos_size() != 0)) {
+                // Take the first refpos as the true position.
+                auto& true_pos = aln1.refpos(0);
+                
+                for (size_t i = 0; i < seeds[read_num].size(); i++) {
+                    // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
+                    auto offsets = algorithms::nearest_offsets_in_paths(path_graph, seeds[read_num][i], 100);
+                    for (auto& hit_pos : offsets[path_graph->get_path_handle(true_pos.name())]) {
+                        // Look at all the ones on the path the read's true position is on.
+                        if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
+                            // Call this seed hit close enough to be correct
+                            funnels[read_num].tag_correct(i);
+                        }
                     }
                 }
             }
@@ -983,13 +965,13 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
             }
 
             // Which minimizers are present in the cluster.
-            vector<bool> present(minimizers.size(), false);
+            vector<bool> present(minimizers[read_num].size(), false);
             for (auto hit_index : cluster) {
                 present[seed_to_source.back()[hit_index]] = true;
             }
 
             // Compute the score.
-            for (size_t j = 0; j < minimizers.size(); j++) {
+            for (size_t j = 0; j < minimizers[read_num].size(); j++) {
                 if (present[j]) {
                     cluster_score[i] += minimizer_score[read_num][j];
                 }
@@ -1004,7 +986,6 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
                 funnels[read_num].produced_output();
             }
 
-            //TODO:
             //Get the cluster coverage
             // We set bits in here to true when query anchors cover them
             sdsl::bit_vector covered(read_num == 0 ? aln1.sequence().size() : aln2.sequence().size(), 0);
@@ -1012,7 +993,7 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
 
             for (auto hit_index : cluster) {
                 // For each hit in the cluster, work out what anchor sequence it is from.
-                size_t source_index = seed_to_source.back()[hit_index];
+                size_t source_index = seed_to_source[read_num][hit_index];
 
                 // The offset of a reverse minimizer is the endpoint of the kmer
                 size_t start_offset = minimizers[read_num][source_index].offset;
@@ -1034,13 +1015,12 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
         }
 
 #ifdef debug
-        cerr << "Found " << clusters.size() << " clusters" << endl;
+        cerr << "Found " << clusters.size() << " clusters for read " << read_num << endl;
 #endif
                                         
         // Retain clusters only if their score is better than this, in addition to the coverage cutoff
         double cluster_score_cutoff = cluster_score.size() == 0 ? 0 :
-                        *std::max_element(cluster_score.begin(), cluster_score.end())
-                                        - cluster_score_threshold;
+                        *std::max_element(cluster_score.begin(), cluster_score.end()) - cluster_score_threshold;
         
         if (track_provenance) {
             // Now we go from clusters to gapless extensions
@@ -1114,9 +1094,9 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
 //                    return false;
 //                }
 //                
-
-                //Only keep this cluster if we have few enough equivalent clusters
-
+//
+//                //Only keep this cluster if we have few enough equivalent clusters
+//
                 vector<size_t>& cluster = clusters[cluster_num].first;
 
 #ifdef debug
@@ -1291,7 +1271,7 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
                     }
                     
                     // Do the DP and compute alignment into best_alignment and
-                    // second_best_extension, if there is a second best
+                    // second_best_alignment, if there is a second best
                     find_optimal_tail_alignments(aln, extensions, best_alignment, second_best_alignment);
 
                     
@@ -1366,11 +1346,8 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
 
     for (size_t fragment_num = 0 ; fragment_num < alignments.size() ; fragment_num ++ ) {
         //Get pairs of plausible alignments
-        //TODO: keep more than one potential pair from each fragment cluster
+        //TODO: Maybe don't keep all pairs per fragment cluster
         vector<vector<Alignment>>& fragment_alignments = alignments[fragment_num];
-        double best_score=0;
-        size_t best_alignment1;
-        size_t best_alignment2;
         if (!fragment_alignments[0].empty() && ! fragment_alignments[1].empty()) {
             for (size_t i1 = 0 ; i1 < fragment_alignments[0].size() ; i1++)  {
                 Alignment& alignment1 = fragment_alignments[0][i1];
@@ -1381,15 +1358,10 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
                     int64_t fragment_distance = distance_index.minDistance(pos1, pos2); 
                     //TODO: Scoring of pairs
                     double score = alignment1.score() + alignment2.score() - (double)abs(expected_fragment_length-fragment_distance); 
-                    if (score > best_score) {
-                        best_alignment1 = i1;
-                        best_alignment2 = i2;
-                        best_score = score;
-                    }
+                    paired_alignments.emplace_back(fragment_num, i1, i2);
+                    paired_scores.emplace_back(score);
                 }
             }
-            paired_alignments.emplace_back(fragment_num, best_alignment1, best_alignment2);
-            paired_scores.emplace_back(best_score);
         }
     }
     
