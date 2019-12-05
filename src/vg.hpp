@@ -288,6 +288,12 @@ public:
     
     /// No-op function (required by MutableHandleGraph interface)
     virtual void set_id_increment(const nid_t& min_id);
+    
+    /// Add the given value to all node IDs. Preserves the paths.
+    virtual void increment_node_ids(id_t increment);
+    
+    /// Reassign all node IDs as specified by the old->new mapping function.
+    virtual void reassign_node_ids(const std::function<nid_t(const nid_t&)>& get_new_id);
 
     ////////////////////////////////////////////////////////////////////////////
     // Mutable path handle interface
@@ -596,9 +602,6 @@ public:
     /// Squish the node IDs down into as small a space as possible. Fixes up paths itself.
     /// Record translation in provided map.
     void compact_ids(hash_map<id_t, id_t> & new_id);
-    
-    /// Add the given value to all node IDs. Preserves the paths.
-    void increment_node_ids(id_t increment);
     /// Subtract the given value from all the node IDs. Must not create a node with 0 or negative IDs. Invalidates the paths.
     void decrement_node_ids(id_t decrement);
     /// Change the ID of the node with the first id to the second, new ID not

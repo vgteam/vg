@@ -230,8 +230,9 @@ public:
     bool for_each_name_stoppable(const function<bool(const string&)>& lambda) const;
     void for_each_stream(istream& in, const function<void(Path&)>& lambda);
     void increment_node_ids(id_t inc);
-    // Replace the node IDs used as keys with those used as values.
+    // Replace the node IDs according to a mapping from old ID to new ID.
     // This is only efficient to do in a batch.
+    void swap_node_ids(const std::function<nid_t(const nid_t&)>& get_new_id);
     void swap_node_ids(hash_map<id_t, id_t>& id_mapping);
     // sets the mapping to the new id
     // erases current (old index information)

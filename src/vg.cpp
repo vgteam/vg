@@ -3197,19 +3197,32 @@ void VG::compact_ids(void) {
     compact_ids(new_id);
 }
 
+void VG::reassign_node_ids(const std::function<nid_t(const nid_t&)>& get_new_id) {
+//#pragma omp parallel for
+    for_each_node([&get_new_id](Node* n) {
+            n->set_id(get_new_id(n->id())); });
+//#pragma omp parallel for
+    for_each_edge([&get_new_id](Edge* e) {
+            e->set_from(get_new_id(e->from()));
+            e->set_to(get_new_id(e->to())); });
+    paths.swap_node_ids(get_new_id);
+    rebuild_indexes();
+}
+
 void VG::compact_ids(hash_map<id_t, id_t> & new_id) {
     id_t id = 1; // start at 1
     for_each_node([&id, &new_id](Node* n) {
             new_id[n->id()] = id++; });
-//#pragma omp parallel for
-    for_each_node([&new_id](Node* n) {
-            n->set_id(new_id[n->id()]); });
-//#pragma omp parallel for
-    for_each_edge([&new_id](Edge* e) {
-            e->set_from(new_id[e->from()]);
-            e->set_to(new_id[e->to()]); });
-    paths.swap_node_ids(new_id);
-    rebuild_indexes();
+    reassign_node_ids([&new_id](const nid_t& old_id) -> nid_t {
+        auto it = new_id.find(old_id);
+        if (it == new_id.end()) {
+            // Not found
+            return 0;
+        } else {
+            // Use the result
+            return it->second;
+        }
+    });
 }
 
 void VG::increment_node_ids(id_t increment) {
