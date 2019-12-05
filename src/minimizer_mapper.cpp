@@ -29,6 +29,11 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph, const gbwtgr
 }
 
 void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
+    // Ship out all the aligned alignments
+    alignment_emitter.emit_mapped_single(map(aln));
+}
+
+vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     // For each input alignment
     
 #ifdef debug
@@ -741,13 +746,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         set_annotation(mappings[0], "param_max-multimaps", (double) max_multimaps);
     }
     
-    // Ship out all the aligned alignments
-    alignment_emitter.emit_mapped_single(std::move(mappings));
-
 #ifdef debug
     // Dump the funnel info graph.
     funnel.to_dot(cerr);
 #endif
+
+    return mappings;
 }
 
 void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmitter& alignment_emitter) {

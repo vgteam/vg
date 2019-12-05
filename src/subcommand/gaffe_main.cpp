@@ -296,6 +296,7 @@ void help_gaffe(char** argv) {
     << "input options:" << endl
     << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE (may repeat)" << endl
     << "  -f, --fastq-in FILE           read and align FASTQ-format reads from FILE (may repeat)" << endl
+    << "  -i, --interleaved             GAM/FASTQ input is interleaved pairs, for paired-end alignment" << endl
     << "output options:" << endl
     << "  -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
     << "  -N, --sample NAME             add this sample name" << endl
@@ -355,6 +356,8 @@ int main_gaffe(int argc, char** argv) {
     // What FASTQs should we align.
     // Note: multiple FASTQs are not interpreted as paired.
     vector<string> fastq_filenames;
+    // Is the input interleaved/are we in paired-end mode?
+    bool interleaved = false;
     // How many mappings per read can we emit?
     Range<size_t> max_multimaps = 1;
     // How many clusters should we extend?
@@ -409,6 +412,7 @@ int main_gaffe(int argc, char** argv) {
             {"progress", no_argument, 0, 'p'},
             {"gam-in", required_argument, 0, 'G'},
             {"fastq-in", required_argument, 0, 'f'},
+            {"interleaved", no_argument, 0, 'i'},
             {"max-multimaps", required_argument, 0, 'M'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
@@ -433,7 +437,7 @@ int main_gaffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:D:F:e:a:s:u:v:w:Ot:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:nc:C:D:F:e:a:s:u:v:w:Ot:",
                          long_options, &option_index);
 
 
@@ -493,6 +497,10 @@ int main_gaffe(int argc, char** argv) {
             
             case 'f':
                 fastq_filenames.push_back(optarg);
+                break;
+
+            case 'i':
+                interleaved = true;
                 break;
                 
             case 'M':
@@ -762,6 +770,9 @@ int main_gaffe(int argc, char** argv) {
             
             s << output_basename;
             
+            if (interleaved) {
+                s << "-i";
+            }
             s << "-D" << distance_limit;
             s << "-c" << hit_cap;
             s << "-C" << hard_hit_cap;
@@ -781,6 +792,10 @@ int main_gaffe(int argc, char** argv) {
     
         if (progress) {
             cerr << "Mapping reads to \"" << output_filename << "\"..." << endl;
+        }
+
+        if (progress && interleaved) {
+            cerr << "--interleaved" << endl;
         }
 
         if (progress) {
@@ -879,26 +894,105 @@ int main_gaffe(int argc, char** argv) {
 
             // Start timing overall mapping time now that indexes are loaded.
             start = std::chrono::system_clock::now();
-            
-            // Define how to align and output a read, in a thread.
-            auto map_read = [&](Alignment& aln) {
-                // Map the read with the MinimizerMapper.
-                minimizer_mapper.map(aln, *alignment_emitter);
-                // Record that we mapped a read.
-                reads_mapped_by_thread.at(omp_get_thread_num())++;
-            };
+
+            if (interleaved) {
+
+                // a buffer to hold read pairs that can't be unambiguously mapped before the fragment length distribution
+                // is estimated
+                // note: sufficient to have only one buffer because multithreading code enforces single threaded mode
+                // during distribution estimation
+                vector<pair<Alignment, Alignment>> ambiguous_pair_buffer;
                 
-            for (auto& gam_name : gam_filenames) {
-                // For every GAM file to remap
-                get_input_file(gam_name, [&](istream& in) {
-                    // Open it and map all the reads in parallel.
-                    vg::io::for_each_parallel<Alignment>(in, map_read);
-                });
-            }
+                // Define how to know if the paired end distribution is ready
+                auto distribution_is_ready = []() {
+                    return true;
+                };
+                
+                // Define how to align and output a read pair, in a thread.
+                auto map_read_pair = [&](Alignment& aln1, Alignment& aln2) {
+                    
+                    
+                    // Assume reads are in inward orientations on input, and
+                    // convert to rightward orientations before sending to the
+                    // mapping code, which needs to flip the second read back
+                    // before output (???)
+                    
+                    // So convert to rightward orientations
+                    
+                    // remove the path so we won't try to RC it (the path may not refer to this graph)
+                    aln2.clear_path();
+                    reverse_complement_alignment_in_place(&aln2, [&](vg::id_t node_id) {
+                        return gbwt_graph->get_length(gbwt_graph->get_handle(node_id));
+                    });
+                    
+                    if (distribution_is_ready()) {
+                        // If the distribution is ready, map the reads paired according to it.
+                        
+                        // TODO: actually pair
+                        
+                        // For now just map separately
+                        minimizer_mapper.map(aln1, *alignment_emitter);
+                        // Flip aln2 back to input orientation
+                        reverse_complement_alignment_in_place(&aln2, [&](vg::id_t node_id) {
+                            return gbwt_graph->get_length(gbwt_graph->get_handle(node_id));
+                        });
+                        minimizer_mapper.map(aln2, *alignment_emitter);
+                        // Record that we mapped a read.
+                        reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
+                    } else {
+                        // If the distribution isn't ready and we are mapping single-threaded, map each end separately
+                        
+                        // Map to Alignments we can hold.
+                        vector<Alignment> alns1(minimizer_mapper.map(aln1));
+                        vector<Alignment> alns2(minimizer_mapper.map(aln2));
+                        
+                        // Check if the separately-mapped ends are both sufficiently perfect and sufficiently unique
+                        
+                        // And that they have an actual pair distance and set of relative orientations
+                        
+                        // If that all checks out, say they're mapped, emit them, and register their distance and orientations
+                        
+                        // Otherwise, discard the mappings and put them in the ambiguous buffer
+                    }
+                    
+                    
+                };
+
+                for (auto& gam_name : gam_filenames) {
+                    // For every GAM file to remap
+                    get_input_file(gam_name, [&](istream& in) {
+                        // Map pairs of reads to the emitter
+                        vg::io::for_each_interleaved_pair_parallel_after_wait<Alignment>(in, map_read_pair, distribution_is_ready);
+                    });
+                }
+
+                for (auto& fastq_name : fastq_filenames) {
+                    // For every FASTQ file to map, map all its pairs in parallel.
+                    fastq_paired_interleaved_for_each_parallel_after_wait(fastq_name, map_read_pair, distribution_is_ready);
+                }
+            } else {
+                // Map single-ended
             
-            for (auto& fastq_name : fastq_filenames) {
-                // For every FASTQ file to map, map all its reads in parallel.
-                fastq_unpaired_for_each_parallel(fastq_name, map_read);
+                // Define how to align and output a read, in a thread.
+                auto map_read = [&](Alignment& aln) {
+                    // Map the read with the MinimizerMapper.
+                    minimizer_mapper.map(aln, *alignment_emitter);
+                    // Record that we mapped a read.
+                    reads_mapped_by_thread.at(omp_get_thread_num())++;
+                };
+                    
+                for (auto& gam_name : gam_filenames) {
+                    // For every GAM file to remap
+                    get_input_file(gam_name, [&](istream& in) {
+                        // Open it and map all the reads in parallel.
+                        vg::io::for_each_parallel<Alignment>(in, map_read);
+                    });
+                }
+                
+                for (auto& fastq_name : fastq_filenames) {
+                    // For every FASTQ file to map, map all its reads in parallel.
+                    fastq_unpaired_for_each_parallel(fastq_name, map_read);
+                }
             }
         
         } // Make sure alignment emitter is destroyed and all alignments are on disk.
