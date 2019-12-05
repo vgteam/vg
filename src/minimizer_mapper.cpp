@@ -754,7 +754,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     return mappings;
 }
 
-void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmitter& alignment_emitter) {
+vector<pair<Alignment, Alignment>> MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2) {
     // For each input alignment
     
 #ifdef debug
@@ -940,6 +940,8 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
     }
         
     // Cluster the seeds. Get sets of input seed indexes that go together.
+    // If the fragment length distribution hasn't been fixed yet (if the expected fragment length = 0),
+    // then everything will be in the same cluster and the best pair will be the two best independent mappings
     vector<vector<pair<vector<size_t>, size_t>>> read_clusters = clusterer.cluster_seeds(seeds, distance_limit, expected_fragment_length);
     
     if (track_provenance) {
@@ -1350,6 +1352,9 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
 
     for (size_t fragment_num = 0 ; fragment_num < alignments.size() ; fragment_num ++ ) {
         //Get pairs of plausible alignments
+        // If the fragment length distribution hasn't been fixed yet (if the expected fragment length = 0),
+        // the best pair will be the two best independent mappings
+        
         //TODO: Maybe don't keep all pairs per fragment cluster
         vector<vector<Alignment>>& fragment_alignments = alignments[fragment_num];
         if (!fragment_alignments[0].empty() && ! fragment_alignments[1].empty()) {
@@ -1359,7 +1364,7 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
                     Alignment& alignment2 = fragment_alignments[1][i2];
                     pos_t pos1 = initial_position(alignment1.path());
                     pos_t pos2 = final_position(alignment2.path());
-                    int64_t fragment_distance = distance_index.minDistance(pos1, pos2); 
+                    int64_t fragment_distance = expected_fragment_length == 0 ? 0 : distance_index.minDistance(pos1, pos2); 
                     //TODO: Scoring of pairs
                     double score = alignment1.score() + alignment2.score() - (double)abs(expected_fragment_length-fragment_distance); 
                     paired_alignments.emplace_back(fragment_num, i1, i2);
@@ -1430,34 +1435,33 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
     cerr << "MAPQ is " << mapq << endl;
 #endif
  
-    pair<vector<Alignment>, vector<Alignment>> paired_mappings;
+    vector<pair<Alignment, Alignment>> paired_mappings;
     if (mappings.empty()) {
         //If we didn't get an alignment, return empty alignments
-        paired_mappings.first.emplace_back(aln1);
-        paired_mappings.second.emplace_back(aln2);
-        paired_mappings.first.back().clear_refpos();
-        paired_mappings.first.back().clear_path();
-        paired_mappings.first.back().set_score(0);
-        paired_mappings.first.back().set_identity(0);
-        paired_mappings.first.back().set_mapping_quality(0);
-        paired_mappings.second.back().clear_refpos();
-        paired_mappings.second.back().clear_path();
-        paired_mappings.second.back().set_score(0);
-        paired_mappings.second.back().set_identity(0);
-        paired_mappings.second.back().set_mapping_quality(0);
+        paired_mappings.emplace_back(aln1,aln2);
+        paired_mappings.back().first.clear_refpos();
+        paired_mappings.back().first.clear_path();
+        paired_mappings.back().first.set_score(0);
+        paired_mappings.back().first.set_identity(0);
+        paired_mappings.back().first.set_mapping_quality(0);
+        paired_mappings.back().second.clear_refpos();
+        paired_mappings.back().second.clear_path();
+        paired_mappings.back().second.set_score(0);
+        paired_mappings.back().second.set_identity(0);
+        paired_mappings.back().second.set_mapping_quality(0);
 
     } else {
         for (size_t i = 0 ; i < mappings.size() ; i++) {
-            paired_mappings.first.emplace_back( alignments[std::get<0>(mappings[i])][0][std::get<1>(mappings[i])]);
-            paired_mappings.second.emplace_back(alignments[std::get<0>(mappings[i])][1][std::get<2>(mappings[i])]);
+            paired_mappings.emplace_back( alignments[std::get<0>(mappings[i])][0][std::get<1>(mappings[i])],
+                                         alignments[std::get<0>(mappings[i])][1][std::get<2>(mappings[i])]);
             // Make sure to clamp 0-60.
             // TODO: Maybe don't just give them the same mapq
             if (i == 0 ) {
-                paired_mappings.first.back().set_mapping_quality(max(min(mapq, 60.0), 0.0));
-                paired_mappings.second.back().set_mapping_quality(max(min(mapq, 60.0), 0.0));
+                paired_mappings.back().first.set_mapping_quality(max(min(mapq, 60.0), 0.0));
+                paired_mappings.back().second.set_mapping_quality(max(min(mapq, 60.0), 0.0));
             } else {
-                paired_mappings.first.back().set_is_secondary(true);
-                paired_mappings.second.back().set_is_secondary(true);
+                paired_mappings.back().first.set_is_secondary(true);
+                paired_mappings.back().second.set_is_secondary(true);
             }
         }
     }
@@ -1478,8 +1482,8 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
         for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
             funnels[read_num].for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
                 // Save the number of items
-                set_annotation(paired_mappings.first [0], "stage_" + stage + "_results", (double)result_sizes.size());
-                set_annotation(paired_mappings.second[0], "stage_" + stage + "_results", (double)result_sizes.size());
+                set_annotation(paired_mappings[0].first , "stage_" + stage + "_results", (double)result_sizes.size());
+                set_annotation(paired_mappings[0].second, "stage_" + stage + "_results", (double)result_sizes.size());
             });
             // Annotate with the performances of all the filters
             // We need to track filter number
@@ -1492,41 +1496,41 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
                 
                 if (read_num == 0) {
                     // Save the stats
-                    set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
-                    set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
-                    set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
-                    set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
+                    set_annotation(paired_mappings[0].first, "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
+                    set_annotation(paired_mappings[0].first, "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
+                    set_annotation(paired_mappings[0].first, "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
+                    set_annotation(paired_mappings[0].first, "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
                     
                     if (track_correctness) {
-                        set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
-                        set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
-                        set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
-                        set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
+                        set_annotation(paired_mappings[0].first, "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
+                        set_annotation(paired_mappings[0].first, "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
+                        set_annotation(paired_mappings[0].first, "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
+                        set_annotation(paired_mappings[0].first, "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
                     }
                     
                     // Save the correct and non-correct filter statistics, even if
                     // everything is non-correct because correctness isn't computed
-                    set_annotation(paired_mappings.first[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
-                    set_annotation(paired_mappings.first[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
+                    set_annotation(paired_mappings[0].first, "filterstats_" + filter_id + "_correct", filter_statistics_correct);
+                    set_annotation(paired_mappings[0].first, "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
                 
                 } else {
                     // Save the stats
-                    set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
-                    set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
-                    set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
-                    set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
+                    set_annotation(paired_mappings[0].second, "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
+                    set_annotation(paired_mappings[0].second, "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
+                    set_annotation(paired_mappings[0].second, "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
+                    set_annotation(paired_mappings[0].second, "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
                     
                     if (track_correctness) {
-                        set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
-                        set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
-                        set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
-                        set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
+                        set_annotation(paired_mappings[0].second, "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
+                        set_annotation(paired_mappings[0].second, "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
+                        set_annotation(paired_mappings[0].second, "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
+                        set_annotation(paired_mappings[0].second, "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
                     }
                     
                     // Save the correct and non-correct filter statistics, even if
                     // everything is non-correct because correctness isn't computed
-                    set_annotation(paired_mappings.second[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
-                    set_annotation(paired_mappings.second[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
+                    set_annotation(paired_mappings[0].second, "filterstats_" + filter_id + "_correct", filter_statistics_correct);
+                    set_annotation(paired_mappings[0].second, "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
                 }
                 filter_num++;
             });
@@ -1539,28 +1543,28 @@ void MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmit
 //        
 //        
         // Annotate with parameters used for the filters.
-        set_annotation(paired_mappings.first [0], "param_hit-cap", (double) hit_cap);
-        set_annotation(paired_mappings.first [0], "param_hard-hit-cap", (double) hard_hit_cap);
-        set_annotation(paired_mappings.first [0], "param_score-fraction", (double) minimizer_score_fraction);
-        set_annotation(paired_mappings.first [0], "param_max-extensions", (double) max_extensions);
-        set_annotation(paired_mappings.first [0], "param_max-alignments", (double) max_alignments);
-        set_annotation(paired_mappings.first [0], "param_cluster-score", (double) cluster_score_threshold);
-        set_annotation(paired_mappings.first [0], "param_cluster-coverage", (double) cluster_coverage_threshold);
-        set_annotation(paired_mappings.first [0], "param_extension-set", (double) extension_set_score_threshold);
-        set_annotation(paired_mappings.first [0], "param_max-multimaps", (double) max_multimaps);
-        set_annotation(paired_mappings.second[0], "param_hit-cap", (double) hit_cap);
-        set_annotation(paired_mappings.second[0], "param_hard-hit-cap", (double) hard_hit_cap);
-        set_annotation(paired_mappings.second[0], "param_score-fraction", (double) minimizer_score_fraction);
-        set_annotation(paired_mappings.second[0], "param_max-extensions", (double) max_extensions);
-        set_annotation(paired_mappings.second[0], "param_max-alignments", (double) max_alignments);
-        set_annotation(paired_mappings.second[0], "param_cluster-score", (double) cluster_score_threshold);
-        set_annotation(paired_mappings.second[0], "param_cluster-coverage", (double) cluster_coverage_threshold);
-        set_annotation(paired_mappings.second[0], "param_extension-set", (double) extension_set_score_threshold);
-        set_annotation(paired_mappings.second[0], "param_max-multimaps", (double) max_multimaps);
+        set_annotation(paired_mappings[0].first , "param_hit-cap", (double) hit_cap);
+        set_annotation(paired_mappings[0].first , "param_hard-hit-cap", (double) hard_hit_cap);
+        set_annotation(paired_mappings[0].first , "param_score-fraction", (double) minimizer_score_fraction);
+        set_annotation(paired_mappings[0].first , "param_max-extensions", (double) max_extensions);
+        set_annotation(paired_mappings[0].first , "param_max-alignments", (double) max_alignments);
+        set_annotation(paired_mappings[0].first , "param_cluster-score", (double) cluster_score_threshold);
+        set_annotation(paired_mappings[0].first , "param_cluster-coverage", (double) cluster_coverage_threshold);
+        set_annotation(paired_mappings[0].first , "param_extension-set", (double) extension_set_score_threshold);
+        set_annotation(paired_mappings[0].first , "param_max-multimaps", (double) max_multimaps);
+        set_annotation(paired_mappings[0].second, "param_hit-cap", (double) hit_cap);
+        set_annotation(paired_mappings[0].second, "param_hard-hit-cap", (double) hard_hit_cap);
+        set_annotation(paired_mappings[0].second, "param_score-fraction", (double) minimizer_score_fraction);
+        set_annotation(paired_mappings[0].second, "param_max-extensions", (double) max_extensions);
+        set_annotation(paired_mappings[0].second, "param_max-alignments", (double) max_alignments);
+        set_annotation(paired_mappings[0].second, "param_cluster-score", (double) cluster_score_threshold);
+        set_annotation(paired_mappings[0].second, "param_cluster-coverage", (double) cluster_coverage_threshold);
+        set_annotation(paired_mappings[0].second, "param_extension-set", (double) extension_set_score_threshold);
+        set_annotation(paired_mappings[0].second, "param_max-multimaps", (double) max_multimaps);
     }
     
     // Ship out all the aligned alignments
-    alignment_emitter.emit_mapped_pair(std::move(paired_mappings.first), std::move(paired_mappings.second));
+    return paired_mappings;
 
 #ifdef debug
     // Dump the funnel info graph.

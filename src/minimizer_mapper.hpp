@@ -69,14 +69,8 @@ public:
      * mapped independently. Otherwise, they will be mapped according to the
      * fragment length distribution.
      */
-    vector<pair<Alignment, Alignment>> map_paired(Alignment& aln1, Alignment& aln2)
+    vector<pair<Alignment, Alignment>> map_paired(Alignment& aln1, Alignment& aln2);
      
-
-    /**
-     * Map the given paired end reads, and send output to the given AlignmentEmitter. May be run from any thread.
-     * TODO: Can't be const because the clusterer's cluster_seeds isn't const.
-     */
-    void map_paired(Alignment& aln1, Alignment& aln2, AlignmentEmitter& alignment_emitter);
 
     // Mapping settings.
     // TODO: document each
