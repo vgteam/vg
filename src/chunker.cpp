@@ -71,21 +71,21 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
 
     // merge back our reference path to use the old chopping code
     // todo: work with subpaths somehow?
-    if (!subgraph.has_path(region.seq)) {
+    if (!vg_subgraph->has_path(region.seq)) {
         map<size_t, path_handle_t> ref_subpaths;
-        subgraph.for_each_path_handle([&](path_handle_t path_handle) {
-                string path_name = subgraph.get_path_name(path_handle);
+        vg_subgraph->for_each_path_handle([&](path_handle_t path_handle) {
+                string path_name = vg_subgraph->get_path_name(path_handle);
                 auto res = Paths::parse_subpath_name(path_name);
                 if (get<0>(res) == true && get<1>(res) == region.seq) {
                     ref_subpaths[get<2>(res)] = path_handle;
                 }
             });
-        path_handle_t new_ref_path = subgraph.create_path_handle(region.seq, graph->get_is_circular(path_handle));
+        path_handle_t new_ref_path = vg_subgraph->create_path_handle(region.seq, graph->get_is_circular(path_handle));
         for (auto& ref_subpath : ref_subpaths) {
-            subgraph.for_each_step_in_path(ref_subpath.second, [&] (step_handle_t subpath_step) {
-                    subgraph.append_step(new_ref_path, subgraph.get_handle_of_step(subpath_step));
+            vg_subgraph->for_each_step_in_path(ref_subpath.second, [&] (step_handle_t subpath_step) {
+                    vg_subgraph->append_step(new_ref_path, vg_subgraph->get_handle_of_step(subpath_step));
                 });
-            subgraph.destroy_path(ref_subpath.second);
+            vg_subgraph->destroy_path(ref_subpath.second);
         }
     }
                 
