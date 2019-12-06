@@ -904,55 +904,51 @@ int main_gaffe(int argc, char** argv) {
                 vector<pair<Alignment, Alignment>> ambiguous_pair_buffer;
                 
                 // Define how to know if the paired end distribution is ready
-                auto distribution_is_ready = []() {
-                    return true;
+                auto distribution_is_ready = [&]() {
+                    return minimizer_mapper.fragment_distr_is_finalized();
                 };
                 
                 // Define how to align and output a read pair, in a thread.
                 auto map_read_pair = [&](Alignment& aln1, Alignment& aln2) {
                     
-                    
-                    // Assume reads are in inward orientations on input, and
-                    // convert to rightward orientations before sending to the
-                    // mapping code, which needs to flip the second read back
-                    // before output (???)
-                    
-                    // So convert to rightward orientations
-                    
-                    // remove the path so we won't try to RC it (the path may not refer to this graph)
-                    aln2.clear_path();
-                    reverse_complement_alignment_in_place(&aln2, [&](vg::id_t node_id) {
-                        return gbwt_graph->get_length(gbwt_graph->get_handle(node_id));
-                    });
-                    
                     if (distribution_is_ready()) {
                         // If the distribution is ready, map the reads paired according to it.
                         
-                        // TODO: actually pair
-                        
-                        // For now just map separately
-                        minimizer_mapper.map(aln1, *alignment_emitter);
-                        // Flip aln2 back to input orientation
-                        reverse_complement_alignment_in_place(&aln2, [&](vg::id_t node_id) {
-                            return gbwt_graph->get_length(gbwt_graph->get_handle(node_id));
-                        });
-                        minimizer_mapper.map(aln2, *alignment_emitter);
+                        pair<vector<Alignment>, vector<Alignment>> mapped_pairs = minimizer_mapper.map_paired(aln1, aln2);
+                        alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second));
                         // Record that we mapped a read.
                         reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
                     } else {
                         // If the distribution isn't ready and we are mapping single-threaded, map each end separately
                         
+
                         // Map to Alignments we can hold.
                         vector<Alignment> alns1(minimizer_mapper.map(aln1));
                         vector<Alignment> alns2(minimizer_mapper.map(aln2));
                         
                         // Check if the separately-mapped ends are both sufficiently perfect and sufficiently unique
-                        
                         // And that they have an actual pair distance and set of relative orientations
+                        // TODO: How do we decide what an unambiguous mapping is?
+                        if (alns1.size() > 0 && alns2.size() > 0 && alns1.front().mapping_quality() > 50 && alns2.front().mapping_quality() > 50) {
+                            // If that all checks out, say they're mapped, emit them, and register their distance and orientations
+                            assert(alns1.front().path().mapping_size() != 0);
+                            assert(alns2.front().path().mapping_size() != 0);
+
+                            pos_t pos1 = initial_position(alns1.front().path());
+                            pos_t pos2 = final_position(alns2.front().path());
+                            
+                            int64_t dist = minimizer_mapper.distance_between(alns1.front(), alns2.front());
+
+                            minimizer_mapper.register_fragment_length(dist);
+
+                            alignment_emitter->emit_mapped_pair(std::move(alns1), std::move(alns2));
+                            reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
                         
-                        // If that all checks out, say they're mapped, emit them, and register their distance and orientations
-                        
-                        // Otherwise, discard the mappings and put them in the ambiguous buffer
+                        } else {
+                            // Otherwise, discard the mappings and put them in the ambiguous buffer
+                             
+                            ambiguous_pair_buffer.emplace_back(aln1, aln2);
+                        }
                     }
                     
                     
@@ -969,6 +965,14 @@ int main_gaffe(int argc, char** argv) {
                 for (auto& fastq_name : fastq_filenames) {
                     // For every FASTQ file to map, map all its pairs in parallel.
                     fastq_paired_interleaved_for_each_parallel_after_wait(fastq_name, map_read_pair, distribution_is_ready);
+                }
+
+                for (pair<Alignment, Alignment>& alignment_pair : ambiguous_pair_buffer) {
+
+                    auto mapped_pairs = minimizer_mapper.map_paired(alignment_pair.first, alignment_pair.second);
+                    alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second));
+                    // Record that we mapped a read.
+                    reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
                 }
             } else {
                 // Map single-ended

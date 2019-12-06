@@ -6,14 +6,15 @@
  * Defines a mapper that uses the minimizer index and GBWT-based extension.
  */
 
+#include "algorithms/nearest_offsets_in_paths.hpp"
 #include "aligner.hpp"
 #include "alignment_emitter.hpp"
 #include "gapless_extender.hpp"
-#include "snarls.hpp"
+#include "mapper.hpp"
 #include "min_distance.hpp"
 #include "seed_clusterer.hpp"
+#include "snarls.hpp"
 #include "tree_subgraph.hpp"
-#include "algorithms/nearest_offsets_in_paths.hpp"
 
 #include <gbwtgraph/minimizer.h>
 #include <structures/immutable_list.hpp>
@@ -49,8 +50,8 @@ public:
     // TODO: how will we warn about not having a pair distribution yet then?
     
     /**
-     * Map the given pair of reads, where aln1 is upstream of aln2 and both are
-     * oriented in the same direction in the graph.
+     * Map the given pair of reads, where aln1 is upstream of aln2 and they are
+     * oriented towards each other in the graph.
      *
      * If the reads are ambiguous and there's no fragment length distribution
      * fixed yet, they will be dropped into ambiguous_pair_buffer.
@@ -58,7 +59,7 @@ public:
      * Otherwise, at least one result will be returned for them (although it
      * may be the unmapped alignment).
      */
-    vector<pair<Alignment, Alignment>> map_paired(Alignment& aln1, Alignment& aln2,
+    pair<vector<Alignment>, vector<Alignment>> map_paired(Alignment& aln1, Alignment& aln2,
         vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer);
         
     /**
@@ -69,7 +70,7 @@ public:
      * mapped independently. Otherwise, they will be mapped according to the
      * fragment length distribution.
      */
-    vector<pair<Alignment, Alignment>> map_paired(Alignment& aln1, Alignment& aln2);
+    pair<vector<Alignment>, vector<Alignment>> map_paired(Alignment& aln1, Alignment& aln2);
      
 
     // Mapping settings.
@@ -112,7 +113,6 @@ public:
 
     size_t max_multimaps = 1;
     size_t distance_limit = 1000;
-    int64_t expected_fragment_length = 0;
     bool do_dp = true;
     string sample_name;
     string read_group;
@@ -126,6 +126,12 @@ public:
     /// algorithm. Only works if track_provenance is true.
     bool track_correctness = false;
     
+    bool fragment_distr_is_finalized () {return fragment_length_distr.is_finalized();}
+    void register_fragment_length (int64_t length) {fragment_length_distr.register_fragment_length(length);}
+    /**
+     * Get the distance between a pair of read alignments
+     */
+    int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
 protected:
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
@@ -140,6 +146,8 @@ protected:
     
     /// We have a clusterer
     SnarlSeedClusterer clusterer;
+
+    FragmentLengthDistribution fragment_length_distr;
     
     /**
      * Score the given group of gapless extensions. Determines the best score
