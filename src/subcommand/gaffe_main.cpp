@@ -913,6 +913,8 @@ int main_gaffe(int argc, char** argv) {
                     
                     pair<vector<Alignment>, vector<Alignment>> mapped_pairs = minimizer_mapper.map_paired(aln1, aln2);
                     if (!mapped_pairs.first.empty() || !mapped_pairs.second.empty()) {
+                        //If we actually tried to map this paired end
+
                         alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second));
                         // Record that we mapped a read.
                         reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
@@ -932,6 +934,7 @@ int main_gaffe(int argc, char** argv) {
                     fastq_paired_interleaved_for_each_parallel_after_wait(fastq_name, map_read_pair, distribution_is_ready);
                 }
 
+                //Now map all the ambiguous pairs
                 for (pair<Alignment, Alignment>& alignment_pair : ambiguous_pair_buffer) {
 
                     auto mapped_pairs = minimizer_mapper.map_paired(alignment_pair.first, alignment_pair.second);
