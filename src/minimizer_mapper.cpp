@@ -249,7 +249,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             funnel.produced_output();
         }
 
-        //TODO:
         //Get the cluster coverage
         // We set bits in here to true when query anchors cover them
         sdsl::bit_vector covered(aln.sequence().size(), 0);
@@ -753,7 +752,38 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 
     return mappings;
 }
+pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2,
+                                                      vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer){
+    if (fragment_length_distr.is_finalized()) {
+        //If we know the fragment length distribution then we just map paired ended 
+        return map_paired(aln1, aln2);
+    } else {
+        //If we don't know the fragment length distribution, map the reads single ended
 
+        vector<Alignment> alns1(map(aln1));
+        vector<Alignment> alns2(map(aln2));
+        
+        // Check if the separately-mapped ends are both sufficiently perfect and sufficiently unique
+        // And that they have an actual pair distance and set of relative orientations
+        // TODO: How do we decide what an unambiguous mapping is? 
+        if (alns1.size() > 0 && alns2.size() > 0 && alns1.front().mapping_quality() > 50 && alns2.front().mapping_quality() > 50) {
+            // If that all checks out, say they're mapped, emit them, and register their distance and orientations
+            
+            int64_t dist = distance_between(alns1.front(), alns2.front());
+        
+            fragment_length_distr.register_fragment_length(dist);
+        
+            return make_pair(std::move(alns1), std::move(alns2));
+        
+        } else {
+            // Otherwise, discard the mappings and put them in the ambiguous buffer
+        
+            ambiguous_pair_buffer.emplace_back(aln1, aln2);
+            pair<vector<Alignment>, vector<Alignment>> empty;
+            return empty;
+        }
+    }
+}
 pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2) {
     // For each input alignment
     

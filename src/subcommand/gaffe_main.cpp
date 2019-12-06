@@ -911,47 +911,12 @@ int main_gaffe(int argc, char** argv) {
                 // Define how to align and output a read pair, in a thread.
                 auto map_read_pair = [&](Alignment& aln1, Alignment& aln2) {
                     
-                    if (distribution_is_ready()) {
-                        // If the distribution is ready, map the reads paired according to it.
-                        
-                        pair<vector<Alignment>, vector<Alignment>> mapped_pairs = minimizer_mapper.map_paired(aln1, aln2);
+                    pair<vector<Alignment>, vector<Alignment>> mapped_pairs = minimizer_mapper.map_paired(aln1, aln2);
+                    if (!mapped_pairs.first.empty() || !mapped_pairs.second.empty()) {
                         alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second));
                         // Record that we mapped a read.
                         reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
-                    } else {
-                        // If the distribution isn't ready and we are mapping single-threaded, map each end separately
-                        
-
-                        // Map to Alignments we can hold.
-                        vector<Alignment> alns1(minimizer_mapper.map(aln1));
-                        vector<Alignment> alns2(minimizer_mapper.map(aln2));
-                        
-                        // Check if the separately-mapped ends are both sufficiently perfect and sufficiently unique
-                        // And that they have an actual pair distance and set of relative orientations
-                        // TODO: How do we decide what an unambiguous mapping is?
-                        if (alns1.size() > 0 && alns2.size() > 0 && alns1.front().mapping_quality() > 50 && alns2.front().mapping_quality() > 50) {
-                            // If that all checks out, say they're mapped, emit them, and register their distance and orientations
-                            assert(alns1.front().path().mapping_size() != 0);
-                            assert(alns2.front().path().mapping_size() != 0);
-
-                            pos_t pos1 = initial_position(alns1.front().path());
-                            pos_t pos2 = final_position(alns2.front().path());
-                            
-                            int64_t dist = minimizer_mapper.distance_between(alns1.front(), alns2.front());
-
-                            minimizer_mapper.register_fragment_length(dist);
-
-                            alignment_emitter->emit_mapped_pair(std::move(alns1), std::move(alns2));
-                            reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
-                        
-                        } else {
-                            // Otherwise, discard the mappings and put them in the ambiguous buffer
-                             
-                            ambiguous_pair_buffer.emplace_back(aln1, aln2);
-                        }
                     }
-                    
-                    
                 };
 
                 for (auto& gam_name : gam_filenames) {

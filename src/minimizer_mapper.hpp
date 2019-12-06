@@ -127,7 +127,6 @@ public:
     bool track_correctness = false;
     
     bool fragment_distr_is_finalized () {return fragment_length_distr.is_finalized();}
-    void register_fragment_length (int64_t length) {fragment_length_distr.register_fragment_length(length);}
     /**
      * Get the distance between a pair of read alignments
      */
