@@ -342,20 +342,9 @@ void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePath
                 --prev;
                 const handle_t& prev_handle = prev->second;
                 // distance from map
-                size_t delta = max(p->first, prev->first) - min(p->first, prev->first);
+                size_t delta = p->first - prev->first;
                 // what the distance should be if they're contiguous depends on relative orienations
-                size_t cont_delta;
-                bool r1 = subgraph.get_is_reverse(prev_handle);
-                bool r2 = subgraph.get_is_reverse(handle);
-                if (r1 && r2) {
-                    cont_delta = subgraph.get_length(handle);
-                } else if (!r1 && !r2) {
-                    cont_delta = subgraph.get_length(prev_handle);
-                } else if (!r1 && r2) {
-                    cont_delta = subgraph.get_length(prev_handle) + subgraph.get_length(handle) - 1;
-                } else {
-                    cont_delta = 1;
-                }
+                size_t cont_delta = subgraph.get_length(prev_handle);
                 if (delta != cont_delta) {
                     // we have a discontinuity!  we'll make a new path can continue from there
                     assert(subgraph.get_step_count(path) > 0);
