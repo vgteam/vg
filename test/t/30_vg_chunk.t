@@ -45,8 +45,8 @@ is $(vg chunk -x x.xg -r 1 -c 0 | vg view - -j | jq .node | grep id | wc -l) 1 "
 
 # Check that traces work on a GBWT
 is $(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq .node | grep id | wc -l) 5 "id chunker traces correct chunk size"
-is "$(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name != "x")' | wc -l)" 0 "chunker extracts no threads from an empty gPBWT"
-is "$(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name != "x")' | wc -l)" 2 "chunker extracts 2 local threads from a gBWT with 2 locally distinct threads in it"
+is "$(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name != "x[0]")' | wc -l)" 0 "chunker extracts no threads from an empty gPBWT"
+is "$(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name != "x[0]")' | wc -l)" 2 "chunker extracts 2 local threads from a gBWT with 2 locally distinct threads in it"
 is "$(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -r '.path[] | select(.name == "thread_0") | .mapping | length')" 3 "chunker can extract a partial haplotype from a GBWT"
 
 #check that n-chunking works

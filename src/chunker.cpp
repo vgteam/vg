@@ -67,8 +67,28 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
     else if (context == 0 && length == 0) {
         algorithms::add_connecting_edges_to_subgraph(*graph, *vg_subgraph);
     }
-    algorithms::add_subpaths_to_subgraph(*graph, *vg_subgraph);
-        
+    algorithms::add_subpaths_to_subgraph(*graph, *vg_subgraph, true);
+
+    // merge back our reference path to use the old chopping code
+    // todo: work with subpaths somehow?
+    if (!vg_subgraph->has_path(region.seq)) {
+        map<size_t, path_handle_t> ref_subpaths;
+        vg_subgraph->for_each_path_handle([&](path_handle_t path_handle) {
+                string path_name = vg_subgraph->get_path_name(path_handle);
+                auto res = Paths::parse_subpath_name(path_name);
+                if (get<0>(res) == true && get<1>(res) == region.seq) {
+                    ref_subpaths[get<2>(res)] = path_handle;
+                }
+            });
+        path_handle_t new_ref_path = vg_subgraph->create_path_handle(region.seq, graph->get_is_circular(path_handle));
+        for (auto& ref_subpath : ref_subpaths) {
+            vg_subgraph->for_each_step_in_path(ref_subpath.second, [&] (step_handle_t subpath_step) {
+                    vg_subgraph->append_step(new_ref_path, vg_subgraph->get_handle_of_step(subpath_step));
+                });
+            vg_subgraph->destroy_path(ref_subpath.second);
+        }
+    }
+                
     // build the vg of the subgraph
     vg_subgraph->remove_orphan_edges();
 
@@ -313,7 +333,7 @@ void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int64_t context
     if (length) {
         algorithms::expand_subgraph_by_length(*graph, subgraph, context, forward_only);
     }
-    algorithms::add_subpaths_to_subgraph(*graph, subgraph);
+    algorithms::add_subpaths_to_subgraph(*graph, subgraph, true);
 
     // build the vg
     out_region.start = subgraph.min_node_id();
