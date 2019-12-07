@@ -9,6 +9,7 @@ namespace vg {
 // sets of MutablePathMutableHandleGraphs on disk
 
 void VGset::transform(std::function<void(MutableHandleGraph*)> lambda) {
+    // TODO: add a way to cache graphs here for multiple scans
     for (auto& name : filenames) {
         // load
         unique_ptr<MutableHandleGraph> g;
@@ -30,6 +31,7 @@ void VGset::transform(std::function<void(MutableHandleGraph*)> lambda) {
 }
 
 void VGset::for_each(std::function<void(HandleGraph*)> lambda) {
+    // TODO: add a way to cache graphs here for multiple scans
     for (auto& name : filenames) {
         // load
         unique_ptr<HandleGraph> g;
@@ -76,104 +78,103 @@ void VGset::to_xg(xg::XG& index) {
     });
 }
 
-void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_take, map<string, Path>* removed_paths) {
+void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_remove, map<string, Path>* removed_paths) {
 
-    function<void(const string&, std::ifstream&)> check_stream = [&](const string&name, std::ifstream& in) {
-        if (name == "-"){
-            if (!in) throw ifstream::failure("vg_set: cannot read from stdin. Failed to open " + name);
-        }
-        
-        if (!in) throw ifstream::failure("failed to open " + name);
-    };
+    // We make multiple passes through the input graphs, loading each and going through its nodes/edges/paths.
+    // TODO: This is going to go load all the graphs multiple times, even if there's only one graph!
+    // TODO: streaming HandleGraph API?
+    // TODO: push-driven XG build?
+    // TODO: XG::from_path_handle_graphs?
     
     // We need to recostruct full removed paths from fragmentary paths encountered in each chunk.
     // This maps from path name to all the Mappings in the path in the order we encountered them
     auto for_each_sequence = [&](const std::function<void(const std::string& seq, const nid_t& node_id)>& lambda) {
-        for (auto& name : filenames) {
-            std::ifstream in(name);
-            check_stream(name, in);
-            vg::io::for_each(in, (function<void(Graph&)>)[&](Graph& graph) {
-                    for (uint64_t i = 0; i < graph.node_size(); ++i) {
-                        auto& node = graph.node(i);
-                        lambda(node.sequence(), node.id());
-                    }
-                });
-        }
+        for_each([&](HandleGraph* graph) {
+            // For each graph in the set
+            graph->for_each_handle([&](const handle_t& h) {
+                // For each node in the graph, tell the XG about it.
+                // Assume it is locally forward.
+                lambda(graph->get_sequence(h), graph->get_id(h));
+            });
+        });
     };
 
     auto for_each_edge = [&](const std::function<void(const nid_t& from, const bool& from_rev, const nid_t& to, const bool& to_rev)>& lambda) {
-        for (auto& name : filenames) {
-            std::ifstream in(name);
-            check_stream(name, in);
-            vg::io::for_each(in, (function<void(Graph&)>)[&](Graph& graph) {
-                    for (uint64_t i = 0; i < graph.edge_size(); ++i) {
-                        auto& edge = graph.edge(i);
-                        lambda(edge.from(), edge.from_start(), edge.to(), edge.to_end());
-                    }
-                });
-        }
-    };
-
-    // thanks to the silliness that is vg's graph chunking, we have to reconstitute our paths here
-    // to make sure that they are constructed with the correct order
-    map<string, pair<map<size_t, pair<nid_t, bool>>, bool>> paths;
-    for (auto& name : filenames) {
-        std::ifstream in(name);
-        check_stream(name, in);
-        vg::io::for_each(in, (function<void(Graph&)>)[&](Graph& graph) {
-                for (uint64_t i = 0; i < graph.path_size(); ++i) {
-                    auto& path = graph.path(i);
-                    auto& steps_circ = paths[path.name()];
-                    auto& steps = steps_circ.first;
-                    steps_circ.second = path.is_circular();
-                    for (auto& mapping : path.mapping()) {
-                        assert(mapping.rank() > 0);
-                        steps[mapping.rank()] = make_pair(mapping.position().node_id(),
-                                                            mapping.position().is_reverse());
-                    }
-                }
+        for_each([&](HandleGraph* graph) {
+            // For each graph in the set
+            graph->for_each_edge([&](const edge_t& e) {
+                // For each edge in the graph, tell the XG about it
+                lambda(graph->get_id(e.first), graph->get_is_reverse(e.first), graph->get_id(e.second), graph->get_is_reverse(e.second));
             });
-    }
-
-    // optionally filter out alt paths
-    vector<pair<string, pair<map<size_t, pair<nid_t, bool>>, bool>>> kept_paths;
-    for (auto& path : paths) {
-        if (paths_to_take(path.first) == false) {
-            kept_paths.push_back(make_pair(path.first, std::move(path.second)));
-        } else if (removed_paths != nullptr) {
-            Path proto_path;
-            proto_path.set_name(path.first);
-            proto_path.set_is_circular(path.second.second);
-            for (auto& step : path.second.first) {
-                Mapping* mapping = proto_path.add_mapping();
-                mapping->mutable_position()->set_node_id(step.second.first);
-                mapping->mutable_position()->set_is_reverse(step.second.second);
-                mapping->set_rank(step.first);
-            }
-            (*removed_paths)[path.first] = std::move(proto_path);
-        }
-    }
-    paths.clear();
-
-    auto for_each_path_element = [&](
-        const std::function<void(const std::string& path_name,
-                                 const nid_t& node_id, const bool& is_rev,
-                                 const std::string& cigar,
-                                 bool is_empty, bool is_circular)>& lambda) {
-        for (auto& path : kept_paths) {
-            auto& path_name = path.first;
-            auto& path_steps = path.second.first;
-            bool path_circular = path.second.second;
-            if (path_steps.empty()) {
-                lambda(path_name, 0, false, "", true, false);
-            } else {
-                for (auto& step : path_steps) {
-                    lambda(path_name, step.second.first, step.second.second, "", false, path_circular);
-                }
-            }
-        }
+        });
     };
     
+    // We no longer need to reconstitute paths ourselves; we require that each
+    // input file has all the parts of its paths.
+    
+    auto for_each_path_element = [&](const std::function<void(const std::string& path_name,
+                                     const nid_t& node_id, const bool& is_rev,
+                                     const std::string& cigar,
+                                     bool is_empty, bool is_circular)>& lambda) {
+                                 
+        for_each([&](HandleGraph* graph) {
+            // Look at each graph and see if it has path support
+            // TODO: do we need a different for_each to push this down to the loader?
+            PathHandleGraph* path_graph = dynamic_cast<PathHandleGraph*>(graph);
+            if (path_graph != nullptr) {
+                // The graph we loaded actually can have paths, so it can have visits
+                path_graph->for_each_path_handle([&](const path_handle_t& p) {
+                    // For each path
+                    
+                    // Get its metadata
+                    string path_name = path_graph->get_path_name(p);
+                    bool is_circular = path_graph->get_is_circular(p);
+                    
+                    if(paths_to_remove(path_name)) {
+                        // We want to filter out this path
+                        if (removed_paths != nullptr) {
+                            // When we filter out a path, we need to send our caller a Protobuf version of it.
+                            Path proto_path;
+                            proto_path.set_name(path_name);
+                            proto_path.set_is_circular(is_circular);
+                            size_t rank = 1;
+                            path_graph->for_each_step_in_path(p, [&](const step_handle_t& s) {
+                                handle_t stepped_on = path_graph->get_handle_of_step(s);
+                                
+                                Mapping* mapping = proto_path.add_mapping();
+                                mapping->mutable_position()->set_node_id(path_graph->get_id(stepped_on));
+                                mapping->mutable_position()->set_is_reverse(path_graph->get_is_reverse(stepped_on));
+                                mapping->set_rank(rank++);
+                            });
+                            removed_paths->emplace(std::move(path_name), std::move(proto_path));
+                        }
+                    } else {
+                        // We want to leave this path in
+                    
+                        // Assume it is empty
+                        bool is_empty = true;
+                        
+                        path_graph->for_each_step_in_path(p, [&](const step_handle_t& s) {
+                            // For each visit on the path
+                            handle_t stepped_on = path_graph->get_handle_of_step(s);
+                            // The path can't be empty
+                            is_empty = false;
+                            // Tell the XG about it
+                            lambda(path_name, path_graph->get_id(stepped_on), path_graph->get_is_reverse(stepped_on), "", is_empty, is_circular); 
+                        });
+                        
+                        if (is_empty) {
+                            // If the path is empty, tell the XG that.
+                            // It still could be circular.
+                            lambda(path_name, 0, false, "", is_empty, is_circular);
+                        }
+                    }
+                });
+            }
+        });
+    };
+    
+    // Now build the xg graph, looping over all our graphs in our set whenever we want anything.
     index.from_enumerators(for_each_sequence, for_each_edge, for_each_path_element, false);
 }
 
