@@ -28,6 +28,7 @@ var searchData=
   ['parse_5fregion',['parse_region',['../namespacevg.html#a253257615743a1cfb948b749be7700e2',1,'vg::parse_region(const string &amp;target, string &amp;name, int64_t &amp;start, int64_t &amp;end)'],['../namespacevg.html#af0a3beb8908adf7a6e4d641243937830',1,'vg::parse_region(string &amp;region, Region &amp;out_region)']]],
   ['parse_5frg_5fsample_5fmap',['parse_rg_sample_map',['../namespacevg.html#a637c855dffc0296c6575ae8a4cac6b43',1,'vg']]],
   ['parse_5frsem_5fexpression_5ffile',['parse_rsem_expression_file',['../sim__main_8cpp.html#aa1964053fdd12fb9dde544ce6d18ab70',1,'sim_main.cpp']]],
+  ['parse_5fsubpath_5fname',['parse_subpath_name',['../classvg_1_1Paths.html#a163c64847cf4eb884e5ba10b78a0da3f',1,'vg::Paths']]],
   ['parse_5ftranslation',['parse_translation',['../structvg_1_1PathIndex.html#aa5272234ddb7686f1ae88881ebf99a61',1,'vg::PathIndex']]],
   ['parse_5ftraversal',['parse_traversal',['../classvg_1_1Index.html#a7ff884ed1bb9b9446f1db40900c1bcaf',1,'vg::Index']]],
   ['parsegenotypes',['parseGenotypes',['../index__main_8cpp.html#adfa226264fc6c6fecc8f127e8617b991',1,'index_main.cpp']]],
