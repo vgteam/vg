@@ -984,7 +984,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // Cluster the seeds. Get sets of input seed indexes that go together.
     // If the fragment length distribution hasn't been fixed yet (if the expected fragment length = 0),
     // then everything will be in the same cluster and the best pair will be the two best independent mappings
-    vector<vector<pair<vector<size_t>, size_t>>> read_clusters = clusterer.cluster_seeds(seeds, distance_limit, fragment_length_distr.mean());
+    vector<vector<pair<vector<size_t>, size_t>>> read_clusters = clusterer.cluster_seeds(seeds, distance_limit, fragment_length_distr.mean() + aln1.sequence().size() + aln2.sequence().size() );
     
     if (track_provenance) {
         funnels[0].substage("score");
@@ -1015,7 +1015,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             // Which minimizers are present in the cluster.
             vector<bool> present(minimizers[read_num].size(), false);
             for (auto hit_index : cluster) {
-                present[seed_to_source.back()[hit_index]] = true;
+                present[seed_to_source[read_num][hit_index]] = true;
             }
 
             // Compute the score.
@@ -1155,10 +1155,10 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 GaplessExtender::cluster_type seed_matchings;
                 for (auto& seed_index : cluster) {
                     // Insert the (graph position, read offset) pair.
-                    seed_matchings.insert(GaplessExtender::to_seed(seeds[read_num][seed_index], minimizers[read_num][seed_to_source.back()[seed_index]].offset));
+                    seed_matchings.insert(GaplessExtender::to_seed(seeds[read_num][seed_index], minimizers[read_num][seed_to_source[read_num][seed_index]].offset));
 #ifdef debug
-                    cerr << "Seed read:" << minimizers[read_num][seed_to_source.back()[seed_index]].offset << " = " << seeds[seed_index]
-                        << " from minimizer " << seed_to_source.back()[seed_index] << "(" << minimizer_index.count(minimizers[read_num][seed_to_source.back()[seed_index]]) << ")" << endl;
+                    cerr << "Seed read:" << minimizers[read_num][seed_to_source[read_num][seed_index]].offset << " = " << seeds[seed_index]
+                        << " from minimizer " << seed_to_source[read_num][seed_index] << "(" << minimizer_index.count(minimizers[read_num][seed_to_source[read_num][seed_index]]) << ")" << endl;
 #endif
                 }
                 
@@ -1250,7 +1250,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         // Now start the alignment step. Everything has to become an alignment.
 
         // We will fill this with all computed alignments in estimated score order.
-        alignments.resize(max_fragment_num);
+        alignments.resize(max_fragment_num+2);
 
         
         // Clear any old refpos annotation and path
