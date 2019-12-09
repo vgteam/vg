@@ -46,6 +46,13 @@ public:
     // We used to use a regex but that's a very slow way to check a prefix.
     const static function<bool(const string&)> is_alt;
 
+    // Check if using subpath naming scheme.  If it is return true,
+    // the root path name, and the offset (false otherwise)
+    tuple<bool, string, size_t> static parse_subpath_name(const string& path_name);
+
+    // Create a subpath name
+    string static make_subpath_name(const string& path_name, size_t offset);
+
     Paths(void);
 
     // copy

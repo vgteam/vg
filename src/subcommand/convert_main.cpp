@@ -3,6 +3,7 @@
 #include "../utility.hpp"
 #include "xg.hpp"
 #include "../convert_handle.hpp"
+#include "../io/save_handle_graph.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 
@@ -23,7 +24,7 @@ void help_convert(char** argv) {
          << "    -a, --hash-out         output in HashGraph format" << endl
          << "    -p, --packed-out       output in PackedGraph format" << endl
          << "    -x, --xg-out           output in XG format" << endl
-         << "    -o, --odgi-out           output in ODGI format" << endl;
+         << "    -o, --odgi-out         output in ODGI format" << endl;
 }
 
 int main_convert(int argc, char** argv) {
@@ -130,18 +131,8 @@ int main_convert(int argc, char** argv) {
         convert_handle_graph(input_graph.get(), mutable_output_graph);
     }
 
-    // Serialize the graph using VPKG.  Todo: is there away to do this in one line?
-    if (output_format == "vg") {
-        vg::io::VPKG::save(*dynamic_cast<VG*>(output_graph.get()), cout);
-    } else if (output_format == "hash") {
-        vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph*>(output_graph.get()), cout);
-    } else if (output_format == "packed") {
-        vg::io::VPKG::save(*dynamic_cast<bdsg::PackedGraph*>(output_graph.get()), cout);
-    } else if (output_format == "xg") {
-        vg::io::VPKG::save(*dynamic_cast<xg::XG*>(output_graph.get()), cout);
-    } else if (output_format == "odgi") {
-        vg::io::VPKG::save(*dynamic_cast<bdsg::ODGI*>(output_graph.get()), cout);
-    }
+    // Serialize the graph using VPKG.
+    vg::io::save_handle_graph(output_graph.get(), cout);
 
     return 0;
 }

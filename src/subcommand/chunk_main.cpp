@@ -21,13 +21,16 @@
 #include "../region.hpp"
 #include "../haplotype_extracter.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
+#include "../algorithms/weakly_connected_components.hpp"
 #include <bdsg/overlay_helper.hpp>
+#include "../io/save_handle_graph.hpp"
+#include "convert_handle.hpp"
 
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-static string chunk_name(const string& out_chunk_prefix, int i, const Region& region, string ext, int gi = 0);
+static string chunk_name(const string& out_chunk_prefix, int i, const Region& region, string ext, int gi = 0, bool components = false);
 static int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix,
                      size_t gam_buffer_size = 100);
 
@@ -41,12 +44,12 @@ void help_chunk(char** argv) {
          << "For a single-range chunk (-p or -r), the graph data is sent to standard output instead of a file." << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-name FILE       use this xg index to chunk subgraphs" << endl
+         << "    -x, --xg-name FILE       use this graph or xg index to chunk subgraphs" << endl
          << "    -G, --gbwt-name FILE     use this GBWT haplotype index for haplotype extraction" << endl
          << "    -a, --gam-name FILE      chunk this gam file (not stdin, sorted, with FILE.gai index) instead of the graph (multiple allowed)" << endl
          << "    -g, --gam-and-graph      when used in combination with -a, both gam and graph will be chunked" << endl 
          << "path chunking:" << endl
-         << "    -p, --path TARGET        write the chunk in the specified (0-based inclusive)\n"
+         << "    -p, --path TARGET        write the chunk in the specified (0-based inclusive, multiple allowed)\n"
          << "                             path range TARGET=path[:pos1[-pos2]] to standard output" << endl
          << "    -P, --path-list FILE     write chunks for all path regions in (line - separated file). format" << endl
          << "                             for each as in -p (all paths chunked unless otherwise specified)" << endl
@@ -57,6 +60,9 @@ void help_chunk(char** argv) {
          << "    -n, --n-chunks N         generate this many id-range chunks, which are determined using the xg index" << endl
          << "simple gam chunking:" << endl
          << "    -m, --gam-split-size N   split gam (specified with -a, sort/index not required) up into chunks with at most N reads each" << endl
+         << "component chunking:" << endl
+         << "    -C, --components         create a chunk for each connected component.  if a targets given with (-p, -P, -r, -R), limit to components containing them" << endl
+         << "    -M, --path-components    create a chunk for each path in the graph's connected component" << endl
          << "general:" << endl
          << "    -s, --chunk-size N       create chunks spanning N bases (or nodes with -r/-R) for all input regions." << endl
          << "    -o, --overlap N          overlap between chunks when using -s [0]" << endl        
@@ -68,6 +74,7 @@ void help_chunk(char** argv) {
          << "    -T, --trace              trace haplotype threads in chunks (and only expand forward from input coordinates)." << endl
          << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl 
          << "    -f, --fully-contained    only return GAM alignments that are fully contained within chunk" << endl
+         << "    -O, --output-fmt         Specifiy output format (vg, pg, hg).  [VG]" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }
@@ -83,7 +90,7 @@ int main_chunk(int argc, char** argv) {
     string gbwt_file;
     vector<string> gam_files;
     bool gam_and_graph = false;
-    string region_string;
+    vector<string> region_strings;
     string path_list_file;
     int chunk_size = 0;
     int overlap = 0;
@@ -100,6 +107,9 @@ int main_chunk(int argc, char** argv) {
     bool fully_contained = false;
     int n_chunks = 0;
     size_t gam_split_size = 0;
+    string output_format = "vg";
+    bool components = false;
+    bool path_components = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -127,11 +137,14 @@ int main_chunk(int argc, char** argv) {
             {"n-chunks", required_argument, 0, 'n'},
             {"context-length", required_argument, 0, 'l'},
             {"gam-split-size", required_argument, 0, 'm'},
+            {"components", no_argument, 0, 'C'},
+            {"path-components", no_argument, 0, 'M'},
+            {"output-fmt", required_argument, 0, 'O'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:G:a:gp:P:s:o:e:E:b:c:r:R:Tft:n:l:m:",
+        c = getopt_long (argc, argv, "hx:G:a:gp:P:s:o:e:E:b:c:r:R:Tft:n:l:m:CMO:",
                 long_options, &option_index);
 
 
@@ -159,7 +172,7 @@ int main_chunk(int argc, char** argv) {
             break;            
 
         case 'p':
-            region_string = optarg;
+            region_strings.push_back(optarg);
             break;
 
         case 'P':
@@ -214,6 +227,15 @@ int main_chunk(int argc, char** argv) {
             gam_split_size = parse<int>(optarg);
             break;
 
+        case 'C':
+            components = true;
+            break;
+
+        case 'M':
+            components = true;
+            path_components = true;
+            break;
+
         case 'T':
             trace = true;
             break;
@@ -224,6 +246,10 @@ int main_chunk(int argc, char** argv) {
 
         case 't':
             threads = parse<int>(optarg);
+            break;
+
+        case 'O':
+            output_format = optarg;
             break;
 
         case 'h':
@@ -240,14 +266,19 @@ int main_chunk(int argc, char** argv) {
     omp_set_num_threads(threads);            
 
     // need at most one of -n, -p, -P, -e, -r, -R, -m  as an input
-    if ((n_chunks == 0 ? 0 : 1) + (region_string.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) + (in_bed_file.empty() ? 0 : 1) +
-        (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) + (gam_split_size == 0 ? 0 : 1) > 1) {
-        cerr << "error:[vg chunk] at most one of {-n, -p, -P, -e, -r, -R, m} required to specify input regions" << endl;
+    if ((n_chunks == 0 ? 0 : 1) + (region_strings.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) + (in_bed_file.empty() ? 0 : 1) +
+        (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) + (gam_split_size == 0 ? 0 : 1)  +
+        (path_components ? 1 : 0) > 1) {
+        cerr << "error:[vg chunk] at most one of {-n, -p, -P, -e, -r, -R, -m, -P} required to specify input regions" << endl;
         return 1;
     }
     // need -a if using -f
     if ((gam_split_size != 0 || fully_contained) && gam_files.empty()) {
         cerr << "error:[vg chunk] gam file must be specified with -a when using -f or -m" << endl;
+        return 1;
+    }
+    if (components == true && context_steps >= 0) {
+        cerr << "error:[vg chunk] context cannot be specified (-c) when splitting into components (-C)" << endl;
         return 1;
     }
     // context steps default to 1 if using id_ranges.  otherwise, force user to specify to avoid
@@ -257,10 +288,17 @@ int main_chunk(int argc, char** argv) {
             if (!context_length) {
                 context_steps = 1;
             }
-        } else {
+        } else if (!components){
             cerr << "error:[vg chunk] context expansion steps must be specified with -c/--context when chunking on paths" << endl;
             return 1;
         }
+    }
+
+    // check the output format
+    std::transform(output_format.begin(), output_format.end(), output_format.begin(), ::tolower);
+    if (!vg::io::valid_output_format(output_format)) {
+        cerr << "error[vg chunk]: invalid ouput format" << endl;
+        return 1;
     }
 
     // figure out which outputs we want.  the graph always
@@ -275,15 +313,15 @@ int main_chunk(int argc, char** argv) {
     unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::PathPositionOverlayHelper overlay_helper;
 
-    if (chunk_graph || trace || context_steps > 0 || context_length > 0 || (!id_range && gam_split_size == 0)) {
+    if (chunk_graph || trace || context_steps > 0 || context_length > 0 || (!id_range && gam_split_size == 0) || components) {
         if (xg_file.empty()) {
-            cerr << "error:[vg chunk] xg index (-x) required" << endl;
+            cerr << "error:[vg chunk] graph or xg index (-x) required" << endl;
             return 1;
         }
 
         ifstream in(xg_file.c_str());
         if (!in) {
-            cerr << "error:[vg chunk] unable to load xg index file " << xg_file << endl;
+            cerr << "error:[vg chunk] unable to load graph / xg index file " << xg_file << endl;
             return 1;
         }
         
@@ -321,10 +359,12 @@ int main_chunk(int argc, char** argv) {
     
     // parse the regions into a list
     vector<Region> regions;
-    if (!region_string.empty()) {
-        Region region;
-        parse_region(region_string, region);
-        regions.push_back(region);
+    if (!region_strings.empty()) {
+        for (auto& region_string : region_strings) {
+            Region region;
+            parse_region(region_string, region);
+            regions.push_back(region);
+        }
     }
     else if (!path_list_file.empty()) {
         ifstream pr_stream(path_list_file.c_str());
@@ -401,12 +441,14 @@ int main_chunk(int argc, char** argv) {
             delete range_stream;
         }
     }
-    else if (graph != nullptr) {
+    else if (graph != nullptr && (!components || path_components)) {
         // every path
         graph->for_each_path_handle([&](path_handle_t path_handle) {
                 Region region;
                 region.seq = graph->get_path_name(path_handle);
-                regions.push_back(region);
+                if (!Paths::is_alt(region.seq)) {
+                    regions.push_back(region);
+                }
             });
     }
 
@@ -427,7 +469,7 @@ int main_chunk(int argc, char** argv) {
             region.start = max((int64_t)0, region.start);
             if (region.end == -1) {
                 region.end = get_path_length(region.seq) - 1;
-            } else if (!id_range) {
+            } else if (!id_range && !components) {
                 if (region.start < 0 || region.end >= get_path_length(region.seq)) {
                     cerr << "error[vg chunk]: input region " << region.seq << ":" << region.start << "-" << region.end
                          << " is out of bounds of path " << region.seq << " which has length "<< get_path_length(region.seq)
@@ -454,6 +496,20 @@ int main_chunk(int argc, char** argv) {
             }
         }
         swap(regions, chunked_regions);
+    }
+
+    // when using -C for components, regions will be derived from the connected components
+    vector<unordered_set<nid_t>> component_ids; 
+    if (components == true && regions.empty()) {
+        // no regions given, we find our components from scratch and make some dummy regions
+        component_ids = algorithms::weakly_connected_components(graph);
+        for (int i = 0; i < component_ids.size(); ++i) {
+            Region region;
+            region.seq = "";
+            region.start = 0;
+            region.end = 0;
+            regions.push_back(region);
+        }
     }
 
     // now ready to get our chunk on
@@ -518,18 +574,28 @@ int main_chunk(int argc, char** argv) {
         int tid = omp_get_thread_num();
         Region& region = regions[i];
         PathChunker& chunker = chunkers[tid];
-        VG* subgraph = NULL;
+        MutablePathMutableHandleGraph* subgraph = NULL;
         map<string, int> trace_thread_frequencies;
-        if (id_range == false) {
-            subgraph = new VG();
-            chunker.extract_subgraph(region, context_steps, context_length,
-                                     trace, *subgraph, output_regions[i]);
+        if (!component_ids.empty()) {
+            subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
+            chunker.extract_component(component_ids[i], *subgraph);
+            output_regions[i] = region;
+        }
+        else if (id_range == false) {
+            subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
+            if (components == true) {
+                chunker.extract_path_component(region.seq, *subgraph, output_regions[i]);
+            } else {
+                chunker.extract_subgraph(region, context_steps, context_length,
+                                         trace, *subgraph, output_regions[i]);
+            }
         } else {
             if (chunk_graph || context_steps > 0) {
-                subgraph = new VG();
+                subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
                 output_regions[i].seq = region.seq;
                 chunker.extract_id_range(region.start, region.end,
-                                         context_steps, context_length, trace,
+                                         components ? numeric_limits<int64_t>::max() : context_steps,
+                                         context_length, trace && !components,
                                          *subgraph, output_regions[i]);
             } else {
                 // in this case, there's no need to actually build the subgraph, so we don't
@@ -556,15 +622,29 @@ int main_chunk(int argc, char** argv) {
             Graph g;
             trace_haplotypes_and_paths(*graph, *gbwt_index.get(), trace_start, trace_steps,
                                        g, trace_thread_frequencies, false);
-            subgraph->paths.for_each([&trace_thread_frequencies](const Path& path) {
-                    trace_thread_frequencies[path.name()] = 1;});            
-            subgraph->extend(g);
+            subgraph->for_each_path_handle([&trace_thread_frequencies, &subgraph](path_handle_t path_handle) {
+                    trace_thread_frequencies[subgraph->get_path_name(path_handle)] = 1;});
+            VG* vg_subgraph = dynamic_cast<VG*>(subgraph);
+            if (vg_subgraph != nullptr) {
+                // our graph is in vg format, just extend it
+                vg_subgraph->extend(g);
+            } else {
+                // our graph is not in vg format.  covert it, extend it, convert it back
+                // this can eventually be avoided by handlifying the haplotype tracer
+                vg_subgraph = new VG();
+                convert_path_handle_graph(subgraph, vg_subgraph);
+                delete subgraph;
+                vg_subgraph->extend(g);
+                subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
+                convert_path_handle_graph(vg_subgraph, subgraph);
+                delete vg_subgraph;
+            }
         }
 
         ofstream out_file;
         ostream* out_stream = NULL;
         if (chunk_graph) {
-            if ((!region_string.empty() || !node_range_string.empty()) &&
+            if ((!region_strings.empty() || !node_range_string.empty()) &&
                 (regions.size()  == 1) && chunk_size == 0) {
                 // If we are going to output only one chunk, it should go to
                 // stdout instead of to a file on disk
@@ -572,7 +652,7 @@ int main_chunk(int argc, char** argv) {
             } else {
                 // Otherwise, we write files under the specified prefix, using
                 // a prefix-i-seq-start-end convention.
-                string name = chunk_name(out_chunk_prefix, i, output_regions[i], ".vg");
+                string name = chunk_name(out_chunk_prefix, i, output_regions[i], "." + output_format, 0, components);
                 out_file.open(name);
                 if (!out_file) {
                     cerr << "error[vg chunk]: can't open output chunk file " << name << endl;
@@ -580,8 +660,8 @@ int main_chunk(int argc, char** argv) {
                 }
                 out_stream = &out_file;
             }
-            
-            subgraph->serialize_to_ostream(*out_stream);
+
+            vg::io::save_handle_graph(subgraph, *out_stream);
         }
         
         // optional gam chunking
@@ -591,7 +671,7 @@ int main_chunk(int argc, char** argv) {
                 assert(gam_index.get() != nullptr);
                 GAMIndex::cursor_t& cursor = cursors_vec[gi][tid];
             
-                string gam_name = chunk_name(out_chunk_prefix, i, output_regions[i], ".gam", gi);
+                string gam_name = chunk_name(out_chunk_prefix, i, output_regions[i], ".gam", gi, components);
                 ofstream out_gam_file(gam_name);
                 if (!out_gam_file) {
                     cerr << "error[vg chunk]: can't open output gam file " << gam_name << endl;
@@ -616,7 +696,7 @@ int main_chunk(int argc, char** argv) {
         if (trace) {
             // Even if we have only one chunk, the trace annotation data always
             // ends up in a file.
-            string annot_name = chunk_name(out_chunk_prefix, i, output_regions[i], ".annotate.txt");
+            string annot_name = chunk_name(out_chunk_prefix, i, output_regions[i], ".annotate.txt", 0, components);
             ofstream out_annot_file(annot_name);
             if (!out_annot_file) {
                 cerr << "error[vg chunk]: can't open output trace annotation file " << annot_name << endl;
@@ -640,9 +720,9 @@ int main_chunk(int argc, char** argv) {
             const Region& oregion = output_regions[i];
             string seq = id_range ? "ids" : oregion.seq;
             obed << seq << "\t" << oregion.start << "\t" << (oregion.end + 1)
-                 << "\t" << chunk_name(out_chunk_prefix, i, oregion, chunk_gam ? ".gam" : ".vg");
+                 << "\t" << chunk_name(out_chunk_prefix, i, oregion, chunk_gam ? ".gam" : "." + output_format, 0, components);
             if (trace) {
-                obed << "\t" << chunk_name(out_chunk_prefix, i, oregion, ".annotate.txt");
+                obed << "\t" << chunk_name(out_chunk_prefix, i, oregion, ".annotate.txt", 0, components);
             }
             obed << "\n";
         }
@@ -655,15 +735,21 @@ int main_chunk(int argc, char** argv) {
 static Subcommand vg_chunk("chunk", "split graph or alignment into chunks", main_chunk);
 
 // Output name of a chunk
-string chunk_name(const string& out_chunk_prefix, int i, const Region& region, string ext, int gi) {
+string chunk_name(const string& out_chunk_prefix, int i, const Region& region, string ext, int gi, bool components) {
     stringstream chunk_name;
     string seq = region.seq.empty() ? "ids" : region.seq;
     chunk_name << out_chunk_prefix;
     if (gi > 0) {
         chunk_name << "-" << gi;
     }
-    chunk_name << "_" << i << "_" << seq << "_"
-               << region.start << "_" << region.end << ext;
+    if (!components) {
+        chunk_name << "_" << i << "_" << seq << "_" << region.start << "_" << region.end;
+    } else if (region.seq.empty()) {
+        chunk_name << "_" << i;
+    } else {
+        chunk_name << "_" << region.seq;
+    }
+    chunk_name << ext;
     return chunk_name.str();
 }
 
