@@ -23,7 +23,9 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph, const gbwtgr
     MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph) :
     path_graph(path_graph), minimizer_index(minimizer_index),
     distance_index(distance_index), gbwt_graph(graph),
-    extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index) {
+    extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index),
+    fragment_length_distr(1000,1000,0.95){
+        //TODO: Picked fragment_length_distr params from mpmap
     
     // Nothing to do!
 }
@@ -984,7 +986,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // Cluster the seeds. Get sets of input seed indexes that go together.
     // If the fragment length distribution hasn't been fixed yet (if the expected fragment length = 0),
     // then everything will be in the same cluster and the best pair will be the two best independent mappings
-    vector<vector<pair<vector<size_t>, size_t>>> read_clusters = clusterer.cluster_seeds(seeds, distance_limit, fragment_length_distr.mean() + aln1.sequence().size() + aln2.sequence().size() );
+    vector<vector<pair<vector<size_t>, size_t>>> read_clusters = clusterer.cluster_seeds(seeds, distance_limit, 
+            fragment_length_distr.mean() + aln1.sequence().size() + aln2.sequence().size() +fragment_length_distr.stdev());
     
     if (track_provenance) {
         funnels[0].substage("score");
@@ -1250,7 +1253,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         // Now start the alignment step. Everything has to become an alignment.
 
         // We will fill this with all computed alignments in estimated score order.
-        alignments.resize(max_fragment_num+2);
+        alignments.resize(max_fragment_num+1);
 
         
         // Clear any old refpos annotation and path
@@ -1333,35 +1336,35 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 }
                 
                 
-                
+                size_t fragment_num = cluster_extensions[extension_num].second;
                 if (second_best_alignment.score() != 0 && 
                     second_best_alignment.score() > best_alignment.score() * 0.8) {
                     //If there is a second extension and its score is at least half of the best score
-                    read_num == 0 ? alignments[cluster_extensions[extension_num].second ].first.push_back(std::move(second_best_alignment)) :
-                                    alignments[cluster_extensions[extension_num].second ].second.push_back(std::move(second_best_alignment));
+                    read_num == 0 ? alignments[fragment_num ].first.push_back(std::move(second_best_alignment)) :
+                                    alignments[fragment_num ].second.push_back(std::move(second_best_alignment));
 
                     if (track_provenance) {
         
                         funnels[read_num].project(extension_num);
-                        read_num == 0 ? funnels[read_num].score(alignments[cluster_extensions[extension_num].second ].first.size() - 1, 
-                                             alignments[cluster_extensions[extension_num].second ].first.back().score()) :
-                                        funnels[read_num].score(alignments[cluster_extensions[extension_num].second ].first.size() - 1, 
-                                             alignments[cluster_extensions[extension_num].second ].second.back().score());
+                        read_num == 0 ? funnels[read_num].score(alignments[fragment_num ].first.size() - 1, 
+                                             alignments[fragment_num ].first.back().score()) :
+                                        funnels[read_num].score(alignments[fragment_num].first.size() - 1, 
+                                             alignments[fragment_num].second.back().score());
                         // We're done with this input item
                         funnels[read_num].processed_input();
                     }
                 }
 
-                read_num == 0 ? alignments[cluster_extensions[extension_num].second ].first.push_back(std::move(best_alignment))
-                              : alignments[cluster_extensions[extension_num].second ].second.push_back(std::move(best_alignment));
+                read_num == 0 ? alignments[fragment_num].first.push_back(std::move(best_alignment))
+                              : alignments[fragment_num].second.push_back(std::move(best_alignment));
 
                 if (track_provenance) {
 
                     funnels[read_num].project(extension_num);
-                    read_num == 0 ? funnels[read_num].score(alignments[cluster_extensions[extension_num].second ].first.size() - 1, 
-                                        alignments[cluster_extensions[extension_num].second ].first.back().score())
-                                  : funnels[read_num].score(alignments[cluster_extensions[extension_num].second ].second.size() - 1, 
-                                        alignments[cluster_extensions[extension_num].second ].second.back().score());
+                    read_num == 0 ? funnels[read_num].score(alignments[fragment_num].first.size() - 1, 
+                                        alignments[fragment_num].first.back().score())
+                                  : funnels[read_num].score(alignments[fragment_num].second.size() - 1, 
+                                        alignments[fragment_num].second.back().score());
                     
                     // We're done with this input item
                     funnels[read_num].processed_input();
