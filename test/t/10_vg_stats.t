@@ -44,6 +44,7 @@ is "$(vg stats -a x.gam x.vg | md5sum | cut -f 1 -d\ )" "$(md5sum correct/10_vg_
 is "$(vg stats -a x.gam | grep 'Total alignments')" "Total alignments: 100" "stats can be computed for GAM files without graphs"
 rm -f x.vg x.xg x.gcsa x.gam
 
-vg msga -g <(vg msga -f msgas/cycle.fa -b s1 -w 11 -O 10 -k 4 -t 1 | vg paths -d -v - | vg mod -E - | vg mod -U 10 -) -f msgas/cycle.fa -t 1 | vg mod -N - | vg mod -U 10 - >c.vg
-is $(vg stats -O c.vg | wc -l) 177 "a path overlap description of a cyclic graph built by msga has the expected length"
+# not normalizing here anymore as its non-determinism is tripping up some tests
+vg msga -g <(vg msga -f msgas/cycle.fa -b s1 -w 11 -O 10 -k 4 -t 1 | vg paths -d -v - | vg mod -E -) -f msgas/cycle.fa -t 1 | vg mod -N - >c.vg
+is $(vg stats -O c.vg | wc -l) 279 "a path overlap description of a cyclic graph built by msga has the expected length"
 rm -f c.vg
