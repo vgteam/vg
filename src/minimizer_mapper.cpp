@@ -1375,6 +1375,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
                 read_num == 0 ? alignments[fragment_num].first.emplace_back(std::move(best_alignment), curr_funnel_index)
                               : alignments[fragment_num].second.emplace_back(std::move(best_alignment), curr_funnel_index);
+                curr_funnel_index++; 
 
                 if (track_provenance) {
 
@@ -1405,11 +1406,12 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     }
     
     
-    if (track_provenance) {
-        // Now say we are finding the winner(s)
-        funnels[0].stage("pair");
-        funnels[1].stage("pair");
-    }
+//TODO:
+//    if (track_provenance) {
+//        // Now say we are finding the winner(s)
+//        funnels[0].stage("pair");
+//        funnels[1].stage("pair");
+//    }
     // Fill this in with the alignments we will output
     // Tuple of fragment index, index of first alignment, index of second alignment in alignments, 
     //  and the indexes from the funnel of the alignments
@@ -1433,22 +1435,22 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 for (size_t i2 = 0 ; i2 < fragment_alignments.second.size() ; i2++) {
                     Alignment& alignment2 = fragment_alignments.second[i2].first;
                     size_t j2 = fragment_alignments.second[i2].second;
-                    //TODO: For now assume that the fragment length distribution has been finalized
                     int64_t fragment_distance = distance_between(alignment1, alignment2); 
                     //TODO: Scoring of pairs
                     double score = alignment1.score() + alignment2.score() - (double)abs(fragment_length_distr.mean()-fragment_distance); 
                     paired_alignments.emplace_back(fragment_num, i1, i2, j1, j2);
                     paired_scores.emplace_back(score);
 
-                    if (track_provenance) {
-                        funnels[0].pass("pairing", j1);
-                        funnels[0].project(j1);
-                        funnels[1].pass("pairing", j2);
-                        funnels[1].project(j2);
-                    }
+//TODO: I'm not sure how to process these properly out of order
+//                    if (track_provenance) {
+//                        funnels[0].pass("pairing", j1);
+//                        funnels[0].project(j1);
+//                        funnels[1].pass("pairing", j2);
+//                        funnels[1].project(j2);
+//                    }
                 }
             }
-        } else {
+        }/* else {
             if (track_provenance) {
                 if (fragment_alignments.first.empty()) {
                     for (size_t i = 0 ; i < fragment_alignments.second.size() ; i++) {
@@ -1461,7 +1463,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     }
                 }
             }
-        }
+        }*/
     }
     
     
@@ -1493,12 +1495,12 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 //TODO: After this point, the indices of each item in the funnel doesn't make much sense since we've re-ordered everything based on the fragment cluster it belongs to        
         if (track_provenance) {
             // Tell the funnel
-            funnels[0].pass("max-multimaps", alignment_num);
-            funnels[0].project(alignment_num);
-            funnels[0].score(alignment_num, scores.back());
-            funnels[1].pass("max-multimaps", alignment_num);
-            funnels[1].project(alignment_num);
-            funnels[1].score(alignment_num, scores.back());
+            funnels[0].pass("max-multimaps", std::get<3>(paired_alignments[alignment_num]));
+            funnels[0].project(std::get<3>(paired_alignments[alignment_num]));
+            funnels[0].score(std::get<3>(paired_alignments[alignment_num]), scores.back());
+            funnels[1].pass("max-multimaps", std::get<4>(paired_alignments[alignment_num]));
+            funnels[1].project(std::get<4>(paired_alignments[alignment_num]));
+            funnels[1].score(std::get<4>(paired_alignments[alignment_num]), scores.back());
         }
         
         return true;
