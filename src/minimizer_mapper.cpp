@@ -756,12 +756,17 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 }
 pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2,
                                                       vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer){
+
     if (fragment_length_distr.is_finalized()) {
         //If we know the fragment length distribution then we just map paired ended 
         return map_paired(aln1, aln2);
     } else {
         //If we don't know the fragment length distribution, map the reads single ended
 
+        aln2.clear_path();
+        reverse_complement_alignment_in_place(&aln2, [&](vg::id_t node_id) {
+            return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
+        });
         vector<Alignment> alns1(map(aln1));
         vector<Alignment> alns2(map(aln2));
         
@@ -772,6 +777,16 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             // If that all checks out, say they're mapped, emit them, and register their distance and orientations
             
             int64_t dist = distance_between(alns1.front(), alns2.front());
+            if (dist == std::numeric_limits<int64_t>::max()) {
+
+                aln2.clear_path();
+                reverse_complement_alignment_in_place(&aln2, [&](vg::id_t node_id) {
+                    return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
+                });
+                ambiguous_pair_buffer.emplace_back(aln1, aln2);
+                pair<vector<Alignment>, vector<Alignment>> empty;
+                return empty;
+            }
         
             fragment_length_distr.register_fragment_length(dist);
         
@@ -853,7 +868,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             // Start the minimizer locating stage
             funnels[read_num].stage("seed");
         }
-    
+
         // Compute minimizer scores for all minimizers as 1 + ln(hard_hit_cap) - ln(hits).
         minimizer_score.emplace_back(minimizers.back().size(), 0.0);
         double base_target_score = 0.0;
@@ -869,36 +884,36 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             base_target_score += minimizer_score.back()[i];
         }
         double target_score = (base_target_score * minimizer_score_fraction) + 0.000001;
-    
+
         // Sort the minimizers by score.
         std::vector<size_t> minimizers_in_order(minimizers.back().size());
         for (size_t i = 0; i < minimizers_in_order.size(); i++) {
             minimizers_in_order[i] = i;
         }
         std::sort(minimizers_in_order.begin(), minimizers_in_order.end(), [&minimizer_score](const size_t a, const size_t b) {
-            return (minimizer_score.back()[a] > minimizer_score.back()[b]);
-        });
-    
+                return (minimizer_score.back()[a] > minimizer_score.back()[b]);
+                });
+
         // Select the minimizers we use for seeds.
         size_t rejected_count = 0;
         double selected_score = 0.0;
         for (size_t i = 0; i < minimizers.back().size(); i++) {
             size_t minimizer_num = minimizers_in_order[i];
-    
+
             if (track_provenance) {
                 // Say we're working on it
                 funnels[read_num].processing_input(minimizer_num);
             }
-    
+
             // Select the minimizer if it is informative enough or if the total score
             // of the selected minimizers is not high enough.
             size_t hits = minimizer_index.count(minimizers.back()[minimizer_num]);
-            
+
 #ifdef debug
             cerr << "Minimizer " << minimizer_num << " in read " << read_num << " = " << minimizers.back()[minimizer_num].key.decode(minimizer_index.k())
                 << " has " << hits << " hits" << endl;
 #endif
-            
+
             if (hits == 0) {
                 // A minimizer with no hits can't go on.
                 if (track_provenance) {
@@ -917,7 +932,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     seed_to_source.back().push_back(minimizer_num);
                 }
                 selected_score += minimizer_score.back()[minimizer_num];
-                
+
                 if (track_provenance) {
                     // Record in the funnel that this minimizer gave rise to these seeds.
                     funnels[read_num].pass("any-hits", minimizer_num);
@@ -952,16 +967,16 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         if (track_provenance && track_correctness) {
             // Tag seeds with correctness based on proximity along paths to the input read's refpos
             funnels[read_num].substage("correct");
-          
+
             if (path_graph == nullptr) {
                 cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
                 exit(1);
             }
-            
+
             if (read_num == 0 ? (aln1.refpos_size() != 0) :  (aln2.refpos_size() != 0)) {
                 // Take the first refpos as the true position.
                 auto& true_pos = aln1.refpos(0);
-                
+
                 for (size_t i = 0; i < seeds[read_num].size(); i++) {
                     // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
                     auto offsets = algorithms::nearest_offsets_in_paths(path_graph, seeds[read_num][i], 100);
@@ -982,20 +997,21 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         funnels[0].stage("cluster");
         funnels[1].stage("cluster");
     }
-        
+
     // Cluster the seeds. Get sets of input seed indexes that go together.
     // If the fragment length distribution hasn't been fixed yet (if the expected fragment length = 0),
     // then everything will be in the same cluster and the best pair will be the two best independent mappings
     vector<vector<pair<vector<size_t>, size_t>>> read_clusters = clusterer.cluster_seeds(seeds, distance_limit, 
             fragment_length_distr.mean() + aln1.sequence().size() + aln2.sequence().size() +fragment_length_distr.stdev());
-    
+
     if (track_provenance) {
         funnels[0].substage("score");
         funnels[1].substage("score");
     }
 
-    //For each fragment cluster (cluster of clusters), for each read, a vector of all alignments
-    vector<pair<vector<Alignment>, vector<Alignment>>> alignments;
+    //For each fragment cluster (cluster of clusters), for each read, a vector of all alignments + the order they were fed into the funnel 
+    //so we can keep track
+    vector<pair<vector<pair<Alignment, size_t>>, vector<pair<Alignment, size_t>>>> alignments;
 
     for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
         Alignment& aln = read_num == 0 ? aln1 : aln2;
@@ -1009,7 +1025,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         for (size_t i = 0; i < clusters.size(); i++) {
             // For each cluster
             auto& cluster = clusters[i].first;
-            
+
             if (track_provenance) {
                 // Say we're making it
                 funnels[read_num].producing_output(i);
@@ -1027,12 +1043,12 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     cluster_score[i] += minimizer_score[read_num][j];
                 }
             }
-            
+
             if (track_provenance) {
                 // Record the cluster in the funnel as a group of the size of the number of items.
                 funnels[read_num].merge_group(cluster.begin(), cluster.end());
                 funnels[read_num].score(funnels[read_num].latest(), cluster_score[i]);
-                
+
                 // Say we made it.
                 funnels[read_num].produced_output();
             }
@@ -1068,16 +1084,16 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 #ifdef debug
         cerr << "Found " << clusters.size() << " clusters for read " << read_num << endl;
 #endif
-                                        
+
         // Retain clusters only if their score is better than this, in addition to the coverage cutoff
         double cluster_score_cutoff = cluster_score.size() == 0 ? 0 :
-                        *std::max_element(cluster_score.begin(), cluster_score.end()) - cluster_score_threshold;
-        
+            *std::max_element(cluster_score.begin(), cluster_score.end()) - cluster_score_threshold;
+
         if (track_provenance) {
             // Now we go from clusters to gapless extensions
             funnels[read_num].stage("extend");
         }
-        
+
         // These are the GaplessExtensions for all the clusters (and fragment cluster assignments), in cluster_indexes_in_order order.
         vector<pair<vector<GaplessExtension>, size_t>> cluster_extensions;
         cluster_extensions.reserve(clusters.size());
@@ -1263,6 +1279,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         aln.set_identity(0);
         aln.set_mapping_quality(0);
         
+        size_t curr_funnel_index = 0;
         // Go through the gapless extension groups in score order.
         process_until_threshold(cluster_extensions, cluster_extension_scores,
             extension_set_score_threshold, 2, max_alignments,
@@ -1340,31 +1357,32 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 if (second_best_alignment.score() != 0 && 
                     second_best_alignment.score() > best_alignment.score() * 0.8) {
                     //If there is a second extension and its score is at least half of the best score
-                    read_num == 0 ? alignments[fragment_num ].first.push_back(std::move(second_best_alignment)) :
-                                    alignments[fragment_num ].second.push_back(std::move(second_best_alignment));
+                    read_num == 0 ? alignments[fragment_num ].first.emplace_back(std::move(second_best_alignment), curr_funnel_index) :
+                                    alignments[fragment_num ].second.emplace_back(std::move(second_best_alignment), curr_funnel_index);
+                    curr_funnel_index++;
 
                     if (track_provenance) {
         
                         funnels[read_num].project(extension_num);
                         read_num == 0 ? funnels[read_num].score(alignments[fragment_num ].first.size() - 1, 
-                                             alignments[fragment_num ].first.back().score()) :
+                                             alignments[fragment_num ].first.back().first.score()) :
                                         funnels[read_num].score(alignments[fragment_num].first.size() - 1, 
-                                             alignments[fragment_num].second.back().score());
+                                             alignments[fragment_num].second.back().first.score());
                         // We're done with this input item
                         funnels[read_num].processed_input();
                     }
                 }
 
-                read_num == 0 ? alignments[fragment_num].first.push_back(std::move(best_alignment))
-                              : alignments[fragment_num].second.push_back(std::move(best_alignment));
+                read_num == 0 ? alignments[fragment_num].first.emplace_back(std::move(best_alignment), curr_funnel_index)
+                              : alignments[fragment_num].second.emplace_back(std::move(best_alignment), curr_funnel_index);
 
                 if (track_provenance) {
 
                     funnels[read_num].project(extension_num);
                     read_num == 0 ? funnels[read_num].score(alignments[fragment_num].first.size() - 1, 
-                                        alignments[fragment_num].first.back().score())
+                                        alignments[fragment_num].first.back().first.score())
                                   : funnels[read_num].score(alignments[fragment_num].second.size() - 1, 
-                                        alignments[fragment_num].second.back().score());
+                                        alignments[fragment_num].second.back().first.score());
                     
                     // We're done with this input item
                     funnels[read_num].processed_input();
@@ -1386,15 +1404,16 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         
     }
     
+    
     if (track_provenance) {
         // Now say we are finding the winner(s)
-        funnels[0].stage("winner");
-        funnels[1].stage("winner");
+        funnels[0].stage("pair");
+        funnels[1].stage("pair");
     }
-    
     // Fill this in with the alignments we will output
-    // Tuple of fragment index, index of first alignment, index of second alignment in alignments
-    vector<tuple<size_t, size_t, size_t>> paired_alignments;
+    // Tuple of fragment index, index of first alignment, index of second alignment in alignments, 
+    //  and the indexes from the funnel of the alignments
+    vector<tuple<size_t, size_t, size_t, size_t, size_t>> paired_alignments;
     // Grab all the scores in order for MAPQ computation.
     vector<double> paired_scores;
     paired_alignments.reserve(alignments.size());
@@ -1403,30 +1422,57 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
     for (size_t fragment_num = 0 ; fragment_num < alignments.size() ; fragment_num ++ ) {
         //Get pairs of plausible alignments
-        // If the fragment length distribution hasn't been fixed yet (if the expected fragment length = 0),
-        // the best pair will be the two best independent mappings
         
         //TODO: Maybe don't keep all pairs per fragment cluster
-        pair<vector<Alignment>, vector<Alignment>>& fragment_alignments = alignments[fragment_num];
+        pair<vector<pair<Alignment, size_t>>, vector<pair<Alignment, size_t>>>& fragment_alignments = alignments[fragment_num];
         if (!fragment_alignments.first.empty() && ! fragment_alignments.second.empty()) {
+            //Only keep pairs of alignments that were in the same fragment cluster
             for (size_t i1 = 0 ; i1 < fragment_alignments.first.size() ; i1++)  {
-                Alignment& alignment1 = fragment_alignments.first[i1];
+                Alignment& alignment1 = fragment_alignments.first[i1].first;
+                size_t j1 = fragment_alignments.first[i1].second;
                 for (size_t i2 = 0 ; i2 < fragment_alignments.second.size() ; i2++) {
-                    Alignment& alignment2 = fragment_alignments.second[i2];
+                    Alignment& alignment2 = fragment_alignments.second[i2].first;
+                    size_t j2 = fragment_alignments.second[i2].second;
                     //TODO: For now assume that the fragment length distribution has been finalized
                     int64_t fragment_distance = distance_between(alignment1, alignment2); 
                     //TODO: Scoring of pairs
                     double score = alignment1.score() + alignment2.score() - (double)abs(fragment_length_distr.mean()-fragment_distance); 
-                    paired_alignments.emplace_back(fragment_num, i1, i2);
+                    paired_alignments.emplace_back(fragment_num, i1, i2, j1, j2);
                     paired_scores.emplace_back(score);
+
+                    if (track_provenance) {
+                        funnels[0].pass("pairing", j1);
+                        funnels[0].project(j1);
+                        funnels[1].pass("pairing", j2);
+                        funnels[1].project(j2);
+                    }
+                }
+            }
+        } else {
+            if (track_provenance) {
+                if (fragment_alignments.first.empty()) {
+                    for (size_t i = 0 ; i < fragment_alignments.second.size() ; i++) {
+                        funnels[1].fail("pairing", i);
+                    }
+                }
+                if (fragment_alignments.second.empty()) {
+                    for (size_t i = 0 ; i < fragment_alignments.first.size() ; i++) {
+                        funnels[0].fail("pairing", i);
+                    }
                 }
             }
         }
     }
     
+    
+    if (track_provenance) {
+        // Now say we are finding the winner(s)
+        funnels[0].stage("winner");
+        funnels[1].stage("winner");
+    }
     // Fill this in with the alignments we will output
     // Same as paired_alignments: indexes into alignments
-    vector<tuple<size_t, size_t, size_t>> mappings;
+    vector<tuple<size_t, size_t, size_t, size_t, size_t>> mappings;
     // Grab all the scores in order for MAPQ computation.
     vector<double> scores;
     mappings.reserve(paired_alignments.size());
@@ -1445,12 +1491,15 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         mappings.emplace_back(paired_alignments[alignment_num]);
         
 //TODO: After this point, the indices of each item in the funnel doesn't make much sense since we've re-ordered everything based on the fragment cluster it belongs to        
-//        if (track_provenance) {
-//            // Tell the funnel
-//            funnels[0].pass("max-multimaps", std::get<1>(paired_alignments[alignment_num]));
-//            funnels[0].project(alignment_num);
-//            funnels[0].score(alignment_num, scores.back());
-//        }
+        if (track_provenance) {
+            // Tell the funnel
+            funnels[0].pass("max-multimaps", alignment_num);
+            funnels[0].project(alignment_num);
+            funnels[0].score(alignment_num, scores.back());
+            funnels[1].pass("max-multimaps", alignment_num);
+            funnels[1].project(alignment_num);
+            funnels[1].score(alignment_num, scores.back());
+        }
         
         return true;
     }, [&](size_t alignment_num) {
@@ -1468,9 +1517,10 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         assert(false);
     });
     
-//    if (track_provenance) {
-//        funnel.substage("mapq");
-//    }
+    if (track_provenance) {
+        funnels[0].substage("mapq");
+        funnels[1].substage("mapq");
+    }
     
 #ifdef debug
     cerr << "For scores ";
@@ -1510,8 +1560,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
     } else {
         for (size_t i = 0 ; i < mappings.size() ; i++) {
-            paired_mappings.first.emplace_back( alignments[std::get<0>(mappings[i])].first[std::get<1>(mappings[i])]);
-             paired_mappings.second.emplace_back(alignments[std::get<0>(mappings[i])].second[std::get<2>(mappings[i])]);
+            paired_mappings.first.emplace_back( alignments[std::get<0>(mappings[i])].first[std::get<1>(mappings[i])].first);
+            paired_mappings.second.emplace_back(alignments[std::get<0>(mappings[i])].second[std::get<2>(mappings[i])].first);
 
             // Flip aln2 back to input orientation
             reverse_complement_alignment_in_place(&paired_mappings.second.back(), [&](vg::id_t node_id) {
@@ -1545,9 +1595,12 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
             funnels[read_num].for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
                 // Save the number of items
-                set_annotation(paired_mappings.first[0], "stage_" + stage + "_results", (double)result_sizes.size());
-                set_annotation(paired_mappings.second[0], "stage_" + stage + "_results", (double)result_sizes.size());
+                set_annotation(read_num == 0 ? paired_mappings.first[0] : paired_mappings.second[0], "stage_" + stage + "_results", (double)result_sizes.size());
             });
+            if (track_correctness) {
+                // And with the last stage at which we had any descendants of the correct seed hit locations
+                set_annotation(read_num == 0 ? paired_mappings.first[0] : paired_mappings.second[0], "last_correct_stage", funnels[read_num].last_correct_stage());
+            }
             // Annotate with the performances of all the filters
             // We need to track filter number
             size_t filter_num = 0;
@@ -1598,13 +1651,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 filter_num++;
             });
         }
-//        
-//        if (track_correctness) {
-//            // And with the last stage at which we had any descendants of the correct seed hit locations
-//            set_annotation(mappings[0], "last_correct_stage", funnel.last_correct_stage());
-//        }
-//        
-//        
+        
+        
+        
         // Annotate with parameters used for the filters.
         set_annotation(paired_mappings.first[0] , "param_hit-cap", (double) hit_cap);
         set_annotation(paired_mappings.first[0] , "param_hard-hit-cap", (double) hard_hit_cap);
@@ -1639,8 +1688,8 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
     assert(aln1.path().mapping_size() != 0); 
     assert(aln2.path().mapping_size() != 0); 
      
-    pos_t pos1 = initial_position(aln1.path()); 
-    pos_t pos2 = final_position(aln2.path());
+    pos_t pos1 = final_position(aln1.path()); 
+    pos_t pos2 = initial_position(aln2.path());
 
     int64_t min_dist = distance_index.minDistance(pos1, pos2);
     return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
