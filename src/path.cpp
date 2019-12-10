@@ -372,8 +372,8 @@ int64_t Paths::get_path_id(const string& name) const {
                 // Assign an ID.
                 // These members are mutable.
                 ++max_path_id;
-                name_to_id[name] = max_path_id;
                 id_to_name[max_path_id] = name;
+                name_to_id[name] = max_path_id;
             }
         }
     }
