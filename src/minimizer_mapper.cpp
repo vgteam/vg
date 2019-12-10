@@ -1508,9 +1508,10 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         // Remember the score at its rank anyway
         scores.emplace_back(paired_scores[alignment_num]);
         
-//        if (track_provenance) {
-//            funnel.fail("max-multimaps", alignment_num);
-//        }
+        if (track_provenance) {
+            funnels[0].fail("max-multimaps", alignment_num);
+            funnels[1].fail("max-multimaps", alignment_num);
+        }
     }, [&](size_t alignment_num) {
         // This alignment does not have a sufficiently good score
         // Score threshold is 0; this should never happen
