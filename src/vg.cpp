@@ -334,6 +334,10 @@ size_t VG::get_node_count() const {
     return graph.node_size();
 }
 
+size_t VG::get_edge_count() const {
+    return graph.edge_size();
+}
+
 id_t VG::max_node_id(void) const {
     id_t max_id = 0;
     for (int i = 0; i < graph.node_size(); ++i) {
@@ -2782,15 +2786,6 @@ Node* VG::merge_nodes(const list<Node*>& nodes) {
     return n;
 }
 
-id_t VG::total_length_of_nodes(void) {
-    id_t length = 0;
-    for (id_t i = 0; i < graph.node_size(); ++i) {
-        Node* n = graph.mutable_node(i);
-        length += n->sequence().size();
-    }
-    return length;
-}
-    
 void VG::build_node_indexes_no_init_size(void) {
     for (id_t i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
@@ -4217,9 +4212,7 @@ size_t VG::size(void) {
 }
 
 size_t VG::length(void) {
-    size_t l = 0;
-    for_each_node([&l](Node* n) { l+=n->sequence().size(); });
-    return l;
+    return get_total_length();
 }
 
 void VG::swap_nodes(Node* a, Node* b) {

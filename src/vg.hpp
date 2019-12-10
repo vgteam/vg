@@ -131,6 +131,11 @@ public:
     /// Return the number of nodes in the graph
     virtual size_t get_node_count() const;
     
+    /// Return the total number of edges in the graph.
+    virtual size_t get_edge_count() const;
+    
+    // We use the default, linear get_total_length 
+    
     /// Get the minimum node ID used in the graph, if any are used
     virtual id_t min_node_id() const;
     /// Get the maximum node ID used in the graph, if any are used
@@ -389,6 +394,7 @@ public:
     vector<pair<id_t, bool>>& edges_end(id_t id);
     
     // properties of the graph
+    // TODO: redundant with handle graph methods!
     size_t size(void); ///< Number of nodes
     size_t length(void); ///< Total sequence length
 
@@ -716,9 +722,6 @@ public:
     size_t node_count(void) const;
     /// Count the number of edges in the graph.
     size_t edge_count(void) const;
-    /// Get the total sequence length of nodes in the graph.
-    /// TODO: redundant with length().
-    id_t total_length_of_nodes(void);
     /// Get the rank of the node in the protobuf array that backs the graph.
     int node_rank(Node* node);
     /// Get the rank of the node in the protobuf array that backs the graph.
