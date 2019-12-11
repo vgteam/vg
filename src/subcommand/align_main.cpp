@@ -186,7 +186,7 @@ int main_align(int argc, char** argv) {
     VG* vg_graph = dynamic_cast<vg::VG*>(graph.get());
     
     if (vg_graph == nullptr) {
-        // Copy instead. Should be fine because we on;y ever want to run this on small graphs anyway.
+        // Copy instead. Should be fine because we only ever want to run this on small graphs anyway.
         // TODO: Replace VG::align with non-vg-specific alignment algorithm!
         // TODO: This converts from VG protobuf and then back to it when loading a Protobuf graph!
         vg_graph = new vg::VG();

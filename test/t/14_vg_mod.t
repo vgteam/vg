@@ -13,7 +13,7 @@ is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | 
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep "^S" | wc -l) \
     "vg mod yields a graph with only a particular path"
 
-is $(vg mod -o graphs/orphans.vg | vg view - | wc -l) 8 "orphan edge removal works"
+is $(vg mod graphs/orphans.vg | vg view - | wc -l) 8 "orphan edge removal is automatic"
 
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 - | vg stats -E - ) 285 "graph complexity reduction works as expected"
 

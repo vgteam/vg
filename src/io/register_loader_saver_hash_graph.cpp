@@ -19,7 +19,7 @@ using namespace std;
 using namespace vg::io;
 
 void register_loader_saver_hash_graph() {
-    Registry::register_bare_loader_saver<bdsg::HashGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>(
+    Registry::register_bare_loader_saver<bdsg::HashGraph, MutablePathDeletableHandleGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>(
         "HashGraph", [](istream& input) -> void* {
         
         // Allocate a HashGraph
@@ -38,7 +38,7 @@ void register_loader_saver_hash_graph() {
     
     // Also register to be able to load Protobuf, by converting to a hash graph on input, if vg::VG is not required.
     // The default implementation for a VG loaded from a file as a handle graph will now be a HashGraph.
-    Registry::register_loader<bdsg::HashGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>(
+    Registry::register_loader<bdsg::HashGraph, MutablePathDeletableHandleGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>(
         vector<string>{"VG", ""},
         [](const message_sender_function_t& for_each_message) -> void* {
     

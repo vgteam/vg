@@ -332,8 +332,9 @@ void load_proto_to_graph(const vg::io::message_sender_function_t& for_each_messa
     
     if (!deferred_edges.empty()) {
         // If there are any deferred edges left, we are missing a node.
-        cerr << "error[load_proto_to_graph]: dangling edge on missing node " << deferred_edges.begin()->first << endl;
-        exit(1);
+        // Sometimes we have to deal with dangling edges. We just remove them.
+        cerr << "warning[load_proto_to_graph]: dangling edges on missing node " << deferred_edges.begin()->first
+            << " and " << (deferred_edges.size() - 1) << " other missing nodes removed" << endl;
     }
     
     // Now make all the path steps we didn't make yet, allowing for rank gaps
