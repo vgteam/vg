@@ -1279,7 +1279,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         aln.set_identity(0);
         aln.set_mapping_quality(0);
         
+        //Since we will lose the order in which we pass alignments to the funnel, use this to keep track
         size_t curr_funnel_index = 0;
+
         // Go through the gapless extension groups in score order.
         process_until_threshold(cluster_extensions, cluster_extension_scores,
             extension_set_score_threshold, 2, max_alignments,
@@ -1364,10 +1366,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     if (track_provenance) {
         
                         funnels[read_num].project(extension_num);
-                        read_num == 0 ? funnels[read_num].score(alignments[fragment_num ].first.size() - 1, 
-                                             alignments[fragment_num ].first.back().first.score()) :
-                                        funnels[read_num].score(alignments[fragment_num].first.size() - 1, 
-                                             alignments[fragment_num].second.back().first.score());
+                        read_num == 0 ? funnels[read_num].score(extension_num, alignments[fragment_num ].first.back().first.score()) :
+                                        funnels[read_num].score(extension_num, alignments[fragment_num].second.back().first.score());
                         // We're done with this input item
                         funnels[read_num].processed_input();
                     }
@@ -1380,10 +1380,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 if (track_provenance) {
 
                     funnels[read_num].project(extension_num);
-                    read_num == 0 ? funnels[read_num].score(alignments[fragment_num].first.size() - 1, 
-                                        alignments[fragment_num].first.back().first.score())
-                                  : funnels[read_num].score(alignments[fragment_num].second.size() - 1, 
-                                        alignments[fragment_num].second.back().first.score());
+                    read_num == 0 ? funnels[read_num].score(extension_num, alignments[fragment_num].first.back().first.score())
+                                  : funnels[read_num].score(extension_num, alignments[fragment_num].second.back().first.score());
                     
                     // We're done with this input item
                     funnels[read_num].processed_input();
@@ -1511,8 +1509,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         scores.emplace_back(paired_scores[alignment_num]);
         
         if (track_provenance) {
-            funnels[0].fail("max-multimaps", alignment_num);
-            funnels[1].fail("max-multimaps", alignment_num);
+            funnels[0].fail("max-multimaps", std::get<3>(paired_alignments[alignment_num]));
+            funnels[1].fail("max-multimaps", std::get<4>(paired_alignments[alignment_num]));
         }
     }, [&](size_t alignment_num) {
         // This alignment does not have a sufficiently good score
@@ -1545,6 +1543,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         paired_mappings.first.emplace_back(aln1);
         paired_mappings.second.emplace_back(aln2);
 
+//TODO: Is this right?
         // Flip aln2 back to input orientation
         reverse_complement_alignment_in_place(&paired_mappings.second.back(), [&](vg::id_t node_id) {
             return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
