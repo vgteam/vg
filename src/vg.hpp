@@ -773,27 +773,11 @@ public:
     id_t common_ancestor_prev(id_t id1, id_t id2, size_t steps = 64);
     /// Try to find a common ancestor by walking forward up to steps from the first node
     id_t common_ancestor_next(id_t id1, id_t id2, size_t steps = 64);
-    /// To-siblings are nodes which also have edges to them from the same nodes as this one.
-    set<NodeTraversal> siblings_to(const NodeTraversal& traversal);
-    /// From-siblings are nodes which also have edges to them from the same nodes as this one.
-    set<NodeTraversal> siblings_from(const NodeTraversal& traversal);
-    /// Full to-siblings are nodes traversals which share exactly the same upstream `NodeSide`s.
-    set<NodeTraversal> full_siblings_to(const NodeTraversal& trav);
-    /// Full from-siblings are nodes traversals which share exactly the same downstream `NodeSide`s.
-    set<NodeTraversal> full_siblings_from(const NodeTraversal& trav);
-    /// Get general siblings of a node.
-    set<Node*> siblings_of(Node* node);
+    
     /// Remove easily-resolvable redundancy in the graph.
-    /// TODO: Cannot yet handle reversing edges! They will prevent the identification of siblings.
+    /// TODO: Need a new implementation that doesn't corrupt the paths when reversing edges exist.
     void simplify_siblings(void);
-    /// Remove easily-resolvable redundancy in the graph for all provided to-sibling sets.
-    void simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs);
-    /// Remove easily-resolvable redundancy in the graph for all provided from-sibling sets.
-    void simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs);
-    /// Remove intransitive sibling sets, such as where (A, B, C) = S1 but C ∊ S2.
-    set<set<NodeTraversal>> transitive_sibling_sets(const set<set<NodeTraversal>>& sibs);
-    /// Remove sibling sets which don't have identical orientation.
-    set<set<NodeTraversal>> identically_oriented_sibling_sets(const set<set<NodeTraversal>>& sibs);
+    
     /// Determine if pos1 occurs directly before pos2.
     bool adjacent(const Position& pos1, const Position& pos2);
 

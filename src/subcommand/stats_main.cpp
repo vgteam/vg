@@ -40,7 +40,6 @@ void help_stats(char** argv) {
          << "    -s, --subgraphs       describe subgraphs of graph" << endl
          << "    -H, --heads           list the head nodes of the graph" << endl
          << "    -T, --tails           list the tail nodes of the graph" << endl
-         << "    -S, --siblings        describe the siblings of each node" << endl
          << "    -c, --components      print the strongly connected components of the graph" << endl
          << "    -A, --is-acyclic      print if the graph is acyclic or not" << endl
          << "    -n, --node ID         consider node with the given id" << endl
@@ -99,7 +98,6 @@ int main_stats(int argc, char** argv) {
             {"heads", no_argument, 0, 'H'},
             {"tails", no_argument, 0, 'T'},
             {"help", no_argument, 0, 'h'},
-            {"siblings", no_argument, 0, 'S'},
             {"components", no_argument, 0, 'c'},
             {"to-head", no_argument, 0, 'd'},
             {"to-tail", no_argument, 0, 't'},
@@ -115,7 +113,7 @@ int main_stats(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEa:vAro:OR",
+        c = getopt_long (argc, argv, "hzlsHTcdtn:NEa:vAro:OR",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -313,26 +311,6 @@ int main_stats(int argc, char** argv) {
     if (stats_range) {
         require_graph();
         cout << "node-id-range\t" << graph->min_node_id() << ":" << graph->max_node_id() << endl;
-    }
-
-    if (show_sibs) {
-        require_graph();
-        
-        VG* vg_graph = dynamic_cast<VG*>(graph.get());
-        if (vg_graph == nullptr) {
-            // TODO: Converting sibling computation requires a sibling algorithm in algorithms::
-            cerr << "error [vg stats]: Sibling computation can only be done on VG-format graphs" << endl;
-            exit(1);
-        }
-        
-        vg_graph->for_each_node([&vg_graph](Node* n) {
-                for (auto trav : vg_graph->full_siblings_to(NodeTraversal(n, false))) {
-                    cout << n->id() << "\t" << "to-sib" << "\t" << trav.node->id() << endl;
-                }
-                for (auto trav : vg_graph->full_siblings_from(NodeTraversal(n, false))) {
-                    cout << n->id() << "\t" << "from-sib" << "\t" << trav.node->id() << endl;
-                }
-            });
     }
 
     if (show_components) {
