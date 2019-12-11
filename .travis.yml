@@ -12,6 +12,7 @@ dist: bionic
 # version back.
 # Doxygen docs depend on Protobuf so we still need to do dep cache stuff for docs.
 before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install ccache; export PATH="/usr/local/opt/ccache/libexec:$PATH"'; fi
   - if [[ -e deps ]]; then mv deps deps_cached; fi
   - git submodule update --init --recursive
   - rsync -rv --links --checksum deps/ deps_cached/
@@ -50,7 +51,6 @@ script:
   - if [[ ! -z "$BUILD_DOCS_ONLY" ]]; then doc/publish-docs.sh; fi
 # Cache all our dependency directories, and our lib and include
 cache:
-  apt: true
   ccache: true
   directories:
     - deps
