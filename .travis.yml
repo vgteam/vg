@@ -14,7 +14,7 @@ dist: bionic
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install ccache; export PATH="/usr/local/opt/ccache/libexec:$PATH"'; fi
   - if [[ -e deps ]]; then mv deps deps_cached; fi
-  - git submodule update --init --recursive
+  - git submodule update --init --recursive --depth 1
   - rsync -rv --links --checksum deps/ deps_cached/
   - rm -Rf deps
   # Keep the cached deps if the right compiler version was used.
@@ -22,7 +22,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" && -e "deps_cached/gcc$(gcc -dumpversion)" ]]; then mv deps_cached deps; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && -e deps_cached/clang ]]; then mv deps_cached deps; fi
   - (ls -lah deps/; ls -lah bin/; ls -lah lib/; ls -lah include/) || true
-  - git submodule update --init --recursive
+  - git submodule update --init --recursive --depth 1
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch "deps/gcc$(gcc -dumpversion)"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
