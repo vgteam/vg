@@ -625,6 +625,8 @@ int main_mod(int argc, char** argv) {
             convert_path_handle_graph(graph.get(), vg_graph);
             // Give the unique_ptr ownership and delete the graph we loaded.
             graph.reset(vg_graph);
+            // Make sure the paths are all synced up
+            vg_graph->paths.to_graph(vg_graph->graph);
         }
         return vg_graph;
     };
