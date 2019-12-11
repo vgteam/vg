@@ -46,7 +46,7 @@ void help_chunk(char** argv) {
          << "options:" << endl
          << "    -x, --xg-name FILE       use this graph or xg index to chunk subgraphs" << endl
          << "    -G, --gbwt-name FILE     use this GBWT haplotype index for haplotype extraction" << endl
-         << "    -a, --gam-name FILE      chunk this gam file (not stdin, sorted, with FILE.gai index) instead of the graph (multiple allowed)" << endl
+         << "    -a, --gam-name FILE      chunk this gam file instead of the graph (multiple allowed)" << endl
          << "    -g, --gam-and-graph      when used in combination with -a, both gam and graph will be chunked" << endl 
          << "path chunking:" << endl
          << "    -p, --path TARGET        write the chunk in the specified (0-based inclusive, multiple allowed)\n"
@@ -346,16 +346,25 @@ int main_chunk(int argc, char** argv) {
     }
 
     
-    // We need an index on the GAM to chunk it
+    // We need an index on the GAM to chunk it (if we're not doing components)
     vector<unique_ptr<GAMIndex>> gam_indexes;
-    if (chunk_gam) {
+    if (chunk_gam && !components) {
         for (auto gam_file : gam_files) {
-            get_input_file(gam_file + ".gai", [&](istream& index_stream) {
-                    gam_indexes.push_back(unique_ptr<GAMIndex>(new GAMIndex()));
-                    gam_indexes.back()->load(index_stream);
-                });
+            try {
+                get_input_file(gam_file + ".gai", [&](istream& index_stream) {
+                        gam_indexes.push_back(unique_ptr<GAMIndex>(new GAMIndex()));
+                        gam_indexes.back()->load(index_stream);
+                    });
+            } catch (...) {
+                cerr << "error:[vg chunk] unable to load GAM index file: " << gam_file << ".gai" << endl
+                     << "                 note: a GAM index is required when *not* chunking by components with -C or -M" << endl;
+                exit(1);
+            }
         }
     }
+    // If we're chunking on components with a GAM, this map will be used
+    // (instead of an index)
+    unordered_map<nid_t, int32_t> node_to_component;
     
     // parse the regions into a list
     vector<Region> regions;
@@ -666,32 +675,41 @@ int main_chunk(int argc, char** argv) {
         
         // optional gam chunking
         if (chunk_gam) {
-            for (size_t gi = 0; gi < gam_indexes.size(); ++gi) {
-                auto& gam_index = gam_indexes[gi];
-                assert(gam_index.get() != nullptr);
-                GAMIndex::cursor_t& cursor = cursors_vec[gi][tid];
+            if (!components) {
+                // old way: use the gam index
+                for (size_t gi = 0; gi < gam_indexes.size(); ++gi) {
+                    auto& gam_index = gam_indexes[gi];
+                    assert(gam_index.get() != nullptr);
+                    GAMIndex::cursor_t& cursor = cursors_vec[gi][tid];
             
-                string gam_name = chunk_name(out_chunk_prefix, i, output_regions[i], ".gam", gi, components);
-                ofstream out_gam_file(gam_name);
-                if (!out_gam_file) {
-                    cerr << "error[vg chunk]: can't open output gam file " << gam_name << endl;
-                    exit(1);
+                    string gam_name = chunk_name(out_chunk_prefix, i, output_regions[i], ".gam", gi, components);
+                    ofstream out_gam_file(gam_name);
+                    if (!out_gam_file) {
+                        cerr << "error[vg chunk]: can't open output gam file " << gam_name << endl;
+                        exit(1);
+                    }
+            
+                    // Work out the ID ranges to look up
+                    vector<pair<vg::id_t, vg::id_t>> region_id_ranges;
+                    if (subgraph != NULL) {
+                        // Use the regions from the graph
+                        region_id_ranges = vg::algorithms::sorted_id_ranges(subgraph);
+                    } else {
+                        // Use the region we were asked for
+                        region_id_ranges = {{region.start, region.end}};
+                    }
+            
+                    gam_index->find(cursor, region_id_ranges, vg::io::emit_to<Alignment>(out_gam_file), fully_contained);
                 }
-            
-                // Work out the ID ranges to look up
-                vector<pair<vg::id_t, vg::id_t>> region_id_ranges;
-                if (subgraph != NULL) {
-                    // Use the regions from the graph
-                    region_id_ranges = vg::algorithms::sorted_id_ranges(subgraph);
-                } else {
-                    // Use the region we were asked for
-                    region_id_ranges = {{region.start, region.end}};
-                }
-            
-                gam_index->find(cursor, region_id_ranges, vg::io::emit_to<Alignment>(out_gam_file), fully_contained);
+            } else {
+                // we're doing components, just use stl map, which we update here
+                subgraph->for_each_handle([&](handle_t sg_handle) {
+                        // note, if components overlap, this is arbitrary.  up to user to only use
+                        // path components if they are disjoint
+                        node_to_component[subgraph->get_id(sg_handle)] = i;
+                    });
             }
         }
-
         // trace annotations
         if (trace) {
             // Even if we have only one chunk, the trace annotation data always
@@ -726,6 +744,53 @@ int main_chunk(int argc, char** argv) {
             }
             obed << "\n";
         }
+    }
+
+    // write out component gams
+    if (chunk_gam && components) {
+
+        // adapt output buffer size to not use too much total memory
+        static const size_t output_buffer_total_size = 100000;
+        size_t output_buffer_size = max((size_t)1, output_buffer_total_size / num_regions);        
+        vector<vector<Alignment>> output_buffers(num_regions);
+        vector<bool> append_buffer(num_regions, false);
+
+        // We may have too many components to keep a buffer open for each one.  So we open them as-needed only when flushing.
+        function<void(int32_t)> flush_gam_buffer = [&](int32_t comp_number) {
+            string gam_name = chunk_name(out_chunk_prefix, comp_number, output_regions[comp_number], ".gam", 0, components);
+            ofstream out_gam_file(gam_name, append_buffer[comp_number] ? std::ios_base::app : std::ios_base::out);
+            if (!out_gam_file) {
+                cerr << "error[vg chunk]: can't open output gam file " << gam_name << endl;
+                exit(1);
+            }
+            vg::io::write_buffered(out_gam_file, output_buffers[comp_number], output_buffers[comp_number].size());
+            append_buffer[comp_number] = true;
+            output_buffers[comp_number].clear();
+        };
+        
+        function<void(Alignment&)> chunk_gam_callback = [&](Alignment& aln) {
+            // we're going to lose unmapped reads right here
+            if (aln.path().mapping_size() > 0) {
+                int32_t aln_component = node_to_component[aln.path().mapping(0).position().node_id()];
+                output_buffers[aln_component].push_back(aln);
+                if (output_buffers[aln_component].size() >= output_buffer_size) {
+                    flush_gam_buffer(aln_component);
+                }
+            }
+        };
+
+        for (auto gam_file : gam_files) {
+            get_input_file(gam_file, [&](istream& gam_stream) {
+                    vg::io::for_each_parallel(gam_stream, chunk_gam_callback);
+                });
+        }
+#pragma omp parallel for
+        for (int32_t aln_component = 0; aln_component < num_regions; ++aln_component) {
+            if (!output_buffers[aln_component].empty()) {
+                flush_gam_buffer(aln_component);
+            }
+        }
+            
     }
     
     return 0;
