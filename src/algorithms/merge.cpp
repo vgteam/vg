@@ -106,7 +106,18 @@ void merge(handlegraph::MutablePathDeletableHandleGraph* graph, const vector<pai
     
     for (auto& other : middles) {
         // Delete the other versions of the merged segment.
-        // We assume their edges magically go away.
+        // First we have to delete each edge exactly once
+        unordered_set<edge_t> to_remove;
+        graph->follow_edges(other, false, [&](const handle_t& h) {
+            to_remove.insert(graph->edge_handle(other, h));
+        });
+        graph->follow_edges(other, true, [&](const handle_t& h) {
+            to_remove.insert(graph->edge_handle(h, other));
+        });
+        for (auto& e : to_remove) {
+            graph->destroy_edge(e);
+        }
+        // And then the node itself
         graph->destroy_handle(other);
     }
 }

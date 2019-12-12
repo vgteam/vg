@@ -1734,6 +1734,10 @@ void VG::unchop(void) {
 }
 
 void VG::normalize(int max_iter, bool debug) {
+
+    // Don't have any Protobuf paths for this
+    graph.clear_path();
+
     size_t last_len = 0;
     if (max_iter > 1) {
         last_len = length();
@@ -1748,9 +1752,12 @@ void VG::normalize(int max_iter, bool debug) {
         //if (!is_valid()) cerr << "invalid after unchop" << endl;
         // merge redundancy across multiple nodes into single nodes (requires flip_doubly_reversed_edges)
         algorithms::simplify_siblings(this);
+        // We need to re-rank everything since nodes split.
+        // TODO: Make rewrite_segment not require non-interface-based cleanup.
+        paths.clear_mapping_ranks();
+        paths.rebuild_node_mapping();
+        paths.rebuild_mapping_aux();
         //if (!is_valid()) cerr << "invalid after simplify sibs" << endl;
-        // compact node ranks
-        paths.compact_ranks();
         //if (!is_valid()) cerr << "invalid after compact ranks" << endl;
         // there may now be some cut nodes that can be simplified
         unchop();
@@ -1768,6 +1775,9 @@ void VG::normalize(int max_iter, bool debug) {
     if (max_iter > 1) {
         if (debug) cerr << "[VG::normalize] normalized in " << iter << " steps" << endl;
     }
+    
+    // Put the paths back
+    paths.to_graph(graph);
 }
 
 set<Edge*> VG::get_path_edges(void) {

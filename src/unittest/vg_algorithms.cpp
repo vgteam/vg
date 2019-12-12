@@ -5938,14 +5938,10 @@ TEST_CASE("simplify_siblings() can actually merge some siblings", "[algorithms][
     REQUIRE(graph.is_valid(true, true, true, true));
     REQUIRE(worked);
     
-    cerr << pb2json(graph.graph) << std::endl;
-    
     // Make sure it can do the other side, whichever side it did first
     worked = algorithms::simplify_siblings(&graph);
     REQUIRE(graph.is_valid(true, true, true, true));
     REQUIRE(worked);
-    
-    cerr << pb2json(graph.graph) << std::endl;
     
     // Make sure it doesn't have more to do
     worked = algorithms::simplify_siblings(&graph);

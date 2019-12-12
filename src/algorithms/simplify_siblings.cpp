@@ -43,7 +43,7 @@ bool simplify_siblings(handlegraph::MutablePathDeletableHandleGraph* graph) {
             
             if (in_family.count(graph->get_id(node))) {
                 // If it is in a family in one orientation, don't find a family for it in the other orientation.
-                // We can only merge form one end of a node at a time.
+                // We can only merge from one end of a node at a time.
 #ifdef debug
                 cerr << "Node " << graph->get_id(node) << " is already in a family to merge" << endl;
 #endif
@@ -84,6 +84,15 @@ bool simplify_siblings(handlegraph::MutablePathDeletableHandleGraph* graph) {
                         // Known member
 #ifdef debug
                         cerr << "\tAlready taken." << endl;
+#endif
+                        return;
+                    }
+                    
+                    if (in_family.count(graph->get_id(candidate))) {
+                        // If it is in a family in one orientation, don't find a family for it in the other orientation.
+                        // We can only merge from one end of a node at a time.
+#ifdef debug
+                        cerr << "\tAlready in a family to merge." << endl;
 #endif
                         return;
                     }
@@ -201,14 +210,19 @@ bool simplify_siblings(handlegraph::MutablePathDeletableHandleGraph* graph) {
                         continue;
                     }
                     
-                    for (auto& h : family) {
-                        // We're going to do this family, so disqualify all the nodes from other families on the other side.
-                        in_family.insert(graph->get_id(h));
-                    }
-                    
 #ifdef debug
                     cerr << "Nontrivial family of " << family.size() << " nodes starting with " << base_and_family.first << endl;
 #endif
+
+                    for (auto& h : family) {
+                        // We're going to do this family, so disqualify all the nodes from other families on the other side.
+                        in_family.insert(graph->get_id(h));
+                        
+#ifdef debug
+                        cerr << "Ban node " << graph->get_id(h) << " from subsequent families" << endl;
+#endif
+                        
+                    }
                     
                     // Then save the family as a real family to merge on
                     families.push_back(family);
