@@ -774,10 +774,6 @@ public:
     /// Try to find a common ancestor by walking forward up to steps from the first node
     id_t common_ancestor_next(id_t id1, id_t id2, size_t steps = 64);
     
-    /// Remove easily-resolvable redundancy in the graph.
-    /// TODO: Need a new implementation that doesn't corrupt the paths when reversing edges exist.
-    void simplify_siblings(void);
-    
     /// Determine if pos1 occurs directly before pos2.
     bool adjacent(const Position& pos1, const Position& pos2);
 

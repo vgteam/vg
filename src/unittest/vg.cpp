@@ -2065,37 +2065,5 @@ TEST_CASE("normalize() can join nodes and merge siblings when nodes are backward
 }
 #endif
 
-TEST_CASE("simplify_siblinbgs() works on a doubly-reversing Z without breaking paths", "[vg][simplify]") {
-    VG graph;
-    
-    // Create handle 1: C
-    handle_t h1 = graph.create_handle("C", 1);
-    // Create handle 2: CA
-    handle_t h2 = graph.create_handle("CA", 2);
-    // Create handle 3: CG
-    handle_t h3 = graph.create_handle("CG", 3);
-    // Create handle 4: C
-    handle_t h4 = graph.create_handle("C", 4);
-    // Create edge 1+->2+
-    graph.create_edge(h1, h2);
-    // Create edge 1+->3+
-    graph.create_edge(h1, h3);
-    // Create edge 2-->4-
-    // This doubly reversing edge is the tricky part.
-    graph.create_edge(graph.flip(h2), graph.flip(h4));
-    // Create path x
-    path_handle_t p = graph.create_path_handle("x");
-    // Create step of x on 4+
-    graph.append_step(p, h4);
-    // Create step of x on 2+
-    graph.append_step(p, h2);
-    // Set circularity of x to 0
-    graph.set_circularity(p, false);
-    
-    // Make sure it can simplify siblings OK.
-    graph.simplify_siblings();
-    REQUIRE(graph.is_valid(true, true, true, true));
-}
-
 }
 }

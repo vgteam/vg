@@ -20,6 +20,7 @@
 #include "../utility.hpp"
 #include "../algorithms/topological_sort.hpp"
 #include "../algorithms/remove_high_degree.hpp"
+#include "../algorithms/simplify_siblings.hpp"
 #include "../io/save_handle_graph.hpp"
 
 using namespace std;
@@ -662,8 +663,9 @@ int main_mod(int argc, char** argv) {
     }
 
     if (simplify_graph) {
-        // TODO: turn into an algorithm
-        ensure_vg()->simplify_siblings();
+        // Run at up to twice to try and get both ends of nodes.
+        // This could be a loop until everything that can simplify does.
+        algorithms::simplify_siblings(graph.get()) && algorithms::simplify_siblings(graph.get());
     }
 
     if (normalize_graph) {

@@ -5,6 +5,7 @@
 #include "genotypekit.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/id_sort.hpp"
+#include "algorithms/simplify_siblings.hpp"
 #include "augment.hpp"
 #include "prune.hpp"
 #include <raptor2/raptor2.h>
@@ -1420,11 +1421,6 @@ set<NodeSide> VG::sides_to(id_t id) {
     return sides;
 }
 
-
-void VG::simplify_siblings(void) {
-   // TODO: reimplement properly 
-}
-
 void VG::expand_context(VG& g, size_t distance, bool add_paths, bool use_steps) {
     // Dispatch the appropriate implementation
     if (use_steps) {
@@ -1751,7 +1747,7 @@ void VG::normalize(int max_iter, bool debug) {
         unchop();
         //if (!is_valid()) cerr << "invalid after unchop" << endl;
         // merge redundancy across multiple nodes into single nodes (requires flip_doubly_reversed_edges)
-        simplify_siblings();
+        algorithms::simplify_siblings(this);
         //if (!is_valid()) cerr << "invalid after simplify sibs" << endl;
         // compact node ranks
         paths.compact_ranks();
