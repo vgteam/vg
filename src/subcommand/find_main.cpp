@@ -675,16 +675,29 @@ int main_find(int argc, char** argv) {
 				}
 			    }
 			    if (!start_str.empty() && !end_str.empty()) {
+				stringstream ss;
+				ss << target.seq << ":" << target.start << "-" << target.end << "\t"
+				   << walk.seq << "\t" << start_str << "\t" << end_str << "\t";
+				uint64_t on_path = 0;
+				for (auto& h : walk.path) {
+				    xindex->for_each_step_on_handle(xindex->get_handle(graph.get_id(h), graph.get_is_reverse(h)),
+				        [&](const step_handle_t& step) {
+					    if (xindex->get_path_handle_of_step(step) == path_handle) {
+						++on_path;
+					    }
+					});
+				}
+				if (on_path == walk.path.size()) {
+				    ss << "ref" << "\t";
+				} else {
+				    ss << "non.ref" << "\t";
+				}
+				for (auto& h : walk.path) {
+				    ss << graph.get_id(h) << (graph.get_is_reverse(h)?"-":"+") << ",";
+				}
 				// write our record
 #pragma omp critical (cout)
-				{
-				    cout << target.seq << ":" << target.start << "-" << target.end << "\t"
-					 << walk.seq << "\t" << start_str << "\t" << end_str << "\t";
-				    for (auto& h : walk.path) {
-					cout << graph.get_id(h) << (graph.get_is_reverse(h)?"-":"+") << ",";
-				    }
-				    cout << std::endl;
-				}
+				cout << ss.str() << std::endl;
 			    }
 			});
                 }
