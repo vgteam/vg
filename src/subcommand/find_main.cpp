@@ -9,7 +9,7 @@
 #include "../stream_index.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
 #include "../algorithms/approx_path_distance.hpp"
-#include "../kmer.hpp"
+#include "../algorithms/kmer.hpp"
 #include <bdsg/overlay_helper.hpp>
 
 #include <unistd.h>
@@ -655,31 +655,32 @@ int main_find(int argc, char** argv) {
 		    prep_graph(); // don't forget to prep the graph, or the kmer set will be wrong[
                     // enumerate the kmers, calculating including their start positions relative to the reference
                     // and write to stdout?
-                    for_each_kmer(graph, subgraph_k,
-                                  [&](const kmer_t& kmer) {
-                                      // get the reference-relative position
-                                      string start_str, end_str;
-                                      for (auto& p : algorithms::nearest_offsets_in_paths(xindex, kmer.begin, subgraph_k*2)) {
-                                          const uint64_t& start_p = p.second.front().first;
-                                          const bool& start_rev = p.second.front().second;
-                                          if (p.first == path_handle && (!start_rev && start_p >= target.start || start_rev && start_p <= target.end)) {
-                                              start_str = target.seq + ":" + std::to_string(start_p) + (p.second.front().second ? "-" : "+");
-                                          }
-                                      }
-                                      for (auto& p : algorithms::nearest_offsets_in_paths(xindex, kmer.end, subgraph_k*2)) {
-                                          const uint64_t& end_p = p.second.front().first;
-                                          const bool& end_rev = p.second.front().second;
-                                          if (p.first == path_handle && (!end_rev && end_p <= target.end || end_rev && end_p >= target.start)) {
-                                              end_str = target.seq + ":" + std::to_string(end_p) + (p.second.front().second ? "-" : "+");
-                                          }
-                                      }
-                                      if (!start_str.empty() && !end_str.empty()) {
-                                          // write our record
+		    algorithms::for_each_kmer(
+			graph, subgraph_k, 0,
+			[&](const algorithms::kmer_t& kmer) {
+			    // get the reference-relative position
+			    string start_str, end_str;
+			    for (auto& p : algorithms::nearest_offsets_in_paths(xindex, kmer.begin, subgraph_k*2)) {
+				const uint64_t& start_p = p.second.front().first;
+				const bool& start_rev = p.second.front().second;
+				if (p.first == path_handle && (!start_rev && start_p >= target.start || start_rev && start_p <= target.end)) {
+				    start_str = target.seq + ":" + std::to_string(start_p) + (p.second.front().second ? "-" : "+");
+				}
+			    }
+			    for (auto& p : algorithms::nearest_offsets_in_paths(xindex, kmer.end, subgraph_k*2)) {
+				const uint64_t& end_p = p.second.front().first;
+				const bool& end_rev = p.second.front().second;
+				if (p.first == path_handle && (!end_rev && end_p <= target.end || end_rev && end_p >= target.start)) {
+				    end_str = target.seq + ":" + std::to_string(end_p) + (p.second.front().second ? "-" : "+");
+				}
+			    }
+			    if (!start_str.empty() && !end_str.empty()) {
+				// write our record
 #pragma omp critical (cout)
-                                          cout << target.seq << ":" << target.start << "-" << target.end << "\t"
-                                               << kmer.seq << "\t" << start_str << "\t" << end_str << std::endl;
-                                      }
-                                  });
+				cout << target.seq << ":" << target.start << "-" << target.end << "\t"
+				     << kmer.seq << "\t" << start_str << "\t" << end_str << std::endl;
+			    }
+			});
                 }
             }
             if (save_to_prefix.empty() && !subgraph_k) {
