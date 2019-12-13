@@ -652,6 +652,7 @@ int main_find(int argc, char** argv) {
                     graph = empty;
                 }
                 if (subgraph_k) {
+		    prep_graph(); // don't forget to prep the graph, or the kmer set will be wrong[
                     // enumerate the kmers, calculating including their start positions relative to the reference
                     // and write to stdout?
                     for_each_kmer(graph, subgraph_k,
