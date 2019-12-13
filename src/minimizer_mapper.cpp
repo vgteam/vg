@@ -1002,7 +1002,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // If the fragment length distribution hasn't been fixed yet (if the expected fragment length = 0),
     // then everything will be in the same cluster and the best pair will be the two best independent mappings
     vector<vector<pair<vector<size_t>, size_t>>> read_clusters = clusterer.cluster_seeds(seeds, distance_limit, 
-            fragment_length_distr.mean() + aln1.sequence().size() + aln2.sequence().size() +fragment_length_distr.stdev());
+            fragment_length_distr.mean() + aln1.sequence().size() + aln2.sequence().size() + 2*fragment_length_distr.stdev());
+            //TODO: Choose a good distance for the fragment distance limit ^
+            //TODO: Could also drop clusters here if they don't have a pair
 
     if (track_provenance) {
         funnels[0].substage("score");
@@ -1137,33 +1139,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     funnels[read_num].pass("cluster-score", cluster_num, cluster_score[cluster_num]);
                     funnels[read_num].processing_input(cluster_num);
                 }
-
-//TODO
-//                if (read_coverage_by_cluster[cluster_num] == curr_coverage &&
-//                    cluster_score[cluster_num] == curr_score &&
-//                    curr_kept < max_extensions * 0.75) {
-//                    curr_kept++;
-//                    curr_count++;
-//                } else if (!read_coverage_by_cluster[cluster_num] == curr_coverage ||
-//                        !cluster_score[cluster_num] == curr_score) {
-//                        //If this is a cluster that has scores different than the previous one
-//                        for (size_t i = 0 ; i < curr_kept ; i++ ) {
-//                            probability_cluster_lost[read_num].push_back(1.0 - (double(curr_kept) / double(curr_count)));
-//                        }
-//                        curr_coverage = read_coverage_by_cluster[cluster_num];
-//                        curr_score = cluster_score[cluster_num];
-//                        curr_kept = 1;
-//                        curr_count = 1;
-//                } else {
-//                    //If this cluster is equivalent to the previous one and we already took enough
-//                    //equivalent clusters
-//                    curr_count ++;
-//                    return false;
-//                }
-//                
-//
-//                //Only keep this cluster if we have few enough equivalent clusters
-//
                 vector<size_t>& cluster = clusters[cluster_num].first;
 
 #ifdef debug
@@ -1202,39 +1177,13 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     funnels[read_num].pass("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
                     funnels[read_num].fail("max-extensions", cluster_num);
                 }
-//                if (read_coverage_by_cluster[cluster_num] == curr_coverage &&
-//                    cluster_score[cluster_num] == curr_score) {
-//                    curr_count ++;
-//                } else {
-//        
-//                    //TODO:
-//                    //for (size_t i = 0 ; i < curr_kept ; i++ ) {
-//                    //    probability_cluster_lost[read_num].push_back(1.0 - (double(curr_kept) / double(curr_count)));
-//                    //}
-//                    curr_score = 0;
-//                    curr_coverage = 0;
-//                    curr_kept = 0;
-//                    curr_count = 0;
-//                }
             }, [&](size_t cluster_num) {
                 // This cluster is not sufficiently good.
                 if (track_provenance) {
                     funnels[read_num].fail("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
                 }
-//                //TODO:
-//                for (size_t i = 0 ; i < curr_kept ; i++ ) {
-//                    probability_cluster_lost[read_num].push_back(1.0 - (double(curr_kept) / double(curr_count)));
-//                }
-//                curr_kept = 0;
-//                curr_count = 0;
-//                curr_score = 0;
-//                curr_coverage = 0;
             });
             
-            //TODO
-            //for (size_t i = 0 ; i < curr_kept ; i++ ) {
-            //    probability_cluster_lost[read_num].push_back(1.0 - (double(curr_kept) / double(curr_count)));
-            //}
         
         if (track_provenance) {
             funnels[read_num].substage("score");
@@ -1433,11 +1382,17 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 for (size_t i2 = 0 ; i2 < fragment_alignments.second.size() ; i2++) {
                     Alignment& alignment2 = fragment_alignments.second[i2].first;
                     size_t j2 = fragment_alignments.second[i2].second;
+
+                    //Get the likelihood of the fragment distance
                     int64_t fragment_distance = distance_between(alignment1, alignment2); 
+                    double dev = fragment_distance - fragment_length_distr.mean();
+                    double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
+                    //And overall score of the pair
                     //TODO: Scoring of pairs
-                    double score = alignment1.score() + alignment2.score() - (double)abs(fragment_length_distr.mean()-fragment_distance); 
+                    double score = alignment1.score() + alignment2.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
                     paired_alignments.emplace_back(fragment_num, i1, i2, j1, j2);
                     paired_scores.emplace_back(score);
+                    //TODO: Could also give each alignment a group score depending on how many identical alignments it has
 
 //TODO: I'm not sure how to process these properly out of order
 //                    if (track_provenance) {
@@ -1448,6 +1403,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 //                    }
                 }
             }
+            //TODO: We could also do something with unpaired clusters here.
         }/* else {
             if (track_provenance) {
                 if (fragment_alignments.first.empty()) {
@@ -1490,7 +1446,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         // Remember the output alignment
         mappings.emplace_back(paired_alignments[alignment_num]);
         
-//TODO: After this point, the indices of each item in the funnel doesn't make much sense since we've re-ordered everything based on the fragment cluster it belongs to        
         if (track_provenance) {
             // Tell the funnel
             funnels[0].pass("max-multimaps", std::get<3>(paired_alignments[alignment_num]));
@@ -1543,7 +1498,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         paired_mappings.first.emplace_back(aln1);
         paired_mappings.second.emplace_back(aln2);
 
-//TODO: Is this right?
         // Flip aln2 back to input orientation
         reverse_complement_alignment_in_place(&paired_mappings.second.back(), [&](vg::id_t node_id) {
             return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
