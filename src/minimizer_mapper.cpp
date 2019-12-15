@@ -794,7 +794,11 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         
         } else {
             // Otherwise, discard the mappings and put them in the ambiguous buffer
-        
+ 
+            aln2.clear_path();
+            reverse_complement_alignment_in_place(&aln2, [&](vg::id_t node_id) {
+                return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
+            });       
             ambiguous_pair_buffer.emplace_back(aln1, aln2);
             pair<vector<Alignment>, vector<Alignment>> empty;
             return empty;
@@ -975,7 +979,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
             if (read_num == 0 ? (aln1.refpos_size() != 0) :  (aln2.refpos_size() != 0)) {
                 // Take the first refpos as the true position.
-                auto& true_pos = aln1.refpos(0);
+                auto& true_pos = read_num == 0 ? aln1.refpos(0) : aln2.refpos(0);
 
                 for (size_t i = 0; i < seeds[read_num].size(); i++) {
                     // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
