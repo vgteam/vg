@@ -763,31 +763,31 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     } else {
         //If we don't know the fragment length distribution, map the reads single ended
 
-        aln2.clear_path();
-        reverse_complement_alignment_in_place(&aln2, [&](vg::id_t node_id) {
-            return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
-        });
         vector<Alignment> alns1(map(aln1));
         vector<Alignment> alns2(map(aln2));
         
-        // Check if the separately-mapped ends are both sufficiently perfect and sufficiently unique
-        // And that they have an actual pair distance and set of relative orientations
         // TODO: How do we decide what an unambiguous mapping is? 
         if (alns1.size() > 0 && alns2.size() > 0 && alns1.front().mapping_quality() > 50 && alns2.front().mapping_quality() > 50) {
-            // If that all checks out, say they're mapped, emit them, and register their distance and orientations
-            
+            // Check if the separately-mapped ends are both sufficiently perfect and sufficiently unique
+ 
+            alns2.front().clear_path();
+            reverse_complement_alignment_in_place(&alns2.front(), [&](vg::id_t node_id) {
+                return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
+            });           
             int64_t dist = distance_between(alns1.front(), alns2.front());
+            alns2.front().clear_path();
+            reverse_complement_alignment_in_place(&alns2.front(), [&](vg::id_t node_id) {
+                return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
+            });           
+            // And that they have an actual pair distance and set of relative orientations
             if (dist == std::numeric_limits<int64_t>::max()) {
 
-                aln2.clear_path();
-                reverse_complement_alignment_in_place(&aln2, [&](vg::id_t node_id) {
-                    return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
-                });
                 ambiguous_pair_buffer.emplace_back(aln1, aln2);
                 pair<vector<Alignment>, vector<Alignment>> empty;
                 return empty;
             }
-        
+
+            // If that all checks out, say they're mapped, emit them, and register their distance and orientations
             fragment_length_distr.register_fragment_length(dist);
         
             return make_pair(std::move(alns1), std::move(alns2));
@@ -795,10 +795,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         } else {
             // Otherwise, discard the mappings and put them in the ambiguous buffer
  
-            aln2.clear_path();
-            reverse_complement_alignment_in_place(&aln2, [&](vg::id_t node_id) {
-                return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
-            });       
             ambiguous_pair_buffer.emplace_back(aln1, aln2);
             pair<vector<Alignment>, vector<Alignment>> empty;
             return empty;
@@ -850,8 +846,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // We will find all the seed hits
     vector<vector<pos_t>> seeds;
     
-    // This will hold all the minimizers in the query
-    vector<vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type>> minimizers;
+    // This will hold all the minimizers in the query, one vector of minimizers per read
+    pair<vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type>,
+         vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type>> minimizers;
 
     // And either way this will map from seed to minimizer that generated it
     vector<vector<size_t>> seed_to_source;
@@ -859,25 +856,27 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     
     for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
         // Find minimizers in the query
-        minimizers.emplace_back(read_num == 0 ? minimizer_index.minimizers(aln1.sequence()) : 
-                                                minimizer_index.minimizers(aln2.sequence()) );
+        read_num == 0 ? minimizers.first = minimizer_index.minimizers(aln1.sequence()) 
+                      : minimizers.second = minimizer_index.minimizers(aln2.sequence()) ;
+        vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type>& curr_minimizers = read_num == 0 ?
+                        minimizers.first : minimizers.second;
 
         seeds.emplace_back();
         seed_to_source.emplace_back();
         
         if (track_provenance) {
             // Record how many we found, as new lines.
-            funnels[read_num].introduce(minimizers.back().size());
+            funnels[read_num].introduce(curr_minimizers.size());
             
             // Start the minimizer locating stage
             funnels[read_num].stage("seed");
         }
 
         // Compute minimizer scores for all minimizers as 1 + ln(hard_hit_cap) - ln(hits).
-        minimizer_score.emplace_back(minimizers.back().size(), 0.0);
+        minimizer_score.emplace_back(curr_minimizers.size(), 0.0);
         double base_target_score = 0.0;
-        for (size_t i = 0; i < minimizers.back().size(); i++) {
-            size_t hits = minimizer_index.count(minimizers.back()[i]);
+        for (size_t i = 0; i < curr_minimizers.size(); i++) {
+            size_t hits = minimizer_index.count(curr_minimizers[i]);
             if (hits > 0) {
                 if (hits <= hard_hit_cap) {
                     minimizer_score.back()[i] = 1.0 + std::log(hard_hit_cap) - std::log(hits);
@@ -890,7 +889,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         double target_score = (base_target_score * minimizer_score_fraction) + 0.000001;
 
         // Sort the minimizers by score.
-        std::vector<size_t> minimizers_in_order(minimizers.back().size());
+        std::vector<size_t> minimizers_in_order(curr_minimizers.size());
         for (size_t i = 0; i < minimizers_in_order.size(); i++) {
             minimizers_in_order[i] = i;
         }
@@ -901,7 +900,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         // Select the minimizers we use for seeds.
         size_t rejected_count = 0;
         double selected_score = 0.0;
-        for (size_t i = 0; i < minimizers.back().size(); i++) {
+        for (size_t i = 0; i < curr_minimizers.size(); i++) {
             size_t minimizer_num = minimizers_in_order[i];
 
             if (track_provenance) {
@@ -911,10 +910,10 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
             // Select the minimizer if it is informative enough or if the total score
             // of the selected minimizers is not high enough.
-            size_t hits = minimizer_index.count(minimizers.back()[minimizer_num]);
+            size_t hits = minimizer_index.count(curr_minimizers[minimizer_num]);
 
 #ifdef debug
-            cerr << "Minimizer " << minimizer_num << " in read " << read_num << " = " << minimizers.back()[minimizer_num].key.decode(minimizer_index.k())
+            cerr << "Minimizer " << minimizer_num << " in read " << read_num << " = " << curr_minimizers[minimizer_num].key.decode(minimizer_index.k())
                 << " has " << hits << " hits" << endl;
 #endif
 
@@ -925,9 +924,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 }
             } else if (hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score.back()[minimizer_num] <= target_score)) {
                 // Locate the hits.
-                for (auto& hit : minimizer_index.find(minimizers.back()[minimizer_num])) {
+                for (auto& hit : minimizer_index.find(curr_minimizers[minimizer_num])) {
                     // Reverse the hits for a reverse minimizer
-                    if (minimizers.back()[minimizer_num].is_reverse) {
+                    if (curr_minimizers[minimizer_num].is_reverse) {
                         size_t node_length = gbwt_graph.get_length(gbwt_graph.get_handle(id(hit)));
                         hit = reverse_base_pos(hit, node_length);
                     }
@@ -966,7 +965,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             }
         }
 #ifdef debug
-        cerr << "For read " << read_num << ", found " << seeds.back().size() << " seeds from " << (minimizers.back().size() - rejected_count) << " minimizers, rejected " << rejected_count << endl;
+        cerr << "For read " << read_num << ", found " << seeds.back().size() << " seeds from " << (curr_minimizers.size() - rejected_count) << " minimizers, rejected " << rejected_count << endl;
 #endif
         if (track_provenance && track_correctness) {
             // Tag seeds with correctness based on proximity along paths to the input read's refpos
@@ -1020,8 +1019,11 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     vector<pair<vector<pair<Alignment, size_t>>, vector<pair<Alignment, size_t>>>> alignments;
 
     for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
+
         Alignment& aln = read_num == 0 ? aln1 : aln2;
         vector<pair<vector<size_t>, size_t>>& clusters = read_clusters[read_num];
+        vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type>& curr_minimizers = read_num == 0 ?
+                        minimizers.first : minimizers.second;
 
         // Cluster score is the sum of minimizer scores.
         vector<double> cluster_score(clusters.size(), 0.0);
@@ -1038,13 +1040,13 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             }
 
             // Which minimizers are present in the cluster.
-            vector<bool> present(minimizers[read_num].size(), false);
+            vector<bool> present(curr_minimizers.size(), false);
             for (auto hit_index : cluster) {
                 present[seed_to_source[read_num][hit_index]] = true;
             }
 
             // Compute the score.
-            for (size_t j = 0; j < minimizers[read_num].size(); j++) {
+            for (size_t j = 0; j < curr_minimizers.size(); j++) {
                 if (present[j]) {
                     cluster_score[i] += minimizer_score[read_num][j];
                 }
@@ -1069,8 +1071,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 size_t source_index = seed_to_source[read_num][hit_index];
 
                 // The offset of a reverse minimizer is the endpoint of the kmer
-                size_t start_offset = minimizers[read_num][source_index].offset;
-                if (minimizers[read_num][source_index].is_reverse) {
+                size_t start_offset = curr_minimizers[source_index].offset;
+                if (curr_minimizers[source_index].is_reverse) {
                     start_offset = start_offset + 1 - minimizer_index.k();
                 }
 
@@ -1153,10 +1155,10 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 GaplessExtender::cluster_type seed_matchings;
                 for (auto& seed_index : cluster) {
                     // Insert the (graph position, read offset) pair.
-                    seed_matchings.insert(GaplessExtender::to_seed(seeds[read_num][seed_index], minimizers[read_num][seed_to_source[read_num][seed_index]].offset));
+                    seed_matchings.insert(GaplessExtender::to_seed(seeds[read_num][seed_index], curr_minimizers[seed_to_source[read_num][seed_index]].offset));
 #ifdef debug
-                    cerr << "Seed read:" << minimizers[read_num][seed_to_source[read_num][seed_index]].offset << " = " << seeds[seed_index]
-                        << " from minimizer " << seed_to_source[read_num][seed_index] << "(" << minimizer_index.count(minimizers[read_num][seed_to_source[read_num][seed_index]]) << ")" << endl;
+                    cerr << "Seed read:" << curr_minimizers[seed_to_source[read_num][seed_index]].offset << " = " << seeds[seed_index]
+                        << " from minimizer " << seed_to_source[read_num][seed_index] << "(" << minimizer_index.count(curr_minimizers[seed_to_source[read_num][seed_index]]) << ")" << endl;
 #endif
                 }
                 
@@ -1504,8 +1506,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
         // Flip aln2 back to input orientation
         reverse_complement_alignment_in_place(&paired_mappings.second.back(), [&](vg::id_t node_id) {
-            return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
-        });
+                return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
+                });
 
         paired_mappings.first.back().clear_refpos();
         paired_mappings.first.back().clear_path();
