@@ -166,11 +166,14 @@ int main_mod(int argc, char** argv) {
             {"sample-vcf", required_argument, 0, 'v'},
             {"sample-graph", required_argument, 0, 'G'},
             {"max-degree", required_argument, 0, 'M'},
+            {"drop-paths", no_argument, 0, 'D'},
+            {"retain-path", required_argument, 0, 'r'},
+            {"retain-complement", no_argument, 0, 'I'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNAf:Cg:x:RTU:Bbd:Ow:L:y:Z:Eav:G:M:",
+        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNAf:Cg:x:RTU:Bbd:Ow:L:y:Z:Eav:G:M:Dr:I",
                 long_options, &option_index);
 
 
@@ -182,20 +185,35 @@ int main_mod(int argc, char** argv) {
         {
 
         case 'i':
-            cerr << "[vg mod] warning: vg mod -i is deprecated.  please switch to vg augment" << endl;
+            cerr << "[vg mod] error: vg mod -i is deprecated.  please switch to vg augment" << endl;
             exit(1);
 
         case 'q':
-            cerr << "[vg mod] warning: vg mod -q is deprecated.  please switch to vg augment -l" << endl;
+            cerr << "[vg mod] error: vg mod -q is deprecated.  please switch to vg augment -l" << endl;
             exit(1);
 
         case 'Q':
-            cerr << "[vg mod] warning: vg mod -Q is deprecated.  please switch to vg augment -L" << endl;
+            cerr << "[vg mod] error: vg mod -Q is deprecated.  please switch to vg augment -L" << endl;
             exit(1);
             break;
 
         case 'Z':
-            cerr << "[vg mod] warning: vg mod -Z is deprecated.  please switch to vg augment -Z" << endl;
+            cerr << "[vg mod] error: vg mod -Z is deprecated.  please switch to vg augment -Z" << endl;
+            exit(1);
+            break;
+
+        case 'D':
+            cerr << "[vg mod] error: vg mod -D is deprecated.  please switch to vg paths -d" << endl;
+            exit(1);
+            break;
+
+        case 'r':
+            cerr << "[vg mod] error: vg mod -r is deprecated.  please switch to vg paths -r" << endl;
+            exit(1);
+            break;
+
+        case 'I':
+            cerr << "[vg mod] error: vg mod -I is deprecated.  please switch to vg paths -d" << endl;
             exit(1);
             break;
 
