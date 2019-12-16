@@ -269,7 +269,7 @@ int main_chunk(int argc, char** argv) {
     if ((n_chunks == 0 ? 0 : 1) + (region_strings.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) + (in_bed_file.empty() ? 0 : 1) +
         (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) + (gam_split_size == 0 ? 0 : 1)  +
         (path_components ? 1 : 0) > 1) {
-        cerr << "error:[vg chunk] at most one of {-n, -p, -P, -e, -r, -R, -m, -P} required to specify input regions" << endl;
+        cerr << "error:[vg chunk] at most one of {-n, -p, -P, -e, -r, -R, -m} required to specify input regions" << endl;
         return 1;
     }
     // need -a if using -f
