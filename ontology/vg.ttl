@@ -71,8 +71,16 @@
   rdfs:comment "This means that this step occurs on the forward strand of the sequence attaced to the node (i.e. it is on the explicit encoded forward (5' to 3') strand) of the predicate node."^^xsd:string ;
   rdfs:domain :Step ;
   rdfs:label "node"^^xsd:string ;
-  rdfs:range :Step ;
+  rdfs:range :Node ;
 .
+
+:position
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "This is the position on the reference path at which this step starts."^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "position"^^xsd:string ;
+  rdfs:range xsd:positiveInteger .
+
 :rank
   rdf:type owl:DatatypeProperty ;
   rdfs:comment "The rank records the step place along its path."^^xsd:string ;

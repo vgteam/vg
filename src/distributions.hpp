@@ -785,6 +785,38 @@ protected:
 
 };
 
+// ewen's allele sampling distribution.  for use in genotype prior (as in freebayes)
+// gives Pr(a1, ...,an;theta) where ai is the number of sampled haplotypes (out of n) that
+// have i different alleles at a given locus. theta is the population mutation rate. 
+// ex: for a single diploid genotype, a={2,0} = heterozygous: 2 alleles occur once.
+//                                    a={0,1} = homozygous: 1 allele occurs twice.
+//
+// https://en.wikipedia.org/wiki/Ewens%27s_sampling_formula
+// https://github.com/ekg/freebayes/blob/master/src/Ewens.cpp#L17
+inline real_t ewens_af_prob_ln(const vector<int>& a, real_t theta) {
+
+    // first term (wrt formula as stated on wikipedia)
+    // n! / (theta * (theta + 1) * ... (theta + n - 1))
+    real_t term1_num_ln = factorial_ln(a.size());
+    real_t term1_denom_ln = 0.;
+    for (int i = 0; i < a.size(); ++i) {
+        term1_denom_ln += log(theta + i);
+    }
+    real_t term1_ln = term1_num_ln - term1_denom_ln;
+
+    // second term
+    // prod [ (theta^aj) / (j^aj * aj!) 
+    real_t term2_ln = 0.;
+    for (int j = 0; j < a.size(); ++j) {
+        real_t num = log(pow(theta, a[j]));
+        real_t denom = log(pow(1. + j, a[j]) + factorial_ln(a[j]));
+        term2_ln += num - denom;
+    }
+
+    return term1_ln + term2_ln;
+}
+
+
 }
 
 #endif

@@ -17,7 +17,7 @@ using namespace std;
 using namespace vg::io;
 
 void register_loader_saver_hash_graph() {
-  Registry::register_bare_loader_saver<bdsg::HashGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>("HashGraph", [](istream& input) -> void* {
+  Registry::register_bare_loader_saver<bdsg::HashGraph, MutablePathDeletableHandleGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>("HashGraph", [](istream& input) -> void* {
         // Allocate a HashGraph
          bdsg::HashGraph* hash_graph = new bdsg::HashGraph();
         

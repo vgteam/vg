@@ -11,7 +11,9 @@
 #include "handle.hpp"
 
 namespace vg {
-    
+
+class Packer;
+
 using namespace std;
 
 /// %Edit the graph to include all the sequence and edges added by the given
@@ -31,13 +33,22 @@ using namespace std;
 /// be added to the vg graph's paths object.
 /// If soft_clip is true, soft clips will be removed from the input paths
 /// before processing, and the dangling ends won't end up in the graph
+/// If filter_out_of_graph_alignments is true, some extra time will be taken to check if
+/// all nodes in the alignment are in the graph.  If they aren't, then it will be ignored
+/// If an edit sequence's avg base quality is less than min_baseq it will be ignored (considered a match)
+/// If an alignment's mapping quality
 void augment(MutablePathMutableHandleGraph* graph,
              istream& gam_stream,
              vector<Translation>* out_translation = nullptr,
              ostream* gam_out_stream = nullptr,
              bool embed_paths = false,
              bool break_at_ends = false,
-             bool remove_soft_clips = false);
+             bool remove_soft_clips = false,
+             bool filter_out_of_graph_alignments = false,
+             double min_baseq = 0,
+             double min_mapq = 0,
+             Packer* packer = nullptr,
+             size_t min_bp_coverage = 0);
 
 /// Like above, but operates on a vector of Alignments, instead of a stream
 /// (Note: It is best to use stream interface for large numbers of alignments to save memory)
@@ -47,21 +58,36 @@ void augment(MutablePathMutableHandleGraph* graph,
              ostream* gam_out_stream = nullptr,
              bool embed_paths = false,
              bool break_at_ends = false,
-             bool remove_soft_clips = false);
+             bool remove_soft_clips = false,
+             bool filter_out_of_graph_alignments = false,
+             double min_baseq = 0,
+             double min_mapq = 0,
+             Packer* packer = nullptr,
+             size_t min_bp_coverage = 0);
 
 /// Generic version used to implement the above two methods.  
 void augment_impl(MutablePathMutableHandleGraph* graph,
-                  function<void(function<void(Alignment&)>, bool)> iterate_gam,
+                  function<void(function<void(Alignment&)>, bool, bool)> iterate_gam,
                   vector<Translation>* out_translation,
                   ostream* gam_out_stream,
                   bool embed_paths,
                   bool break_at_ends,
-                  bool remove_soft_clips);
+                  bool remove_soft_clips,
+                  bool filter_out_of_graph_alignments,
+                  double min_baseq,
+                  double min_mapq,
+                  Packer* packer,
+                  size_t min_bp_coverage);
 
 /// Add a path to the graph.  This is like VG::extend, and expects
 /// a path with no edits, and for all the nodes and edges in the path
 /// to exist exactly in the graph
 path_handle_t add_path_to_graph(MutablePathHandleGraph* graph, const Path& path);
+
+/// Compute the average base quality of an edit.
+/// If the edit has no sequence or there are no base_quals given,
+/// then double_max is returned. 
+double get_avg_baseq(const Edit& edit, const string& base_quals, size_t position_in_read);
 
 /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
 /// them to the given map by node ID of sets of bases in the node that will need
@@ -69,11 +95,28 @@ path_handle_t add_path_to_graph(MutablePathHandleGraph* graph, const Path& path)
 ///
 /// If break_ends is true, emits breakpoints at the ends of the path, even
 /// if it starts/ends with perfect matches.
-void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpoints, bool break_ends = true);
+
+/// Find all the points at which a Path enters or leaves nodes in the graph. Adds
+/// them to the given map by node ID of sets of bases in the node that will need
+/// to become the starts of new nodes.
+///
+/// If break_ends is true, emits breakpoints at the ends of the path, even
+/// if it starts/ends with perfect matches.
+void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpoints, bool break_ends = true,
+                      const string& base_quals = "", double min_baseq = 0);
 
 /// Flips the breakpoints onto the forward strand.
 unordered_map<id_t, set<pos_t>> forwardize_breakpoints(const HandleGraph* graph,
                                                        const unordered_map<id_t, set<pos_t>>& breakpoints);
+
+
+/// Like "find_breakpoints", but store in packed structure (better for large gams and enables coverage filter)
+void find_packed_breakpoints(const Path& path, Packer& packed_breakpoints, bool break_ends = true,
+                             const string& base_quals = "", double min_baseq = 0);
+
+/// Filters the breakpoints by coverage, and converts them back from the Packer to the STL map
+/// expected by following methods
+unordered_map<id_t, set<pos_t>> filter_breakpoints_by_coverage(const Packer& packed_breakpoints, size_t min_bp_coverage);
 
 /// Take a map from node ID to a set of offsets at which new nodes should
 /// start (which may include 0 and 1-past-the-end, which should be ignored),
@@ -88,6 +131,13 @@ unordered_map<id_t, set<pos_t>> forwardize_breakpoints(const HandleGraph* graph,
 /// always the same as the old node's forward strand.
 map<pos_t, id_t> ensure_breakpoints(MutableHandleGraph* graph,
                                     const unordered_map<id_t, set<pos_t>>& breakpoints);
+
+/// Remove edits in our graph that don't correspond to breakpoints (ie were effectively filtered
+/// out due to insufficient coverage.  This way, subsequent logic in add_nodes_and_edges
+/// can be run correctly.  Returns true if at least one edit survived the filter.
+bool simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id_t>& node_translation,
+                             const unordered_map<id_t, size_t>& orig_node_sizes,
+                             const string& base_quals = "", double min_baseq = 0);
 
 /// Given a path on nodes that may or may not exist, and a map from start
 /// position in the old graph to a node in the current graph, add all the

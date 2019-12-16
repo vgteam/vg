@@ -71,6 +71,10 @@ int main_explode(int argc, char** argv) {
         }
     }
 
+    cerr << "vg explode is deprecated.  Please use \"vg chunk -C source.vg -b part_dir/component\" for same* functionality as \"vg explode source.vg part_dir\"" << endl
+         << " * (unlike explode, the output directory must already exist when running chunk, though)" << endl;
+    return 1;
+
     VG* graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in);
