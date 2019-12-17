@@ -63,8 +63,8 @@ public:
         vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer);
         
     /**
-     * Map the given pair of reads, where aln1 is upstream of aln2 and both are
-     * oriented in the same direction in the graph.
+     * Map the given pair of reads, where aln1 is upstream of aln2 and they are
+     * oriented towards each other in the graph.
      *
      * If the fragment length distribution is not yet fixed, reads will be
      * mapped independently. Otherwise, they will be mapped according to the
