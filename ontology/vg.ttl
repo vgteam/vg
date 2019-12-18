@@ -84,6 +84,13 @@
   rdfs:label "node"^^xsd:string ;
   rdfs:range :Node ;
 .
+:path
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "This means that this step occurs on the path that is the object of this statment"^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "path"^^xsd:string ;
+  rdfs:range :Path ;
+.
 
 :position
   rdf:type owl:ObjectProperty ;
