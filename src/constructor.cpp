@@ -1751,12 +1751,19 @@ namespace vg {
         }
 
         while (variant_source.get() && variant_source.get()->sequenceName == vcf_contig &&
-                variant_source.get()->zeroBasedPosition() >= leading_offset &&
-                variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() <= reference_end) {
+               variant_source.get()->zeroBasedPosition() >= leading_offset &&
+               variant_source.get()->zeroBasedPosition() <= reference_end) {
 
+            // Skip variants that don't fit in our range
+            // (maybe there's one that does fit after, so we continue checking)
+            if (variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() > reference_end) {
+                variant_source.handle_buffer();
+                variant_source.fill_buffer();
+                continue;
+            }
+                
             // While we have variants we want to include
             auto vvar = variant_source.get();
-
 
             // We need to decide if we want to use this variant. By default we will use all variants.
             bool variant_acceptable = true;
