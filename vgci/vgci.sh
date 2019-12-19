@@ -243,7 +243,7 @@ then
         make include/vg_git_version.hpp
 
         docker pull ubuntu:18.04
-        docker build --no-cache -t "${DOCKER_TAG}" -f vgci/Dockerfile.vgci .
+        docker build --no-cache -t "${DOCKER_TAG}" -f Dockerfile .
         if [ "$?" -ne 0 ]
         then
             echo "vg docker build fail"
