@@ -1430,20 +1430,6 @@ class VGCITest(TestCase):
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('MHC', 'snp1kg', True)
 
-    @timeout_decorator.timeout(1600)        
-    def test_map_mhc_primary_genotype(self):
-        """ Mapping and calling (with vg genotype) bakeoff F1 test for MHC primary graph 
-        """
-        log.info("Test start at {}".format(datetime.now()))
-        self._test_bakeoff('MHC', 'primary', True, tag_ext='-genotype', genotype=True)
-        
-    @timeout_decorator.timeout(1800)        
-    def test_map_mhc_snp1kg_genotype(self):
-        """ Mapping and calling (with vg genotype) bakeoff F1 test for MHC snp1kg graph 
-        """
-        log.info("Test start at {}".format(datetime.now()))
-        self._test_bakeoff('MHC', 'snp1kg', True, tag_ext='-genotype', genotype=True)
-
     @skip("skipping test to keep runtime down (baseline missing as well)")          
     @timeout_decorator.timeout(1200)        
     def test_map_mhc_cactus(self):
