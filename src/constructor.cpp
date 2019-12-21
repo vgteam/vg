@@ -13,7 +13,7 @@
 #include <algorithm>
 #include <memory>
 
-//#define debug
+#define debug
 
 namespace vg {
 
@@ -283,6 +283,8 @@ namespace vg {
         // And we need to rember the highest past-the-end base of anything in the
         // clump, to catch all the overlaps.
         size_t clump_end = 0;
+        // And also where the clump started, for debugging
+        size_t clump_start = 0;
 
         // We use this to remember path ranks. It will initialize to 0 for new
         // paths.
@@ -293,7 +295,8 @@ namespace vg {
         // Automatically fills in rank, starting from 1.
         auto add_match = [&](Path* path, Node* node, bool is_reverse = false) {
             #ifdef debug
-            cerr << "Add node " << node->id() << " orientation " << is_reverse << " to path " << path->name() << endl;
+            cerr << "Add node " << node->id() << " orientation " << is_reverse
+                << " length " << node->sequence().size() << " to path " << path->name() << endl;
             #endif
         
             // Make a mapping for it
@@ -445,6 +448,10 @@ namespace vg {
                 // TODO: make sure long SVs don't fall outside chunk
                 clump_end = max(clump_end, next_variant->zeroBasedPosition() + next_variant->ref.size() - chunk_offset);
 
+                if (clump.size() == 1) {
+                    // We started the clump
+                    clump_start = next_variant->zeroBasedPosition() - chunk_offset;
+                }
 
                 // Try the variant after that
                 next_variant++;
@@ -453,7 +460,8 @@ namespace vg {
                 // Handle the clump.
                 
                 #ifdef debug
-                cerr << "Handling clump of " << clump.size() << " variants" << endl;
+                cerr << "Handling clump of " << clump.size() << " variants "
+                    << (clump_start + chunk_offset) << " - " << (clump_end + chunk_offset) << endl;
                 #endif
 
                 // Parse all the variants into VariantAllele edits
@@ -485,7 +493,12 @@ namespace vg {
                 // vector.
                 set<vcflib::Variant*> duplicates;
                 
-                for (vcflib::Variant* variant : clump) {
+                for (size_t var_num = 0; var_num < clump.size(); var_num++) {
+                    // For each variant in the clump
+                    vcflib::Variant* variant = clump[var_num];
+#ifdef debug
+                    cerr << "Handling clump variant " << var_num << "/" << clump.size() << " @ " << variant->zeroBasedPosition() << endl;
+#endif
                 
                     // No variants should still be symbolic at this point.
                     // Either we canonicalized them into base-level sequence, or we rejected them whn making the clump.
@@ -708,7 +721,8 @@ namespace vg {
                     auto* variant = kv.second;
                     
                     #ifdef debug
-                    cerr << "Process variant " << variant_name << " with " << parsed_clump[variant].size() << " alts" << endl;
+                    cerr << "Process variant " << variant_name << " @ " << variant->zeroBasedPosition()
+                        << " with " << parsed_clump[variant].size() << " alts" << endl;
                     #endif
 
                     if (alt_paths) {
@@ -965,7 +979,7 @@ namespace vg {
                     size_t to_return = last_edit_end;
                     
                     #ifdef debug
-                    cerr << "Next breakpoint must be at or before " << last_edit_end << endl;
+                    cerr << "Next breakpoint after " << position << " must be at or before " << last_edit_end << endl;
                     #endif
 
                     // See if any nodes are registered as starting after our
@@ -997,10 +1011,8 @@ namespace vg {
                         #endif
                     }
 
-                    // See if any deletions are registered as ending after here.
-                    // Deletions break the reference before their past-the-end base,
-                    // so we don't care about deletions ending here exactly.
-                    auto deletion_end_iter = deletions_ending_at.upper_bound(position);
+                    // See if any deletions are registered as ending at or after here.
+                    auto deletion_end_iter = deletions_ending_at.lower_bound(position);
 
                     if(deletion_end_iter != deletions_ending_at.end()) {
                         // If we found something, walk back where the breakpoint
@@ -1146,12 +1158,6 @@ namespace vg {
                 }
 
                 // Now we have gotten through all the places where nodes start, before the end of the clump.
-                
-                #ifdef debug
-                for (auto& kv : ref_runs_by_end) {
-                    cerr << "Ref run ends at " << kv.first << endl;
-                }
-                #endif
                 
                 for (auto& to_trace : inversion_trace_queue) {
                     // Now that all the ref nodes exist, create the path entries for inversion alt paths.
@@ -1481,10 +1487,45 @@ namespace vg {
         // Scan through variants until we find one that is on this contig and in this region.
         // If we're using an index, we ought to already be at the right place.
         variant_source.fill_buffer();
-        while(variant_source.get() && (variant_source.get()->sequenceName != vcf_contig ||
+        /*while(variant_source.get() && (variant_source.get()->sequenceName != vcf_contig ||
                     variant_source.get()->zeroBasedPosition() < leading_offset ||
                     variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() > reference_end)) {
             // This variant comes before our region
+
+            // Discard variants that come out that are before our region
+            variant_source.handle_buffer();
+            variant_source.fill_buffer();
+        }*/        
+        
+        
+        while(true) {
+            auto vvar = variant_source.get();
+            
+            if (!vvar) {
+#ifdef debug 
+                cerr << "No variant to skip" << endl;
+#endif
+                break;
+            }
+            
+            if (!(vvar->sequenceName != vcf_contig ||
+                    vvar->zeroBasedPosition() < leading_offset ||
+                    vvar->zeroBasedPosition() + vvar->ref.size() > reference_end)) {
+                
+#ifdef debug 
+                cerr << "Accept variant on " << vvar->sequenceName << ":" << vvar->zeroBasedPosition() << "-" << (vvar->zeroBasedPosition() + vvar->ref.size()) << " as in " << vcf_contig << ":" << leading_offset << "-" << reference_end << endl;
+                cerr << "\t" << *vvar << endl;
+#endif
+                
+                break;
+            }
+            
+#ifdef debug 
+            cerr << "Skip variant on " << vvar->sequenceName << ":" << vvar->zeroBasedPosition() << "-" << (vvar->zeroBasedPosition() + vvar->ref.size()) << " as not in " << vcf_contig << ":" << leading_offset << "-" << reference_end << endl;
+            cerr << "\t" << *vvar << endl;
+#endif
+           
+            // This variant comes outside our region
 
             // Discard variants that come out that are before our region
             variant_source.handle_buffer();
@@ -1749,15 +1790,55 @@ namespace vg {
             // those with seqs in the vcf.
 
         }
+        
+#ifdef debug 
+        cerr << "Handling run of included variants..." << endl;
+#endif
 
-        while (variant_source.get() && variant_source.get()->sequenceName == vcf_contig &&
-                variant_source.get()->zeroBasedPosition() >= leading_offset &&
-                variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() <= reference_end) {
-
+        while (true) {
+                
             // While we have variants we want to include
             auto vvar = variant_source.get();
-
-
+            
+            if (!vvar) {
+#ifdef debug 
+                cerr << "No variant available" << endl;
+#endif
+                break;
+            }
+            
+            if (vvar->sequenceName != vcf_contig) {
+#ifdef debug 
+                cerr << "Variant on " << vvar->sequenceName << " and not " << vcf_contig << endl;
+                cerr << "\tRejected: " << *vvar << endl;
+#endif
+                break;
+            }
+            
+            if (vvar->zeroBasedPosition() < leading_offset) {
+#ifdef debug 
+                cerr << "Variant at " << vvar->zeroBasedPosition() << " which is before start " << leading_offset << endl;
+                cerr << "\tRejected: " << *vvar << endl;
+#endif
+            
+                break;
+            }
+            
+            if (vvar->zeroBasedPosition() + vvar->ref.size() > reference_end) {
+            
+#ifdef debug 
+                cerr << "Variant ends at " << (vvar->zeroBasedPosition() + vvar->ref.size()) << " which is after end " << reference_end << endl;
+                cerr << "\tRejected: " << *vvar << endl;
+#endif
+            
+                break;
+            }
+            
+#ifdef debug 
+            cerr << "Still want variant on " << vvar->sequenceName << ":" << vvar->zeroBasedPosition() << "-" << (vvar->zeroBasedPosition() + vvar->ref.size()) << " which is in " << vcf_contig << ":" << leading_offset << "-" << reference_end << endl;
+            cerr << "\t" << *vvar << endl;
+#endif
+            
             // We need to decide if we want to use this variant. By default we will use all variants.
             bool variant_acceptable = true;
             
@@ -1913,6 +1994,10 @@ namespace vg {
                 // Loop again on the same variant.
             }
         }
+
+#ifdef debug
+        cerr << "Variants in region depleted, which we know because we found an out-of-region variant." << endl;
+#endif
 
         // We ran out of variants, so finish this chunk and all the others after it
         // without looking for variants.
