@@ -1479,51 +1479,16 @@ namespace vg {
         // Scan through variants until we find one that is on this contig and in this region.
         // If we're using an index, we ought to already be at the right place.
         variant_source.fill_buffer();
-        /*while(variant_source.get() && (variant_source.get()->sequenceName != vcf_contig ||
+        while(variant_source.get() && (variant_source.get()->sequenceName != vcf_contig ||
                     variant_source.get()->zeroBasedPosition() < leading_offset ||
                     variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() > reference_end)) {
-            // This variant comes before our region
+            // This variant comes before or ends after our region
 
-            // Discard variants that come out that are before our region
-            variant_source.handle_buffer();
-            variant_source.fill_buffer();
-        }*/        
-        
-        
-        while(true) {
-            auto vvar = variant_source.get();
-            
-            if (!vvar) {
-#ifdef debug 
-                cerr << "No variant to skip" << endl;
-#endif
-                break;
-            }
-            
-            if (!(vvar->sequenceName != vcf_contig ||
-                    vvar->zeroBasedPosition() < leading_offset ||
-                    vvar->zeroBasedPosition() + vvar->ref.size() > reference_end)) {
-                
-#ifdef debug 
-                cerr << "Accept variant on " << vvar->sequenceName << ":" << vvar->zeroBasedPosition() << "-" << (vvar->zeroBasedPosition() + vvar->ref.size()) << " as in " << vcf_contig << ":" << leading_offset << "-" << reference_end << endl;
-                cerr << "\t" << *vvar << endl;
-#endif
-                
-                break;
-            }
-            
-#ifdef debug 
-            cerr << "Skip variant on " << vvar->sequenceName << ":" << vvar->zeroBasedPosition() << "-" << (vvar->zeroBasedPosition() + vvar->ref.size()) << " as not in " << vcf_contig << ":" << leading_offset << "-" << reference_end << endl;
-            cerr << "\t" << *vvar << endl;
-#endif
-           
-            // This variant comes outside our region
-
-            // Discard variants that come out that are before our region
+            // Discard variants that come out that are outside our region
             variant_source.handle_buffer();
             variant_source.fill_buffer();
         }
-
+        
         // Now we're on the variants we actually want.
 
         // This is where the next chunk will start in the reference sequence.
@@ -1784,12 +1749,14 @@ namespace vg {
         }
         
         #ifdef debug 
-        cerr << "Handling run of included variants..." << endl;
+        cerr << "Handling run of variants starting in region..." << endl;
         #endif
 
         while (variant_source.get() && variant_source.get()->sequenceName == vcf_contig &&
                variant_source.get()->zeroBasedPosition() >= leading_offset &&
                variant_source.get()->zeroBasedPosition() <= reference_end) {
+               
+            // For each variant that begins inside our region
 
             // Skip variants that don't fit in our range
             // (maybe there's one that does fit after, so we continue checking)
@@ -1958,9 +1925,9 @@ namespace vg {
             }
         }
 
-#ifdef debug
-        cerr << "Variants in region depleted, which we know because we found an out-of-region variant." << endl;
-#endif
+        #ifdef debug
+        cerr << "Variants in region depleted, which we know because we found a starting-after-region variant." << endl;
+        #endif
 
         // We ran out of variants, so finish this chunk and all the others after it
         // without looking for variants.
