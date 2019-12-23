@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 21
+plan tests 20
 
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg view -d - | wc -l) 505 "view produces the expected number of lines of dot output"
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg view -g - | wc -l) 503 "view produces the expected number of lines of GFA output"
@@ -49,9 +49,7 @@ is "$(cat x.vg x.vg | vg view -vVD - 2>&1 > /dev/null | wc -l)" 0 "duplicate war
 
 rm x.vg
 
-is "$(vg view -Fv overlaps/two_snvs_assembly1.gfa | vg stats -l - | cut -f2)" "315" "gfa graphs are imported pre-bluntified"
-
-is "$(vg view -Fv overlaps/two_snvs_assembly1.gfa | vg mod --bluntify - | vg stats -l - | cut -f2)" "315" "bluntifying has no effect"
+is "$(vg view -Fv overlaps/two_snvs_assembly1.gfa | vg stats -l - | cut -f2)" "315" "gfa graphs are bluntified on import"
 
 is "$(vg view -Fv overlaps/two_snvs_assembly4.gfa | vg stats -l - | cut -f2)" "335" "a more complex GFA can be imported"
 
