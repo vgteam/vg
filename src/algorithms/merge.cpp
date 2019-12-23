@@ -94,14 +94,23 @@ void merge(handlegraph::MutablePathDeletableHandleGraph* graph, const vector<pai
     
     // Move all the paths over to the first one
     // Need to aggregate to avoid removing steps as we visit them.
-    vector<step_handle_t> to_move;
+    // Also need to record orientation so we can preserve it
+    vector<pair<step_handle_t, bool>> to_move;
     for (auto& other : middles) {
         graph->for_each_step_on_handle(other, [&](const step_handle_t s) {
-            to_move.push_back(s);
+            // Say we need to rewrite this step, and record an orientation:
+            // true if the step runs against the orientartion of other, and
+            // false if it runs with it.
+            to_move.emplace_back(s, graph->get_is_reverse(other) != graph->get_is_reverse(graph->get_handle_of_step(s)));
         });
     }
-    for (auto& s : to_move) {
-        graph->rewrite_segment(s, s, {merged});
+    for (auto& step_and_orientation : to_move) {
+        // For each thing we are moving, unpack it
+        auto& step = step_and_orientation.first;
+        auto& flip = step_and_orientation.second;
+        // Rewrite the path to go through merged forward if we went through the
+        // hendle we're merging in forward, and merged reverse otherwise.
+        graph->rewrite_segment(step, step, {flip ? graph->flip(merged) : merged});
     }
     
     for (auto& other : middles) {
