@@ -1694,9 +1694,9 @@ namespace vg {
                 // Update its ID separately, since it's no longer in the graph.
                 last_node_buffer.set_id(last_node_buffer.id() + max_id);
                 
-#ifdef debug
+                #ifdef debug
                 cerr << "Buffered final node becomes: " << last_node_buffer.id() << endl;
-#endif
+                #endif
             }
 
             // Up all the IDs in the graph
@@ -1783,54 +1783,25 @@ namespace vg {
 
         }
         
-#ifdef debug 
+        #ifdef debug 
         cerr << "Handling run of included variants..." << endl;
-#endif
+        #endif
 
-        while (true) {
+        while (variant_source.get() && variant_source.get()->sequenceName == vcf_contig &&
+               variant_source.get()->zeroBasedPosition() >= leading_offset &&
+               variant_source.get()->zeroBasedPosition() <= reference_end) {
+
+            // Skip variants that don't fit in our range
+            // (maybe there's one that does fit after, so we continue checking)
+            if (variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() > reference_end) {
+                variant_source.handle_buffer();
+                variant_source.fill_buffer();
+                continue;
+            }
                 
             // While we have variants we want to include
             auto vvar = variant_source.get();
-            
-            if (!vvar) {
-#ifdef debug 
-                cerr << "No variant available" << endl;
-#endif
-                break;
-            }
-            
-            if (vvar->sequenceName != vcf_contig) {
-#ifdef debug 
-                cerr << "Variant on " << vvar->sequenceName << " and not " << vcf_contig << endl;
-                cerr << "\tRejected: " << *vvar << endl;
-#endif
-                break;
-            }
-            
-            if (vvar->zeroBasedPosition() < leading_offset) {
-#ifdef debug 
-                cerr << "Variant at " << vvar->zeroBasedPosition() << " which is before start " << leading_offset << endl;
-                cerr << "\tRejected: " << *vvar << endl;
-#endif
-            
-                break;
-            }
-            
-            if (vvar->zeroBasedPosition() + vvar->ref.size() > reference_end) {
-            
-#ifdef debug 
-                cerr << "Variant ends at " << (vvar->zeroBasedPosition() + vvar->ref.size()) << " which is after end " << reference_end << endl;
-                cerr << "\tRejected: " << *vvar << endl;
-#endif
-            
-                break;
-            }
-            
-#ifdef debug 
-            cerr << "Still want variant on " << vvar->sequenceName << ":" << vvar->zeroBasedPosition() << "-" << (vvar->zeroBasedPosition() + vvar->ref.size()) << " which is in " << vcf_contig << ":" << leading_offset << "-" << reference_end << endl;
-            cerr << "\t" << *vvar << endl;
-#endif
-            
+
             // We need to decide if we want to use this variant. By default we will use all variants.
             bool variant_acceptable = true;
             
