@@ -13,7 +13,7 @@
 #include <algorithm>
 #include <memory>
 
-#define debug
+//#define debug
 
 namespace vg {
 
@@ -283,8 +283,6 @@ namespace vg {
         // And we need to rember the highest past-the-end base of anything in the
         // clump, to catch all the overlaps.
         size_t clump_end = 0;
-        // And also where the clump started, for debugging
-        size_t clump_start = 0;
 
         // We use this to remember path ranks. It will initialize to 0 for new
         // paths.
@@ -448,11 +446,6 @@ namespace vg {
                 // TODO: make sure long SVs don't fall outside chunk
                 clump_end = max(clump_end, next_variant->zeroBasedPosition() + next_variant->ref.size() - chunk_offset);
 
-                if (clump.size() == 1) {
-                    // We started the clump
-                    clump_start = next_variant->zeroBasedPosition() - chunk_offset;
-                }
-
                 // Try the variant after that
                 next_variant++;
             } else {
@@ -460,8 +453,7 @@ namespace vg {
                 // Handle the clump.
                 
                 #ifdef debug
-                cerr << "Handling clump of " << clump.size() << " variants "
-                    << (clump_start + chunk_offset) << " - " << (clump_end + chunk_offset) << endl;
+                cerr << "Handling clump of " << clump.size() << " variants up to " << (clump_end + chunk_offset) << endl;
                 #endif
 
                 // Parse all the variants into VariantAllele edits
