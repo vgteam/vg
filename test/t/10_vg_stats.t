@@ -46,5 +46,5 @@ is "$(vg stats -a x.gam | grep 'Total alignments')" "Total alignments: 100" "sta
 rm -f x.vg x.xg x.gcsa x.gam
 
 vg msga -g <(vg msga -f msgas/cycle.fa -b s1 -w 11 -O 10 -k 4 -t 1 | vg mod -D - | vg mod -U 10 -) -f msgas/cycle.fa -t 1 | vg mod -N - | vg mod -U 10 - >c.vg
-is $(vg stats -O c.vg | wc -l) 155 "a path overlap description of a cyclic graph built by msga has the expected length"
+is $(vg stats -O c.vg | wc -l) 249 "a path overlap description of a cyclic graph built by msga has the expected length"
 rm -f c.vg

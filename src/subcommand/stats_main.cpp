@@ -19,6 +19,7 @@
 #include "../algorithms/weakly_connected_components.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
+#include "../convert_handle.hpp"
 #include "../handle.hpp"
 
 #include "../path.hpp"
@@ -213,6 +214,7 @@ int main_stats(int argc, char** argv) {
     if (have_input_file(optind, argc, argv)) {
         // We have an (optional, because we can just process alignments) graph input file.
         // TODO: we can load any PathHandleGraph, but some operations still require a VG
+        // In those cases, we convert back to vg::VG
         graph = vg::io::VPKG::load_one<PathHandleGraph>(get_input_file_name(optind, argc, argv));
     }
     
@@ -356,8 +358,12 @@ int main_stats(int argc, char** argv) {
         VG* vg_graph = dynamic_cast<VG*>(graph.get());
         if (vg_graph == nullptr) {
             // TODO: This path overlap code can be handle-ified, and should be.
-            cerr << "error [vg stats]: Path overlap can only be computed on VG-format graphs" << endl;
-            exit(1);
+            vg_graph = new vg::VG();
+            convert_path_handle_graph(graph.get(), vg_graph);
+            // Give the unique_ptr ownership and delete the graph we loaded.
+            graph.reset(vg_graph);
+            // Make sure the paths are all synced up
+            vg_graph->paths.to_graph(vg_graph->graph);
         }
     
         auto cb = [&](const Path& p1, const Path& p2) {
