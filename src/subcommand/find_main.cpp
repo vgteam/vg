@@ -5,6 +5,7 @@
 #include "../mapper.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+#include <vg/io/protobuf_emitter.hpp>
 #include "../region.hpp"
 #include "../stream_index.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
@@ -690,15 +691,17 @@ int main_find(int argc, char** argv) {
         }
         if (extract_paths) {
             for (auto& pattern : extract_path_patterns) {
+            
+                // We want to write uncompressed protobuf Graph objects containing our paths.
+                vg::io::ProtobufEmitter<Graph> out(cout, false);
+            
                 xindex->for_each_path_handle([&](path_handle_t path_handle) {
                         string path_name = xindex->get_path_name(path_handle);
                         if (pattern.length() <= path_name.length() && path_name.compare(0, pattern.length(), pattern) == 0) {
                             // We need a Graph for serialization purposes.
                             Graph g;
                             *g.add_path() = path_from_path_handle(*xindex, path_handle);
-                            // Dump the graph with its mappings. TODO: can we restrict these to
-                            vector<Graph> gb = { g };
-                            vg::io::write_buffered(cout, gb, 0);
+                            out.write(std::move(g));
                         }
                     });
             }

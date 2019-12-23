@@ -94,7 +94,7 @@ rm -f test.vg test.xg
 
 vg construct -m 1000 -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a 2> /dev/null | vg view -j - | sed s/_alt/alt/g | vg view -Jv - >w.vg
 vg index -x w.xg w.vg
-is $(( cat w.vg | vg mod -D - ; vg find -x w.xg -Q alt ) | vg paths -L -v - | wc -l) 38 "pattern based path extraction works"
+is $(( cat w.vg | vg mod -D - | vg convert -v - ; vg find -x w.xg -Q alt ) | vg paths -L -v - | wc -l) 38 "pattern based path extraction works"
 rm -f w.xg w.vg
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >t.vg
