@@ -454,14 +454,6 @@ public:
                        
     /// Chop up the nodes.
     void dice_nodes(int max_node_size);
-    /// Does the reverse --- combines nodes by removing edges where doing so has no effect on the graph labels.
-    void unchop(void);
-    /// Get the set of components that could be merged into single nodes without
-    /// changing the path space of the graph. Emits oriented traversals of
-    /// nodes, in the order and orientation in which they are to be merged.
-    set<list<NodeTraversal>> simple_components(int min_size = 1);
-    /// Get the simple components of multiple nodes.
-    set<list<NodeTraversal>> simple_multinode_components(void);
     /// Get the strongly connected components of the graph.
     set<set<id_t> > strongly_connected_components(void);
     /// Get only multi-node strongly connected components.
@@ -474,15 +466,9 @@ public:
     bool is_self_looping(Node* node);
     /// Get simple cycles following Johnson's elementary cycles algorithm.
     set<list<NodeTraversal> > elementary_cycles(void);
-    /// Concatenates the nodes into a new node with the same external linkage as
-    /// the provided component. After calling this, paths will be invalid until
-    /// Paths::compact_ranks() is called.
-    Node* concat_nodes(const list<NodeTraversal>& nodes);
     /// Merge the nodes into a single node, preserving external linkages.
     /// Use the orientation of the first node as the basis.
     Node* merge_nodes(const list<Node*>& nodes);
-    /// Use unchop and sibling merging to simplify the graph into a normalized form.
-    void normalize(int max_iter = 1, bool debug = false);
     /// Remove redundant overlaps.
     void bluntify(void);
     /// Turn the graph into a dag by copying strongly connected components expand_scc_steps times
@@ -1205,21 +1191,10 @@ public:
     /// Caller is responsible for dealing with orientations.
     void node_starts_in_path(const list<NodeTraversal>& path,
                              map<Node*, int>& node_start);
-    /// Return true if nodes share all paths and the mappings they share in these paths
-    /// are adjacent, in the specified relative order and orientation.
-    bool nodes_are_perfect_path_neighbors(NodeTraversal left, NodeTraversal right);
     /// Return true if the mapping completely covers the node it maps to and is a perfect match.
     bool mapping_is_total_match(const Mapping& m);
     /// Concatenate the mappings for a pair of nodes; handles multiple mappings per path.
     map<string, vector<mapping_t>> concat_mappings_for_node_pair(id_t id1, id_t id2);
-    /// Concatenate mappings for a list of nodes that we want to concatenate.
-    /// Returns, for each path name, a vector of merged mappings, once per path
-    /// traversal of the run of nodes. Those merged mappings are in the
-    /// orientation of the merged node (so mappings to nodes that are traversed
-    /// in reverse will have their flags toggled). We assume that all mappings on
-    /// the given nodes are full-length perfect matches, and that all the nodes
-    /// are perfect path neighbors.
-    map<string, vector<mapping_t>> concat_mappings_for_nodes(const list<NodeTraversal>& nodes);
 
     /// Expand a path. TODO: what does that mean?
     /// These versions handle paths in which nodes can be traversed multiple

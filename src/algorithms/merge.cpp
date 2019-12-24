@@ -109,8 +109,9 @@ void merge(handlegraph::MutablePathDeletableHandleGraph* graph, const vector<pai
         auto& step = step_and_orientation.first;
         auto& flip = step_and_orientation.second;
         // Rewrite the path to go through merged forward if we went through the
-        // hendle we're merging in forward, and merged reverse otherwise.
-        graph->rewrite_segment(step, step, {flip ? graph->flip(merged) : merged});
+        // handle we're merging in forward, and merged reverse otherwise.
+        // Make sure to advance the end of the range because rewrite is end-exclusive (to allow insert). 
+        graph->rewrite_segment(step, graph->get_next_step(step), {flip ? graph->flip(merged) : merged});
     }
     
     for (auto& other : middles) {

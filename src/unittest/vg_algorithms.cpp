@@ -31,6 +31,7 @@
 #include "algorithms/expand_context.hpp"
 #include "algorithms/are_equivalent.hpp"
 #include "algorithms/simplify_siblings.hpp"
+#include "algorithms/unchop.hpp"
 #include "unittest/random_graph.hpp"
 #include "vg.hpp"
 #include "xg.hpp"
@@ -5949,7 +5950,7 @@ TEST_CASE("simplify_siblings() can actually merge some siblings", "[algorithms][
     REQUIRE(!worked);
     
     // Unchop to normalize
-    graph.unchop();
+    algorithms::unchop(&graph);
     
     // Make sure we have the right shape (just a SNP left).
     REQUIRE(graph.get_node_count() == 4);

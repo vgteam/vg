@@ -21,6 +21,8 @@
 #include "../algorithms/topological_sort.hpp"
 #include "../algorithms/remove_high_degree.hpp"
 #include "../algorithms/simplify_siblings.hpp"
+#include "../algorithms/unchop.hpp"
+#include "../algorithms/normalize.hpp"
 #include "../io/save_handle_graph.hpp"
 
 using namespace std;
@@ -108,7 +110,7 @@ int main_mod(int argc, char** argv) {
     bool retain_complement = false;
     vector<int64_t> root_nodes;
     int32_t context_steps;
-    bool remove_null;
+    bool remove_null = false;
     bool strong_connect = false;
     uint32_t unfold_to = 0;
     bool break_cycles = false;
@@ -658,8 +660,7 @@ int main_mod(int argc, char** argv) {
     }
 
     if (unchop) {
-        // TODO: turn into an algorithm
-        ensure_vg()->unchop();
+        algorithms::unchop(graph.get());
     }
 
     if (simplify_graph) {
@@ -669,13 +670,13 @@ int main_mod(int argc, char** argv) {
     }
 
     if (normalize_graph) {
-        // TODO: turn into an algorithm
-        ensure_vg()->normalize();
+        algorithms::normalize(graph.get());
     }
 
     if (until_normal_iter) {
-        // TODO: turn into an algorithm
-        ensure_vg()->normalize(until_normal_iter);
+        // TODO: This doesn't work with vg::VG due to its paths needing re-syncing
+        assert(vg_graph == nullptr);
+        algorithms::normalize(graph.get(), until_normal_iter, true);
     }
 
     if (strong_connect) {

@@ -6,6 +6,7 @@
 #include "../kmer.hpp"
 #include "../build_index.hpp"
 #include "../algorithms/topological_sort.hpp"
+#include "../algorithms/normalize.hpp"
 #include "../chunker.hpp"
 #include "xg.hpp"
 
@@ -741,7 +742,7 @@ int main_msga(int argc, char** argv) {
             graph->edit(paths, nullptr, true);
             //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
             //graph->serialize_to_file(name + "-immed-post-edit.vg");
-            if (normalize) graph->normalize(10, debug);
+            if (normalize) algorithms::normalize(graph, 10, debug);
             graph->dice_nodes(node_max);
             //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
             //graph->serialize_to_file(name + "-post-dice.vg");
@@ -828,7 +829,7 @@ int main_msga(int argc, char** argv) {
             // only try if graph was made entirely of msga'd sequences.
             graph->remove_non_path();
         }
-        graph->normalize();
+        algorithms::normalize(graph);
         graph->dice_nodes(node_max);
         graph->sort();
         graph->compact_ids();
