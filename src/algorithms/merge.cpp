@@ -66,29 +66,52 @@ void merge(handlegraph::MutablePathDeletableHandleGraph* graph, const vector<pai
     handle_t merged = middles.back();
     middles.pop_back();
     
+    // Make sets of neighbors we already have
+    unordered_set<handle_t> existing_right_neighbors;
+    unordered_set<handle_t> existing_left_neighbors;
+    
+    graph->follow_edges(merged, false, [&](const handle_t& h) {
+        // Look right and collect neighbors
+        existing_right_neighbors.insert(h);
+    });
+    graph->follow_edges(merged, true, [&](const handle_t& h) {
+        // Look left and collect neighbors
+        existing_left_neighbors.insert(h);
+    });
+    
+    
     // Create edges from everything attached to the other ones to the first one.
     // We collect and then create edges to avoid upsetting iteration.
+    // We need to deduplicate due to
+    // https://github.com/vgteam/libbdsg/issues/39 and also because there are
+    // likely to be duplicates when merging siblings.
     unordered_set<handle_t> right_neighbors;
     unordered_set<handle_t> left_neighbors;
     
     for (auto& other : middles) {
         // For each node we merge in
         graph->follow_edges(other, false, [&](const handle_t& h) {
-            // Look right and collect neighbors
-            right_neighbors.insert(h);
+            // Look right and collect new neighbors
+            if (!existing_right_neighbors.count(h)) {
+                right_neighbors.insert(h);
+            }
         });
         graph->follow_edges(other, true, [&](const handle_t& h) {
-            // Look left and collect neighbors
-            left_neighbors.insert(h);
+            // Look left and collect new neighbors
+            if (!existing_left_neighbors.count(h)) {
+                left_neighbors.insert(h);
+            }
         });
     }
     
     for (auto& h : right_neighbors) {
-        // Make all the right edges. May exist already.
+        // Make all the right edges. Should be unique.
+        assert(!graph->has_edge(merged, h));
         graph->create_edge(merged, h);
     }
     for (auto& h : left_neighbors) {
-        // Make all the left edges. May exist already.
+        // Make all the left edges. Should be unique.
+        assert(!graph->has_edge(h, merged));
         graph->create_edge(h, merged);
     }
     

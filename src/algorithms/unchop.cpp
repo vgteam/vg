@@ -321,42 +321,63 @@ static handle_t concat_nodes(handlegraph::MutablePathDeletableHandleGraph* graph
     cerr << "into " << graph->get_id(new_node) << "+" << endl;
 #endif
     
+    // We should be able to rely on our handle graph to deduplicate edges, but see https://github.com/vgteam/libbdsg/issues/39
+    // So we deduplicate ourselves.
+    
     // Find all the neighbors. Make sure to translate edges to the other end of
     // the run, or self loops.
-    vector<handle_t> left_neighbors;
+    unordered_set<handle_t> left_neighbors;
     graph->follow_edges(nodes.front(), true, [&](const handle_t& left_neighbor) {
         if (left_neighbor == nodes.back()) {
             // Loop back to the end
-            left_neighbors.push_back(new_node);
+            left_neighbors.insert(new_node);
         } else if (left_neighbor == graph->flip(nodes.front())) {
             // Loop back to the front
-            left_neighbors.push_back(graph->flip(new_node));
+            left_neighbors.insert(graph->flip(new_node));
         } else {
             // Normal edge
-            left_neighbors.push_back(left_neighbor);
+            left_neighbors.insert(left_neighbor);
         }
     });
     
-    vector<handle_t> right_neighbors;
+    unordered_set<handle_t> right_neighbors;
     graph->follow_edges(nodes.back(), false, [&](const handle_t& right_neighbor) {
         if (right_neighbor == nodes.front()) {
-            // Loop back to the front
-            right_neighbors.push_back(new_node);
+            // Loop back to the front.
+            // We will have seen it from the other side, so ignore it here.
         } else if (right_neighbor == graph->flip(nodes.back())) {
             // Loop back to the end
-            right_neighbors.push_back(graph->flip(new_node));
+            right_neighbors.insert(graph->flip(new_node));
         } else {
             // Normal edge
-            right_neighbors.push_back(right_neighbor);
+            right_neighbors.insert(right_neighbor);
         }
     });
     
     // Make all the edges, now that we can't interfere with edge listing
     for (auto& n : left_neighbors) {
-        graph->create_edge(n, new_node);
+#ifdef debug
+        cerr << "Creating edge " << graph->get_id(n) << (graph->get_is_reverse(n) ? "-" : "+") << " -> "
+            <<  graph->get_id(new_node) << (graph->get_is_reverse(new_node) ? "-" : "+") << endl;
+#endif
+        if (graph->has_edge(n, new_node)) {
+            cerr << "Skip existing edge!" << endl;
+        } else {
+            graph->create_edge(n, new_node);
+        }
     }
     for (auto& n : right_neighbors) {
-        graph->create_edge(new_node, n);
+    
+#ifdef debug
+        cerr << "Creating edge " << graph->get_id(new_node) << (graph->get_is_reverse(new_node) ? "-" : "+") << " -> "
+            <<  graph->get_id(n) << (graph->get_is_reverse(n) ? "-" : "+") << endl;
+#endif
+    
+        if (graph->has_edge(new_node, n)) {
+            cerr << "Skip existing edge!" << endl;
+        } else {
+            graph->create_edge(new_node, n);
+        }
     }
     
     {
