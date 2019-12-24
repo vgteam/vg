@@ -15,8 +15,6 @@
 namespace vg {
 namespace algorithms {
 
-#define debug
-
 using namespace std;
 
 /// Return true if nodes share all paths and the mappings they share in these paths
