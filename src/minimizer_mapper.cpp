@@ -39,14 +39,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     Funnel funnel;
     // Start this alignment 
     funnel.start(aln.name());
-    
-    // Annotate the original read with metadata
-    if (!sample_name.empty()) {
-        aln.set_sample_name(sample_name);
-    }
-    if (!read_group.empty()) {
-        aln.set_read_group(read_group);
-    }
    
     if (track_provenance) {
         // Start the minimizer finding stage
@@ -460,13 +452,23 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     vector<double> probability_alignment_lost;
     probability_alignment_lost.reserve(cluster_extensions.size());
 
-    
-    // Clear any old refpos annotation and path
-    aln.clear_refpos();
-    aln.clear_path();
-    aln.set_score(0);
-    aln.set_identity(0);
-    aln.set_mapping_quality(0);
+    // Create a new alignment object to get rid of old annotations.
+    {
+      Alignment temp;
+      temp.set_sequence(aln.sequence());
+      temp.set_name(aln.name());
+      temp.set_quality(aln.quality());
+
+      // Annotate the original read with metadata
+      if (!sample_name.empty()) {
+          aln.set_sample_name(sample_name);
+      }
+      if (!read_group.empty()) {
+          aln.set_read_group(read_group);
+      }
+
+      aln = std::move(temp);
+    }
     
     // Go through the gapless extension groups in score order.
     process_until_threshold(cluster_extensions, cluster_extension_scores,
