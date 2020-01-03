@@ -3,10 +3,12 @@
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 #include "../kmer.hpp"
 #include "../build_index.hpp"
 #include "../algorithms/topological_sort.hpp"
 #include "../algorithms/normalize.hpp"
+#include "../convert_handle.hpp"
 #include "../chunker.hpp"
 #include "xg.hpp"
 
@@ -418,9 +420,19 @@ int main_msga(int argc, char** argv) {
     VG* graph;
     if (graph_files.size() == 1) {
         string file_name = graph_files.front();
-        get_input_file(file_name, [&](istream& in) {
-            graph = new VG(in);
-        });
+        
+        // Load the graph from the file
+        unique_ptr<PathHandleGraph> loaded = vg::io::VPKG::load_one<PathHandleGraph>(file_name);
+        
+        // Make it be in VG format
+        graph = dynamic_cast<vg::VG*>(loaded.get());
+        if (graph == nullptr) {
+            // Copy instead.
+            graph = new vg::VG();
+            convert_path_handle_graph(loaded.get(), graph);
+            // Make sure the paths are all synced up
+            graph->paths.to_graph(graph->graph);
+        }
     } else {
         graph = new VG;
     }
