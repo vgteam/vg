@@ -241,6 +241,7 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                     auto s2 = graph->get_handle(m2.position().node_id(), m2.position().is_reverse());
                     // check that we always have an edge between the two nodes in the correct direction
                     if (!graph->has_edge(s1, s2)) {
+                        // TODO: Remove existence check when https://github.com/vgteam/libbdsg/issues/39 is fixed!
                         // force these edges in
                         graph->create_edge(s1, s2);
                     }
@@ -273,8 +274,11 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                                  << graph->get_is_reverse(graph->get_handle_of_step(prev_handle)) << " -> "
                                  << graph->get_id(handle) << "," << graph->get_is_reverse(handle) << endl;
 #endif
-                            // force these edges in
-                            graph->create_edge(graph->get_handle_of_step(prev_handle), handle);
+                            if (!graph->has_edge(graph->get_handle_of_step(prev_handle), handle)) {
+                                // TODO: Remove existence check when https://github.com/vgteam/libbdsg/issues/39 is fixed!
+                                // force these edges in
+                                graph->create_edge(graph->get_handle_of_step(prev_handle), handle);
+                            }
                             
                         }
                     }
@@ -908,7 +912,10 @@ Path add_nodes_and_edges(MutableHandleGraph* graph,
 #endif
                         if (!new_nodes.empty()) {
                             // Connect each to the previous node in the chain.
-                            graph->create_edge(graph->get_handle(new_nodes.back()), new_node);
+                            if (!graph->has_edge(graph->get_handle(new_nodes.back()), new_node)) {
+                                // TODO: Remove existence check when https://github.com/vgteam/libbdsg/issues/39 is fixed!
+                                graph->create_edge(graph->get_handle(new_nodes.back()), new_node);
+                            }
 #ifdef debug_edit
                             cerr << "Create edge " << new_nodes.back() << "," << graph->get_id(new_node) << endl;
 #endif
@@ -977,8 +984,13 @@ Path add_nodes_and_edges(MutableHandleGraph* graph,
                     cerr << "Connecting " << dangler << " and " << to_attach << endl;
 #endif
                     // Add an edge from the dangling NodeSide to the start of this new node
-                    graph->create_edge(graph->get_handle(dangler.node, !dangler.is_end),
-                                       graph->get_handle(to_attach.node, to_attach.is_end));
+                    auto from_handle = graph->get_handle(dangler.node, !dangler.is_end);
+                    auto to_handle = graph->get_handle(to_attach.node, to_attach.is_end);
+                    if (!graph->has_edge(from_handle, to_handle)) {
+                        // TODO: Remove existence check when https://github.com/vgteam/libbdsg/issues/39 is fixed!
+                        // force these edges in
+                        graph->create_edge(from_handle, to_handle);
+                    }
 
                 }
 
@@ -1027,8 +1039,13 @@ Path add_nodes_and_edges(MutableHandleGraph* graph,
 #endif
 
                     // Connect the left end of the left node we matched in the direction we matched it
-                    graph->create_edge(graph->get_handle(dangler.node, !dangler.is_end),
-                                       graph->get_handle(left_node,  m.position().is_reverse()));
+                    auto from_handle = graph->get_handle(dangler.node, !dangler.is_end);
+                    auto to_handle = graph->get_handle(left_node,  m.position().is_reverse());
+                    if (!graph->has_edge(from_handle, to_handle)) {
+                        // TODO: Remove existence check when https://github.com/vgteam/libbdsg/issues/39 is fixed!
+                        // force these edges in
+                        graph->create_edge(from_handle, to_handle);
+                    }
                 }
 
                 // Dangle the right end of the right node in the direction we matched it.

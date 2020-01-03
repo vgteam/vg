@@ -94,6 +94,9 @@ void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_r
             graph->for_each_handle([&](const handle_t& h) {
                 // For each node in the graph, tell the XG about it.
                 // Assume it is locally forward.
+#ifdef debug
+                cerr << "Yield node " << graph->get_id(h) << " sequence " << graph->get_sequence(h) << endl;
+#endif
                 lambda(graph->get_sequence(h), graph->get_id(h));
             });
         });
@@ -104,6 +107,12 @@ void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_r
             // For each graph in the set
             graph->for_each_edge([&](const edge_t& e) {
                 // For each edge in the graph, tell the XG about it
+                
+#ifdef debug
+                cerr << "Yield edge " << graph->get_id(e.first) << " " << graph->get_is_reverse(e.first)
+                    << " " << graph->get_id(e.second) << " " << graph->get_is_reverse(e.second) << endl;
+#endif
+                
                 lambda(graph->get_id(e.first), graph->get_is_reverse(e.first), graph->get_id(e.second), graph->get_is_reverse(e.second));
             });
         });
@@ -160,12 +169,21 @@ void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_r
                             // The path can't be empty
                             is_empty = false;
                             // Tell the XG about it
+#ifdef debug
+                            cerr << "Yield path " << path_name << " visit to "
+                                << path_graph->get_id(stepped_on) << " " << path_graph->get_is_reverse(stepped_on) << endl;
+#endif
                             lambda(path_name, path_graph->get_id(stepped_on), path_graph->get_is_reverse(stepped_on), "", is_empty, is_circular); 
                         });
                         
                         if (is_empty) {
                             // If the path is empty, tell the XG that.
                             // It still could be circular.
+                            
+#ifdef debug
+                            cerr << "Yield empty path " << path_name << endl;
+#endif
+                            
                             lambda(path_name, 0, false, "", is_empty, is_circular);
                         }
                     }
