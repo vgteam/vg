@@ -32,9 +32,9 @@ is $? 0 "looped normalization produces a valid graph"
 vg mod -u msgas/q_redundant.vg | vg validate -
 is $? 0 "unchop produces a valid graph"
 
-is $(vg mod -n msgas/q_redundant.vg | vg stats -l - | cut -f 2) 154 "normalization removes redundant sequence in the graph"
+is $(vg mod -U 10 msgas/q_redundant.vg | vg stats -l - | cut -f 2) 154 "normalization removes redundant sequence in the graph"
 
-is $(vg view -Fv graphs/normalize_me.gfa | vg mod -n - | vg view - | sort | md5sum | cut -f 1 -d\ ) 4212cbf054655a4608f3b0fee4b4a59a "normalization doesn't introduce cycles and does remove redundancy in bubbles"
+is $(vg view -Fv graphs/normalize_me.gfa | vg mod -U 10 - | vg view - | sort | md5sum | cut -f 1 -d\ ) $(md5sum graphs/normalize_me.norm.gfa | cut -f 1 -d\ ) "normalization doesn't introduce cycles and does remove redundancy in bubbles"
 
 # shows that after mod we have == numbers of path annotations and nodes
 # in this one-path graph
@@ -53,7 +53,7 @@ is "$(vg view -Jv msgas/inv-mess.json | vg mod -u - | vg validate - && vg view -
 
 is "$(vg view -Jv reversing/double_reversing.json | vg mod -u - | vg stats -z - | grep "nodes" | cut -f2)" "1" "unchop handles doubly-reversing edges"
 
-is "$(vg view -Jv msgas/inv-mess.json | vg mod -n - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -n - | vg view - | sort | diff - msgas/inv-mess-normalized.gfa)" "" "normalization works on a graph with an inversion"
+is "$(vg view -Jv msgas/inv-mess.json | vg mod -U 10 - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -U 10 - | vg view - | sort | diff - msgas/inv-mess-normalized.gfa)" "" "normalization works on a graph with an inversion"
 
 vg msga -w 20 -f msgas/s.fa > s.vg
 vg msga -g s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCTGTAGCTTTGATGTGGAGTAGTTCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -w 16 -N > s2.vg
