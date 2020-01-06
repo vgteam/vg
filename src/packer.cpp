@@ -27,6 +27,7 @@ size_t Packer::estimate_bin_count(size_t num_threads) {
 
 Packer::Packer(void) : graph(nullptr), data_width(8), cov_bin_size(0), edge_cov_bin_size(0), num_bases_dynamic(0), base_locks(nullptr), num_edges_dynamic(0), edge_locks(nullptr), tmpfstream_locks(nullptr) { }
 
+#define debug
 Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, size_t data_width, bool record_bases, bool record_edges, bool record_edits) :
     graph(graph), data_width(data_width), bin_size(bin_size), record_bases(record_bases), record_edges(record_edges), record_edits(record_edits) {
     // get the size of the base coverage counter
@@ -38,8 +39,13 @@ Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, 
     num_edges_dynamic = 0;
     if (record_edges) {
         graph->for_each_edge([&](const edge_t& edge) {
-                num_edges_dynamic = std::max(num_edges_dynamic,
-                                          dynamic_cast<const VectorizableHandleGraph*>(graph)->edge_index(edge));
+                const VectorizableHandleGraph* vec_graph = dynamic_cast<const VectorizableHandleGraph*>(graph);
+                assert(vec_graph != nullptr);
+                auto edge_index = vec_graph->edge_index(edge);
+#ifdef debug
+                cerr << "Observed edge at index " << edge_index << endl;
+#endif
+                num_edges_dynamic = std::max(num_edges_dynamic, edge_index);
             });
         ++num_edges_dynamic; // add one so our size is greater than the max element
     }
@@ -79,6 +85,10 @@ Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, 
     for (size_t i = 0; i < get_thread_count(); ++i) {
         quality_cache.push_back(new LRUCache<pair<int, int>, int>(lru_cache_size));
     }
+    
+#ifdef debug
+    cerr << "Packing across " << num_edges_dynamic << " edge slots and " << num_bases_dynamic << " base slots in " << coverage_bins << " bins" << endl;
+#endif
 }
 
 void Packer::clear() {
@@ -462,6 +472,9 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq , bool qual_a
             e.set_to(mapping.position().node_id());
             e.set_to_end(mapping.position().is_reverse());
             size_t edge_idx = edge_index(e);
+#ifdef debug
+            cerr << "Observed visit to edge " << pb2json(e) << " at index " << edge_idx << endl;
+#endif
             if (edge_idx != 0) {
                 // heuristic:  for an edge, we average out the base qualities from the matches in its two flanking mappings
                 int avg_base_quality = -1;
@@ -637,6 +650,9 @@ void Packer::increment_edge_coverage(size_t i) {
     std::lock_guard<std::mutex> guard(edge_locks[bin_offset.first]);
     init_edge_coverage_bin(bin_offset.first);
     edge_coverage_dynamic.at(bin_offset.first)->increment(bin_offset.second);
+#ifdef debug
+    cerr << "Set coverage of edge " << i << " at " << bin_offset.first << "/" << bin_offset.second << " to " << (*edge_coverage_dynamic.at(bin_offset.first))[bin_offset.second] << endl;
+#endif
 }
 
 void Packer::increment_edge_coverage(size_t i, size_t v) {
@@ -645,6 +661,9 @@ void Packer::increment_edge_coverage(size_t i, size_t v) {
         std::lock_guard<std::mutex> guard(edge_locks[bin_offset.first]);
         init_edge_coverage_bin(bin_offset.first);
         edge_coverage_dynamic.at(bin_offset.first)->increment(bin_offset.second, v);
+#ifdef debug
+        cerr << "Set coverage of edge " << i << " at " << bin_offset.first << "/" << bin_offset.second << " to " << (*edge_coverage_dynamic.at(bin_offset.first))[bin_offset.second] << endl;
+#endif
     }
 }
 
@@ -715,6 +734,12 @@ vector<Edit> Packer::edits_at_position(size_t i) const {
 size_t Packer::edge_index(const Edge& e) const {
     edge_t edge = graph->edge_handle(graph->get_handle(e.from(), e.from_start()),
                                      graph->get_handle(e.to(), e.to_end()));
+                                     
+    if (!graph->has_edge(edge)) {
+        // We can only query the edge index for edges that exist. This edge doesn't.
+        return 0;
+    }
+                                     
     return dynamic_cast<const VectorizableHandleGraph*>(graph)->edge_index(edge);
 }
 
