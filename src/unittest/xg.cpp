@@ -346,5 +346,82 @@ TEST_CASE("Looping over XG handles in parallel works", "[xg]") {
 
 }
 
+
+TEST_CASE("Vectorization of xg edges does not repeat ranks", "[xg]") {
+    string graph_json = R"(
+    {"edge": [
+        {"from": "5", "to": "6"},
+        {"from": "7", "to": "9"},
+        {"from": "12", "to": "13"},
+        {"from": "12", "to": "14"},
+        {"from": "8", "to": "9"},
+        {"from": "1", "to": "2"},
+        {"from": "1", "to": "3"},
+        {"from": "4", "to": "6"},
+        {"from": "6", "to": "7"},
+        {"from": "6", "to": "8"},
+        {"from": "2", "to": "4"},
+        {"from": "2", "to": "5"},
+        {"from": "10", "to": "12"},
+        {"from": "9", "to": "10"},
+        {"from": "9", "to": "11"},
+        {"from": "11", "to": "12"},
+        {"from": "13", "to": "15"},
+        {"from": "14", "to": "15"},
+        {"from": "3", "to": "4"},
+        {"from": "3", "to": "5"}
+    ], "node": [
+        {"id": "5", "sequence": "C"},
+        {"id": "7", "sequence": "A"},
+        {"id": "12", "sequence": "ATAT"},
+        {"id": "8", "sequence": "G"},
+        {"id": "1", "sequence": "CAAATAAG"},
+        {"id": "4", "sequence": "T"},
+        {"id": "6", "sequence": "TTG"},
+        {"id": "15", "sequence": "CCAACTCTCTG"},
+        {"id": "2", "sequence": "A"},
+        {"id": "10", "sequence": "A"},
+        {"id": "9", "sequence": "AAATTTTCTGGAGTTCTAT"},
+        {"id": "11", "sequence": "T"},
+        {"id": "13", "sequence": "A"},
+        {"id": "14", "sequence": "T"},
+        {"id": "3", "sequence": "G"}
+    ], "path": [
+        {"mapping": [
+            {"edit": [{"from_length": 8, "to_length": 8}], "position": {"node_id": "1"}, "rank": "1"},
+            {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "3"}, "rank": "2"},
+            {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "5"}, "rank": "3"},
+            {"edit": [{"from_length": 3, "to_length": 3}], "position": {"node_id": "6"}, "rank": "4"},
+            {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "8"}, "rank": "5"},
+            {"edit": [{"from_length": 19, "to_length": 19}], "position": {"node_id": "9"}, "rank": "6"},
+            {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "11"}, "rank": "7"},
+            {"edit": [{"from_length": 4, "to_length": 4}], "position": {"node_id": "12"}, "rank": "8"},
+            {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "14"}, "rank": "9"},
+            {"edit": [{"from_length": 11, "to_length": 11}], "position": {"node_id": "15"}, "rank": "10"}
+        ], "name": "x"}]}
+    )";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+
+    // Build the xg index (without any sorting)
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
+
+    REQUIRE(xg_index.get_node_count() == 15);
+    
+    // Collect all the unique edge ranks we observe for all the edges in the XG.
+    unordered_set<size_t> unique_edge_ranks;
+    xg_index.for_each_edge([&](const edge_t& edge) {
+        unique_edge_ranks.insert(xg_index.edge_index(edge));
+    });
+    
+    REQUIRE(unique_edge_ranks.size() == xg_index.get_edge_count());
+}
+
+
+
+
 }
 }
