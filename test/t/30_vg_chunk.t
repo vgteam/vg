@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 22
+plan tests 24
 
 # Construct a graph with alt paths so we can make a gPBWT and later a GBWT
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
@@ -79,6 +79,10 @@ diff x_nodes.txt pc_x_nodes.txt && diff y_nodes.txt pc_y_nodes.txt
 is "$?" 0 "path-based components finds subgraphs"
 is $(vg view -a path_chunk_x.gam | wc -l) $(vg view -a x.gam | wc -l) "x gam chunk has correct number of reads"
 is $(vg view -a path_chunk_y.gam | wc -l) $(vg view -a y.gam | wc -l) "y gam chunk has correct number of reads"
+vg chunk -x xy.vg -C -p x -b path_chunk_ind -O hg -a xy.gam -g > /dev/null
+vg chunk -x xy.vg -C -p y -b path_chunk_ind -O hg -a xy.gam -g > /dev/null
+is $(vg view -a path_chunk_ind_x.gam | wc -l) $(vg view -a x.gam | wc -l) "x gam chunk has correct number of reads with -p path"
+is $(vg view -a path_chunk_ind_y.gam | wc -l) $(vg view -a y.gam | wc -l) "y gam chunk has correct number of reads with -p path"
 vg paths -v x.vg -E > x_paths.txt
 vg paths -v path_chunk_x.hg -E > pc_x_paths.txt
 diff pc_x_paths.txt x_paths.txt

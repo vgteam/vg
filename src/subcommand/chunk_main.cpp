@@ -771,10 +771,14 @@ int main_chunk(int argc, char** argv) {
         function<void(Alignment&)> chunk_gam_callback = [&](Alignment& aln) {
             // we're going to lose unmapped reads right here
             if (aln.path().mapping_size() > 0) {
-                int32_t aln_component = node_to_component[aln.path().mapping(0).position().node_id()];
-                output_buffers[aln_component].push_back(aln);
-                if (output_buffers[aln_component].size() >= output_buffer_size) {
-                    flush_gam_buffer(aln_component);
+                nid_t aln_node_id = aln.path().mapping(0).position().node_id();
+                unordered_map<nid_t, int32_t>::iterator comp_it = node_to_component.find(aln_node_id);                
+                if (comp_it != node_to_component.end()) {
+                    int32_t aln_component = comp_it->second;
+                    output_buffers[aln_component].push_back(aln);
+                    if (output_buffers[aln_component].size() >= output_buffer_size) {
+                        flush_gam_buffer(aln_component);
+                    }
                 }
             }
         };
