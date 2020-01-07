@@ -106,12 +106,10 @@ void merge(handlegraph::MutablePathDeletableHandleGraph* graph, const vector<pai
     
     for (auto& h : right_neighbors) {
         // Make all the right edges. Should be unique.
-        assert(!graph->has_edge(merged, h));
         graph->create_edge(merged, h);
     }
     for (auto& h : left_neighbors) {
         // Make all the left edges. Should be unique.
-        assert(!graph->has_edge(h, merged));
         graph->create_edge(h, merged);
     }
     

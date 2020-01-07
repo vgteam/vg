@@ -358,11 +358,7 @@ static handle_t concat_nodes(handlegraph::MutablePathDeletableHandleGraph* graph
         cerr << "Creating edge " << graph->get_id(n) << (graph->get_is_reverse(n) ? "-" : "+") << " -> "
             <<  graph->get_id(new_node) << (graph->get_is_reverse(new_node) ? "-" : "+") << endl;
 #endif
-        if (graph->has_edge(n, new_node)) {
-            cerr << "Skip existing edge!" << endl;
-        } else {
-            graph->create_edge(n, new_node);
-        }
+        graph->create_edge(n, new_node);
     }
     for (auto& n : right_neighbors) {
     
@@ -371,11 +367,7 @@ static handle_t concat_nodes(handlegraph::MutablePathDeletableHandleGraph* graph
             <<  graph->get_id(n) << (graph->get_is_reverse(n) ? "-" : "+") << endl;
 #endif
     
-        if (graph->has_edge(new_node, n)) {
-            cerr << "Skip existing edge!" << endl;
-        } else {
-            graph->create_edge(new_node, n);
-        }
+        graph->create_edge(new_node, n);
     }
     
     {
