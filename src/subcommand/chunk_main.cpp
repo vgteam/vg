@@ -758,6 +758,9 @@ int main_chunk(int argc, char** argv) {
         vector<vector<Alignment>> output_buffers(num_regions);
         vector<bool> append_buffer(num_regions, false);
 
+        // protect our output buffers
+        std::mutex* output_buffer_locks = new std::mutex[num_regions];
+
         // We may have too many components to keep a buffer open for each one.  So we open them as-needed only when flushing.
         function<void(int32_t)> flush_gam_buffer = [&](int32_t comp_number) {
             string gam_name = chunk_name(out_chunk_prefix, comp_number, output_regions[comp_number], ".gam", 0, components);
@@ -778,6 +781,7 @@ int main_chunk(int argc, char** argv) {
                 unordered_map<nid_t, int32_t>::iterator comp_it = node_to_component.find(aln_node_id);                
                 if (comp_it != node_to_component.end()) {
                     int32_t aln_component = comp_it->second;
+                    std::lock_guard<std::mutex> guard(output_buffer_locks[aln_component]);
                     output_buffers[aln_component].push_back(aln);
                     if (output_buffers[aln_component].size() >= output_buffer_size) {
                         flush_gam_buffer(aln_component);
@@ -794,10 +798,12 @@ int main_chunk(int argc, char** argv) {
 #pragma omp parallel for
         for (int32_t aln_component = 0; aln_component < num_regions; ++aln_component) {
             if (!output_buffers[aln_component].empty()) {
+                std::lock_guard<std::mutex> guard(output_buffer_locks[aln_component]);
                 flush_gam_buffer(aln_component);
             }
         }
-            
+
+        delete [] output_buffer_locks;
     }
     
     return 0;
