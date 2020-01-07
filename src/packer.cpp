@@ -27,7 +27,6 @@ size_t Packer::estimate_bin_count(size_t num_threads) {
 
 Packer::Packer(void) : graph(nullptr), data_width(8), cov_bin_size(0), edge_cov_bin_size(0), num_bases_dynamic(0), base_locks(nullptr), num_edges_dynamic(0), edge_locks(nullptr), tmpfstream_locks(nullptr) { }
 
-#define debug
 Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, size_t data_width, bool record_bases, bool record_edges, bool record_edits) :
     graph(graph), data_width(data_width), bin_size(bin_size), record_bases(record_bases), record_edges(record_edges), record_edits(record_edits) {
     // get the size of the base coverage counter

@@ -433,6 +433,7 @@ TEST_CASE("Vectorization of xg works correctly", "[xg]") {
         map<size_t, nid_t> id_at_offset;
         xg_index.for_each_handle([&](const handle_t& h) {
             nid_t node = xg_index.get_id(h);
+            // TODO: We're assuming this is 0-based. See https://github.com/vgteam/libhandlegraph/issues/41.
             size_t offset = xg_index.node_vector_offset(node);
             
 #ifdef debug
@@ -441,7 +442,8 @@ TEST_CASE("Vectorization of xg works correctly", "[xg]") {
             } else {
                 cerr << "Found free offset " << offset << " for node " << node << endl;
             }
-            cerr << "Mapping back offset " << offset << " gives node " << xg_index.node_at_vector_offset(offset) << endl;
+            // TODO: We're providing 1-based indexes here. See https://github.com/vgteam/libhandlegraph/issues/41.
+            cerr << "Mapping back offset " << offset << " gives node " << xg_index.node_at_vector_offset(offset + 1) << endl;
 #endif
             
             id_at_offset[offset] = node;
@@ -452,7 +454,8 @@ TEST_CASE("Vectorization of xg works correctly", "[xg]") {
         
         for (auto& kv : id_at_offset) {
             // Make sure each offset maps back to the right node.
-            REQUIRE(xg_index.node_at_vector_offset(kv.first) == kv.second);
+            // TODO: We're providing 1-based indexes here. See https://github.com/vgteam/libhandlegraph/issues/41.
+            REQUIRE(xg_index.node_at_vector_offset(kv.first + 1) == kv.second);
         }
         
         // Now make sure all intermediate offsets map properly.
@@ -463,7 +466,8 @@ TEST_CASE("Vectorization of xg works correctly", "[xg]") {
             // Go through adjacent node starts in sequence order
             for (size_t i = prev->first; i < it->first; i++) {
                 // Every base before the first base of the next node should belong to the previous node.
-                nid_t node_at_i = xg_index.node_at_vector_offset(i);
+                // TODO: We're providing 1-based indexes here. See https://github.com/vgteam/libhandlegraph/issues/41.
+                nid_t node_at_i = xg_index.node_at_vector_offset(i + 1);
                 
 #ifdef debug
                 cerr << "Base at index " << i << " maps to node " << node_at_i << endl;
