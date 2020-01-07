@@ -962,6 +962,7 @@ void VG::serialize_to_emitter(vg::io::ProtobufEmitter<Graph>& emitter, id_t chun
 void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
     // Make an emitter that serializes each chunk as its own group, like we did before using emitters.
     // This is good for indexing.
+    // TODO: Should we switch to uncompressed output here?
     vg::io::ProtobufEmitter<Graph> emitter(out, true, 1);
     serialize_to_emitter(emitter, chunk_size);
 }
