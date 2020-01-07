@@ -702,12 +702,15 @@ int main_chunk(int argc, char** argv) {
                     gam_index->find(cursor, region_id_ranges, vg::io::emit_to<Alignment>(out_gam_file), fully_contained);
                 }
             } else {
-                // we're doing components, just use stl map, which we update here
-                subgraph->for_each_handle([&](handle_t sg_handle) {
-                        // note, if components overlap, this is arbitrary.  up to user to only use
-                        // path components if they are disjoint
-                        node_to_component[subgraph->get_id(sg_handle)] = i;
-                    });
+#pragma omp crtical (node_to_component)
+                {
+                    // we're doing components, just use stl map, which we update here
+                    subgraph->for_each_handle([&](handle_t sg_handle) {
+                            // note, if components overlap, this is arbitrary.  up to user to only use
+                            // path components if they are disjoint
+                            node_to_component[subgraph->get_id(sg_handle)] = i;
+                        });
+                }
             }
         }
         // trace annotations
