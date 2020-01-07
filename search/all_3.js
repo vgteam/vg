@@ -194,7 +194,7 @@ var searchData=
   ['const_5fiterator',['const_iterator',['../classvg_1_1ShuffledPairs.html#a69e7d8e10d720d7e2076c901e304c5e7',1,'vg::ShuffledPairs']]],
   ['construct',['construct',['../structvg_1_1FlowSort_1_1WeightedGraph.html#a7ce1ec0bba000de1600ce2beb70acc47',1,'vg::FlowSort::WeightedGraph']]],
   ['construct_5fchunk',['construct_chunk',['../classvg_1_1Constructor.html#aab2b25c3b99fabdb0f382e2698ca3a52',1,'vg::Constructor']]],
-  ['construct_5fgbwt',['construct_gbwt',['../classvg_1_1Transcriptome.html#a85daaa32bbbb70291374441fd763fb32',1,'vg::Transcriptome']]],
+  ['construct_5fgbwt',['construct_gbwt',['../classvg_1_1Transcriptome.html#a04996265f450b7e47ec35cf099972ea3',1,'vg::Transcriptome']]],
   ['construct_5fgraph',['construct_graph',['../classvg_1_1Constructor.html#aa8abf7d0580362408581976a9f0e07ad',1,'vg::Constructor::construct_graph(string vcf_contig, FastaReference &amp;reference, VcfBuffer &amp;variant_source, const vector&lt; FastaReference *&gt; &amp;insertion, function&lt; void(Graph &amp;)&gt; callback)'],['../classvg_1_1Constructor.html#afa306b40b9da148cae6b5c2e97beff26',1,'vg::Constructor::construct_graph(const vector&lt; FastaReference *&gt; &amp;references, const vector&lt; vcflib::VariantCallFile *&gt; &amp;variant_files, const vector&lt; FastaReference *&gt; &amp;insertions, function&lt; void(Graph &amp;)&gt; callback)']]],
   ['construct_5fgraph_5ffrom_5fnodes_5fand_5fedges',['construct_graph_from_nodes_and_edges',['../namespacevg.html#a5b7416f4636f53c22bcb1fab81d63de8',1,'vg']]],
   ['construct_5fmain_2ecpp',['construct_main.cpp',['../construct__main_8cpp.html',1,'']]],

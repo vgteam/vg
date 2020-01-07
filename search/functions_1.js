@@ -26,7 +26,7 @@ var searchData=
   ['add_5fstart_5fend_5fmarkers',['add_start_end_markers',['../classvg_1_1VG.html#a27730f354959a95c892c5ea5787fb687',1,'vg::VG']]],
   ['add_5fthread_5fedges_5fto_5fset',['add_thread_edges_to_set',['../namespacevg.html#afe2d6096dfe672a486e44df018c713c2',1,'vg']]],
   ['add_5fthread_5fnodes_5fto_5fset',['add_thread_nodes_to_set',['../namespacevg.html#a2adfa9e81b2553fefdd5e1d6b24c7a77',1,'vg']]],
-  ['add_5ftranscripts',['add_transcripts',['../classvg_1_1Transcriptome.html#a2b91b302d91cbc0db589fbe701fd90c3',1,'vg::Transcriptome']]],
+  ['add_5ftranscripts',['add_transcripts',['../classvg_1_1Transcriptome.html#a930c70d10c70312636dee1611a3ba645',1,'vg::Transcriptome']]],
   ['add_5ftraversals',['add_traversals',['../classvg_1_1ExhaustiveTraversalFinder.html#a4d93c5f43e4be897874b2468c026c0ca',1,'vg::ExhaustiveTraversalFinder']]],
   ['add_5funary_5fchild',['add_unary_child',['../classvg_1_1NetGraph.html#a3780b053c5632c4425b7057d34bffe3a',1,'vg::NetGraph']]],
   ['add_5fvariant',['add_variant',['../classvg_1_1VCFOutputCaller.html#a7200c6586a6e4f2ceb8271c9e9635fa6',1,'vg::VCFOutputCaller']]],
