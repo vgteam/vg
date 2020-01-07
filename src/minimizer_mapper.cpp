@@ -777,7 +777,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             });           
             int64_t dist = distance_between(alns1.front(), alns2.front());
             // And that they have an actual pair distance and set of relative orientations
+
             if (dist == std::numeric_limits<int64_t>::max()) {
+                //If the distance between them is ambiguous, leave them unmapped
 
                 ambiguous_pair_buffer.emplace_back(aln1, aln2);
                 pair<vector<Alignment>, vector<Alignment>> empty;
@@ -813,8 +815,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // convert to rightward orientations before mapping
     // and flip the second read back before output 
 
-    // So convert to rightward orientations
-
     aln2.clear_path();
     reverse_complement_alignment_in_place(&aln2, [&](vg::id_t node_id) {
         return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
@@ -845,65 +845,66 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     }
     
     // We will find all the seed hits
-    vector<vector<pos_t>> seeds;
+    vector<vector<pos_t>> all_seeds;
     
     // This will hold all the minimizers in the query, one vector of minimizers per read
     pair<vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type>,
-         vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type>> minimizers;
+         vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type>> all_minimizers;
+    // Find minimizers in the query
+    all_minimizers.first = minimizer_index.minimizers(aln1.sequence()); 
+    all_minimizers.second = minimizer_index.minimizers(aln2.sequence());
 
     // And either way this will map from seed to minimizer that generated it
-    vector<vector<size_t>> seed_to_source;
-    pair<vector<double>, vector<double>> minimizer_score;
+    pair<vector<size_t>, vector<size_t>> all_seed_to_source;
+    pair<vector<double>, vector<double>> all_minimizer_score;
     
     for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
-        // Find minimizers in the query
-        read_num == 0 ? minimizers.first = minimizer_index.minimizers(aln1.sequence()) 
-                      : minimizers.second = minimizer_index.minimizers(aln2.sequence()) ;
-        vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type>& read_minimizers = read_num == 0 ?
-                        minimizers.first : minimizers.second;
+        vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type>& minimizers = read_num == 0 ?
+                        all_minimizers.first : all_minimizers.second;
+        all_seeds.emplace_back();
+        vector<pos_t>& seeds = all_seeds.back();
 
-        seeds.emplace_back();
-        seed_to_source.emplace_back();
+        vector<size_t>& seed_to_source = read_num == 0 ? all_seed_to_source.first : all_seed_to_source.second;
         
         if (track_provenance) {
             // Record how many we found, as new lines.
-            funnels[read_num].introduce(read_minimizers.size());
+            funnels[read_num].introduce(minimizers.size());
             
             // Start the minimizer locating stage
             funnels[read_num].stage("seed");
         }
 
         // Compute minimizer scores for all minimizers as 1 + ln(hard_hit_cap) - ln(hits).
-        read_num == 0 ? minimizer_score.first.assign (read_minimizers.size(), 0.0):
-                        minimizer_score.second.assign(read_minimizers.size(), 0.0);
-        vector<double> read_minimizer_score = read_num == 0 ? minimizer_score.first : minimizer_score.second;
+        read_num == 0 ? all_minimizer_score.first.assign (minimizers.size(), 0.0):
+                        all_minimizer_score.second.assign(minimizers.size(), 0.0);
+        vector<double>& minimizer_score = read_num == 0 ? all_minimizer_score.first : all_minimizer_score.second;
         double base_target_score = 0.0;
-        for (size_t i = 0; i < read_minimizers.size(); i++) {
-            size_t hits = minimizer_index.count(read_minimizers[i]);
+        for (size_t i = 0; i < minimizers.size(); i++) {
+            size_t hits = minimizer_index.count(minimizers[i]);
             if (hits > 0) {
                 if (hits <= hard_hit_cap) {
-                    read_minimizer_score[i] = 1.0 + std::log(hard_hit_cap) - std::log(hits);
+                    minimizer_score[i] = 1.0 + std::log(hard_hit_cap) - std::log(hits);
                 } else {
-                    read_minimizer_score[i] = 1.0;
+                    minimizer_score[i] = 1.0;
                 }
             }
-            base_target_score += read_minimizer_score[i];
+            base_target_score += minimizer_score[i];
         }
         double target_score = (base_target_score * minimizer_score_fraction) + 0.000001;
 
         // Sort the minimizers by score.
-        std::vector<size_t> minimizers_in_order(read_minimizers.size());
+        std::vector<size_t> minimizers_in_order(minimizers.size());
         for (size_t i = 0; i < minimizers_in_order.size(); i++) {
             minimizers_in_order[i] = i;
         }
-        std::sort(minimizers_in_order.begin(), minimizers_in_order.end(), [&read_minimizer_score](const size_t a, const size_t b) {
-                return (read_minimizer_score[a] > read_minimizer_score[b]);
+        std::sort(minimizers_in_order.begin(), minimizers_in_order.end(), [&minimizer_score](const size_t a, const size_t b) {
+                return (minimizer_score[a] > minimizer_score[b]);
                 });
 
         // Select the minimizers we use for seeds.
         size_t rejected_count = 0;
         double selected_score = 0.0;
-        for (size_t i = 0; i < read_minimizers.size(); i++) {
+        for (size_t i = 0; i < minimizers.size(); i++) {
             size_t minimizer_num = minimizers_in_order[i];
 
             if (track_provenance) {
@@ -913,10 +914,10 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
             // Select the minimizer if it is informative enough or if the total score
             // of the selected minimizers is not high enough.
-            size_t hits = minimizer_index.count(read_minimizers[minimizer_num]);
+            size_t hits = minimizer_index.count(minimizers[minimizer_num]);
 
 #ifdef debug
-            cerr << "Minimizer " << minimizer_num << " in read " << read_num << " = " << read_minimizers[minimizer_num].key.decode(minimizer_index.k())
+            cerr << "Minimizer " << minimizer_num << " in read " << read_num << " = " << minimizers[minimizer_num].key.decode(minimizer_index.k())
                 << " has " << hits << " hits" << endl;
 #endif
 
@@ -925,19 +926,19 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 if (track_provenance) {
                     funnels[read_num].fail("any-hits", minimizer_num);
                 }
-            } else if (hits <= hit_cap || (hits <= hard_hit_cap && selected_score + read_minimizer_score[minimizer_num] <= target_score)) {
+            } else if (hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
                 // Locate the hits.
-                for (auto& hit : minimizer_index.find(read_minimizers[minimizer_num])) {
+                for (auto& hit : minimizer_index.find(minimizers[minimizer_num])) {
                     // Reverse the hits for a reverse minimizer
-                    if (read_minimizers[minimizer_num].is_reverse) {
+                    if (minimizers[minimizer_num].is_reverse) {
                         size_t node_length = gbwt_graph.get_length(gbwt_graph.get_handle(id(hit)));
                         hit = reverse_base_pos(hit, node_length);
                     }
                     // For each position, remember it and what minimizer it came from
-                    seeds.back().push_back(hit);
-                    seed_to_source.back().push_back(minimizer_num);
+                    seeds.push_back(hit);
+                    seed_to_source.push_back(minimizer_num);
                 }
-                selected_score += read_minimizer_score[minimizer_num];
+                selected_score += minimizer_score[minimizer_num];
 
                 if (track_provenance) {
                     // Record in the funnel that this minimizer gave rise to these seeds.
@@ -952,7 +953,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 if (track_provenance) {
                     funnels[read_num].pass("any-hits", minimizer_num);
                     funnels[read_num].pass("hard-hit-cap", minimizer_num);
-                    funnels[read_num].fail("hit-cap||score-fraction", minimizer_num, (selected_score + read_minimizer_score[minimizer_num]) / base_target_score);
+                    funnels[read_num].fail("hit-cap||score-fraction", minimizer_num, (selected_score + minimizer_score[minimizer_num]) / base_target_score);
                 }
             } else {
                 // Failed hard hit cap
@@ -968,7 +969,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             }
         }
 #ifdef debug
-        cerr << "For read " << read_num << ", found " << seeds.back().size() << " seeds from " << (read_minimizers.size() - rejected_count) << " minimizers, rejected " << rejected_count << endl;
+        cerr << "For read " << read_num << ", found " << seeds.size() << " seeds from " << (minimizers.size() - rejected_count) << " minimizers, rejected " << rejected_count << endl;
 #endif
         if (track_provenance && track_correctness) {
             // Tag seeds with correctness based on proximity along paths to the input read's refpos
@@ -983,9 +984,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 // Take the first refpos as the true position.
                 auto& true_pos = read_num == 0 ? aln1.refpos(0) : aln2.refpos(0);
 
-                for (size_t i = 0; i < seeds[read_num].size(); i++) {
+                for (size_t i = 0; i < seeds.size(); i++) {
                     // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
-                    auto offsets = algorithms::nearest_offsets_in_paths(path_graph, seeds[read_num][i], 100);
+                    auto offsets = algorithms::nearest_offsets_in_paths(path_graph, seeds[i], 100);
                     for (auto& hit_pos : offsets[path_graph->get_path_handle(true_pos.name())]) {
                         // Look at all the ones on the path the read's true position is on.
                         if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
@@ -1007,7 +1008,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // Cluster the seeds. Get sets of input seed indexes that go together.
     // If the fragment length distribution hasn't been fixed yet (if the expected fragment length = 0),
     // then everything will be in the same cluster and the best pair will be the two best independent mappings
-    vector<vector<pair<vector<size_t>, size_t>>> read_clusters = clusterer.cluster_seeds(seeds, distance_limit, 
+    vector<vector<pair<vector<size_t>, size_t>>> read_clusters = clusterer.cluster_seeds(all_seeds, distance_limit, 
             fragment_length_distr.mean() + aln1.sequence().size() + aln2.sequence().size() + 2*fragment_length_distr.stdev());
             //TODO: Choose a good distance for the fragment distance limit ^
             //TODO: Could also drop clusters here if they don't have a pair
@@ -1018,15 +1019,17 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     }
 
     //For each fragment cluster (cluster of clusters), for each read, a vector of all alignments + the order they were fed into the funnel 
-    //so we can keep track
+    //so the funnel can track them
     vector<pair<vector<pair<Alignment, size_t>>, vector<pair<Alignment, size_t>>>> alignments;
 
     for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
 
         Alignment& aln = read_num == 0 ? aln1 : aln2;
+        vector<size_t>& seed_to_source = read_num == 0 ? all_seed_to_source.first : all_seed_to_source.second;
         vector<pair<vector<size_t>, size_t>>& clusters = read_clusters[read_num];
-        vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type>& read_minimizers = read_num == 0 ?
-                        minimizers.first : minimizers.second;
+        vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type>& minimizers = read_num == 0 ?
+                        all_minimizers.first : all_minimizers.second;
+        vector<pos_t>& seeds = all_seeds[read_num];
 
         // Cluster score is the sum of minimizer scores.
         vector<double> cluster_score(clusters.size(), 0.0);
@@ -1043,15 +1046,15 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             }
 
             // Which minimizers are present in the cluster.
-            vector<bool> present(read_minimizers.size(), false);
+            vector<bool> present(minimizers.size(), false);
             for (auto hit_index : cluster) {
-                present[seed_to_source[read_num][hit_index]] = true;
+                present[seed_to_source[hit_index]] = true;
             }
 
             // Compute the score.
-            for (size_t j = 0; j < read_minimizers.size(); j++) {
+            for (size_t j = 0; j < minimizers.size(); j++) {
                 if (present[j]) {
-                    cluster_score[i] += read_num == 0 ? minimizer_score.first[j] : minimizer_score.second[j];
+                    cluster_score[i] += read_num == 0 ? all_minimizer_score.first[j] : all_minimizer_score.second[j];
                 }
             }
 
@@ -1071,11 +1074,11 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
             for (auto hit_index : cluster) {
                 // For each hit in the cluster, work out what anchor sequence it is from.
-                size_t source_index = seed_to_source[read_num][hit_index];
+                size_t source_index = seed_to_source[hit_index];
 
                 // The offset of a reverse minimizer is the endpoint of the kmer
-                size_t start_offset = read_minimizers[source_index].offset;
-                if (read_minimizers[source_index].is_reverse) {
+                size_t start_offset = minimizers[source_index].offset;
+                if (minimizers[source_index].is_reverse) {
                     start_offset = start_offset + 1 - minimizer_index.k();
                 }
 
@@ -1111,7 +1114,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         size_t max_fragment_num = 0;
         //TODO: Maybe put this back 
         //For each cluster, what fraction of "equivalent" clusters did we keep?
-        vector<vector<double>> probability_cluster_lost;
+        //vector<vector<double>> probability_cluster_lost;
         //What is the score and coverage we are considering and how many reads
         //size_t curr_coverage = 0;
         //size_t curr_score = 0;
@@ -1159,10 +1162,10 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 GaplessExtender::cluster_type seed_matchings;
                 for (auto& seed_index : cluster) {
                     // Insert the (graph position, read offset) pair.
-                    seed_matchings.insert(GaplessExtender::to_seed(seeds[read_num][seed_index], read_minimizers[seed_to_source[read_num][seed_index]].offset));
+                    seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
 #ifdef debug
-                    cerr << "Seed read:" << read_minimizers[seed_to_source[read_num][seed_index]].offset << " = " << seeds[seed_index]
-                        << " from minimizer " << seed_to_source[read_num][seed_index] << "(" << minimizer_index.count(read_minimizers[seed_to_source[read_num][seed_index]]) << ")" << endl;
+                    cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds
+                        << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index.count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
 #endif
                 }
                 
