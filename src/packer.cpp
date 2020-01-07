@@ -293,6 +293,11 @@ void Packer::make_compact(void) {
     int_vector<> coverage_iv;
     size_t edge_coverage_length = edge_vector_size();
     int_vector<> edge_coverage_iv;
+    
+#ifdef debug
+    cerr << "Concatenating entries for " << basis_length << " bases and " << edge_coverage_length << " edges" << endl;
+#endif
+    
 #pragma omp parallel
     {
 #pragma omp single
@@ -787,16 +792,42 @@ ostream& Packer::as_edge_table(ostream& out, vector<vg::id_t> node_ids) {
             edge.set_to(graph->get_id(handle_edge.second));
             edge.set_to_end(graph->get_is_reverse(handle_edge.second));
             
-            if (edge.from() <= edge.to() && (node_ids.empty() ||
-                    find(node_ids.begin(), node_ids.end(), edge.from()) != node_ids.end() ||
-                    find(node_ids.begin(), node_ids.end(), edge.to()) != node_ids.end())) {
-                out << edge.from() << "\t"
-                    << edge.from_start() << "\t"
-                    << edge.to() << "\t"
-                    << edge.to_end() << "\t"
-                    << edge_coverage_civ[edge_index(edge)]
-                    << endl;
+            if (!node_ids.empty() &&
+                (find(node_ids.begin(), node_ids.end(), edge.from()) == node_ids.end() ||
+                find(node_ids.begin(), node_ids.end(), edge.to()) == node_ids.end())) {
+                
+                // We need to skip this edge because it deals with nodes outsode of our set.
+                return true;
             }
+            
+            // Otherwise, we need to use the edge; all edges are visited exactly once.
+            // But we want to output it smaller node ID first, which is not guaranteed.
+            if (edge.from() > edge.to()) {
+                {
+                    // Swap the from and to around
+                    nid_t temp = edge.from();
+                    edge.set_from(edge.to());
+                    edge.set_to(temp);
+                }
+                {
+                    // And the flags 
+                    bool temp = edge.from_start();
+                    edge.set_from_start(!edge.to_end());
+                    edge.set_to_end(!temp);
+                }
+            }
+            
+            // TODO: we don't canonicalize self loops at all
+            
+            // Print out the edge
+            out << edge.from() << "\t"
+                << edge.from_start() << "\t"
+                << edge.to() << "\t"
+                << edge.to_end() << "\t"
+                << edge_coverage_civ[edge_index(edge)]
+                << endl;
+            
+            // Look at the enxt edge
             return true;
         });
     return out;
