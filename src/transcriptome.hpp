@@ -7,6 +7,9 @@
 
 #include <google/protobuf/util/message_differencer.h>
 #include <gbwt/dynamic_gbwt.h>
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
+#include <handlegraph/mutable_path_mutable_handle_graph.hpp>
 
 #include "../vg.hpp"
 #include "../path_index.hpp"
@@ -82,7 +85,6 @@ class Transcriptome {
     public:
 
         Transcriptome(const string &, const bool);   
-        ~Transcriptome();
 
         /// Number of threads used for transcript path construction. 
         int32_t num_threads = 1;
@@ -113,7 +115,7 @@ class Transcriptome {
         int32_t size() const;
 
         /// Returns spliced variation graph.
-        const VG & splice_graph() const; 
+        const MutablePathDeletableHandleGraph & splice_graph() const; 
 
         /// Removes non-transcribed (not in transcript paths) nodes.
         /// Optionally create new reference paths that only include
@@ -124,8 +126,7 @@ class Transcriptome {
         void compact_ordered();
 
         /// Embeds transcript paths in spliced variation graph. 
-        /// Optionally rebuild paths indexes.
-        void embed_transcript_paths(const bool add_reference_paths, const bool add_non_reference_paths, const bool rebuild_indexes);
+        void embed_transcript_paths(const bool add_reference_paths, const bool add_non_reference_paths);
 
         /// Add transcript paths as threads in GBWT index.
         void construct_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool output_reference_transcripts, const bool add_bidirectional) const;
@@ -148,7 +149,7 @@ class Transcriptome {
         vector<TranscriptPath> _transcript_paths;
 
         /// Spliced variation graph.
-        VG * _splice_graph;
+        unique_ptr<MutablePathDeletableHandleGraph> _splice_graph;
 
         /// Finds the position of each end of a exon on a path in the  
         /// variation graph and adds the exon to a transcript.

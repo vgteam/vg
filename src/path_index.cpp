@@ -267,14 +267,8 @@ PathIndex::PathIndex(const PathHandleGraph& graph, const string& path_name, bool
     assert(graph.has_path(path_name));
     
     // Make a Protobuf path object
-    Path path;
-    for (handle_t handle : graph.scan_path(graph.get_path_handle(path_name))) {
-        Mapping* mapping = path.add_mapping();
-        Position* position = mapping->mutable_position();
-        position->set_node_id(graph.get_id(handle));
-        position->set_is_reverse(graph.get_is_reverse(handle));
-    }
-    
+    auto path = path_from_path_handle(graph, graph.get_path_handle(path_name));
+
     if (extract_sequence) {
         // Constructor dispatch hack
         *this = PathIndex(path, graph);

@@ -9,6 +9,7 @@
 #include "../stream_index.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
 #include "../algorithms/approx_path_distance.hpp"
+#include "../algorithms/walk.hpp"
 #include <bdsg/overlay_helper.hpp>
 
 #include <unistd.h>
@@ -39,6 +40,7 @@ void help_find(char** argv) {
          << "    -E, --path-dag         with -p or -R, gets any node in the partial order from pos1 to pos2, assumes id sorted DAG" << endl
          << "    -W, --save-to PREFIX   instead of writing target subgraphs to stdout," << endl
          << "                           write one per given target to a separate file named PREFIX[path]:[start]-[end].vg" << endl
+         << "    -K, --subgraph-k K     instead of graphs, write kmers from the subgraphs" << endl
          << "alignments:" << endl
          << "    -d, --db-name DIR      use this RocksDB database to retrieve alignments" << endl
          << "    -l, --sorted-gam FILE  use this sorted, indexed GAM file" << endl
@@ -111,6 +113,7 @@ int main_find(int argc, char** argv) {
     bool path_dag = false;
     string bed_targets_file;
     string save_to_prefix;
+    int subgraph_k = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -153,11 +156,12 @@ int main_find(int argc, char** argv) {
                 {"min-mem", required_argument, 0, 'Z'},
                 {"paths-named", required_argument, 0, 'Q'},
                 {"list-paths", no_argument, 0, 'I'},
+                {"subgraph-k", required_argument, 0, 'K'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:B:fDG:N:A:Y:Z:IQ:ER:W:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:B:fDG:N:A:Y:Z:IQ:ER:W:K:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -307,6 +311,10 @@ int main_find(int argc, char** argv) {
 
         case 'A':
             to_graph_file = optarg;
+            break;
+
+        case 'K':
+            subgraph_k = atoi(optarg);
             break;
 
         case 'h':
@@ -643,8 +651,58 @@ int main_find(int argc, char** argv) {
                     VG empty;
                     graph = empty;
                 }
+                if (subgraph_k) {
+		    prep_graph(); // don't forget to prep the graph, or the kmer set will be wrong[
+                    // enumerate the kmers, calculating including their start positions relative to the reference
+                    // and write to stdout?
+		    algorithms::for_each_walk(
+			graph, subgraph_k, 0,
+			[&](const algorithms::walk_t& walk) {
+			    // get the reference-relative position
+			    string start_str, end_str;
+			    for (auto& p : algorithms::nearest_offsets_in_paths(xindex, walk.begin, subgraph_k*2)) {
+				const uint64_t& start_p = p.second.front().first;
+				const bool& start_rev = p.second.front().second;
+				if (p.first == path_handle && (!start_rev && start_p >= target.start || start_rev && start_p <= target.end)) {
+				    start_str = target.seq + ":" + std::to_string(start_p) + (p.second.front().second ? "-" : "+");
+				}
+			    }
+			    for (auto& p : algorithms::nearest_offsets_in_paths(xindex, walk.end, subgraph_k*2)) {
+				const uint64_t& end_p = p.second.front().first;
+				const bool& end_rev = p.second.front().second;
+				if (p.first == path_handle && (!end_rev && end_p <= target.end || end_rev && end_p >= target.start)) {
+				    end_str = target.seq + ":" + std::to_string(end_p) + (p.second.front().second ? "-" : "+");
+				}
+			    }
+			    if (!start_str.empty() && !end_str.empty()) {
+				stringstream ss;
+				ss << target.seq << ":" << target.start << "-" << target.end << "\t"
+				   << walk.seq << "\t" << start_str << "\t" << end_str << "\t";
+				uint64_t on_path = 0;
+				for (auto& h : walk.path) {
+				    xindex->for_each_step_on_handle(xindex->get_handle(graph.get_id(h), graph.get_is_reverse(h)),
+				        [&](const step_handle_t& step) {
+					    if (xindex->get_path_handle_of_step(step) == path_handle) {
+						++on_path;
+					    }
+					});
+				}
+				if (on_path == walk.path.size()) {
+				    ss << "ref" << "\t";
+				} else {
+				    ss << "non.ref" << "\t";
+				}
+				for (auto& h : walk.path) {
+				    ss << graph.get_id(h) << (graph.get_is_reverse(h)?"-":"+") << ",";
+				}
+				// write our record
+#pragma omp critical (cout)
+				cout << ss.str() << std::endl;
+			    }
+			});
+                }
             }
-            if (save_to_prefix.empty()) {
+            if (save_to_prefix.empty() && !subgraph_k) {
                 prep_graph();
                 graph.serialize_to_ostream(cout);
             }

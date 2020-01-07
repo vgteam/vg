@@ -319,7 +319,7 @@ ifneq ($(shell uname -s),Darwin)
 	LD_LIB_FLAGS += -ljemalloc
 endif
 
-.PHONY: clean get-deps deps test set-path static static-docker docs .pre-build .check-environment .check-git .no-git 
+.PHONY: clean get-deps deps test set-path static static-docker docs man .pre-build .check-environment .check-git .no-git 
 
 # For a normal dynamic build we remove the static build marker
 $(BIN_DIR)/$(EXE): $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
@@ -361,6 +361,11 @@ test: $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(VC
 docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp
 	doxygen
 	echo "View documentation at: file://$(PWD)/doc/doxygen/index.html"
+	
+man: $(patsubst doc/asciidoc/man/%.adoc,doc/man/%.1,$(wildcard doc/asciidoc/man/*.adoc))
+
+doc/man/%.1: doc/asciidoc/man/%.adoc
+	asciidoctor -b manpage -d manpage -o $@ $<
 
 # Hack to use gshuf or shuf as appropriate to the platform when testing
 $(BIN_DIR)/shuf:
