@@ -347,7 +347,7 @@ TEST_CASE("Looping over XG handles in parallel works", "[xg]") {
 }
 
 
-TEST_CASE("Vectorization of xg edges does not repeat ranks", "[xg]") {
+TEST_CASE("Vectorization of xg works correctly", "[xg]") {
     string graph_json = R"(
     {"edge": [
         {"from": "5", "to": "6"},
@@ -411,13 +411,71 @@ TEST_CASE("Vectorization of xg edges does not repeat ranks", "[xg]") {
 
     REQUIRE(xg_index.get_node_count() == 15);
     
-    // Collect all the unique edge ranks we observe for all the edges in the XG.
-    unordered_set<size_t> unique_edge_ranks;
-    xg_index.for_each_edge([&](const edge_t& edge) {
-        unique_edge_ranks.insert(xg_index.edge_index(edge));
-    });
+    SECTION("edge ranks are unique") {
+        // Collect all the unique edge ranks we observe for all the edges in the XG.
+        unordered_set<size_t> unique_edge_ranks;
+        xg_index.for_each_edge([&](const edge_t& edge) {
+            size_t edge_index = xg_index.edge_index(edge);
+#ifdef debug
+            cerr << "Edge " << xg_index.get_id(edge.first) << (xg_index.get_is_reverse(edge.first) ? '-' : '+') << " -> "
+                << xg_index.get_id(edge.second) << (xg_index.get_is_reverse(edge.second) ? '-' : '+')
+                << " has index " << edge_index << endl;
+#endif
+            unique_edge_ranks.insert(edge_index);
+        });
+        
+        REQUIRE(unique_edge_ranks.size() == xg_index.get_edge_count());
+    }
     
-    REQUIRE(unique_edge_ranks.size() == xg_index.get_edge_count());
+    
+    SECTION("node offsets are unique and map back to the right nodes") {
+        // Do the same for the node vector offsets, except mapping offset to node ID. 
+        map<size_t, nid_t> id_at_offset;
+        xg_index.for_each_handle([&](const handle_t& h) {
+            nid_t node = xg_index.get_id(h);
+            size_t offset = xg_index.node_vector_offset(node);
+            
+#ifdef debug
+            if (id_at_offset.count(offset)) {
+                cerr << "Found offset " << offset << " for node " << node << " occupied by " << id_at_offset.at(offset) << endl;
+            } else {
+                cerr << "Found free offset " << offset << " for node " << node << endl;
+            }
+            cerr << "Mapping back offset " << offset << " gives node " << xg_index.node_at_vector_offset(offset) << endl;
+#endif
+            
+            id_at_offset[offset] = node;
+        });
+        
+        // Make sure all the nodes have unique offsets.
+        REQUIRE(id_at_offset.size() == xg_index.get_node_count());
+        
+        for (auto& kv : id_at_offset) {
+            // Make sure each offset maps back to the right node.
+            REQUIRE(xg_index.node_at_vector_offset(kv.first) == kv.second);
+        }
+        
+        // Now make sure all intermediate offsets map properly.
+        auto it = id_at_offset.begin();
+        auto prev = it;
+        ++it;
+        while (it != id_at_offset.end()) {
+            // Go through adjacent node starts in sequence order
+            for (size_t i = prev->first; i < it->first; i++) {
+                // Every base before the first base of the next node should belong to the previous node.
+                nid_t node_at_i = xg_index.node_at_vector_offset(i);
+                
+#ifdef debug
+                cerr << "Base at index " << i << " maps to node " << node_at_i << endl;
+#endif
+                
+                REQUIRE(node_at_i == prev->second);
+            }
+            prev = it;
+            ++it;
+        }
+        
+    }
 }
 
 
