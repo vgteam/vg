@@ -4,6 +4,7 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include "io/save_handle_graph.hpp"
+#include "algorithms/topological_sort.hpp"
 
 namespace vg {
 // sets of MutablePathMutableHandleGraphs on disk
@@ -91,14 +92,17 @@ void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_r
     auto for_each_sequence = [&](const std::function<void(const std::string& seq, const nid_t& node_id)>& lambda) {
         for_each([&](HandleGraph* graph) {
             // For each graph in the set
-            graph->for_each_handle([&](const handle_t& h) {
+            
+            // Compute a topological order. The XG is much more efficient if the nodes are stored in topological order.
+            // TODO: Compute this only once and not each time we want to visit all the nodes during XG construction?
+            for (const handle_t& h : algorithms::topological_order(graph)) {
                 // For each node in the graph, tell the XG about it.
                 // Assume it is locally forward.
 #ifdef debug
                 cerr << "Yield node " << graph->get_id(h) << " sequence " << graph->get_sequence(h) << endl;
 #endif
                 lambda(graph->get_sequence(h), graph->get_id(h));
-            });
+            }
         });
     };
 

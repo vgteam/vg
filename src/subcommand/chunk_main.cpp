@@ -387,16 +387,25 @@ int main_chunk(int argc, char** argv) {
     }
     else if (id_range) {
         if (n_chunks) {
-            // determine the ranges from the xg index itself
+            // Determine the ranges from the source graph itself.
             // how many nodes per range?
             size_t node_count = graph->get_node_count();
-            // build own ranks so we can use formerly xg-specific code below on generic handle graph
+            size_t nodes_per_chunk = node_count / n_chunks;
+            
+            // We need to articulate our chunks in terms of ID ranges, but we
+            // have no guarantee that the graph we pull from will be in ID
+            // order. An XG probably ought to be in topological order anyway.
+            // So we pull all the IDs and sort them in a big vector in order to
+            // get the chunk ID breakpoints.
             vector<vg::id_t> rank_to_id(node_count + 1);
-            int i = 1;
+            size_t i = 1;
             graph->for_each_handle([&](handle_t handle) {
-                    rank_to_id[i++] = graph->get_id(handle);
-                });
-            int nodes_per_chunk = node_count / n_chunks;
+                rank_to_id[i++] = graph->get_id(handle);
+            });
+            
+            // Sort so we can find the nth ID easily
+            std::sort(rank_to_id.begin(), rank_to_id.end());
+            
             i = 1;
             // iterate through the node ranks to build the regions
             while (i < node_count) {
