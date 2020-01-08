@@ -702,12 +702,15 @@ int main_chunk(int argc, char** argv) {
                     gam_index->find(cursor, region_id_ranges, vg::io::emit_to<Alignment>(out_gam_file), fully_contained);
                 }
             } else {
-                // we're doing components, just use stl map, which we update here
-                subgraph->for_each_handle([&](handle_t sg_handle) {
-                        // note, if components overlap, this is arbitrary.  up to user to only use
-                        // path components if they are disjoint
-                        node_to_component[subgraph->get_id(sg_handle)] = i;
-                    });
+#pragma omp critical (node_to_component)
+                {
+                    // we're doing components, just use stl map, which we update here
+                    subgraph->for_each_handle([&](handle_t sg_handle) {
+                            // note, if components overlap, this is arbitrary.  up to user to only use
+                            // path components if they are disjoint
+                            node_to_component[subgraph->get_id(sg_handle)] = i;
+                        });
+                }
             }
         }
         // trace annotations
@@ -755,6 +758,9 @@ int main_chunk(int argc, char** argv) {
         vector<vector<Alignment>> output_buffers(num_regions);
         vector<bool> append_buffer(num_regions, false);
 
+        // protect our output buffers
+        std::mutex* output_buffer_locks = new std::mutex[num_regions];
+
         // We may have too many components to keep a buffer open for each one.  So we open them as-needed only when flushing.
         function<void(int32_t)> flush_gam_buffer = [&](int32_t comp_number) {
             string gam_name = chunk_name(out_chunk_prefix, comp_number, output_regions[comp_number], ".gam", 0, components);
@@ -771,10 +777,15 @@ int main_chunk(int argc, char** argv) {
         function<void(Alignment&)> chunk_gam_callback = [&](Alignment& aln) {
             // we're going to lose unmapped reads right here
             if (aln.path().mapping_size() > 0) {
-                int32_t aln_component = node_to_component[aln.path().mapping(0).position().node_id()];
-                output_buffers[aln_component].push_back(aln);
-                if (output_buffers[aln_component].size() >= output_buffer_size) {
-                    flush_gam_buffer(aln_component);
+                nid_t aln_node_id = aln.path().mapping(0).position().node_id();
+                unordered_map<nid_t, int32_t>::iterator comp_it = node_to_component.find(aln_node_id);                
+                if (comp_it != node_to_component.end()) {
+                    int32_t aln_component = comp_it->second;
+                    std::lock_guard<std::mutex> guard(output_buffer_locks[aln_component]);
+                    output_buffers[aln_component].push_back(aln);
+                    if (output_buffers[aln_component].size() >= output_buffer_size) {
+                        flush_gam_buffer(aln_component);
+                    }
                 }
             }
         };
@@ -787,10 +798,12 @@ int main_chunk(int argc, char** argv) {
 #pragma omp parallel for
         for (int32_t aln_component = 0; aln_component < num_regions; ++aln_component) {
             if (!output_buffers[aln_component].empty()) {
+                std::lock_guard<std::mutex> guard(output_buffer_locks[aln_component]);
                 flush_gam_buffer(aln_component);
             }
         }
-            
+
+        delete [] output_buffer_locks;
     }
     
     return 0;
