@@ -102,7 +102,6 @@ int main_chunk(int argc, char** argv) {
     bool id_range = false;
     string node_range_string;
     string node_ranges_file;
-    int threads = 1;
     bool trace = false;
     bool fully_contained = false;
     int n_chunks = 0;
@@ -245,9 +244,16 @@ int main_chunk(int argc, char** argv) {
             break;
 
         case 't':
-            threads = parse<int>(optarg);
+        {
+            int num_threads = parse<int>(optarg);
+            if (num_threads <= 0) {
+                cerr << "error:[vg chunk] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                exit(1);
+            }
+            omp_set_num_threads(num_threads);
             break;
-
+        }
+            
         case 'O':
             output_format = optarg;
             break;
@@ -263,13 +269,11 @@ int main_chunk(int argc, char** argv) {
         }
     }
 
-    omp_set_num_threads(threads);            
-
     // need at most one of -n, -p, -P, -e, -r, -R, -m  as an input
     if ((n_chunks == 0 ? 0 : 1) + (region_strings.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) + (in_bed_file.empty() ? 0 : 1) +
         (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) + (gam_split_size == 0 ? 0 : 1)  +
         (path_components ? 1 : 0) > 1) {
-        cerr << "error:[vg chunk] at most one of {-n, -p, -P, -e, -r, -R, -m} required to specify input regions" << endl;
+        cerr << "error:[vg chunk] at most one of {-n, -p, -P, -e, -r, -R, -m, '-M'} required to specify input regions" << endl;
         return 1;
     }
     // need -a if using -f
@@ -547,6 +551,7 @@ int main_chunk(int argc, char** argv) {
     vector<Region> output_regions(num_regions);
 
     // initialize chunkers
+    size_t threads = get_thread_count();;
     vector<PathChunker> chunkers(threads);
     for (auto& chunker : chunkers) {
         chunker.graph = graph;
