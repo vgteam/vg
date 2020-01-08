@@ -812,6 +812,7 @@ int main_chunk(int argc, char** argv) {
         for (size_t buffer_idx = 0; buffer_idx < num_buffers; ++buffer_idx) {
             if (!output_buffers[buffer_idx].empty()) {
                 flush_gam_buffer(buffer_idx);
+
             }
         }
 
