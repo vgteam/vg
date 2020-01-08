@@ -294,8 +294,8 @@ void help_gaffe(char** argv) {
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
     << "  -p, --progress                show progress" << endl
     << "input options:" << endl
-    << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE (may repeat)" << endl
-    << "  -f, --fastq-in FILE           read and align FASTQ-format reads from FILE (may repeat)" << endl
+    << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE" << endl
+    << "  -f, --fastq-in FILE           read and align FASTQ-format reads from FILE (two are allowed, one for each mate)" << endl
     << "  -i, --interleaved             GAM/FASTQ input is interleaved pairs, for paired-end alignment" << endl
     << "output options:" << endl
     << "  -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
@@ -351,11 +351,12 @@ int main_gaffe(int argc, char** argv) {
     bool progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_dp = true;
-    // What GAMs should we realign?
-    vector<string> gam_filenames;
+    // What GAM should we realign?
+    string gam_filename;
     // What FASTQs should we align.
     // Note: multiple FASTQs are not interpreted as paired.
-    vector<string> fastq_filenames;
+    string fastq_filename_1;
+    string fastq_filename_2;
     // Is the input interleaved/are we in paired-end mode?
     bool interleaved = false;
     // How many mappings per read can we emit?
@@ -492,11 +493,31 @@ int main_gaffe(int argc, char** argv) {
                 break;
                 
             case 'G':
-                gam_filenames.push_back(optarg);
+                gam_filename = optarg;
+                if (gam_filename.empty()) {
+                    cerr << "error:[vg gaffe] Must provide GAM file with -G." << endl;
+                    exit(1);
+                }
                 break;
             
             case 'f':
-                fastq_filenames.push_back(optarg);
+                if (fastq_filename_1.empty()) {
+                    fastq_filename_1 = optarg;
+                    if (fastq_filename_1.empty()) {
+                        cerr << "error:[vg gaffe] Must provide FASTQ file with -f." << endl;
+                        exit(1);
+                    }
+                }
+                else if (fastq_filename_2.empty()) {
+                    fastq_filename_2 = optarg;
+                    if (fastq_filename_2.empty()) {
+                        cerr << "error:[vg gaffe] Must provide FASTQ file with -f." << endl;
+                        exit(1);
+                    }
+                } else {
+                    cerr << "error:[vg gaffe] Cannot specify more than two FASTQ files." << endl;
+                    exit(1);
+                }
                 break;
 
             case 'i':
@@ -684,6 +705,16 @@ int main_gaffe(int argc, char** argv) {
     
     if (distance_name.empty()) {
         cerr << "error:[vg gaffe] Mapping requires a distance index (-d)" << endl;
+        exit(1);
+    }
+
+    if (interleaved && !fastq_filename_2.empty()) {
+        cerr << "error:[vg gaffe] Cannot designate both interleaved paired ends (-i) and separate paired end file (-f)." << endl;
+        exit(1);
+    }
+
+    if (!fastq_filename_1.empty() && !gam_filename.empty()) {
+        cerr << "error:[vg gaffe] Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << endl;
         exit(1);
     }
     
@@ -895,7 +926,8 @@ int main_gaffe(int argc, char** argv) {
             // Start timing overall mapping time now that indexes are loaded.
             start = std::chrono::system_clock::now();
 
-            if (interleaved) {
+            if (interleaved || !fastq_filename_2.empty()) {
+                //Map paired end from either one gam or fastq file or two fastq files
 
                 // a buffer to hold read pairs that can't be unambiguously mapped before the fragment length distribution
                 // is estimated
@@ -921,17 +953,20 @@ int main_gaffe(int argc, char** argv) {
                     }
                 };
 
-                for (auto& gam_name : gam_filenames) {
-                    // For every GAM file to remap
-                    get_input_file(gam_name, [&](istream& in) {
+                if (!gam_filename.empty()) {
+                    // GAM file to remap
+                    get_input_file(gam_filename, [&](istream& in) {
                         // Map pairs of reads to the emitter
                         vg::io::for_each_interleaved_pair_parallel_after_wait<Alignment>(in, map_read_pair, distribution_is_ready);
                     });
-                }
+                } else if (!fastq_filename_2.empty()) {
+                    //A pair of FASTQ files to map
+                    fastq_paired_two_files_for_each_parallel_after_wait(fastq_filename_1, fastq_filename_2, map_read_pair, distribution_is_ready);
 
-                for (auto& fastq_name : fastq_filenames) {
-                    // For every FASTQ file to map, map all its pairs in parallel.
-                    fastq_paired_interleaved_for_each_parallel_after_wait(fastq_name, map_read_pair, distribution_is_ready);
+
+                } else if ( !fastq_filename_1.empty()) {
+                    // An interleaved FASTQ file to map, map all its pairs in parallel.
+                    fastq_paired_interleaved_for_each_parallel_after_wait(fastq_filename_1, map_read_pair, distribution_is_ready);
                 }
 
                 //Now map all the ambiguous pairs
@@ -953,17 +988,17 @@ int main_gaffe(int argc, char** argv) {
                     reads_mapped_by_thread.at(omp_get_thread_num())++;
                 };
                     
-                for (auto& gam_name : gam_filenames) {
-                    // For every GAM file to remap
-                    get_input_file(gam_name, [&](istream& in) {
+                if (!gam_filename.empty()) {
+                    // GAM file to remap
+                    get_input_file(gam_filename, [&](istream& in) {
                         // Open it and map all the reads in parallel.
                         vg::io::for_each_parallel<Alignment>(in, map_read);
                     });
                 }
                 
-                for (auto& fastq_name : fastq_filenames) {
-                    // For every FASTQ file to map, map all its reads in parallel.
-                    fastq_unpaired_for_each_parallel(fastq_name, map_read);
+                if (!fastq_filename_1.empty()) {
+                    // FASTQ file to map, map all its reads in parallel.
+                    fastq_unpaired_for_each_parallel(fastq_filename_1, map_read);
                 }
             }
         
