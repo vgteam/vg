@@ -81,7 +81,8 @@ int main_combine(int argc, char** argv) {
                 {
                     // Try decompressing.
                     vg::io::BlockedGzipInputStream decompressed(in);
-                    if (vg::io::MessageIterator::sniff_tag(decompressed) == "VG") {
+                    if (decompressed.IsBGZF() && vg::io::MessageIterator::sniff_tag(decompressed) == "VG") {
+                        // We have Blocked GZIP which we can potentially just forward.
                         // It looks like compressed VG Protobuf data.
                         
                         // Decompress it all to stdout, using the ZeroCopyInputStream API.
@@ -101,6 +102,9 @@ int main_combine(int argc, char** argv) {
                         return;
                     }
                 }
+                
+                // We may have hit EOF.
+                in.clear();
                 
                 // If we get here, it wasn't compressed VG Protobuf.
                 // So we need to go back to the start of the file, since the decompressor read some.
