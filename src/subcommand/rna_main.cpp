@@ -28,7 +28,7 @@ void help_rna(char** argv) {
          << "    -l, --haplotypes FILE      project transcripts onto haplotypes in GBWT index file" << endl
          << "    -e, --use-embedded-paths   project transcripts onto embedded graph paths" << endl
          << "    -c, --do-not-collapse      do not collapse identical transcripts across haplotypes" << endl
-         << "    -d, --remove-non-gene      remove intergenic and intronic regions (removes reference paths if -a or -r)" << endl
+         << "    -d, --remove-non-gene      remove intergenic and intronic regions (deletes reference paths)" << endl
          << "    -o, --do-not-sort          do not topological sort and compact splice graph" << endl
          << "    -r, --add-ref-paths        add reference transcripts as embedded paths in the splice graph" << endl
          << "    -a, --add-non-ref-paths    add non-reference transcripts as embedded paths in the splice graph" << endl
@@ -201,6 +201,10 @@ int32_t main_rna(int32_t argc, char** argv) {
         return 1;       
     }
 
+    if (remove_non_transcribed && !add_reference_transcript_paths && !add_non_reference_transcript_paths) {
+
+        cerr << "[vg rna] WARNING: Reference paths are deleted when removing intergenic and intronic regions. Consider adding transcripts as embedded paths using --add-ref-paths and/or --add-non-ref-paths." << endl;
+    }
 
     double time_parsing_start = gcsa::readTimer();
     if (show_progress) { cerr << "[vg rna] Parsing graph file ..." << endl; }
@@ -223,7 +227,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         haplotype_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
     }
 
-    if (show_progress) { cerr << "[vg rna] Graph (and index) parsed in " << gcsa::readTimer() - time_parsing_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
+    if (show_progress) { cerr << "[vg rna] Graph " << ((!haplotype_index->empty()) ? "and GBWT index " : "") << "parsed in " << gcsa::readTimer() - time_parsing_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
 
     transcriptome.num_threads = num_threads;
     transcriptome.feature_type = feature_type;
@@ -234,7 +238,9 @@ int32_t main_rna(int32_t argc, char** argv) {
 
 
     double time_project_start = gcsa::readTimer();
-    if (show_progress) { cerr << "[vg rna] Parsing and projecting transcripts ..." << endl; }
+    if (show_progress) { cerr << "[vg rna] Projecting transcripts and adding novel splice-junctions to graph ..." << endl; }
+
+    int32_t num_transcripts_added = 0;
 
     // Add transcripts to transcriptome by projecting them onto embedded paths 
     // in a graph and/or haplotypes in a GBWT index. Augment graph with 
@@ -242,11 +248,11 @@ int32_t main_rna(int32_t argc, char** argv) {
     for (auto & filename: transcript_filenames) {
 
         get_input_file(filename, [&](istream& transcript_stream) {
-                   transcriptome.add_transcripts(transcript_stream, *haplotype_index);
+            num_transcripts_added += transcriptome.add_transcripts(transcript_stream, *haplotype_index);
         });
     }
 
-    if (show_progress) { cerr << "[vg rna] Transcripts parsed and projected in " << gcsa::readTimer() - time_project_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
+    if (show_progress) { cerr << "[vg rna] " << num_transcripts_added <<  " transcripts projected and junctions added " << ((transcriptome.splice_graph_node_updated()) ? "" : "(nodes unchanged) ") << "in " << gcsa::readTimer() - time_project_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
 
     // Release and delete GBWT index pointer.
     haplotype_index.reset(nullptr);
@@ -280,20 +286,21 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         if (add_reference_transcript_paths && add_non_reference_transcript_paths) {
 
-            if (show_progress) { cerr << "[vg rna] Adding all transcript paths to splice graph ..." << endl; }
+            if (show_progress) { cerr << "[vg rna] Adding transcripts as embedded paths in the splice graph ..." << endl; }
 
         } else {
 
-            if (show_progress) { cerr << "[vg rna] Adding " << ((add_reference_transcript_paths) ? "reference" : "non-reference") << " transcript paths to splice graph ..." << endl; }
+            if (show_progress) { cerr << "[vg rna] Adding " << ((add_reference_transcript_paths) ? "reference" : "non-reference") << " transcripts as embedded paths in the splice graph ..." << endl; }
         }
 
-        transcriptome.embed_transcript_paths(add_reference_transcript_paths, add_non_reference_transcript_paths, false);
+        auto num_embedded_paths = transcriptome.embed_transcript_paths(add_reference_transcript_paths, add_non_reference_transcript_paths);
 
-        if (show_progress) { cerr << "[vg rna] Paths added in " << gcsa::readTimer() - time_add_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
+        if (show_progress) { cerr << "[vg rna] " << num_embedded_paths << " paths added in " << gcsa::readTimer() - time_add_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
     }
 
 
     double time_writing_start = gcsa::readTimer();
+    int32_t num_written_transcripts = 0;
 
     // Construct and write GBWT index of transcript paths in transcriptome.
     if (!gbwt_out_filename.empty()) {
@@ -304,12 +311,15 @@ int32_t main_rna(int32_t argc, char** argv) {
         gbwt::Verbosity::set(gbwt::Verbosity::SILENT); 
         gbwt::GBWTBuilder gbwt_builder(gbwt::bit_length(gbwt::Node::encode(transcriptome.splice_graph().max_node_id(), true)));
 
-        transcriptome.construct_gbwt(&gbwt_builder, output_reference_transcript_paths, gbwt_add_bidirectional);
+        auto num_added_threads = transcriptome.construct_gbwt(&gbwt_builder, output_reference_transcript_paths, gbwt_add_bidirectional);
 
         // Finish contruction and recode index.
         gbwt_builder.finish();
 
         vg::io::VPKG::save(gbwt_builder.index, gbwt_out_filename);
+
+        assert(num_written_transcripts == num_added_threads || num_written_transcripts == 0);
+        num_written_transcripts = num_added_threads;
     }
 
     // Write transcript path sequences in transcriptome to fasta file.
@@ -319,8 +329,11 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         ofstream fasta_ostream;
         fasta_ostream.open(fasta_out_filename);
-        transcriptome.write_sequences(&fasta_ostream, output_reference_transcript_paths);
+        auto num_written_sequences = transcriptome.write_sequences(&fasta_ostream, output_reference_transcript_paths);
         fasta_ostream.close();
+
+        assert(num_written_transcripts == num_written_sequences || num_written_transcripts == 0);
+        num_written_transcripts = num_written_sequences;
     }    
 
     // Write origin info on transcripts in transcriptome to tsv file.
@@ -330,8 +343,11 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         ofstream info_ostream;
         info_ostream.open(info_out_filename);
-        transcriptome.write_info(&info_ostream, output_reference_transcript_paths);
+        auto num_written_info = transcriptome.write_info(&info_ostream, output_reference_transcript_paths);
         info_ostream.close();
+
+        assert(num_written_transcripts == num_written_info || num_written_transcripts == 0);
+        num_written_transcripts = num_written_info;
     }    
 
     if (show_progress) { cerr << "[vg rna] Writing splice graph to stdout ..." << endl; }
@@ -339,7 +355,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     // Write splice graph to stdout 
     transcriptome.write_splice_graph(&cout);
 
-    if (show_progress) { cerr << "[vg rna] Splice graph (and transcripts) written in " << gcsa::readTimer() - time_writing_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
+    if (show_progress) { cerr << "[vg rna] Splice graph " << ((!gbwt_out_filename.empty() || !fasta_out_filename.empty() || !info_out_filename.empty()) ? "and " + to_string(num_written_transcripts) + " transcripts " : "") << "written in " << gcsa::readTimer() - time_writing_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
 
     return 0;
 }

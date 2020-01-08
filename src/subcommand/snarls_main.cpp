@@ -33,11 +33,12 @@ void help_snarl(char** argv) {
          << "    -o, --top-level        restrict traversals to top level ultrabubbles" << endl
          << "    -a, --any-snarl-type   compute traversals for any snarl type (not limiting to ultrabubbles)" << endl
          << "    -m, --max-nodes N      only compute traversals for snarls with <= N nodes (with degree > 1) [10]" << endl
-         << "    -t, --include-trivial  report snarls that consist of a single edge" << endl
+         << "    -T, --include-trivial  report snarls that consist of a single edge" << endl
          << "    -s, --sort-snarls      return snarls in sorted order by node ID (for topologically ordered graphs)" << endl
          << "    -v, --vcf FILE         use vcf-based instead of exhaustive traversal finder with -r" << endl
          << "    -f  --fasta FILE       reference in FASTA format (required for SVs by -v)" << endl
-         << "    -i  --ins-fasta FILE   insertion sequences in FASTA format (required for SVs by -v)" << endl;
+         << "    -i  --ins-fasta FILE   insertion sequences in FASTA format (required for SVs by -v)" << endl
+         << "    -t, --threads N        number of threads to use [all available]" << endl;
 }
 
 int main_snarl(int argc, char** argv) {
@@ -72,17 +73,18 @@ int main_snarl(int argc, char** argv) {
                 {"top-level", no_argument, 0, 'o'},
                 {"any-snarl-type", no_argument, 0, 'a'},
                 {"max-nodes", required_argument, 0, 'm'},
-                {"include-trivial", no_argument, 0, 't'},
+                {"include-trivial", no_argument, 0, 'T'},
                 {"sort-snarls", no_argument, 0, 's'},
                 {"vcf", required_argument, 0, 'v'},
                 {"fasta", required_argument, 0, 'f'},
                 {"ins-fasta", required_argument, 0, 'i'},
+                {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "sr:latopm:v:f:i:h?",
+        c = getopt_long (argc, argv, "sr:laTopm:v:f:i:h?t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -112,7 +114,7 @@ int main_snarl(int argc, char** argv) {
             max_nodes = parse<int>(optarg);
             break;
             
-        case 't':
+        case 'T':
             filter_trivial_snarls = false;
             break;
             
@@ -131,7 +133,17 @@ int main_snarl(int argc, char** argv) {
         case 'i':
             ins_fasta_filename = optarg;
             break;
-            
+
+        case 't':
+        {
+            int num_threads = parse<int>(optarg);
+            if (num_threads <= 0) {
+                cerr << "error:[vg snarls] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                exit(1);
+            }
+            omp_set_num_threads(num_threads);
+            break;
+        }
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -209,7 +221,7 @@ int main_snarl(int argc, char** argv) {
     }
     
     // Load up all the snarls
-    SnarlManager snarl_manager = snarl_finder->find_snarls();
+    SnarlManager snarl_manager = snarl_finder->find_snarls_parallel();
     vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
     if (fill_path_names){
         // This finder needs a vg::VG

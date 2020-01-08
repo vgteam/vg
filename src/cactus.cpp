@@ -203,7 +203,8 @@ void addArbitraryTelomerePair(vector<stCactusEdgeEnd*> ends, stList *telomeres) 
 // Step 2) Make a Cactus Graph. Returns the graph and a list of paired
 // cactusEdgeEnd telomeres, one after the other. Both members of the return
 // value must be destroyed.
-pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& graph, const unordered_set<string>& hint_paths) {
+pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& graph, const unordered_set<string>& hint_paths,
+                                                     bool single_component) {
 
     // in a cactus graph, every node is an adjacency component.
     // every edge is a *vg* node connecting the component
@@ -264,7 +265,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& grap
                 cac_side2->node = other_node_id;
                 cac_side2->is_end = other_is_end;
 #ifdef debug
-                cerr << "Creating cactus edge for sides " << pb2json(graph.to_visit(side)) << " -- " << pb2json(graph.to_visit(other_side)) << ": " << i << " -> " << j << endl;
+                //cerr << "Creating cactus edge for sides " << pb2json(graph.to_visit(side)) << " -- " << pb2json(graph.to_visit(other_side)) << ": " << i << " -> " << j << endl;
 #endif
                 
                 // We get the cactusEdgeEnd corresponding to the side stored in side.
@@ -289,7 +290,16 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& grap
     
     // Now we decide on telomere pairs.
     // We need one for each weakly connected component in the graph, so first we break into connected components.
-    vector<unordered_set<id_t>> weak_components_all = algorithms::weakly_connected_components(&graph);
+    vector<unordered_set<id_t>> weak_components_all;
+    if (single_component == false) {
+        weak_components_all = algorithms::weakly_connected_components(&graph);
+    } else {
+        // the calling funciton knows it's just one component, so we skip the calculation
+        weak_components_all.resize(1);
+        graph.for_each_handle([&weak_components_all, &graph](handle_t handle) {
+                weak_components_all[0].insert(graph.get_id(handle));
+            });
+    }
 
     // If we feed size 1 components through to Cactus it will apparently crash.
     bool warned = false;

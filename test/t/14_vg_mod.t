@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 34
+plan tests 32
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep "^P" | cut -f 3 | grep -o "[0-9]\+" |  wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep "^S" | wc -l) \
@@ -61,10 +61,6 @@ vg mod -u s2.vg >/dev/null
 is $? 0 "mod successfully unchops a difficult graph"
 rm -f s.vg s2.vg
 
-is $(vg msga -w 20 -f msgas/s.fa  | vg mod -r s1 - | vg view - | grep ^P | cut -f 3 | sort | uniq | wc -l) 1 "a single path may be retained"
-
-is $(vg msga -w 20 -f msgas/s.fa | vg mod -r s1 - | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) $(vg msga -w 20 -f msgas/s.fa  | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) "path filtering does not modify the graph"
-
 vg msga -f msgas/l.fa -b a1 -w 16 | vg mod -X 8 - | vg validate -
 is $? 0 "chopping self-cycling nodes retains the cycle"
 
@@ -91,7 +87,7 @@ is $? 0 "dagify unrolls the un-unrollable graph"
 vg mod -s graphs/not-simple.vg | vg validate -
 is $? 0 "sibling simplification does not disrupt paths"
 
-vg msga -g <(vg msga -f msgas/cycle.fa -b s1 -w 19 -O 18 -k 4 -t 1 | vg mod -D - | vg mod -U 10 -) -f msgas/cycle.fa -t 1 | vg mod -N - | vg mod -D - | vg mod -U 10 - >c.vg
+vg msga -g <(vg msga -f msgas/cycle.fa -b s1 -w 19 -O 18 -k 4 -t 1 | vg paths -d -v - | vg mod -U 10 -) -f msgas/cycle.fa -t 1 | vg mod -N - | vg paths -d -v - | vg mod -U 10 - >c.vg
 is $(cat c.vg | vg mod -w 100 - | vg stats -N -) 4 "dagify correctly calculates the minimum distance through the unrolled component"
 is $(cat c.vg | vg mod -w 100 - | vg stats -l - | cut -f 2) 200 "dagify produces a graph of the correct size"
 rm -f c.vg

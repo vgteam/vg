@@ -32,9 +32,9 @@ SHOW_OPT=""
 # What toil-vg should we install?
 TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@9e7844dd75515fae81686f3c24c7273e4a5f5f2e"
 # What toil should we install?
-# Could be something like "toil[aws,mesos]==3.13.0"
+# Could be something like "toil[aws,mesos]==3.20.0"
 # or "git+https://github.com/adamnovak/toil.git@2b696bec34fa1381afdcf187456571d2b41f3842#egg=toil[aws,mesos]"
-TOIL_PACKAGE="toil[aws,mesos]==3.13.0"
+TOIL_PACKAGE="toil[aws,mesos]==3.20.0"
 # What tests should we run?
 # Should be something like "vgci/vgci.py::VGCITest::test_sim_brca2_snp1kg_mpmap"
 # Must have the Python file in it or Pytest can't find the tests.
@@ -243,7 +243,7 @@ then
         make include/vg_git_version.hpp
 
         docker pull ubuntu:18.04
-        docker build --no-cache -t "${DOCKER_TAG}" -f vgci/Dockerfile.vgci .
+        docker build --no-cache -t "${DOCKER_TAG}" -f Dockerfile .
         if [ "$?" -ne 0 ]
         then
             echo "vg docker build fail"
