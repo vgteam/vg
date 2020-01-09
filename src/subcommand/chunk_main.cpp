@@ -102,7 +102,6 @@ int main_chunk(int argc, char** argv) {
     bool id_range = false;
     string node_range_string;
     string node_ranges_file;
-    int threads = 1;
     bool trace = false;
     bool fully_contained = false;
     int n_chunks = 0;
@@ -245,9 +244,16 @@ int main_chunk(int argc, char** argv) {
             break;
 
         case 't':
-            threads = parse<int>(optarg);
+        {
+            int num_threads = parse<int>(optarg);
+            if (num_threads <= 0) {
+                cerr << "error:[vg chunk] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                exit(1);
+            }
+            omp_set_num_threads(num_threads);
             break;
-
+        }
+            
         case 'O':
             output_format = optarg;
             break;
@@ -263,13 +269,11 @@ int main_chunk(int argc, char** argv) {
         }
     }
 
-    omp_set_num_threads(threads);            
-
     // need at most one of -n, -p, -P, -e, -r, -R, -m  as an input
     if ((n_chunks == 0 ? 0 : 1) + (region_strings.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) + (in_bed_file.empty() ? 0 : 1) +
         (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) + (gam_split_size == 0 ? 0 : 1)  +
         (path_components ? 1 : 0) > 1) {
-        cerr << "error:[vg chunk] at most one of {-n, -p, -P, -e, -r, -R, -m} required to specify input regions" << endl;
+        cerr << "error:[vg chunk] at most one of {-n, -p, -P, -e, -r, -R, -m, '-M'} required to specify input regions" << endl;
         return 1;
     }
     // need -a if using -f
@@ -547,6 +551,7 @@ int main_chunk(int argc, char** argv) {
     vector<Region> output_regions(num_regions);
 
     // initialize chunkers
+    size_t threads = get_thread_count();
     vector<PathChunker> chunkers(threads);
     for (auto& chunker : chunkers) {
         chunker.graph = graph;
@@ -752,26 +757,34 @@ int main_chunk(int argc, char** argv) {
     // write out component gams
     if (chunk_gam && components) {
 
-        // adapt output buffer size to not use too much total memory
+        // buffer size of each component, total across threads
         static const size_t output_buffer_total_size = 100000;
-        size_t output_buffer_size = max((size_t)1, output_buffer_total_size / num_regions);        
-        vector<vector<Alignment>> output_buffers(num_regions);
+        // split the buffer into threads
+        size_t output_buffer_size = max((size_t)1, output_buffer_total_size / threads);
+        // number of thread_buffers
+        size_t num_buffers = num_regions * threads;
+        
+        vector<vector<Alignment>> output_buffers(num_buffers);
         vector<bool> append_buffer(num_regions, false);
 
         // protect our output buffers
         std::mutex* output_buffer_locks = new std::mutex[num_regions];
 
         // We may have too many components to keep a buffer open for each one.  So we open them as-needed only when flushing.
-        function<void(int32_t)> flush_gam_buffer = [&](int32_t comp_number) {
+        function<void(size_t)> flush_gam_buffer = [&](size_t buffer_idx) {
+            size_t comp_number = buffer_idx / threads;
             string gam_name = chunk_name(out_chunk_prefix, comp_number, output_regions[comp_number], ".gam", 0, components);
-            ofstream out_gam_file(gam_name, append_buffer[comp_number] ? std::ios_base::app : std::ios_base::out);
-            if (!out_gam_file) {
-                cerr << "error[vg chunk]: can't open output gam file " << gam_name << endl;
-                exit(1);
+            {
+                std::lock_guard<std::mutex> guard(output_buffer_locks[comp_number]);
+                ofstream out_gam_file(gam_name, append_buffer[comp_number] ? std::ios_base::app : std::ios_base::out);
+                if (!out_gam_file) {
+                    cerr << "error[vg chunk]: can't open output gam file " << gam_name << endl;
+                    exit(1);
+                }
+                vg::io::write_buffered(out_gam_file, output_buffers[buffer_idx], output_buffers[buffer_idx].size());
+                append_buffer[comp_number] = true;
             }
-            vg::io::write_buffered(out_gam_file, output_buffers[comp_number], output_buffers[comp_number].size());
-            append_buffer[comp_number] = true;
-            output_buffers[comp_number].clear();
+            output_buffers[buffer_idx].clear();
         };
         
         function<void(Alignment&)> chunk_gam_callback = [&](Alignment& aln) {
@@ -781,10 +794,10 @@ int main_chunk(int argc, char** argv) {
                 unordered_map<nid_t, int32_t>::iterator comp_it = node_to_component.find(aln_node_id);                
                 if (comp_it != node_to_component.end()) {
                     int32_t aln_component = comp_it->second;
-                    std::lock_guard<std::mutex> guard(output_buffer_locks[aln_component]);
-                    output_buffers[aln_component].push_back(aln);
-                    if (output_buffers[aln_component].size() >= output_buffer_size) {
-                        flush_gam_buffer(aln_component);
+                    size_t buffer_idx = aln_component * threads + omp_get_thread_num();
+                    output_buffers[buffer_idx].push_back(aln);
+                    if (output_buffers[buffer_idx].size() >= output_buffer_size) {
+                        flush_gam_buffer(buffer_idx);
                     }
                 }
             }
@@ -796,10 +809,10 @@ int main_chunk(int argc, char** argv) {
                 });
         }
 #pragma omp parallel for
-        for (int32_t aln_component = 0; aln_component < num_regions; ++aln_component) {
-            if (!output_buffers[aln_component].empty()) {
-                std::lock_guard<std::mutex> guard(output_buffer_locks[aln_component]);
-                flush_gam_buffer(aln_component);
+        for (size_t buffer_idx = 0; buffer_idx < num_buffers; ++buffer_idx) {
+            if (!output_buffers[buffer_idx].empty()) {
+                flush_gam_buffer(buffer_idx);
+
             }
         }
 

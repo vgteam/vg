@@ -68,7 +68,7 @@ vg construct -r small/xy.fa -v small/xy.vcf.gz -R y > y.vg
 vg ids -j x.vg y.vg
 vg sim -x x.vg -n 50 -a > x.gam
 vg sim -x y.vg -n 100 -a > y.gam
-cat x.gam y.gam >> xy.gam
+cat x.gam y.gam > xy.gam
 # test that exploding into components works
 vg chunk -x xy.vg -M -b path_chunk -O hg -a xy.gam -g
 vg view x.vg | grep "^S" | awk '{print $3}' | sort > x_nodes.txt
