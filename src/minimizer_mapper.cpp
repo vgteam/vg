@@ -1383,6 +1383,11 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     paired_alignments.reserve(alignments.size());
     paired_scores.reserve(alignments.size());
 
+    //TODO: Might want to get rid of this
+    //Keep track of alignments with no pairs in the same fragment cluster and if there is no pair,
+    //keep the best unpaired alignment
+    bool found_pair = false;
+    pair<vector<size_t>, vector<size_t>> unpaired_fragments;
 
     for (size_t fragment_num = 0 ; fragment_num < alignments.size() ; fragment_num ++ ) {
         //Get pairs of plausible alignments
@@ -1391,6 +1396,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         pair<vector<pair<Alignment, size_t>>, vector<pair<Alignment, size_t>>>& fragment_alignments = alignments[fragment_num];
         if (!fragment_alignments.first.empty() && ! fragment_alignments.second.empty()) {
             //Only keep pairs of alignments that were in the same fragment cluster
+            found_pair = true;
             for (size_t i1 = 0 ; i1 < fragment_alignments.first.size() ; i1++)  {
                 Alignment& alignment1 = fragment_alignments.first[i1].first;
                 size_t j1 = fragment_alignments.first[i1].second;
@@ -1419,6 +1425,13 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 }
             }
             //TODO: We could also do something with unpaired clusters here.
+        } else {
+            if (!fragment_alignments.first.empty()) {
+                unpaired_fragments.first.push_back(fragment_num);
+            } else if (!fragment_alignments.second.empty()) {
+                unpaired_fragments.second.push_back(fragment_num);
+            }
+
         }/* else {
             if (track_provenance) {
                 if (fragment_alignments.first.empty()) {
@@ -1434,6 +1447,52 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             }
         }*/
     }
+    if (!found_pair){
+        Alignment best1 = aln1;
+        Alignment best2 = aln2;
+        best1.clear_refpos();
+        best1.clear_path();
+        best1.set_score(0);
+        best1.set_identity(0);
+        best1.set_mapping_quality(0);
+        best2.clear_refpos();
+        best2.clear_path();
+        best2.set_score(0);
+        best2.set_identity(0);
+        best2.set_mapping_quality(0);
+        for (size_t fragment_num : unpaired_fragments.first) {
+            for (size_t i = 0 ; i < alignments[fragment_num].first.size() ; i++) {
+                Alignment& alignment1 = alignments[fragment_num].first[i].first;
+                if (alignment1.score() > best1.score()) {
+                    best1 = alignment1;
+                }
+            }
+        }
+        for (size_t fragment_num : unpaired_fragments.second) {
+            for (size_t i = 0 ; i < alignments[fragment_num].second.size() ; i++) {
+                Alignment& alignment2 = alignments[fragment_num].second[i].first;
+                if (alignment2.score() > best2.score()) {
+                    best2 = alignment2;
+                }
+            }
+        }
+
+        pair<vector<Alignment>, vector<Alignment>> paired_mappings;
+        paired_mappings.first.emplace_back(best1);
+        paired_mappings.second.emplace_back(best2);
+            // Flip aln2 back to input orientation
+            reverse_complement_alignment_in_place(&paired_mappings.second.back(), [&](vg::id_t node_id) {
+                return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
+            });
+            // Make sure to clamp 0-60.
+            // TODO: Maybe don't just give them the same mapq
+
+            paired_mappings.first.back().set_mapping_quality(1);
+            paired_mappings.second.back().set_mapping_quality(1);
+        return paired_mappings;
+
+    }
+
     
     
     if (track_provenance) {
