@@ -9,6 +9,7 @@
 #include "handle.hpp"
 #include "index.hpp"
 #include "xg.hpp"
+#include "vg.hpp"
 #include "kmer.hpp"
 
 

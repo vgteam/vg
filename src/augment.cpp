@@ -239,11 +239,8 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                     //if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
                     auto s1 = graph->get_handle(m1.position().node_id(), m1.position().is_reverse());
                     auto s2 = graph->get_handle(m2.position().node_id(), m2.position().is_reverse());
-                    // check that we always have an edge between the two nodes in the correct direction
-                    if (!graph->has_edge(s1, s2)) {
-                        // force these edges in
-                        graph->create_edge(s1, s2);
-                    }
+                    // Ensure that we always have an edge between the two nodes in the correct direction
+                    graph->create_edge(s1, s2);
                 }
 
                 // optionally write out the modified path to GAM
@@ -267,16 +264,9 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
             graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
                     handle_t handle = graph->get_handle_of_step(step_handle);
                     if (i > 0) {
-                        if (!graph->has_edge(graph->get_handle_of_step(prev_handle), handle)) {
-#ifdef debug
-                            cerr << "edge missing! " << graph->get_id(graph->get_handle_of_step(prev_handle)) << ","
-                                 << graph->get_is_reverse(graph->get_handle_of_step(prev_handle)) << " -> "
-                                 << graph->get_id(handle) << "," << graph->get_is_reverse(handle) << endl;
-#endif
-                            // force these edges in
-                            graph->create_edge(graph->get_handle_of_step(prev_handle), handle);
-                            
-                        }
+                        // Ensure the edge that the path follows exists.
+                        // TODO: Should this be an error if it doesn't exist instead?
+                        graph->create_edge(graph->get_handle_of_step(prev_handle), handle);
                     }
                     prev_handle = step_handle;
                 });
@@ -977,9 +967,9 @@ Path add_nodes_and_edges(MutableHandleGraph* graph,
                     cerr << "Connecting " << dangler << " and " << to_attach << endl;
 #endif
                     // Add an edge from the dangling NodeSide to the start of this new node
-                    graph->create_edge(graph->get_handle(dangler.node, !dangler.is_end),
-                                       graph->get_handle(to_attach.node, to_attach.is_end));
-
+                    auto from_handle = graph->get_handle(dangler.node, !dangler.is_end);
+                    auto to_handle = graph->get_handle(to_attach.node, to_attach.is_end);
+                    graph->create_edge(from_handle, to_handle);
                 }
 
                 // Dangle the late-in-the-alignment end of this run of new nodes
@@ -1027,8 +1017,9 @@ Path add_nodes_and_edges(MutableHandleGraph* graph,
 #endif
 
                     // Connect the left end of the left node we matched in the direction we matched it
-                    graph->create_edge(graph->get_handle(dangler.node, !dangler.is_end),
-                                       graph->get_handle(left_node,  m.position().is_reverse()));
+                    auto from_handle = graph->get_handle(dangler.node, !dangler.is_end);
+                    auto to_handle = graph->get_handle(left_node,  m.position().is_reverse());
+                    graph->create_edge(from_handle, to_handle);
                 }
 
                 // Dangle the right end of the right node in the direction we matched it.

@@ -14,8 +14,12 @@
 #include "subcommand.hpp"
 #include "../algorithms/distance_to_head.hpp"
 #include "../algorithms/distance_to_tail.hpp"
+#include "../algorithms/is_acyclic.hpp"
+#include "../algorithms/strongly_connected_components.hpp"
+#include "../algorithms/weakly_connected_components.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
+#include "../convert_handle.hpp"
 #include "../handle.hpp"
 
 #include "../path.hpp"
@@ -28,7 +32,7 @@ using namespace vg::subcommand;
 using namespace vg::algorithms;
 
 void help_stats(char** argv) {
-    cerr << "usage: " << argv[0] << " stats [options] [<graph.vg>]" << endl
+    cerr << "usage: " << argv[0] << " stats [options] [<graph file>]" << endl
          << "options:" << endl
          << "    -z, --size            size of graph" << endl
          << "    -N, --node-count      number of nodes in graph" << endl
@@ -37,7 +41,6 @@ void help_stats(char** argv) {
          << "    -s, --subgraphs       describe subgraphs of graph" << endl
          << "    -H, --heads           list the head nodes of the graph" << endl
          << "    -T, --tails           list the tail nodes of the graph" << endl
-         << "    -S, --siblings        describe the siblings of each node" << endl
          << "    -c, --components      print the strongly connected components of the graph" << endl
          << "    -A, --is-acyclic      print if the graph is acyclic or not" << endl
          << "    -n, --node ID         consider node with the given id" << endl
@@ -96,7 +99,6 @@ int main_stats(int argc, char** argv) {
             {"heads", no_argument, 0, 'H'},
             {"tails", no_argument, 0, 'T'},
             {"help", no_argument, 0, 'h'},
-            {"siblings", no_argument, 0, 'S'},
             {"components", no_argument, 0, 'c'},
             {"to-head", no_argument, 0, 'd'},
             {"to-tail", no_argument, 0, 't'},
@@ -112,7 +114,7 @@ int main_stats(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEa:vAro:OR",
+        c = getopt_long (argc, argv, "hzlsHTcdtn:NEa:vAro:OR",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -208,11 +210,12 @@ int main_stats(int argc, char** argv) {
         }
     }
 
-    unique_ptr<VG> graph;
+    unique_ptr<PathHandleGraph> graph;
     if (have_input_file(optind, argc, argv)) {
         // We have an (optional, because we can just process alignments) graph input file.
-        // TODO: We can only handle vg until we route all the stats operations through HandleGraph.
-        graph = vg::io::VPKG::load_one<VG>(get_input_file_name(optind, argc, argv));
+        // TODO: we can load any PathHandleGraph, but some operations still require a VG
+        // In those cases, we convert back to vg::VG
+        graph = vg::io::VPKG::load_one<PathHandleGraph>(get_input_file_name(optind, argc, argv));
     }
     
     // We have function to make sure the graph was passed and complain if not
@@ -226,61 +229,84 @@ int main_stats(int argc, char** argv) {
 
     if (stats_size) {
         require_graph();
-        cout << "nodes" << "\t" << graph->node_count() << endl
-            << "edges" << "\t" << graph->edge_count() << endl;
+        cout << "nodes" << "\t" << graph->get_node_count() << endl
+            << "edges" << "\t" << graph->get_edge_count() << endl;
     }
 
     if (node_count) {
         require_graph();
-        cout << graph->node_count() << endl;
+        cout << graph->get_node_count() << endl;
     }
 
     if (edge_count) {
         require_graph();
-        cout << graph->edge_count() << endl;
+        cout << graph->get_edge_count() << endl;
     }
 
     if (stats_length) {
         require_graph();
-        cout << "length" << "\t" << graph->total_length_of_nodes() << endl;
+        cout << "length" << "\t" << graph->get_total_length() << endl;
     }
 
     if (stats_heads) {
         require_graph();
-        vector<Node*> heads;
-        graph->head_nodes(heads);
+        vector<handle_t> heads = algorithms::head_nodes(graph.get());
         cout << "heads" << "\t";
-        for (vector<Node*>::iterator h = heads.begin(); h != heads.end(); ++h) {
-            cout << (*h)->id() << " ";
+        for (auto& h : heads) {
+            cout << graph->get_id(h) << " ";
         }
         cout << endl;
     }
 
     if (stats_tails) {
         require_graph();
-        vector<Node*> tails;
-        graph->tail_nodes(tails);
+        vector<handle_t> tails = algorithms::tail_nodes(graph.get());
         cout << "tails" << "\t";
-        for (vector<Node*>::iterator t = tails.begin(); t != tails.end(); ++t) {
-            cout << (*t)->id() << " ";
+        for (auto& t : tails) {
+            cout << graph->get_id(t) << " ";
         }
         cout << endl;
     }
 
     if (stats_subgraphs) {
         require_graph();
-        list<VG> subgraphs;
-        graph->disjoint_subgraphs(subgraphs);
-        // these are topologically-sorted
-        for (list<VG>::iterator s = subgraphs.begin(); s != subgraphs.end(); ++s) {
-            VG& subgraph = *s;
-            vector<Node*> heads;
-            subgraph.head_nodes(heads);
-            int64_t length = subgraph.total_length_of_nodes();
-            for (vector<Node*>::iterator h = heads.begin(); h != heads.end(); ++h) {
-                cout << (h==heads.begin()?"":",") << (*h)->id();
+        
+        // TODO: Pretty sure "subgraphs" means "weakly connected components",
+        // but this isn't really explained.
+        
+        vector<pair<unordered_set<nid_t>, vector<handle_t>>> subgraphs_with_tips =
+            algorithms::weakly_connected_components_with_tips(graph.get());
+        
+        for (auto& subgraph_and_tips : subgraphs_with_tips) {
+            // For each subgraph set and its inward tip handles
+            auto& subgraph = subgraph_and_tips.first;
+            auto& tips = subgraph_and_tips.second;
+            
+            // Decide if we need a comma before us or not
+            bool first = true;
+            for (handle_t& tip : tips) {
+                // Print all the IDs of heads
+                if (graph->get_is_reverse(tip)) {
+                    // Heads are locally forward, so this isn't one.
+                    // TODO: subgraphs with only tails get no identification.
+                    continue;
+                }
+                if (!first) {
+                    cout << ",";
+                } else {
+                    first = false;
+                }
+                cout << graph->get_id(tip);
             }
-            cout << "\t" << length << endl;
+            cout << "\t";
+            
+            // Now we need the total length. TODO: can we do a batch lookup?
+            size_t total_length = 0;
+            for (auto& id : subgraph) {
+                total_length += graph->get_length(graph->get_handle(id));
+            }
+            
+            cout << total_length << endl;
         }
     }
 
@@ -289,21 +315,9 @@ int main_stats(int argc, char** argv) {
         cout << "node-id-range\t" << graph->min_node_id() << ":" << graph->max_node_id() << endl;
     }
 
-    if (show_sibs) {
-        require_graph();
-        graph->for_each_node([&graph](Node* n) {
-                for (auto trav : graph->full_siblings_to(NodeTraversal(n, false))) {
-                    cout << n->id() << "\t" << "to-sib" << "\t" << trav.node->id() << endl;
-                }
-                for (auto trav : graph->full_siblings_from(NodeTraversal(n, false))) {
-                    cout << n->id() << "\t" << "from-sib" << "\t" << trav.node->id() << endl;
-                }
-            });
-    }
-
     if (show_components) {
         require_graph();
-        for (auto& c : graph->strongly_connected_components()) {
+        for (auto& c : algorithms::strongly_connected_components(graph.get())) {
             for (auto& id : c) {
                 cout << id << ", ";
             }
@@ -313,7 +327,7 @@ int main_stats(int argc, char** argv) {
 
     if (is_acyclic) {
         require_graph();
-        if (graph->is_acyclic()) {
+        if (algorithms::is_acyclic(graph.get())) {
             cout << "acyclic" << endl;
         } else {
             cout << "cyclic" << endl;
@@ -340,6 +354,17 @@ int main_stats(int argc, char** argv) {
 
     if (!paths_to_overlap.empty() || overlap_all_paths) {
         require_graph();
+        
+        VG* vg_graph = dynamic_cast<VG*>(graph.get());
+        if (vg_graph == nullptr) {
+            // TODO: This path overlap code can be handle-ified, and should be.
+            vg_graph = new vg::VG();
+            convert_path_handle_graph(graph.get(), vg_graph);
+            // Give the unique_ptr ownership and delete the graph we loaded.
+            graph.reset(vg_graph);
+            // Make sure the paths are all synced up
+            vg_graph->paths.to_graph(vg_graph->graph);
+        }
     
         auto cb = [&](const Path& p1, const Path& p2) {
             // sparse storage of the correspondence matrix
@@ -392,17 +417,17 @@ int main_stats(int argc, char** argv) {
         cout << "comparison" << "\t" << "x" << "\t" << "y" << endl;
         vector<string> path_names;
         if (overlap_all_paths) {
-            path_names = graph->paths.all_path_names();
+            path_names = vg_graph->paths.all_path_names();
         } else {
             path_names = paths_to_overlap;
         }
         for (auto& p1_name : path_names) {
-            Path p1 = graph->paths.path(p1_name);
+            Path p1 = vg_graph->paths.path(p1_name);
             for (auto& p2_name : path_names) {
                 if (p1_name == p2_name) {
                     continue;
                 }
-                Path p2 = graph->paths.path(p2_name);
+                Path p2 = vg_graph->paths.path(p2_name);
                 cb(p1, p2);
             }
         }
@@ -522,51 +547,57 @@ int main_stats(int argc, char** argv) {
             // is statistically significant. For this, we need to track how many
             // reads overlap the distinct parts of allele paths.
 
-            graph->for_each_node_parallel([&](Node* node) {
-                // For every node
+            graph->for_each_handle([&](handle_t node) {
+                // For every node in parallel
 
-                if(!graph->paths.has_node_mapping(node)) {
-                    // No paths to go over. If we try and get them we'll be
-                    // modifying the paths in parallel, which will explode.
-                    return;
-                }
-
-                // We want an allele path on it
+                // We want a unique allele path on it
                 string allele_path;
-                for(auto& name_and_mappings : graph->paths.get_node_mapping_by_path_name(node)) {
-                    // For each path on it
-                    if(Paths::is_alt(name_and_mappings.first)) {
-                        // If it's an allele path
+                
+                graph->for_each_step_on_handle(node, [&](const step_handle_t& step) -> bool {
+                    // Get the name of every patht hat goes here (some may repeat)
+                    auto path_name = graph->get_path_name(graph->get_path_handle_of_step(step));
+                    
+                    if(Paths::is_alt(path_name) && path_name != allele_path) {
+                        // If it's a new/distinct allele path
                         if(allele_path.empty()) {
                             // It's the first. Take it.
-                            allele_path = name_and_mappings.first;
+                            allele_path = path_name;
+                            // Check for more overlappin alt paths
+                            return true;
                         } else {
                             // It's a subsequent one. This node is not uniquely part
-                            // of any allele path.
-                            return;
+                            // of any allele path. So we want to skip the node.
+                            allele_path.clear();
+                            return false;
                         }
                     }
+                    
+                    // If not an alt, keep going
+                    return true;
+                });
+                
+                if (allele_path.empty()) {
+                    // We did not find a unique overlapping allele path.
+                    // Skip the node.
+                    return;
                 }
+                
+                // We found an allele path for this node
 
-                if(!allele_path.empty()) {
-                    // We found an allele path for this node
-
-                    // Get its site and allele so we can count it as a biallelic
-                    // site. Note that sites where an allele has no unique nodes
-                    // (pure indels, for example) can't be handled and will be
-                    // ignored.
-                    auto site = path_name_to_site(allele_path);
-                    auto allele = path_name_to_allele(allele_path);
+                // Get its site and allele so we can count it as a biallelic
+                // site. Note that sites where an allele has no unique nodes
+                // (pure indels, for example) can't be handled and will be
+                // ignored.
+                auto site = path_name_to_site(allele_path);
+                auto allele = path_name_to_allele(allele_path);
 
 
-                    #pragma omp critical (allele_path_for_node)
-                    allele_path_for_node[node->id()] = make_pair(site, allele);
+                #pragma omp critical (allele_path_for_node)
+                allele_path_for_node[graph->get_id(node)] = make_pair(site, allele);
 
-                    #pragma omp critical (reads_on_allele)
-                    combined.reads_on_allele[site][allele] = 0;
-                }
-            });
-            
+                #pragma omp critical (reads_on_allele)
+                combined.reads_on_allele[site][allele] = 0;
+            }, true);
         }
 
         // Allocate per-thread storage for stats
@@ -767,27 +798,32 @@ int main_stats(int argc, char** argv) {
                 }
             }
 
-            graph->for_each_node_parallel([&](Node* node) {
+            graph->for_each_handle([&](handle_t node) {
                 // For every node
-                if(!combined.node_visit_counts.count(node->id()) || combined.node_visit_counts.at(node->id()) == 0) {
+                
+                // Look up its stats
+                nid_t id = graph->get_id(node);
+                size_t length = graph->get_length(node);
+                
+                if(!combined.node_visit_counts.count(id) || combined.node_visit_counts.at(id) == 0) {
                     // If we never visited it with a read, count it.
                     #pragma omp critical (unvisited_nodes)
                     unvisited_nodes++;
                     #pragma omp critical (unvisited_node_bases)
-                    unvisited_node_bases += node->sequence().size();
+                    unvisited_node_bases += length;
                     if(verbose) {
                         #pragma omp critical (unvisited_ids)
-                        unvisited_ids.insert(node->id());
+                        unvisited_ids.insert(id);
                     }
-                } else if(combined.node_visit_counts.at(node->id()) == 1) {
+                } else if(combined.node_visit_counts.at(id) == 1) {
                     // If we visited it with only one read, count it.
                     #pragma omp critical (single_visited_nodes)
                     single_visited_nodes++;
                     #pragma omp critical (single_visited_node_bases)
-                    single_visited_node_bases += node->sequence().size();
+                    single_visited_node_bases += length;
                     if(verbose) {
                         #pragma omp critical (single_visited_ids)
-                        single_visited_ids.insert(node->id());
+                        single_visited_ids.insert(id);
                     }
                 }
             });
@@ -831,7 +867,7 @@ int main_stats(int argc, char** argv) {
         }
 
         if (graph.get() != nullptr) {
-            cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph->node_count()
+            cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph->get_node_count()
                 << " (" << unvisited_node_bases << " bp)" << endl;
             if(verbose) {
                 for(auto& id : unvisited_ids) {
@@ -839,7 +875,7 @@ int main_stats(int argc, char** argv) {
                 }
             }
 
-            cout << "Single-visited nodes: " << single_visited_nodes << "/" << graph->node_count()
+            cout << "Single-visited nodes: " << single_visited_nodes << "/" << graph->get_node_count()
                 << " (" << single_visited_node_bases << " bp)" << endl;
             if(verbose) {
                 for(auto& id : single_visited_ids) {

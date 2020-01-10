@@ -891,11 +891,9 @@ bool Transcriptome::add_novel_transcript_junctions(const list<TranscriptPath> & 
 
                 auto prev_handle = _splice_graph->get_handle(prev_mapping.position().node_id(), prev_mapping.position().is_reverse());
                 auto cur_handle = _splice_graph->get_handle(cur_mapping.position().node_id(), cur_mapping.position().is_reverse());
-
-                if (!_splice_graph->has_edge(prev_handle, cur_handle)) {
-
-                    _splice_graph->create_edge(prev_handle, cur_handle);
-                }
+                
+                // Ensure the edge exists.
+                _splice_graph->create_edge(prev_handle, cur_handle);
             }
         }
     }
