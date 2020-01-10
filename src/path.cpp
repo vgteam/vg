@@ -363,25 +363,30 @@ void Paths::append_mapping(const string& name, const mapping_t& m, bool warn_on_
 }
 
 int64_t Paths::get_path_id(const string& name) const {
-    if (!name_to_id.count(name)) {
+    int64_t path_id;
 #pragma omp critical (path_id_map)
-        {
-            // in order to keep the critical section inside above if (so it's only touched when initializing)
-            // we need the second check here
-            if (!name_to_id.count(name)) {
-                // Assign an ID.
-                // These members are mutable.
-                ++max_path_id;
-                name_to_id[name] = max_path_id;
-                id_to_name[max_path_id] = name;
-            }
+    {
+        // in order to keep the critical section inside above if (so it's only touched when initializing)
+        // we need the second check here
+        if (!name_to_id.count(name)) {
+            // Assign an ID.
+            // These members are mutable.
+            ++max_path_id;
+            id_to_name[max_path_id] = name;
+            name_to_id[name] = max_path_id;
         }
+        path_id = name_to_id[name];
     }
-    return name_to_id[name];
+    return path_id;
 }
 
 const string& Paths::get_path_name(int64_t id) const {
-    return id_to_name[id];
+    const string* name;
+#pragma omp critical (path_id_map)
+    {
+        name = &id_to_name[id];
+    }
+    return *name;
 }
 
 void Paths::append_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank, bool warn_on_duplicates) {
