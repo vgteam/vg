@@ -10,6 +10,9 @@
 
 #include "subcommand.hpp"
 
+#include <bdsg/hash_graph.hpp>
+#include <bdsg/path_position_overlays.hpp>
+
 #include "../vg.hpp"
 #include "../xg.hpp"
 #include <vg/io/stream.hpp>
@@ -37,6 +40,7 @@ void help_surject(char** argv) {
          << "    -c, --cram-output       write CRAM to stdout" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
          << "    -s, --sam-output        write SAM to stdout" << endl
+         << "    -S, --spliced           interpret long deletions against paths as spliced alignments" << endl
          << "    -N, --sample NAME       set this sample name for all reads" << endl
          << "    -R, --read-group NAME   set this read group for all reads" << endl
          << "    -f, --max-frag-len N    reads with fragment lengths greater than N will not be marked properly paired in SAM/BAM/CRAM" << endl
@@ -44,7 +48,7 @@ void help_surject(char** argv) {
 }
 
 int main_surject(int argc, char** argv) {
-
+    
     if (argc == 2) {
         help_surject(argv);
         return 1;
@@ -55,6 +59,7 @@ int main_surject(int argc, char** argv) {
     string path_file;
     string output_format = "GAM";
     string input_format = "GAM";
+    bool spliced = false;
     bool interleaved = false;
     string sample_name;
     string read_group;
@@ -77,6 +82,7 @@ int main_surject(int argc, char** argv) {
             {"cram-output", no_argument, 0, 'c'},
             {"bam-output", no_argument, 0, 'b'},
             {"sam-output", no_argument, 0, 's'},
+            {"spliced", no_argument, 0, 'S'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
             {"max-frag-len", required_argument, 0, 'f'},
@@ -85,7 +91,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:licbsN:R:f:C:t:",
+        c = getopt_long (argc, argv, "hx:p:F:licbsN:R:f:C:t:S",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -124,6 +130,11 @@ int main_surject(int argc, char** argv) {
             break;
 
         case 's':
+            compress_level = -1;
+            output_format = "SAM";
+            break;
+                
+        case 'S':
             compress_level = -1;
             output_format = "SAM";
             break;
@@ -213,7 +224,8 @@ int main_surject(int argc, char** argv) {
     int thread_count = get_thread_count();
    
     // Set up output to an emitter that will handle serialization
-    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count);
+    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count,
+                                                                           spliced ? xgidx : nullptr);
 
     if (input_format == "GAM") {
         get_input_file(file_name, [&](istream& in) {
