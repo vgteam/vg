@@ -4,7 +4,6 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include "io/save_handle_graph.hpp"
-#include "algorithms/topological_sort.hpp"
 
 namespace vg {
 // sets of MutablePathMutableHandleGraphs on disk
@@ -93,9 +92,22 @@ void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_r
         for_each([&](HandleGraph* graph) {
             // For each graph in the set
             
-            // Compute a topological order. The XG is much more efficient if the nodes are stored in topological order.
-            // TODO: Compute this only once and not each time we want to visit all the nodes during XG construction?
-            for (const handle_t& h : algorithms::topological_order(graph)) {
+            // ID-sort its handles. This is the order that we have historically
+            // used, and may be required for e.g. vg map to work correctly.
+            // TODO: Compute this only once and not each time we want to visit
+            // all the nodes during XG construction?
+            vector<handle_t> order;
+            // TODO: reserve if counting handles will be efficient. Can we know?
+            graph->for_each_handle([&](const handle_t& h) {
+                order.push_back(h);
+            });
+            std::sort(order.begin(), order.end(), [&](const handle_t& a, const handle_t& b) {
+                // Return true if a must come first
+                // We know everything is locally forward already.
+                return graph->get_id(a) < graph->get_id(b);
+            });
+            
+            for (const handle_t& h : order) {
                 // For each node in the graph, tell the XG about it.
                 // Assume it is locally forward.
 #ifdef debug
