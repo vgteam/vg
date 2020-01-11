@@ -5,8 +5,8 @@
 
 #include "surjector.hpp"
 
-#define debug_spliced_surject
-#define debug_anchored_surject
+//#define debug_spliced_surject
+//#define debug_anchored_surject
 //#define debug_validate_anchored_multipath_alignment
 
 namespace vg {
@@ -294,6 +294,8 @@ using namespace std;
                                          const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                          bool allow_negative_scores) const {
         
+        cerr << source.name() << endl;
+        
         assert(path_chunks.size() == ref_chunks.size());
         
         auto get_strand = [&](size_t i) {
@@ -404,17 +406,13 @@ using namespace std;
             pair<step_handle_t, step_handle_t> ref_range;
             vector<path_chunk_t> section_path_chunks;
             
-            cerr << "constructing section from group " << i << endl;
             
             
             bool strand = get_strand(comp_groups[i].front());
             
             vector<size_t>& group = comp_groups[i];
             for (size_t j = 0; j < group.size(); ++j) {
-                cerr << "\tchunk " << group[j] << endl;
                 section_path_chunks.push_back(path_chunks[group[j]]);
-                cerr << "\t " << string(path_chunks[group[j]].first.first, path_chunks[group[j]].first.second) << endl;
-                cerr << "\t " << pb2json(path_chunks[group[j]].second) << endl;
                 if (j == 0 || read_range.first > path_chunks[group[j]].first.first) {
                     read_range.first = path_chunks[group[j]].first.first;
                 }
@@ -523,7 +521,6 @@ using namespace std;
                 edge_score = -(get_aligner()->gap_open +
                                (deletion_length > 1 ? (deletion_length - 1) * get_aligner()->gap_extension : 0));
             }
-            cerr << "edges score " << edge_score << " for deletion length " << deletion_length << endl;
             section_edge_scores[i] = edge_score;
         }
         
@@ -563,7 +560,6 @@ using namespace std;
                 max_score = score_dp[i];
                 traceback[0] = i;
             }
-            cerr << "dp[" << i << "]: " << score_dp[i] << endl;
         }
         
         // follow the back pointers

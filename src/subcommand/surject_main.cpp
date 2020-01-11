@@ -135,8 +135,7 @@ int main_surject(int argc, char** argv) {
             break;
                 
         case 'S':
-            compress_level = -1;
-            output_format = "SAM";
+            spliced = true;
             break;
 
         case 'N':
