@@ -113,6 +113,7 @@ var searchData=
   ['get_5fendpoints',['get_endpoints',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a9e3d20d5ab60eb99688d6346a788d308',1,'vg::GraphSynchronizer::Lock']]],
   ['get_5fexon_5fhaplotypes',['get_exon_haplotypes',['../classvg_1_1Transcriptome.html#a84da424fd458fc6d302c05210f9e1960',1,'vg::Transcriptome']]],
   ['get_5ffeatures',['get_features',['../classvg_1_1FeatureSet.html#a55b389aa1c68efddb28a188a757568fc',1,'vg::FeatureSet']]],
+  ['get_5ffraction_5fof_5fns',['get_fraction_of_ns',['../namespacevg.html#af8f8da6eb179ba0199fc2fdfe676fde7',1,'vg']]],
   ['get_5fgbwt',['get_gbwt',['../namespacevg.html#a571047c58b73b78d02a767c3ab6ec222',1,'vg']]],
   ['get_5fgenotype_5flog_5flikelihood',['get_genotype_log_likelihood',['../classvg_1_1Genotyper.html#a9071cdf5ae591b478feaac025b069772',1,'vg::Genotyper']]],
   ['get_5fgenotype_5flog_5fprior',['get_genotype_log_prior',['../classvg_1_1Genotyper.html#a5fc66cb05c4ba80e39d078af9ddce715',1,'vg::Genotyper']]],
