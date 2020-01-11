@@ -120,17 +120,17 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a4e6142c1ccdde28230769e5a8b629d9f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4e6142c1ccdde28230769e5a8b629d9f">max_local_extensions</a> = numeric_limits&lt;size_t&gt;::max()</td></tr>
 <tr class="memdesc:a4e6142c1ccdde28230769e5a8b629d9f"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many extensions should we try as seeds within a mapping location?  <a href="#a4e6142c1ccdde28230769e5a8b629d9f">More...</a><br /></td></tr>
 <tr class="separator:a4e6142c1ccdde28230769e5a8b629d9f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a10276fc66be2c41c2ebebd78e1f643de"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a10276fc66be2c41c2ebebd78e1f643de">cluster_score_threshold</a> = 0</td></tr>
+<tr class="memitem:a10276fc66be2c41c2ebebd78e1f643de"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a10276fc66be2c41c2ebebd78e1f643de">cluster_score_threshold</a> = 50</td></tr>
 <tr class="separator:a10276fc66be2c41c2ebebd78e1f643de"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4aa953562a49de5befd8c80ee5e84a22"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4aa953562a49de5befd8c80ee5e84a22">cluster_coverage_threshold</a> = 0</td></tr>
+<tr class="memitem:a4aa953562a49de5befd8c80ee5e84a22"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4aa953562a49de5befd8c80ee5e84a22">cluster_coverage_threshold</a> = 0.4</td></tr>
 <tr class="separator:a4aa953562a49de5befd8c80ee5e84a22"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac47b8ebb0479d86727c97e37e7f103ee"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ac47b8ebb0479d86727c97e37e7f103ee">extension_set_score_threshold</a> = 0</td></tr>
+<tr class="memitem:ac47b8ebb0479d86727c97e37e7f103ee"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ac47b8ebb0479d86727c97e37e7f103ee">extension_set_score_threshold</a> = 20</td></tr>
 <tr class="separator:ac47b8ebb0479d86727c97e37e7f103ee"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adeff081b3c6a83ddfa7f620245b61fd0"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#adeff081b3c6a83ddfa7f620245b61fd0">extension_score_threshold</a> = 1</td></tr>
 <tr class="separator:adeff081b3c6a83ddfa7f620245b61fd0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aede601962425752ec75ea1d890505357"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aede601962425752ec75ea1d890505357">max_multimaps</a> = 1</td></tr>
 <tr class="separator:aede601962425752ec75ea1d890505357"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2fa22653d0c63a1d7bf41946f6f62a55"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2fa22653d0c63a1d7bf41946f6f62a55">distance_limit</a> = 1000</td></tr>
+<tr class="memitem:a2fa22653d0c63a1d7bf41946f6f62a55"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2fa22653d0c63a1d7bf41946f6f62a55">distance_limit</a> = 200</td></tr>
 <tr class="separator:a2fa22653d0c63a1d7bf41946f6f62a55"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a80efe32334434e2121f45d9683e2b53b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a80efe32334434e2121f45d9683e2b53b">do_dp</a> = true</td></tr>
 <tr class="separator:a80efe32334434e2121f45d9683e2b53b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1009,7 +1009,7 @@ template&lt;typename Item , typename Score &gt; </div>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">double vg::MinimizerMapper::cluster_coverage_threshold = 0</td>
+          <td class="memname">double vg::MinimizerMapper::cluster_coverage_threshold = 0.4</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -1023,7 +1023,7 @@ template&lt;typename Item , typename Score &gt; </div>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">double vg::MinimizerMapper::cluster_score_threshold = 0</td>
+          <td class="memname">double vg::MinimizerMapper::cluster_score_threshold = 50</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -1083,7 +1083,7 @@ template&lt;typename Item , typename Score &gt; </div>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">size_t vg::MinimizerMapper::distance_limit = 1000</td>
+          <td class="memname">size_t vg::MinimizerMapper::distance_limit = 200</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -1149,7 +1149,7 @@ template&lt;typename Item , typename Score &gt; </div>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">double vg::MinimizerMapper::extension_set_score_threshold = 0</td>
+          <td class="memname">double vg::MinimizerMapper::extension_set_score_threshold = 20</td>
         </tr>
       </table>
 </div><div class="memdoc">
