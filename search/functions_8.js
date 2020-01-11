@@ -51,6 +51,7 @@ var searchData=
   ['help_5fchunk',['help_chunk',['../chunk__main_8cpp.html#a502600dcc3e4e15a338642fe554fbf8d',1,'chunk_main.cpp']]],
   ['help_5fcircularize',['help_circularize',['../circularize__main_8cpp.html#a0613e20e02d0fbb56d7270a7b268ffb3',1,'circularize_main.cpp']]],
   ['help_5fcluster',['help_cluster',['../cluster__main_8cpp.html#a4099bc0f1cb9fecb87c903e578ff2a17',1,'cluster_main.cpp']]],
+  ['help_5fcombine',['help_combine',['../combine__main_8cpp.html#a14fa4eb501b75ae37a166fb633cda8dd',1,'combine_main.cpp']]],
   ['help_5fcompare',['help_compare',['../compare__main_8cpp.html#a6cc84323b4922371fc8e6f2a5d483b92',1,'compare_main.cpp']]],
   ['help_5fconcat',['help_concat',['../concat__main_8cpp.html#a795aaef3bab6d86036c1362ba5b76ac0',1,'concat_main.cpp']]],
   ['help_5fconstruct',['help_construct',['../construct__main_8cpp.html#a0c8b1d02948ee021399fef93344a9def',1,'construct_main.cpp']]],

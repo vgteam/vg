@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['unchop',['unchop',['../classvg_1_1VG.html#a998cfb17a4433f05a1579f0d704208a6',1,'vg::VG']]],
   ['underflow',['underflow',['../classvg_1_1io_1_1fdinbuf.html#a67ea7aab3e21cacec9fb836d4a70673e',1,'vg::io::fdinbuf']]],
   ['unescape_5fdelim',['unescape_delim',['../classvg_1_1Packer.html#a32f8697cf4c222f5e207a4b15a1f0883',1,'vg::Packer']]],
   ['unescape_5fdelims',['unescape_delims',['../classvg_1_1Packer.html#a92b44e965dd5da9da72e1a9196290d94',1,'vg::Packer']]],

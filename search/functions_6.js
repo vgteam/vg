@@ -156,7 +156,5 @@ var searchData=
   ['from_5fsimple_5freverse',['from_simple_reverse',['../classvg_1_1FlowSort.html#a920aae02af49b5fdd03397b70cda0640',1,'vg::FlowSort']]],
   ['from_5fsimple_5freverse_5forientation',['from_simple_reverse_orientation',['../classvg_1_1FlowSort.html#a7d43a991e41fd1af563ee17bfa82dc06',1,'vg::FlowSort']]],
   ['from_5fturtle',['from_turtle',['../classvg_1_1VG.html#a8aef48163c0dd4267d24b629de8a04c8',1,'vg::VG']]],
-  ['full',['full',['../structvg_1_1GaplessExtension.html#a1d1eb14643690ee92b30b2f0bdb5d82c',1,'vg::GaplessExtension']]],
-  ['full_5fsiblings_5ffrom',['full_siblings_from',['../classvg_1_1VG.html#ae2eb11662200dc88ef8397a1b2232056',1,'vg::VG']]],
-  ['full_5fsiblings_5fto',['full_siblings_to',['../classvg_1_1VG.html#a0a79ae3ab132b28cf72b6c18644fcf2f',1,'vg::VG']]]
+  ['full',['full',['../structvg_1_1GaplessExtension.html#a1d1eb14643690ee92b30b2f0bdb5d82c',1,'vg::GaplessExtension']]]
 ];

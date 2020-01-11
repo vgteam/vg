@@ -134,6 +134,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a495649c1646b865d6c88b8dc126589b0"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a495649c1646b865d6c88b8dc126589b0">get_node_count</a> () const</td></tr>
 <tr class="memdesc:a495649c1646b865d6c88b8dc126589b0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the number of nodes in the graph.  <a href="#a495649c1646b865d6c88b8dc126589b0">More...</a><br /></td></tr>
 <tr class="separator:a495649c1646b865d6c88b8dc126589b0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad4577be9213932c313efd3d016b88a31"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ad4577be9213932c313efd3d016b88a31">get_edge_count</a> () const</td></tr>
+<tr class="memdesc:ad4577be9213932c313efd3d016b88a31"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the total number of edges in the graph.  <a href="#ad4577be9213932c313efd3d016b88a31">More...</a><br /></td></tr>
+<tr class="separator:ad4577be9213932c313efd3d016b88a31"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a68e710ebb612971389e2854ecad1b8b6"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a68e710ebb612971389e2854ecad1b8b6">min_node_id</a> () const</td></tr>
 <tr class="memdesc:a68e710ebb612971389e2854ecad1b8b6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the minimum node ID used in the graph, if any are used.  <a href="#a68e710ebb612971389e2854ecad1b8b6">More...</a><br /></td></tr>
 <tr class="separator:a68e710ebb612971389e2854ecad1b8b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -227,6 +230,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aebe71b82645b85e73342366cea0a4549"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#aebe71b82645b85e73342366cea0a4549">set_id_increment</a> (const <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;min_id)</td></tr>
 <tr class="memdesc:aebe71b82645b85e73342366cea0a4549"><td class="mdescLeft">&#160;</td><td class="mdescRight">No-op function (required by MutableHandleGraph interface)  <a href="#aebe71b82645b85e73342366cea0a4549">More...</a><br /></td></tr>
 <tr class="separator:aebe71b82645b85e73342366cea0a4549"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a522cc6a9721f305ab01ce823d843662d"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a522cc6a9721f305ab01ce823d843662d">increment_node_ids</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> increment)</td></tr>
+<tr class="memdesc:a522cc6a9721f305ab01ce823d843662d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add the given value to all node IDs. Preserves the paths.  <a href="#a522cc6a9721f305ab01ce823d843662d">More...</a><br /></td></tr>
+<tr class="separator:a522cc6a9721f305ab01ce823d843662d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aca4a358ff4c7f387c1c6d5d239499a07"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#aca4a358ff4c7f387c1c6d5d239499a07">reassign_node_ids</a> (const std::function&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>(const <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;)&gt; &amp;get_new_id)</td></tr>
+<tr class="memdesc:aca4a358ff4c7f387c1c6d5d239499a07"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reassign all node IDs as specified by the old-&gt;new mapping function.  <a href="#aca4a358ff4c7f387c1c6d5d239499a07">More...</a><br /></td></tr>
+<tr class="separator:aca4a358ff4c7f387c1c6d5d239499a07"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adb25bd1fdb9e36c55157c5be864ca403"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#adb25bd1fdb9e36c55157c5be864ca403">destroy_path</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path)</td></tr>
 <tr class="memdesc:adb25bd1fdb9e36c55157c5be864ca403"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destroy the given path. Invalidates handles to the path and its node steps.  <a href="#adb25bd1fdb9e36c55157c5be864ca403">More...</a><br /></td></tr>
 <tr class="separator:adb25bd1fdb9e36c55157c5be864ca403"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -285,14 +294,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a40c8fe573ad9ea52634a7e7421c143de"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a40c8fe573ad9ea52634a7e7421c143de">dice_nodes</a> (int max_node_size)</td></tr>
 <tr class="memdesc:a40c8fe573ad9ea52634a7e7421c143de"><td class="mdescLeft">&#160;</td><td class="mdescRight">Chop up the nodes.  <a href="#a40c8fe573ad9ea52634a7e7421c143de">More...</a><br /></td></tr>
 <tr class="separator:a40c8fe573ad9ea52634a7e7421c143de"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a998cfb17a4433f05a1579f0d704208a6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a998cfb17a4433f05a1579f0d704208a6">unchop</a> (void)</td></tr>
-<tr class="memdesc:a998cfb17a4433f05a1579f0d704208a6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Does the reverse &mdash; combines nodes by removing edges where doing so has no effect on the graph labels.  <a href="#a998cfb17a4433f05a1579f0d704208a6">More...</a><br /></td></tr>
-<tr class="separator:a998cfb17a4433f05a1579f0d704208a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad0dcdbceae7ad22b60e4966e9644b612"><td class="memItemLeft" align="right" valign="top">set&lt; list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ad0dcdbceae7ad22b60e4966e9644b612">simple_components</a> (int min_size=1)</td></tr>
-<tr class="separator:ad0dcdbceae7ad22b60e4966e9644b612"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adff96e1df8d63362f110efa996d817e1"><td class="memItemLeft" align="right" valign="top">set&lt; list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#adff96e1df8d63362f110efa996d817e1">simple_multinode_components</a> (void)</td></tr>
-<tr class="memdesc:adff96e1df8d63362f110efa996d817e1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the simple components of multiple nodes.  <a href="#adff96e1df8d63362f110efa996d817e1">More...</a><br /></td></tr>
-<tr class="separator:adff96e1df8d63362f110efa996d817e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab447b1c70f7c4dc6576bfabc1990c337"><td class="memItemLeft" align="right" valign="top">set&lt; set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ab447b1c70f7c4dc6576bfabc1990c337">strongly_connected_components</a> (void)</td></tr>
 <tr class="memdesc:ab447b1c70f7c4dc6576bfabc1990c337"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the strongly connected components of the graph.  <a href="#ab447b1c70f7c4dc6576bfabc1990c337">More...</a><br /></td></tr>
 <tr class="separator:ab447b1c70f7c4dc6576bfabc1990c337"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -311,13 +312,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a310f10ff59e15468e8350844465f15e7"><td class="memItemLeft" align="right" valign="top">set&lt; list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a310f10ff59e15468e8350844465f15e7">elementary_cycles</a> (void)</td></tr>
 <tr class="memdesc:a310f10ff59e15468e8350844465f15e7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get simple cycles following Johnson's elementary cycles algorithm.  <a href="#a310f10ff59e15468e8350844465f15e7">More...</a><br /></td></tr>
 <tr class="separator:a310f10ff59e15468e8350844465f15e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a64d37ff935d8881dcf03010187e1ceb3"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Node.html">Node</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a64d37ff935d8881dcf03010187e1ceb3">concat_nodes</a> (const list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &amp;nodes)</td></tr>
-<tr class="separator:a64d37ff935d8881dcf03010187e1ceb3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a23051058968ffe6dc26a37b6efe72cbd"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Node.html">Node</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a23051058968ffe6dc26a37b6efe72cbd">merge_nodes</a> (const list&lt; <a class="el" href="structvg_1_1Node.html">Node</a> *&gt; &amp;nodes)</td></tr>
 <tr class="separator:a23051058968ffe6dc26a37b6efe72cbd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a217f8b5abd62bcdb256cf15926c9fe5c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a217f8b5abd62bcdb256cf15926c9fe5c">normalize</a> (int max_iter=1, bool debug=false)</td></tr>
-<tr class="memdesc:a217f8b5abd62bcdb256cf15926c9fe5c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use unchop and sibling merging to simplify the graph into a normalized form.  <a href="#a217f8b5abd62bcdb256cf15926c9fe5c">More...</a><br /></td></tr>
-<tr class="separator:a217f8b5abd62bcdb256cf15926c9fe5c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad7604b2833cf3e0855c5c29619f4a270"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ad7604b2833cf3e0855c5c29619f4a270">bluntify</a> (void)</td></tr>
 <tr class="memdesc:ad7604b2833cf3e0855c5c29619f4a270"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remove redundant overlaps.  <a href="#ad7604b2833cf3e0855c5c29619f4a270">More...</a><br /></td></tr>
 <tr class="separator:ad7604b2833cf3e0855c5c29619f4a270"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -436,9 +432,6 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a161ef56bd0eeee937602f60b8617f24d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1d9faa901ab4d768d607454ffbfeac0f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a1d9faa901ab4d768d607454ffbfeac0f">compact_ids</a> (<a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;new_id)</td></tr>
 <tr class="separator:a1d9faa901ab4d768d607454ffbfeac0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a522cc6a9721f305ab01ce823d843662d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a522cc6a9721f305ab01ce823d843662d">increment_node_ids</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> increment)</td></tr>
-<tr class="memdesc:a522cc6a9721f305ab01ce823d843662d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add the given value to all node IDs. Preserves the paths.  <a href="#a522cc6a9721f305ab01ce823d843662d">More...</a><br /></td></tr>
-<tr class="separator:a522cc6a9721f305ab01ce823d843662d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a356612f42ba60fe5895f3abe7501173a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a356612f42ba60fe5895f3abe7501173a">decrement_node_ids</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> decrement)</td></tr>
 <tr class="memdesc:a356612f42ba60fe5895f3abe7501173a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Subtract the given value from all the node IDs. Must not create a node with 0 or negative IDs. Invalidates the paths.  <a href="#a356612f42ba60fe5895f3abe7501173a">More...</a><br /></td></tr>
 <tr class="separator:a356612f42ba60fe5895f3abe7501173a"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -495,8 +488,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a25ef81b910a6fc47c9a6ba4c1636cf83"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a25ef81b910a6fc47c9a6ba4c1636cf83">edge_count</a> (void) const</td></tr>
 <tr class="memdesc:a25ef81b910a6fc47c9a6ba4c1636cf83"><td class="mdescLeft">&#160;</td><td class="mdescRight">Count the number of edges in the graph.  <a href="#a25ef81b910a6fc47c9a6ba4c1636cf83">More...</a><br /></td></tr>
 <tr class="separator:a25ef81b910a6fc47c9a6ba4c1636cf83"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab928179a1a4c5a535aefab8cda99c591"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ab928179a1a4c5a535aefab8cda99c591">total_length_of_nodes</a> (void)</td></tr>
-<tr class="separator:ab928179a1a4c5a535aefab8cda99c591"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0202180fa7153f464c3b1d3ff70dc9cb"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a0202180fa7153f464c3b1d3ff70dc9cb">node_rank</a> (<a class="el" href="structvg_1_1Node.html">Node</a> *node)</td></tr>
 <tr class="memdesc:a0202180fa7153f464c3b1d3ff70dc9cb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the rank of the node in the protobuf array that backs the graph.  <a href="#a0202180fa7153f464c3b1d3ff70dc9cb">More...</a><br /></td></tr>
 <tr class="separator:a0202180fa7153f464c3b1d3ff70dc9cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -568,35 +559,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a95d087adcf01ebfa68541bc6f487278e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a95d087adcf01ebfa68541bc6f487278e">common_ancestor_next</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> id1, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> id2, size_t steps=64)</td></tr>
 <tr class="memdesc:a95d087adcf01ebfa68541bc6f487278e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Try to find a common ancestor by walking forward up to steps from the first node.  <a href="#a95d087adcf01ebfa68541bc6f487278e">More...</a><br /></td></tr>
 <tr class="separator:a95d087adcf01ebfa68541bc6f487278e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abac7d4642b9bcc25bc5299af18f523bc"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#abac7d4642b9bcc25bc5299af18f523bc">siblings_to</a> (const <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &amp;traversal)</td></tr>
-<tr class="memdesc:abac7d4642b9bcc25bc5299af18f523bc"><td class="mdescLeft">&#160;</td><td class="mdescRight">To-siblings are nodes which also have edges to them from the same nodes as this one.  <a href="#abac7d4642b9bcc25bc5299af18f523bc">More...</a><br /></td></tr>
-<tr class="separator:abac7d4642b9bcc25bc5299af18f523bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac684d17ffe4c85ce74a4677fdfaf7672"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ac684d17ffe4c85ce74a4677fdfaf7672">siblings_from</a> (const <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &amp;traversal)</td></tr>
-<tr class="memdesc:ac684d17ffe4c85ce74a4677fdfaf7672"><td class="mdescLeft">&#160;</td><td class="mdescRight">From-siblings are nodes which also have edges to them from the same nodes as this one.  <a href="#ac684d17ffe4c85ce74a4677fdfaf7672">More...</a><br /></td></tr>
-<tr class="separator:ac684d17ffe4c85ce74a4677fdfaf7672"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0a79ae3ab132b28cf72b6c18644fcf2f"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a0a79ae3ab132b28cf72b6c18644fcf2f">full_siblings_to</a> (const <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &amp;trav)</td></tr>
-<tr class="memdesc:a0a79ae3ab132b28cf72b6c18644fcf2f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Full to-siblings are nodes traversals which share exactly the same upstream <code><a class="el" href="classvg_1_1NodeSide.html">NodeSide</a></code>s.  <a href="#a0a79ae3ab132b28cf72b6c18644fcf2f">More...</a><br /></td></tr>
-<tr class="separator:a0a79ae3ab132b28cf72b6c18644fcf2f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae2eb11662200dc88ef8397a1b2232056"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ae2eb11662200dc88ef8397a1b2232056">full_siblings_from</a> (const <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &amp;trav)</td></tr>
-<tr class="memdesc:ae2eb11662200dc88ef8397a1b2232056"><td class="mdescLeft">&#160;</td><td class="mdescRight">Full from-siblings are nodes traversals which share exactly the same downstream <code><a class="el" href="classvg_1_1NodeSide.html">NodeSide</a></code>s.  <a href="#ae2eb11662200dc88ef8397a1b2232056">More...</a><br /></td></tr>
-<tr class="separator:ae2eb11662200dc88ef8397a1b2232056"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5f202743732e5335bb1b15413914eaa6"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="structvg_1_1Node.html">Node</a> * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a5f202743732e5335bb1b15413914eaa6">siblings_of</a> (<a class="el" href="structvg_1_1Node.html">Node</a> *node)</td></tr>
-<tr class="memdesc:a5f202743732e5335bb1b15413914eaa6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get general siblings of a node.  <a href="#a5f202743732e5335bb1b15413914eaa6">More...</a><br /></td></tr>
-<tr class="separator:a5f202743732e5335bb1b15413914eaa6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3e90bd47ffc24a55b1588be8f5328717"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a3e90bd47ffc24a55b1588be8f5328717">simplify_siblings</a> (void)</td></tr>
-<tr class="separator:a3e90bd47ffc24a55b1588be8f5328717"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5c037db7f5ec45293ac6650d46040237"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a5c037db7f5ec45293ac6650d46040237">simplify_to_siblings</a> (const set&lt; set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&gt; &amp;to_sibs)</td></tr>
-<tr class="memdesc:a5c037db7f5ec45293ac6650d46040237"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remove easily-resolvable redundancy in the graph for all provided to-sibling sets.  <a href="#a5c037db7f5ec45293ac6650d46040237">More...</a><br /></td></tr>
-<tr class="separator:a5c037db7f5ec45293ac6650d46040237"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a171c17f06d7bb0645776f466fe3d3a1d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a171c17f06d7bb0645776f466fe3d3a1d">simplify_from_siblings</a> (const set&lt; set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&gt; &amp;from_sibs)</td></tr>
-<tr class="memdesc:a171c17f06d7bb0645776f466fe3d3a1d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remove easily-resolvable redundancy in the graph for all provided from-sibling sets.  <a href="#a171c17f06d7bb0645776f466fe3d3a1d">More...</a><br /></td></tr>
-<tr class="separator:a171c17f06d7bb0645776f466fe3d3a1d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afce50214291804f0d9bdf9bcd39125a4"><td class="memItemLeft" align="right" valign="top">set&lt; set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#afce50214291804f0d9bdf9bcd39125a4">transitive_sibling_sets</a> (const set&lt; set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&gt; &amp;sibs)</td></tr>
-<tr class="memdesc:afce50214291804f0d9bdf9bcd39125a4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remove intransitive sibling sets, such as where (A, B, C) = S1 but C ∊ S2.  <a href="#afce50214291804f0d9bdf9bcd39125a4">More...</a><br /></td></tr>
-<tr class="separator:afce50214291804f0d9bdf9bcd39125a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acb33bdc43954b8acd955bb4425a48df1"><td class="memItemLeft" align="right" valign="top">set&lt; set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#acb33bdc43954b8acd955bb4425a48df1">identically_oriented_sibling_sets</a> (const set&lt; set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&gt; &amp;sibs)</td></tr>
-<tr class="memdesc:acb33bdc43954b8acd955bb4425a48df1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remove sibling sets which don't have identical orientation.  <a href="#acb33bdc43954b8acd955bb4425a48df1">More...</a><br /></td></tr>
-<tr class="separator:acb33bdc43954b8acd955bb4425a48df1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab213a64c6240d08603530982c0b75047"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ab213a64c6240d08603530982c0b75047">adjacent</a> (const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;pos1, const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;pos2)</td></tr>
 <tr class="memdesc:ab213a64c6240d08603530982c0b75047"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if pos1 occurs directly before pos2.  <a href="#ab213a64c6240d08603530982c0b75047">More...</a><br /></td></tr>
 <tr class="separator:ab213a64c6240d08603530982c0b75047"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -859,16 +821,12 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aa9273361525befc57536dc96a762c29d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a093f4e4dffe0d03806df32edc33cdb9a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a093f4e4dffe0d03806df32edc33cdb9a">node_starts_in_path</a> (const list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &amp;path, map&lt; <a class="el" href="structvg_1_1Node.html">Node</a> *, int &gt; &amp;<a class="el" href="namespacevg.html#a30f5b0dc3732e48a6d9b8d1c895cd8d1">node_start</a>)</td></tr>
 <tr class="separator:a093f4e4dffe0d03806df32edc33cdb9a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9bf8c0e391c1a6c027ed26b991d8cad0"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a9bf8c0e391c1a6c027ed26b991d8cad0">nodes_are_perfect_path_neighbors</a> (<a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> left, <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> right)</td></tr>
-<tr class="separator:a9bf8c0e391c1a6c027ed26b991d8cad0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acd555e66c8fa99984c8cb24aef0ab6f9"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#acd555e66c8fa99984c8cb24aef0ab6f9">mapping_is_total_match</a> (const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;m)</td></tr>
 <tr class="memdesc:acd555e66c8fa99984c8cb24aef0ab6f9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return true if the mapping completely covers the node it maps to and is a perfect match.  <a href="#acd555e66c8fa99984c8cb24aef0ab6f9">More...</a><br /></td></tr>
 <tr class="separator:acd555e66c8fa99984c8cb24aef0ab6f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a153260c1839238abff26b2e989d8799d"><td class="memItemLeft" align="right" valign="top">map&lt; string, vector&lt; <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a153260c1839238abff26b2e989d8799d">concat_mappings_for_node_pair</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> id1, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> id2)</td></tr>
 <tr class="memdesc:a153260c1839238abff26b2e989d8799d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Concatenate the mappings for a pair of nodes; handles multiple mappings per path.  <a href="#a153260c1839238abff26b2e989d8799d">More...</a><br /></td></tr>
 <tr class="separator:a153260c1839238abff26b2e989d8799d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2367b4d49cca4c57a2529d92512cba59"><td class="memItemLeft" align="right" valign="top">map&lt; string, vector&lt; <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a2367b4d49cca4c57a2529d92512cba59">concat_mappings_for_nodes</a> (const list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &amp;nodes)</td></tr>
-<tr class="separator:a2367b4d49cca4c57a2529d92512cba59"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae151983cac753c02ce3852274798f8d5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ae151983cac753c02ce3852274798f8d5">expand_path</a> (list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &amp;path, vector&lt; list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;::iterator &gt; &amp;expanded)</td></tr>
 <tr class="separator:ae151983cac753c02ce3852274798f8d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac27c591957478a17605c2453749f7d20"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ac27c591957478a17605c2453749f7d20">node_starts_in_path</a> (list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &amp;path, map&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> *, int &gt; &amp;<a class="el" href="namespacevg.html#a30f5b0dc3732e48a6d9b8d1c895cd8d1">node_start</a>)</td></tr>
@@ -985,6 +943,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a6171cdd6036c73623c96656f8b44fe9d inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a6171cdd6036c73623c96656f8b44fe9d">has_edge</a> (const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;edge) const</td></tr>
 <tr class="memdesc:a6171cdd6036c73623c96656f8b44fe9d inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convenient wrapper of has_edge for edge_t argument.  <a href="classhandlegraph_1_1HandleGraph.html#a6171cdd6036c73623c96656f8b44fe9d">More...</a><br /></td></tr>
 <tr class="separator:a6171cdd6036c73623c96656f8b44fe9d inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4c98da99e0d32ebcc9fd31be4b779e29 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a4c98da99e0d32ebcc9fd31be4b779e29">get_total_length</a> () const</td></tr>
+<tr class="separator:a4c98da99e0d32ebcc9fd31be4b779e29 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9e946bb4ed53f9423072955cdaab6386 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a9e946bb4ed53f9423072955cdaab6386">forward</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const</td></tr>
 <tr class="memdesc:a9e946bb4ed53f9423072955cdaab6386 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the locally forward version of a handle.  <a href="classhandlegraph_1_1HandleGraph.html#a9e946bb4ed53f9423072955cdaab6386">More...</a><br /></td></tr>
 <tr class="separator:a9e946bb4ed53f9423072955cdaab6386 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -3201,44 +3161,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 </div><div class="memdoc">
 
 <p>Concatenate the mappings for a pair of nodes; handles multiple mappings per path. </p>
-
-</div>
-</div>
-<a id="a2367b4d49cca4c57a2529d92512cba59"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2367b4d49cca4c57a2529d92512cba59">&#9670;&nbsp;</a></span>concat_mappings_for_nodes()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">map&lt; string, vector&lt; <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> &gt; &gt; vg::VG::concat_mappings_for_nodes </td>
-          <td>(</td>
-          <td class="paramtype">const list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>nodes</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Concatenate mappings for a list of nodes that we want to concatenate. Returns, for each path name, a vector of merged mappings, once per path traversal of the run of nodes. Those merged mappings are in the orientation of the merged node (so mappings to nodes that are traversed in reverse will have their flags toggled). We assume that all mappings on the given nodes are full-length perfect matches, and that all the nodes are perfect path neighbors. </p>
-
-</div>
-</div>
-<a id="a64d37ff935d8881dcf03010187e1ceb3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a64d37ff935d8881dcf03010187e1ceb3">&#9670;&nbsp;</a></span>concat_nodes()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structvg_1_1Node.html">Node</a> * vg::VG::concat_nodes </td>
-          <td>(</td>
-          <td class="paramtype">const list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>nodes</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Concatenates the nodes into a new node with the same external linkage as the provided component. After calling this, paths will be invalid until <a class="el" href="classvg_1_1Paths.html#aaf065b12a8a942c96f6d88a2c6db7c8e">Paths::compact_ranks()</a> is called. </p>
 
 </div>
 </div>
@@ -5495,46 +5417,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a id="ae2eb11662200dc88ef8397a1b2232056"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae2eb11662200dc88ef8397a1b2232056">&#9670;&nbsp;</a></span>full_siblings_from()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; vg::VG::full_siblings_from </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &amp;&#160;</td>
-          <td class="paramname"><em>trav</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Full from-siblings are nodes traversals which share exactly the same downstream <code><a class="el" href="classvg_1_1NodeSide.html">NodeSide</a></code>s. </p>
-
-</div>
-</div>
-<a id="a0a79ae3ab132b28cf72b6c18644fcf2f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0a79ae3ab132b28cf72b6c18644fcf2f">&#9670;&nbsp;</a></span>full_siblings_to()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; vg::VG::full_siblings_to </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &amp;&#160;</td>
-          <td class="paramname"><em>trav</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Full to-siblings are nodes traversals which share exactly the same upstream <code><a class="el" href="classvg_1_1NodeSide.html">NodeSide</a></code>s. </p>
-
-</div>
-</div>
 <a id="a7cb582e352f75cc9d66e6eff0f4ba659"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a7cb582e352f75cc9d66e6eff0f4ba659">&#9670;&nbsp;</a></span>get_base()</h2>
 
@@ -5688,6 +5570,35 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 </div><div class="memdoc">
 
 <p>Get the edge connecting the given oriented nodes in the given order. </p>
+
+</div>
+</div>
+<a id="ad4577be9213932c313efd3d016b88a31"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad4577be9213932c313efd3d016b88a31">&#9670;&nbsp;</a></span>get_edge_count()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::VG::get_edge_count </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Return the total number of edges in the graph. </p>
+
+<p>Reimplemented from <a class="el" href="classhandlegraph_1_1HandleGraph.html#a20ff62014d7f0f0c01ada8a3d40a278d">handlegraph::HandleGraph</a>.</p>
 
 </div>
 </div>
@@ -6748,26 +6659,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a id="acb33bdc43954b8acd955bb4425a48df1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acb33bdc43954b8acd955bb4425a48df1">&#9670;&nbsp;</a></span>identically_oriented_sibling_sets()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">set&lt; set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &gt; vg::VG::identically_oriented_sibling_sets </td>
-          <td>(</td>
-          <td class="paramtype">const set&lt; set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>sibs</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Remove sibling sets which don't have identical orientation. </p>
-
-</div>
-</div>
 <a id="abbd7b9f01799a351e0e5ba420fa06679"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#abbd7b9f01799a351e0e5ba420fa06679">&#9670;&nbsp;</a></span>identity_translation()</h2>
 
@@ -6834,7 +6725,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 <p>Add the given value to all node IDs. Preserves the paths. </p>
 
-<p>Implements <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#aac91819ae2f378d90ea4fd10e172e300">handlegraph::MutableHandleGraph</a>.</p>
+<p>Reimplemented from <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a902b211a1f86645818b3da1cb64af0be">handlegraph::MutableHandleGraph</a>.</p>
 
 </div>
 </div>
@@ -7747,35 +7638,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a id="a9bf8c0e391c1a6c027ed26b991d8cad0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9bf8c0e391c1a6c027ed26b991d8cad0">&#9670;&nbsp;</a></span>nodes_are_perfect_path_neighbors()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::VG::nodes_are_perfect_path_neighbors </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a>&#160;</td>
-          <td class="paramname"><em>left</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a>&#160;</td>
-          <td class="paramname"><em>right</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Return true if nodes share all paths and the mappings they share in these paths are adjacent, in the specified relative order and orientation. </p>
-
-</div>
-</div>
 <a id="a0b084d958fd8069839884dc3a01ed745"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a0b084d958fd8069839884dc3a01ed745">&#9670;&nbsp;</a></span>nodes_next() <span class="overload">[1/2]</span></h2>
 
@@ -7902,36 +7764,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
       </table>
 </div><div class="memdoc">
 <p>Get the subgraph of a node and all the edges it is responsible for (where it has the minimal ID) and add it into the given <a class="el" href="classvg_1_1VG.html">VG</a>. </p>
-
-</div>
-</div>
-<a id="a217f8b5abd62bcdb256cf15926c9fe5c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a217f8b5abd62bcdb256cf15926c9fe5c">&#9670;&nbsp;</a></span>normalize()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::VG::normalize </td>
-          <td>(</td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>max_iter</em> = <code>1</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>debug</em> = <code>false</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Use unchop and sibling merging to simplify the graph into a normalized form. </p>
 
 </div>
 </div>
@@ -8638,6 +8470,36 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
+<a id="aca4a358ff4c7f387c1c6d5d239499a07"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aca4a358ff4c7f387c1c6d5d239499a07">&#9670;&nbsp;</a></span>reassign_node_ids()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::VG::reassign_node_ids </td>
+          <td>(</td>
+          <td class="paramtype">const std::function&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>(const <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>get_new_id</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Reassign all node IDs as specified by the old-&gt;new mapping function. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a4805d276a83a1dad2462e6b8dd2443dc">handlegraph::MutableHandleGraph</a>.</p>
+
+</div>
+</div>
 <a id="a6541146b6410cec4be3e2a7379ea3bcf"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a6541146b6410cec4be3e2a7379ea3bcf">&#9670;&nbsp;</a></span>rebuild_edge_indexes()</h2>
 
@@ -9218,66 +9080,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a id="ac684d17ffe4c85ce74a4677fdfaf7672"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac684d17ffe4c85ce74a4677fdfaf7672">&#9670;&nbsp;</a></span>siblings_from()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; vg::VG::siblings_from </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &amp;&#160;</td>
-          <td class="paramname"><em>traversal</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>From-siblings are nodes which also have edges to them from the same nodes as this one. </p>
-
-</div>
-</div>
-<a id="a5f202743732e5335bb1b15413914eaa6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5f202743732e5335bb1b15413914eaa6">&#9670;&nbsp;</a></span>siblings_of()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">set&lt; <a class="el" href="structvg_1_1Node.html">Node</a> * &gt; vg::VG::siblings_of </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Node.html">Node</a> *&#160;</td>
-          <td class="paramname"><em>node</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Get general siblings of a node. </p>
-
-</div>
-</div>
-<a id="abac7d4642b9bcc25bc5299af18f523bc"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abac7d4642b9bcc25bc5299af18f523bc">&#9670;&nbsp;</a></span>siblings_to()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; vg::VG::siblings_to </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &amp;&#160;</td>
-          <td class="paramname"><em>traversal</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>To-siblings are nodes which also have edges to them from the same nodes as this one. </p>
-
-</div>
-</div>
 <a id="a21a20098d0a29a1f3f0e9f932fcce462"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a21a20098d0a29a1f3f0e9f932fcce462">&#9670;&nbsp;</a></span>sides_context()</h2>
 
@@ -9395,104 +9197,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 </div><div class="memdoc">
 
 <p>Get the sides to both sides of the node. </p>
-
-</div>
-</div>
-<a id="ad0dcdbceae7ad22b60e4966e9644b612"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad0dcdbceae7ad22b60e4966e9644b612">&#9670;&nbsp;</a></span>simple_components()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">set&lt; list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &gt; vg::VG::simple_components </td>
-          <td>(</td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>min_size</em> = <code>1</code></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Get the set of components that could be merged into single nodes without changing the path space of the graph. Emits oriented traversals of nodes, in the order and orientation in which they are to be merged. </p>
-
-</div>
-</div>
-<a id="adff96e1df8d63362f110efa996d817e1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#adff96e1df8d63362f110efa996d817e1">&#9670;&nbsp;</a></span>simple_multinode_components()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">set&lt; list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &gt; vg::VG::simple_multinode_components </td>
-          <td>(</td>
-          <td class="paramtype">void&#160;</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Get the simple components of multiple nodes. </p>
-
-</div>
-</div>
-<a id="a171c17f06d7bb0645776f466fe3d3a1d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a171c17f06d7bb0645776f466fe3d3a1d">&#9670;&nbsp;</a></span>simplify_from_siblings()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::VG::simplify_from_siblings </td>
-          <td>(</td>
-          <td class="paramtype">const set&lt; set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>from_sibs</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Remove easily-resolvable redundancy in the graph for all provided from-sibling sets. </p>
-
-</div>
-</div>
-<a id="a3e90bd47ffc24a55b1588be8f5328717"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3e90bd47ffc24a55b1588be8f5328717">&#9670;&nbsp;</a></span>simplify_siblings()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::VG::simplify_siblings </td>
-          <td>(</td>
-          <td class="paramtype">void&#160;</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Remove easily-resolvable redundancy in the graph. TODO: Cannot yet handle reversing edges! They will prevent the identification of siblings. </p>
-
-</div>
-</div>
-<a id="a5c037db7f5ec45293ac6650d46040237"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5c037db7f5ec45293ac6650d46040237">&#9670;&nbsp;</a></span>simplify_to_siblings()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::VG::simplify_to_siblings </td>
-          <td>(</td>
-          <td class="paramtype">const set&lt; set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>to_sibs</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Remove easily-resolvable redundancy in the graph for all provided to-sibling sets. </p>
 
 </div>
 </div>
@@ -9897,45 +9601,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a id="ab928179a1a4c5a535aefab8cda99c591"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab928179a1a4c5a535aefab8cda99c591">&#9670;&nbsp;</a></span>total_length_of_nodes()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> vg::VG::total_length_of_nodes </td>
-          <td>(</td>
-          <td class="paramtype">void&#160;</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Get the total sequence length of nodes in the graph. TODO: redundant with <a class="el" href="classvg_1_1VG.html#a23641dedefa2b6d573939515fcf5974c" title="Total sequence length. ">length()</a>. </p>
-
-</div>
-</div>
-<a id="afce50214291804f0d9bdf9bcd39125a4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afce50214291804f0d9bdf9bcd39125a4">&#9670;&nbsp;</a></span>transitive_sibling_sets()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">set&lt; set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &gt; vg::VG::transitive_sibling_sets </td>
-          <td>(</td>
-          <td class="paramtype">const set&lt; set&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>sibs</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Remove intransitive sibling sets, such as where (A, B, C) = S1 but C ∊ S2. </p>
-
-</div>
-</div>
 <a id="a57296ecbcfce10f95b86233e10c35d7d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a57296ecbcfce10f95b86233e10c35d7d">&#9670;&nbsp;</a></span>trav_sequence()</h2>
 
@@ -10013,26 +9678,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 </div><div class="memdoc">
 
 <p>Get traversals before this node on the same strand. Same as nodes_prev but using set. </p>
-
-</div>
-</div>
-<a id="a998cfb17a4433f05a1579f0d704208a6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a998cfb17a4433f05a1579f0d704208a6">&#9670;&nbsp;</a></span>unchop()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::VG::unchop </td>
-          <td>(</td>
-          <td class="paramtype">void&#160;</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Does the reverse &mdash; combines nodes by removing edges where doing so has no effect on the graph labels. </p>
 
 </div>
 </div>

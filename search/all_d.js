@@ -20,6 +20,7 @@ var searchData=
   ['main_5fchunk',['main_chunk',['../chunk__main_8cpp.html#aa34cae934dcb31ac7653f079d0d4bf93',1,'chunk_main.cpp']]],
   ['main_5fcircularize',['main_circularize',['../circularize__main_8cpp.html#a1d21512b4c5eb417fa6a1b20a72c1195',1,'circularize_main.cpp']]],
   ['main_5fcluster',['main_cluster',['../cluster__main_8cpp.html#a88693148489c263b15047d96976b9b94',1,'cluster_main.cpp']]],
+  ['main_5fcombine',['main_combine',['../combine__main_8cpp.html#a7f4bcb1d0c551b46ed39797df9d0da60',1,'combine_main.cpp']]],
   ['main_5fcompare',['main_compare',['../compare__main_8cpp.html#a57a9f382b469b52e04c2efe3d8a21168',1,'compare_main.cpp']]],
   ['main_5fconcat',['main_concat',['../concat__main_8cpp.html#a22a9b545fc267c18654f312d4fa8d701',1,'concat_main.cpp']]],
   ['main_5fconstruct',['main_construct',['../construct__main_8cpp.html#a385574d21007babb8ef7fa73c9b39cee',1,'construct_main.cpp']]],

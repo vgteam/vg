@@ -115,8 +115,6 @@ var searchData=
   ['compute_5funiqueness',['compute_uniqueness',['../classvg_1_1Mapper.html#a4f13155eaeae93ca9ad6ec8095e2335c',1,'vg::Mapper']]],
   ['concat_5fmappings',['concat_mappings',['../namespacevg.html#a8fc7225da088d27cd1201422ba011f51',1,'vg']]],
   ['concat_5fmappings_5ffor_5fnode_5fpair',['concat_mappings_for_node_pair',['../classvg_1_1VG.html#a153260c1839238abff26b2e989d8799d',1,'vg::VG']]],
-  ['concat_5fmappings_5ffor_5fnodes',['concat_mappings_for_nodes',['../classvg_1_1VG.html#a2367b4d49cca4c57a2529d92512cba59',1,'vg::VG']]],
-  ['concat_5fnodes',['concat_nodes',['../classvg_1_1VG.html#a64d37ff935d8881dcf03010187e1ceb3',1,'vg::VG']]],
   ['concat_5fpaths',['concat_paths',['../namespacevg.html#ac7d43d119d665bda802489b3309e0bce',1,'vg']]],
   ['condense_5fedits',['condense_edits',['../classvg_1_1Constructor.html#a1b13ae925876f9f7617850ab4e2ad355',1,'vg::Constructor']]],
   ['configurableparser',['ConfigurableParser',['../classvg_1_1ConfigurableParser.html#ad04ba6f1c85aa2ab15b93e51c4a093f7',1,'vg::ConfigurableParser']]],

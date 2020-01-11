@@ -4,7 +4,6 @@ var searchData=
   ['unaligned_5fbands',['unaligned_bands',['../classvg_1_1AlignmentChainModel.html#a86bcd77b21cc9b8b9c2b9f100fb9ce71',1,'vg::AlignmentChainModel']]],
   ['unary',['UNARY',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97a0e62c0ff8521d5960a5cc819a7bf7230',1,'vg']]],
   ['unary_5fboundaries',['unary_boundaries',['../classvg_1_1NetGraph.html#ae573871a7c3cd0be507222751f870f72',1,'vg::NetGraph']]],
-  ['unchop',['unchop',['../classvg_1_1VG.html#a998cfb17a4433f05a1579f0d704208a6',1,'vg::VG']]],
   ['unclassified',['UNCLASSIFIED',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97a7db3292851220acc20f75deebe0924ff',1,'vg']]],
   ['uncompressed_5fout',['uncompressed_out',['../classvg_1_1io_1_1MessageEmitter.html#a19f6d714ad67ec55346998140ce79258',1,'vg::io::MessageEmitter']]],
   ['uncompressed_5fout_5fostream',['uncompressed_out_ostream',['../classvg_1_1io_1_1MessageEmitter.html#aeb08e36bd3266eabc11d2d27e6336812',1,'vg::io::MessageEmitter']]],

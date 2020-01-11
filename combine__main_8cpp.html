@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/subcommand/snarls_main.cpp File Reference</title>
+<title>vg: src/subcommand/combine_main.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -66,39 +66,39 @@ $(function() {
   <div class="summary">
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">snarls_main.cpp File Reference</div>  </div>
+<div class="title">combine_main.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &lt;omp.h&gt;</code><br />
 <code>#include &lt;unistd.h&gt;</code><br />
 <code>#include &lt;getopt.h&gt;</code><br />
-<code>#include &lt;list&gt;</code><br />
-<code>#include &lt;fstream&gt;</code><br />
-<code>#include &lt;regex&gt;</code><br />
-<code>#include &quot;<a class="el" href="subcommand_8hpp.html">subcommand.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="vg_8hpp.html">../vg.hpp</a>&quot;</code><br />
-<code>#include &lt;vg/vg.pb.h&gt;</code><br />
-<code>#include &quot;<a class="el" href="traversal__finder_8hpp.html">../traversal_finder.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="convert__handle_8hpp.html">../convert_handle.hpp</a>&quot;</code><br />
-<code>#include &lt;<a class="el" href="stream_8hpp.html">vg/io/stream.hpp</a>&gt;</code><br />
+<code>#include &lt;iostream&gt;</code><br />
 <code>#include &lt;<a class="el" href="vpkg_8hpp.html">vg/io/vpkg.hpp</a>&gt;</code><br />
+<code>#include &lt;<a class="el" href="message__iterator_8hpp.html">vg/io/message_iterator.hpp</a>&gt;</code><br />
+<code>#include &lt;<a class="el" href="blocked__gzip__input__stream_8hpp.html">vg/io/blocked_gzip_input_stream.hpp</a>&gt;</code><br />
+<code>#include &quot;<a class="el" href="subcommand_8hpp.html">subcommand.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="handle_8hpp.html">../handle.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="convert__handle_8hpp.html">../convert_handle.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="vg_8hpp.html">../vg.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a4f8c80c7a187ae51a198f3ec42d85f26"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="snarls__main_8cpp.html#a4f8c80c7a187ae51a198f3ec42d85f26">help_snarl</a> (char **argv)</td></tr>
-<tr class="separator:a4f8c80c7a187ae51a198f3ec42d85f26"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4bda7d45d00c828d1e8555573c1c3caf"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="snarls__main_8cpp.html#a4bda7d45d00c828d1e8555573c1c3caf">main_snarl</a> (int argc, char **argv)</td></tr>
-<tr class="separator:a4bda7d45d00c828d1e8555573c1c3caf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a14fa4eb501b75ae37a166fb633cda8dd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="combine__main_8cpp.html#a14fa4eb501b75ae37a166fb633cda8dd">help_combine</a> (char **argv)</td></tr>
+<tr class="separator:a14fa4eb501b75ae37a166fb633cda8dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7f4bcb1d0c551b46ed39797df9d0da60"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="combine__main_8cpp.html#a7f4bcb1d0c551b46ed39797df9d0da60">main_combine</a> (int argc, char **argv)</td></tr>
+<tr class="separator:a7f4bcb1d0c551b46ed39797df9d0da60"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Function Documentation</h2>
-<a id="a4f8c80c7a187ae51a198f3ec42d85f26"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4f8c80c7a187ae51a198f3ec42d85f26">&#9670;&nbsp;</a></span>help_snarl()</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Defines the "vg combine" subcommand </p>
+</div><h2 class="groupheader">Function Documentation</h2>
+<a id="a14fa4eb501b75ae37a166fb633cda8dd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a14fa4eb501b75ae37a166fb633cda8dd">&#9670;&nbsp;</a></span>help_combine()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void help_snarl </td>
+          <td class="memname">void help_combine </td>
           <td>(</td>
           <td class="paramtype">char **&#160;</td>
           <td class="paramname"><em>argv</em></td><td>)</td>
@@ -109,14 +109,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a4bda7d45d00c828d1e8555573c1c3caf"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4bda7d45d00c828d1e8555573c1c3caf">&#9670;&nbsp;</a></span>main_snarl()</h2>
+<a id="a7f4bcb1d0c551b46ed39797df9d0da60"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7f4bcb1d0c551b46ed39797df9d0da60">&#9670;&nbsp;</a></span>main_combine()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">int main_snarl </td>
+          <td class="memname">int main_combine </td>
           <td>(</td>
           <td class="paramtype">int&#160;</td>
           <td class="paramname"><em>argc</em>, </td>

@@ -100,6 +100,12 @@ Static Public Member Functions</h2></td></tr>
 <tr class="memitem:ad3f16de5d24cb503429d358e2af8c831"><td class="memTemplParams" colspan="2">template&lt;typename Handled , typename... Bases&gt; </td></tr>
 <tr class="memitem:ad3f16de5d24cb503429d358e2af8c831"><td class="memTemplItemLeft" align="right" valign="top">static void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#ad3f16de5d24cb503429d358e2af8c831">register_bare_loader_saver_with_magic</a> (const string &amp;tag, const string &amp;magic, <a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a> loader, <a class="el" href="namespacevg_1_1io.html#af8c1fde642062992c5179d67196ee4f2">bare_save_function_t</a> saver)</td></tr>
 <tr class="separator:ad3f16de5d24cb503429d358e2af8c831"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a82c329d405f2dc83880623561a10962f"><td class="memTemplParams" colspan="2">template&lt;typename Handled , typename... Bases&gt; </td></tr>
+<tr class="memitem:a82c329d405f2dc83880623561a10962f"><td class="memTemplItemLeft" align="right" valign="top">static void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#a82c329d405f2dc83880623561a10962f">register_loader</a> (const string &amp;tag, <a class="el" href="namespacevg_1_1io.html#a645533291ad3ae31bd8db73e51b3ac31">load_function_t</a> loader)</td></tr>
+<tr class="separator:a82c329d405f2dc83880623561a10962f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abdbc23294daf5a1f44b34da481929891"><td class="memTemplParams" colspan="2">template&lt;typename Handled , typename... Bases&gt; </td></tr>
+<tr class="memitem:abdbc23294daf5a1f44b34da481929891"><td class="memTemplItemLeft" align="right" valign="top">static void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#abdbc23294daf5a1f44b34da481929891">register_loader</a> (const std::vector&lt; std::string &gt; &amp;tags, <a class="el" href="namespacevg_1_1io.html#a645533291ad3ae31bd8db73e51b3ac31">load_function_t</a> loader)</td></tr>
+<tr class="separator:abdbc23294daf5a1f44b34da481929891"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4985634eed56438635dfbe0999103305"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#a4985634eed56438635dfbe0999103305">is_valid_tag</a> (const string &amp;tag)</td></tr>
 <tr class="separator:a4985634eed56438635dfbe0999103305"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9ccb7ac94bdb24687992af702d387620"><td class="memTemplParams" colspan="2">template&lt;typename Message &gt; </td></tr>
@@ -129,9 +135,6 @@ Static Private Member Functions</h2></td></tr>
 <tr class="separator:aa9f3d682e2b43bfdc3fc30e252a716b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a45f5ca692e2d85618f2081e7aa967730"><td class="memItemLeft" align="right" valign="top">::google::protobuf::util::TypeResolver &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#a45f5ca692e2d85618f2081e7aa967730">get_resolver</a> ()</td></tr>
 <tr class="separator:a45f5ca692e2d85618f2081e7aa967730"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a82c329d405f2dc83880623561a10962f"><td class="memTemplParams" colspan="2">template&lt;typename Handled , typename... Bases&gt; </td></tr>
-<tr class="memitem:a82c329d405f2dc83880623561a10962f"><td class="memTemplItemLeft" align="right" valign="top">static void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#a82c329d405f2dc83880623561a10962f">register_loader</a> (const string &amp;tag, <a class="el" href="namespacevg_1_1io.html#a645533291ad3ae31bd8db73e51b3ac31">load_function_t</a> loader)</td></tr>
-<tr class="separator:a82c329d405f2dc83880623561a10962f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaf8339640cdf9162563246a1e136b57f"><td class="memTemplParams" colspan="2">template&lt;typename Handled , typename... Bases&gt; </td></tr>
 <tr class="memitem:aaf8339640cdf9162563246a1e136b57f"><td class="memTemplItemLeft" align="right" valign="top">static void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#aaf8339640cdf9162563246a1e136b57f">register_bare_loader</a> (<a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a> loader, const string &amp;prefix=&quot;&quot;)</td></tr>
 <tr class="separator:aaf8339640cdf9162563246a1e136b57f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -529,7 +532,7 @@ template&lt;typename Handled , typename... Bases&gt; </div>
 </div>
 </div>
 <a id="a82c329d405f2dc83880623561a10962f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a82c329d405f2dc83880623561a10962f">&#9670;&nbsp;</a></span>register_loader()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a82c329d405f2dc83880623561a10962f">&#9670;&nbsp;</a></span>register_loader() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -559,11 +562,50 @@ template&lt;typename Handled , typename... Bases&gt; </div>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
 <p>Register a load function for a tag. The empty tag means it can run on untagged message groups. If any Bases are passed, we will use this loader to load when one of those types is requested and this tag is encountered. </p>
+
+</div>
+</div>
+<a id="abdbc23294daf5a1f44b34da481929891"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abdbc23294daf5a1f44b34da481929891">&#9670;&nbsp;</a></span>register_loader() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Handled , typename... Bases&gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::Registry::register_loader </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; std::string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>tags</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacevg_1_1io.html#a645533291ad3ae31bd8db73e51b3ac31">load_function_t</a>&#160;</td>
+          <td class="paramname"><em>loader</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Register a loading function for the given collection of tags. If "" appears in the list of tags, the loader can be deployed on untagged message groups (for backward compatibility). </p>
 
 </div>
 </div>

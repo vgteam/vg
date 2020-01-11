@@ -136,6 +136,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a6171cdd6036c73623c96656f8b44fe9d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a6171cdd6036c73623c96656f8b44fe9d">has_edge</a> (const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;edge) const</td></tr>
 <tr class="memdesc:a6171cdd6036c73623c96656f8b44fe9d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convenient wrapper of has_edge for edge_t argument.  <a href="#a6171cdd6036c73623c96656f8b44fe9d">More...</a><br /></td></tr>
 <tr class="separator:a6171cdd6036c73623c96656f8b44fe9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a20ff62014d7f0f0c01ada8a3d40a278d"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a20ff62014d7f0f0c01ada8a3d40a278d">get_edge_count</a> () const</td></tr>
+<tr class="separator:a20ff62014d7f0f0c01ada8a3d40a278d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4c98da99e0d32ebcc9fd31be4b779e29"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a4c98da99e0d32ebcc9fd31be4b779e29">get_total_length</a> () const</td></tr>
+<tr class="separator:a4c98da99e0d32ebcc9fd31be4b779e29"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a64d58c3e26e9e7954dd25c3eff7af521"><td class="memItemLeft" align="right" valign="top">virtual char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a64d58c3e26e9e7954dd25c3eff7af521">get_base</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, size_t index) const</td></tr>
 <tr class="separator:a64d58c3e26e9e7954dd25c3eff7af521"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a74c6fcda357516b1160996c63ed40d63"><td class="memItemLeft" align="right" valign="top">virtual std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a74c6fcda357516b1160996c63ed40d63">get_subsequence</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, size_t index, size_t size) const</td></tr>
@@ -527,6 +531,34 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
+<a id="a20ff62014d7f0f0c01ada8a3d40a278d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a20ff62014d7f0f0c01ada8a3d40a278d">&#9670;&nbsp;</a></span>get_edge_count()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t handlegraph::HandleGraph::get_edge_count </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Return the total number of edges in the graph. If not overridden, counts them all in linear time. </p>
+
+<p>Reimplemented in <a class="el" href="classvg_1_1VG.html#ad4577be9213932c313efd3d016b88a31">vg::VG</a>.</p>
+
+</div>
+</div>
 <a id="a6dd9d70931835f5c75518b23a780b744"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a6dd9d70931835f5c75518b23a780b744">&#9670;&nbsp;</a></span>get_handle()</h2>
 
@@ -757,6 +789,32 @@ template&lt;typename Iteratee &gt; </div>
 <p>Returns a substring of a handle's sequence, in the orientation of the handle. If the indicated substring would extend beyond the end of the handle's sequence, the return value is truncated to the sequence's end. By default O(n) in the size of the handle's sequence, but can be overriden. </p>
 
 <p>Reimplemented in <a class="el" href="classvg_1_1VG.html#a45075c22efc7cfb1ed06a8996fec119c">vg::VG</a>.</p>
+
+</div>
+</div>
+<a id="a4c98da99e0d32ebcc9fd31be4b779e29"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4c98da99e0d32ebcc9fd31be4b779e29">&#9670;&nbsp;</a></span>get_total_length()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t handlegraph::HandleGraph::get_total_length </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Return the total length of all nodes in the graph, in bp. If not overridden, loops over all nodes in linear time. </p>
 
 </div>
 </div>
