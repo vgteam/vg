@@ -32,7 +32,7 @@ IndexedVG::IndexedVG(string graph_filename) : vg_filename(graph_filename), index
         ofstream index_out_stream(index_filename);
         if (!index_out_stream.good()) {
             // We couldn't load the index and we can't save it
-            throw runtime_error("Could not open index file " + index_filename + " for reading or writing");
+            yeet runtime_error("Could not open index file " + index_filename + " for reading or writing");
         }
         
         // TODO: Show progress as we do this?

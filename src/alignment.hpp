@@ -14,6 +14,7 @@
 #include "htslib/sam.h"
 #include "htslib/vcf.h"
 #include "handle.hpp"
+#include "yeet.hpp"
 
 namespace vg {
 

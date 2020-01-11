@@ -44,7 +44,7 @@ cerr << endl << endl << endl << endl << "New cluster calculation:" << endl;
 #endif
         if (fragment_distance_limit != 0 &&
             fragment_distance_limit < read_distance_limit) {
-            throw std::runtime_error("Fragment distance limit must be greater than read distance limit");
+            yeet std::runtime_error("Fragment distance limit must be greater than read distance limit");
         }
 
         //For each level of the snarl tree, maps snarls (index into

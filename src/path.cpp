@@ -1482,7 +1482,7 @@ Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
                     if (n.position().node_id() == 0) {
                         // Complain if a Mapping has no position *and* has edit-initial
                         // deletions, which we need to remove but can't.
-                        throw runtime_error(
+                        yeet runtime_error(
                             "Cannot simplify Mapping with no position: need to update position when removing leading deletion");
                     }
                     
