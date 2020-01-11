@@ -75,6 +75,20 @@ bool is_all_n(const string& seq) {
     return true;
 }
 
+double get_fraction_of_ns(const string& seq) {
+    double n_frac = 0.;
+    if (!seq.empty()) {
+        size_t n_count = 0;
+        for (char c : seq) {
+            if (c == 'n' || c == 'N') {
+                ++n_count;
+            }
+        }
+        n_frac = (double)n_count/(double) seq.length();
+    }
+    return n_frac;
+}
+
 int get_thread_count(void) {
     int thread_count = 1;
 #pragma omp parallel
