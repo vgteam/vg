@@ -1411,6 +1411,11 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     //And overall score of the pair
                     //TODO: Scoring of pairs
                     double score = alignment1.score() + alignment2.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
+                    //TODO: I'm not sure if this is the right thing to do? 
+                    //They were in the same cluster so they'd be reasonably close together, but there's not path between them so they should still be penalized I think?
+                    if (fragment_distance == std::numeric_limits<int64_t>::max() ) {
+                        score = 1;
+                    }
                     paired_alignments.emplace_back(fragment_num, i1, i2, j1, j2);
                     paired_scores.emplace_back(score);
                     //TODO: Could also give each alignment a group score depending on how many identical alignments it has
@@ -1424,15 +1429,13 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 //                    }
                 }
             }
-            //TODO: We could also do something with unpaired clusters here.
-        } else {
-            if (!fragment_alignments.first.empty()) {
-                unpaired_fragments.first.push_back(fragment_num);
-            } else if (!fragment_alignments.second.empty()) {
-                unpaired_fragments.second.push_back(fragment_num);
-            }
+        } else if (!fragment_alignments.first.empty()) {
+            unpaired_fragments.first.push_back(fragment_num);
+        } else if (!fragment_alignments.second.empty()) {
+            unpaired_fragments.second.push_back(fragment_num);
+        }
 
-        }/* else {
+        /* else {
             if (track_provenance) {
                 if (fragment_alignments.first.empty()) {
                     for (size_t i = 0 ; i < fragment_alignments.second.size() ; i++) {
@@ -1447,48 +1450,52 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             }
         }*/
     }
+    //TODO: Might not want to do this
     if (!found_pair){
-        Alignment best1 = aln1;
-        Alignment best2 = aln2;
-        best1.clear_refpos();
-        best1.clear_path();
-        best1.set_score(0);
-        best1.set_identity(0);
-        best1.set_mapping_quality(0);
-        best2.clear_refpos();
-        best2.clear_path();
-        best2.set_score(0);
-        best2.set_identity(0);
-        best2.set_mapping_quality(0);
+        //If we didn't find any pairs within the fragment clusters, return the best individual alignments
+        Alignment best_aln1 = aln1;
+        Alignment best_aln2 = aln2;
+
+        best_aln1.clear_refpos();
+        best_aln1.clear_path();
+        best_aln1.set_score(0);
+        best_aln1.set_identity(0);
+        best_aln1.set_mapping_quality(0);
+
+        best_aln2.clear_refpos();
+        best_aln2.clear_path();
+        best_aln2.set_score(0);
+        best_aln2.set_identity(0);
+        best_aln2.set_mapping_quality(0);
         for (size_t fragment_num : unpaired_fragments.first) {
             for (size_t i = 0 ; i < alignments[fragment_num].first.size() ; i++) {
                 Alignment& alignment1 = alignments[fragment_num].first[i].first;
-                if (alignment1.score() > best1.score()) {
-                    best1 = alignment1;
+                if (alignment1.score() > best_aln1.score()) {
+                    best_aln1 = alignment1;
                 }
             }
         }
         for (size_t fragment_num : unpaired_fragments.second) {
             for (size_t i = 0 ; i < alignments[fragment_num].second.size() ; i++) {
                 Alignment& alignment2 = alignments[fragment_num].second[i].first;
-                if (alignment2.score() > best2.score()) {
-                    best2 = alignment2;
+                if (alignment2.score() > best_aln2.score()) {
+                    best_aln2 = alignment2;
                 }
             }
         }
 
         pair<vector<Alignment>, vector<Alignment>> paired_mappings;
-        paired_mappings.first.emplace_back(best1);
-        paired_mappings.second.emplace_back(best2);
-            // Flip aln2 back to input orientation
-            reverse_complement_alignment_in_place(&paired_mappings.second.back(), [&](vg::id_t node_id) {
-                return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
-            });
-            // Make sure to clamp 0-60.
-            // TODO: Maybe don't just give them the same mapq
+        paired_mappings.first.emplace_back(best_aln1);
+        paired_mappings.second.emplace_back(best_aln2);
+        // Flip aln2 back to input orientation
+        reverse_complement_alignment_in_place(&paired_mappings.second.back(), [&](vg::id_t node_id) {
+            return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
+        });
+        // Make sure to clamp 0-60.
+        // TODO: Maybe don't just give them the same mapq
 
-            paired_mappings.first.back().set_mapping_quality(1);
-            paired_mappings.second.back().set_mapping_quality(1);
+        paired_mappings.first.back().set_mapping_quality(1);
+        paired_mappings.second.back().set_mapping_quality(1);
         return paired_mappings;
 
     }
@@ -1606,6 +1613,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 paired_mappings.first.back().set_is_secondary(true);
                 paired_mappings.second.back().set_is_secondary(true);
             }
+
         }
     }
    
@@ -1703,6 +1711,12 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         set_annotation(paired_mappings.second[0], "param_cluster-coverage", (double) cluster_coverage_threshold);
         set_annotation(paired_mappings.second[0], "param_extension-set", (double) extension_set_score_threshold);
         set_annotation(paired_mappings.second[0], "param_max-multimaps", (double) max_multimaps);
+
+        string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.stdev());
+        set_annotation(paired_mappings.first [0],"fragment_length_distribution", distribution);
+        set_annotation(paired_mappings.second[0],"fragment_length_distribution", distribution);
+        set_annotation(paired_mappings.first [0],"secondary_scores", scores);
+        set_annotation(paired_mappings.second[0],"secondary_scores", scores);
     }
     
     // Ship out all the aligned alignments
