@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <cmath>
 
+//#define debug
+
 namespace vg {
 
 using namespace std;
@@ -1164,7 +1166,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     // Insert the (graph position, read offset) pair.
                     seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
 #ifdef debug
-                    cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds
+                    cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
                         << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index.count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
 #endif
                 }
@@ -1408,14 +1410,14 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     int64_t fragment_distance = distance_between(alignment1, alignment2); 
                     double dev = fragment_distance - fragment_length_distr.mean();
                     double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
+                    //TODO: I'm not sure if this is the right thing to do? 
+                    //They were in the same cluster so they'd be reasonably close together, but there's not path between them so they should still be penalized fairly harshly I think?
+                    if (fragment_distance == std::numeric_limits<int64_t>::max() ) {
+                        fragment_length_log_likelihood = -4;
+                    }
                     //And overall score of the pair
                     //TODO: Scoring of pairs
                     double score = alignment1.score() + alignment2.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
-                    //TODO: I'm not sure if this is the right thing to do? 
-                    //They were in the same cluster so they'd be reasonably close together, but there's not path between them so they should still be penalized I think?
-                    if (fragment_distance == std::numeric_limits<int64_t>::max() ) {
-                        score = 1;
-                    }
                     paired_alignments.emplace_back(fragment_num, i1, i2, j1, j2);
                     paired_scores.emplace_back(score);
                     //TODO: Could also give each alignment a group score depending on how many identical alignments it has
@@ -1724,7 +1726,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
 #ifdef debug
     // Dump the funnel info graph.
-    funnel.to_dot(cerr);
+    funnels[0].to_dot(cerr);
+    funnels[1].to_dot(cerr);
 #endif
 }
 
