@@ -20,6 +20,7 @@
 #include "types.hpp"
 #include "sha1.hpp"
 #include "Variant.h"
+#include "yeet.hpp"
 
 namespace vg {
 

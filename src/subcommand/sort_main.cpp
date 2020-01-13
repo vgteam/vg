@@ -165,7 +165,7 @@ int main_sort(int argc, char *argv[]) {
             // Sort topologically
             graph.get()->sort();
         } else {
-            throw runtime_error("Unimplemented sort algorithm: " + algorithm);
+            yeet runtime_error("Unimplemented sort algorithm: " + algorithm);
         }
         
         // We have an optional index, which will outlive our emitter

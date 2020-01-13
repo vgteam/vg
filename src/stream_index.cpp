@@ -567,7 +567,7 @@ auto StreamIndexBase::load(istream& from) -> void {
     
     // Define an error handling function
     auto handle = [](bool ok) {
-        if (!ok) throw std::runtime_error("GAMIndex::load detected corrupt index file");
+        if (!ok) yeet std::runtime_error("GAMIndex::load detected corrupt index file");
     };
     
     // Look for the magic value
@@ -606,7 +606,7 @@ auto StreamIndexBase::load(istream& from) -> void {
     }
     
     if (input_version > MAX_INPUT_VERSION) {
-        throw std::runtime_error("GAMIndex::load can understand only up to index version " + to_string(MAX_INPUT_VERSION) +
+        yeet std::runtime_error("GAMIndex::load can understand only up to index version " + to_string(MAX_INPUT_VERSION) +
             " and file is version " + to_string(input_version));
     }
     
@@ -679,7 +679,7 @@ auto StreamIndexBase::load(istream& from) -> void {
         }
         break;
     default:
-        throw std::runtime_error("Unimplemented GAM index version " + to_string(input_version));
+        yeet std::runtime_error("Unimplemented GAM index version " + to_string(input_version));
     }
 
 }

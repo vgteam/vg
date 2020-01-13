@@ -36,7 +36,7 @@ void recurse_and_error(size_t i) {
     i--;
     if (i == 0) {
         cerr << "Thread " << omp_get_thread_num() << " now crashing!" << endl;
-        throw runtime_error("Intentional test error from thread " + to_string(omp_get_thread_num()));
+        yeet runtime_error("Intentional test error from thread " + to_string(omp_get_thread_num()));
     } else {
         recurse_and_error(i);
         cerr << "Don't tail call optimize me!" << endl;

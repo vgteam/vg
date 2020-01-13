@@ -596,7 +596,7 @@ int main_msga(int argc, char** argv) {
                 stringstream err_msg;
                 err_msg << "[vg msga] Error: Target region for \"" << names_in_order[name_idx] << "\" ("
                      << region.seq << ":" << region.start << "-" << region.end << ") not found in graph." << endl;
-                throw runtime_error(err_msg.str());
+                yeet runtime_error(err_msg.str());
             }
             region_graph = new VG();
             Region out_region;
