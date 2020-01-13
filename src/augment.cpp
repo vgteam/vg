@@ -422,7 +422,7 @@ unordered_map<id_t, set<pos_t>> forwardize_breakpoints(const HandleGraph* graph,
     for (auto& p : breakpoints) {
         id_t node_id = p.first;
         if (!graph->has_node(node_id)) {
-            throw runtime_error("Node from GAM \"" + std::to_string(node_id) + "\" not found in graph.  If you are sure"
+            yeet runtime_error("Node from GAM \"" + std::to_string(node_id) + "\" not found in graph.  If you are sure"
                                 " the input graph is a subgraph of that used to create the GAM, you can ignore this error"
                                 " with \"vg augment -s\"");
         }

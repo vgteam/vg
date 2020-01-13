@@ -130,13 +130,13 @@ void GSSWAligner::load_scoring_matrix(istream& matrix_stream) {
     for(size_t i=0; i<25; i++){
       if(!matrix_stream.good()){
         std::cerr << "error: vg GSSWAligner::load_scoring_matrix requires a 5x5 whitespace separated integer matrix\n";
-        throw "";
+        yeet "";
       }
       int score;
       matrix_stream >> score;
       if(score > 127 || score < -127){
         std::cerr << "error: vg GSSWAligner::load_scoring_matrix requires values in the range [-127,127]\n";
-        throw "";
+        yeet "";
       }
       score_matrix[i] = score;
     }
@@ -1295,7 +1295,7 @@ void Aligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalEx
 
 void Aligner::align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const
 {
-    throw runtime_error("Aligner::align_xdrop_multi not yet implemented");
+    yeet runtime_error("Aligner::align_xdrop_multi not yet implemented");
 }
 
 unique_ptr<XdropAligner> Aligner::get_xdrop() const {

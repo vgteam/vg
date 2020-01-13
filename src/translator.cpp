@@ -67,7 +67,7 @@ Position Translator::translate(const Position& position, const Translation& tran
             stringstream s;
             s << "to-position offset is greater than translation length "
               << mapping_from_length(translation.to().mapping(0));
-            throw std::runtime_error(s.str());
+            yeet std::runtime_error(s.str());
         }
         // exact match; local coordinate space is identical
         Position from_pos = translation.from().mapping(0).position();

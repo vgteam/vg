@@ -1113,7 +1113,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         // Find the reference node starting here or later.
         auto found = index.by_start.lower_bound(ref_node_start);
         if(found == index.by_start.end()) {
-            throw runtime_error("No backbone node found when tracing through site!");
+            yeet runtime_error("No backbone node found when tracing through site!");
         }
 #ifdef debug
         cerr << "Ref node: " << found->second << " at " << ref_node_start << "/" << primary_max << endl;
@@ -1237,7 +1237,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
                  << pb2json(site) << endl;
             cerr << "error[RepresentativeTraversalFinder]: This can happen when the path you are calling "
                  << "against traverses the same part of your graph twice." << endl;
-            throw runtime_error("Extra ref node found");
+            yeet runtime_error("Extra ref node found");
         }
     }
     
@@ -1409,7 +1409,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
                 // trying to anchor actually starts and ends along the
                 // reference in the right orientation, this should never
                 // happen.
-                throw runtime_error("Ran out of reference path when looking for start of path to be anchored");
+                yeet runtime_error("Ran out of reference path when looking for start of path to be anchored");
             }
         }
         
@@ -1486,7 +1486,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
                 err << "Couldn't find " << path.back() << " in backbone path of site "
                 << site.start()
                 << " to " << site.end() << endl;
-                throw runtime_error(err.str());
+                yeet runtime_error(err.str());
             }
         }
         

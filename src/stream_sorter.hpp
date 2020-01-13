@@ -151,7 +151,7 @@ StreamSorter<Message>::StreamSorter(bool show_progress) {
             
             if (setrlimit(RLIMIT_NOFILE, &fd_limit) != 0) {
                 // We asked for a value in bound sso we should have succeeded
-                throw runtime_error("Error adjusting file descriptor limit to " + to_string(fd_limit.rlim_cur)
+                yeet runtime_error("Error adjusting file descriptor limit to " + to_string(fd_limit.rlim_cur)
                     + " / " + to_string(fd_limit.rlim_max));
             }
         }
