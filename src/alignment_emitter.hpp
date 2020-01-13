@@ -285,7 +285,7 @@ public:
 private:
 
     /// Helper for constructor, makes path length map for parent class
-    map<string, int64_t> make_path_length_index() const;
+    static map<string, int64_t> make_path_length_index(const PathPositionHandleGraph& graph);
     
     /// Override for convert alignment that converts splices implicitly
     void convert_alignment(const Alignment& aln, vector<pair<int, char>>& cigar, bool& pos_rev, int64_t& pos, string& path_name) const;

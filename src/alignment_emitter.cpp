@@ -583,12 +583,12 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
 SplicedHTSAlignmentEmitter::SplicedHTSAlignmentEmitter(const string& filename, const string& format,
                                                        const PathPositionHandleGraph& graph,
                                                        size_t max_threads) :
-    graph(graph), HTSAlignmentEmitter(filename, format, make_path_length_index(), max_threads) {
+    HTSAlignmentEmitter(filename, format, make_path_length_index(graph), max_threads), graph(graph) {
     
     // nothing else to do
 }
 
-map<string, int64_t> SplicedHTSAlignmentEmitter::make_path_length_index() const {
+map<string, int64_t> SplicedHTSAlignmentEmitter::make_path_length_index(const PathPositionHandleGraph& graph) {
     
     map<string, int64_t> return_val;
     graph.for_each_path_handle([&](const path_handle_t& path_handle) {
