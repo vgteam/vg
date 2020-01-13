@@ -706,6 +706,8 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     // variance/std-err can be nan when binsize < 2.  We just clamp it to 0
     double depth_err = depth_info.second ? !isnan(depth_info.second) : 0.;
 
+    double second_best_likelihood = -numeric_limits<double>::max();
+    
     // assume ploidy 2
     for (int i = 0; i < traversals.size(); ++i) {
         for (int j = i; j < traversals.size(); ++j) {
@@ -713,27 +715,23 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
             gen_likelihoods.push_back(gl);
             if (vector<int>({i, j}) == genotype || vector<int>({j,i}) == genotype) {
                 gen_likelihood = gl;
+            } else {
+                second_best_likelihood = max(gl, second_best_likelihood);
             }
             // convert from natural log to log10 by dividing by ln(10)
             variant.samples[sample_name]["GL"].push_back(std::to_string(gl / 2.30258));
         }
     }
 
-    // get the GQ
-    double prior = log(1. / (double)traversals.size());
-    double p_reads = prior + gen_likelihoods[0];
-    // note that we should be summing over all the likelihoods as considered in genotype()
-    // todo: figure out a way how to move this to that method.
-    // (or make sure more uncalled stuff makes it into the vcf so we have more traversals to sum over here)
-    /*
-    for (int i = 1; i < gen_likelihoods.size(); ++i) {
-        p_reads = add_log(p_reads, prior + gen_likelihoods[i]);
+    // GQ computed as here https://gatk.broadinstitute.org/hc/en-us/articles/360035890451?id=11075
+    // as difference between best and second best likelihoods
+    // (just using the posterior probability directly gives phred scores that are too tiny)
+    double gq = 0;
+    if (!isnan(gen_likelihood) && !isnan(second_best_likelihood)) {
+        gq = logprob_to_phred(second_best_likelihood) - logprob_to_phred(gen_likelihood);
     }
-    double posterior = gen_likelihood + prior - p_reads;
-    double gq = logprob_to_phred(logprob_invert(posterior));
     variant.format.push_back("GQ");
-    variant.samples[sample_name]["GQ"].push_back(std::to_string(gq));
-    */
+    variant.samples[sample_name]["GQ"].push_back(std::to_string(min((int)256, max((int)0, (int)gq))));
 
     // our old min-support based quality as hack until
     // qual / gq properly sorted out
@@ -756,7 +754,7 @@ void PoissonSupportSnarlCaller::update_vcf_header(string& header) const {
     header += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">\n";
     header += "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">\n";
     header += "##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype Likelihood, log10-scaled likelihoods of the data given the called genotype for each possible genotype generated from the reference and alternate alleles given the sample ploidy\">\n";
-    //header += "##FORMAT=<ID=GQ,Number=1,Type=Float,Description=\"Genotype Quality, the Phred-scaled probability of the called genotype\">\n";
+    header += "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality, the Phred-scaled probability estimate of the called genotype\">\n";
     header += "##FILTER=<ID=lowad,Description=\"Variant does not meet minimum allele read support threshold of " +
         std::to_string(min_mad_for_filter) + "\">\n";
     header += "##FILTER=<ID=lowdepth,Description=\"Variant has read depth less than " +
