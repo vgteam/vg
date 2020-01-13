@@ -382,6 +382,10 @@ void RatioSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     // Set the total support of the min allele as the variant quality
     variant.quality = min_site_support;
 
+    // And store the minimum support just to be clear
+    variant.format.push_back("MAD");
+    variant.samples[sample_name]["MAD"].push_back(std::to_string((int)(min_site_support)));
+
     // Now do the filters
     variant.filter = "PASS";            
     if (min_site_support < min_mad_for_filter) {
@@ -400,6 +404,7 @@ void RatioSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
 void RatioSupportSnarlCaller::update_vcf_header(string& header) const {
     header += "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">\n";
     header += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">\n";
+    header += "##FORMAT=<ID=MAD,Number=1,Type=Integer,Description=\"Minimum site allele depth\">\n";
     header += "##FORMAT=<ID=XADL,Number=1,Type=Float,Description=\"Likelihood of allelic depths for called alleles\">\n";
     // We need this field to stratify on for VCF comparison. The info is in SB but vcfeval can't pull it out
     header += "##FORMAT=<ID=XAAD,Number=1,Type=Integer,Description=\"Alt allele read count.\">\n";
@@ -707,6 +712,9 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     double depth_err = depth_info.second ? !isnan(depth_info.second) : 0.;
 
     double second_best_likelihood = -numeric_limits<double>::max();
+    double total_likelihood = 0.;
+    double ref_likelihood = 1.;
+    double alt_likelihood = 0.;
     
     // assume ploidy 2
     for (int i = 0; i < traversals.size(); ++i) {
@@ -718,6 +726,12 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
             } else {
                 second_best_likelihood = max(gl, second_best_likelihood);
             }
+            if (i == 0 && j == 0) {
+                ref_likelihood = gl;
+            } else {
+                alt_likelihood = alt_likelihood == 0. ? gl : add_log(alt_likelihood, gl);
+            }
+            total_likelihood = total_likelihood == 0 ? gl : add_log(total_likelihood, gl);
             // convert from natural log to log10 by dividing by ln(10)
             variant.samples[sample_name]["GL"].push_back(std::to_string(gl / 2.30258));
         }
@@ -733,9 +747,25 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     variant.format.push_back("GQ");
     variant.samples[sample_name]["GQ"].push_back(std::to_string(min((int)256, max((int)0, (int)gq))));
 
-    // our old min-support based quality as hack until
-    // qual / gq properly sorted out
-    variant.quality = min_site_support;
+    // The QUAL field is the probability that we have variation as a PHRED score (of wrongness)
+    // We derive this from the posterior probability of the reference genotype.
+    // But if it's a reference call, we take the total of all the alts
+    variant.quality = 0;
+    if (genotype.size() == 2) {
+        // our flat prior and p[traversal coverage]
+        double posterior = -log(gen_likelihoods.size()) - total_likelihood;
+        if (genotype[0] != 0 || genotype[1] != 0) {
+            posterior += ref_likelihood;
+        } else {
+            posterior += alt_likelihood;
+        }
+        variant.quality = logprob_to_phred(posterior);
+    }
+
+    // Minmum allele depth.  This historically has been our QUAL field for the sole reason
+    // that it was better than anything else at making ROC curves
+    variant.format.push_back("MAD");
+    variant.samples[sample_name]["MAD"].push_back(std::to_string((int)(min_site_support)));
 
     // Now do the filters
     // todo: fix and share with other caller
@@ -752,6 +782,7 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
 void PoissonSupportSnarlCaller::update_vcf_header(string& header) const {
     header += "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">\n";
     header += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">\n";
+    header += "##FORMAT=<ID=MAD,Number=1,Type=Integer,Description=\"Minimum site allele depth\">\n";
     header += "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">\n";
     header += "##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype Likelihood, log10-scaled likelihoods of the data given the called genotype for each possible genotype generated from the reference and alternate alleles given the sample ploidy\">\n";
     header += "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality, the Phred-scaled probability estimate of the called genotype\">\n";
