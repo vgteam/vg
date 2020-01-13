@@ -1,0 +1,158 @@
+= vg-gaffe(1)
+vgteam contributors
+v1.20.0
+:doctype: manpage
+:manmanual: vg
+:mansource: vg
+:man-linkstyle: pass:[blue R < >]
+
+== Name
+
+vg-gaffe - map unpaired short reads using minimizers and gapless extension
+
+== Synopsis
+
+*vg gaffe* [_OPTION_] > output.gam
+
+== Options
+
+*-x*::
+*--xg-name*=_FILE_::
+  Use this xg index or graph (required if -g not specified)
+ 
+*-g*::
+*--graph-name*=_FILE_:: 
+  Use this GBWTGraph (required if -x not specified)
+
+*-H*::
+*--gbwt-name*=_FILE_:: 
+  Use this GBWT index (required)
+
+*-m*::
+*--minimizer-name*=_FILE_:: 
+  Use this minimizer index (required)
+
+*-d*::
+*--dist-name*=_FILE_:: 
+  Cluster using this distance index (required)
+
+*-p*::
+*--progress*:: 
+  Show progress
+
+*-G*::
+*--gam-in*=_FILE_:: 
+  Read and realign GAM-format reads from FILE (may repeat)
+
+*-f*::
+*--fastq-in*=_FILE_:: 
+  Read and align FASTQ-format reads from FILE (may repeat)
+
+*-i*::
+*--interleaved*:: 
+  GAM/FASTQ input is interleaved pairs, for paired-end alignment
+
+*-M*::
+*--max-multimap*=_INT_:: 
+  Produce up to INT alignments for each read [1]
+
+*-N*::
+*--sample*=_NAME_:: 
+  Add this sample name
+
+*-R*::
+*--read-group*=_NAME_:: 
+  Add this read group
+
+*-n*::
+*--discard*:: 
+  Discard all output alignments (for profiling)
+
+*--output-basename*=_NAME_:: 
+  Write output to a GAM file beginning with the given prefix for each setting combination
+
+*--report-name*=_NAME_:: 
+  Write a TSV of output file and mapping speed to the given file
+
+*-c*::
+*--hit-cap*=_INT_:: 
+  Use all minimizers with at most INT hits [10]
+
+*-C*::
+*--hard-hit-cap*=_INT_:: 
+  Use all minimizers with at most INT hits [10]
+
+*-F*::
+*--score-fraction*=_FLOAT_:: 
+  Select minimizers between hit caps until score is FLOAT of total [0.6]
+
+*-D*::
+*--distance-limit*=_INT_:: 
+  Cluster using this distance limit [200]
+
+*-e*::
+*--max-extensions*=_INT_:: 
+  Extend up to INT clusters [48]
+
+*-a*::
+*--max-alignments*=_INT_:: 
+  Align up to INT clusters [8]
+
+*-s*::
+*--cluster-score*=_INT_:: 
+  Only extend clusters if they are within INT of the best score [50]
+
+*-u*::
+*--cluster-coverage*=_FLOAT_:: 
+  Only extend clusters if they are within INT of the best read coverage [0.4]
+
+*-v*::
+*--extension-score*=_INT_:: 
+  Only align extensions if their score is within INT of the best score [1]
+
+*-w*::
+*--extension-set*=_INT_:: 
+  Only align extension sets if their score is within extension-set of the best score [20]
+
+*-O*::
+*--no-dp*:: 
+  Disable all gapped alignment
+
+*--track-provenance*:: 
+  Track how internal intermediate alignment candidates were arrived at
+
+*--track-correctness*:: 
+  Track if internal intermediate alignment candidates are correct (implies --track-provenance)
+
+*-t*::
+*--threads*=_INT_:: 
+  Number of compute threads to use
+
+
+== Description
+
+*vg gaffe* is a fast (experimental) algorithm to map reads to a graph. 
+It is specialized for low-error-rate short reads.
+Giraffe uses minimizers of the graph's haplotypes and gapless extension to map the reads.
+Because the graph is expected to contain a relatively complete inventory of a certain type of variation, gapless alignment is sufficient to align most reads and a more expensive gapped alignment step is required for only a minority of cases.
+
+*vg gaffe* requires four graph indexes: An xg index or gbwt graph, gbwt index, minimizer index, and distance index. 
+These are built with *vg index* and *vg minimizer*
+
+
+== Examples
+
+To map reads to an indexed graph and write the alignment to a gam file:
+
+----
+$ vg gaffe -x graph.xg -H graph.gbwt -m graph.min -d graph.dist -G reads.gam > mapped.gam
+----
+
+== See Also
+*vg*(1), *git*(1)
+
+== Copyright
+
+Copyright (C) 2019 {author}.
+
+Free use of this documentation is granted under the terms of the MIT License.

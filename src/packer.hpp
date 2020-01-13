@@ -89,6 +89,8 @@ public:
     size_t edge_coverage(Edge& e) const;
     size_t edge_coverage(size_t i) const;
     size_t edge_vector_size(void) const;
+    /// Return the 1-based index of the given edge in our vectorization order,
+    /// or 0 if the edge does not exist in the graph.
     size_t edge_index(const Edge& e) const;
     void increment_edge_coverage(size_t i);
     void increment_edge_coverage(size_t i, size_t v);    

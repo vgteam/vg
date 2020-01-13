@@ -121,26 +121,48 @@ int main_ids(int argc, char** argv) {
         get_input_file(optind, argc, argv, [&](istream& in) {
                 graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(in);
             });
-
-        if (sort) {
-            // Set up the nodes so we go through them in topological order
-            graph->apply_ordering(algorithms::topological_order(graph.get()), true);
-        }
-
-        if (compact && !sort) {
-            // Compact only, or compact to re-assign IDs after sort
-            VG* vg_graph = dynamic_cast<VG*>(graph.get());
-            if (vg_graph != nullptr) {
-                vg_graph->compact_ids();
+            
+            
+        if (sort || compact) {
+            // We need to reassign IDs
+            hash_map<nid_t, nid_t> new_ids;
+            
+            if (compact && !sort) {
+                // We are compacting, but do not need to topologically sort
+                
+                // Loop over all the nodes in the graph's order and assign them new IDs in ID order.
+                // This is slower than it needs to be, but gets us nice results even on graphs that don't preserve node order.
+                // TODO: counting all the nodes may be an O(1) scan of the graph to save some vector copies.
+                vector<nid_t> all_ids;
+                all_ids.reserve(graph->get_node_count());
+                graph->for_each_handle([&](const handle_t& h) {
+                    all_ids.emplace_back(graph->get_id(h));
+                });
+                std::sort(all_ids.begin(), all_ids.end());
+                
+                // Now invert the vector's mapping
+                new_ids.reserve(all_ids.size());
+                for (nid_t i = 1; i < all_ids.size() + 1; i++) {
+                    new_ids[all_ids[i - 1]] = i;
+                }
             } else {
-                // try to use thie compact-option from apply_ordering
-                vector<handle_t> graph_ordering(graph->get_node_count());
-                size_t i = 0;
-                graph->for_each_handle([&](handle_t handle) {
-                        graph_ordering[i++] = handle;
-                    });
-                graph->apply_ordering(graph_ordering, true);
+                // We are sorting to assign IDs, which inherently compacts.
+                
+                // We only need to sort the ID numbers, not the graph's iteration order (if any).
+                auto handle_order = algorithms::topological_order(graph.get());
+                
+                // Now invert the order's mapping
+                new_ids.reserve(handle_order.size());
+                for (nid_t i = 1; i < handle_order.size() + 1; i++) {
+                    new_ids[graph->get_id(handle_order[i - 1])] = i;
+                }
             }
+            
+            // Now assign the IDs. If we find any e.g. dangling paths or
+            // edges with no nodes we will crash.
+            graph->reassign_node_ids([&](const nid_t& old_id) {
+                return new_ids.at(old_id);
+            });
         }
 
         if (increment != 0) {

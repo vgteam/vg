@@ -17,7 +17,10 @@
 #include "../vg.hpp"
 #include "../gfa.hpp"
 #include "../io/json_stream_helper.hpp"
+#include "../handle.hpp"
+#include "../convert_handle.hpp"
 #include <vg/io/message_iterator.hpp>
+#include <vg/io/vpkg.hpp>
 
 using namespace std;
 using namespace vg;
@@ -31,7 +34,7 @@ void help_view(char** argv) {
          << "    -F, --gfa-in               input GFA format, reducing overlaps if they occur" << endl
 
          << "    -v, --vg                   output VG format" << endl
-         << "    -V, --vg-in                input VG format (default)" << endl
+         << "    -V, --vg-in                input VG format only" << endl
 
          << "    -j, --json                 output JSON format" << endl
          << "    -J, --json-in              input JSON format" << endl
@@ -96,15 +99,16 @@ int main_view(int argc, char** argv) {
     }
 
     // Supported conversions:
-    //      TO  vg  json    gfa gam bam fastq   dot
+    //      TO  hg  vg  json    gfa gam bam fastq   dot
     // FROM
-    // vg       Y   Y       Y   N   N   N       Y
-    // json     Y   Y       Y   N   N   N       Y
-    // gfa      Y   Y       Y   N   N   N       Y
-    // gam      N   Y       N   N   N   N       N
-    // bam      N   N       N   Y   N   N       N
-    // fastq    N   N       N   Y   N   N       N
-    // dot      N   N       N   N   N   N       N
+    // hg       N   Y   Y       Y   N   N   N       Y
+    // vg       N   Y   Y       Y   N   N   N       Y
+    // json     N   Y   Y       Y   N   N   N       Y
+    // gfa      N   Y   Y       Y   N   N   N       Y
+    // gam      N   N   Y       N   N   N   N       N
+    // bam      N   N   N       N   Y   N   N       N
+    // fastq    N   N   N       N   Y   N   N       N
+    // dot      N   N   N       N   N   N   N       N
     //
     // and json-gam -> gam
     //     json-pileup -> pileup
@@ -411,9 +415,9 @@ int main_view(int argc, char** argv) {
         }
     }
 
-    // If the user specified nothing else, we default to VG in and GFA out.
+    // If the user specified nothing else, we default to handle graph in and GFA out.
     if (input_type.empty()) {
-        input_type = "vg";
+        input_type = "handlegraph";
     }
     if (output_type.empty()) {
         output_type = "gfa";
@@ -435,12 +439,12 @@ int main_view(int argc, char** argv) {
         in.open(loci_file.c_str());
         vg::io::for_each(in, lambda);
     }
-
-    VG* graph = nullptr;
+    
     if (optind >= argc) {
         cerr << "[vg view] error: no filename given" << endl;
         exit(1);
     }
+    
     string file_name = get_input_file_name(optind, argc, argv);
     
     // Tag extraction has to be handled specially.
@@ -460,6 +464,9 @@ int main_view(int argc, char** argv) {
         return 0;
     }
     
+
+    unique_ptr<PathHandleGraph> graph;
+     
     if (input_type == "vg") {
         if (output_type == "stream") {
             function<void(Graph&)> lambda = [&](Graph& g) { cout << pb2json(g) << endl; };
@@ -469,14 +476,23 @@ int main_view(int argc, char** argv) {
             return 0;
         } else {
             get_input_file(file_name, [&](istream& in) {
-                graph = new VG(in, false, !expect_duplicates);
+                graph = make_unique<VG>(in, false, !expect_duplicates);
             });
         }
         // VG can convert to any of the graph formats, so keep going
+    } else if (input_type == "handlegraph") {
+        if (output_type == "stream") {
+            cerr << "[vg view] error: Cannot stream a generic HandleGraph to JSON" << endl;
+            exit(1);
+        } else {
+            get_input_file(file_name, [&](istream& in) {
+                graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
+            });
+        }
     } else if (input_type == "gfa") {
         get_input_file(file_name, [&](istream& in) {
-            graph = new VG;
-            if (!gfa_to_graph(in, graph)) {
+            graph = make_unique<VG>();
+            if (!gfa_to_graph(in, dynamic_cast<vg::VG*>(graph.get()))) {
                 // GFA loading has failed because the file is invalid
                 exit(1);
             }
@@ -487,19 +503,20 @@ int main_view(int argc, char** argv) {
         vg::io::JSONStreamHelper<Graph> json_helper(file_name);
         function<bool(Graph&)> get_next_graph = json_helper.get_read_fn();
         // TODO: This is less inversion of control and more putting control in the middle.
-        graph = new VG([&](const function<void(Graph&)> use_graph) {
+        graph = make_unique<VG>([&](const function<void(Graph&)> use_graph) {
             Graph g;
             while (get_next_graph(g)) {
                 use_graph(g);
             }
         }, false, !expect_duplicates);
     } else if(input_type == "turtle-in") {
-        graph = new VG;
+        // TODO: Only vg::VG can load Turtle right now
+        graph = make_unique<VG>();
         bool pre_compress=color_variants;
         if (file_name == "-") {
-            graph->from_turtle("/dev/stdin", rdf_base_uri);
+            dynamic_cast<vg::VG*>(graph.get())->from_turtle("/dev/stdin", rdf_base_uri);
         } else {
-            graph->from_turtle(file_name, rdf_base_uri);
+            dynamic_cast<vg::VG*>(graph.get())->from_turtle(file_name, rdf_base_uri);
         }
     } else if (input_type == "gam") {
         if (!input_json) {
@@ -806,52 +823,85 @@ int main_view(int argc, char** argv) {
         return 0;
     }
 
-    if(graph == nullptr) {
+    if(!graph) {
         // Make sure we didn't forget to implement an input format.
         cerr << "[vg view] error: cannot load graph in " << input_type << " format" << endl;
         return 1;
     }
 
-    if(!graph->is_valid()) {
-        // If we're converting the graph, we might as well make sure it's valid.
+    // Now we know graph was filled in from the input format. Spit it out in the
+    // requested output format.
+    
+    // TODO: for now, all our output formats require a copy through vg:VG.
+    // Look at the graph as a vg if possible
+    VG* vg_graph = dynamic_cast<vg::VG*>(graph.get());
+    
+    if (vg_graph == nullptr) {
+        // Copy instead. Should be fine because we on;y ever want to run this on small graphs anyway.
+        vg_graph = new vg::VG();
+        convert_path_handle_graph(graph.get(), vg_graph);
+        
+        // Make sure the new VG has its Proto right
+        // TODO: if we didn't reach into vg.graph we wouldn't need to do this.
+        vg_graph->paths.to_graph(vg_graph->graph);
+        
+#ifdef debug
+        cerr << "Paths before conversion: " << endl;
+        graph->for_each_path_handle([&](const path_handle_t& p) {
+            cerr << graph->get_path_name(p) << endl;
+        });
+        
+        cerr << "Paths after conversion: " << endl;
+        vg_graph->for_each_path_handle([&](const path_handle_t& p) {
+            cerr << vg_graph->get_path_name(p) << endl;
+        });
+        
+        cerr << "VG Protobuf paths:" << endl;
+        for (auto& p : vg_graph->graph.path()) {
+            cerr << p.name() << endl;
+        }
+#endif
+        
+        // Give the unique_ptr ownership and delete the graph we loaded.
+        graph.reset(vg_graph);
+    }
+    
+    if(!vg_graph->is_valid()) {
+        // If we're converting the graph via VG, we might as well make sure it's valid.
         // This is especially useful for JSON import.
         cerr << "[vg view] warning: graph is invalid!" << endl;
     }
-
-    // Now we know graph was filled in from the input format. Spit it out in the
-    // requested output format.
-
-    if (output_type == "dot") {
-        graph->to_dot(std::cout,
-                      alns,
-                      loci,
-                      show_paths_in_dot,
-                      walk_paths_in_dot,
-                      annotate_paths_in_dot,
-                      show_mappings_in_dot,
-                      simple_dot,
-                      invert_edge_ports_in_dot,
-                      color_variants,
-                      ultrabubble_labeling,
-                      skip_missing_nodes,
-                      ascii_labels,
-                      seed_val);
+    
+    if (output_type == "gfa") {
+        // TODO: there's no reason this shouldn't work on PathHandleGraphs directly.
+        graph_to_gfa(vg_graph, std::cout);
+    } else if (output_type == "dot") {
+        vg_graph->to_dot(std::cout,
+                        alns,
+                        loci,
+                        show_paths_in_dot,
+                        walk_paths_in_dot,
+                        annotate_paths_in_dot,
+                        show_mappings_in_dot,
+                        simple_dot,
+                        invert_edge_ports_in_dot,
+                        color_variants,
+                        ultrabubble_labeling,
+                        skip_missing_nodes,
+                        ascii_labels,
+                        seed_val);
     } else if (output_type == "json") {
-        cout << pb2json(graph->graph) << endl;
-    } else if (output_type == "gfa") {
-        graph_to_gfa(graph, std::cout);
+        cout << pb2json(vg_graph->graph) << endl;
     } else if (output_type == "turtle") {
-        graph->to_turtle(std::cout, rdf_base_uri, color_variants);
+        vg_graph->to_turtle(std::cout, rdf_base_uri, color_variants);
     } else if (output_type == "vg") {
-        graph->serialize_to_ostream(cout);
-    } else if (output_type == "locus") {
-
+        vg_graph->serialize_to_ostream(cout);
     } else {
         // We somehow got here with a bad output format.
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
         return 1;
     }
-
+    
     // We made it to the end and nothing broke.
     return 0;
 }

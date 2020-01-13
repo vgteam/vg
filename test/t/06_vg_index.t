@@ -183,8 +183,8 @@ rm -f x_ref.gbwt x_both.gbwt
 
 # Other tests
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
-vg index -x x.xg x.vg bogus123.vg
-is $? 134 "fail with nonexistent file"
+vg index -x x.xg x.vg bogus123.vg 2>/dev/null
+is $? 1 "fail with nonexistent file"
 rm -rf x.idx
 
 vg kmers -k 16 -gB x.vg >x.graph

@@ -131,6 +131,11 @@ public:
     /// Return the number of nodes in the graph
     virtual size_t get_node_count() const;
     
+    /// Return the total number of edges in the graph.
+    virtual size_t get_edge_count() const;
+    
+    // We use the default, linear get_total_length 
+    
     /// Get the minimum node ID used in the graph, if any are used
     virtual id_t min_node_id() const;
     /// Get the maximum node ID used in the graph, if any are used
@@ -288,6 +293,12 @@ public:
     
     /// No-op function (required by MutableHandleGraph interface)
     virtual void set_id_increment(const nid_t& min_id);
+    
+    /// Add the given value to all node IDs. Preserves the paths.
+    virtual void increment_node_ids(id_t increment);
+    
+    /// Reassign all node IDs as specified by the old->new mapping function.
+    virtual void reassign_node_ids(const std::function<nid_t(const nid_t&)>& get_new_id);
 
     ////////////////////////////////////////////////////////////////////////////
     // Mutable path handle interface
@@ -383,6 +394,7 @@ public:
     vector<pair<id_t, bool>>& edges_end(id_t id);
     
     // properties of the graph
+    // TODO: redundant with handle graph methods!
     size_t size(void); ///< Number of nodes
     size_t length(void); ///< Total sequence length
 
@@ -442,14 +454,6 @@ public:
                        
     /// Chop up the nodes.
     void dice_nodes(int max_node_size);
-    /// Does the reverse --- combines nodes by removing edges where doing so has no effect on the graph labels.
-    void unchop(void);
-    /// Get the set of components that could be merged into single nodes without
-    /// changing the path space of the graph. Emits oriented traversals of
-    /// nodes, in the order and orientation in which they are to be merged.
-    set<list<NodeTraversal>> simple_components(int min_size = 1);
-    /// Get the simple components of multiple nodes.
-    set<list<NodeTraversal>> simple_multinode_components(void);
     /// Get the strongly connected components of the graph.
     set<set<id_t> > strongly_connected_components(void);
     /// Get only multi-node strongly connected components.
@@ -462,15 +466,9 @@ public:
     bool is_self_looping(Node* node);
     /// Get simple cycles following Johnson's elementary cycles algorithm.
     set<list<NodeTraversal> > elementary_cycles(void);
-    /// Concatenates the nodes into a new node with the same external linkage as
-    /// the provided component. After calling this, paths will be invalid until
-    /// Paths::compact_ranks() is called.
-    Node* concat_nodes(const list<NodeTraversal>& nodes);
     /// Merge the nodes into a single node, preserving external linkages.
     /// Use the orientation of the first node as the basis.
     Node* merge_nodes(const list<Node*>& nodes);
-    /// Use unchop and sibling merging to simplify the graph into a normalized form.
-    void normalize(int max_iter = 1, bool debug = false);
     /// Remove redundant overlaps.
     void bluntify(void);
     /// Turn the graph into a dag by copying strongly connected components expand_scc_steps times
@@ -596,9 +594,6 @@ public:
     /// Squish the node IDs down into as small a space as possible. Fixes up paths itself.
     /// Record translation in provided map.
     void compact_ids(hash_map<id_t, id_t> & new_id);
-    
-    /// Add the given value to all node IDs. Preserves the paths.
-    void increment_node_ids(id_t increment);
     /// Subtract the given value from all the node IDs. Must not create a node with 0 or negative IDs. Invalidates the paths.
     void decrement_node_ids(id_t decrement);
     /// Change the ID of the node with the first id to the second, new ID not
@@ -713,9 +708,6 @@ public:
     size_t node_count(void) const;
     /// Count the number of edges in the graph.
     size_t edge_count(void) const;
-    /// Get the total sequence length of nodes in the graph.
-    /// TODO: redundant with length().
-    id_t total_length_of_nodes(void);
     /// Get the rank of the node in the protobuf array that backs the graph.
     int node_rank(Node* node);
     /// Get the rank of the node in the protobuf array that backs the graph.
@@ -767,27 +759,7 @@ public:
     id_t common_ancestor_prev(id_t id1, id_t id2, size_t steps = 64);
     /// Try to find a common ancestor by walking forward up to steps from the first node
     id_t common_ancestor_next(id_t id1, id_t id2, size_t steps = 64);
-    /// To-siblings are nodes which also have edges to them from the same nodes as this one.
-    set<NodeTraversal> siblings_to(const NodeTraversal& traversal);
-    /// From-siblings are nodes which also have edges to them from the same nodes as this one.
-    set<NodeTraversal> siblings_from(const NodeTraversal& traversal);
-    /// Full to-siblings are nodes traversals which share exactly the same upstream `NodeSide`s.
-    set<NodeTraversal> full_siblings_to(const NodeTraversal& trav);
-    /// Full from-siblings are nodes traversals which share exactly the same downstream `NodeSide`s.
-    set<NodeTraversal> full_siblings_from(const NodeTraversal& trav);
-    /// Get general siblings of a node.
-    set<Node*> siblings_of(Node* node);
-    /// Remove easily-resolvable redundancy in the graph.
-    /// TODO: Cannot yet handle reversing edges! They will prevent the identification of siblings.
-    void simplify_siblings(void);
-    /// Remove easily-resolvable redundancy in the graph for all provided to-sibling sets.
-    void simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs);
-    /// Remove easily-resolvable redundancy in the graph for all provided from-sibling sets.
-    void simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs);
-    /// Remove intransitive sibling sets, such as where (A, B, C) = S1 but C ∊ S2.
-    set<set<NodeTraversal>> transitive_sibling_sets(const set<set<NodeTraversal>>& sibs);
-    /// Remove sibling sets which don't have identical orientation.
-    set<set<NodeTraversal>> identically_oriented_sibling_sets(const set<set<NodeTraversal>>& sibs);
+    
     /// Determine if pos1 occurs directly before pos2.
     bool adjacent(const Position& pos1, const Position& pos2);
 
@@ -1219,21 +1191,10 @@ public:
     /// Caller is responsible for dealing with orientations.
     void node_starts_in_path(const list<NodeTraversal>& path,
                              map<Node*, int>& node_start);
-    /// Return true if nodes share all paths and the mappings they share in these paths
-    /// are adjacent, in the specified relative order and orientation.
-    bool nodes_are_perfect_path_neighbors(NodeTraversal left, NodeTraversal right);
     /// Return true if the mapping completely covers the node it maps to and is a perfect match.
     bool mapping_is_total_match(const Mapping& m);
     /// Concatenate the mappings for a pair of nodes; handles multiple mappings per path.
     map<string, vector<mapping_t>> concat_mappings_for_node_pair(id_t id1, id_t id2);
-    /// Concatenate mappings for a list of nodes that we want to concatenate.
-    /// Returns, for each path name, a vector of merged mappings, once per path
-    /// traversal of the run of nodes. Those merged mappings are in the
-    /// orientation of the merged node (so mappings to nodes that are traversed
-    /// in reverse will have their flags toggled). We assume that all mappings on
-    /// the given nodes are full-length perfect matches, and that all the nodes
-    /// are perfect path neighbors.
-    map<string, vector<mapping_t>> concat_mappings_for_nodes(const list<NodeTraversal>& nodes);
 
     /// Expand a path. TODO: what does that mean?
     /// These versions handle paths in which nodes can be traversed multiple

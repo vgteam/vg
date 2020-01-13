@@ -23,7 +23,8 @@ void augment(MutablePathMutableHandleGraph* graph,
              double min_baseq,
              double min_mapq,
              Packer* packer,
-             size_t min_bp_coverage) {
+             size_t min_bp_coverage,
+             double max_frac_n) {
 
     function<void(function<void(Alignment&)>, bool, bool)> iterate_gam =
         [&gam_stream] (function<void(Alignment&)> aln_callback, bool reset_stream, bool parallel) {
@@ -49,7 +50,8 @@ void augment(MutablePathMutableHandleGraph* graph,
                  min_baseq,
                  min_mapq,                 
                  packer,
-                 min_bp_coverage);
+                 min_bp_coverage,
+                 max_frac_n);
 }
 
 void augment(MutablePathMutableHandleGraph* graph,
@@ -63,7 +65,8 @@ void augment(MutablePathMutableHandleGraph* graph,
              double min_baseq,
              double min_mapq,
              Packer* packer,
-             size_t min_bp_coverage) {
+             size_t min_bp_coverage,
+             double max_frac_n) {
     
     function<void(function<void(Alignment&)>, bool, bool)> iterate_gam =
         [&path_vector] (function<void(Alignment&)> aln_callback, bool reset_stream, bool parallel) {
@@ -99,7 +102,8 @@ void augment(MutablePathMutableHandleGraph* graph,
                  min_baseq,
                  min_mapq,
                  packer,
-                 min_bp_coverage);
+                 min_bp_coverage,
+                 max_frac_n);
 }
 
 void augment_impl(MutablePathMutableHandleGraph* graph,
@@ -113,10 +117,11 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                   double min_baseq,
                   double min_mapq,
                   Packer* packer,
-                  size_t min_bp_coverage) {
+                  size_t min_bp_coverage,
+                  double max_frac_n) {
 
     // toggle between using Packer to store breakpoints or the STL map
-    bool packed_mode = min_bp_coverage > 0 || min_baseq > 0;
+    bool packed_mode = min_bp_coverage > 0 || min_baseq > 0 || max_frac_n < 1.;
     assert(!packed_mode || packer != nullptr);
     
     unordered_map<id_t, set<pos_t>> breakpoints;
@@ -150,11 +155,11 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
 
             // Add in breakpoints from each path
             if (packed_mode) {
-                find_packed_breakpoints(simplified_path, *packer, break_at_ends, aln.quality(), min_baseq);
+                find_packed_breakpoints(simplified_path, *packer, break_at_ends, aln.quality(), min_baseq, max_frac_n);
             } else {
                 // note: we cannot pass non-zero min_baseq here.  it relies on filter_breakpoints_by_coverage
                 // to work correctly, and must be passed in only via find_packed_breakpoints.
-                find_breakpoints(simplified_path, breakpoints, break_at_ends, "", 0);
+                find_breakpoints(simplified_path, breakpoints, break_at_ends, "", 0, 1.);
             }
         }, false, packed_mode);
 
@@ -211,7 +216,8 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
             // criteria
             bool has_edits = true;
             if (min_bp_coverage > 0) {
-                has_edits = simplify_filtered_edits(graph, simplified_path, node_translation, orig_node_sizes);
+                has_edits = simplify_filtered_edits(graph, simplified_path, node_translation, orig_node_sizes,
+                                                    aln.quality(), min_baseq, max_frac_n);
             }
 
             // Now go through each new path again, by reference so we can overwrite.
@@ -239,11 +245,8 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                     //if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
                     auto s1 = graph->get_handle(m1.position().node_id(), m1.position().is_reverse());
                     auto s2 = graph->get_handle(m2.position().node_id(), m2.position().is_reverse());
-                    // check that we always have an edge between the two nodes in the correct direction
-                    if (!graph->has_edge(s1, s2)) {
-                        // force these edges in
-                        graph->create_edge(s1, s2);
-                    }
+                    // Ensure that we always have an edge between the two nodes in the correct direction
+                    graph->create_edge(s1, s2);
                 }
 
                 // optionally write out the modified path to GAM
@@ -267,16 +270,9 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
             graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
                     handle_t handle = graph->get_handle_of_step(step_handle);
                     if (i > 0) {
-                        if (!graph->has_edge(graph->get_handle_of_step(prev_handle), handle)) {
-#ifdef debug
-                            cerr << "edge missing! " << graph->get_id(graph->get_handle_of_step(prev_handle)) << ","
-                                 << graph->get_is_reverse(graph->get_handle_of_step(prev_handle)) << " -> "
-                                 << graph->get_id(handle) << "," << graph->get_is_reverse(handle) << endl;
-#endif
-                            // force these edges in
-                            graph->create_edge(graph->get_handle_of_step(prev_handle), handle);
-                            
-                        }
+                        // Ensure the edge that the path follows exists.
+                        // TODO: Should this be an error if it doesn't exist instead?
+                        graph->create_edge(graph->get_handle_of_step(prev_handle), handle);
                     }
                     prev_handle = step_handle;
                 });
@@ -315,7 +311,7 @@ double get_avg_baseq(const Edit& edit, const string& base_quals, size_t position
 
 // returns breakpoints on the forward strand of the nodes
 void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpoints, bool break_ends,
-                      const string& base_quals, double min_baseq) {
+                      const string& base_quals, double min_baseq, double max_frac_n) {
     // We need to work out what offsets we will need to break each node at, if
     // we want to add in all the new material and edges in this path.
 
@@ -367,7 +363,9 @@ void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpo
 #endif
 
             // Do the base quality check if applicable.  If it fails we just ignore the edit
-            if (min_baseq == 0 || get_avg_baseq(e, base_quals, position_in_read) >= min_baseq) {
+            if ((min_baseq == 0 || get_avg_baseq(e, base_quals, position_in_read) >= min_baseq) &&
+                (max_frac_n == 1. || get_fraction_of_ns(e.sequence()) <= max_frac_n)) {
+
                 
                 if (!edit_is_match(e) || (j == 0 && (i != 0 || break_ends))) {
                     // If this edit is not a perfect match, or if this is the first
@@ -452,11 +450,11 @@ unordered_map<id_t, set<pos_t>> forwardize_breakpoints(const HandleGraph* graph,
 
 // returns breakpoints on the forward strand of the nodes
 void find_packed_breakpoints(const Path& path, Packer& packed_breakpoints, bool break_ends,
-                             const string& base_quals, double min_baseq) {
+                             const string& base_quals, double min_baseq, double max_frac_n) {
     // use existing methods to find the breakpoints, then copy them into a packer
     // todo: streamline?
     unordered_map<id_t, set<pos_t>> breakpoints;
-    find_breakpoints(path, breakpoints, break_ends, base_quals, min_baseq);
+    find_breakpoints(path, breakpoints, break_ends, base_quals, min_baseq, max_frac_n);
     breakpoints = forwardize_breakpoints(packed_breakpoints.get_graph(), breakpoints);
     const HandleGraph* graph = packed_breakpoints.get_graph();
     for (auto& id_set : breakpoints) {
@@ -465,7 +463,7 @@ void find_packed_breakpoints(const Path& path, Packer& packed_breakpoints, bool 
         position.set_node_id(id_set.first);
         for (auto pos : id_set.second) {
             size_t offset = get_offset(pos);
-            if (offset < node_len - 1) {
+            if (offset <= node_len - 1) {
                 position.set_offset(offset);
                 packed_breakpoints.increment_coverage(packed_breakpoints.position_in_basis(position));
             }
@@ -627,27 +625,18 @@ static nid_t find_new_node(HandleGraph* graph, pos_t old_pos, const map<pos_t, i
 
 bool simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id_t>& node_translation,
                              const unordered_map<id_t, size_t>& orig_node_sizes,
-                             const string& base_quals, double min_baseq) {
+                             const string& base_quals, double min_baseq, double max_frac_n) {
 
     // check if an edit position is chopped at its next or prev position
-    auto is_chopped = [&](pos_t edit_position, bool look_next) {
-        // are we adding to the offset?
-        bool forward = look_next != is_rev(edit_position);
-        bool chopped = true;
-        if (forward) {
-            // check if its chopped in the original graph
-            chopped = offset(edit_position) == orig_node_sizes.find(id(edit_position))->second - 1;
-            // check if its chopped in the translation
-            if (!chopped) {
+    auto is_chopped = [&](pos_t edit_position, bool forward) {
+        // todo: better coverage support at node ends (problem is pack structure doesn't have that extra bin)
+        bool chopped = offset(edit_position) >= orig_node_sizes.find(id(edit_position))->second - 1 || offset(edit_position) <= 0;
+        if (!chopped) {
+            if (forward) {
                 auto edit_next_position = edit_position;
                 ++get_offset(edit_next_position);
                 chopped = find_new_node(graph, edit_position, node_translation) != find_new_node(graph, edit_next_position, node_translation);
-            }
-        } else {
-            // check if its chopped in the original graph
-            chopped = offset(edit_position) == 0;
-            // check if its chopped in the translation
-            if (!chopped) {
+            } else {
                 auto edit_prev_position = edit_position;
                 --get_offset(edit_prev_position);
                 chopped = find_new_node(graph, edit_position, node_translation) != find_new_node(graph, edit_prev_position, node_translation);
@@ -686,11 +675,20 @@ bool simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id
             // skip edits whose breakpoitns weren't added due to the coverage filter
             // or edits whose avg base quality fails the min_baseq filter
             if (!edit_is_match(e)) {
-                if (!is_chopped(edit_first_position, true) || !is_chopped(edit_last_position, false)
-                    || (min_baseq > 0 && get_avg_baseq(e, base_quals, position_in_read) < min_baseq)) {
+                bool chopped;
+                if (e.from_length() == 0) {
+                    // Just need one-side (prev) test when insertion
+                    chopped = is_chopped(edit_first_position, false);
+                } else {
+                    chopped = is_chopped(edit_first_position, false) && is_chopped(edit_last_position, true);
+                }
+                if (!chopped || 
+                    (min_baseq > 0 && get_avg_baseq(e, base_quals, position_in_read) < min_baseq) ||
+                    (max_frac_n < 1. && get_fraction_of_ns(e.sequence()) > max_frac_n)) {
                     e.set_to_length(e.from_length());
                     e.set_sequence("");
                     filtered_an_edit = true;
+                    
                 } else {
                     kept_an_edit = true;
                 }
@@ -977,9 +975,9 @@ Path add_nodes_and_edges(MutableHandleGraph* graph,
                     cerr << "Connecting " << dangler << " and " << to_attach << endl;
 #endif
                     // Add an edge from the dangling NodeSide to the start of this new node
-                    graph->create_edge(graph->get_handle(dangler.node, !dangler.is_end),
-                                       graph->get_handle(to_attach.node, to_attach.is_end));
-
+                    auto from_handle = graph->get_handle(dangler.node, !dangler.is_end);
+                    auto to_handle = graph->get_handle(to_attach.node, to_attach.is_end);
+                    graph->create_edge(from_handle, to_handle);
                 }
 
                 // Dangle the late-in-the-alignment end of this run of new nodes
@@ -1027,8 +1025,9 @@ Path add_nodes_and_edges(MutableHandleGraph* graph,
 #endif
 
                     // Connect the left end of the left node we matched in the direction we matched it
-                    graph->create_edge(graph->get_handle(dangler.node, !dangler.is_end),
-                                       graph->get_handle(left_node,  m.position().is_reverse()));
+                    auto from_handle = graph->get_handle(dangler.node, !dangler.is_end);
+                    auto to_handle = graph->get_handle(left_node,  m.position().is_reverse());
+                    graph->create_edge(from_handle, to_handle);
                 }
 
                 // Dangle the right end of the right node in the direction we matched it.

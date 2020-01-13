@@ -51,6 +51,13 @@ struct wang_hash<handle_t> {
         return wang_hash<std::int64_t>()(handlegraph::as_integer(handle));
     }
 };
+
+template<>
+struct wang_hash<path_handle_t> {
+    size_t operator()(const handlegraph::path_handle_t& handle) const {
+        return wang_hash<std::int64_t>()(handlegraph::as_integer(handle));
+    }
+};
     
 using handlegraph::ExpandingOverlayGraph;
 }

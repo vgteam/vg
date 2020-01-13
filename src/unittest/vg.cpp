@@ -6,6 +6,8 @@
 #include "../vg.hpp"
 #include "../augment.hpp"
 #include "../utility.hpp"
+#include "../algorithms/unchop.hpp"
+#include "../algorithms/normalize.hpp"
 
 namespace vg {
 namespace unittest {
@@ -1474,7 +1476,7 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
         
         VG graph = string_to_graph(graph_json);
         graph.bluntify();
-        graph.unchop();
+        algorithms::unchop(&graph);
         
         SECTION("the unchopped bluntified graph should have one node") {
             REQUIRE(graph.node_count() == 1);
@@ -1870,7 +1872,7 @@ TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
         )";
         
         VG graph = string_to_graph(graph_json);
-        graph.normalize();
+        algorithms::normalize(&graph);
         
         // One of the two alternative Ts should have been eliminated
         REQUIRE(graph.get_node_count() == 4);
@@ -1901,7 +1903,7 @@ TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
         )";
         
         VG graph = string_to_graph(graph_json);
-        graph.normalize();
+        algorithms::normalize(&graph);
         
         // Those duplicate Ts should be eliminated
         REQUIRE(graph.length() == 13);
@@ -1935,7 +1937,7 @@ TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
         )";
         
         VG graph = string_to_graph(graph_json);
-        graph.normalize();
+        algorithms::normalize(&graph);
         
         // Those duplicate Ts and Gs should be eliminated
         REQUIRE(graph.length() == 14);
@@ -1969,7 +1971,7 @@ TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
         )";
         
         VG graph = string_to_graph(graph_json);
-        graph.normalize();
+        algorithms::normalize(&graph);
         
         // Those duplicate Ts and Gs should be eliminated
         REQUIRE(graph.length() == 14);
@@ -2007,7 +2009,7 @@ TEST_CASE("normalize() can join nodes and merge siblings when nodes are backward
         )";
         
         VG graph = string_to_graph(graph_json);
-        graph.normalize();
+        algorithms::normalize(&graph);
         
         // Those duplicate Ts (actually As) should be eliminated
         REQUIRE(graph.length() == 13);
@@ -2046,7 +2048,7 @@ TEST_CASE("normalize() can join nodes and merge siblings when nodes are backward
         )";
         
         VG graph = string_to_graph(graph_json);
-        graph.normalize();
+        algorithms::normalize(&graph);
         
         // Those duplicate Ts (actually As) and Gs (actually Cs) should be eliminated
         REQUIRE(graph.length() == 11);
