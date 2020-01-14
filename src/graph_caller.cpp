@@ -155,8 +155,10 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
         tuple<string, size_t, size_t> ref_positions = get_ref_positions(variants);
 
         // use our support caller to choose our genotype (int traversal coordinates)
-        vector<int> trav_genotype = snarl_caller.genotype(snarl, travs, ref_trav_idx, 2, get<0>(ref_positions),
-                                                          make_pair(get<1>(ref_positions), get<2>(ref_positions)));
+        vector<int> trav_genotype;
+        unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+        std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, 2, get<0>(ref_positions),
+                                                                        make_pair(get<1>(ref_positions), get<2>(ref_positions)));
 
         assert(trav_genotype.empty() || trav_genotype.size() == 2);
 
@@ -209,7 +211,7 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
             genotype_vector.push_back(vcf_genotype);
 
             // add some info
-            snarl_caller.update_vcf_info(snarl, vcf_traversals, vcf_alleles, sample_name, out_variant);
+            snarl_caller.update_vcf_info(snarl, vcf_traversals, vcf_alleles, trav_call_info, sample_name, out_variant);
 
             // print the variant
             add_variant(out_variant);
@@ -445,11 +447,12 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         if (!called_traversals.empty()) {
             // regenotype our top-level traversals now that we know they aren't nested, and we have a
             // good idea of all the sizes
-            std::tie(called_traversals, genotype) = re_genotype(snarl, *rep_trav_finder, called_traversals, genotype, 2,
-                                                                path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+            unique_ptr<SnarlCaller::CallInfo> call_info;
+            std::tie(called_traversals, genotype, call_info) = re_genotype(snarl, *rep_trav_finder, called_traversals, genotype, 2,
+                                                                           path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
             // emit our vcf variant
-            emit_variant(snarl, *rep_trav_finder, called_traversals, genotype, path_name);
+            emit_variant(snarl, *rep_trav_finder, called_traversals, genotype, call_info, path_name);
 
             was_called = true;
         }
@@ -485,7 +488,9 @@ pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::top_down_genotype(const 
     vector<SnarlTraversal> traversals = trav_finder.find_traversals(snarl);
 
     // use our support caller to choose our genotype
-    vector<int> trav_genotype = snarl_caller.genotype(snarl, traversals, 0, ploidy, ref_path_name, ref_interval);
+    vector<int> trav_genotype;
+    unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+    std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, traversals, 0, ploidy, ref_path_name, ref_interval);
     if (trav_genotype.empty()) {
         return make_pair(vector<SnarlTraversal>(), vector<int>());
     }
@@ -578,12 +583,14 @@ SnarlTraversal LegacyCaller::get_reference_traversal(const Snarl& snarl, Travers
     return out_traversal;    
 }
 
-pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::re_genotype(const Snarl& snarl, TraversalFinder& trav_finder,
-                                                                    const vector<SnarlTraversal>& in_traversals,
-                                                                    const vector<int>& in_genotype,
-                                                                    int ploidy,
-                                                                    const string& ref_path_name,
-                                                                    pair<size_t, size_t> ref_interval) const {
+tuple<vector<SnarlTraversal>, vector<int>, unique_ptr<SnarlCaller::CallInfo>>
+LegacyCaller::re_genotype(const Snarl& snarl, TraversalFinder& trav_finder,
+                          const vector<SnarlTraversal>& in_traversals,
+                          const vector<int>& in_genotype,
+                          int ploidy,
+                          const string& ref_path_name,
+                          pair<size_t, size_t> ref_interval) const {
+    
     assert(in_traversals.size() == in_genotype.size());
     
     // create a set of unique traversal candidates that must include the reference first
@@ -606,24 +613,28 @@ pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::re_genotype(const Snarl&
     }
 
     // re-genotype the candidates
-    vector<int> rg_genotype = snarl_caller.genotype(snarl, rg_traversals, 0, ploidy, ref_path_name, ref_interval);
+    vector<int> rg_genotype;
+    unique_ptr<SnarlCaller::CallInfo> rg_call_info;
+    std::tie(rg_genotype, rg_call_info) = snarl_caller.genotype(snarl, rg_traversals, 0, ploidy, ref_path_name, ref_interval);
 
     // convert our output to something that emit_variant() will understand
     // todo: this is needlessly inefficient and should be streamlined to operate
     // directly on rg_traversals/rg_genotype once testing done
     vector<SnarlTraversal> out_traversals;
     vector<int> out_genotype;
+    
 
     for (int i = 0; i < rg_genotype.size(); ++i) {
         out_traversals.push_back(rg_traversals[rg_genotype[i]]);
         out_genotype.push_back(rg_genotype[i]);
     }
 
-    return make_pair(out_traversals, out_genotype);
+    return make_tuple(out_traversals, out_genotype, std::move(rg_call_info));
 }
 
 void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder, const vector<SnarlTraversal>& called_traversals,
-                                const vector<int>& genotype, const string& ref_path_name) const {
+                                const vector<int>& genotype, const unique_ptr<SnarlCaller::CallInfo>& call_info,
+                                const string& ref_path_name) const {
     
     // convert traversal to string
     function<string(const SnarlTraversal&)> trav_string = [&](const SnarlTraversal& trav) {
@@ -707,7 +718,7 @@ void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder
     flatten_common_allele_ends(out_variant, false);
 
     // add some support info
-    snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, sample_name, out_variant);
+    snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info, sample_name, out_variant);
 
     if (!out_variant.alt.empty()) {
         add_variant(out_variant);
