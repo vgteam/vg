@@ -10,7 +10,6 @@
 
 #include <string>
 #include <cstdio>
-#include "yeet.hpp"
 
 namespace google {
 namespace protobuf {

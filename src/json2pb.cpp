@@ -125,7 +125,7 @@ static json_t * _field2json(const Message& msg, const FieldDescriptor *field, si
 		default:
 			break;
 	}
-	if (!jf) yeet j2pb_error(field, "Fail to convert to json");
+	if (!jf) throw j2pb_error(field, "Fail to convert to json");
 	return jf;
 }
 
@@ -174,7 +174,7 @@ static json_t * _struct2json(const google::protobuf::Struct& msg) {
     auto status = google::protobuf::util::MessageToJsonString(msg, &buffer, opts);
     
     if (!status.ok()) {
-        yeet std::runtime_error("Could not serialize " + msg.GetTypeName() + ": " + status.ToString());
+        throw std::runtime_error("Could not serialize " + msg.GetTypeName() + ": " + status.ToString());
     }
     
     // Now parse back
@@ -185,12 +185,12 @@ static json_t * _struct2json(const google::protobuf::Struct& msg) {
     // No need to keep the buffer around after the JSON is parsed, which is good because it is a local.
 
 	if (!root)
-		yeet j2pb_error(std::string("Load failed: ") + error.text);
+		throw j2pb_error(std::string("Load failed: ") + error.text);
 
 	json_autoptr _auto(root);
 
 	if (!json_is_object(root))
-		yeet j2pb_error("Malformed JSON: not an object");
+		throw j2pb_error("Malformed JSON: not an object");
 
     return _auto.release();
 }
@@ -241,7 +241,7 @@ static void _json2field(Message &msg, const FieldDescriptor *field, json_t *jf)
 
 		case FieldDescriptor::CPPTYPE_STRING: {
 			if (!json_is_string(jf))
-				yeet j2pb_error(field, "Not a string");
+				throw j2pb_error(field, "Not a string");
 			const char * value = json_string_value(jf);
 			if(field->type() == FieldDescriptor::TYPE_BYTES)
 				_SET_OR_ADD(SetString, AddString, b64_decode(value));
@@ -268,9 +268,9 @@ static void _json2field(Message &msg, const FieldDescriptor *field, json_t *jf)
 			} else if (json_is_string(jf)) {
 				ev = ed->FindValueByName(json_string_value(jf));
 			} else
-				yeet j2pb_error(field, "Not an integer or string");
+				throw j2pb_error(field, "Not an integer or string");
 			if (!ev)
-				yeet j2pb_error(field, "Enum value not found");
+				throw j2pb_error(field, "Enum value not found");
 			_SET_OR_ADD(SetEnum, AddEnum, ev);
 			break;
 		}
@@ -286,7 +286,7 @@ static void _json2pb(Message& msg, json_t *root)
 {
 	const Descriptor *d = msg.GetDescriptor();
 	const Reflection *ref = msg.GetReflection();
-	if (!d || !ref) yeet j2pb_error("No descriptor or reflection");
+	if (!d || !ref) throw j2pb_error("No descriptor or reflection");
 
 	for (void *i = json_object_iter(root); i; i = json_object_iter_next(root, i))
 	{
@@ -298,12 +298,12 @@ static void _json2pb(Message& msg, json_t *root)
 			field = ref->FindKnownExtensionByName(name);
 			//field = d->file()->FindExtensionByName(name);
 
-		if (!field) yeet j2pb_error("Unknown field: " + std::string(name));
+		if (!field) throw j2pb_error("Unknown field: " + std::string(name));
 
 		int r = 0;
 		if (field->is_repeated()) {
 			if (!json_is_array(jf))
-				yeet j2pb_error(field, "Not array");
+				throw j2pb_error(field, "Not array");
 			for (size_t j = 0; j < json_array_size(jf); j++)
 				_json2field(msg, field, json_array_get(jf, j));
 		} else
@@ -329,7 +329,7 @@ static void _json2struct(google::protobuf::Struct& msg, json_t *root)
     // Parse it as a struct
     auto status = google::protobuf::util::JsonStringToMessage(buf, &msg);
     if (!status.ok()) {
-        yeet std::runtime_error("Could not deserialize " + msg.GetTypeName() + ": " + status.ToString());
+        throw std::runtime_error("Could not deserialize " + msg.GetTypeName() + ": " + status.ToString());
     }
 }
 
@@ -341,12 +341,12 @@ void json2pb(Message &msg, const char *buf, size_t size)
 	root = json_loadb(buf, size, 0, &error);
 
 	if (!root)
-		yeet j2pb_error(std::string("Load failed: ") + error.text);
+		throw j2pb_error(std::string("Load failed: ") + error.text);
 
 	json_autoptr _auto(root);
 
 	if (!json_is_object(root))
-		yeet j2pb_error("Malformed JSON: not an object");
+		throw j2pb_error("Malformed JSON: not an object");
 
 	_json2pb(msg, root);
 }
@@ -359,12 +359,12 @@ void json2pb(Message &msg, FILE *fp)
 	root = json_loadf(fp, JSON_DISABLE_EOF_CHECK, &error);
 
 	if (!root)
-		yeet j2pb_error(std::string("Load failed: ") + error.text);
+		throw j2pb_error(std::string("Load failed: ") + error.text);
 
 	json_autoptr _auto(root);
 
 	if (!json_is_object(root))
-		yeet j2pb_error("Malformed JSON: not an object");
+		throw j2pb_error("Malformed JSON: not an object");
 
 	_json2pb(msg, root);
 }

@@ -11,7 +11,6 @@
 
 
 #include "handle.hpp"
-#include "yeet.hpp"
 
 #include <handlegraph/util.hpp>
 

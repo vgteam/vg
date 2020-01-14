@@ -123,7 +123,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
         } else if (name[0] == '>') {
             is_fasta = true;
         } else {
-            yeet runtime_error("Found unexpected delimiter " + name.substr(0,1) + " in fastq/fasta input");
+            throw runtime_error("Found unexpected delimiter " + name.substr(0,1) + " in fastq/fasta input");
         }
         name = name.substr(1, name.find(' ')); // trim off leading @ and things after the first whitespace
         // keep trailing /1 /2
@@ -1916,7 +1916,7 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const string& n
         // Looks like we want to span the origin of a circular path
         if (!graph->get_is_circular(path_handle)) {
             // But the path isn't circular, which is a problem
-            yeet runtime_error("Cannot extract Alignment from " + to_string(pos1) +
+            throw runtime_error("Cannot extract Alignment from " + to_string(pos1) +
                                 " to " + to_string(pos2) + " across the junction of non-circular path " + name);
         }
         
@@ -1925,13 +1925,13 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const string& n
         
         if (pos1 >= path_len) {
             // We want to start off the end of the path, which is no good.
-            yeet runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
+            throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
                                 " which is past end " + to_string(path_len) + " of path " + name);
         }
         
         if (pos2 > path_len) {
             // We want to end off the end of the path, which is no good either.
-            yeet runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
+            throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
                                 " which is past end " + to_string(path_len) + " of path " + name);
         }
         
@@ -2086,7 +2086,7 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const string& n
         // Looks like we want to span the origin of a circular path
         if (!graph->get_is_circular(path_handle)) {
             // But the path isn't circular, which is a problem
-            yeet runtime_error("Cannot extract Alignment from " + to_string(pos1) +
+            throw runtime_error("Cannot extract Alignment from " + to_string(pos1) +
                                 " to " + to_string(pos2) + " across the junction of non-circular path " + name);
         }
         
@@ -2095,13 +2095,13 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const string& n
         
         if (pos1 >= path_len) {
             // We want to start off the end of the path, which is no good.
-            yeet runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
+            throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
                                 " which is past end " + to_string(path_len) + " of path " + name);
         }
         
         if (pos2 > path_len) {
             // We want to end off the end of the path, which is no good either.
-            yeet runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
+            throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
                                 " which is past end " + to_string(path_len) + " of path " + name);
         }
         

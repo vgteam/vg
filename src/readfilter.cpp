@@ -26,7 +26,7 @@ bool ReadFilter::trim_ambiguous_ends(Alignment& alignment, int k) {
     for(size_t i = 0; i < alignment.path().mapping_size(); i++) {
         if(alignment.path().mapping(i).edit_size() == 0) {
             // Complain!
-            yeet runtime_error("Found mapping with no edits in " + pb2json(alignment));
+            throw runtime_error("Found mapping with no edits in " + pb2json(alignment));
         }
     }
 
@@ -390,7 +390,7 @@ bool ReadFilter::has_repeat(Alignment& aln, int k) {
 bool ReadFilter::is_split(Alignment& alignment) {
     if(graph == nullptr) {
         // Can't tell if the read is split.
-        yeet runtime_error("HandleGraph (e.g. XG) required to check for split reads");
+        throw runtime_error("HandleGraph (e.g. XG) required to check for split reads");
     }
     
     handle_t prev;
