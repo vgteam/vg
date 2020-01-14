@@ -90,7 +90,7 @@ vg index -x x.xg -G x.gbwt -v small/xy2.vcf.gz x.vg
 vg gbwt -g x.gg -x x.xg x.gbwt
 is $? 0 "GBWTGraph construction was successful"
 vg view --extract-tag GBWTGraph x.gg > x.extracted.gg
-is $(md5sum x.extracted.gg | cut -f 1 -d\ ) 40400e50e1b9eec8915363e7775f693f "GBWTGraph was correctly serialized"
+is $(md5sum x.extracted.gg | cut -f 1 -d\ ) 62d451917c5076d7e84a6837dfb836cb "GBWTGraph was correctly serialized"
 
 rm -f x.xg x.gbwt x.gg x.extracted.gg
 
@@ -100,7 +100,7 @@ vg index -x xy.xg x.vg y.vg
 vg gbwt -P -n 16 -x xy.xg -g xy.gg -o xy.gbwt
 is $? 0 "GBWT/GBWTGraph construction from path cover was successful"
 vg view --extract-tag GBWTGraph xy.gg > xy.extracted.gg
-is $(md5sum xy.extracted.gg | cut -f 1 -d\ ) 91d09aafba875e1a9cb86e42384530d2 "GBWTGraph was correctly serialized"
+is $(md5sum xy.extracted.gg | cut -f 1 -d\ ) ae6ba365e7e5fac6456f9a5a130aa98f "GBWTGraph was correctly serialized"
 is $(vg gbwt -c xy.gbwt) 32 "path cover: 32 threads"
 is $(vg gbwt -C xy.gbwt) 2 "path cover: 2 contigs"
 is $(vg gbwt -H xy.gbwt) 16 "path cover: 16 haplotypes"
@@ -114,7 +114,7 @@ vg index -x xy.xg -G xy.gbwt -v small/xy2.vcf.gz x.vg y.vg
 vg gbwt -l -n 16 -x xy.xg -g xy.gg -o xy.local.gbwt xy.gbwt
 is $? 0 "GBWT/GBWTGraph construction from local haplotypes was successful"
 vg view --extract-tag GBWTGraph xy.gg > xy.extracted.gg
-is $(md5sum xy.extracted.gg | cut -f 1 -d\ ) 63c6e99adf823bcc6986c399796a336a "GBWTGraph was correctly serialized"
+is $(md5sum xy.extracted.gg | cut -f 1 -d\ ) b7b40fb5296ded80cc659cd2300015af "GBWTGraph was correctly serialized"
 is $(vg gbwt -c xy.local.gbwt) 32 "local haplotypes: 32 threads"
 is $(vg gbwt -C xy.local.gbwt) 2 "local haplotypes: 2 contigs"
 is $(vg gbwt -H xy.local.gbwt) 16 "local haplotypes: 16 haplotypes"

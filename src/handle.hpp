@@ -6,6 +6,7 @@
  */
 
 #include <handlegraph/handle_graph.hpp>
+#include <handlegraph/serializable_handle_graph.hpp>
 #include <handlegraph/mutable_handle_graph.hpp>
 #include <handlegraph/path_handle_graph.hpp>
 #include <handlegraph/path_position_handle_graph.hpp>
