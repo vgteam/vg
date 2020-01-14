@@ -442,6 +442,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SourceSinkOverlay.html">SourceSinkOverlay</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SplicedHTSAlignmentEmitter.html">SplicedHTSAlignmentEmitter</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SRPE.html">SRPE</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SSWAligner.html">SSWAligner</a></td></tr>
@@ -840,8 +842,8 @@ Functions</h2></td></tr>
 <tr class="separator:a598379872a84d4be8ff74df6242abf10"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2b93e9e76e3e7739f30adea6c0be4a57"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2b93e9e76e3e7739f30adea6c0be4a57">mapping_against_path</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const bam1_t *b, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, bool on_reverse_strand)</td></tr>
 <tr class="separator:a2b93e9e76e3e7739f30adea6c0be4a57"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a729d7060ecbe929f2229008ff520ba9c"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a729d7060ecbe929f2229008ff520ba9c">get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads)</td></tr>
-<tr class="separator:a729d7060ecbe929f2229008ff520ba9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a695a803c5f2860b92e987412f4fbe859"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a695a803c5f2860b92e987412f4fbe859">get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *splicing_graph)</td></tr>
+<tr class="separator:a695a803c5f2860b92e987412f4fbe859"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1fda752e24eaed100f6c30904d2ca3e1"><td class="memTemplParams" colspan="2">template&lt;typename AnnotationType , typename Annotated &gt; </td></tr>
 <tr class="memitem:a1fda752e24eaed100f6c30904d2ca3e1"><td class="memTemplItemLeft" align="right" valign="top">AnnotationType&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1fda752e24eaed100f6c30904d2ca3e1">get_annotation</a> (const Annotated &amp;annotated, const string &amp;name)</td></tr>
 <tr class="separator:a1fda752e24eaed100f6c30904d2ca3e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1287,6 +1289,8 @@ Functions</h2></td></tr>
 <tr class="separator:a43d6f299474100353ddcec9cc68a14b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af5a29ae37efd47f324b7d9d50f132271"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af5a29ae37efd47f324b7d9d50f132271">transfer_read_metadata</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;from, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;to)</td></tr>
 <tr class="separator:af5a29ae37efd47f324b7d9d50f132271"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af48acb91edce241c75a9a4fd02745620"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af48acb91edce241c75a9a4fd02745620">transfer_read_metadata</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;from, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;to)</td></tr>
+<tr class="separator:af48acb91edce241c75a9a4fd02745620"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af6a24c86c25b540e0e4e75a01d1bfb8f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af6a24c86c25b540e0e4e75a01d1bfb8f">merge_non_branching_subpaths</a> (<a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln)</td></tr>
 <tr class="memdesc:af6a24c86c25b540e0e4e75a01d1bfb8f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Merges non-branching paths in a multipath alignment in place.  <a href="#af6a24c86c25b540e0e4e75a01d1bfb8f">More...</a><br /></td></tr>
 <tr class="separator:af6a24c86c25b540e0e4e75a01d1bfb8f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -6980,8 +6984,8 @@ template&lt;typename ProbIn &gt; </div>
 
 </div>
 </div>
-<a id="a729d7060ecbe929f2229008ff520ba9c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a729d7060ecbe929f2229008ff520ba9c">&#9670;&nbsp;</a></span>get_alignment_emitter()</h2>
+<a id="a695a803c5f2860b92e987412f4fbe859"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a695a803c5f2860b92e987412f4fbe859">&#9670;&nbsp;</a></span>get_alignment_emitter()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -7008,7 +7012,13 @@ template&lt;typename ProbIn &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_threads</em>&#160;</td>
+          <td class="paramname"><em>max_threads</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>splicing_graph</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -7017,7 +7027,7 @@ template&lt;typename ProbIn &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Get an <a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> that can emit to the given file (or "-") in the given format. A table of contig lengths is required for HTSlib formats. Automatically applies per-thread buffering, but needs to know how many OMP threads will be in use. </p>
+<p>Get an <a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> that can emit to the given file (or "-") in the given format. A table of contig lengths is required for HTSlib formats. Automatically applies per-thread buffering, but needs to know how many OMP threads will be in use. If the alignments are spliced at known splice sites (i.e. edges in the graph), the graph can be provided in order to form spliced CIGAR strings for the HTSlib formats. Other output formats ignore the graph. </p>
 
 </div>
 </div>
@@ -11307,38 +11317,8 @@ template&lt;typename Scalar &gt; </div>
 
 </div>
 </div>
-<a id="a81357f8477c9ed2c3839489e0ada1ced"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a81357f8477c9ed2c3839489e0ada1ced">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[5/13]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">ostream &amp; vg::operator&lt;&lt; </td>
-          <td>(</td>
-          <td class="paramtype">ostream &amp;&#160;</td>
-          <td class="paramname"><em>out</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1mapping__t.html">mapping_t</a>&#160;</td>
-          <td class="paramname"><em>mapping</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Allow a <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> to be printed, for debugging purposes. </p>
-
-</div>
-</div>
 <a id="a9b4bea48392e7bb9e745b3b04e5bf223"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9b4bea48392e7bb9e745b3b04e5bf223">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[6/13]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a9b4bea48392e7bb9e745b3b04e5bf223">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[5/13]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -11372,6 +11352,36 @@ template&lt;typename Scalar &gt; </div>
 </div><div class="memdoc">
 
 <p>Print a <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> to a stream. </p>
+
+</div>
+</div>
+<a id="a81357f8477c9ed2c3839489e0ada1ced"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a81357f8477c9ed2c3839489e0ada1ced">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[6/13]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">ostream &amp; vg::operator&lt;&lt; </td>
+          <td>(</td>
+          <td class="paramtype">ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1mapping__t.html">mapping_t</a>&#160;</td>
+          <td class="paramname"><em>mapping</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Allow a <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> to be printed, for debugging purposes. </p>
 
 </div>
 </div>
@@ -16510,7 +16520,7 @@ template&lt;typename Collection &gt; </div>
 </div>
 </div>
 <a id="a741300a76b92c74a269946d7f859646c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a741300a76b92c74a269946d7f859646c">&#9670;&nbsp;</a></span>transfer_read_metadata() <span class="overload">[1/3]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a741300a76b92c74a269946d7f859646c">&#9670;&nbsp;</a></span>transfer_read_metadata() <span class="overload">[1/4]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -16540,7 +16550,7 @@ template&lt;typename Collection &gt; </div>
 </div>
 </div>
 <a id="a43d6f299474100353ddcec9cc68a14b2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a43d6f299474100353ddcec9cc68a14b2">&#9670;&nbsp;</a></span>transfer_read_metadata() <span class="overload">[2/3]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a43d6f299474100353ddcec9cc68a14b2">&#9670;&nbsp;</a></span>transfer_read_metadata() <span class="overload">[2/4]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -16570,7 +16580,7 @@ template&lt;typename Collection &gt; </div>
 </div>
 </div>
 <a id="af5a29ae37efd47f324b7d9d50f132271"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af5a29ae37efd47f324b7d9d50f132271">&#9670;&nbsp;</a></span>transfer_read_metadata() <span class="overload">[3/3]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#af5a29ae37efd47f324b7d9d50f132271">&#9670;&nbsp;</a></span>transfer_read_metadata() <span class="overload">[3/4]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -16595,6 +16605,36 @@ template&lt;typename Collection &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Copies metadata from an <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> object and transfers it to a <a class="el" href="structvg_1_1Alignment.html">Alignment</a></p>
+<p>Args: from copy metadata from this to into this </p>
+
+</div>
+</div>
+<a id="af48acb91edce241c75a9a4fd02745620"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af48acb91edce241c75a9a4fd02745620">&#9670;&nbsp;</a></span>transfer_read_metadata() <span class="overload">[4/4]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::transfer_read_metadata </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>from</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>to</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Copies metadata from an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> object and transfers it to another <a class="el" href="structvg_1_1Alignment.html">Alignment</a></p>
 <p>Args: from copy metadata from this to into this </p>
 
 </div>

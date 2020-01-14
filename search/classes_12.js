@@ -20,6 +20,7 @@ var searchData=
   ['snarltraversal',['SnarlTraversal',['../structvg_1_1SnarlTraversal.html',1,'vg']]],
   ['snvvector',['SNVvector',['../structhaplo_1_1linear__haplo__structure_1_1SNVvector.html',1,'haplo::linear_haplo_structure']]],
   ['sourcesinkoverlay',['SourceSinkOverlay',['../classvg_1_1SourceSinkOverlay.html',1,'vg']]],
+  ['splicedhtsalignmentemitter',['SplicedHTSAlignmentEmitter',['../classvg_1_1SplicedHTSAlignmentEmitter.html',1,'vg']]],
   ['srpe',['SRPE',['../classvg_1_1SRPE.html',1,'vg']]],
   ['sswaligner',['SSWAligner',['../classvg_1_1SSWAligner.html',1,'vg']]],
   ['stage',['Stage',['../structvg_1_1Funnel_1_1Stage.html',1,'vg::Funnel']]],

@@ -81,6 +81,7 @@ $(function() {
 <code>#include &lt;vg/vg.pb.h&gt;</code><br />
 <code>#include &lt;<a class="el" href="protobuf__emitter_8hpp.html">vg/io/protobuf_emitter.hpp</a>&gt;</code><br />
 <code>#include &lt;<a class="el" href="stream__multiplexer_8hpp.html">vg/io/stream_multiplexer.hpp</a>&gt;</code><br />
+<code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
@@ -92,6 +93,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html">vg::HTSAlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SplicedHTSAlignmentEmitter.html">vg::SplicedHTSAlignmentEmitter</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGAlignmentEmitter.html">vg::VGAlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -102,8 +105,8 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a729d7060ecbe929f2229008ff520ba9c"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a729d7060ecbe929f2229008ff520ba9c">vg::get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads)</td></tr>
-<tr class="separator:a729d7060ecbe929f2229008ff520ba9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a695a803c5f2860b92e987412f4fbe859"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a695a803c5f2860b92e987412f4fbe859">vg::get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads, const PathPositionHandleGraph *splicing_graph)</td></tr>
+<tr class="separator:a695a803c5f2860b92e987412f4fbe859"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines a system for emitting alignments and groups of alignments in multiple formats. </p>

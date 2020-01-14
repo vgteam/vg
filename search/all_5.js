@@ -151,7 +151,7 @@ var searchData=
   ['extract_5ffirst',['extract_first',['../classvg_1_1io_1_1VPKG.html#a770245b13c7784d97e8917184aab3ca0',1,'vg::io::VPKG']]],
   ['extract_5fid_5frange',['extract_id_range',['../classvg_1_1PathChunker.html#a140b4a86b4f8ea18d29a39c7b1aab66f',1,'vg::PathChunker']]],
   ['extract_5flinearized_5fpath_5fgraph',['extract_linearized_path_graph',['../classvg_1_1Surjector.html#af05f461840ebac9a70156214c843ee39',1,'vg::Surjector']]],
-  ['extract_5foverlapping_5fpaths',['extract_overlapping_paths',['../classvg_1_1Surjector.html#a38a7f24992f99835d97d5a212ec6ab51',1,'vg::Surjector']]],
+  ['extract_5foverlapping_5fpaths',['extract_overlapping_paths',['../classvg_1_1Surjector.html#a160910efa71892d87e316fe86d668150',1,'vg::Surjector']]],
   ['extract_5fpath_5fcomponent',['extract_path_component',['../classvg_1_1PathChunker.html#aca0d2bec2834fdc534d42238a0a53b46',1,'vg::PathChunker']]],
   ['extract_5fsub_5fmultipath_5falignment',['extract_sub_multipath_alignment',['../namespacevg.html#a3beb4892a91e602904b90307803cf176',1,'vg']]],
   ['extract_5fsubgraph',['extract_subgraph',['../classvg_1_1PathChunker.html#a90aac076d1669b467ca5ca5868c7ed2e',1,'vg::PathChunker']]],

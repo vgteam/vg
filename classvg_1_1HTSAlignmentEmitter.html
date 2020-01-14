@@ -81,7 +81,8 @@ Inheritance diagram for vg::HTSAlignmentEmitter:</div>
  <div class="center">
   <img src="classvg_1_1HTSAlignmentEmitter.png" usemap="#vg::HTSAlignmentEmitter_map" alt=""/>
   <map id="vg::HTSAlignmentEmitter_map" name="vg::HTSAlignmentEmitter_map">
-<area href="classvg_1_1AlignmentEmitter.html" alt="vg::AlignmentEmitter" shape="rect" coords="0,0,149,24"/>
+<area href="classvg_1_1AlignmentEmitter.html" alt="vg::AlignmentEmitter" shape="rect" coords="0,0,191,24"/>
+<area href="classvg_1_1SplicedHTSAlignmentEmitter.html" alt="vg::SplicedHTSAlignmentEmitter" shape="rect" coords="0,112,191,136"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -127,6 +128,8 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
+<tr class="memitem:a5cfe9918348db19fc8b8a153a953715b"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a5cfe9918348db19fc8b8a153a953715b">convert_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, vector&lt; pair&lt; int, char &gt;&gt; &amp;cigar, bool &amp;pos_rev, int64_t &amp;pos, string &amp;path_name) const</td></tr>
+<tr class="separator:a5cfe9918348db19fc8b8a153a953715b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1fffa85745ba9b2010b06dec53d900bb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a1fffa85745ba9b2010b06dec53d900bb">convert_unpaired</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, vector&lt; bam1_t *&gt; &amp;dest)</td></tr>
 <tr class="separator:a1fffa85745ba9b2010b06dec53d900bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a35bb8acba07afc0d1531cf6ddbba7ce2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a35bb8acba07afc0d1531cf6ddbba7ce2">convert_paired</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln1, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln2, int64_t tlen_limit, vector&lt; bam1_t *&gt; &amp;dest)</td></tr>
@@ -291,6 +294,62 @@ Static Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a5cfe9918348db19fc8b8a153a953715b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5cfe9918348db19fc8b8a153a953715b">&#9670;&nbsp;</a></span>convert_alignment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::HTSAlignmentEmitter::convert_alignment </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; pair&lt; int, char &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>cigar</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool &amp;&#160;</td>
+          <td class="paramname"><em>pos_rev</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramname"><em>pos</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string &amp;&#160;</td>
+          <td class="paramname"><em>path_name</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Reimplemented in <a class="el" href="classvg_1_1SplicedHTSAlignmentEmitter.html#ac837e6ec08c270afb4f6d231e4f58473">vg::SplicedHTSAlignmentEmitter</a>.</p>
+
+</div>
+</div>
 <a id="a35bb8acba07afc0d1531cf6ddbba7ce2"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a35bb8acba07afc0d1531cf6ddbba7ce2">&#9670;&nbsp;</a></span>convert_paired()</h2>
 

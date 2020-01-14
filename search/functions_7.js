@@ -24,7 +24,7 @@ var searchData=
   ['get_5faffinities',['get_affinities',['../classvg_1_1Genotyper.html#a928965cdb15a8e06232ee6bd3bcb9c85',1,'vg::Genotyper']]],
   ['get_5faffinities_5ffast',['get_affinities_fast',['../classvg_1_1Genotyper.html#a19169bb5763cd062c05474e751e18238',1,'vg::Genotyper']]],
   ['get_5faligner',['get_aligner',['../classvg_1_1AlignerClient.html#a50649d9b2fc24254a8ac002486cd4dbb',1,'vg::AlignerClient']]],
-  ['get_5falignment_5femitter',['get_alignment_emitter',['../namespacevg.html#a729d7060ecbe929f2229008ff520ba9c',1,'vg']]],
+  ['get_5falignment_5femitter',['get_alignment_emitter',['../namespacevg.html#a695a803c5f2860b92e987412f4fbe859',1,'vg']]],
   ['get_5falignment_5fstart',['get_alignment_start',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a5790a8cfd26dd12a19d33fc11cb84933',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
   ['get_5falignments',['get_alignments',['../structvg_1_1AugmentedGraph.html#ad92c283634470f6372777c38a9a70a79',1,'vg::AugmentedGraph::get_alignments(id_t node_id) const'],['../structvg_1_1AugmentedGraph.html#a61465a645ac54c62d4707d570ed56f76',1,'vg::AugmentedGraph::get_alignments(pair&lt; NodeSide, NodeSide &gt;) const'],['../structvg_1_1AugmentedGraph.html#ab3bf8e1a51696ba12329045956b7646a',1,'vg::AugmentedGraph::get_alignments() const'],['../classvg_1_1Index.html#aff7ba23c907f058c1c8cd015966f74ce',1,'vg::Index::get_alignments(int64_t node_id, vector&lt; Alignment &gt; &amp;alignments)'],['../classvg_1_1Index.html#a19f1fcf1fa2175c5ffc6e0e8a65de966',1,'vg::Index::get_alignments(int64_t id1, int64_t id2, vector&lt; Alignment &gt; &amp;alignments)']]],
   ['get_5fallele',['get_allele',['../classvg_1_1PhasedGenome.html#a6f89ab856a31dfb7258fd7487c051a5a',1,'vg::PhasedGenome']]],

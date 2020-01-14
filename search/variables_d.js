@@ -135,6 +135,7 @@ var searchData=
   ['min_5fsecondary',['min_secondary',['../classvg_1_1ReadFilter.html#a8f0ecf4f3140e483ba93592231929dbb',1,'vg::ReadFilter']]],
   ['min_5fsite_5fdepth',['min_site_depth',['../classvg_1_1SupportBasedSnarlCaller.html#adde07f3e5ca89a2a565e8859ee641159',1,'vg::SupportBasedSnarlCaller']]],
   ['min_5fsize',['min_size',['../classvg_1_1SmallSnarlSimplifier.html#a6efa9c6d0dc38da336a5723f87e20e46',1,'vg::SmallSnarlSimplifier']]],
+  ['min_5fsplice_5flength',['min_splice_length',['../classvg_1_1SplicedHTSAlignmentEmitter.html#a801ecf2defc628516d4a5165ff745acb',1,'vg::SplicedHTSAlignmentEmitter::min_splice_length()'],['../classvg_1_1Surjector.html#abe89487faa7dc39d61d299606ed9ac6b',1,'vg::Surjector::min_splice_length()']]],
   ['min_5ftail_5fanchor_5flength',['min_tail_anchor_length',['../classvg_1_1MultipathMapper.html#a9616c4b8786af795cfd1f007c5e0c1dc',1,'vg::MultipathMapper']]],
   ['min_5ftotal_5fsupport_5ffor_5fcall',['min_total_support_for_call',['../classvg_1_1SupportBasedSnarlCaller.html#a559c8afa8e4f1f73768d7d90ff6a6db0',1,'vg::SupportBasedSnarlCaller']]],
   ['min_5funique_5fper_5fstrand',['min_unique_per_strand',['../classvg_1_1Genotyper.html#a6b1feebb10944e684e417115e880fe39',1,'vg::Genotyper']]],

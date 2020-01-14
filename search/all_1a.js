@@ -98,6 +98,7 @@ var searchData=
   ['_7esnarlmanager',['~SnarlManager',['../classvg_1_1SnarlManager.html#a3a6eb9b943f3e1b090e21f23dae5f8ea',1,'vg::SnarlManager']]],
   ['_7esnarlmindistance',['~SnarlMinDistance',['../classvg_1_1SnarlMinDistance.html#af2b84f7d4327621d3def1da80b2853e2',1,'vg::SnarlMinDistance']]],
   ['_7esnarlorienteddistancemeasurer',['~SnarlOrientedDistanceMeasurer',['../classvg_1_1SnarlOrientedDistanceMeasurer.html#afba648bfa8f3712d2ed3fb698c36cdca',1,'vg::SnarlOrientedDistanceMeasurer']]],
+  ['_7esplicedhtsalignmentemitter',['~SplicedHTSAlignmentEmitter',['../classvg_1_1SplicedHTSAlignmentEmitter.html#a4ecdb4b35322bff73f961e934f4c53f5',1,'vg::SplicedHTSAlignmentEmitter']]],
   ['_7esswaligner',['~SSWAligner',['../classvg_1_1SSWAligner.html#afccac3a7c1be69feb1602c30749b1b84',1,'vg::SSWAligner']]],
   ['_7estrandsplitgraph',['~StrandSplitGraph',['../classvg_1_1StrandSplitGraph.html#a4ab1bab60dfb53a4e6fd6f2f7efe7e58',1,'vg::StrandSplitGraph']]],
   ['_7estreammultiplexer',['~StreamMultiplexer',['../classvg_1_1io_1_1StreamMultiplexer.html#ab59b05564e82666f5213863cb2d0af19',1,'vg::io::StreamMultiplexer']]],
