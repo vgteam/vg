@@ -278,6 +278,7 @@ class VGCITest(TestCase):
         if true_vcf_path:
             opts += '--vcfeval_baseline {} '.format(true_vcf_path)
             opts += '--vcfeval_fasta {} '.format(fasta_path)
+            opts += '--vcfeval_opts \' --ref-overlap\' '
         if interleaved:
             opts += '--interleaved '
         if multipath:
@@ -1122,6 +1123,7 @@ class VGCITest(TestCase):
             cmd += ['--vcfeval_bed_regions', bed_regions_path]
         # fasta: required for both vcfeval and freebayes
         cmd += ['--vcfeval_fasta', fasta_path]
+        cmd += ['--vcfeval_opts', '--ref-overlap']
 
         subprocess.check_call(cmd, shell=False)
 
