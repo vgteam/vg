@@ -711,6 +711,7 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     // variance/std-err can be nan when binsize < 2.  We just clamp it to 0
     double depth_err = depth_info.second ? !isnan(depth_info.second) : 0.;
 
+    double best_likelihood = -numeric_limits<double>::max();
     double second_best_likelihood = -numeric_limits<double>::max();
     double total_likelihood = 0.;
     double ref_likelihood = 1.;
@@ -723,8 +724,12 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
             gen_likelihoods.push_back(gl);
             if (vector<int>({i, j}) == genotype || vector<int>({j,i}) == genotype) {
                 gen_likelihood = gl;
-            } else {
-                second_best_likelihood = max(gl, second_best_likelihood);
+            }
+            if (gl > best_likelihood) {
+                second_best_likelihood = best_likelihood;
+                best_likelihood = gl;
+            } else if (gl > second_best_likelihood) {
+                second_best_likelihood = gl;
             }
             if (i == 0 && j == 0) {
                 ref_likelihood = gl;
@@ -740,9 +745,13 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     // GQ computed as here https://gatk.broadinstitute.org/hc/en-us/articles/360035890451?id=11075
     // as difference between best and second best likelihoods
     // (just using the posterior probability directly gives phred scores that are too tiny)
+    // todo: the genotype's likelihood is not always the best here.  This is because it's not computed
+    // as carefully as when genotyping.  Is taking the top two for GQ good enough?  Should we
+    // be doing this calculation within genotype() (probably) or fixing the scoring here to
+    // reproduce the likelihoods (too slow?).
     double gq = 0;
     if (!isnan(gen_likelihood) && !isnan(second_best_likelihood)) {
-        gq = logprob_to_phred(second_best_likelihood) - logprob_to_phred(gen_likelihood);
+        gq = logprob_to_phred(second_best_likelihood) - logprob_to_phred(best_likelihood);
     }
     variant.format.push_back("GQ");
     variant.samples[sample_name]["GQ"].push_back(std::to_string(min((int)256, max((int)0, (int)gq))));
