@@ -592,26 +592,7 @@ string alignment_to_sam_internal(const Alignment& alignment,
                                  const int32_t tlen_max) {
 
     // Determine flags, using orientation, next/prev fragments, and pairing status.
-    int32_t flags = sam_flag(alignment, refrev, paired);
-   
-    // Have One True Flag for whether the read is mapped (and should have its
-    // mapping stuff set) or unmapped (and should have things *'d out).
-    bool mapped = !(flags & BAM_FUNMAP);
-    
-    if (mapped) {
-        // Make sure we have everything
-        assert(!refseq.empty());
-        assert(refpos != -1);
-        assert(!cigar.empty());
-        assert(alignment.has_path());
-        assert(alignment.path().mapping_size() > 0);
-    }
-    
-    // We've observed some reads with the unmapped flag set and also a CIGAR string set, which shouldn't happen.
-    // We will check for this. The CIGAR string will only be set in the output if the alignment has a path.
-    assert((bool)(flags & BAM_FUNMAP) != (alignment.has_path() && alignment.path().mapping_size()));
-    
-    stringstream sam;
+    int32_t flags = determine_flag(alignment, refseq, refpos, refrev, mateseq, matepos, materev, tlen, paired, tlen_max);
     
     string alignment_name;
     if (paired) {
@@ -621,40 +602,25 @@ string alignment_to_sam_internal(const Alignment& alignment,
         // Keep the alignment name as is because even if the name looks paired, the reads are semantically unpaired.
         alignment_name = alignment.name();
     }
-
-    if (mapped && paired && !refseq.empty() && refseq == mateseq) {
-        // Properly paired if both mates mapped to same sequence, in inward-facing orientations.
-        // We know they're on the same sequence, so check orientation.
+    
+    // Have One True Flag for whether the read is mapped (and should have its
+    // mapping stuff set) or unmapped (and should have things *'d out).
+    bool mapped = !(flags & BAM_FUNMAP);
         
-        // If we are first, mate needs to be reverse, and if mate is first, we need to be reverse.
-        // If we are at the same position either way is fine.
-        bool facing = ((refpos <= matepos) && !refrev && materev) || ((matepos <= refpos) && refrev && !materev);
-        
-        // We are close enough if there is not tlen limit, or if there is one and we do not exceed it
-        bool close_enough = (tlen_max == 0) || abs(tlen) <= tlen_max;
-        
-        if (facing && close_enough) {
-            // We can't find anything wrong with this pair; it's properly paired.
-            flags |= BAM_FPROPER_PAIR;
-        }
-        
-        // TODO: Support sequencing technologies where "proper" pairing may
-        // have a different meaning or expected combination of orientations.
-    }
-
-    if (paired && mateseq.empty()) {
-        // Set the flag for the mate being unmapped
-        flags |= BAM_FMUNMAP;
-    }
-
-    if (paired && materev) {
-        // Set the flag for the mate being reversed
-        flags |= BAM_FMREVERSE;
+    if (mapped) {
+        // Make sure we have everything
+        assert(!refseq.empty());
+        assert(refpos != -1);
+        assert(!cigar.empty());
+        assert(alignment.has_path());
+        assert(alignment.path().mapping_size() > 0);
     }
 
     // We apply the convention of unmapped reads getting their mate's coordinates
     // See section 2.4.1 https://samtools.github.io/hts-specs/SAMv1.pdf
     bool use_mate_loc = !mapped && paired && !mateseq.empty();
+    
+    stringstream sam;
     
     sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
         << flags << "\t"
@@ -685,6 +651,57 @@ string alignment_to_sam_internal(const Alignment& alignment,
     return sam.str();
 }
 
+int32_t determine_flag(const Alignment& alignment,
+                       const string& refseq,
+                       const int32_t refpos,
+                       const bool refrev,
+                       const string& mateseq,
+                       const int32_t matepos,
+                       bool materev,
+                       const int32_t tlen,
+                       bool paired,
+                       const int32_t tlen_max) {
+    
+    // Determine flags, using orientation, next/prev fragments, and pairing status.
+    int32_t flags = sam_flag(alignment, refrev, paired);
+    
+    // We've observed some reads with the unmapped flag set and also a CIGAR string set, which shouldn't happen.
+    // We will check for this. The CIGAR string will only be set in the output if the alignment has a path.
+    assert((bool)(flags & BAM_FUNMAP) != (alignment.has_path() && alignment.path().mapping_size()));
+    
+    if (!((bool)(flags & BAM_FUNMAP)) && paired && !refseq.empty() && refseq == mateseq) {
+        // Properly paired if both mates mapped to same sequence, in inward-facing orientations.
+        // We know they're on the same sequence, so check orientation.
+        
+        // If we are first, mate needs to be reverse, and if mate is first, we need to be reverse.
+        // If we are at the same position either way is fine.
+        bool facing = ((refpos <= matepos) && !refrev && materev) || ((matepos <= refpos) && refrev && !materev);
+        
+        // We are close enough if there is not tlen limit, or if there is one and we do not exceed it
+        bool close_enough = (tlen_max == 0) || abs(tlen) <= tlen_max;
+        
+        if (facing && close_enough) {
+            // We can't find anything wrong with this pair; it's properly paired.
+            flags |= BAM_FPROPER_PAIR;
+        }
+        
+        // TODO: Support sequencing technologies where "proper" pairing may
+        // have a different meaning or expected combination of orientations.
+    }
+    
+    if (paired && mateseq.empty()) {
+        // Set the flag for the mate being unmapped
+        flags |= BAM_FMUNMAP;
+    }
+    
+    if (paired && materev) {
+        // Set the flag for the mate being reversed
+        flags |= BAM_FMREVERSE;
+    }
+    
+    return flags;
+}
+
 string alignment_to_sam(const Alignment& alignment,
                         const string& refseq,
                         const int32_t refpos,
@@ -711,7 +728,7 @@ string alignment_to_sam(const Alignment& alignment,
 }
 
 // Internal conversion function for both paired and unpaired codepaths
-bam1_t* alignment_to_bam_internal(const string& sam_header,
+bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
                                   const Alignment& alignment,
                                   const string& refseq,
                                   const int32_t refpos,
@@ -723,51 +740,201 @@ bam1_t* alignment_to_bam_internal(const string& sam_header,
                                   const int32_t tlen,
                                   bool paired,
                                   const int32_t tlen_max) {
-
-    assert(!sam_header.empty());
     
-    // Make a tiny SAM file. Remember to URL-encode it, since it may contain '%'
-    string sam_file = "data:," + percent_url_encode(sam_header +
-       alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, paired, tlen_max));
-    const char* sam = sam_file.c_str();
-    samFile *in = sam_open(sam, "r");
-    bam_hdr_t *header = sam_hdr_read(in);
-    bam1_t *aln = bam_init1();
-    if (sam_read1(in, header, aln) >= 0) {
-        bam_hdr_destroy(header);
-        sam_close(in); // clean up
-        return aln;
-    } else {
-        cerr << "[vg::alignment] Failure to parse SAM record" << endl
-             << sam << endl;
-        exit(1);
+    // this table does seem to be reproduced in htslib publicly, so I'm copying
+    // it from the CRAM conversion code
+    
+    static const char nt_encoding[256] = {
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15, 0,15,15,
+        15, 1,14, 2,13,15,15, 4,11,15,15,12,15, 3,15,15,
+        15,15, 5, 6, 8,15, 7, 9,15,10,15,15,15,15,15,15,
+        15, 1,14, 2,13,15,15, 4,11,15,15,12,15, 3,15,15,
+        15,15, 5, 6, 8,15, 7, 9,15,10,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15
+    };
+    
+    // init an empty BAM record
+    bam1_t* bam = bam_init1();
+    
+    // calculate the size in bytes of the variable length fields (which are all concatenated in memory)
+    int qname_nulls = 4 - alignment.name().size() % 4;
+    int qname_data_size = alignment.name().size() + qname_nulls;
+    int cigar_data_size = 4 * cigar.size();
+    int seq_data_size = (alignment.sequence().size() + 1) / 2; // round up
+    int qual_data_size = alignment.sequence().size(); // we will allocate this even if quality doesn't exist
+    
+    // allocate the joint variable length fields
+    int var_field_data_size = qname_data_size + cigar_data_size + seq_data_size + qual_data_size;
+    bam->data = (uint8_t*) calloc(var_field_data_size, sizeof(uint8_t));
+    
+    // TODO: what ID is this? CRAM seems to ignore it, so maybe we can too...
+    //bam->id = 0;
+    bam->l_data = var_field_data_size; // current length of data
+    bam->m_data = var_field_data_size; // max length of data
+    
+    bam1_core_t& core = bam->core;
+    core.pos = refpos;
+    core.tid = sam_hdr_name2tid(header, refseq.c_str());
+    core.qual = alignment.mapping_quality();
+    core.l_extranul = qname_nulls - 1;
+    core.flag = determine_flag(alignment, refseq, refpos, refrev, mateseq, matepos, materev, tlen, paired, tlen_max);
+    core.l_qname = qname_data_size;
+    core.n_cigar = cigar.size();
+    core.l_qseq = alignment.sequence().size();
+    core.mtid = sam_hdr_name2tid(header, mateseq.c_str());
+    core.mpos = matepos;
+    core.isize = tlen; // TODO: insert size or fragment length??
+    
+    // all variable-length data, concatenated; structure: qname-cigar-seq-qual-aux
+    uint8_t* name_data = bam->data;
+    
+    for (size_t i = 0; i < alignment.name().size(); ++i) {
+        name_data[i] = (uint8_t) alignment.name().at(i);
     }
-}
-
-bam1_t* alignment_to_bam(const string& sam_header,
-                        const Alignment& alignment,
-                        const string& refseq,
-                        const int32_t refpos,
-                        const bool refrev,
-                        const vector<pair<int, char>>& cigar,
-                        const string& mateseq,
-                        const int32_t matepos,
-                        bool materev,
-                        const int32_t tlen,
-                        const int32_t tlen_max) {
-
-    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, true, tlen_max);
-
-}
-
-bam1_t* alignment_to_bam(const string& sam_header,
-                        const Alignment& alignment,
-                        const string& refseq,
-                        const int32_t refpos,
-                        const bool refrev,
-                        const vector<pair<int, char>>& cigar) {
+    for (size_t i = 0; i < qname_nulls; ++i) {
+        name_data[i + alignment.name().size()] = '\0';
+    }
     
-    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false, 0);
+    // encode cigar and copy into data
+
+    uint32_t* cigar_data = (uint32_t*) (name_data + qname_data_size);
+    
+    auto refend = core.pos;
+    for (size_t i = 0; i < cigar.size(); ++i) {
+        uint32_t op;
+        switch (cigar[i].second) {
+            case 'M':
+            case 'm':
+                op = BAM_CMATCH;
+                refend += cigar[i].first;
+                break;
+            case 'I':
+            case 'i':
+                op = BAM_CINS;
+                break;
+            case 'D':
+            case 'd':
+                op = BAM_CDEL;
+                refend += cigar[i].first;
+                break;
+            case 'N':
+            case 'n':
+                op = BAM_CREF_SKIP;
+                refend += cigar[i].first;
+                break;
+            case 'S':
+            case 's':
+                op = BAM_CSOFT_CLIP;
+                break;
+            case 'H':
+            case 'h':
+                op = BAM_CHARD_CLIP;
+                break;
+            case 'P':
+            case 'p':
+                op = BAM_CPAD;
+                break;
+            case '=':
+                op = BAM_CEQUAL;
+                refend += cigar[i].first;
+                break;
+            case 'X':
+            case 'x':
+                op = BAM_CDIFF;
+                refend += cigar[i].first;
+                break;
+            default:
+                yeet runtime_error("Invalid CIGAR operation " + string(1, cigar[i].second));
+                break;
+        }
+        cigar_data[i] = bam_cigar_gen(op, cigar[i].first);
+    }
+    
+    // now we know where it ends, we can compute the bin
+    // copied from cram/cram_samtools.h
+    core.bin = hts_reg2bin(refpos, refend - 1, 4, 5); // TODO: not sure if end is past-the-last
+    
+    // convert sequence to 4-bit encoding
+    uint8_t* seq_data = (uint8_t*) (cigar_data + cigar.size());
+    for (size_t i = 0; i < alignment.sequence().size(); i += 2) {
+        if (i + 1 < alignment.sequence().size()) {
+            char a = alignment.sequence().at(i);
+            char b = alignment.sequence().at(i + 1);
+            seq_data[i / 2] = (nt_encoding[a] << 4) | (nt_encoding[b]);
+        }
+        else {
+            seq_data[i / 2] = nt_encoding[alignment.sequence().at(i)] << 4;
+        }
+    }
+    
+    // write the quality directly (it should already have the +33 offset removed)
+    uint8_t* qual_data = seq_data + seq_data_size;
+    for (size_t i = 0; i < alignment.sequence().size(); ++i) {
+        if (alignment.quality().empty()) {
+            // hacky, but this seems to be what they do in CRAM anyway
+            qual_data[i] = '\xff';
+        }
+        else {
+            qual_data[i] = alignment.quality().at(i);
+        }
+    }
+    
+    return bam;
+    
+//    assert(!sam_header.empty());
+//
+//    // Make a tiny SAM file. Remember to URL-encode it, since it may contain '%'
+//    string sam_file = "data:," + percent_url_encode(sam_header +
+//       alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, paired, tlen_max));
+//    const char* sam = sam_file.c_str();
+//    samFile *in = sam_open(sam, "r");
+//    bam_hdr_t *header = sam_hdr_read(in);
+//    bam1_t *aln = bam_init1();
+//    if (sam_read1(in, header, aln) >= 0) {
+//        bam_hdr_destroy(header);
+//        sam_close(in); // clean up
+//        return aln;
+//    } else {
+//        cerr << "[vg::alignment] Failure to parse SAM record" << endl
+//             << sam << endl;
+//        exit(1);
+//    }
+}
+
+bam1_t* alignment_to_bam(bam_hdr_t* bam_header,
+                         const Alignment& alignment,
+                         const string& refseq,
+                         const int32_t refpos,
+                         const bool refrev,
+                         const vector<pair<int, char>>& cigar,
+                         const string& mateseq,
+                         const int32_t matepos,
+                         bool materev,
+                         const int32_t tlen,
+                         const int32_t tlen_max) {
+
+    return alignment_to_bam_internal(bam_header, alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, true, tlen_max);
+
+}
+
+bam1_t* alignment_to_bam(bam_hdr_t* bam_header,
+                         const Alignment& alignment,
+                         const string& refseq,
+                         const int32_t refpos,
+                         const bool refrev,
+                         const vector<pair<int, char>>& cigar) {
+    
+    return alignment_to_bam_internal(bam_header, alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false, 0);
 
 }
 
