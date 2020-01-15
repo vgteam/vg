@@ -104,6 +104,11 @@ class Transcriptome {
         /// Collapse identical transcript paths.
         bool collapse_transcript_paths = true;
 
+        /// Constructs transcript paths by projecting introns from a bed file onto 
+        /// embedded paths in a variation graph and/or haplotypes in a GBWT index. Augments 
+        /// graph with splice-junctions. Returns number of introns added.
+        int32_t add_introns(istream & intron_stream, const gbwt::GBWT & haplotype_index);
+
         /// Constructs transcript paths by projecting transcripts from a gtf/gff file onto 
         /// embedded paths in a variation graph and/or haplotypes in a GBWT index. Augments 
         /// graph with transcriptome splice-junctions. Returns number of transcripts added.
@@ -165,6 +170,9 @@ class Transcriptome {
         /// updated (e.g. split) since parsed.
         bool _splice_graph_node_updated;
 
+        /// Returns the mean node length of the graph
+        float mean_node_length() const;
+
         /// Finds the position of each end of a exon on a path in the  
         /// variation graph and adds the exon to a transcript.
         void add_exon(Transcript * transcript, const pair<int32_t, int32_t> & exon_pos, const PathIndex & chrom_path_index) const;
@@ -190,19 +198,19 @@ class Transcriptome {
         /// Projects transcripts onto embedded paths in a variation graph and returns resulting transcript paths.
         list<TranscriptPath> project_transcript_embedded(const Transcript & cur_transcript) const;
 
-        /// Add new transcript paths to current set. Optionally add only unique paths.
+        /// Adds new transcript paths to current set. Has argument to only add unique paths.
         void append_transcript_paths(list<TranscriptPath> * cur_transcript_paths, list<TranscriptPath> * new_transcript_paths, const bool add_unqiue_paths_only) const;
 
-        /// Adds transcript paths to transcriptome. Augments the variation graph 
-        /// with transcript path splice-junctions and updates transcript path traversals
-        /// to match the augmented graph if the paths contain any novel start/end sites 
-        /// or junctions.
-        void add_paths_to_transcriptome(list<TranscriptPath> * cur_transcript_paths);
 
-        /// Adds novel splice-junctions in transcript paths to splice graph 
-        /// which does not require node splitting. Return false if a novel junction
-        /// requires node splitting.
-        bool add_novel_transcript_junctions(const list<TranscriptPath> & cur_transcript_paths);
+        /// Checks whether transcript path contain any novel exon boundaries.
+        bool has_novel_exon_boundaries(const list<TranscriptPath> & cur_transcript_paths, const bool include_transcript_ends);
+
+        /// Augments the variation graph with transcript path exon boundaries and 
+        /// splice-junctions. Updates transcript path traversals to match the augmented graph. 
+        void augment_splice_graph(list<TranscriptPath> * new_transcript_paths, const bool break_at_transcript_ends);
+
+        /// Adds transcript path splice-junctions to splice graph
+        void add_splice_junctions(const list<TranscriptPath> & cur_transcript_paths);
 };
 
 }
