@@ -17,7 +17,7 @@ var searchData=
   ['rare_5fvariant_5fsimplifier_2ehpp',['rare_variant_simplifier.hpp',['../rare__variant__simplifier_8hpp.html',1,'']]],
   ['rarevariantsimplifier',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html',1,'vg::RareVariantSimplifier'],['../classvg_1_1RareVariantSimplifier.html#a08cf82d7c40db195176b9bf177a50e32',1,'vg::RareVariantSimplifier::RareVariantSimplifier()']]],
   ['ratiosupportsnarlcaller',['RatioSupportSnarlCaller',['../classvg_1_1RatioSupportSnarlCaller.html',1,'vg::RatioSupportSnarlCaller'],['../classvg_1_1RatioSupportSnarlCaller.html#ad6905b3e30632f2a0a3e304cdfd15faa',1,'vg::RatioSupportSnarlCaller::RatioSupportSnarlCaller()']]],
-  ['re_5fgenotype',['re_genotype',['../classvg_1_1LegacyCaller.html#aa61e5245f919f7d285207abd5dfac981',1,'vg::LegacyCaller']]],
+  ['re_5fgenotype',['re_genotype',['../classvg_1_1LegacyCaller.html#a6c23ee5b732d26d4f55bd3b5b4830fca',1,'vg::LegacyCaller']]],
   ['read',['read',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388af59ee1df4e2ef504e48839035f85e961',1,'vg::ReadFilter::Counts::read()'],['../structhFILE__backend.html#ad710f254730683318f2d62b9c1ef3d60',1,'hFILE_backend::read()']]],
   ['read_5fbest_5fleft',['read_best_left',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#a1cb9c926cfd56cc7f2a68b176b38119e',1,'vg::SnarlSeedClusterer::NodeClusters']]],
   ['read_5fbest_5fright',['read_best_right',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#adfa95e9e1e1b9fb34637bb1bbe14320b',1,'vg::SnarlSeedClusterer::NodeClusters']]],

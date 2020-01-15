@@ -12,7 +12,7 @@ var searchData=
   ['rank_5fin_5fparent',['rank_in_parent',['../structvg_1_1SnarlSeedClusterer_1_1NetgraphNode.html#a8764931229567f2ffbf14988d02ff17f',1,'vg::SnarlSeedClusterer::NetgraphNode']]],
   ['rarevariantsimplifier',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html#a08cf82d7c40db195176b9bf177a50e32',1,'vg::RareVariantSimplifier']]],
   ['ratiosupportsnarlcaller',['RatioSupportSnarlCaller',['../classvg_1_1RatioSupportSnarlCaller.html#ad6905b3e30632f2a0a3e304cdfd15faa',1,'vg::RatioSupportSnarlCaller']]],
-  ['re_5fgenotype',['re_genotype',['../classvg_1_1LegacyCaller.html#aa61e5245f919f7d285207abd5dfac981',1,'vg::LegacyCaller']]],
+  ['re_5fgenotype',['re_genotype',['../classvg_1_1LegacyCaller.html#a6c23ee5b732d26d4f55bd3b5b4830fca',1,'vg::LegacyCaller']]],
   ['read_5fcoverage',['read_coverage',['../classvg_1_1MultipathMapper.html#aad3de01816bc0be9ac9f6474c15087af',1,'vg::MultipathMapper']]],
   ['read_5fcoverage_5fz_5fscore',['read_coverage_z_score',['../classvg_1_1MultipathMapper.html#a6ed8da3585098e235f284c80fccf6192',1,'vg::MultipathMapper']]],
   ['read_5fmapping',['read_mapping',['../classvg_1_1PhaseUnfolder.html#adbf93e421183b64f73276639c3c23dfb',1,'vg::PhaseUnfolder']]],

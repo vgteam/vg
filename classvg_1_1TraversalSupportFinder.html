@@ -112,8 +112,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a28c6f9088f6c28d64855d6cac9a65322"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af2a1e54c76495be48302291028465d3b"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; <a class="el" href="structvg_1_1Support.html">Support</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#af2a1e54c76495be48302291028465d3b">get_traversal_genotype_support</a> (const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const vector&lt; int &gt; &amp;genotype, const set&lt; int &gt; &amp;other_trav_subset, int ref_trav_idx=-1)</td></tr>
 <tr class="separator:af2a1e54c76495be48302291028465d3b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aabbc69a3313b79373404b67c3082e9b3"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; <a class="el" href="structvg_1_1Support.html">Support</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#aabbc69a3313b79373404b67c3082e9b3">get_traversal_set_support</a> (const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const vector&lt; int &gt; &amp;shared_travs, const set&lt; int &gt; &amp;tgt_travs, bool exclusive_only, bool exclusive_count, bool mutual_shared, int ref_trav_idx=-1) const</td></tr>
-<tr class="separator:aabbc69a3313b79373404b67c3082e9b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac82d34ae41ccb71bf6aa415cf3c385b5"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; <a class="el" href="structvg_1_1Support.html">Support</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#ac82d34ae41ccb71bf6aa415cf3c385b5">get_traversal_set_support</a> (const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const vector&lt; int &gt; &amp;shared_travs, const set&lt; int &gt; &amp;tgt_travs, bool exclusive_only, const vector&lt; <a class="el" href="structvg_1_1Support.html">Support</a> &gt; &amp;exclusive_count_support, bool mutual_shared, int ref_trav_idx=-1) const</td></tr>
+<tr class="separator:ac82d34ae41ccb71bf6aa415cf3c385b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a95944f27ca78da63466f5623ad646ee4"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#a95944f27ca78da63466f5623ad646ee4">get_traversal_sizes</a> (const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals) const</td></tr>
 <tr class="memdesc:a95944f27ca78da63466f5623ad646ee4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the total length of all nodes in the traversal.  <a href="#a95944f27ca78da63466f5623ad646ee4">More...</a><br /></td></tr>
 <tr class="separator:a95944f27ca78da63466f5623ad646ee4"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -498,8 +498,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aabbc69a3313b79373404b67c3082e9b3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aabbc69a3313b79373404b67c3082e9b3">&#9670;&nbsp;</a></span>get_traversal_set_support()</h2>
+<a id="ac82d34ae41ccb71bf6aa415cf3c385b5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac82d34ae41ccb71bf6aa415cf3c385b5">&#9670;&nbsp;</a></span>get_traversal_set_support()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -534,8 +534,8 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>exclusive_count</em>, </td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1Support.html">Support</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>exclusive_count_support</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -561,7 +561,7 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>traversals: get support for each traversal in this set shared_travs: if a node appears N times in shared_travs, then it will count as 1 / (N+1) support tgt_travs: if not empty, only compute support for these traversals (remaining slots in output vector left 0) eclusive_only: shared_travs are completely ignored exclusive_count: anything in shared_travs treated as 0 mutual_shared: shared_travs count as 1/N support (instead of 1/(N+1)). usefuly for total support ref_trav_idx: index of reference traversal if known </p>
+<p>traversals: get support for each traversal in this set shared_travs: if a node appears N times in shared_travs, then it will count as 1 / (N+1) support tgt_travs: if not empty, only compute support for these traversals (remaining slots in output vector left 0) eclusive_only: shared_travs are completely ignored exclusive_count_support: anything in shared_travs has this much support subtracted from it mutual_shared: shared_travs count as 1/N support (instead of 1/(N+1)). usefuly for total support ref_trav_idx: index of reference traversal if known </p>
 
 </div>
 </div>

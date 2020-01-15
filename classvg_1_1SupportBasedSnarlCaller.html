@@ -92,9 +92,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:adff4e7045e950e7caea2858569afec02"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1bc8a2019ce7e220dbee5b26c4b27211"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a1bc8a2019ce7e220dbee5b26c4b27211">~SupportBasedSnarlCaller</a> ()</td></tr>
 <tr class="separator:a1bc8a2019ce7e220dbee5b26c4b27211"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0a1e45e1eff5208d489115539d621384"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a0a1e45e1eff5208d489115539d621384">update_vcf_info</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const vector&lt; int &gt; &amp;<a class="el" href="classvg_1_1SnarlCaller.html#a46f8549911ac82ea984fd7f56bae1c3d">genotype</a>, const string &amp;sample_name, vcflib::Variant &amp;variant)</td></tr>
-<tr class="memdesc:a0a1e45e1eff5208d489115539d621384"><td class="mdescLeft">&#160;</td><td class="mdescRight">Update INFO and FORMAT fields of the called variant.  <a href="#a0a1e45e1eff5208d489115539d621384">More...</a><br /></td></tr>
-<tr class="separator:a0a1e45e1eff5208d489115539d621384"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3ddd1e17537734b984fa0befe9f0d7f6"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a3ddd1e17537734b984fa0befe9f0d7f6">update_vcf_info</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const vector&lt; int &gt; &amp;<a class="el" href="classvg_1_1SnarlCaller.html#a3e4d1ad4ece1a1bc1daa4ea6ecfbfa54">genotype</a>, const unique_ptr&lt; <a class="el" href="structvg_1_1SnarlCaller_1_1CallInfo.html">CallInfo</a> &gt; &amp;call_info, const string &amp;sample_name, vcflib::Variant &amp;variant)</td></tr>
+<tr class="memdesc:a3ddd1e17537734b984fa0befe9f0d7f6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Update INFO and FORMAT fields of the called variant.  <a href="#a3ddd1e17537734b984fa0befe9f0d7f6">More...</a><br /></td></tr>
+<tr class="separator:a3ddd1e17537734b984fa0befe9f0d7f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3afbd8d1bc78b6716c587b93424db8cb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a3afbd8d1bc78b6716c587b93424db8cb">set_min_supports</a> (double min_mad_for_call, double min_support_for_call, double min_site_support)</td></tr>
 <tr class="memdesc:a3afbd8d1bc78b6716c587b93424db8cb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set some of the parameters.  <a href="#a3afbd8d1bc78b6716c587b93424db8cb">More...</a><br /></td></tr>
 <tr class="separator:a3afbd8d1bc78b6716c587b93424db8cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -110,8 +110,8 @@ Public Member Functions</h2></td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1SnarlCaller"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1SnarlCaller')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1SnarlCaller.html">vg::SnarlCaller</a></td></tr>
 <tr class="memitem:abda61a55c21f1473db0443293144c96d inherit pub_methods_classvg_1_1SnarlCaller"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlCaller.html#abda61a55c21f1473db0443293144c96d">~SnarlCaller</a> ()</td></tr>
 <tr class="separator:abda61a55c21f1473db0443293144c96d inherit pub_methods_classvg_1_1SnarlCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a46f8549911ac82ea984fd7f56bae1c3d inherit pub_methods_classvg_1_1SnarlCaller"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlCaller.html#a46f8549911ac82ea984fd7f56bae1c3d">genotype</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, int ref_trav_idx, int ploidy, const string &amp;ref_path_name, pair&lt; size_t, size_t &gt; ref_range)=0</td></tr>
-<tr class="separator:a46f8549911ac82ea984fd7f56bae1c3d inherit pub_methods_classvg_1_1SnarlCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3e4d1ad4ece1a1bc1daa4ea6ecfbfa54 inherit pub_methods_classvg_1_1SnarlCaller"><td class="memItemLeft" align="right" valign="top">virtual pair&lt; vector&lt; int &gt;, unique_ptr&lt; <a class="el" href="structvg_1_1SnarlCaller_1_1CallInfo.html">CallInfo</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlCaller.html#a3e4d1ad4ece1a1bc1daa4ea6ecfbfa54">genotype</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, int ref_trav_idx, int ploidy, const string &amp;ref_path_name, pair&lt; size_t, size_t &gt; ref_range)=0</td></tr>
+<tr class="separator:a3e4d1ad4ece1a1bc1daa4ea6ecfbfa54 inherit pub_methods_classvg_1_1SnarlCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7fb3205d6e94505aadf0c9944fac7eb4 inherit pub_methods_classvg_1_1SnarlCaller"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlCaller.html#a7fb3205d6e94505aadf0c9944fac7eb4">update_vcf_header</a> (string &amp;header) const =0</td></tr>
 <tr class="memdesc:a7fb3205d6e94505aadf0c9944fac7eb4 inherit pub_methods_classvg_1_1SnarlCaller"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define any header fields needed by the above.  <a href="classvg_1_1SnarlCaller.html#a7fb3205d6e94505aadf0c9944fac7eb4">More...</a><br /></td></tr>
 <tr class="separator:a7fb3205d6e94505aadf0c9944fac7eb4 inherit pub_methods_classvg_1_1SnarlCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -383,8 +383,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a0a1e45e1eff5208d489115539d621384"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0a1e45e1eff5208d489115539d621384">&#9670;&nbsp;</a></span>update_vcf_info()</h2>
+<a id="a3ddd1e17537734b984fa0befe9f0d7f6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3ddd1e17537734b984fa0befe9f0d7f6">&#9670;&nbsp;</a></span>update_vcf_info()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -413,6 +413,12 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const unique_ptr&lt; <a class="el" href="structvg_1_1SnarlCaller_1_1CallInfo.html">CallInfo</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>call_info</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">const string &amp;&#160;</td>
           <td class="paramname"><em>sample_name</em>, </td>
         </tr>
@@ -437,9 +443,9 @@ Protected Attributes</h2></td></tr>
 
 <p>Update INFO and FORMAT fields of the called variant. </p>
 
-<p>Implements <a class="el" href="classvg_1_1SnarlCaller.html#ad0315e74aa5ea9df9820aa1000bd0291">vg::SnarlCaller</a>.</p>
+<p>Implements <a class="el" href="classvg_1_1SnarlCaller.html#a5098383d371e037c79e4c278e3fbbea1">vg::SnarlCaller</a>.</p>
 
-<p>Reimplemented in <a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a79486f26596d150530a16d0bcf2e5afa">vg::PoissonSupportSnarlCaller</a>, and <a class="el" href="classvg_1_1RatioSupportSnarlCaller.html#af406d7c079351fd6896fdb4bfcae00b9">vg::RatioSupportSnarlCaller</a>.</p>
+<p>Reimplemented in <a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#abe1990823417defcd0c6f68132680db1">vg::PoissonSupportSnarlCaller</a>, and <a class="el" href="classvg_1_1RatioSupportSnarlCaller.html#a3dc6a3524e755fba03211f0f0dd3483f">vg::RatioSupportSnarlCaller</a>.</p>
 
 </div>
 </div>

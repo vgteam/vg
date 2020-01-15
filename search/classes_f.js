@@ -32,6 +32,7 @@ var searchData=
   ['pileup',['Pileup',['../structvg_1_1Pileup.html',1,'vg']]],
   ['pinchtovgtranslator',['PinchToVGTranslator',['../classvg_1_1PinchToVGTranslator.html',1,'vg']]],
   ['plan',['Plan',['../structvg_1_1VG_1_1Plan.html',1,'vg::VG']]],
+  ['poissoncallinfo',['PoissonCallInfo',['../structvg_1_1PoissonSupportSnarlCaller_1_1PoissonCallInfo.html',1,'vg::PoissonSupportSnarlCaller']]],
   ['poissonsupportsnarlcaller',['PoissonSupportSnarlCaller',['../classvg_1_1PoissonSupportSnarlCaller.html',1,'vg']]],
   ['position',['Position',['../structvg_1_1Position.html',1,'vg']]],
   ['positionidscanner',['PositionIDScanner',['../structvg_1_1PositionIDScanner.html',1,'vg']]],

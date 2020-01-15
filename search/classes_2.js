@@ -4,6 +4,7 @@ var searchData=
   ['cacheentry',['CacheEntry',['../structvg_1_1IndexedVG_1_1CacheEntry.html',1,'vg::IndexedVG']]],
   ['cactusside',['CactusSide',['../structvg_1_1CactusSide.html',1,'vg']]],
   ['cactussnarlfinder',['CactusSnarlFinder',['../classvg_1_1CactusSnarlFinder.html',1,'vg']]],
+  ['callinfo',['CallInfo',['../structvg_1_1SnarlCaller_1_1CallInfo.html',1,'vg::SnarlCaller']]],
   ['chainindex',['ChainIndex',['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html',1,'vg::MinimumDistanceIndex']]],
   ['chainiterator',['ChainIterator',['../structvg_1_1ChainIterator.html',1,'vg']]],
   ['colors',['Colors',['../classvg_1_1Colors.html',1,'vg']]],

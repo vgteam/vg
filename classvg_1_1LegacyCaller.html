@@ -123,11 +123,11 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:a6d00fa81c7923b88b886f87f28984184"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1LegacyCaller.html#a6d00fa81c7923b88b886f87f28984184">get_reference_traversal</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, <a class="el" href="classvg_1_1TraversalFinder.html">TraversalFinder</a> &amp;trav_finder) const</td></tr>
 <tr class="memdesc:a6d00fa81c7923b88b886f87f28984184"><td class="mdescLeft">&#160;</td><td class="mdescRight">we need the reference traversal for VCF, but if the ref is not called, the above method won't find it.  <a href="#a6d00fa81c7923b88b886f87f28984184">More...</a><br /></td></tr>
 <tr class="separator:a6d00fa81c7923b88b886f87f28984184"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa61e5245f919f7d285207abd5dfac981"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;, vector&lt; int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1LegacyCaller.html#aa61e5245f919f7d285207abd5dfac981">re_genotype</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, <a class="el" href="classvg_1_1TraversalFinder.html">TraversalFinder</a> &amp;trav_finder, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;in_traversals, const vector&lt; int &gt; &amp;in_genotype, int ploidy, const string &amp;ref_path_name, pair&lt; size_t, size_t &gt; ref_interval) const</td></tr>
-<tr class="separator:aa61e5245f919f7d285207abd5dfac981"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adcc4cc7b42b09fe713c9421b642c8ce2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1LegacyCaller.html#adcc4cc7b42b09fe713c9421b642c8ce2">emit_variant</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, <a class="el" href="classvg_1_1TraversalFinder.html">TraversalFinder</a> &amp;trav_finder, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;called_traversals, const vector&lt; int &gt; &amp;genotype, const string &amp;ref_path_name) const</td></tr>
-<tr class="memdesc:adcc4cc7b42b09fe713c9421b642c8ce2"><td class="mdescLeft">&#160;</td><td class="mdescRight">print a vcf variant  <a href="#adcc4cc7b42b09fe713c9421b642c8ce2">More...</a><br /></td></tr>
-<tr class="separator:adcc4cc7b42b09fe713c9421b642c8ce2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6c23ee5b732d26d4f55bd3b5b4830fca"><td class="memItemLeft" align="right" valign="top">tuple&lt; vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;, vector&lt; int &gt;, unique_ptr&lt; <a class="el" href="structvg_1_1SnarlCaller_1_1CallInfo.html">SnarlCaller::CallInfo</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1LegacyCaller.html#a6c23ee5b732d26d4f55bd3b5b4830fca">re_genotype</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, <a class="el" href="classvg_1_1TraversalFinder.html">TraversalFinder</a> &amp;trav_finder, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;in_traversals, const vector&lt; int &gt; &amp;in_genotype, int ploidy, const string &amp;ref_path_name, pair&lt; size_t, size_t &gt; ref_interval) const</td></tr>
+<tr class="separator:a6c23ee5b732d26d4f55bd3b5b4830fca"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5f4f58d735de7cdf99852bf723f5e6ff"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1LegacyCaller.html#a5f4f58d735de7cdf99852bf723f5e6ff">emit_variant</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, <a class="el" href="classvg_1_1TraversalFinder.html">TraversalFinder</a> &amp;trav_finder, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;called_traversals, const vector&lt; int &gt; &amp;genotype, const unique_ptr&lt; <a class="el" href="structvg_1_1SnarlCaller_1_1CallInfo.html">SnarlCaller::CallInfo</a> &gt; &amp;call_info, const string &amp;ref_path_name) const</td></tr>
+<tr class="memdesc:a5f4f58d735de7cdf99852bf723f5e6ff"><td class="mdescLeft">&#160;</td><td class="mdescRight">print a vcf variant  <a href="#a5f4f58d735de7cdf99852bf723f5e6ff">More...</a><br /></td></tr>
+<tr class="separator:a5f4f58d735de7cdf99852bf723f5e6ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a369827412ee13857083444776aa240c7"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1LegacyCaller.html#a369827412ee13857083444776aa240c7">is_traversable</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl)</td></tr>
 <tr class="memdesc:a369827412ee13857083444776aa240c7"><td class="mdescLeft">&#160;</td><td class="mdescRight">check if a site can be handled by the <a class="el" href="classvg_1_1RepresentativeTraversalFinder.html">RepresentativeTraversalFinder</a>  <a href="#a369827412ee13857083444776aa240c7">More...</a><br /></td></tr>
 <tr class="separator:a369827412ee13857083444776aa240c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -297,8 +297,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="adcc4cc7b42b09fe713c9421b642c8ce2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#adcc4cc7b42b09fe713c9421b642c8ce2">&#9670;&nbsp;</a></span>emit_variant()</h2>
+<a id="a5f4f58d735de7cdf99852bf723f5e6ff"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5f4f58d735de7cdf99852bf723f5e6ff">&#9670;&nbsp;</a></span>emit_variant()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -329,6 +329,12 @@ Protected Attributes</h2></td></tr>
           <td></td>
           <td class="paramtype">const vector&lt; int &gt; &amp;&#160;</td>
           <td class="paramname"><em>genotype</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unique_ptr&lt; <a class="el" href="structvg_1_1SnarlCaller_1_1CallInfo.html">SnarlCaller::CallInfo</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>call_info</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -532,8 +538,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aa61e5245f919f7d285207abd5dfac981"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa61e5245f919f7d285207abd5dfac981">&#9670;&nbsp;</a></span>re_genotype()</h2>
+<a id="a6c23ee5b732d26d4f55bd3b5b4830fca"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6c23ee5b732d26d4f55bd3b5b4830fca">&#9670;&nbsp;</a></span>re_genotype()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -542,7 +548,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">pair&lt; vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;, vector&lt; int &gt; &gt; vg::LegacyCaller::re_genotype </td>
+          <td class="memname">tuple&lt; vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;, vector&lt; int &gt;, unique_ptr&lt; <a class="el" href="structvg_1_1SnarlCaller_1_1CallInfo.html">SnarlCaller::CallInfo</a> &gt; &gt; vg::LegacyCaller::re_genotype </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;&#160;</td>
           <td class="paramname"><em>snarl</em>, </td>
