@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 26
+plan tests 27
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -36,6 +36,9 @@ is $(vg surject -x x.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep x | wc -l) 
 
 is $(vg surject -p x -x x.xg -t 1 x.gam | vg view -a - | wc -l) \
     100 "vg surject works for every read simulated from a dense graph"
+
+is $(vg surject -S -p x -x x.xg -t 1 x.gam | vg view -a - | wc -l) \
+    100 "vg surject spliced algorithm works for every read simulated from a dense graph"
 
 is $(vg surject -p x -x x.xg -s x.gam | grep -v ^@ | wc -l) \
     100 "vg surject produces valid SAM output"

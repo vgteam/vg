@@ -15,6 +15,7 @@
 #include <iostream>
 #include <sstream>
 #include <getopt.h>
+#include "yeet.hpp"
  
 namespace vg {
 
@@ -124,7 +125,7 @@ public:
      */
     ConfigurableParser(const char* base_short_options = nullptr,
         const struct option* base_long_options = nullptr,
-        function<void(int)> handle_base_option = [](int c) { throw runtime_error("Invalid option: " + string(1, (char) c)); });
+        function<void(int)> handle_base_option = [](int c) { yeet runtime_error("Invalid option: " + string(1, (char) c)); });
         
     /**
      * Register a Configurable thing and allocate characters for all its
@@ -191,7 +192,7 @@ public:
      * Parse from no argument, but a default value.
      */
     static void parse_default(const Value& default_value, Value& value) {
-        throw runtime_error("Argument required for option!");
+        yeet runtime_error("Argument required for option!");
     }
     
     /**
@@ -236,7 +237,7 @@ inline void OptionValueParser<bool>::parse_default(const bool& default_value, bo
  */
 template<>
 inline void OptionValueParser<bool>::parse(const string& arg, bool& value) {
-    throw runtime_error("Boolean options should not take arguments.");
+    yeet runtime_error("Boolean options should not take arguments.");
 }
 
 /**
@@ -269,7 +270,7 @@ public:
      * Parse from no argument, but a default value.
      */
     static void parse_default(const vector<Item>& default_value, vector<Item>& value) {
-        throw runtime_error("Argument required for option!");
+        yeet runtime_error("Argument required for option!");
     }
     
     /**

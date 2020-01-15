@@ -168,6 +168,14 @@ namespace vg {
     ///
     void transfer_read_metadata(const MultipathAlignment& from, MultipathAlignment& to);
     
+    /// Copies metadata from an Alignment object and transfers it to another Alignment
+    ///
+    ///  Args:
+    ///    from    copy metadata from this
+    ///    to      into this
+    ///
+    void transfer_read_metadata(const Alignment& from, Alignment& to);
+
     /// Merges non-branching paths in a multipath alignment in place
     void merge_non_branching_subpaths(MultipathAlignment& multipath_aln);
     

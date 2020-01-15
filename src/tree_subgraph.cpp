@@ -38,7 +38,7 @@ vector<handle_t> TreeSubgraph::get_topological_order() const {
 
 handle_t TreeSubgraph::get_root() const {
     if (tree.empty()) {
-        throw runtime_error("Tree is empty and has no root");
+        yeet runtime_error("Tree is empty and has no root");
     }
     
     // Return the handle for the 0th element in the tree.

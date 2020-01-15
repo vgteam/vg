@@ -9,6 +9,7 @@
 
 #include "handle.hpp"
 #include "snarls.hpp"
+#include "yeet.hpp"
 
 #include <vector>
 #include <unordered_map>
