@@ -1011,7 +1011,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // If the fragment length distribution hasn't been fixed yet (if the expected fragment length = 0),
     // then everything will be in the same cluster and the best pair will be the two best independent mappings
     vector<vector<pair<vector<size_t>, size_t>>> all_clusters = clusterer.cluster_seeds(seeds_by_read, distance_limit, 
-            fragment_length_distr.mean() + aln1.sequence().size() + aln2.sequence().size() + 2*fragment_length_distr.stdev());
+            fragment_length_distr.mean() + 2*fragment_length_distr.stdev());
             //TODO: Choose a good distance for the fragment distance limit ^
             //TODO: Could also drop clusters here if they don't have a pair
 
@@ -1413,7 +1413,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     //TODO: I'm not sure if this is the right thing to do? 
                     //They were in the same cluster so they'd be reasonably close together, but there's not path between them so they should still be penalized fairly harshly I think?
                     if (fragment_distance == std::numeric_limits<int64_t>::max() ) {
-                        fragment_length_log_likelihood = -4;
+                        fragment_length_log_likelihood = -5;
                     }
                     //And overall score of the pair
                     //TODO: Scoring of pairs
@@ -1485,6 +1485,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 }
             }
         }
+        set_annotation(best_aln1, "unpaired", true);
+        set_annotation(best_aln2, "unpaired", true);
 
         pair<vector<Alignment>, vector<Alignment>> paired_mappings;
         paired_mappings.first.emplace_back(best_aln1);
@@ -1493,7 +1495,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         reverse_complement_alignment_in_place(&paired_mappings.second.back(), [&](vg::id_t node_id) {
             return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
         });
-        // Make sure to clamp 0-60.
         // TODO: Maybe don't just give them the same mapq
 
         paired_mappings.first.back().set_mapping_quality(1);
@@ -1735,8 +1736,8 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
     assert(aln1.path().mapping_size() != 0); 
     assert(aln2.path().mapping_size() != 0); 
      
-    pos_t pos1 = final_position(aln1.path()); 
-    pos_t pos2 = initial_position(aln2.path());
+    pos_t pos1 = initial_position(aln1.path()); 
+    pos_t pos2 = final_position(aln2.path());
 
     int64_t min_dist = distance_index.minDistance(pos1, pos2);
     return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
