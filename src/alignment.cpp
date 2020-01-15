@@ -769,6 +769,7 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
     // calculate the size in bytes of the variable length fields (which are all concatenated in memory)
     int qname_nulls = 4 - alignment.name().size() % 4;
     int qname_data_size = alignment.name().size() + qname_nulls;
+//    cerr << "name size: " << alignment.name().size() << ", num nulls " << qname_nulls << ", data size " << qname_data_size << endl;
     int cigar_data_size = 4 * cigar.size();
     int seq_data_size = (alignment.sequence().size() + 1) / 2; // round up
     int qual_data_size = alignment.sequence().size(); // we will allocate this even if quality doesn't exist
@@ -783,21 +784,33 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
     bam->m_data = var_field_data_size; // max length of data
     
     bam1_core_t& core = bam->core;
+    // mapping position
     core.pos = refpos;
+    // ID of sequence mapped to
     core.tid = sam_hdr_name2tid(header, refseq.c_str());
+    // MAPQ
     core.qual = alignment.mapping_quality();
+    // number of nulls (above 1) used to pad read name string
     core.l_extranul = qname_nulls - 1;
+    // bit flag
     core.flag = determine_flag(alignment, refseq, refpos, refrev, mateseq, matepos, materev, tlen, paired, tlen_max);
+    // length of read name, including nulls
     core.l_qname = qname_data_size;
+    // number of cigar operations
     core.n_cigar = cigar.size();
+    // length of read
     core.l_qseq = alignment.sequence().size();
-    core.mtid = sam_hdr_name2tid(header, mateseq.c_str());
+    // ID of sequence mate is mapped to
+    core.mtid = sam_hdr_name2tid(header, mateseq.c_str()); // TODO: what if there is no mate
+    // mapping position of mate
     core.mpos = matepos;
+    // insert length of fragment
     core.isize = tlen; // TODO: insert size or fragment length??
     
     // all variable-length data, concatenated; structure: qname-cigar-seq-qual-aux
-    uint8_t* name_data = bam->data;
     
+    // write query name, padded by nulls
+    uint8_t* name_data = bam->data;
     for (size_t i = 0; i < alignment.name().size(); ++i) {
         name_data[i] = (uint8_t) alignment.name().at(i);
     }
@@ -854,17 +867,32 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
                 refend += cigar[i].first;
                 break;
             default:
-                yeet runtime_error("Invalid CIGAR operation " + string(1, cigar[i].second));
+                throw runtime_error("Invalid CIGAR operation " + string(1, cigar[i].second));
                 break;
         }
-        cigar_data[i] = bam_cigar_gen(op, cigar[i].first);
+        cigar_data[i] = bam_cigar_gen(cigar[i].first, op);
     }
+    
+//    cerr << "cigar ref: " << rlen << ", query: " << qlen << ", aln seq: " << alignment.sequence().size() << ", path: " << path_from_length(alignment.path()) << endl;
     
     // now we know where it ends, we can compute the bin
     // copied from cram/cram_samtools.h
-    core.bin = hts_reg2bin(refpos, refend - 1, 4, 5); // TODO: not sure if end is past-the-last
+    core.bin = hts_reg2bin(refpos, refend - 1, 14, 5); // TODO: not sure if end is past-the-last
     
-    // convert sequence to 4-bit encoding
+//    cerr << "tid: " << core.tid << endl;
+//    cerr << "pos: " << core.pos << endl;
+//    cerr << "bin: " << core.bin << endl;
+//    cerr << "qual: " << (int) core.qual << endl;
+//    cerr << "l_qname: " << (int) core.l_qname << endl;
+//    cerr << "l_extranul: " << (int) core.l_extranul << endl;
+//    cerr << "flag: " << core.flag << endl;
+//    cerr << "n_cigar: " << core.n_cigar << endl;
+//    cerr << "l_qseq: " << core.l_qseq << endl;
+//    cerr << "mtid: " << core.mtid << endl;
+//    cerr << "mpos: " << core.mpos << endl;
+//    cerr << "isize: " << core.isize << endl;
+    
+    // convert sequence to 4-bit (nibble) encoding
     uint8_t* seq_data = (uint8_t*) (cigar_data + cigar.size());
     for (size_t i = 0; i < alignment.sequence().size(); i += 2) {
         if (i + 1 < alignment.sequence().size()) {
@@ -888,6 +916,12 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
             qual_data[i] = alignment.quality().at(i);
         }
     }
+    
+//    cerr << "data: ";
+//    for (size_t i = 0; i < var_field_data_size; ++i) {
+//        cerr << int(bam->data[i]) << " ";
+//    }
+//    cerr << endl;
     
     return bam;
     
