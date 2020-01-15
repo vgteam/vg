@@ -127,6 +127,7 @@ var searchData=
   ['maximum_5fmapping_5fquality_5fexact',['maximum_mapping_quality_exact',['../classvg_1_1GSSWAligner.html#ab036bb3f10a3776efc7c995e5ca9d134',1,'vg::GSSWAligner']]],
   ['mcmcgenotyper',['MCMCGenotyper',['../classvg_1_1MCMCGenotyper.html#ab53c26538256f91bf496fb2587a96511',1,'vg::MCMCGenotyper']]],
   ['mean',['mean',['../classvg_1_1normal__distribution.html#a8b5bd06d0c3589eab21131a033bd706a',1,'vg::normal_distribution::mean()'],['../classvg_1_1FragmentLengthDistribution.html#abe1b685c70bdafff09e089038ae68971',1,'vg::FragmentLengthDistribution::mean()']]],
+  ['mean_5fnode_5flength',['mean_node_length',['../classvg_1_1Transcriptome.html#af173c32d4ccfa7f94f68220e7e564895',1,'vg::Transcriptome']]],
   ['measurements_5fbegin',['measurements_begin',['../classvg_1_1FragmentLengthDistribution.html#a9a57a0e4a86983fc13a87d5ee4c5b8a7',1,'vg::FragmentLengthDistribution']]],
   ['measurements_5fend',['measurements_end',['../classvg_1_1FragmentLengthDistribution.html#a929562555917920f58a5d3692cd14fb4',1,'vg::FragmentLengthDistribution']]],
   ['median',['median',['../namespacevg.html#a6eef175773ce8532826ba78eee0cece5',1,'vg']]],
