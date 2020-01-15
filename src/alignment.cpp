@@ -743,7 +743,6 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
     
     // this table does seem to be reproduced in htslib publicly, so I'm copying
     // it from the CRAM conversion code
-    
     static const char nt_encoding[256] = {
         15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
         15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
@@ -766,10 +765,19 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
     // init an empty BAM record
     bam1_t* bam = bam_init1();
     
+    // strip the pair order identifiers
+    string alignment_name;
+    if (paired) {
+        // We need to strip the /1 and /2 or _1 and _2 from paired reads so the two ends have the same name.
+        alignment_name = regex_replace(alignment.name(), regex("[/_][12]$"), "");
+    } else {
+        // Keep the alignment name as is because even if the name looks paired, the reads are semantically unpaired.
+        alignment_name = alignment.name();
+    }
+    
     // calculate the size in bytes of the variable length fields (which are all concatenated in memory)
-    int qname_nulls = 4 - alignment.name().size() % 4;
-    int qname_data_size = alignment.name().size() + qname_nulls;
-//    cerr << "name size: " << alignment.name().size() << ", num nulls " << qname_nulls << ", data size " << qname_data_size << endl;
+    int qname_nulls = 4 - alignment_name.size() % 4;
+    int qname_data_size = alignment_name.size() + qname_nulls;
     int cigar_data_size = 4 * cigar.size();
     int seq_data_size = (alignment.sequence().size() + 1) / 2; // round up
     int qual_data_size = alignment.sequence().size(); // we will allocate this even if quality doesn't exist
@@ -805,17 +813,17 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
     // mapping position of mate
     core.mpos = matepos;
     // insert length of fragment
-    core.isize = tlen; // TODO: insert size or fragment length??
+    core.isize = tlen;
     
     // all variable-length data, concatenated; structure: qname-cigar-seq-qual-aux
     
     // write query name, padded by nulls
     uint8_t* name_data = bam->data;
-    for (size_t i = 0; i < alignment.name().size(); ++i) {
-        name_data[i] = (uint8_t) alignment.name().at(i);
+    for (size_t i = 0; i < alignment_name.size(); ++i) {
+        name_data[i] = (uint8_t) alignment_name[i];
     }
     for (size_t i = 0; i < qname_nulls; ++i) {
-        name_data[i + alignment.name().size()] = '\0';
+        name_data[i + alignment_name.size()] = '\0';
     }
     
     // encode cigar and copy into data
@@ -873,35 +881,25 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
         cigar_data[i] = bam_cigar_gen(cigar[i].first, op);
     }
     
-//    cerr << "cigar ref: " << rlen << ", query: " << qlen << ", aln seq: " << alignment.sequence().size() << ", path: " << path_from_length(alignment.path()) << endl;
     
     // now we know where it ends, we can compute the bin
     // copied from cram/cram_samtools.h
     core.bin = hts_reg2bin(refpos, refend - 1, 14, 5); // TODO: not sure if end is past-the-last
     
-//    cerr << "tid: " << core.tid << endl;
-//    cerr << "pos: " << core.pos << endl;
-//    cerr << "bin: " << core.bin << endl;
-//    cerr << "qual: " << (int) core.qual << endl;
-//    cerr << "l_qname: " << (int) core.l_qname << endl;
-//    cerr << "l_extranul: " << (int) core.l_extranul << endl;
-//    cerr << "flag: " << core.flag << endl;
-//    cerr << "n_cigar: " << core.n_cigar << endl;
-//    cerr << "l_qseq: " << core.l_qseq << endl;
-//    cerr << "mtid: " << core.mtid << endl;
-//    cerr << "mpos: " << core.mpos << endl;
-//    cerr << "isize: " << core.isize << endl;
-    
     // convert sequence to 4-bit (nibble) encoding
     uint8_t* seq_data = (uint8_t*) (cigar_data + cigar.size());
+    const string* seq = &alignment.sequence();
+    string rev_seq;
+    if (refrev) {
+        rev_seq = reverse_complement(*seq);
+        seq = &rev_seq;
+    }
     for (size_t i = 0; i < alignment.sequence().size(); i += 2) {
         if (i + 1 < alignment.sequence().size()) {
-            char a = alignment.sequence().at(i);
-            char b = alignment.sequence().at(i + 1);
-            seq_data[i / 2] = (nt_encoding[a] << 4) | (nt_encoding[b]);
+            seq_data[i / 2] = (nt_encoding[seq->at(i)] << 4) | nt_encoding[seq->at(i + 1)];
         }
         else {
-            seq_data[i / 2] = nt_encoding[alignment.sequence().at(i)] << 4;
+            seq_data[i / 2] = nt_encoding[seq->at(i)] << 4;
         }
     }
     
@@ -917,32 +915,15 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
         }
     }
     
-//    cerr << "data: ";
-//    for (size_t i = 0; i < var_field_data_size; ++i) {
-//        cerr << int(bam->data[i]) << " ";
-//    }
-//    cerr << endl;
-    
-    return bam;
-    
-//    assert(!sam_header.empty());
+    if (!alignment.read_group().empty()) {
+        bam_aux_append(bam, "RG", 'Z', alignment.read_group().size() + 1, (uint8_t*) alignment.read_group().c_str());
+    }
+    // TODO: this does not seem to be a standardized field (https://samtools.github.io/hts-specs/SAMtags.pdf)
+//    if (!alignment.sample_name()) {
 //
-//    // Make a tiny SAM file. Remember to URL-encode it, since it may contain '%'
-//    string sam_file = "data:," + percent_url_encode(sam_header +
-//       alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, paired, tlen_max));
-//    const char* sam = sam_file.c_str();
-//    samFile *in = sam_open(sam, "r");
-//    bam_hdr_t *header = sam_hdr_read(in);
-//    bam1_t *aln = bam_init1();
-//    if (sam_read1(in, header, aln) >= 0) {
-//        bam_hdr_destroy(header);
-//        sam_close(in); // clean up
-//        return aln;
-//    } else {
-//        cerr << "[vg::alignment] Failure to parse SAM record" << endl
-//             << sam << endl;
-//        exit(1);
 //    }
+        
+    return bam;
 }
 
 bam1_t* alignment_to_bam(bam_hdr_t* bam_header,
@@ -1026,32 +1007,41 @@ string mapping_string(const string& source, const Mapping& mapping) {
     return result;
 }
 
+inline void append_cigar_operation(const int length, const char operation, vector<pair<int, char>>& cigar) {
+    if (cigar.empty() || operation != cigar.back().second) {
+        cigar.emplace_back(length, operation);
+    }
+    else {
+        cigar.back().first += length;
+    }
+}
+
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char>>& cigar) {
     for (const auto& edit : mapping.edit()) {
         if (edit.from_length() && edit.from_length() == edit.to_length()) {
 // *matches* from_length == to_length, or from_length > 0 and offset unset
             // match state
-            cigar.push_back(make_pair(edit.from_length(), 'M'));
+            append_cigar_operation(edit.from_length(), 'M', cigar);
             //cerr << "match " << edit.from_length() << endl;
         } else {
             // mismatch/sub state
 // *snps* from_length == to_length; sequence = alt
             if (edit.from_length() == edit.to_length()) {
-                cigar.push_back(make_pair(edit.from_length(), 'M'));
+                append_cigar_operation(edit.from_length(), 'M', cigar);
                 //cerr << "match " << edit.from_length() << endl;
             } else if (edit.from_length() > edit.to_length()) {
 // *deletions* from_length > to_length; sequence may be unset or empty
                 int32_t del = edit.from_length() - edit.to_length();
                 int32_t eq = edit.to_length();
-                if (eq) cigar.push_back(make_pair(eq, 'M'));
-                cigar.push_back(make_pair(del, 'D'));
+                if (eq) append_cigar_operation(eq, 'M', cigar);
+                append_cigar_operation(del, 'D', cigar);
                 //cerr << "del " << edit.from_length() - edit.to_length() << endl;
             } else if (edit.from_length() < edit.to_length()) {
 // *insertions* from_length < to_length; sequence contains relative insertion
                 int32_t ins = edit.to_length() - edit.from_length();
                 int32_t eq = edit.from_length();
-                if (eq) cigar.push_back(make_pair(eq, 'M'));
-                cigar.push_back(make_pair(ins, 'I'));
+                if (eq) append_cigar_operation(eq, 'M', cigar);
+                append_cigar_operation(ins, 'I', cigar);
                 //cerr << "ins " << edit.to_length() - edit.from_length() << endl;
             }
         }
@@ -1111,7 +1101,8 @@ void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, cons
 
 vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress) {
     vector<pair<int, char> > cigar;
-    if (!alignment.has_path() || alignment.path().mapping_size() == 0) return {};
+    
+    if (!alignment.has_path() || alignment.path().mapping_size() == 0) return cigar;
     const Path& path = alignment.path();
     int l = 0;
 
