@@ -1797,10 +1797,20 @@ void parse_gff_regions(istream& gffstream,
             getline(ss, num, '\t');
             getline(ss, annotations, '\t');
             vector<string> vals = split(annotations, ";");
+
+            string name = "";
+
             for (auto& s : vals) {
                 if (s.find("Name=") == 0) {
                     name = s.substr(5);
                 }
+            }
+
+            // Skips annotations where the name can not be parsed. Empty names can 
+            // results in undefinable behavior downstream. 
+            if (name.empty()) {
+                cerr << "warning: could not parse annotation name (Name=), skipping line " << line << endl;  
+                continue;              
             }
 
             bool is_reverse = false;
