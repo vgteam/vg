@@ -130,10 +130,10 @@ Public Member Functions</h2></td></tr>
 Private Member Functions</h2></td></tr>
 <tr class="memitem:a5cfe9918348db19fc8b8a153a953715b"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a5cfe9918348db19fc8b8a153a953715b">convert_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, vector&lt; pair&lt; int, char &gt;&gt; &amp;cigar, bool &amp;pos_rev, int64_t &amp;pos, string &amp;path_name) const</td></tr>
 <tr class="separator:a5cfe9918348db19fc8b8a153a953715b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1fffa85745ba9b2010b06dec53d900bb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a1fffa85745ba9b2010b06dec53d900bb">convert_unpaired</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, vector&lt; bam1_t *&gt; &amp;dest)</td></tr>
-<tr class="separator:a1fffa85745ba9b2010b06dec53d900bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a35bb8acba07afc0d1531cf6ddbba7ce2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a35bb8acba07afc0d1531cf6ddbba7ce2">convert_paired</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln1, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln2, int64_t tlen_limit, vector&lt; bam1_t *&gt; &amp;dest)</td></tr>
-<tr class="separator:a35bb8acba07afc0d1531cf6ddbba7ce2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8b188cc73a956f6479e6e04ef34c8775"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a8b188cc73a956f6479e6e04ef34c8775">convert_unpaired</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bam_hdr_t *header, vector&lt; bam1_t *&gt; &amp;dest)</td></tr>
+<tr class="separator:a8b188cc73a956f6479e6e04ef34c8775"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4f5df1805e0a893587e7e819e4c7e8f2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a4f5df1805e0a893587e7e819e4c7e8f2">convert_paired</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln1, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln2, bam_hdr_t *header, int64_t tlen_limit, vector&lt; bam1_t *&gt; &amp;dest)</td></tr>
+<tr class="separator:a4f5df1805e0a893587e7e819e4c7e8f2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a428c49085c70806f2911b8dbc156b063"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a428c49085c70806f2911b8dbc156b063">save_records</a> (bam_hdr_t *header, vector&lt; bam1_t *&gt; &amp;records, size_t thread_number)</td></tr>
 <tr class="separator:a428c49085c70806f2911b8dbc156b063"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5ee9e23fb034f1267690defe2fde1ead"><td class="memItemLeft" align="right" valign="top">bam_hdr_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a5ee9e23fb034f1267690defe2fde1ead">ensure_header</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;sniff, size_t thread_number)</td></tr>
@@ -350,8 +350,8 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a35bb8acba07afc0d1531cf6ddbba7ce2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a35bb8acba07afc0d1531cf6ddbba7ce2">&#9670;&nbsp;</a></span>convert_paired()</h2>
+<a id="a4f5df1805e0a893587e7e819e4c7e8f2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4f5df1805e0a893587e7e819e4c7e8f2">&#9670;&nbsp;</a></span>convert_paired()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -370,6 +370,12 @@ Static Private Attributes</h2></td></tr>
           <td></td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>aln2</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bam_hdr_t *&#160;</td>
+          <td class="paramname"><em>header</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -399,8 +405,8 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a1fffa85745ba9b2010b06dec53d900bb"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1fffa85745ba9b2010b06dec53d900bb">&#9670;&nbsp;</a></span>convert_unpaired()</h2>
+<a id="a8b188cc73a956f6479e6e04ef34c8775"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8b188cc73a956f6479e6e04ef34c8775">&#9670;&nbsp;</a></span>convert_unpaired()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -413,6 +419,12 @@ Static Private Attributes</h2></td></tr>
           <td>(</td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bam_hdr_t *&#160;</td>
+          <td class="paramname"><em>header</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
