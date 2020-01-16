@@ -795,7 +795,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             // If that all checks out, say they're mapped, emit them, and register their distance and orientations
             fragment_length_distr.register_fragment_length(dist);
         
-            return make_pair(std::move(alns1), std::move(alns2));
+            pair<vector<Alignment>, vector<Alignment>> mapped_pair;
+            mapped_pair.first.emplace_back(alns1.front());
+            mapped_pair.second.emplace_back(alns2.front());
+            return mapped_pair;
         
         } else {
             // Otherwise, discard the mappings and put them in the ambiguous buffer
@@ -1371,11 +1374,11 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     
     
 //TODO:
-//    if (track_provenance) {
-//        // Now say we are finding the winner(s)
-//        funnels[0].stage("pair");
-//        funnels[1].stage("pair");
-//    }
+    if (track_provenance) {
+        // Now say we are finding the winner(s)
+        funnels[0].stage("pair");
+        funnels[1].stage("pair");
+    }
     // Fill this in with the alignments we will output
     // Tuple of fragment index, index of first alignment, index of second alignment in alignments, 
     //  and the indexes from the funnel of the alignments
@@ -1412,23 +1415,24 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
                     //TODO: I'm not sure if this is the right thing to do? 
                     //They were in the same cluster so they'd be reasonably close together, but there's not path between them so they should still be penalized fairly harshly I think?
-                    if (fragment_distance == std::numeric_limits<int64_t>::max() ) {
-                        fragment_length_log_likelihood = -5;
+                    if (fragment_distance != std::numeric_limits<int64_t>::max() ) {
+                        double score = alignment1.score() + alignment2.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
+                        paired_alignments.emplace_back(fragment_num, i1, i2, j1, j2);
+                        paired_scores.emplace_back(score);
                     }
-                    //And overall score of the pair
-                    //TODO: Scoring of pairs
-                    double score = alignment1.score() + alignment2.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
-                    paired_alignments.emplace_back(fragment_num, i1, i2, j1, j2);
-                    paired_scores.emplace_back(score);
                     //TODO: Could also give each alignment a group score depending on how many identical alignments it has
 
 //TODO: I'm not sure how to process these properly out of order
-//                    if (track_provenance) {
-//                        funnels[0].pass("pairing", j1);
-//                        funnels[0].project(j1);
-//                        funnels[1].pass("pairing", j2);
-//                        funnels[1].project(j2);
-//                    }
+                    if (track_provenance) {
+                        funnels[0].processing_input(j1);
+                        funnels[1].processing_input(j2);
+                        funnels[0].pass("pairing", j1);
+                        funnels[0].project(j1);
+                        funnels[1].pass("pairing", j2);
+                        funnels[1].project(j2);
+                        funnels[0].processed_input();
+                        funnels[1].processed_input();
+                    }
                 }
             }
         } else if (!fragment_alignments.first.empty()) {
@@ -1452,7 +1456,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             }
         }*/
     }
-    //TODO: Might not want to do this
     if (!found_pair){
         //If we didn't find any pairs within the fragment clusters, return the best individual alignments
         Alignment best_aln1 = aln1;
