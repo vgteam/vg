@@ -239,10 +239,11 @@ private:
     
     /// Convert an unpaired alignment to HTS format.
     /// Header must have been created already.
-    void convert_unpaired(Alignment& aln, vector<bam1_t*>& dest);
+    void convert_unpaired(Alignment& aln, bam_hdr_t* header, vector<bam1_t*>& dest);
     /// Convert a paired alignment to HTS format.
     /// Header must have been created already.
-    void convert_paired(Alignment& aln1, Alignment& aln2, int64_t tlen_limit, vector<bam1_t*>& dest);
+    void convert_paired(Alignment& aln1, Alignment& aln2, bam_hdr_t* header, int64_t tlen_limit,
+                        vector<bam1_t*>& dest);
     
     /// Write and deallocate a bunch of BAM records. Takes care of locking the
     /// file. Header must have been written already.
