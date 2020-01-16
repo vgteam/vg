@@ -458,16 +458,15 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
       temp.set_sequence(aln.sequence());
       temp.set_name(aln.name());
       temp.set_quality(aln.quality());
-
-      // Annotate the original read with metadata
-      if (!sample_name.empty()) {
-          aln.set_sample_name(sample_name);
-      }
-      if (!read_group.empty()) {
-          aln.set_read_group(read_group);
-      }
-
       aln = std::move(temp);
+    }
+
+    // Annotate the read with metadata
+    if (!sample_name.empty()) {
+        aln.set_sample_name(sample_name);
+    }
+    if (!read_group.empty()) {
+        aln.set_read_group(read_group);
     }
     
     // Go through the gapless extension groups in score order.
