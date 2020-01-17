@@ -207,6 +207,11 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
     // output gam buffer
     vector<Alignment> gam_buffer;
 
+    // we try to squeeze some parallelism out of next pass.  the more alignments that get filtered
+    // the more worth it it is.  we leave it on all the time for now, but easy enough to toggle off
+    // by making iterate_gam single threaded and popping the mutex accesses into ifs.
+    std::mutex second_pass_mutex;
+
     // Second pass: add the nodes and edges
     iterate_gam((function<void(Alignment&)>)[&](Alignment& aln) {
             if (aln.mapping_quality() < min_mapq || (filter_out_of_graph_alignments && !check_in_graph(aln.path(), orig_node_sizes))) {
@@ -234,6 +239,8 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
             // Now go through each new path again, by reference so we can overwrite.
             // but only if we have a reason to
             if (has_edits || gam_out_stream != nullptr || embed_paths) {
+
+                second_pass_mutex.lock();
         
                 // Create new nodes/wire things up. Get the added version of the path.
                 Path added = add_nodes_and_edges(graph, simplified_path, node_translation, added_seqs,
@@ -266,8 +273,10 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                     gam_buffer.push_back(aln);
                     vg::io::write_buffered(*gam_out_stream, gam_buffer, 100);
                 }
+
+                second_pass_mutex.unlock();
             }
-        }, true, false);
+        }, true, true);
     if (gam_out_stream != nullptr) {
         // Flush the buffer
         vg::io::write_buffered(*gam_out_stream, gam_buffer, 0);
