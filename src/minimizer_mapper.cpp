@@ -19,9 +19,10 @@ namespace vg {
 
 using namespace std;
 
-MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
+    const std::vector<std::unique_ptr<gbwtgraph::DefaultMinimizerIndex>>& minimizer_indexes,
     MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph) :
-    path_graph(path_graph), minimizer_index(minimizer_index),
+    path_graph(path_graph), minimizer_indexes(minimizer_indexes),
     distance_index(distance_index), gbwt_graph(graph),
     extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index) {
     
@@ -45,17 +46,48 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         funnel.stage("minimizer");
     }
     
-    // We will find all the seed hits
-    vector<pos_t> seeds;
-    
-    // This will hold all the minimizers in the query
+    // This will hold all the minimizers in the query.
     vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type> minimizers;
-    // And either way this will map from seed to minimizer that generated it
-    vector<size_t> seed_to_source;
-    
-    // Find minimizers in the query
-    minimizers = minimizer_index.minimizers(aln.sequence());
-    
+
+    // Minimizer scores for all minimizers as 1 + ln(hard_hit_cap) - ln(hits).
+    std::vector<double> minimizer_score;
+    double base_target_score = 0.0;
+
+    // Try the indexes in order.
+    size_t selected_index = 0;
+    while (true) {
+        // Find minimizers in the query.
+        minimizers = minimizer_indexes[selected_index]->minimizers(aln.sequence());
+
+        // Compute minimizer scores.
+        minimizer_score = std::vector<double>(minimizers.size(), 0.0);
+        base_target_score = 0.0;
+        bool will_have_seeds = false;
+        for (size_t i = 0; i < minimizers.size(); i++) {
+            size_t hits = minimizer_indexes[selected_index]->count(minimizers[i]);
+            if (hits > 0) {
+                if (hits <= hard_hit_cap) {
+                    minimizer_score[i] = 1.0 + std::log(hard_hit_cap) - std::log(hits);
+                    will_have_seeds = true;
+                } else {
+                    minimizer_score[i] = 1.0;
+                }
+            }
+            base_target_score += minimizer_score[i];
+        }
+
+        // If we did not get seeds from at least one minimizer, clear the structures and try the next index.
+        if (will_have_seeds || selected_index + 1 >= minimizer_indexes.size()) {
+            break;
+        } else {
+            minimizers.clear();
+            minimizer_score.clear();
+            selected_index++;
+        }
+    }
+    double target_score = (base_target_score * minimizer_score_fraction) + 0.000001;
+    const gbwtgraph::DefaultMinimizerIndex& minimizer_index = *(minimizer_indexes[selected_index]);
+
     if (track_provenance) {
         // Record how many we found, as new lines.
         funnel.introduce(minimizers.size());
@@ -64,21 +96,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         funnel.stage("seed");
     }
 
-    // Compute minimizer scores for all minimizers as 1 + ln(hard_hit_cap) - ln(hits).
-    std::vector<double> minimizer_score(minimizers.size(), 0.0);
-    double base_target_score = 0.0;
-    for (size_t i = 0; i < minimizers.size(); i++) {
-        size_t hits = minimizer_index.count(minimizers[i]);
-        if (hits > 0) {
-            if (hits <= hard_hit_cap) {
-                minimizer_score[i] = 1.0 + std::log(hard_hit_cap) - std::log(hits);
-            } else {
-                minimizer_score[i] = 1.0;
-            }
-        }
-        base_target_score += minimizer_score[i];
-    }
-    double target_score = (base_target_score * minimizer_score_fraction) + 0.000001;
+    // We will find all the seed hits
+    vector<pos_t> seeds;
+    // Map seed identifier to minimizer identifier.
+    vector<size_t> seed_to_source;
 
     // Sort the minimizers by score.
     std::vector<size_t> minimizers_in_order(minimizers.size());
