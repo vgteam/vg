@@ -127,9 +127,9 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
     unordered_map<id_t, set<pos_t>> breakpoints;
         
     // Check if alignment contains node that's not in the graph
-    function<bool(const Path&)> check_in_graph = [&graph](const Path& path) {
+    function<bool(const Path&, function<bool(nid_t)>)> check_in_graph = [&graph](const Path& path, function<bool(nid_t)> check_node) {
         for (size_t i = 0; i < path.mapping_size(); ++i) {
-            if (!graph->has_node(path.mapping(i).position().node_id())) {
+            if (!check_node(path.mapping(i).position().node_id())) {
                 return false;
             }
         }
@@ -141,7 +141,8 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
 #ifdef debug
             cerr << pb2json(aln.path()) << endl;
 #endif
-            if (aln.mapping_quality() < min_mapq || (filter_out_of_graph_alignments && !check_in_graph(aln.path()))) {
+            if (aln.mapping_quality() < min_mapq || 
+                (filter_out_of_graph_alignments && !check_in_graph(aln.path(), [&graph](nid_t node_id) { return graph->has_node(node_id);}))) {
                 return;
             }
 
@@ -198,7 +199,8 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
 
     // Second pass: add the nodes and edges
     iterate_gam((function<void(Alignment&)>)[&](Alignment& aln) {
-            if (aln.mapping_quality() < min_mapq || (filter_out_of_graph_alignments && !check_in_graph(aln.path()))) {
+            if (aln.mapping_quality() < min_mapq ||
+                (filter_out_of_graph_alignments && !check_in_graph(aln.path(), [orig_node_sizes](nid_t node_id) { return orig_node_sizes.count(node_id);}))) {
                 return;
             }
             
