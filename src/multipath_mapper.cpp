@@ -114,6 +114,8 @@ namespace vg {
         if (multipath_alns_out.empty()) {
             // add a null alignment so we know it wasn't mapped
             multipath_alns_out.emplace_back();
+            cluster_graphs.emplace_back();
+            cluster_idxs.push_back(0);
             to_multipath_alignment(alignment, multipath_alns_out.back());
             
             // in case we're realigning GAMs that have paths already
@@ -321,7 +323,7 @@ namespace vg {
 #endif
         sort_and_compute_mapping_quality(multipath_alns_out, mapq_method, cluster_idxs);
         
-        if (!multipath_alns_out.empty() ? likely_mismapping(multipath_alns_out.front()) : false) {
+        if (!multipath_alns_out.empty() && likely_mismapping(multipath_alns_out.front())) {
             multipath_alns_out.front().set_mapping_quality(0);
         }
         
@@ -3439,7 +3441,7 @@ namespace vg {
         for (size_t i = 0; i < scores.size(); i++) {
             Alignment aln;
             optimal_alignment(multipath_alns[i], aln);
-            cerr << "\t" << scores[i] << " " << make_pos_t(aln.path().mapping(0).position()) << endl;
+            cerr << "\t" << scores[i] << " " << (aln.path().mapping_size() ? make_pos_t(aln.path().mapping(0).position()) : pos_t()) << endl;
         }
 #endif
         
