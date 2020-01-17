@@ -290,8 +290,8 @@ void help_gaffe(char** argv) {
     << "  -x, --xg-name FILE            use this xg index or graph (required if -g not specified)" << endl
     << "  -g, --graph-name FILE         use this GBWTGraph (required if -x not specified)" << endl
     << "  -H, --gbwt-name FILE          use this GBWT index (required)" << endl
-    << "  -m, --minimizer-name FILE     use this minimizer index (required)" << endl
-    << "                                (may repeat; subsequent indexes are used when the earlier ones find no seeds)"
+    << "  -m, --minimizer-name FILE     use this minimizer index (required; may repeat)" << endl
+    << "                                (subsequent indexes are used when the earlier ones find no seeds)" << endl
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
     << "  -p, --progress                show progress" << endl
     << "input options:" << endl
