@@ -479,6 +479,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
       temp.set_sequence(aln.sequence());
       temp.set_name(aln.name());
       temp.set_quality(aln.quality());
+      // Also store which minimizer index we ended up using.
+      set_annotation(temp, "minimizer_index_used", static_cast<double>(selected_index));
       aln = std::move(temp);
     }
 
