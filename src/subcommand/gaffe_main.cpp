@@ -316,6 +316,7 @@ void help_gaffe(char** argv) {
     << "  -v, --extension-score INT     only align extensions if their score is within extension-score of the best score [1]" << endl
     << "  -w, --extension-set INT       only align extension sets if their score is within extension-set of the best score" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
+    << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [0]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
@@ -373,6 +374,8 @@ int main_gaffe(int argc, char** argv) {
     Range<double> extension_set = 20;
     //Throw away extensions with scores that are this amount below the best
     Range<int> extension_score = 1;
+    //Attempt up to this many rescues per read in a pair
+    int rescue_attempts = 0;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
@@ -431,6 +434,7 @@ int main_gaffe(int argc, char** argv) {
             {"extension-set", required_argument, 0, 'w'},
             {"score-fraction", required_argument, 0, 'F'},
             {"no-dp", no_argument, 0, 'O'},
+            {"rescue-attempts", required_argument, 0, 'r'},
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
             {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
             {"threads", required_argument, 0, 't'},
@@ -438,7 +442,7 @@ int main_gaffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:nc:C:D:F:e:a:s:u:v:w:Ot:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:nc:C:D:F:e:a:s:u:v:w:Ot:r:",
                          long_options, &option_index);
 
 
@@ -651,6 +655,16 @@ int main_gaffe(int argc, char** argv) {
                 
             case 'O':
                 do_dp = false;
+                break;
+                
+            case 'r':
+                {
+                    if (!interleaved || fastq_filename_2.empty()) {
+                        cerr << "error: [vg gaffe] Rescue can only be done on paired-end reads" << endl;
+                        exit(1);
+                    }
+                    rescue_attempts = parse<int>( optarg);
+                }
                 break;
                 
             case OPT_TRACK_PROVENANCE:
@@ -899,6 +913,7 @@ int main_gaffe(int argc, char** argv) {
         }
         minimizer_mapper.track_correctness = track_correctness;
 
+        minimizer_mapper.max_rescue_attempts = rescue_attempts;
         minimizer_mapper.sample_name = sample_name;
         minimizer_mapper.read_group = read_group;
 
@@ -944,7 +959,7 @@ int main_gaffe(int argc, char** argv) {
                 auto map_read_pair = [&](Alignment& aln1, Alignment& aln2) {
                     
                     pair<vector<Alignment>, vector<Alignment>> mapped_pairs = minimizer_mapper.map_paired(aln1, aln2, ambiguous_pair_buffer);
-                    if (!mapped_pairs.first.empty() || !mapped_pairs.second.empty()) {
+                    if (!mapped_pairs.first.empty() && !mapped_pairs.second.empty()) {
                         //If we actually tried to map this paired end
 
                         alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second));
