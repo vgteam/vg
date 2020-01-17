@@ -86,7 +86,7 @@ var searchData=
   ['extend_5fdist_5ftree_5fby_5fpermutations',['extend_dist_tree_by_permutations',['../classvg_1_1OrientedDistanceClusterer.html#acb079f0634a19d2d8185a3e338443819',1,'vg::OrientedDistanceClusterer']]],
   ['extend_5fpath',['extend_path',['../classvg_1_1PhaseUnfolder.html#a40a20697627b7742f98776111b8dbc66',1,'vg::PhaseUnfolder::extend_path()'],['../namespacevg.html#afcc55b3037b4e078c4268f08dda7cf4b',1,'vg::extend_path()']]],
   ['extend_5fstate',['extend_state',['../classvg_1_1PhaseUnfolder.html#a610d8256b9dc58fe6d04b1ff7aaafebb',1,'vg::PhaseUnfolder']]],
-  ['extract_5fcomponent',['extract_component',['../classvg_1_1PathChunker.html#a99497d311a2a2adfc4d7a78f8b6d7f54',1,'vg::PathChunker']]],
+  ['extract_5fcomponent',['extract_component',['../classvg_1_1PathChunker.html#ae971765e047d0f1747b7f481003c73c7',1,'vg::PathChunker']]],
   ['extract_5ffirst',['extract_first',['../classvg_1_1io_1_1VPKG.html#a770245b13c7784d97e8917184aab3ca0',1,'vg::io::VPKG']]],
   ['extract_5fid_5frange',['extract_id_range',['../classvg_1_1PathChunker.html#a140b4a86b4f8ea18d29a39c7b1aab66f',1,'vg::PathChunker']]],
   ['extract_5flinearized_5fpath_5fgraph',['extract_linearized_path_graph',['../classvg_1_1Surjector.html#af05f461840ebac9a70156214c843ee39',1,'vg::Surjector']]],
