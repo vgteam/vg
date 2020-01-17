@@ -601,7 +601,7 @@ int main_chunk(int argc, char** argv) {
         map<string, int> trace_thread_frequencies;
         if (!component_ids.empty()) {
             subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
-            chunker.extract_component(component_ids[i], *subgraph);
+            chunker.extract_component(component_ids[i], *subgraph, false);
             output_regions[i] = region;
         }
         else if (id_range == false) {
