@@ -1535,12 +1535,12 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         
         if (track_provenance) {
             // Tell the funnel
-            funnels[0].pass("max-multimaps", std::get<3>(paired_alignments[alignment_num]));
-            funnels[0].project(std::get<3>(paired_alignments[alignment_num]));
-            funnels[0].score(std::get<3>(paired_alignments[alignment_num]), scores.back());
-            funnels[1].pass("max-multimaps", std::get<4>(paired_alignments[alignment_num]));
-            funnels[1].project(std::get<4>(paired_alignments[alignment_num]));
-            funnels[1].score(std::get<4>(paired_alignments[alignment_num]), scores.back());
+            funnels[0].pass("max-multimaps", alignment_num);
+            funnels[0].project(alignment_num);
+            funnels[0].score(alignment_num, scores.back());
+            funnels[1].pass("max-multimaps", alignment_num);
+            funnels[1].project(alignment_num);
+            funnels[1].score(alignment_num, scores.back());
         }
         
         return true;
@@ -1551,8 +1551,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         scores.emplace_back(paired_scores[alignment_num]);
         
         if (track_provenance) {
-            funnels[0].fail("max-multimaps", std::get<3>(paired_alignments[alignment_num]));
-            funnels[1].fail("max-multimaps", std::get<4>(paired_alignments[alignment_num]));
+            funnels[0].fail("max-multimaps", alignment_num);
+            funnels[1].fail("max-multimaps", alignment_num);
         }
     }, [&](size_t alignment_num) {
         // This alignment does not have a sufficiently good score
@@ -1618,6 +1618,15 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             } else {
                 paired_mappings.first.back().set_is_secondary(true);
                 paired_mappings.second.back().set_is_secondary(true);
+            }
+            if (track_correctness) {
+                set_annotation(paired_mappings.first.back(),  "secondary_scores", scores);
+                set_annotation(paired_mappings.second.back(), "secondary_scores", scores);
+                set_annotation(paired_mappings.first.back(), "paired_score", scores[i]);
+                set_annotation(paired_mappings.second.back(), "paired_score", scores[i]);
+                set_annotation(paired_mappings.first.back(),  "fragment_cluster",(double) std::get<0>(mappings[i]));
+                set_annotation(paired_mappings.second.back(), "fragment_cluster",(double) std::get<0>(mappings[i]));
+
             }
 
         }
@@ -1735,6 +1744,40 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 #endif
 }
 
+void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, const Alignment& unaligned_read, bool rescue_forward, Alignment& rescued_alignment) {
+    
+
+    //Get the subgraph of all nodes within a reasonable range from aligned_read
+    SubHandleGraph sub_graph(path_graph);
+    //TODO: maybe should be path_graph and require that it is given?
+    int64_t min_distance = max(0.0, fragment_length_distr.mean() - unaligned_read.sequence().size() - fragment_length_distr.stdev());
+    int64_t max_distance = max(0.0, fragment_length_distr.mean() + fragment_length_distr.stdev());
+    distance_index.subgraphInRange(aligned_read.path(), path_graph, min_distance, max_distance, sub_graph, rescue_forward ); 
+
+
+    //Convert subgraph to directed, acyclic graph
+    //Borrowed heavily from mpmap
+    bdsg::HashGraph align_graph;
+    unordered_map<id_t, pair<id_t, bool> > node_trans = algorithms::split_strands(&sub_graph, &align_graph);
+    if (!algorithms::is_directed_acyclic(&sub_graph)) {
+
+        bdsg::HashGraph dagified;
+        unordered_map<id_t, id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, unaligned_read.sequence().size());
+        align_graph = move(dagified);
+        node_trans = overlay_node_translations(dagify_trans, node_trans);
+    }
+
+    //Align to the subgraph
+    rescued_alignment = unaligned_read;
+    rescued_alignment.clear_path();
+    get_aligner()->align(rescued_alignment, align_graph, true, false);
+
+    translate_oriented_node_ids(*rescued_alignment.mutable_path(), node_trans);
+
+    //TODO: mpmap also checks the score here
+    return;
+
+}
 int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment& aln2) {
     assert(aln1.path().mapping_size() != 0); 
     assert(aln2.path().mapping_size() != 0); 

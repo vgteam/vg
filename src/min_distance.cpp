@@ -2124,7 +2124,7 @@ void MinimumDistanceIndex::addNodesInRange(const HandleGraph* super_graph, int64
     }
 }
 
-void MinimumDistanceIndex::subgraphInRange(Path& path, const HandleGraph* super_graph, int64_t min_distance, 
+void MinimumDistanceIndex::subgraphInRange(const Path& path, const HandleGraph* super_graph, int64_t min_distance, 
                                            int64_t max_distance, SubHandleGraph& sub_graph, bool look_upstream){
 
     //Get the subgraph of all nodes for which the minimum distance to any position in the node is within the distance range
@@ -2138,10 +2138,10 @@ void MinimumDistanceIndex::subgraphInRange(Path& path, const HandleGraph* super_
     if (look_upstream ){
         start_pos = initial_position(path);
         node_len = super_graph->get_length(super_graph->get_handle(get_id(start_pos)));;
-        start_pos = reverse_base_pos(start_pos, node_len);
     } else {
         start_pos = final_position(path);
         node_len = super_graph->get_length(super_graph->get_handle(get_id(start_pos)));
+        start_pos = reverse_base_pos(start_pos, node_len);
     }
 
 

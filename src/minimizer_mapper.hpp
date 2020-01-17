@@ -73,6 +73,14 @@ public:
     pair<vector<Alignment>, vector<Alignment>> map_paired(Alignment& aln1, Alignment& aln2);
      
 
+    /**
+     * Given an aligned read, extract a subgraph of the graph within a distance range
+     * based on the fragment length distribution and attempt to align the unaligned
+     * read to it.
+     * Rescue_forward is true if the aligned read is the first and false otherwise. Assumes that both reads are facing the same direction
+     */
+     void attempt_rescue( const Alignment& aligned_read, const Alignment& unaligned_read, bool rescue_forward, Alignment& rescued_alignment);
+
     // Mapping settings.
     // TODO: document each
 
@@ -125,6 +133,9 @@ public:
     /// and track if/when their descendants make it through stages of the
     /// algorithm. Only works if track_provenance is true.
     bool track_correctness = false;
+
+    //For paired end mapping, how many times should we attempt rescue (per read)?
+    size_t max_rescue_attempts = 0;
     
     bool fragment_distr_is_finalized () {return fragment_length_distr.is_finalized();}
     /**

@@ -62,7 +62,8 @@ class MinimumDistanceIndex {
     //Given an alignment to a graph and a range, populate  a subgraph 
     //with all nodes in the graph for which the minimum distance from the position to any position in the node
     //is within the given distance range
-    void subgraphInRange(Path& path, const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
+    //If look_upstream is true, then start from the start of the path forward, otherwise start from the end going backward
+    void subgraphInRange(const Path& path, const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
                          SubHandleGraph& sub_graph, bool look_upstream);
 
     ///Helper function to find the minimum value that is not -1
