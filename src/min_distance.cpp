@@ -210,6 +210,24 @@ MinimumDistanceIndex::MinimumDistanceIndex (istream& in) : MinimumDistanceIndex(
   
 void MinimumDistanceIndex::load(istream& in){
     //Load serialized index from an istream
+    
+    //Check the file's header to make sure it's the correct version
+    if (!in) {
+        throw runtime_error("Could not load distance index");
+    } else {
+        //Check that the header is correct
+        size_t char_index = 0;
+        while (in.peek() != EOF && char_index < file_header.size()) {
+            if ( (char) in.get() != file_header[char_index]) {
+                throw runtime_error ("Distance index file is outdated");
+            }
+            char_index ++;
+        }
+        if (char_index < file_header.size()) {
+            throw runtime_error ("Distance index file is outdated");
+        }
+    }
+
     size_t num_snarls;
     sdsl::read_member(num_snarls, in);
     snarl_indexes.reserve(num_snarls);
@@ -260,6 +278,9 @@ void MinimumDistanceIndex::load(istream& in){
 void MinimumDistanceIndex::serialize(ostream& out) const {
 
     //Serialize snarls
+
+    //Write the header to the serialized file
+    out << file_header;
     sdsl::write_member(snarl_indexes.size(), out);
     
     for (auto& snarl_index: snarl_indexes) {

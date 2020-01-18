@@ -368,6 +368,8 @@ class MinimumDistanceIndex {
     sdsl::int_vector<> max_distances;
 
 
+    //Header for the serialized file
+    string file_header = "distance index version 2";
 
     ////// Private helper functions
  

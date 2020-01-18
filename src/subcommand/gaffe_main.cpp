@@ -659,11 +659,15 @@ int main_gaffe(int argc, char** argv) {
                 
             case 'r':
                 {
-                    if (!interleaved || fastq_filename_2.empty()) {
+                    rescue_attempts = parse<int>( optarg);
+                    if (rescue_attempts < 0) {
+                        cerr << "error: [vg gaffe] Rescue attempts must be positive" << endl;
+                        exit(1);
+                    }
+                    if (!interleaved && fastq_filename_2.empty()) {
                         cerr << "error: [vg gaffe] Rescue can only be done on paired-end reads" << endl;
                         exit(1);
                     }
-                    rescue_attempts = parse<int>( optarg);
                 }
                 break;
                 
@@ -757,10 +761,7 @@ int main_gaffe(int argc, char** argv) {
     if (progress) {
         cerr << "Loading distance index " << distance_name << endl;
     }
-    MinimumDistanceIndex distance_index;
-    ifstream dist_in (distance_name);
-    distance_index.load(dist_in);
-    //unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
+    unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     
     // Build or load the GBWTGraph.
     unique_ptr<gbwtgraph::GBWTGraph> gbwt_graph = nullptr;
@@ -781,7 +782,7 @@ int main_gaffe(int argc, char** argv) {
     if (progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(*gbwt_graph, *minimizer_index, distance_index, xg_index);
+    MinimizerMapper minimizer_mapper(*gbwt_graph, *minimizer_index, *distance_index, xg_index);
     
     std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
     std::chrono::duration<double> init_seconds = init - launch;
