@@ -480,7 +480,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
       temp.set_name(aln.name());
       temp.set_quality(aln.quality());
       // Also store which minimizer index we ended up using if it was not the first.
-      if (selected_index > 0) {
+      if (track_provenance && selected_index > 0) {
           set_annotation(temp, "minimizer_index_used", static_cast<double>(selected_index));
       }
       aln = std::move(temp);
