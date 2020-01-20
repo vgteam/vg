@@ -232,8 +232,8 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
             // criteria
             bool has_edits = true;
             if (min_bp_coverage > 0) {
-                has_edits = simplify_filtered_edits(graph, simplified_path, node_translation, orig_node_sizes,
-                                                    aln.quality(), min_baseq, max_frac_n);
+                has_edits = simplify_filtered_edits(graph, aln, simplified_path, node_translation, orig_node_sizes,
+                                                    min_baseq, max_frac_n);
             }
 
             // Now go through each new path again, by reference so we can overwrite.
@@ -643,9 +643,9 @@ static nid_t find_new_node(HandleGraph* graph, pos_t old_pos, const map<pos_t, i
 };
 
 
-bool simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id_t>& node_translation,
+bool simplify_filtered_edits(HandleGraph* graph, Alignment& aln, Path& path, const map<pos_t, id_t>& node_translation,
                              const unordered_map<id_t, size_t>& orig_node_sizes,
-                             const string& base_quals, double min_baseq, double max_frac_n) {
+                             double min_baseq, double max_frac_n) {
 
     // check if an edit position is chopped at its next or prev position
     auto is_chopped = [&](pos_t edit_position, bool forward) {
@@ -671,6 +671,10 @@ bool simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id
     // The base position in the edit
     size_t position_in_read = 0;
 
+    // stuff that's getting cut out of the read, which requires cuts to
+    // quality and and the alignment string
+    vector<pair<size_t, size_t>> read_deletions;
+
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         // For each Mapping in the path
         Mapping& m = *path.mutable_mapping(i);
@@ -686,6 +690,7 @@ bool simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id
         for(size_t j = 0; j < m.edit_size(); ++j) {
             // For each Edit in the mapping
             Edit& e = *m.mutable_edit(j);
+            size_t orig_to_length = e.to_length(); // remember here, as we may filter an insertion
 
             // Work out where its end position on the original node is (inclusive)
             // We don't use this on insertions, so 0-from-length edits don't matter.
@@ -703,8 +708,16 @@ bool simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id
                     chopped = is_chopped(edit_first_position, false) && is_chopped(edit_last_position, true);
                 }
                 if (!chopped || 
-                    (min_baseq > 0 && get_avg_baseq(e, base_quals, position_in_read) < min_baseq) ||
+                    (min_baseq > 0 && get_avg_baseq(e, aln.quality(), position_in_read) < min_baseq) ||
                     (max_frac_n < 1. && get_fraction_of_ns(e.sequence()) > max_frac_n)) {
+                    if (e.from_length() == e.to_length() && !aln.sequence().empty()) {
+                        // if we're smoothing a match out, patch the alignment sequence right away
+                        // todo: actually look up the correct sequence from the translation.
+                    } else if (edit_is_insertion(e)) {
+                        // we're trimming off the filtered insertion.  so the alignment's sequence and quality
+                        // will need to get updated. 
+                        read_deletions.push_back(make_pair(position_in_read, e.to_length()));
+                    }
                     e.set_to_length(e.from_length());
                     e.set_sequence("");
                     filtered_an_edit = true;
@@ -718,13 +731,37 @@ bool simplify_filtered_edits(HandleGraph* graph, Path& path, const map<pos_t, id
             // This way the next one will start at the right place.
             get_offset(edit_first_position) += e.from_length();
 
-            position_in_read += e.to_length();
+            position_in_read += orig_to_length;
         }
     }
 
     if (filtered_an_edit) {
         // there's something to simplify
         path = simplify(path);
+
+        if (!read_deletions.empty()) {
+            // cut out deleted parts of the read from the sequence and quality
+            const string& seq = aln.sequence();
+            const string& qual = aln.quality();
+            string cut_seq;
+            string cut_qual;
+            int j = 0;
+            for (int i = 0; i < seq.length(); ++i) {
+                if (j < read_deletions.size() && i == read_deletions[j].first) {
+                    // skip a deleted interval
+                    i += read_deletions[j].second - 1;
+                    ++j;
+                } else {
+                    // copy a single position that wasn't skipped
+                    cut_seq.push_back(seq[i]);
+                    if (!qual.empty()) {
+                        cut_qual.push_back(qual[i]);
+                    }
+               } 
+            }
+            aln.set_sequence(cut_seq);
+            aln.set_quality(cut_qual);
+        }
     }
 
     return kept_an_edit;
