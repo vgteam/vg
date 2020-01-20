@@ -1556,7 +1556,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 //Attempt rescue of first read
                 Alignment& mapped_aln = unpaired_fragments_second[i];
                 Alignment rescued_aln = aln1;
-                attempt_rescue(mapped_aln, aln1, true, rescued_aln); 
+                attempt_rescue(mapped_aln, aln1, false, rescued_aln); 
                 int64_t fragment_dist = distance_between(rescued_aln, mapped_aln);
                 if (fragment_dist != std::numeric_limits<int64_t>::max()) {
                     double dev = fragment_dist - fragment_length_distr.mean();
