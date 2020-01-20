@@ -446,7 +446,7 @@ using namespace std;
 #endif
             
             // perform a full length surjection within the section section
-            sections.push_back(realigning_surject(graph, section_source, path_handle, section_path_chunks, false));
+            sections.push_back(realigning_surject(graph, section_source, path_handle, section_path_chunks, true));
             read_ranges.push_back(read_range);
             ref_ranges.push_back(ref_range);
             
