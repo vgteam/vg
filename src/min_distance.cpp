@@ -2146,7 +2146,7 @@ void MinimumDistanceIndex::addNodesInRange(const HandleGraph* super_graph, int64
 }
 
 void MinimumDistanceIndex::subgraphInRange(const Path& path, const HandleGraph* super_graph, int64_t min_distance, 
-                                           int64_t max_distance, SubHandleGraph& sub_graph, bool look_upstream){
+                                           int64_t max_distance, SubHandleGraph& sub_graph, bool look_forward){
 
     //Get the subgraph of all nodes for which the minimum distance to any position in the node is within the distance range
     //Algorithm proceeds in two phases: First, traverse up the snarl tree and get the distance to the ends of each snarl
@@ -2156,9 +2156,9 @@ void MinimumDistanceIndex::subgraphInRange(const Path& path, const HandleGraph* 
 
     pos_t start_pos;
     int64_t node_len;
-    if (look_upstream ){
+    if (look_forward ){
         start_pos = initial_position(path);
-        node_len = super_graph->get_length(super_graph->get_handle(get_id(start_pos)));;
+        node_len = super_graph->get_length(super_graph->get_handle(get_id(start_pos)));
     } else {
         start_pos = final_position(path);
         node_len = super_graph->get_length(super_graph->get_handle(get_id(start_pos)));

@@ -770,8 +770,13 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         vector<Alignment> alns2(map(aln2));
 
         // TODO: How do we decide what an unambiguous mapping is? 
+        // TODO: Double check what the actual best possible score is - which aligner are we actually using? 
         // Check if the separately-mapped ends are both sufficiently perfect and sufficiently unique
-        if (alns1.size() > 0 && alns2.size() > 0 && alns1.front().mapping_quality() == 60 && alns2.front().mapping_quality() == 60) {
+        int32_t max_score_aln_1 = get_regular_aligner()->score_exact_match(aln1, 0, aln1.sequence().size());
+        int32_t max_score_aln_2 = get_regular_aligner()->score_exact_match(aln2, 0, aln2.sequence().size());
+        if (!alns1.empty() && ! alns2.empty()  && 
+            alns1.front().mapping_quality() == 60 && alns2.front().mapping_quality() == 60 &&
+            alns1.front().score() >= max_score_aln_1 * 0.85 && alns2.front().score() >= max_score_aln_2 * 0.85) {
 
             //Flip the second alignment to get the proper fragment distance 
             reverse_complement_alignment_in_place(&alns2.front(), [&](vg::id_t node_id) {
@@ -1518,6 +1523,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             
             //Attempt rescue on both reads
             //
+            //TODO: Remove duplicate alignments
 
             process_until_threshold(unpaired_fragments_first, (std::function<double(size_t)>) [&](size_t i) -> double{
                 return (double) unpaired_fragments_first.at(i).score();
@@ -1531,6 +1537,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     double dev = fragment_dist - fragment_length_distr.mean();
                     double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
                     double score = mapped_aln.score() + rescued_aln.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
+                    set_annotation(mapped_aln, "rescuer", true);
                     set_annotation(rescued_aln, "rescued", true);
                     paired_alignments.emplace_back(mapped_aln, std::move(rescued_aln));
                     paired_scores.emplace_back(score);
@@ -1556,6 +1563,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
                     double score = mapped_aln.score() + rescued_aln.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
                     set_annotation(rescued_aln, "rescued", true);
+                    set_annotation(mapped_aln, "rescuer", true);
                     paired_alignments.emplace_back(std::move(rescued_aln), mapped_aln);
                     paired_scores.emplace_back(score);
                 }
@@ -1604,7 +1612,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         reverse_complement_alignment_in_place(&mappings.second.back(), [&](vg::id_t node_id) {
             return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
         });
-        if (alignment_num != 0) {
+        if (mappings.first.size() > 1) {
             mappings.first.back().set_is_secondary(true);
             mappings.second.back().set_is_secondary(true);
         }
@@ -1646,14 +1654,12 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     for (auto& score : scores) cerr << score << " ";
 #endif
 
+//TODO: Could also cap mapq at the probability of the fragment length
     size_t winning_index;
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
     double mapq = (mappings.first.empty() || scores[0] == 0) ? 0 : 
         get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index) / 2;
     
-    if (!found_pair) {
-        //TODO: Adjust the score if we had to rescue 
-    }
 #ifdef debug
     cerr << "MAPQ is " << mapq << endl;
 #endif
@@ -1804,10 +1810,10 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, const Align
 
     //Get the subgraph of all nodes within a reasonable range from aligned_read
     SubHandleGraph sub_graph(path_graph);
-    //TODO: maybe should be path_graph and require that it is given?
+    //TODO: maybe should be gbwt_graph
     int64_t min_distance = max(0.0, fragment_length_distr.mean() - unaligned_read.sequence().size() - fragment_length_distr.stdev());
-    int64_t max_distance = max(0.0, fragment_length_distr.mean() + fragment_length_distr.stdev());
-    distance_index.subgraphInRange(aligned_read.path(), path_graph, min_distance, max_distance, sub_graph, rescue_forward ); 
+    int64_t max_distance = fragment_length_distr.mean() + fragment_length_distr.stdev();
+    distance_index.subgraphInRange(aligned_read.path(), path_graph, min_distance, max_distance, sub_graph, rescue_forward); 
 
 
     //Convert subgraph to directed, acyclic graph
@@ -1825,7 +1831,7 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, const Align
     //Align to the subgraph
     rescued_alignment = unaligned_read;
     rescued_alignment.clear_path();
-    get_aligner()->align(rescued_alignment, align_graph, true, false);
+    get_regular_aligner()->align(rescued_alignment, align_graph, true, false);
 
     translate_oriented_node_ids(*rescued_alignment.mutable_path(), node_trans);
 
