@@ -54,16 +54,24 @@ public:
     /// not, an index will be generated and saved.
     IndexedVG(string graph_filename);
     
+    // TODO: This gets implicitly deleted and generates warning because of the
+    // StreamIndex member variable
     // We are moveable
-    IndexedVG(IndexedVG&& other) = default;
-    IndexedVG& operator=(IndexedVG&& other) = default;
+    //IndexedVG(IndexedVG&& other) = default;
+    
+    // TODO: This gets implicitly deleted and generates warning because StreamIndex
+    // member variable is not movable
+    //IndexedVG& operator=(IndexedVG&& other) = default;
     
     void print_report() const;
 
 private:
     // We are not copyable because we keep a pool of open files
     IndexedVG(const IndexedVG& other) = delete;
-    IndexedVG& operator=(const IndexedVG& other) = delete;
+    
+    // TODO: This gets implicitly deleted and generates warning because of the
+    // StreamIndex member variable
+    //IndexedVG& operator=(const IndexedVG& other) = delete;
     
 public:
 

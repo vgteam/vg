@@ -70,8 +70,7 @@ namespace vg {
         
         /// Map read in alignment to graph and make multipath alignments.
         void multipath_map(const Alignment& alignment,
-                           vector<MultipathAlignment>& multipath_alns_out,
-                           size_t max_alt_mappings);
+                           vector<MultipathAlignment>& multipath_alns_out);
                            
         /// Map a paired read to the graph and make paired multipath alignments. Assumes reads are on the
         /// same strand of the DNA/RNA molecule. If the fragment length distribution is still being estimated
@@ -79,15 +78,14 @@ namespace vg {
         /// does not output any multipath alignments.
         void multipath_map_paired(const Alignment& alignment1, const Alignment& alignment2,
                                   vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                  vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,
-                                  size_t max_alt_mappings);
+                                  vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer);
                                   
         /// Given a mapped MultipathAlignment, reduce it to up to
-        /// max_alt_mappings + 1 nonoverlapping single path alignments, with
+        /// max_number + 1 nonoverlapping single path alignments, with
         /// mapping qualities accounting for positional uncertainty between
         /// them.
         /// Even if the read is unmapped, there will always be at least one (possibly score 0) output alignment.
-        void reduce_to_single_path(const MultipathAlignment& multipath_aln, vector<Alignment>& alns_out, size_t max_alt_mappings) const;
+        void reduce_to_single_path(const MultipathAlignment& multipath_aln, vector<Alignment>& alns_out, size_t max_number) const;
         
         /// Sets the minimum clustering MEM length to the approximate length that a MEM would have to be to
         /// have at most the given probability of occurring in random sequence of the same size as the graph
@@ -118,12 +116,14 @@ namespace vg {
         size_t band_padding_memo_size = 500;
         double pseudo_length_multiplier = 1.65;
         double max_mapping_p_value = 0.00001;
+        size_t max_alt_mappings = 1;
         size_t max_single_end_mappings_for_rescue = 64;
         size_t max_rescue_attempts = 32;
         size_t plausible_rescue_cluster_coverage_diff = 5;
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
         double mapq_scaling_factor = 1.0 / 4.0;
+        bool report_group_mapq = false;
         // There must be a ScoreProvider provided, and a positive population_max_paths, if this is true
         bool use_population_mapqs = false;
         // If this is nonzero, it takes precedence over any haplotype count
@@ -176,8 +176,7 @@ namespace vg {
         /// mapping quality method option.
         void multipath_map_internal(const Alignment& alignment,
                                     MappingQualityMethod mapq_method,
-                                    vector<MultipathAlignment>& multipath_alns_out,
-                                    size_t max_alt_mappings);
+                                    vector<MultipathAlignment>& multipath_alns_out);
         
         /// Before the fragment length distribution has been estimated, look for an unambiguous mapping of
         /// the reads using the single ended routine. If we find one record the fragment length and report
@@ -224,8 +223,7 @@ namespace vg {
                                                  vector<clustergraph_t>& cluster_graphs2,
                                                  bool block_rescue_from_1, bool block_rescue_from_2,
                                                  vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                                 vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
-                                                 size_t max_alt_mappings);
+                                                 vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances);
         
         /// Use the rescue routine on strong suboptimal clusters to see if we can find a good secondary.
         /// Produces topologically sorted MultipathAlignments.
@@ -246,7 +244,6 @@ namespace vg {
                                                       vector<clustergraph_t>& cluster_graphs1, vector<clustergraph_t>& cluster_graphs2,
                                                       vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                       vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
-                                                      size_t max_alt_mappings,
                                                       OrientedDistanceMeasurer& distance_measurer);
         
         /// Merge the rescued mappings into the output vector and deduplicate pairs
