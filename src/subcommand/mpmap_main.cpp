@@ -67,6 +67,7 @@ void help_mpmap(char** argv) {
     << "  -B, --no-calibrate            do not auto-calibrate mismapping dectection" << endl
     << "  -P, --max-p-val FLOAT         background model p value must be less than this to avoid mismapping detection [0.00001]" << endl
     << "  -Q, --mq-max INT              cap mapping quality estimates at this much [60]" << endl
+    << "  --report-group-mapq           add an annotation for the collective mapping quality of all reported alignments" << endl
     << "  -p, --padding-mult FLOAT      pad dynamic programming bands in inter-MEM alignment FLOAT * sqrt(read length) [1.0]" << endl
     << "  -u, --map-attempts INT        perform (up to) this many mappings per read (0 for no limit) [24 paired / 64 unpaired]" << endl
     << "  -O, --max-paths INT           consider (up to) this many paths per alignment for population consistency scoring, 0 to disable [10]" << endl
@@ -113,6 +114,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_SUPPRESS_TAIL_ANCHORS 1005
     #define OPT_TOP_TRACEBACKS 1006
     #define OPT_MIN_DIST_CLUSTER 1007
+    #define OPT_REPORT_GROUP_MAPQ 1008
     string matrix_file_name;
     string xg_name;
     string gcsa_name;
@@ -158,6 +160,7 @@ int main_mpmap(int argc, char** argv) {
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Adaptive;
+    bool report_group_mapq = false;
     double band_padding_multiplier = 1.0;
     int max_dist_error = 12;
     int num_alt_alns = 10;
@@ -235,6 +238,7 @@ int main_mpmap(int argc, char** argv) {
             {"no-calibrate", no_argument, 0, 'B'},
             {"max-p-val", required_argument, 0, 'P'},
             {"mq-max", required_argument, 0, 'Q'},
+            {"report-group-mapq", required_argument, 0, OPT_REPORT_GROUP_MAPQ},
             {"padding-mult", required_argument, 0, 'p'},
             {"map-attempts", required_argument, 0, 'u'},
             {"max-paths", required_argument, 0, 'O'},
@@ -420,6 +424,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'Q':
                 max_mapq = parse<int>(optarg);
+                break;
+                
+            case OPT_REPORT_GROUP_MAPQ:
+                report_group_mapq = true;
                 break;
                 
             case 'p':
@@ -979,6 +987,7 @@ int main_mpmap(int argc, char** argv) {
     // set mapping quality parameters
     multipath_mapper.mapping_quality_method = mapq_method;
     multipath_mapper.max_mapping_quality = max_mapq;
+    multipath_mapper.report_group_mapq = report_group_mapq;
     // Use population MAPQs when we have the right option combination to make that sensible.
     multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr && population_max_paths > 0);
     multipath_mapper.population_max_paths = population_max_paths;
@@ -1000,6 +1009,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.suppress_cluster_merging = suppress_cluster_merging;
     multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;
     multipath_mapper.reversing_walk_length = reversing_walk_length;
+    multipath_mapper.max_alt_mappings = max_num_mappings;
     
     // set pair rescue parameters
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;
@@ -1021,7 +1031,13 @@ int main_mpmap(int argc, char** argv) {
     
     // if directed to, auto calibrate the mismapping detection to the graph
     if (auto_calibrate_mismapping_detection) {
+        // drop the maximum number of mappings to compute down to 1 temporarily so this doesn't take forever
+        size_t stored_max_mappings = multipath_mapper.max_alt_mappings;
+        multipath_mapper.max_alt_mappings = 1;
+        
         multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_length);
+        
+        multipath_mapper.max_alt_mappings = stored_max_mappings;
     }
     
     // Count our threads 
@@ -1238,7 +1254,7 @@ int main_mpmap(int argc, char** argv) {
         }
 
         vector<MultipathAlignment> mp_alns;
-        multipath_mapper.multipath_map(alignment, mp_alns, max_num_mappings);
+        multipath_mapper.multipath_map(alignment, mp_alns);
         if (single_path_alignment_mode) {
             output_single_path_alignments(mp_alns);
         }
@@ -1279,7 +1295,7 @@ int main_mpmap(int argc, char** argv) {
         }
                 
         vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;
-        multipath_mapper.multipath_map_paired(alignment_1, alignment_2, mp_aln_pairs, ambiguous_pair_buffer, max_num_mappings);
+        multipath_mapper.multipath_map_paired(alignment_1, alignment_2, mp_aln_pairs, ambiguous_pair_buffer);
         if (single_path_alignment_mode) {
             output_single_path_paired_alignments(mp_aln_pairs);
         }
@@ -1323,8 +1339,8 @@ int main_mpmap(int argc, char** argv) {
         
         // Align independently
         vector<MultipathAlignment> mp_alns_1, mp_alns_2;
-        multipath_mapper.multipath_map(alignment_1, mp_alns_1, max_num_mappings);
-        multipath_mapper.multipath_map(alignment_2, mp_alns_2, max_num_mappings);
+        multipath_mapper.multipath_map(alignment_1, mp_alns_1);
+        multipath_mapper.multipath_map(alignment_2, mp_alns_2);
                
         vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;
         for (size_t i = 0; i < mp_alns_1.size() && i < mp_alns_2.size(); i++) {
