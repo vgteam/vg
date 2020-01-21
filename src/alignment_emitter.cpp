@@ -731,7 +731,7 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
                         // extend a deletion
                         cigar.back().first += deletion_length;
                     }
-                    else {
+                    else if (deletion_length) {
                         // create a new deletion
                         cigar.emplace_back(deletion_length, 'D');
                     }

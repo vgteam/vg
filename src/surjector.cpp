@@ -293,9 +293,7 @@ using namespace std;
                                          const path_handle_t& path_handle, const vector<path_chunk_t>& path_chunks,
                                          const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                          bool allow_negative_scores) const {
-        
-        cerr << source.name() << endl;
-        
+                
         assert(path_chunks.size() == ref_chunks.size());
         
         auto get_strand = [&](size_t i) {
@@ -405,9 +403,7 @@ using namespace std;
             pair<string::const_iterator, string::const_iterator> read_range;
             pair<step_handle_t, step_handle_t> ref_range;
             vector<path_chunk_t> section_path_chunks;
-            
-            
-            
+                        
             bool strand = get_strand(comp_groups[i].front());
             
             vector<size_t>& group = comp_groups[i];
@@ -446,10 +442,11 @@ using namespace std;
             
 #ifdef debug_spliced_surject
             cerr << "surjecting section " << i << ": " << pb2json(section_source) << endl;
+            cerr << "consists of " << section_path_chunks.size() << " path chunks" << endl;
 #endif
             
             // perform a full length surjection within the section section
-            sections.push_back(realigning_surject(graph, section_source, path_handle, section_path_chunks, false));
+            sections.push_back(realigning_surject(graph, section_source, path_handle, section_path_chunks, true));
             read_ranges.push_back(read_range);
             ref_ranges.push_back(ref_range);
             
