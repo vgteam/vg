@@ -238,7 +238,7 @@ int main_mpmap(int argc, char** argv) {
             {"no-calibrate", no_argument, 0, 'B'},
             {"max-p-val", required_argument, 0, 'P'},
             {"mq-max", required_argument, 0, 'Q'},
-            {"report-group-mapq", required_argument, 0, OPT_REPORT_GROUP_MAPQ},
+            {"report-group-mapq", no_argument, 0, OPT_REPORT_GROUP_MAPQ},
             {"padding-mult", required_argument, 0, 'p'},
             {"map-attempts", required_argument, 0, 'u'},
             {"max-paths", required_argument, 0, 'O'},
