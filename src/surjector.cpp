@@ -541,9 +541,11 @@ using namespace std;
         }
         
         // do the dynamic programming
+        vector<bool> is_sink(score_dp.size(), true);
         for (size_t i = 0; i < constrictions.size(); ++i) {
             size_t from = constriction_comps[constrictions[i]];
             size_t to = constriction_comps[constriction_targets[i]];
+            is_sink[from] = false;
             
             int32_t extended_score = score_dp[from] + section_edge_scores[i] + sections[to].score();
             if (extended_score > score_dp[to]) {
@@ -552,11 +554,11 @@ using namespace std;
             }
         }
         
-        // find the maximum
+        // find the maximum, subject to full length requirements
         vector<size_t> traceback(1, -1);
         int32_t max_score = numeric_limits<int32_t>::min();
         for (size_t i = 0; i < score_dp.size(); ++i) {
-            if (score_dp[i] > max_score) {
+            if (score_dp[i] > max_score && (!allow_negative_scores || is_sink[i])) {
                 max_score = score_dp[i];
                 traceback[0] = i;
             }
