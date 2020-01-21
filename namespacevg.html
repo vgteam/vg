@@ -925,8 +925,8 @@ Functions</h2></td></tr>
 <tr class="separator:a7ac200a1dbeaf55eb41bebbfd2ce4bdf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a35bec7a1758e5eb88a359da78174d8d9"><td class="memItemLeft" align="right" valign="top">map&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a35bec7a1758e5eb88a359da78174d8d9">ensure_breakpoints</a> (<a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *graph, const unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&gt; &amp;breakpoints)</td></tr>
 <tr class="separator:a35bec7a1758e5eb88a359da78174d8d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a28774983ae99c1c3a9da43a508b85bd2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a28774983ae99c1c3a9da43a508b85bd2">simplify_filtered_edits</a> (<a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, const map&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;node_translation, const unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, size_t &gt; &amp;orig_node_sizes, const string &amp;base_quals, double min_baseq, double max_frac_n)</td></tr>
-<tr class="separator:a28774983ae99c1c3a9da43a508b85bd2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad6a42e8ba843cd728b9f84738756b30e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad6a42e8ba843cd728b9f84738756b30e">simplify_filtered_edits</a> (<a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, const map&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;node_translation, const unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, size_t &gt; &amp;orig_node_sizes, double min_baseq, double max_frac_n)</td></tr>
+<tr class="separator:ad6a42e8ba843cd728b9f84738756b30e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3aa7eee80c4c79f0f863d10687714c74"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3aa7eee80c4c79f0f863d10687714c74">add_nodes_and_edges</a> (<a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *graph, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, const map&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;node_translation, unordered_map&lt; pair&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, string &gt;, vector&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&gt; &amp;added_seqs, unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;added_nodes, const unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, size_t &gt; &amp;orig_node_sizes, size_t max_node_size=1024)</td></tr>
 <tr class="memdesc:a3aa7eee80c4c79f0f863d10687714c74"><td class="mdescLeft">&#160;</td><td class="mdescRight">This version doesn't require a set of dangling sides to populate.  <a href="#a3aa7eee80c4c79f0f863d10687714c74">More...</a><br /></td></tr>
 <tr class="separator:a3aa7eee80c4c79f0f863d10687714c74"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -14860,8 +14860,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a28774983ae99c1c3a9da43a508b85bd2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a28774983ae99c1c3a9da43a508b85bd2">&#9670;&nbsp;</a></span>simplify_filtered_edits()</h2>
+<a id="ad6a42e8ba843cd728b9f84738756b30e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad6a42e8ba843cd728b9f84738756b30e">&#9670;&nbsp;</a></span>simplify_filtered_edits()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -14871,6 +14871,12 @@ template&lt;typename T &gt; </div>
           <td>(</td>
           <td class="paramtype"><a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -14889,12 +14895,6 @@ template&lt;typename T &gt; </div>
           <td></td>
           <td class="paramtype">const unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, size_t &gt; &amp;&#160;</td>
           <td class="paramname"><em>orig_node_sizes</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>base_quals</em> = <code>&quot;&quot;</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
