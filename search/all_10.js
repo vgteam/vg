@@ -43,6 +43,7 @@ var searchData=
   ['parse_5fdefault',['parse_default',['../classvg_1_1OptionValueParser.html#ad2b7db7247de0c8cb7fe4e9501314b6b',1,'vg::OptionValueParser::parse_default()'],['../classvg_1_1OptionValueParser_3_01vector_3_01Item_01_4_01_4.html#aa9624ebfad0e2421af39a86e7327edaf',1,'vg::OptionValueParser&lt; vector&lt; Item &gt; &gt;::parse_default()'],['../classvg_1_1OptionValueParser.html#abda475fb80fba1cc2bef3e2be3ca1d70',1,'vg::OptionValueParser::parse_default()']]],
   ['parse_5fedge',['parse_edge',['../classvg_1_1Index.html#a2e4f852179aff69a081bef942bb44b33',1,'vg::Index::parse_edge(const string &amp;key, const string &amp;value, char &amp;type, int64_t &amp;id1, int64_t &amp;id2, Edge &amp;edge)'],['../classvg_1_1Index.html#aa6e04b6297c3d384ee74f86047c57c95',1,'vg::Index::parse_edge(const string &amp;key, char &amp;type, int64_t &amp;node_id, int64_t &amp;other_id, bool &amp;backward)']]],
   ['parse_5fgff_5fregions',['parse_gff_regions',['../namespacevg.html#a55cc20d96f38b54c590af4f3f3ac2498',1,'vg']]],
+  ['parse_5fhaplotype_5ftranscript_5ffile',['parse_haplotype_transcript_file',['../sim__main_8cpp.html#ae98175893da0d162097014dd65ba8ce2',1,'sim_main.cpp']]],
   ['parse_5fkmer',['parse_kmer',['../classvg_1_1Index.html#a59cab369954a075f3b2d0a4c7bb9c9ba',1,'vg::Index']]],
   ['parse_5fmapping',['parse_mapping',['../classvg_1_1Index.html#a87d5a1aac53ead176393975356f49d36',1,'vg::Index']]],
   ['parse_5fnode',['parse_node',['../classvg_1_1Index.html#a4d5e09047e701288444acfb2a72de64d',1,'vg::Index']]],
