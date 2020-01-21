@@ -1533,6 +1533,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             process_until_threshold(unpaired_alignments, (std::function<double(size_t)>) [&](size_t i) -> double{
                 return (double) unpaired_alignments.at(i).score();
             }, 0, 1, max_rescue_attempts, [&](size_t i) {
+                bool duplicated = false;
                 Alignment& mapped_aln = unpaired_alignments[i];
                 Alignment rescued_aln = unpaired_alignment_ends[i] ? aln2 : aln1;
 
@@ -1541,13 +1542,16 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 int64_t fragment_dist = unpaired_alignment_ends[i] ? distance_between(mapped_aln, rescued_aln) :
                                                                     distance_between(rescued_aln, mapped_aln);
                 if (fragment_dist != std::numeric_limits<int64_t>::max()) {
-                    double dev = fragment_dist - fragment_length_distr.mean();
-                    double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
-                    double score = mapped_aln.score() + rescued_aln.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
-                    set_annotation(mapped_aln, "rescuer", true);
-                    set_annotation(rescued_aln, "rescued", true);
-                    paired_alignments.emplace_back(mapped_aln, std::move(rescued_aln));
-                    paired_scores.emplace_back(score);
+                    if (!duplicated) {
+                        double dev = fragment_dist - fragment_length_distr.mean();
+                        double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
+                        double score = mapped_aln.score() + rescued_aln.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
+                        set_annotation(mapped_aln, "rescuer", true);
+                        set_annotation(rescued_aln, "rescued", true);
+                        unpaired_alignment_ends[i] ? paired_alignments.emplace_back(mapped_aln, std::move(rescued_aln)) :
+                                                     paired_alignments.emplace_back(std::move(rescued_aln), mapped_aln);
+                        paired_scores.emplace_back(score);
+                    }
                 }
                 return true;
             }, [&](size_t i) {
