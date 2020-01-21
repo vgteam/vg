@@ -1407,8 +1407,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     //Keep track of alignments with no pairs in the same fragment cluster and if there is no pair,
     //keep the best unpaired alignment
     bool found_pair = false;
-    vector<Alignment> unpaired_fragments_first;
-    vector<Alignment> unpaired_fragments_second;
+    //Alignments that didn't have a mate at the clustering stage
+    vector<Alignment> unpaired_alignments;
+    vector<bool> unpaired_alignment_ends; //True if alignment was first pair, false for second
 
     for (size_t fragment_num = 0 ; fragment_num < alignments.size() ; fragment_num ++ ) {
         //Get pairs of plausible alignments
@@ -1452,11 +1453,13 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 }
             }
         } else if (!fragment_alignments.first.empty()) {
+            unpaired_alignment_ends.insert(unpaired_alignment_ends.end(), true, fragment_alignments.first.size());
             std::move(fragment_alignments.first.begin(), fragment_alignments.first.end(), 
-                      std::back_inserter(unpaired_fragments_first));
+                      std::back_inserter(unpaired_alignments));
         } else if (!fragment_alignments.second.empty()) {
+            unpaired_alignment_ends.insert(unpaired_alignment_ends.end(), false, fragment_alignments.first.size());
             std::move(fragment_alignments.second.begin(), fragment_alignments.second.end(),
-                      std::back_inserter(unpaired_fragments_second));
+                      std::back_inserter(unpaired_alignments));
         }
 
         /* else {
@@ -1479,8 +1482,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         if (max_rescue_attempts == 0 ) {
             //If we aren't attempting rescue, just return the best for each
 
-            Alignment best_aln1 = aln1;
-            Alignment best_aln2 = aln2;
+            Alignment& best_aln1 = aln1;
+            Alignment& best_aln2 = aln2;
 
             best_aln1.clear_refpos();
             best_aln1.clear_path();
@@ -1494,14 +1497,16 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             best_aln2.set_identity(0);
             best_aln2.set_mapping_quality(0);
 
-            for (Alignment alignment1 : unpaired_fragments_first) {
-                if (alignment1.score() > best_aln1.score()) {
-                    best_aln1 = alignment1;
-                }
-            }
-            for (Alignment alignment2 : unpaired_fragments_second) {
-                if (alignment2.score() > best_aln2.score()) {
-                    best_aln2 = alignment2;
+            for (size_t i = 0 ; i < unpaired_alignments.size() ; i++ ) {
+                Alignment& alignment = unpaired_alignments[i];
+                if (unpaired_alignment_ends[i]) {
+                    if (alignment.score() > best_aln1.score()) {
+                        best_aln1 = alignment;
+                    }
+                } else {
+                    if (alignment.score() > best_aln2.score()) {
+                        best_aln2 = alignment;
+                    }
                 }
             }
             set_annotation(best_aln1, "unpaired", true);
@@ -1525,14 +1530,16 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             //
             //TODO: Remove duplicate alignments
 
-            process_until_threshold(unpaired_fragments_first, (std::function<double(size_t)>) [&](size_t i) -> double{
-                return (double) unpaired_fragments_first.at(i).score();
+            process_until_threshold(unpaired_alignments, (std::function<double(size_t)>) [&](size_t i) -> double{
+                return (double) unpaired_alignments.at(i).score();
             }, 0, 1, max_rescue_attempts, [&](size_t i) {
-                //Attempt rescue of second read
-                Alignment& mapped_aln = unpaired_fragments_first[i];
-                Alignment rescued_aln = aln2;
-                attempt_rescue(mapped_aln, aln2, true, rescued_aln); 
-                int64_t fragment_dist = distance_between(mapped_aln, rescued_aln);
+                Alignment& mapped_aln = unpaired_alignments[i];
+                Alignment rescued_aln = unpaired_alignment_ends[i] ? aln2 : aln1;
+
+                unpaired_alignment_ends[i] ? attempt_rescue(mapped_aln, aln2, true, rescued_aln) : 
+                                             attempt_rescue(mapped_aln, aln1, false, rescued_aln); 
+                int64_t fragment_dist = unpaired_alignment_ends[i] ? distance_between(mapped_aln, rescued_aln) :
+                                                                    distance_between(rescued_aln, mapped_aln);
                 if (fragment_dist != std::numeric_limits<int64_t>::max()) {
                     double dev = fragment_dist - fragment_length_distr.mean();
                     double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
@@ -1546,32 +1553,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             }, [&](size_t i) {
                 //TODO: Should probably do more funnel stuff here
                 return;
-            }, [&] (size_t i) {
-                return;
-            });
-
-            process_until_threshold(unpaired_fragments_second, (std::function<double(size_t)>) [&](size_t i) -> double{
-                    return (double) unpaired_fragments_second.at(i).score();
-            }, 0, 1, max_rescue_attempts, [&](size_t i) {
-                //Attempt rescue of first read
-                Alignment& mapped_aln = unpaired_fragments_second[i];
-                Alignment rescued_aln = aln1;
-                attempt_rescue(mapped_aln, aln1, false, rescued_aln); 
-                int64_t fragment_dist = distance_between(rescued_aln, mapped_aln);
-                if (fragment_dist != std::numeric_limits<int64_t>::max()) {
-                    double dev = fragment_dist - fragment_length_distr.mean();
-                    double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
-                    double score = mapped_aln.score() + rescued_aln.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
-                    set_annotation(rescued_aln, "rescued", true);
-                    set_annotation(mapped_aln, "rescuer", true);
-                    paired_alignments.emplace_back(std::move(rescued_aln), mapped_aln);
-                    paired_scores.emplace_back(score);
-                }
-                return true;
-                
-            }, [&](size_t i) {
-                    //TODO: Should probably do more funnel stuff here
-                    return;
             }, [&] (size_t i) {
                 return;
             });
