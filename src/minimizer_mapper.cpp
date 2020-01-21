@@ -1533,23 +1533,33 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             process_until_threshold(unpaired_alignments, (std::function<double(size_t)>) [&](size_t i) -> double{
                 return (double) unpaired_alignments.at(i).score();
             }, 0, 1, max_rescue_attempts, [&](size_t i) {
-                bool duplicated = false;
+                bool rescue_second = unpaired_alignment_ends[i]; 
                 Alignment& mapped_aln = unpaired_alignments[i];
-                Alignment rescued_aln = unpaired_alignment_ends[i] ? aln2 : aln1;
+                Alignment rescued_aln = rescue_second ? aln2 : aln1;
 
-                unpaired_alignment_ends[i] ? attempt_rescue(mapped_aln, aln2, true, rescued_aln) : 
+                rescue_second ? attempt_rescue(mapped_aln, aln2, true, rescued_aln) : 
                                              attempt_rescue(mapped_aln, aln1, false, rescued_aln); 
-                int64_t fragment_dist = unpaired_alignment_ends[i] ? distance_between(mapped_aln, rescued_aln) :
+                int64_t fragment_dist = rescue_second ? distance_between(mapped_aln, rescued_aln) :
                                                                     distance_between(rescued_aln, mapped_aln);
                 if (fragment_dist != std::numeric_limits<int64_t>::max()) {
+                    bool duplicated = false;
+                    Alignment& new_first = rescue_second ? mapped_aln : rescued_aln;
+                    Alignment& new_second = rescue_second ? rescued_aln : mapped_aln;
+
+                    for (pair<Alignment, Alignment>& old_pair: paired_alignments) {
+                        //Make sure that this pair is not a duplicate of one we already found
+                        if (abs(distance_between(old_pair.first, new_first)) <= 20 &&
+                            abs(distance_between(old_pair.second, new_second)) <= 20) {
+                            duplicated = true;
+                        }
+                    }
                     if (!duplicated) {
                         double dev = fragment_dist - fragment_length_distr.mean();
                         double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
                         double score = mapped_aln.score() + rescued_aln.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
                         set_annotation(mapped_aln, "rescuer", true);
                         set_annotation(rescued_aln, "rescued", true);
-                        unpaired_alignment_ends[i] ? paired_alignments.emplace_back(mapped_aln, std::move(rescued_aln)) :
-                                                     paired_alignments.emplace_back(std::move(rescued_aln), mapped_aln);
+                        paired_alignments.emplace_back(std::move(new_first), std::move(new_second)) :
                         paired_scores.emplace_back(score);
                     }
                 }
