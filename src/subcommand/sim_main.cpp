@@ -10,6 +10,7 @@
 
 #include <list>
 #include <fstream>
+#include <algorithm>
 
 #include "subcommand.hpp"
 
@@ -50,16 +51,44 @@ vector<pair<string, double>> parse_rsem_expression_file(istream& rsem_in) {
     return return_val;
 }
 
+// Gets the trancript path name, the original transcript name, and the haplotype count from the vg rna -i file
+vector<tuple<string, string, size_t>> parse_haplotype_transcript_file(istream& haplo_tx_in) {
+    vector<tuple<string, string, size_t>> return_val;
+    string line;
+    // skip the header line
+    getline(haplo_tx_in, line);
+    line.clear();
+    while (getline(haplo_tx_in, line)) {
+        vector<string> tokens;
+        stringstream strm(line);
+        string token;
+        while (getline(strm, token, '\t')) {
+            tokens.push_back(move(token));
+            token.clear();
+        }
+        if (tokens.size() != 5) {
+            cerr << "[vg sim] error: Cannot parse haplotype transcript file. Expected 5-column TSV file as produced by vg rna -i, got " << tokens.size() << " columns." << endl;
+            exit(1);
+        }
+        // contributing haplotypes are separeted by commas
+        size_t haplo_count = 1 + std::count(tokens[4].begin(), tokens[4].end(), ',');
+        return_val.emplace_back(tokens[0], tokens[2], haplo_count);
+        line.clear();
+    }
+    return return_val;
+}
+
 void help_sim(char** argv) {
     cerr << "usage: " << argv[0] << " sim [options]" << endl
          << "Samples sequences from the xg-indexed graph." << endl
          << endl
          << "options:" << endl
          << "    -x, --xg-name FILE          use the xg index (or graph) in FILE" << endl
-         << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-f)" << endl
+         << "    -F, --fastq FILE            match the error profile of NGS reads in FILE, repeat for paired reads (ignores -l,-f)" << endl
          << "    -I, --interleaved           reads in FASTQ (-F) are interleaved read pairs" << endl
          << "    -P, --path PATH             simulate from the given names path (multiple allowed, cannot also give -T)" << endl
          << "    -T, --tx-expr-file FILE     simulate from an expression profile formatted as RSEM output (cannot also give -P)" << endl
+         << "    -H, --haplo-tx-file FILE    transcript origin info table from vg rna -i (required for -T on haplotype transcripts)" << endl
          << "    -l, --read-length N         write reads of length N" << endl
          << "    -n, --num-reads N           simulate N reads or read pairs" << endl
          << "    -s, --random-seed N         use this specific seed for the PRNG" << endl
@@ -99,11 +128,16 @@ int main_sim(int argc, char** argv) {
     double indel_prop = 0.0;
     double error_scale_factor = 1.0;
     string fastq_name;
+    string fastq_2_name;
     // What path should we sample from? Empty string = the whole graph.
     vector<string> path_names;
     // Alternatively, which transcripts with how much expression?
     string rsem_file_name;
     vector<pair<string, double>> transcript_expressions;
+    // If we made haplotype trancripts, we'll need a translation layer onto the
+    // expression profile
+    string haplotype_transcript_file_name;
+    vector<tuple<string, string, size_t>> haplotype_transcripts;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -133,7 +167,7 @@ int main_sim(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:Nd:F:P:T:S:I",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:Nd:F:P:T:H:S:I",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -148,7 +182,16 @@ int main_sim(int argc, char** argv) {
             break;
             
         case 'F':
-            fastq_name = optarg;
+            if (fastq_name.empty()) {
+                fastq_name = optarg;
+            }
+            else if (fastq_2_name.empty()) {
+                fastq_2_name = optarg;
+            }
+            else {
+                cerr << "error: cannot provide more than 2 FASTQs to train simulator" << endl;
+                exit(1);
+            }
             break;
             
         case 'I':
@@ -161,6 +204,10 @@ int main_sim(int argc, char** argv) {
             
         case 'T':
             rsem_file_name = optarg;
+            break;
+                
+        case 'H':
+            haplotype_transcript_file_name = optarg;
             break;
 
         case 'l':
@@ -245,6 +292,15 @@ int main_sim(int argc, char** argv) {
         }
         transcript_expressions = parse_rsem_expression_file(rsem_in);
     }
+    
+    if (!haplotype_transcript_file_name.empty()) {
+        ifstream haplo_tx_in(haplotype_transcript_file_name);
+        if (!haplo_tx_in) {
+            cerr << "[vg sim] error: could not open haplotype transcript file " << haplotype_transcript_file_name << endl;
+            return 1;
+        }
+        haplotype_transcripts = parse_haplotype_transcript_file(haplo_tx_in);
+    }
 
     unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
@@ -262,12 +318,24 @@ int main_sim(int argc, char** argv) {
         }
     }
     
-    for (auto& transcript_expression : transcript_expressions) {
-        if (xgidx->has_path(transcript_expression.first) == false) {
-            cerr << "[vg sim] error: transcript path for \""<< transcript_expression.first << "\" not found in index" << endl;
-            return 1;
+    if (haplotype_transcript_file_name.empty()) {
+        for (auto& transcript_expression : transcript_expressions) {
+            if (!xgidx->has_path(transcript_expression.first)) {
+                cerr << "[vg sim] error: transcript path for \""<< transcript_expression.first << "\" not found in index" << endl;
+                cerr << "if you embedded haplotype-specific transcripts in the graph, you may need the haplotype transcript file from vg rna -i" << endl;
+                return 1;
+            }
         }
     }
+    else {
+        for (auto& haplotype_transcript : haplotype_transcripts) {
+            if (!xgidx->has_path(get<0>(haplotype_transcript))) {
+                cerr << "[vg sim] error: transcript path for \""<< get<0>(haplotype_transcript) << "\" not found in index" << endl;
+                return 1;
+            }
+        }
+    }
+    
     
     unique_ptr<vg::io::ProtobufEmitter<Alignment>> aln_emitter;
     if (align_out && !json_out) {
@@ -279,7 +347,7 @@ int main_sim(int argc, char** argv) {
         // Use the fixed error rate sampler
         
         // Make a sample to sample reads with
-        Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names, transcript_expressions);
+        Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names, transcript_expressions, haplotype_transcripts);
         
         Aligner rescorer(default_match, default_mismatch, default_gap_open, default_gap_extension, default_full_length_bonus);
 
@@ -369,9 +437,11 @@ int main_sim(int argc, char** argv) {
         
         NGSSimulator sampler(*xgidx,
                              fastq_name,
+                             fastq_2_name,
                              interleaved,
                              path_names,
                              transcript_expressions,
+                             haplotype_transcripts,
                              base_error,
                              indel_error,
                              indel_prop,
