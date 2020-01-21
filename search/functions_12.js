@@ -31,7 +31,7 @@ var searchData=
   ['record_5ftransition',['record_transition',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#ab3609f759c7b20d77c1bc0ca7160c26a',1,'vg::NGSSimulator::MarkovDistribution']]],
   ['recurse_5fand_5ferror',['recurse_and_error',['../crash__main_8cpp.html#aeb6eea4af54e0b8433638abdee595e96',1,'crash_main.cpp']]],
   ['recursively_5femit_5fsnarls',['recursively_emit_snarls',['../classvg_1_1CactusSnarlFinder.html#aad8a90f6cd0fddf6ab908f6287e3ddf3',1,'vg::CactusSnarlFinder']]],
-  ['reduce_5fto_5fsingle_5fpath',['reduce_to_single_path',['../classvg_1_1MultipathMapper.html#a39d99d168d5c7d235c1529d925b7aa4c',1,'vg::MultipathMapper']]],
+  ['reduce_5fto_5fsingle_5fpath',['reduce_to_single_path',['../classvg_1_1MultipathMapper.html#a8e925d7b7659957dad091e28debf8e2b',1,'vg::MultipathMapper']]],
   ['ref_5fposition',['ref_position',['../structhaplo_1_1linear__haplo__structure_1_1SNVvector.html#a442f4e740bc94b1671c9590f65bb65a4',1,'haplo::linear_haplo_structure::SNVvector']]],
   ['refactor_5fsplit_5falignment',['refactor_split_alignment',['../classvg_1_1Filter.html#af5c53d7fa62dff67d24ff0daa4d5f925',1,'vg::Filter']]],
   ['regionexpander',['RegionExpander',['../classvg_1_1RegionExpander.html#a42c0f501da7fabf0045f5c434b55f705',1,'vg::RegionExpander']]],

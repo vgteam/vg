@@ -9,6 +9,7 @@ var searchData=
   ['opt_5foutput_5fbasename',['OPT_OUTPUT_BASENAME',['../gaffe__main_8cpp.html#a0c681930b458fe282cd216da55579963',1,'gaffe_main.cpp']]],
   ['opt_5frecombination_5fpenalty',['OPT_RECOMBINATION_PENALTY',['../map__main_8cpp.html#aa2bc6ed2ecef5672fcbf4c1d07b8d964',1,'OPT_RECOMBINATION_PENALTY():&#160;map_main.cpp'],['../mpmap__main_8cpp.html#aa2bc6ed2ecef5672fcbf4c1d07b8d964',1,'OPT_RECOMBINATION_PENALTY():&#160;mpmap_main.cpp']]],
   ['opt_5frename_5fvariants',['OPT_RENAME_VARIANTS',['../index__main_8cpp.html#a1a2c640fb0e31c93f6ea09e4209c9a6a',1,'index_main.cpp']]],
+  ['opt_5freport_5fgroup_5fmapq',['OPT_REPORT_GROUP_MAPQ',['../mpmap__main_8cpp.html#af163f37c56fd9ded20fec554e49b9f9f',1,'mpmap_main.cpp']]],
   ['opt_5freport_5fname',['OPT_REPORT_NAME',['../gaffe__main_8cpp.html#a789d775a76424d11d5390f0b16bd17d3',1,'gaffe_main.cpp']]],
   ['opt_5fscore_5fmatrix',['OPT_SCORE_MATRIX',['../align__main_8cpp.html#abda380f5cc9d8b15937d4f67d559fef5',1,'OPT_SCORE_MATRIX():&#160;align_main.cpp'],['../map__main_8cpp.html#abda380f5cc9d8b15937d4f67d559fef5',1,'OPT_SCORE_MATRIX():&#160;map_main.cpp'],['../mpmap__main_8cpp.html#abda380f5cc9d8b15937d4f67d559fef5',1,'OPT_SCORE_MATRIX():&#160;mpmap_main.cpp']]],
   ['opt_5fsuppress_5ftail_5fanchors',['OPT_SUPPRESS_TAIL_ANCHORS',['../mpmap__main_8cpp.html#a8ac418f2741d5efc457e6ab40a535262',1,'mpmap_main.cpp']]],

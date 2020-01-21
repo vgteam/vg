@@ -62,7 +62,7 @@ var searchData=
   ['index_5fpositions',['index_positions',['../namespacevg.html#a674d255929d511d200bd410beca4dee6',1,'vg']]],
   ['indexed_5fvg_2ecpp',['indexed_vg.cpp',['../indexed__vg_8cpp.html',1,'']]],
   ['indexed_5fvg_2ehpp',['indexed_vg.hpp',['../indexed__vg_8hpp.html',1,'']]],
-  ['indexedvg',['IndexedVG',['../classvg_1_1IndexedVG.html',1,'vg::IndexedVG'],['../classvg_1_1IndexedVG.html#a89030b52047b0e005a5c86b7f9a206f6',1,'vg::IndexedVG::IndexedVG(string graph_filename)'],['../classvg_1_1IndexedVG.html#a4f034462276f6e3ed4b1ab86979d699c',1,'vg::IndexedVG::IndexedVG(IndexedVG &amp;&amp;other)=default'],['../classvg_1_1IndexedVG.html#a0972bd3bf8d93bfa8b41aff828aab070',1,'vg::IndexedVG::IndexedVG(const IndexedVG &amp;other)=delete']]],
+  ['indexedvg',['IndexedVG',['../classvg_1_1IndexedVG.html',1,'vg::IndexedVG'],['../classvg_1_1IndexedVG.html#a89030b52047b0e005a5c86b7f9a206f6',1,'vg::IndexedVG::IndexedVG(string graph_filename)'],['../classvg_1_1IndexedVG.html#a0972bd3bf8d93bfa8b41aff828aab070',1,'vg::IndexedVG::IndexedVG(const IndexedVG &amp;other)=delete']]],
   ['indexes',['indexes',['../classvg_1_1GraphSynchronizer.html#a1127fed39b1d4775bf03ada4f87b23b4',1,'vg::GraphSynchronizer']]],
   ['indexopenexception',['indexOpenException',['../classvg_1_1indexOpenException.html',1,'vg::indexOpenException'],['../classvg_1_1indexOpenException.html#a6f40b99e24b3edb813bb9a8054269e20',1,'vg::indexOpenException::indexOpenException()']]],
   ['init',['init',['../classvg_1_1VG.html#aafd0f191fe33bd4590f15f309d0fd89c',1,'vg::VG::init()'],['../classvg_1_1Viz.html#aad7ceb7896288f2d4444b10cceb946d8',1,'vg::Viz::init()']]],

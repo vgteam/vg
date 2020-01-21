@@ -96,10 +96,6 @@ Classes</h2></td></tr>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a89030b52047b0e005a5c86b7f9a206f6"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexedVG.html#a89030b52047b0e005a5c86b7f9a206f6">IndexedVG</a> (string graph_filename)</td></tr>
 <tr class="separator:a89030b52047b0e005a5c86b7f9a206f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4f034462276f6e3ed4b1ab86979d699c"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexedVG.html#a4f034462276f6e3ed4b1ab86979d699c">IndexedVG</a> (<a class="el" href="classvg_1_1IndexedVG.html">IndexedVG</a> &amp;&amp;other)=default</td></tr>
-<tr class="separator:a4f034462276f6e3ed4b1ab86979d699c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aac6abcec40fb423e4453ae776d8a09fc"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1IndexedVG.html">IndexedVG</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexedVG.html#aac6abcec40fb423e4453ae776d8a09fc">operator=</a> (<a class="el" href="classvg_1_1IndexedVG.html">IndexedVG</a> &amp;&amp;other)=default</td></tr>
-<tr class="separator:aac6abcec40fb423e4453ae776d8a09fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a08b7d5f9e8ad7c9b42d58ce8d2629000"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexedVG.html#a08b7d5f9e8ad7c9b42d58ce8d2629000">print_report</a> () const</td></tr>
 <tr class="separator:a08b7d5f9e8ad7c9b42d58ce8d2629000"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a184b4de54cd807fc818091c56bac41a8"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexedVG.html#a184b4de54cd807fc818091c56bac41a8">has_node</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> node_id) const</td></tr>
@@ -215,8 +211,6 @@ Protected Attributes</h2></td></tr>
 Private Member Functions</h2></td></tr>
 <tr class="memitem:a0972bd3bf8d93bfa8b41aff828aab070"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexedVG.html#a0972bd3bf8d93bfa8b41aff828aab070">IndexedVG</a> (const <a class="el" href="classvg_1_1IndexedVG.html">IndexedVG</a> &amp;other)=delete</td></tr>
 <tr class="separator:a0972bd3bf8d93bfa8b41aff828aab070"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab1ba5097a64cd6440f5ea3bcf725c58d"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1IndexedVG.html">IndexedVG</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexedVG.html#ab1ba5097a64cd6440f5ea3bcf725c58d">operator=</a> (const <a class="el" href="classvg_1_1IndexedVG.html">IndexedVG</a> &amp;other)=delete</td></tr>
-<tr class="separator:ab1ba5097a64cd6440f5ea3bcf725c58d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Use a .vg file on disk with a .vgi index to provide random access to the graph data without loading the entire graph into memory. Sort of a compromise between an XG and a <a class="el" href="classvg_1_1VG.html">VG</a>, except unlike either we don't need the whole graph in memory.</p>
@@ -252,7 +246,7 @@ Private Member Functions</h2></td></tr>
 </div>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a89030b52047b0e005a5c86b7f9a206f6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a89030b52047b0e005a5c86b7f9a206f6">&#9670;&nbsp;</a></span>IndexedVG() <span class="overload">[1/3]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a89030b52047b0e005a5c86b7f9a206f6">&#9670;&nbsp;</a></span>IndexedVG() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -270,34 +264,8 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a4f034462276f6e3ed4b1ab86979d699c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4f034462276f6e3ed4b1ab86979d699c">&#9670;&nbsp;</a></span>IndexedVG() <span class="overload">[2/3]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">vg::IndexedVG::IndexedVG </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1IndexedVG.html">IndexedVG</a> &amp;&amp;&#160;</td>
-          <td class="paramname"><em>other</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">default</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a0972bd3bf8d93bfa8b41aff828aab070"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0972bd3bf8d93bfa8b41aff828aab070">&#9670;&nbsp;</a></span>IndexedVG() <span class="overload">[3/3]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a0972bd3bf8d93bfa8b41aff828aab070">&#9670;&nbsp;</a></span>IndexedVG() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -743,58 +711,6 @@ Private Member Functions</h2></td></tr>
 <p>Return the smallest ID in the graph, or some smaller number if the smallest ID is unavailable. Return value is unspecified if the graph is empty. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a85c52fe4b5f483504ed142d0ad94a969">handlegraph::HandleGraph</a>.</p>
-
-</div>
-</div>
-<a id="aac6abcec40fb423e4453ae776d8a09fc"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aac6abcec40fb423e4453ae776d8a09fc">&#9670;&nbsp;</a></span>operator=() <span class="overload">[1/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classvg_1_1IndexedVG.html">IndexedVG</a>&amp; vg::IndexedVG::operator= </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1IndexedVG.html">IndexedVG</a> &amp;&amp;&#160;</td>
-          <td class="paramname"><em>other</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">default</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="ab1ba5097a64cd6440f5ea3bcf725c58d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab1ba5097a64cd6440f5ea3bcf725c58d">&#9670;&nbsp;</a></span>operator=() <span class="overload">[2/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classvg_1_1IndexedVG.html">IndexedVG</a>&amp; vg::IndexedVG::operator= </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1IndexedVG.html">IndexedVG</a> &amp;&#160;</td>
-          <td class="paramname"><em>other</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span><span class="mlabel">delete</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
 
 </div>
 </div>

@@ -30,6 +30,7 @@ var searchData=
   ['mates',['mates',['../structvg_1_1BREAKPOINT.html#a7469d5658b49020a71529d1704b962f9',1,'vg::BREAKPOINT']]],
   ['matrix_5fstate',['matrix_state',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#a5b8b44e10a1bc42b694728459e4b4271',1,'vg::BandedGlobalAligner::BABuilder']]],
   ['max_5falignments',['max_alignments',['../classvg_1_1MinimizerMapper.html#a6062b78a7f795cb2a585eb6695bde675',1,'vg::MinimizerMapper']]],
+  ['max_5falt_5fmappings',['max_alt_mappings',['../classvg_1_1MultipathMapper.html#a87223306ba0d983104e48d4ded4e685d',1,'vg::MultipathMapper']]],
   ['max_5fattempts',['max_attempts',['../classvg_1_1Mapper.html#ac9973fcf3d75d4396f6b6bdec58156a6',1,'vg::Mapper']]],
   ['max_5fband_5fjump',['max_band_jump',['../classvg_1_1Mapper.html#a916fd22fce2ebf7953863590c45f5150',1,'vg::Mapper']]],
   ['max_5fbranch_5ftrim_5flength',['max_branch_trim_length',['../classvg_1_1MultipathMapper.html#a9e260c61a4b39d27286957c4f012a26a',1,'vg::MultipathMapper']]],

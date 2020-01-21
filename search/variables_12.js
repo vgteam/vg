@@ -41,6 +41,7 @@ var searchData=
   ['regular_5faligner',['regular_aligner',['../classvg_1_1AlignerClient.html#af164f37a5efb0c05b10fea3841b78e83',1,'vg::AlignerClient']]],
   ['remove_5ffailing_5fedits',['remove_failing_edits',['../classvg_1_1Filter.html#aea2a2fc6de506793111639e609376bf0',1,'vg::Filter']]],
   ['repeat_5fsize',['repeat_size',['../classvg_1_1ReadFilter.html#a4d1bcac75fda8d439384ba8c09c780cf',1,'vg::ReadFilter']]],
+  ['report_5fgroup_5fmapq',['report_group_mapq',['../classvg_1_1MultipathMapper.html#a42577bd89395f56ea2045c378b745456',1,'vg::MultipathMapper']]],
   ['rescore',['rescore',['../classvg_1_1ReadFilter.html#ab3b47fbeff165aa3fb4fdff25d2cb6fb',1,'vg::ReadFilter']]],
   ['rescue_5fonly_5fanchor_5fmax',['rescue_only_anchor_max',['../classvg_1_1MultipathMapper.html#acd7c1016549d1f96af13b9c317f239f3',1,'vg::MultipathMapper']]],
   ['rescue_5fonly_5fmin',['rescue_only_min',['../classvg_1_1MultipathMapper.html#a2ad423f9fc1a81bbe31e9c25992de378',1,'vg::MultipathMapper']]],
