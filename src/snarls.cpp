@@ -9,30 +9,27 @@
 #include "json2pb.h"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/is_acyclic.hpp"
+#include "algorithms/weakly_connected_components.hpp"
+#include "subgraph_overlay.hpp"
 
 namespace vg {
 
-CactusSnarlFinder::CactusSnarlFinder(const PathHandleGraph& graph) :
-    graph(&graph) {
-}
-
 CactusSnarlFinder::CactusSnarlFinder(const PathHandleGraph& graph, const string& hint_path) :
-    CactusSnarlFinder(graph) {
-    
-    // Save the hint path
-    hint_paths.insert(hint_path);
-    
-    // TODO: actually use it
+    graph(&graph) {
+    if (!hint_path.empty()) {
+        hint_paths.insert(hint_path);
+        // TODO: actually use it
+    }
 }
 
-SnarlManager CactusSnarlFinder::find_snarls() {
+SnarlManager CactusSnarlFinder::find_snarls_impl(bool known_single_component, bool finish_index) {
     
     if (graph->get_node_count() == 0) {
         // No snarls here!
         return SnarlManager();
     }
     // convert to cactus
-    pair<stCactusGraph*, stList*> cac_pair = handle_graph_to_cactus(*graph, hint_paths);
+    pair<stCactusGraph*, stList*> cac_pair = handle_graph_to_cactus(*graph, hint_paths, known_single_component);
     stCactusGraph* cactus_graph = cac_pair.first;
     stList* telomeres = cac_pair.second;
 
@@ -60,14 +57,64 @@ SnarlManager CactusSnarlFinder::find_snarls() {
 
     // free the cactus graph
     stCactusGraph_destruct(cactus_graph);
-    
-    // Finish the SnarlManager
-    snarl_manager.finish();
+
+    if (finish_index) {
+        // Finish the SnarlManager
+        snarl_manager.finish();
+    }
     
     // Return the completed SnarlManager
     return snarl_manager;
     
 }
+
+SnarlManager CactusSnarlFinder::find_snarls() {
+    return find_snarls_impl(false, true);
+}
+
+SnarlManager CactusSnarlFinder::find_snarls_parallel() {
+
+    vector<unordered_set<id_t>> weak_components = algorithms::weakly_connected_components(graph);    
+    vector<SnarlManager> snarl_managers(weak_components.size());
+
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t i = 0; i < weak_components.size(); ++i) {
+        const PathHandleGraph* subgraph;
+        if (weak_components.size() == 1) {
+            subgraph = graph;
+        } else {
+            // turn the component into a graph
+            subgraph = new PathSubgraphOverlay(graph, &weak_components[i]);
+        }
+        string hint_path = !hint_paths.empty() ? *hint_paths.begin() : "";
+        CactusSnarlFinder finder(*subgraph, hint_path);
+        // find the snarls, telling the finder that the graph is a single component
+        // and that we don't want to finish the snarl index
+        snarl_managers[i] = finder.find_snarls_impl(true, false);
+        if (weak_components.size() != 1) {
+            // delete our component graph overlay
+            delete subgraph;
+        }
+    }
+
+    // merge the managers into the biggest one.
+    size_t biggest_snarl_idx = 0;
+    for (size_t i = 1; i < snarl_managers.size(); ++i) {
+        if (snarl_managers[i].num_snarls() > snarl_managers[biggest_snarl_idx].num_snarls()) {
+            biggest_snarl_idx = i;
+        }
+    }
+    for (size_t i = 0; i < snarl_managers.size(); ++i) {
+        if (i != biggest_snarl_idx) {
+            snarl_managers[i].for_each_snarl_unindexed([&](const Snarl* snarl) {
+                    snarl_managers[biggest_snarl_idx].add_snarl(*snarl);
+                });
+        }
+    }
+    snarl_managers[biggest_snarl_idx].finish();
+    return std::move(snarl_managers[biggest_snarl_idx]);
+}
+
 
 const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, const Visit& end,
                                                         const Visit& parent_start, const Visit& parent_end,
@@ -418,7 +465,7 @@ ChainIterator& ChainIterator::operator++() {
             
         if (pos == chain_start) {
             if (is_rend) {
-                throw runtime_error("Walked off start!");
+                yeet runtime_error("Walked off start!");
             }
                 
             // We're already at the start, so next is just going to become rend
@@ -431,7 +478,7 @@ ChainIterator& ChainIterator::operator++() {
         // Walk right
             
         if (pos == chain_end) {
-            throw runtime_error("Walked off end!");
+            yeet runtime_error("Walked off end!");
         }
             
         ++pos;
@@ -530,7 +577,7 @@ ChainIterator chain_begin_from(const Chain& chain, const Snarl* start_snarl, boo
         // We are at the right end of the chain, so go reverse complement
         return chain_rcbegin(chain);
     } else {
-        throw runtime_error("Tried to view a chain from a snarl not at either end!");
+        yeet runtime_error("Tried to view a chain from a snarl not at either end!");
     }
     return ChainIterator();
 }
@@ -544,7 +591,7 @@ ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl, bool 
         // We are at the right end of the chain, so go reverse complement
         return chain_rcend(chain);
     } else {
-        throw runtime_error("Tried to view a chain from a snarl not at either end!");
+        yeet runtime_error("Tried to view a chain from a snarl not at either end!");
     }
     return ChainIterator();
 } 
@@ -704,7 +751,7 @@ const vector<const Snarl*>& SnarlManager::top_level_snarls() const {
 }
     
 void SnarlManager::for_each_top_level_snarl_parallel(const function<void(const Snarl*)>& lambda) const {
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic, 1)
     for (int i = 0; i < roots.size(); i++) {
         lambda(roots[i]);
     }
@@ -784,6 +831,12 @@ void SnarlManager::for_each_chain_parallel(const function<void(const Chain*)>& l
         // Then in parallel through all the snarls, do the child chains in parallel.
         do_chain_list(chains_of(snarl));
     });
+}
+
+void SnarlManager::for_each_snarl_unindexed(const function<void(const Snarl*)>& lambda) const {
+    for (const SnarlRecord& snarl_record : snarls) {
+        lambda(unrecord(&snarl_record));
+    }
 }
 
 const Snarl* SnarlManager::discrete_uniform_sample(minstd_rand0& random_engine)const{
@@ -1410,7 +1463,7 @@ const Snarl* SnarlManager::manage(const Snarl& not_owned) const {
     if (it == snarl_into.end()) {
         // It's not there. Someone is trying to manage a snarl we don't
         // really own. Complain.
-        throw runtime_error("Unable to find snarl " +  pb2json(not_owned) + " in SnarlManager");
+        yeet runtime_error("Unable to find snarl " +  pb2json(not_owned) + " in SnarlManager");
     }
         
     // Return the official copy of that snarl
@@ -1505,7 +1558,7 @@ vector<Visit> SnarlManager::visits_right(const Visit& visit, const HandleGraph& 
                 to_return.push_back(child_visit);
             } else {
                 // Should never happen
-                throw runtime_error("Read into child " + pb2json(*child) + " with non-matching traversal");
+                yeet runtime_error("Read into child " + pb2json(*child) + " with non-matching traversal");
             }
         } else {
             // We just go into a normal node
@@ -1706,13 +1759,13 @@ handle_t NetGraph::flip(const handle_t& handle) const {
 size_t NetGraph::get_length(const handle_t& handle) const {
     // TODO: We don't really want to support this operation; maybe lengths
     // and sequences should be factored out into another interface.
-    throw runtime_error("Cannot expose sequence lengths via NetGraph");
+    yeet runtime_error("Cannot expose sequence lengths via NetGraph");
 }
     
 string NetGraph::get_sequence(const handle_t& handle) const {
     // TODO: We don't really want to support this operation; maybe lengths
     // and sequences should be factored out into another interface.
-    throw runtime_error("Cannot expose sequences via NetGraph");
+    yeet runtime_error("Cannot expose sequences via NetGraph");
 }
     
 bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
@@ -2231,7 +2284,7 @@ handle_t NetGraph::get_inward_backing_handle(const handle_t& child_handle) const
         // TODO: what if we're reading out of a chain *and* into a unary snarl?
         return child_handle;
     } else {
-        throw runtime_error("Cannot get backing handle for a handle that is not a handle to a child's node in the net graph");
+        yeet runtime_error("Cannot get backing handle for a handle that is not a handle to a child's node in the net graph");
     }
 }
 
@@ -2246,7 +2299,7 @@ handle_t NetGraph::get_handle_from_inward_backing_handle(const handle_t& backing
         // Unary snarl handles are passed through too.
         return backing_handle;
     } else {
-        throw runtime_error("Cannot assign backing handle to a child chain or unary snarl");
+        yeet runtime_error("Cannot assign backing handle to a child chain or unary snarl");
     }
 }
 

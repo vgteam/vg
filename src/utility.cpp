@@ -75,6 +75,20 @@ bool is_all_n(const string& seq) {
     return true;
 }
 
+double get_fraction_of_ns(const string& seq) {
+    double n_frac = 0.;
+    if (!seq.empty()) {
+        size_t n_count = 0;
+        for (char c : seq) {
+            if (c == 'n' || c == 'N') {
+                ++n_count;
+            }
+        }
+        n_frac = (double)n_count/(double) seq.length();
+    }
+    return n_frac;
+}
+
 int get_thread_count(void) {
     int thread_count = 1;
 #pragma omp parallel
@@ -334,6 +348,24 @@ double median(std::vector<int> &v) {
     } else {
         std::nth_element(v.begin(), v.begin()+n-1, v.end());
         return 0.5*(vn+v[n-1]);
+    }
+}
+
+// from Python exmaple here:
+// https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
+void wellford_update(size_t& count, double& mean, double& M2, double new_val) {
+    ++count;
+    double delta = new_val - mean;
+    mean += delta / (double)count;
+    double delta2 = new_val - mean;
+    M2 += delta * delta2;
+}
+
+pair<double, double> wellford_mean_var(size_t count, double mean, double M2, bool sample_variance) {
+    if (count == 0 || (sample_variance && count == 1)) {
+        return make_pair(nan(""), nan(""));
+    } else {
+        return make_pair(mean, M2 / (double)(sample_variance ? count - 1 : count));
     }
 }
     

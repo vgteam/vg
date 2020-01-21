@@ -41,7 +41,7 @@ void help_index(char** argv) {
          << "    -t, --threads N        number of threads to use" << endl
          << "    -p, --progress         show progress" << endl
          << "xg options:" << endl
-         << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of the graph(s), or read for GCSA indexing" << endl
+         << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of the graph(s), or read for GCSA or distance indexing" << endl
          << "    -L, --xg-alts          include alt paths in xg" << endl
          << "gbwt options:" << endl
          << "    -v, --vcf-phasing FILE generate threads from the haplotypes in the VCF file FILE" << endl
@@ -59,6 +59,7 @@ void help_index(char** argv) {
          << "    -n, --id-interval N    store haplotype ids at one out of N positions (default 1024)" << endl
          << "    -R, --range X..Y       process samples X to Y (inclusive)" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
+         << "    --rename-variants      when renaming contigs, find variants in the graph based on the new name" << endl
          << "    -I, --region C:S-E     operate on only the given 1-based region of the given VCF contig (may repeat)" << endl
          << "    -E, --exclude SAMPLE   exclude any samples with the given name from haplotype indexing" << endl
          << "gcsa options:" << endl
@@ -130,6 +131,7 @@ int main_index(int argc, char** argv) {
     }
 
     #define OPT_BUILD_VGI_INDEX 1000
+    #define OPT_RENAME_VARIANTS 1001
 
     // Which indexes to build.
     bool build_xg = false, build_gbwt = false, write_threads = false, build_gcsa = false, build_rocksdb = false, build_dist = false;
@@ -157,6 +159,7 @@ int main_index(int argc, char** argv) {
     size_t id_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
     std::pair<size_t, size_t> sample_range(0, ~(size_t)0); // The semiopen range of samples to process.
     map<string, string> path_to_vcf; // Path name conversion from --rename.
+    bool rename_variants = false;
     map<string, pair<size_t, size_t>> regions; // Region restrictions for contigs, in VCF name space, as 0-based exclusive-end ranges.
     unordered_set<string> excluded_samples; // Excluded sample names from --exclude.
 
@@ -219,6 +222,7 @@ int main_index(int argc, char** argv) {
             {"id-interval", required_argument, 0, 'n'},
             {"range", required_argument, 0, 'R'},
             {"rename", required_argument, 0, 'r'},
+            {"rename-variants", no_argument, 0, OPT_RENAME_VARIANTS},
             {"region", required_argument, 0, 'I'},
             {"exclude", required_argument, 0, 'E'},
 
@@ -359,6 +363,9 @@ int main_index(int argc, char** argv) {
                 // Add the name mapping
                 path_to_vcf[graph_contig] = vcf_contig;
             }
+            break;
+        case OPT_RENAME_VARIANTS:
+            rename_variants = true;
             break;
         case 'I':
             {
@@ -801,6 +808,10 @@ int main_index(int argc, char** argv) {
                 } else {
                     variant_file.setRegion(vcf_contig_name);
                 }
+                
+                if (rename_variants && show_progress) {
+                    cerr << "- Moving variants from " << vcf_contig_name << " to " << path_name << endl;
+                }
 
                 // Parse the variants and the phasings.
                 vcflib::Variant var(variant_file);
@@ -814,6 +825,13 @@ int main_index(int argc, char** argv) {
                     }
                     if (!isDNA) {
                         continue;
+                    }
+                    
+                    if (rename_variants) {
+                        // We need to move the variant over to the contig name
+                        // used in the graph, in order to get the right id for
+                        // it in the graph.
+                        var.sequenceName = path_name;
                     }
 
                     // Determine the reference nodes for the current variant and create a variant site.
@@ -1033,7 +1051,6 @@ int main_index(int argc, char** argv) {
             if (!file_names.empty()) {
                 // Get the kmers from a VGset.
                 VGset graphs(file_names);
-                graphs.show_progress = show_progress;
                 size_t kmer_bytes = params.getLimitBytes();
                 dbg_names = graphs.write_gcsa_kmers_binary(kmer_size, kmer_bytes);
                 params.reduceLimit(kmer_bytes);
@@ -1235,6 +1252,8 @@ int main_index(int argc, char** argv) {
         if (file_names.empty() && xg_name.empty()) {
             cerr << "error: [vg index] one graph is required to build a distance index" << endl;
             return 1;
+        } else if (file_names.size() > 1 || (file_names.size() == 1 && !xg_name.empty())) {
+            cerr << "error: [vg index] only one graph at a time can be used to build a distance index" << endl;
         } else if (dist_name.empty()) {
             cerr << "error: [vg index] distance index requires an output file" << endl;
             return 1;
@@ -1254,31 +1273,25 @@ int main_index(int argc, char** argv) {
 
             //Get graph and build dist index
             if (file_names.empty() && !xg_name.empty()) {
+                // We were given a -x specifically to read as XG
                 
                 ifstream xg_stream(xg_name);
                 auto xg = vg::io::VPKG::load_one<xg::XG>(xg_stream);
 
                 // Create the MinimumDistanceIndex
-                MinimumDistanceIndex di (xg.get(), snarl_manager);
+                MinimumDistanceIndex di(xg.get(), snarl_manager);
                 // Save the completed DistanceIndex
-                ofstream ostream (dist_name);
+                ofstream ostream(dist_name);
                 di.serialize(ostream);
 
             } else {
-                ifstream vg_stream(file_names.at(0));
-                
-                if (!vg_stream) {
-                    cerr << "error: [vg index] cannot open VG file" << endl;
-                    exit(1);
-                }
-
-                VG vg(vg_stream);
-                vg_stream.close();
+                // We were given a graph generically
+                auto graph = vg::io::VPKG::load_one<handlegraph::HandleGraph>(file_names.at(0));
     
                 // Create the MinimumDistanceIndex
-                MinimumDistanceIndex di (&vg, snarl_manager);
+                MinimumDistanceIndex di(graph.get(), snarl_manager);
                 // Save the completed DistanceIndex
-                ofstream ostream (dist_name);
+                ofstream ostream(dist_name);
                 di.serialize(ostream);
 //                vg::io::VPKG::save(di, dist_name);
             }

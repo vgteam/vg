@@ -79,7 +79,10 @@ public:
         
         // Default copy constructor and assignment operator.
         iterator(const iterator& other) = default;
-        iterator& operator=(const iterator& other) = default;
+        
+        // TODO: This gets implicitly deleted and generates warning because of the const reference
+        // member variable
+        //iterator& operator=(const iterator& other) = default;
         
     private:
         // What is the ordinal value of this element in the permutation?
@@ -560,7 +563,7 @@ public:
  */
 class SnarlMinDistance : public DistanceHeuristic {
 public:
-    SnarlMinDistance() = default;
+    SnarlMinDistance() = delete;
     SnarlMinDistance(MinimumDistanceIndex& distance_index);
     ~SnarlMinDistance() = default;
     
@@ -576,7 +579,7 @@ private:
  */
 class TipAnchoredMaxDistance : public DistanceHeuristic {
 public:
-    TipAnchoredMaxDistance() = default;
+    TipAnchoredMaxDistance() = delete;
     TipAnchoredMaxDistance(MinimumDistanceIndex& distance_index);
     ~TipAnchoredMaxDistance() = default;
     
@@ -591,7 +594,7 @@ private:
  */
 class TargetValueSearch {
 public:
-    TargetValueSearch() = default;
+    TargetValueSearch() = delete;
     TargetValueSearch(const HandleGraph& handle_graph,
                       DistanceHeuristic* upper_bound_heuristic,
                       DistanceHeuristic* lower_bound_heuristic);

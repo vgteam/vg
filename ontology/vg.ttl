@@ -34,8 +34,16 @@
   rdfs:label "Step"^^xsd:string ;
   rdfs:subClassOf owl:Thing ;
 .
+:links
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "The super property that says two nodes are linked and does not allow one to infer wwhich side to side it goes"^^xsd:string ;
+  rdfs:domain :Node ;
+  rdfs:label "links"^^xsd:string ;
+  rdfs:range :Node ;
+.
 :linksForwardToForward
   rdf:type owl:ObjectProperty ;
+  rdfs:subPropertyOf :links ;
   rdfs:comment "This links a node from the forward (5' to 3') strand on the subject node to the forward (5' to 3') strand on the predicate node."^^xsd:string ;
   rdfs:domain :Node ;
   rdfs:label "++"^^xsd:string ;
@@ -44,6 +52,7 @@
 .
 :linksForwardToReverse
   rdf:type owl:ObjectProperty ;
+  rdfs:subPropertyOf :links ;
   rdfs:comment "This links a node from the forward (5' to 3') strand on the subject node to the reverse (3' to 5') strand on the predicate node."^^xsd:string ;
   rdfs:domain :Node ;
   rdfs:label "+-"^^xsd:string ;
@@ -52,6 +61,7 @@
 .
 :linksReverseToForward
   rdf:type owl:ObjectProperty ;
+  rdfs:subPropertyOf :links ;
   rdfs:comment "This links a node from the reverse (3' to 5') strand on the subject node to the forward (5' to 3') strand on the predicate node."^^xsd:string ;
   rdfs:domain :Node ;
   rdfs:label "-+"^^xsd:string ;
@@ -60,6 +70,7 @@
 .
 :linksReverseToReverse
   rdf:type owl:ObjectProperty ;
+  rdfs:subPropertyOf :links ;
   rdfs:comment "This links a node from the reverse (3' to 5') strand on the subject node to the reverse (3' to 5') strand on the predicate node."^^xsd:string ;
   rdfs:domain :Node ;
   rdfs:label "--"^^xsd:string ;
@@ -71,8 +82,23 @@
   rdfs:comment "This means that this step occurs on the forward strand of the sequence attaced to the node (i.e. it is on the explicit encoded forward (5' to 3') strand) of the predicate node."^^xsd:string ;
   rdfs:domain :Step ;
   rdfs:label "node"^^xsd:string ;
-  rdfs:range :Step ;
+  rdfs:range :Node ;
 .
+:path
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "This means that this step occurs on the path that is the object of this statment"^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "path"^^xsd:string ;
+  rdfs:range :Path ;
+.
+
+:position
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "This is the position on the reference path at which this step starts."^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "position"^^xsd:string ;
+  rdfs:range xsd:positiveInteger .
+
 :rank
   rdf:type owl:DatatypeProperty ;
   rdfs:comment "The rank records the step place along its path."^^xsd:string ;

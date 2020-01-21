@@ -11,6 +11,7 @@
 
 // We need vcflib
 #include "Variant.h"
+#include "yeet.hpp"
 
 
 namespace vg {

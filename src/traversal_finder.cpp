@@ -1113,7 +1113,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         // Find the reference node starting here or later.
         auto found = index.by_start.lower_bound(ref_node_start);
         if(found == index.by_start.end()) {
-            throw runtime_error("No backbone node found when tracing through site!");
+            yeet runtime_error("No backbone node found when tracing through site!");
         }
 #ifdef debug
         cerr << "Ref node: " << found->second << " at " << ref_node_start << "/" << primary_max << endl;
@@ -1237,7 +1237,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
                  << pb2json(site) << endl;
             cerr << "error[RepresentativeTraversalFinder]: This can happen when the path you are calling "
                  << "against traverses the same part of your graph twice." << endl;
-            throw runtime_error("Extra ref node found");
+            yeet runtime_error("Extra ref node found");
         }
     }
     
@@ -1409,7 +1409,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
                 // trying to anchor actually starts and ends along the
                 // reference in the right orientation, this should never
                 // happen.
-                throw runtime_error("Ran out of reference path when looking for start of path to be anchored");
+                yeet runtime_error("Ran out of reference path when looking for start of path to be anchored");
             }
         }
         
@@ -1486,7 +1486,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
                 err << "Couldn't find " << path.back() << " in backbone path of site "
                 << site.start()
                 << " to " << site.end() << endl;
-                throw runtime_error(err.str());
+                yeet runtime_error(err.str());
             }
         }
         
@@ -2546,7 +2546,7 @@ VCFTraversalFinder::VCFTraversalFinder(const PathHandleGraph& graph, SnarlManage
                                        const vector<string>& ref_path_names,
                                        FastaReference* ref_fasta,
                                        FastaReference* ins_fasta,
-                                       function<bool(const SnarlTraversal&)> skip_alt,
+                                       function<bool(const SnarlTraversal&, int)> skip_alt,
                                        size_t max_traversal_cutoff) :
     graph(graph),
     snarl_manager(snarl_manager),
@@ -3248,7 +3248,7 @@ vector<vector<int>> VCFTraversalFinder::get_pruned_alt_alleles(
     }
 
     // only invoke pruning if we exceed our cutoff.  fairly rare on most graphs
-    if (!check_max_trav_cutoff(alt_alleles)) {
+    for (int prune_it = 0; prune_it < max_prune_iterations && !check_max_trav_cutoff(alt_alleles); ++prune_it) {
         for (auto& alleles : alt_alleles) {
             alleles.clear();
         }
@@ -3256,7 +3256,7 @@ vector<vector<int>> VCFTraversalFinder::get_pruned_alt_alleles(
         for (int var_i = 0; var_i < site_variants.size(); ++var_i) {
             for (int allele = 0; allele < site_variants[var_i]->alleles.size(); ++allele) {
                 if (skip_alt == nullptr ||
-                    skip_alt(get_alt_path(site_variants[var_i], allele, ref_path).first) == false) {
+                    skip_alt(get_alt_path(site_variants[var_i], allele, ref_path).first, prune_it) == false) {
                     alt_alleles[var_i].push_back(allele);
                 }
 #ifdef debug

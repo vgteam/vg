@@ -32,6 +32,30 @@ const std::function<bool(const string&)> Paths::is_alt = [](const string& path_n
     
 };
 
+// Check if using subpath naming scheme.  If it is return true,
+// the root path name, and the offset (false otherwise)
+tuple<bool, string, size_t> Paths::parse_subpath_name(const string& path_name) {
+    size_t tag_offset = path_name.rfind("[");
+    if (tag_offset == string::npos || tag_offset + 2 >= path_name.length() || path_name.back() != ']') {
+        return make_tuple(false, "", 0);
+    } else {
+        string offset_str = path_name.substr(tag_offset + 1, path_name.length() - tag_offset - 2);
+        size_t offset_val;
+        try {
+           offset_val = std::stol(offset_str);
+        } catch(...) {
+          return make_tuple(false, "", 0);
+        }
+        return make_tuple(true, path_name.substr(0, tag_offset), offset_val);
+    }
+}
+
+// Create a subpath name
+string Paths::make_subpath_name(const string& path_name, size_t offset) {
+    return path_name + "[" + std::to_string(offset) + "]";
+}
+
+
 mapping_t::mapping_t(void) : traversal(0), length(0), rank(1) { }
 
 mapping_t::mapping_t(const Mapping& m) {
@@ -339,19 +363,30 @@ void Paths::append_mapping(const string& name, const mapping_t& m, bool warn_on_
 }
 
 int64_t Paths::get_path_id(const string& name) const {
-    auto f = name_to_id.find(name);
-    if (f == name_to_id.end()) {
-        // Assign an ID.
-        // These members are mutable.
-        ++max_path_id;
-        name_to_id[name] = max_path_id;
-        id_to_name[max_path_id] = name;
+    int64_t path_id;
+#pragma omp critical (path_id_map)
+    {
+        // in order to keep the critical section inside above if (so it's only touched when initializing)
+        // we need the second check here
+        if (!name_to_id.count(name)) {
+            // Assign an ID.
+            // These members are mutable.
+            ++max_path_id;
+            id_to_name[max_path_id] = name;
+            name_to_id[name] = max_path_id;
+        }
+        path_id = name_to_id[name];
     }
-    return name_to_id[name];
+    return path_id;
 }
 
 const string& Paths::get_path_name(int64_t id) const {
-    return id_to_name[id];
+    const string* name;
+#pragma omp critical (path_id_map)
+    {
+        name = &id_to_name[id];
+    }
+    return *name;
 }
 
 void Paths::append_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank, bool warn_on_duplicates) {
@@ -495,20 +530,33 @@ void Paths::increment_node_ids(id_t inc) {
     rebuild_node_mapping();
 }
 
-void Paths::swap_node_ids(hash_map<id_t, id_t>& id_mapping) {
+void Paths::swap_node_ids(const std::function<nid_t(const nid_t&)>& get_new_id) {
     for (auto& p : _paths) {
         const string& name = p.first;
         list<mapping_t>& path = p.second;
         for (auto& m : path) {
             // Look up the replacement ID
-            auto replacement = id_mapping.find(m.node_id());
-            if(replacement != id_mapping.end()) {
-                // If there is a replacement, use it.
-                m.set_node_id((*replacement).second);
+            auto replacement = get_new_id(m.node_id());
+            if(replacement != 0) {
+                // If there is a nonzero replacement, use it.
+                m.set_node_id(replacement);
             }
         }
     }
     rebuild_node_mapping();
+}
+
+void Paths::swap_node_ids(hash_map<id_t, id_t>& id_mapping) {
+    swap_node_ids([&](const nid_t& id) -> nid_t {
+        auto it = id_mapping.find(id);
+        if (it == id_mapping.end()) {
+            // Not found
+            return 0;
+        } else {
+            // Use the result
+            return it->second;
+        }
+    });
 }
 
 void Paths::reassign_node(id_t new_id, mapping_t* m) {
@@ -1434,7 +1482,7 @@ Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
                     if (n.position().node_id() == 0) {
                         // Complain if a Mapping has no position *and* has edit-initial
                         // deletions, which we need to remove but can't.
-                        throw runtime_error(
+                        yeet runtime_error(
                             "Cannot simplify Mapping with no position: need to update position when removing leading deletion");
                     }
                     

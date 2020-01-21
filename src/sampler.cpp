@@ -1204,7 +1204,7 @@ pos_t NGSSimulator::walk_backwards(const Path& path, size_t distance) {
     // Walking back the whole path length puts you at the start of the path.
     
     if (distance > path_to_length(path)) {
-        throw runtime_error("Cannot walk back " + to_string(distance) + " on path of length " + to_string(path_to_length(path)));
+        yeet runtime_error("Cannot walk back " + to_string(distance) + " on path of length " + to_string(path_to_length(path)));
     }
     assert(distance > 0);
 
@@ -1270,7 +1270,7 @@ pos_t NGSSimulator::walk_backwards(const Path& path, size_t distance) {
         cerr << pb2json(path) << endl;
         cerr << "Covering mapping: " << pb2json(mapping) << endl;
         cerr << "Covering edit: " << pb2json(mapping.edit(edit_idx)) << endl;
-        throw runtime_error("Could not go back " + to_string(distance) + " in path of length " +
+        yeet runtime_error("Could not go back " + to_string(distance) + " in path of length " +
             to_string(path_to_length(path)) + "; hit node " + to_string(mapping_pos.node_id()) + " length " +
             to_string(node_length) + " end at offset " + to_string(offset));
     }

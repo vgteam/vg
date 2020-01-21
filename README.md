@@ -224,11 +224,12 @@ Variation from alignments can be embedded back into the graph.  This process is 
 
 ```sh
 # augment the graph with all variation from the GAM except that implied by soft clips, saving to aug.vg.  aug.gam contains the same reads as aln.gam but mapped to aug.vg
-vg augment x.vg aln.gam -C -A aug.gam > aug.vg
+vg augment x.vg aln.gam -A aug.gam > aug.vg
 
 # augment the graph with all variation from the GAM, saving each mapping as a path in the graph.
+# softclips of alignment paths are preserved (`-S`).
 # Note, this can be much less efficient than the above example if there are many alignments in the GAM
-vg augment x.vg aln.gam -i > aug_with_paths.vg
+vg augment x.vg aln.gam -i -S > aug_with_paths.vg
 ```
 
 ### Variant Calling
@@ -240,21 +241,21 @@ The following examples show how to generate a VCF with vg using read support.  T
 Call only variants that are present in the graph:
 
 ```sh
-# Compute the read support from the gam (ignoring mapping and base qualitiy < 15)
-vg pack -x x.xg -g aln.gam -Q 15 -o aln.pack
+# Compute the read support from the gam (ignoring mapping and base qualitiy < 5)
+vg pack -x x.xg -g aln.gam -Q 5 -o aln.pack
 
 # Generate a VCF from the support
 vg call x.xg -k aln.pack > graph_calls.vcf
 ```
 
-In order to also consider *novel* variants from the reads, use the augmented graph and gam (as created in the previous example using `vg augment -C -A`):
+In order to also consider *novel* variants from the reads, use the augmented graph and gam (as created in the previous example using `vg augment -A`):
 
 ```sh
 # Index our augmented graph
 vg index aug.vg -x aug.xg
 
-# Compute the read support from the augmented gam (with ignoring qualitiy < 15)
-vg pack -x aug.xg -g aug.gam -Q 15 -o aln_aug.pack
+# Compute the read support from the augmented gam (with ignoring qualitiy < 5)
+vg pack -x aug.xg -g aug.gam -Q 5 -o aln_aug.pack
 
 # Generate a VCF from the support
 vg call aug.xg -k aln_aug.pack > calls.vcf

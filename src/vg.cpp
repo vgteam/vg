@@ -5,7 +5,10 @@
 #include "genotypekit.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/id_sort.hpp"
+#include "algorithms/simplify_siblings.hpp"
+#include "algorithms/unchop.hpp"
 #include "augment.hpp"
+#include "prune.hpp"
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
 
@@ -34,7 +37,7 @@ void VG::from_istream(istream& in, bool showp, bool warn_on_duplicates) {
     size_t file_size = 0;
     
     if (!in.good()) {
-        throw runtime_error("Cannot read VG graph from bad stream");
+        yeet runtime_error("Cannot read VG graph from bad stream");
     }
     
     
@@ -255,7 +258,7 @@ size_t VG::get_length(const handle_t& handle) const {
         // We found a node. Grab its sequence length
         return (*found).second->sequence().size();
     } else {
-        throw runtime_error("No node " + to_string(get_id(handle)) + " in graph");
+        yeet runtime_error("No node " + to_string(get_id(handle)) + " in graph");
     }
 }
 
@@ -274,7 +277,7 @@ string VG::get_sequence(const handle_t& handle) const {
             return sequence;
         }
     } else {
-        throw runtime_error("No node " + to_string(get_id(handle)) + " in graph");
+        yeet runtime_error("No node " + to_string(get_id(handle)) + " in graph");
     }
     
     
@@ -331,6 +334,10 @@ bool VG::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, b
 
 size_t VG::get_node_count() const {
     return graph.node_size();
+}
+
+size_t VG::get_edge_count() const {
+    return graph.edge_size();
 }
 
 id_t VG::max_node_id(void) const {
@@ -391,7 +398,7 @@ char VG::get_base(const handle_t& handle, size_t index) const {
             return found->second->sequence().at(index);
         }
     } else {
-        throw runtime_error("No node " + to_string(get_id(handle)) + " in graph");
+        yeet runtime_error("No node " + to_string(get_id(handle)) + " in graph");
     }
 }
 
@@ -408,7 +415,7 @@ string VG::get_subsequence(const handle_t& handle, size_t index, size_t size) co
             return found->second->sequence().substr(index, size);
         }
     } else {
-        throw runtime_error("No node " + to_string(get_id(handle)) + " in graph");
+        yeet runtime_error("No node " + to_string(get_id(handle)) + " in graph");
     }
 }
 
@@ -955,6 +962,7 @@ void VG::serialize_to_emitter(vg::io::ProtobufEmitter<Graph>& emitter, id_t chun
 void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
     // Make an emitter that serializes each chunk as its own group, like we did before using emitters.
     // This is good for indexing.
+    // TODO: Should we switch to uncompressed output here?
     vg::io::ProtobufEmitter<Graph> emitter(out, true, 1);
     serialize_to_emitter(emitter, chunk_size);
 }
@@ -1039,11 +1047,11 @@ id_t VG::get_node_at_nucleotide(string pathname, int nuc){
         }
         nt_start += node->sequence().length();
         if (nt_start > nuc && nt_end > nuc){
-            throw std::out_of_range("Nucleotide position not found in path.");
+            yeet std::out_of_range("Nucleotide position not found in path.");
         }
     }
     
-    throw std::out_of_range("Nucleotide position not found in path.");
+    yeet std::out_of_range("Nucleotide position not found in path.");
 
 }
 
@@ -1415,506 +1423,6 @@ set<NodeSide> VG::sides_to(id_t id) {
     return sides;
 }
 
-set<NodeTraversal> VG::siblings_to(const NodeTraversal& trav) {
-    // find the sides to
-    auto to_sides = sides_to(NodeSide(trav.node->id(), trav.backward));
-    // and then find the traversals from them
-    set<NodeTraversal> travs_from_to_sides;
-    for (auto& s1 : to_sides) {
-        // and the from-children of these
-        for (auto& s2 : sides_from(s1)) {
-            auto sib = NodeTraversal(get_node(s2.node), s2.is_end);
-            // which are not this node
-            if (sib != trav) {
-                travs_from_to_sides.insert(sib);
-            }
-        }
-    }
-    return travs_from_to_sides;
-}
-
-set<NodeTraversal> VG::siblings_from(const NodeTraversal& trav) {
-    // find the sides from
-    auto from_sides = sides_from(NodeSide(trav.node->id(), !trav.backward));
-    // and then find the traversals from them
-    set<NodeTraversal> travs_to_from_sides;
-    for (auto& s1 : from_sides) {
-        // and the to-children of these
-        for (auto& s2 : sides_to(s1)) {
-            auto sib = NodeTraversal(get_node(s2.node), !s2.is_end);
-            // which are not this node
-            if (sib != trav) {
-                travs_to_from_sides.insert(sib);
-            }
-        }
-    }
-    return travs_to_from_sides;
-}
-
-set<Node*> VG::siblings_of(Node* node) {
-    set<Node*> sibs;
-    for (auto& s : siblings_to(NodeTraversal(node, false))) {
-        sibs.insert(s.node);
-    }
-    for (auto& s : siblings_to(NodeTraversal(node, true))) {
-        sibs.insert(s.node);
-    }
-    for (auto& s : siblings_from(NodeTraversal(node, false))) {
-        sibs.insert(s.node);
-    }
-    for (auto& s : siblings_from(NodeTraversal(node, true))) {
-        sibs.insert(s.node);
-    }
-    return sibs;
-}
-
-set<NodeTraversal> VG::full_siblings_to(const NodeTraversal& trav) {
-    // get the siblings of
-    auto sibs_to = siblings_to(trav);
-    // and filter them for nodes with the same inbound sides
-    auto to_sides = sides_to(NodeSide(trav.node->id(), trav.backward));
-    set<NodeTraversal> full_sibs_to;
-    for (auto& sib : sibs_to) {
-        auto sib_to_sides = sides_to(NodeSide(sib.node->id(), sib.backward));
-        if (sib_to_sides == to_sides) {
-            full_sibs_to.insert(sib);
-        }
-    }
-    return full_sibs_to;
-}
-
-set<NodeTraversal> VG::full_siblings_from(const NodeTraversal& trav) {
-    // get the siblings of
-    auto sibs_from = siblings_from(trav);
-    // and filter them for nodes with the same outbound sides
-    auto from_sides = sides_from(NodeSide(trav.node->id(), !trav.backward));
-    set<NodeTraversal> full_sibs_from;
-    for (auto& sib : sibs_from) {
-        auto sib_from_sides = sides_from(NodeSide(sib.node->id(), !sib.backward));
-        if (sib_from_sides == from_sides) {
-            full_sibs_from.insert(sib);
-        }
-    }
-    return full_sibs_from;
-}
-
-
-// returns sets of sibling nodes that are only in one set of sibling nodes
-set<set<NodeTraversal>> VG::transitive_sibling_sets(const set<set<NodeTraversal>>& sibs) {
-    set<set<NodeTraversal>> trans_sibs;
-    map<Node*, int> membership;
-    // determine the number of sibling sets that each node is in
-    for (auto& s : sibs) {
-        for (auto& t : s) {
-            if (membership.find(t.node) == membership.end()) {
-                membership[t.node] = 1;
-            } else {
-                ++membership[t.node];
-            }
-        }
-    }
-    // now exclude components which are intransitive
-    // by only keeping those sib sets whose members are in only one set
-    for (auto& s : sibs) {
-        // all members must only appear in this set
-        bool is_transitive = true;
-        for (auto& t : s) {
-            if (membership[t.node] > 1) {
-                is_transitive = false;
-                break;
-            }
-        }
-        if (is_transitive) {
-            trans_sibs.insert(s);
-        } else {
-#ifdef debug
-            cerr << "Rejected non-transitive set:" << endl;
-            for (auto& sibling : s) {
-                cerr << "\t" << sibling << endl;
-            }
-#endif
-        }
-    }
-    return trans_sibs;
-}
-
-set<set<NodeTraversal>> VG::identically_oriented_sibling_sets(const set<set<NodeTraversal>>& sibs) {
-    set<set<NodeTraversal>> iosibs;
-    for (auto& s : sibs) {
-        int forward = 0;
-        int reverse = 0;
-        for (auto& t : s) {
-            if (t.backward) {
-                ++reverse;
-            } else {
-                ++forward;
-            }
-        }
-        // if they are all forward or all reverse
-        if (forward == 0 || reverse == 0) {
-            iosibs.insert(s);
-        } else {
-#ifdef debug
-            cerr << "Rejected non-identically-oriented set:" << endl;
-            for (auto& sibling : s) {
-                cerr << "\t" << sibling << endl;
-            }
-#endif
-        }
-    }
-    return iosibs;
-}
-
-void VG::simplify_siblings(void) {
-    // make a list of all the sets of siblings
-    set<set<NodeTraversal>> to_sibs;
-    for_each_node([this, &to_sibs](Node* n) {
-            auto trav = NodeTraversal(n, false);
-            auto tsibs = full_siblings_to(trav);
-#ifdef debug
-            cerr << "Node " << n->id() << " has " << tsibs.size() << " to-siblings" << endl;
-#endif
-            tsibs.insert(trav);
-            if (tsibs.size() > 1) {
-                to_sibs.insert(tsibs);
-                
-#ifdef debug
-                cerr << "To-Sibling Set:" << endl;
-                for (auto& sibling : tsibs) {
-                    cerr << "\t" << sibling << endl;
-                }
-#endif
-            }
-        });
-        
-    // make the sibling sets transitive
-    // by removing any that are intransitive
-    // then simplify
-    simplify_to_siblings(
-        identically_oriented_sibling_sets(
-            transitive_sibling_sets(to_sibs)));
-    // and remove any null nodes that result
-    remove_null_nodes_forwarding_edges();
-
-    // make a list of the from-siblings
-    set<set<NodeTraversal>> from_sibs;
-    for_each_node([this, &from_sibs](Node* n) {
-            auto trav = NodeTraversal(n, false);
-            auto fsibs = full_siblings_from(trav);
-#ifdef debug
-            cerr << "Node " << n->id() << " has " << fsibs.size() << " from-siblings" << endl;
-#endif
-            fsibs.insert(trav);
-            if (fsibs.size() > 1) {
-                from_sibs.insert(fsibs);
-                
-#ifdef debug
-                cerr << "From-Sibling Set:" << endl;
-                for (auto& sibling : fsibs) {
-                    cerr << "\t" << sibling << endl;
-                }
-#endif
-            }
-        });
-    // then do the from direction
-    simplify_from_siblings(
-        identically_oriented_sibling_sets(
-            transitive_sibling_sets(from_sibs)));
-    // and remove any null nodes that result
-    remove_null_nodes_forwarding_edges();
-
-}
-
-void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
-    for (set<NodeTraversal> sibs : to_sibs) {
-        // Grab a copy of each sibling set, which we can filter
-        
-        for (auto it = sibs.begin(); it != sibs.end();) {
-            if (it->node->sequence().empty()) {
-                // We want to remove any empty siblings from the set
-                it = sibs.erase(it);
-            } else {
-                ++it;
-            }
-        }
-    
-    
-        // the to-sibs have the same parent(s) feeding into them
-        // so we can safely make a single node out of the shared sequence
-        // and link this to them and their parent to remove node level redundancy
-        
-        
-        // Identify the most common shared leading sequence, and the nodes that have it
-        // The shared sequence runs out to the first differing base after the first base overall.
-        
-        // First we find the most common leading character and the nodes that have it
-        unordered_map<char, vector<NodeTraversal>> nodes_by_char;
-        for (auto& sib : sibs) {
-            // Bucket each node by its first character.
-            // TODO: shouldn't we use orientation to get the "first" character?
-            auto& bucket = nodes_by_char[sib.node->sequence().front()];
-            bucket.push_back(sib);
-        }
-        
-        while (!nodes_by_char.empty()) {
-            // Find the bucket with the most nodes in it.
-            // TODO: use a sorted list or something.
-            size_t most_matching = 0;
-            char most_matching_bucket;
-            for (auto& kv : nodes_by_char) {
-                // Go through all the buckets that are still there
-                if (kv.second.size() > most_matching) {
-                    // We have a new most-full bucket.
-                    most_matching = kv.second.size();
-                    most_matching_bucket = kv.first;
-                }
-            }
-            
-            if (most_matching <= 1) {
-                // No common characters were found.
-                // We are done with this set of siblings.
-                break;
-            }
-            
-            // Get the bucket that has the most matching nodes in it
-            auto& best_bucket = nodes_by_char[most_matching_bucket];
-            
-            // And one string of a node in the bucket
-            auto& first_string = best_bucket.front().node->sequence();
-            
-            // Work out how much sequence the nodes in the bucket have in common
-            size_t shared_start = numeric_limits<size_t>::max();
-            for (size_t i = 1; i < best_bucket.size(); i++) {
-                // For each other node in the bucket, limit the shared prefix length down
-                auto mismatch_iterators = std::mismatch(first_string.begin(), first_string.end(), best_bucket[i].node->sequence().begin());
-                
-                // The common prefix is no longer than the distance to the first mismatch
-                shared_start = min(shared_start, (size_t)std::distance(first_string.begin(), mismatch_iterators.first));
-            }
-            
-#ifdef debug
-            cerr << "sharing is " << shared_start << " for " << best_bucket.size() << most_matching_bucket << " to-sibs of "
-                << best_bucket.begin()->node->id() << endl;
-#endif
-            if (shared_start == 0) continue;
-
-            // make a new node with the shared sequence
-            string seq = first_string.substr(0, shared_start);
-            auto new_node = create_node(seq);
-            
-#ifdef debug
-            cerr << "Created new node " << new_node->id() << " to represent shared sequence" << endl;
-#endif
-            
-            //if (!is_valid()) cerr << "invalid before sibs iteration" << endl;
-            /*
-            {
-                VG subgraph;
-                for (auto& sib : best_bucket) {
-                    nonoverlapping_node_context_without_paths(sib.node, subgraph);
-                }
-                expand_context(subgraph, 5);
-                stringstream s;
-                for (auto& sib : best_bucket) s << sib.node->id() << "+";
-                subgraph.serialize_to_file(s.str() + "-before.vg");
-            }
-            */
-
-            // remove the sequence of the new node from the old nodes
-            for (auto& sib : best_bucket) {
-#ifdef debug
-                cerr << "Trim to sib " << pb2json(*sib.node) << " by " << shared_start << endl;
-#endif
-                *sib.node->mutable_sequence() = sib.node->sequence().substr(shared_start);
-                // for each node mapping of the sibling
-                // divide the mapping at the cut point
-
-                // and then switch the node assignment for the cut nodes
-                // for each mapping of the node
-                auto node_mapping = paths.get_node_mapping(sib.node);
-                for (auto& p : node_mapping) {
-                    vector<mapping_t*> v;
-                    for (auto& m : p.second) {
-                        v.push_back(m);
-                    }
-                    for (auto m : v) {
-                        auto mpts = paths.divide_mapping(m, shared_start);
-                        // and then assign the first part of the mapping to the new node
-                        auto o = mpts.first;
-                        auto n = mpts.second;
-                        paths.reassign_node(new_node->id(), n);
-                        // note that the other part now maps to the correct (old) node
-                    }
-                }
-            }
-
-            // connect the new node to the common *context* (the union of sides of the old nodes)
-
-            // by definition we are only working with nodes that have exactly the same set of parents
-            // so we just use the first node in the bucket to drive the reconnection
-            auto new_left_side = NodeSide(new_node->id(), false);
-            auto new_right_side = NodeSide(new_node->id(), true);
-            for (auto side : sides_to(NodeSide(best_bucket.begin()->node->id(), best_bucket.begin()->backward))) {
-                create_edge(side, new_left_side);
-            }
-            // disconnect the old nodes from their common parents
-            for (auto& sib : best_bucket) {
-                auto old_side = NodeSide(sib.node->id(), sib.backward);
-                for (auto side : sides_to(old_side)) {
-                    destroy_edge(side, old_side);
-                }
-                // connect the new node to the old nodes
-                create_edge(new_right_side, old_side);
-            }
-            /*
-            if (!is_valid()) { cerr << "invalid after sibs simplify" << endl;
-                {
-                    VG subgraph;
-                    for (auto& sib : best_bucket) {
-                        nonoverlapping_node_context_without_paths(sib.node, subgraph);
-                    }
-                    expand_context(subgraph, 5);
-                    stringstream s;
-                    for (auto& sib : best_bucket) s << sib.node->id() << "+";
-                    subgraph.serialize_to_file(s.str() + "-sub-after-corrupted.vg");
-                    serialize_to_file(s.str() + "-all-after-corrupted.vg");
-                    exit(1);
-                }
-            }
-            */
-            
-            // No more siblings here starting with this character matter. But consider the other characters
-            nodes_by_char.erase(most_matching_bucket);
-        }
-    }
-    // rebuild path ranks; these may have been affected in the process
-    paths.compact_ranks();
-}
-
-void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
-    for (set<NodeTraversal> sibs : from_sibs) {
-        // Grab a copy of each sibling set, which we can filter
-        
-        for (auto it = sibs.begin(); it != sibs.end();) {
-            if (it->node->sequence().empty()) {
-                // We want to remove any empty siblings from the set
-                it = sibs.erase(it);
-            } else {
-                ++it;
-            }
-        }
-    
-    
-        // the from-sibs have the same downstream nodes ("parents")
-        // so we can safely make a single node out of the shared sequence at the end
-        // and link this to them and their parent to remove node level redundancy
-        
-        // Identify the most common shared trailing sequence, and the nodes that have it
-        // The shared sequence runs out to the first differing base before the last base overall.
-        
-        // First we find the most common leading character and the nodes that have it
-        unordered_map<char, vector<NodeTraversal>> nodes_by_char;
-        for (auto& sib : sibs) {
-            // Bucket each node by its last character.
-            // TODO: shouldn't we use orientation to get the "last" character?
-            auto& bucket = nodes_by_char[sib.node->sequence().back()];
-            bucket.push_back(sib);
-        }
-        
-        while (!nodes_by_char.empty()) {
-            // Find the bucket with the most nodes in it.
-            // TODO: use a sorted list or something.
-            size_t most_matching = 0;
-            char most_matching_bucket;
-            for (auto& kv : nodes_by_char) {
-                // Go through all the buckets that are still there
-                if (kv.second.size() > most_matching) {
-                    // We have a new most-full bucket.
-                    most_matching = kv.second.size();
-                    most_matching_bucket = kv.first;
-                }
-            }
-            
-            if (most_matching <= 1) {
-                // No common characters were found.
-                // We are done with this set of siblings.
-                break;
-            }
-            
-            // Get the bucket that has the most matching nodes in it
-            auto& best_bucket = nodes_by_char[most_matching_bucket];
-            
-            // And one string of a node in the bucket
-            auto& first_string = best_bucket.front().node->sequence();
-            
-            // Work out how much sequence the nodes in the bucket have in common
-            size_t shared_end = numeric_limits<size_t>::max();
-            for (size_t i = 1; i < best_bucket.size(); i++) {
-                // For each other node in the bucket, limit the shared suffix length down
-                auto mismatch_iterators = std::mismatch(first_string.rbegin(), first_string.rend(), best_bucket[i].node->sequence().rbegin());
-                
-                // The common suffix is no longer than the reverse distance to the first mismatch
-                shared_end = min(shared_end, (size_t)std::distance(first_string.rbegin(), mismatch_iterators.first));
-            }
-            
-#ifdef debug
-            cerr << "sharing is " << shared_end << " for " << best_bucket.size() << most_matching_bucket << " from-sibs of "
-                << best_bucket.begin()->node->id() << endl;
-#endif
-            if (shared_end == 0) continue;
-            
-            // make a new node with the shared sequence
-            string seq = first_string.substr(first_string.size()-shared_end);
-            auto new_node = create_node(seq);
-            // chop it off of the old nodes
-            for (auto& sib : best_bucket) {
-                *sib.node->mutable_sequence()
-                    = sib.node->sequence().substr(0, sib.node->sequence().size()-shared_end);
-
-                // and then switch the node assignment for the cut nodes
-                // for each mapping of the node
-                auto node_mapping = paths.get_node_mapping(sib.node);
-                for (auto& p : node_mapping) {
-                    vector<mapping_t*> v;
-                    for (auto& m : p.second) {
-                        v.push_back(m);
-                    }
-                    for (auto m : v) {
-                        auto mpts = paths.divide_mapping(m, sib.node->sequence().size());
-                        // and then assign the second part of the mapping to the new node
-                        auto o = mpts.first;
-                        paths.reassign_node(new_node->id(), o);
-                        auto n = mpts.second;
-                        // note that the other part now maps to the correct (old) node
-                    }
-                }
-            }
-            // connect the new node to the common downstream nodes
-            // by definition we are only working with nodes that have exactly the same set of "children"
-            // so we just use the first node in the set to drive the reconnection
-            auto new_left_side = NodeSide(new_node->id(), false);
-            auto new_right_side = NodeSide(new_node->id(), true);
-            for (auto side : sides_from(NodeSide(best_bucket.begin()->node->id(), !best_bucket.begin()->backward))) {
-                create_edge(new_right_side, side);
-            }
-            // disconnect the old nodes from their common "children"
-            for (auto& sib : best_bucket) {
-                auto old_side = NodeSide(sib.node->id(), !sib.backward);
-                for (auto side : sides_from(old_side)) {
-                    destroy_edge(old_side, side);
-                }
-                // connect the new node to the old nodes
-                create_edge(old_side, new_left_side);
-            }
-            
-            // No more siblings here ending with this character matter. But consider the other characters
-            nodes_by_char.erase(most_matching_bucket);
-        }
-    }
-    // rebuild path ranks; these may have been affected in the process
-    paths.compact_ranks();
-}
-
 void VG::expand_context(VG& g, size_t distance, bool add_paths, bool use_steps) {
     // Dispatch the appropriate implementation
     if (use_steps) {
@@ -2216,54 +1724,6 @@ void VG::flip_doubly_reversed_edges(void) {
         });
 }
 
-// by definition, we can merge nodes that are a "simple component"
-// without affecting the sequence or path space of the graph
-// so we don't unchop nodes when they have mismatched path sets
-void VG::unchop(void) {
-    for (auto& comp : simple_multinode_components()) {
-        concat_nodes(comp);
-    }
-    // rebuild path ranks, as these will be affected by mapping merging
-    paths.compact_ranks();
-}
-
-void VG::normalize(int max_iter, bool debug) {
-    size_t last_len = 0;
-    if (max_iter > 1) {
-        last_len = length();
-    }
-    int iter = 0;
-    do {
-        // convert edges that go from_start -> to_end to the equivalent "regular" edge
-        flip_doubly_reversed_edges();
-        //if (!is_valid()) cerr << "invalid after doubly flip" << endl;
-        // combine diced/chopped nodes (subpaths with no branching)
-        unchop();
-        //if (!is_valid()) cerr << "invalid after unchop" << endl;
-        // merge redundancy across multiple nodes into single nodes (requires flip_doubly_reversed_edges)
-        simplify_siblings();
-        //if (!is_valid()) cerr << "invalid after simplify sibs" << endl;
-        // compact node ranks
-        paths.compact_ranks();
-        //if (!is_valid()) cerr << "invalid after compact ranks" << endl;
-        // there may now be some cut nodes that can be simplified
-        unchop();
-        //if (!is_valid()) cerr << "invalid after unchop two" << endl;
-        // compact node ranks (again)
-        paths.compact_ranks();
-        //if (!is_valid()) cerr << "invalid after compact ranks two  " << endl;
-        if (max_iter > 1) {
-            size_t curr_len = length();
-            if (debug) cerr << "[VG::normalize] iteration " << iter+1 << " current length " << curr_len << endl;
-            if (curr_len == last_len) break;
-            last_len = curr_len;
-        }
-    } while (++iter < max_iter);
-    if (max_iter > 1) {
-        if (debug) cerr << "[VG::normalize] normalized in " << iter << " steps" << endl;
-    }
-}
-
 set<Edge*> VG::get_path_edges(void) {
     // We'll populate a set with edges.
     // This set shadows our function anme but we're not recursive so that's fine.
@@ -2349,394 +1809,10 @@ void VG::remove_path(void) {
     }
 }
 
-set<list<NodeTraversal>> VG::simple_multinode_components(void) {
-    return simple_components(2);
-}
-
 // true if the mapping completely covers the node it maps to and is a perfect match
 bool VG::mapping_is_total_match(const Mapping& m) {
     return mapping_is_simple_match(m)
         && mapping_from_length(m) == get_node(m.position().node_id())->sequence().size();
-}
-
-bool VG::nodes_are_perfect_path_neighbors(NodeTraversal left, NodeTraversal right) {
-    // it is not possible for the nodes to be perfect neighbors if
-    // they do not have exactly the same counts of paths
-    if (paths.of_node(left.node->id()) != paths.of_node(right.node->id())) return false;
-    // now we know that the paths are identical in count and name between the two nodes
-
-    // get the mappings for each node
-    auto m1 = paths.get_node_mapping_by_path_name(left.node->id());
-    auto m2 = paths.get_node_mapping_by_path_name(right.node->id());
-
-    // verify that they are all perfect matches that take up their entire nodes
-    /*
-    for (auto& p : m1) {
-        for (auto* m : p.second) {
-            if (!mapping_is_total_match(*m)) return false;
-        }
-    }
-    for (auto& p : m2) {
-        for (auto* m : p.second) {
-            if (!mapping_is_total_match(*m)) return false;
-        }
-    }
-    */
-
-    // It is still possible that we have the same path annotations, but the
-    // components of the paths we have are not contiguous across these nodes. To
-    // verify, we check that each mapping on the left node is adjacent to one on
-    // the right node in the correct relative order and orientation.
-
-    // order the mappings by rank so we can quickly check if everything is adjacent
-    // Holds mappings by path name, then rank.
-    map<string, map<int, mapping_t*>> r1, r2;
-    for (auto& p : m1) {
-        auto& name = p.first;
-        auto& mp1 = p.second;
-        auto& mp2 = m2[name];
-        for (auto* m : mp1) r1[name][m->rank] = m;
-        for (auto* m : mp2) r2[name][m->rank] = m;
-    }
-    // verify adjacency
-    for (auto& p : r1) {
-        // For every path name and collection of mappings by rank on the left node...
-        auto& name = p.first;
-        auto& ranked1 = p.second;
-        map<int, mapping_t*>& ranked2 = r2[name];
-        for (auto& r : ranked1) {
-            // For every rank and mapping on the left node...
-            auto rank = r.first;
-            auto& m = *r.second;
-            
-            // A forward mapping on a forward traversal, or a reverse mapping on
-            // a reverse traversal, means we need the mapping with rank 1
-            // greater on the right node. Mismatching combinations means we need
-            // the mapping with rank 1 less.
-            
-            // Look for the mapping on the right node
-            auto f = ranked2.find(rank + ((m.is_reverse() == left.backward) ? 1 : -1));
-            if (f == ranked2.end()) return false;
-            
-            // If the mapping went with the traversal on the left, we expect it
-            // to go with the traversal on the right. And if it didn't, we
-            // expect it not to.
-            if ((m.is_reverse() == left.backward) != (f->second->is_reverse() == right.backward)) {
-                return false;
-            }
-            ranked2.erase(f); // remove so we can verify that we have fully matched
-        }
-    }
-    // verify that we fully matched the second node
-    for (auto& p : r2) {
-        if (!p.second.empty()) return false;
-    }
-
-    // we've passed all checks, so we have a node pair with mergable paths
-    return true;
-}
-
-// the set of components that could be merged into single nodes without
-// changing the path space of the graph
-// respects stored paths
-set<list<NodeTraversal>> VG::simple_components(int min_size) {
-
-    // go around and establish groupings
-    set<Node*> seen;
-    set<list<NodeTraversal>> components;
-    for_each_node([this, min_size, &components, &seen](Node* n) {
-            if (seen.count(n)) return;
-            
-#ifdef debug
-            cerr << "Component based on " << n->id() << endl;
-#endif
-            
-            seen.insert(n);
-            // go left and right through each as far as we have only single edges connecting us
-            // to nodes that have only single edges coming in or out
-            // that go to other nodes
-            list<NodeTraversal> c;
-            // go left
-            {
-                NodeTraversal l(n, false);
-                vector<NodeTraversal> prev = nodes_prev(l);
-#ifdef debug
-                cerr << "\tLeft: ";
-                for (auto& x : prev) {
-                    cerr << x << "(" << node_count_next(x) << " edges right) ";
-                }
-                cerr << endl;
-#endif
-                while (prev.size() == 1
-                       && node_count_next(prev.front()) == 1) {   
-                       
-                    // While there's only one node left of here, and one node right of that node...
-                    auto last = l;
-                    // Move over left to that node
-                    l = prev.front();
-                    // avoid merging if it breaks stored paths
-                    if (!nodes_are_perfect_path_neighbors(l, last)) {
-#ifdef debug
-                        cerr << "\tNot perfect neighbors!" << endl;
-#endif
-                        break;
-                    }
-                    // avoid merging if it's already in this or any other component (catch self loops)
-                    if (seen.count(l.node)) {
-#ifdef debug
-                        cerr << "\tAlready seen!" << endl;
-#endif
-                        break;
-                    }
-                    prev = nodes_prev(l);
-#ifdef debug
-                    cerr << "\tLeft: ";
-                    for (auto& x : prev) {
-                        cerr << x << "(" << node_count_next(x) << " edges right) ";
-                    }
-                    cerr << endl;
-#endif
-                    c.push_front(l);
-                    seen.insert(l.node);
-                }
-            }
-            // add the node (in the middle)
-            c.push_back(NodeTraversal(n, false));
-            // go right
-            {
-                NodeTraversal r(n, false);
-                vector<NodeTraversal> next = nodes_next(r);
-#ifdef debug
-                cerr << "\tRight: ";
-                for (auto& x : next) {
-                    cerr << x << "(" << node_count_prev(x) << " edges left) ";
-                }
-                cerr << endl;
-#endif
-                while (next.size() == 1
-                       && node_count_prev(next.front()) == 1) {   
-                       
-                    // While there's only one node right of here, and one node left of that node...
-                    auto last = r;
-                    // Move over right to that node
-                    r = next.front();
-                    // avoid merging if it breaks stored paths
-                    if (!nodes_are_perfect_path_neighbors(last, r)) {
-#ifdef debug
-                        cerr << "\tNot perfect neighbors!" << endl;
-#endif
-                        break;
-                    }
-                    // avoid merging if it's already in this or any other component (catch self loops)
-                    if (seen.count(r.node)) {
-#ifdef debug
-                        cerr << "\tAlready seen!" << endl;
-#endif
-                        break;
-                    }
-                    next = nodes_next(r);
-#ifdef debug
-                    cerr << "\tRight: ";
-                    for (auto& x : next) {
-                        cerr << x << "(" << node_count_prev(x) << " edges left) ";
-                    }
-                    cerr << endl;
-#endif
-                    c.push_back(r);
-                    seen.insert(r.node);
-                }
-            }
-            if (c.size() >= min_size) {
-                components.insert(c);
-            }
-        });
-#ifdef debug
-    cerr << "components " << endl;
-    for (auto& c : components) {
-        for (auto x : c) {
-            cerr << x << " ";
-        }
-        cerr << endl;
-    }
-#endif
-    return components;
-}
-
-map<string, vector<mapping_t>>
-    VG::concat_mappings_for_nodes(const list<NodeTraversal>& nodes) {
-
-    // We know all the nodes are perfect path neighbors.
-    
-    // Get the total length of all the nodes
-    size_t total_length = 0;
-    for (auto& traversal : nodes) {
-        total_length += traversal.node->sequence().size();
-    }
-    
-    // Make sure we actually have nodes
-    assert(total_length > 0);
-    
-    // We'll fill this in with a vectors of mappings, one mapping for each visit
-    // of the path to the run of nodes.
-    map<string, vector<mapping_t>> new_mappings;
-    
-    // Copy all the mappings for this first node, in a map by path name and then
-    // by rank
-    auto first_node_mappings = paths.get_node_mapping_copies_by_rank(nodes.front().node->id());
-    
-    for (auto& name_and_ranked_mappings : first_node_mappings) {
-        // For every path
-        auto& name = name_and_ranked_mappings.first;
-        for (auto& rank_and_mapping : name_and_ranked_mappings.second) {
-            // For every mapping on that path
-            auto& mapping = rank_and_mapping.second;
-            
-            // Copy it as the representative for the whole run. Preserves the rank.
-            new_mappings[name].push_back(mapping);
-            
-            if (nodes.front().backward) {
-                // Invert the orientation of the mapping if it was to a node
-                // that was backward relative to the run.
-                new_mappings[name].back().set_is_reverse(!new_mappings[name].back().is_reverse());
-            }
-            
-            // Clobber the edits and replace with a new full-length perfect
-            // match. We know all the mappings to these nodes in the run were
-            // also full-length perfect matches.
-            new_mappings[name].back().length = total_length;
-            
-            // Caller is responsible for fixing the node ID.
-        }
-    }
-    
-    // We know all the other nodes will look like the first node, modulo
-    // orientations. So we don't have to look at them.
-    
-    return new_mappings;
-}
-
-Node* VG::concat_nodes(const list<NodeTraversal>& nodes) {
-
-    // Make sure we have at least 2 nodes
-    assert(!nodes.empty() && nodes.front() != nodes.back());
-
-    // We also require no edges enter or leave the run of nodes, but we can't check that now.
-
-    // make the new mappings for the node. Doesn't insert them in the paths, but
-    // makes sure they have the right ranks.
-    map<string, vector<mapping_t> > new_mappings = concat_mappings_for_nodes(nodes);
-
-    // make a new node that concatenates the labels in the order and orientation specified
-    string seq;
-    for (auto n : nodes) {
-        seq += n.backward ? reverse_complement(n.node->sequence()) : n.node->sequence();
-    }
-    Node* node = create_node(seq);
-
-    // remove the old mappings
-    for (auto n : nodes) {
-        set<mapping_t*> to_remove;
-        for (auto p : paths.get_node_mapping(n.node)) {
-            for (auto* m : p.second) {
-                to_remove.insert(m);
-            }
-        }
-        for (auto m : to_remove) {
-            paths.remove_mapping(m);
-        }
-    }
-
-    // change the position of the new mappings to point to the new node
-    // and store them in the path
-    for (map<string, vector<mapping_t> >::iterator nm = new_mappings.begin(); nm != new_mappings.end(); ++nm) {
-        // For each path and vector of mappings for this node on this path
-        vector<mapping_t>& ms = nm->second;
-        for (vector<mapping_t>::iterator m = ms.begin(); m != ms.end(); ++m) {
-            // For each new mapping
-            // Attach it to the new node
-            m->set_node_id(node->id());
-            
-            // Stick it in the path at the end. Later the mappings will be
-            // sorted by rank and ranks recalculated to close the gaps.
-            paths.append_mapping(nm->first, *m);
-        }
-    }
-
-    // connect this node to the left and right connections of the set
-
-    for (auto prev : nodes_prev(nodes.front())) {
-        // For each traversal left of our first treaversal
-        
-        if (prev.node == nodes.back().node) {
-            // This is going to become a duplicating self loop.
-            
-            // Convert to point to the new node in the correct orientation.
-            prev.node = node;
-            // if the node at the end was concatenated into the new node
-            // forward, we keep the orientation. Otherwise we flip.
-            prev.backward = prev.backward != nodes.back().backward;
-            
-            // It has to be in the correct orientation for a duplicating self
-            // loop. The above complicated xor should always be false if our
-            // caller followed the preconditions.
-            assert(!prev.backward);
-            
-            create_edge(prev, NodeTraversal(node, false));
-        } else if (prev.node == nodes.front().node) {
-            // This is going to become a reversing self loop.
-            
-            // Convert to point to the new node in the correct orientation.
-            prev.node = node;
-            // if the node at the start was concatenated into the new node
-            // forward, we keep the orientation. Otherwise we flip.
-            prev.backward = prev.backward != nodes.front().backward;
-            
-            // It has to be in the correct orientation for a reversing self
-            // loop. The above complicated xor should always be true if our
-            // caller followed the preconditions.
-            assert(prev.backward);
-            
-            create_edge(prev, NodeTraversal(node, false));
-        } else {
-            // Assume it's some other node not merged into this one at all.
-            create_edge(prev, NodeTraversal(node, false));
-        }
-        
-    }
-    
-    for (auto next : nodes_next(nodes.back())) {
-    
-        if (next.node == nodes.back().node) {
-            // This is going to become a reversing self loop.
-            
-            // Convert to point to the new node in the correct orientation.
-            next.node = node;
-            // if the node at the end was concatenated into the new node
-            // forward, we keep the orientation. Otherwise we flip.
-            next.backward = next.backward != nodes.back().backward;
-            
-            // It has to be in the correct orientation for a reversing self
-            // loop. The above complicated xor should always be true if our
-            // caller followed the preconditions.
-            assert(next.backward);
-            
-            create_edge(NodeTraversal(node, false), next);
-        } else if (next.node == nodes.front().node) {
-            // We already handled this duplicating self loop from the other end!
-            continue;
-        } else {
-            // Assume it's some other node not merged into this one at all.
-            create_edge(NodeTraversal(node, false), next);
-        }
-    
-    }
-
-    // remove the old nodes
-    for (auto n : nodes) {
-        destroy_node(n.node);
-    }
-
-    return node;
 }
 
 Node* VG::merge_nodes(const list<Node*>& nodes) {
@@ -2781,15 +1857,6 @@ Node* VG::merge_nodes(const list<Node*>& nodes) {
     return n;
 }
 
-id_t VG::total_length_of_nodes(void) {
-    id_t length = 0;
-    for (id_t i = 0; i < graph.node_size(); ++i) {
-        Node* n = graph.mutable_node(i);
-        length += n->sequence().size();
-    }
-    return length;
-}
-    
 void VG::build_node_indexes_no_init_size(void) {
     for (id_t i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
@@ -3196,19 +2263,32 @@ void VG::compact_ids(void) {
     compact_ids(new_id);
 }
 
+void VG::reassign_node_ids(const std::function<nid_t(const nid_t&)>& get_new_id) {
+//#pragma omp parallel for
+    for_each_node([&get_new_id](Node* n) {
+            n->set_id(get_new_id(n->id())); });
+//#pragma omp parallel for
+    for_each_edge([&get_new_id](Edge* e) {
+            e->set_from(get_new_id(e->from()));
+            e->set_to(get_new_id(e->to())); });
+    paths.swap_node_ids(get_new_id);
+    rebuild_indexes();
+}
+
 void VG::compact_ids(hash_map<id_t, id_t> & new_id) {
     id_t id = 1; // start at 1
     for_each_node([&id, &new_id](Node* n) {
             new_id[n->id()] = id++; });
-//#pragma omp parallel for
-    for_each_node([&new_id](Node* n) {
-            n->set_id(new_id[n->id()]); });
-//#pragma omp parallel for
-    for_each_edge([&new_id](Edge* e) {
-            e->set_from(new_id[e->from()]);
-            e->set_to(new_id[e->to()]); });
-    paths.swap_node_ids(new_id);
-    rebuild_indexes();
+    reassign_node_ids([&new_id](const nid_t& old_id) -> nid_t {
+        auto it = new_id.find(old_id);
+        if (it == new_id.end()) {
+            // Not found
+            return 0;
+        } else {
+            // Use the result
+            return it->second;
+        }
+    });
 }
 
 void VG::increment_node_ids(id_t increment) {
@@ -4203,9 +3283,7 @@ size_t VG::size(void) {
 }
 
 size_t VG::length(void) {
-    size_t l = 0;
-    for_each_node([&l](Node* n) { l+=n->sequence().size(); });
-    return l;
+    return get_total_length();
 }
 
 void VG::swap_nodes(Node* a, Node* b) {
@@ -4460,7 +3538,7 @@ Node* VG::get_node(id_t id) {
     if (n != node_by_id.end()) {
         return n->second;
     } else {
-        throw runtime_error("No node " + to_string(id) + " in graph");
+        yeet runtime_error("No node " + to_string(id) + " in graph");
     }
 }
 
@@ -4470,7 +3548,7 @@ const Node* VG::get_node(id_t id) const {
     if (n != node_by_id.end()) {
         return n->second;
     } else {
-        throw runtime_error("No node " + to_string(id) + " in graph");
+        yeet runtime_error("No node " + to_string(id) + " in graph");
     }
 }
 
@@ -6929,7 +6007,7 @@ void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
     // Duplicate code from prune_complex(). If pruning leaves many loose nodes
     // (that will usually be deleted in the next step), attaching them to the
     // head/tail nodes is unnecessary and potentially expensive.
-    vector<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
+    pair_hash_set<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
     for (auto& e : to_destroy) {
         destroy_edge(e.first, e.second);
     }
@@ -6940,7 +6018,7 @@ void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
 
 void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node) {
 
-    vector<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
+    pair_hash_set<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
     for (auto& e : to_destroy) {
         destroy_edge(e.first, e.second);
     }

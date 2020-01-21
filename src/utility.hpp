@@ -20,6 +20,7 @@
 #include "types.hpp"
 #include "sha1.hpp"
 #include "Variant.h"
+#include "yeet.hpp"
 
 namespace vg {
 
@@ -31,6 +32,9 @@ void reverse_complement_in_place(string& seq);
 /// Return True if the given string is entirely Ns of either case, and false
 /// otherwise.
 bool is_all_n(const string& seq);
+/// Return the number of Ns as a fraction of the total sequence length
+/// (or 0 if the sequence is empty)
+double get_fraction_of_ns(const string& seq);
 /// Return the number of threads that OMP will produce for a parallel section.
 /// TODO: Assumes that this is the same for every parallel section.
 int get_thread_count(void);
@@ -51,6 +55,9 @@ string nonATGCNtoN(const string& s);
 string toUppercase(const string& s);
 double median(std::vector<int> &v);
 double stdev(const std::vector<double>& v);
+// Online mean-variance computation with wellfords algorithm (pass 0's to 1st 3 params to start)
+void wellford_update(size_t& count, double& mean, double& M2, double new_val);
+pair<double, double> wellford_mean_var(size_t count, double mean, double M2, bool sample_variance = false);
 
 // write a fasta sqeuence
 void write_fasta_sequence(const std::string& name, const std::string& sequence, ostream& os, size_t width=80);

@@ -3,9 +3,12 @@
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 #include "../kmer.hpp"
 #include "../build_index.hpp"
 #include "../algorithms/topological_sort.hpp"
+#include "../algorithms/normalize.hpp"
+#include "../convert_handle.hpp"
 #include "../chunker.hpp"
 #include "xg.hpp"
 
@@ -417,9 +420,19 @@ int main_msga(int argc, char** argv) {
     VG* graph;
     if (graph_files.size() == 1) {
         string file_name = graph_files.front();
-        get_input_file(file_name, [&](istream& in) {
-            graph = new VG(in);
-        });
+        
+        // Load the graph from the file
+        unique_ptr<PathHandleGraph> loaded = vg::io::VPKG::load_one<PathHandleGraph>(file_name);
+        
+        // Make it be in VG format
+        graph = dynamic_cast<vg::VG*>(loaded.get());
+        if (graph == nullptr) {
+            // Copy instead.
+            graph = new vg::VG();
+            convert_path_handle_graph(loaded.get(), graph);
+            // Make sure the paths are all synced up
+            graph->paths.to_graph(graph->graph);
+        }
     } else {
         graph = new VG;
     }
@@ -583,7 +596,7 @@ int main_msga(int argc, char** argv) {
                 stringstream err_msg;
                 err_msg << "[vg msga] Error: Target region for \"" << names_in_order[name_idx] << "\" ("
                      << region.seq << ":" << region.start << "-" << region.end << ") not found in graph." << endl;
-                throw runtime_error(err_msg.str());
+                yeet runtime_error(err_msg.str());
             }
             region_graph = new VG();
             Region out_region;
@@ -741,7 +754,7 @@ int main_msga(int argc, char** argv) {
             graph->edit(paths, nullptr, true);
             //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
             //graph->serialize_to_file(name + "-immed-post-edit.vg");
-            if (normalize) graph->normalize(10, debug);
+            if (normalize) algorithms::normalize(graph, 10, debug);
             graph->dice_nodes(node_max);
             //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
             //graph->serialize_to_file(name + "-post-dice.vg");
@@ -828,7 +841,7 @@ int main_msga(int argc, char** argv) {
             // only try if graph was made entirely of msga'd sequences.
             graph->remove_non_path();
         }
-        graph->normalize();
+        algorithms::normalize(graph);
         graph->dice_nodes(node_max);
         graph->sort();
         graph->compact_ids();

@@ -21,25 +21,7 @@ vg call tiny_aug.xg -k tiny_aug.pack > tiny_aug.vcf
 
 is $(grep -v '#' tiny_aug.vcf | wc -l) 0 "calling empty gam gives empty VCF"
 
-rm -f tiny.vg tiny_aug.vg tiny_aug.xg empty_aug.gam tiny_aug.pack tiny_aug.vcf
-
-echo '{"node": [{"id": 1, "sequence": "CGTAGCGTGGTCGCATAAGTACAGTAGATCCTCCCCGCGCATCCTATTTATTAAGTTAAT"}]}' | vg view -Jv - > test.vg
-vg index -x test.xg -g test.gcsa -k 16 test.vg
-true >reads.txt
-for REP in seq 1 5; do
-    echo 'CGTAGCGTGGTCGCATAAGTACAGTANATCCTCCCCGCGCATCCTATTTATTAAGTTAAT' >>reads.txt
-done
-vg map -x test.xg -g test.gcsa --reads reads.txt > test.gam
-vg augment test.vg test.gam -A test_aug.gam > test_aug.vg
-vg index test_aug.vg -x test_aug.xg
-vg pack -x test_aug.xg -g test_aug.gam -o test_aug.pack
-vg call test_aug.xg -k test_aug.pack > /dev/null
-
-N_COUNT=$(vg view -j test.aug.vg | grep "N" | wc -l)
-
-is "${N_COUNT}" "0" "N bases are not augmented into the graph"
-
-rm -rf reads.txt test.vg test.gam test_aug.gam test_aug.vg test_aug.xg test_aug.pack
+rm -f tiny.vg tiny_aug.vg tiny_aug.xg empty_aug.gam tiny_aug.pack tiny_aug.vcf empty.gam
 
 vg construct -r inverting/miniFasta.fa -v inverting/miniFasta_VCFinversion.vcf.gz -S > miniFastaGraph.vg
 vg index -x miniFastaGraph.xg -g miniFastaGraph.gcsa miniFastaGraph.vg
@@ -53,7 +35,7 @@ vg call  mappedminitest_aug.xg -k mappedminitest_aug.pack > calledminitest.vcf
 L_COUNT=$(cat calledminitest.vcf | grep "#" -v | wc -l)
 is "${L_COUNT}" "1" "Called microinversion"
  
-rm -f miniFastaGraph.vg miniFasta.gam miniFastaGraph.gam mappedminitest.aug.vg calledminitest.vcf mappedminitest.trans mappedminitest.support mappedminitest.pileup miniFastaGraph.xg miniFastaGraph.gcsa
+rm -f miniFastaGraph.vg miniFasta.gam miniFastaGraph.gam calledminitest.vcf mappedminitest.trans mappedminitest.support mappedminitest.pileup miniFastaGraph.xg miniFastaGraph.gcsa mappedminitest_aug.vg mappedminitest_aug.gam mappedminitest_aug.xg mappedminitest_aug.pack miniFastaGraph.gcsa.lcp
 
 ## SV Genotyping test
 # augment the graph with the alt paths
@@ -91,6 +73,23 @@ vg call x.vg -k x.vg.cx -r x.snarls -t 1 -v tiny/tiny.vcf.gz > x.vg.gt.vcf
 diff x.xg.gt.vcf x.vg.gt.vcf
 is "$?" 0 "call output same on vg as xg"
 
-rm -f x.vg x.xg sim.gam x.xg.cx x.vg.cx x.xg.vcf x.vg.vcf x.xg.gt.vcf x.vg.gt.vcf
+rm -f x.vg x.xg sim.gam x.xg.cx x.vg.cx x.xg.vcf x.vg.vcf x.xg.gt.vcf x.vg.gt.vcf x.snarls
 
+vg msga -f msgas/cycle.fa -b s1 -w 64 -t 1 >c.vg
+vg index -x c.xg -g c.gcsa c.vg
+# True alignment has 3 variants:
+# TCCCTCCTCAAGGGCTTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTC
+# TCCCTCCTCAAAGGCTTCTCACTACTCCA-ATCAAAGCTACCCAGGCCATTTTAAGTTTC
+#            *       *
+cat msgas/cycle.fa | sed s/TCCCTCCTCAAGGGCTTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTC/TCCCTCCTCAAAGGCTTCTCACTACTCCAATCAAAGCTACCCAGGCCATTTTAAGTTTC/ >m.fa
+vg construct -r m.fa >m.vg
+vg index -x m.xg m.vg
+vg sim -n 200 -s 23823 -l 50 -x m.xg -a >m.sim
+vg map -x c.xg -g c.gcsa -G m.sim >m.gam
+vg augment c.vg m.gam -A m.aug.gam >c.aug.vg
+vg index -x c.aug.xg c.aug.vg
+vg pack -x c.aug.xg -g m.aug.gam -o m.aug.pack
+vg call c.aug.xg -k m.aug.pack >m.vcf
+is $(cat m.vcf | grep -v "^#" | wc -l) 3 "vg call finds true homozygous variants in a cyclic graph"
+rm -f c.vg c.xg c.gcsa c.gcsa.lcp m.fa m.vg m.xg m.sim m.gam m.aug.gam c.aug.vg c.aug.xg m.aug.pack m.vcf
 

@@ -101,8 +101,13 @@ struct PathBranch {
     }
 };
 
+std::ostream& operator<<(std::ostream& out, PathBranch branch) {
+    out << "(" << branch.offset << ", " << branch.curr << ", " << branch.next << ")";
+    return out;
+}
+
 template<class PathType>
-bool verify_path(const PathPositionHandleGraph& path_graph, const PathType& path, MutableHandleGraph& unfolded, const hash_map<vg::id_t, std::vector<vg::id_t>>& reverse_mapping) {
+bool verify_path(const PathType& path, MutableHandleGraph& unfolded, const hash_map<vg::id_t, std::vector<vg::id_t>>& reverse_mapping) {
 
     if (path_size(path) < 2) {
         return true;
@@ -204,7 +209,7 @@ size_t PhaseUnfolder::verify_paths(MutableHandleGraph& unfolded, bool show_progr
             path.push_back(make_pair(this->path_graph.get_id(handle),
                                      this->path_graph.get_is_reverse(handle)));
         });
-        bool successful = verify_path(this->path_graph, path, unfolded, reverse_mapping);
+        bool successful = verify_path(path, unfolded, reverse_mapping);
         if (!successful) {
             failures++;
         }
@@ -216,9 +221,9 @@ size_t PhaseUnfolder::verify_paths(MutableHandleGraph& unfolded, bool show_progr
     
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t i = 0; i < this->gbwt_index.sequences(); i++) {
-        
-        path_type path = this->gbwt_index.extract(i); // XXX could be -1
-        bool successful = verify_path(this->path_graph, path, unfolded, reverse_mapping);
+
+        path_type path = this->gbwt_index.extract(i);
+        bool successful = verify_path(path, unfolded, reverse_mapping);
         
 #pragma omp critical
         {
@@ -302,14 +307,11 @@ std::list<VG> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bo
     // takes a handle to the PathPositionHandleGraph and returns the equivalent handle in
     // the complement, making the node if necessary
     auto get_or_make_complement_handle = [&](const handle_t& counterpart) {
-        if (complement.has_node(path_graph.get_id(counterpart))) {
-            return complement.get_handle(path_graph.get_id(counterpart),
-                                         path_graph.get_is_reverse(counterpart));
+        vg::id_t id = path_graph.get_id(counterpart);
+        if (!complement.has_node(id)) {
+            complement.create_handle(path_graph.get_sequence(path_graph.forward(counterpart)), id);
         }
-        else {
-            return complement.create_handle(path_graph.get_sequence(path_graph.forward(counterpart)),
-                                            path_graph.get_id(counterpart));
-        }
+        return complement.get_handle(id, path_graph.get_is_reverse(counterpart));
     };
     
     // takes an edge in the XG and ensures that it exists in the complement

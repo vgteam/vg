@@ -236,6 +236,17 @@ def make_stats(read):
                 
             # Save the statistic distribution
             filter_stats[filter_name]['statistic_distribution_{}'.format(filter_correctness)] = distribution
+
+        elif annot_name.startswith('last_correct_stage'):
+            stage = annot[annot_name]
+            if stage == 'none':
+                filter_stats['hard-hit-cap']['last_correct_stage'] = 1
+            elif stage == 'cluster':
+                filter_stats['cluster-coverage']['last_correct_stage'] = 1
+            elif stage == 'extend':
+                filter_stats['extension-set']['last_correct_stage'] = 1
+            elif stage == 'align':
+                filter_stats['max-alignments']['last_correct_stage'] = 1
         
     # Now put them all in this OrderedDict in order
     ordered_stats = collections.OrderedDict()
@@ -660,6 +671,18 @@ def print_table(read_count, stats_total, params=None, out=sys.stdout):
     headers2.append(failing_header2)
     header_widths.append(failing_width)
     
+    # And the number of correct reads lost at each stage
+    lost_stage_header = "Lost"
+    lost_stage_header2 = "reads"
+    lost_stage_reads = [x for x in (stats_total[filter_name].get('last_correct_stage', 0) for filter_name in stats_total.keys()) if x is not None]
+    max_stage = max(lost_stage_reads)
+    overall_lost_stage = sum(lost_stage_reads)
+    lost_stage_width = max(len(lost_stage_header), len(lost_stage_header2), len(str(max_stage)), len(str(overall_lost_stage)))
+    
+    headers.append(lost_stage_header)
+    headers2.append(lost_stage_header2)
+    header_widths.append(lost_stage_width)
+
     # And the correct result lost count header
     lost_header = "Lost"
     lost_header2 = ""
@@ -733,6 +756,8 @@ def print_table(read_count, stats_total, params=None, out=sys.stdout):
         # No reads are lost at the final stage.
         lost = stats_total[filter_name]['failed_count_correct']
         
+        lost_stage = stats_total[filter_name]['last_correct_stage']
+
         # And reads that are rejected at all
         rejected = stats_total[filter_name]['failed_count_total']
         
@@ -759,7 +784,7 @@ def print_table(read_count, stats_total, params=None, out=sys.stdout):
         row = [filter_headings[i]]
         align = 'c'
         # Add the provenance columns
-        row += ['{:.2f}'.format(average_passing), '{:.2f}'.format(average_failing), lost, rejected,
+        row += ['{:.2f}'.format(average_passing), '{:.2f}'.format(average_failing), lost_stage, lost, rejected,
             precision, recall]
         align += 'rrrrrr'
         
@@ -772,7 +797,7 @@ def print_table(read_count, stats_total, params=None, out=sys.stdout):
     row = [filter_overall]
     align = 'c'
     # Add the provenance columns
-    row += ['', '', overall_lost, overall_rejected, '', '']
+    row += ['', '', overall_lost_stage, overall_lost, overall_rejected, '', '']
     align += 'rr'
     
     table.row(row, align)

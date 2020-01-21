@@ -306,14 +306,14 @@ void help_gaffe(char** argv) {
     << "computational parameters:" << endl
     << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
     << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [300]" << endl
-    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.6]" << endl
-    << "  -D, --distance-limit INT      cluster using this distance limit [1000]" << endl
+    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.8]" << endl
+    << "  -D, --distance-limit INT      cluster using this distance limit [200]" << endl
     << "  -e, --max-extensions INT      extend up to INT clusters [48]" << endl
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
-    << "  -s, --cluster-score INT       only extend clusters if they are within cluster-score of the best score" << endl
-    << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within cluster-coverage of the best read coverage" << endl
-    << "  -v, --extension-score INT     only align extensions if their score is within extension-score of the best score [1]" << endl
-    << "  -w, --extension-set INT       only align extension sets if their score is within extension-set of the best score" << endl
+    << "  -s, --cluster-score INT       only extend clusters if they are within INT of the best score [50]" << endl
+    << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within FLOAT of the best read coverage [0.4]" << endl
+    << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [1]" << endl
+    << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
@@ -344,9 +344,9 @@ int main_gaffe(int argc, char** argv) {
     string output_basename;
     string report_name;
     // How close should two hits be to be in the same cluster?
-    Range<size_t> distance_limit = 1000;
-    Range<size_t> hit_cap = 10, hard_hit_cap = 300;
-    Range<double> minimizer_score_fraction = 0.6;
+    Range<size_t> distance_limit = 200;
+    Range<size_t> hit_cap = 10, hard_hit_cap = 1500;
+    Range<double> minimizer_score_fraction = 0.8;
     bool progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_dp = true;
@@ -358,15 +358,15 @@ int main_gaffe(int argc, char** argv) {
     // How many mappings per read can we emit?
     Range<size_t> max_multimaps = 1;
     // How many clusters should we extend?
-    Range<size_t> max_extensions = 48;
+    Range<size_t> max_extensions = 300;
     // How many extended clusters should we align, max?
-    Range<size_t> max_alignments = 8;
+    Range<size_t> max_alignments = 6;
     //Throw away cluster with scores that are this amount below the best
-    Range<double> cluster_score = 0;
+    Range<double> cluster_score = 50;
     //Throw away clusters with coverage this amount below the best 
-    Range<double> cluster_coverage = 0;
+    Range<double> cluster_coverage = 0.4;
     //Throw away extension sets with scores that are this amount below the best
-    Range<double> extension_set = 0;
+    Range<double> extension_set = 20;
     //Throw away extensions with scores that are this amount below the best
     Range<int> extension_score = 1;
     // What sample name if any should we apply?

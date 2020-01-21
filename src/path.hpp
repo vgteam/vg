@@ -46,6 +46,13 @@ public:
     // We used to use a regex but that's a very slow way to check a prefix.
     const static function<bool(const string&)> is_alt;
 
+    // Check if using subpath naming scheme.  If it is return true,
+    // the root path name, and the offset (false otherwise)
+    tuple<bool, string, size_t> static parse_subpath_name(const string& path_name);
+
+    // Create a subpath name
+    string static make_subpath_name(const string& path_name, size_t offset);
+
     Paths(void);
 
     // copy
@@ -230,8 +237,9 @@ public:
     bool for_each_name_stoppable(const function<bool(const string&)>& lambda) const;
     void for_each_stream(istream& in, const function<void(Path&)>& lambda);
     void increment_node_ids(id_t inc);
-    // Replace the node IDs used as keys with those used as values.
+    // Replace the node IDs according to a mapping from old ID to new ID.
     // This is only efficient to do in a batch.
+    void swap_node_ids(const std::function<nid_t(const nid_t&)>& get_new_id);
     void swap_node_ids(hash_map<id_t, id_t>& id_mapping);
     // sets the mapping to the new id
     // erases current (old index information)

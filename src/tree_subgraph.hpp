@@ -5,6 +5,7 @@
  * Represents a subgraph of another graph with an internal tree topology.
  */
 
+#include "yeet.hpp"
 #include "handle.hpp"
 #include <handlegraph/expanding_overlay_graph.hpp>
 #include <unordered_set>

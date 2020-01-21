@@ -224,7 +224,7 @@ size_t ExtraNodeGraph::get_degree(const handle_t& handle, bool go_left) const {
     }
     
     // We must return from one of the other branches
-    throw runtime_error("Did not hit a return statement that should have been hit");
+    yeet runtime_error("Did not hit a return statement that should have been hit");
 }
     
 

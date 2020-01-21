@@ -112,7 +112,7 @@ void Index::open(const std::string& dir, bool read_only) {
             delete db;
         }
         db = nullptr;
-        throw indexOpenException("can't open " + dir);
+        yeet indexOpenException("can't open " + dir);
     }
 
     // we store a metadata key DIRTY while the index is open for writing,
@@ -120,7 +120,7 @@ void Index::open(const std::string& dir, bool read_only) {
     // refuse to use it.
     string dirty_key = key_for_metadata("DIRTY"), data;
     if (db->Get(rocksdb::ReadOptions(), dirty_key, &data).ok()) {
-        throw indexOpenException("index was not built cleanly, and should be recreated from scratch");
+        yeet indexOpenException("index was not built cleanly, and should be recreated from scratch");
     }
 
     if (!read_only) {
@@ -128,7 +128,7 @@ void Index::open(const std::string& dir, bool read_only) {
         dirty_write_options.sync = true;
         dirty_write_options.disableWAL = false;
         if (!db->Put(dirty_write_options, dirty_key, "").ok() || !db->Flush(rocksdb::FlushOptions()).ok()) {
-            throw indexOpenException("couldn't write to index");
+            yeet indexOpenException("couldn't write to index");
         }
     }
 
@@ -137,11 +137,11 @@ void Index::open(const std::string& dir, bool read_only) {
     if (s.ok()) {
         auto p = strtoull(data.c_str(), nullptr, 10);
         if (p < next_nonce || p == ULLONG_MAX) {
-            throw indexOpenException("corrupt next_nonce entry");
+            yeet indexOpenException("corrupt next_nonce entry");
         }
         next_nonce = p;
     } else if (!s.IsNotFound()) {
-        throw indexOpenException("couldn't read metadata");
+        yeet indexOpenException("couldn't read metadata");
     }
 }
 
@@ -178,7 +178,7 @@ void Index::close(void) {
         dirty_write_options.sync = true;
         dirty_write_options.disableWAL = false;
         if (!db->Write(dirty_write_options, &batch).ok() || !db->Flush(rocksdb::FlushOptions()).ok()) {
-            throw std::runtime_error("couldn't mark index closed");
+            yeet std::runtime_error("couldn't mark index closed");
         }
     }
     delete db;
@@ -511,7 +511,7 @@ string Index::entry_to_string(const string& key, const string& value) {
         return traversal_entry_to_string(key, value);
         break;
     default:
-        throw runtime_error("Unrecognized type " + key.substr(0, 1));
+        yeet runtime_error("Unrecognized type " + key.substr(0, 1));
         break;
     }
 }
@@ -1853,7 +1853,7 @@ void Index::get_edges_on_start(int64_t node_id, vector<Edge>& edges) {
                     edge.ParseFromString(value);
                 } else {
                     cerr << entry_to_string(s, "") << " looking for " << entry_to_string(other_key, "") << endl;
-                    throw std::runtime_error("Could not find other end of edge on start");
+                    yeet std::runtime_error("Could not find other end of edge on start");
                 }
             }
             edges.push_back(edge);
@@ -1908,7 +1908,7 @@ void Index::get_edges_on_end(int64_t node_id, vector<Edge>& edges) {
                     edge.ParseFromString(value);
                 } else {
                     cerr << entry_to_string(s, "") << " looking for " << entry_to_string(other_key, "") << endl;
-                    throw std::runtime_error("Could not find other end of edge on end");
+                    yeet std::runtime_error("Could not find other end of edge on end");
                 }
             } else {
                 // We have the whole Edge right here
@@ -2017,7 +2017,7 @@ void node_path_position(int64_t id, string& path_name, int64_t& position, bool b
     //   // add this node's sequence as well IE add offset
     // }
 
-    throw runtime_error("node_path_position not yet implemented");
+    yeet runtime_error("node_path_position not yet implemented");
 
 }
 
