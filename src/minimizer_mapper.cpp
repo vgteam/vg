@@ -1022,6 +1022,25 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             fragment_length_distr.mean() + 2*fragment_length_distr.stdev());
             //TODO: Choose a good distance for the fragment distance limit ^
 
+    //For each fragment cluster, determine if it has clusters from both reads
+    vector<bool> has_first_read;//For each fragment cluster, does it have a cluster for the first read
+    for (pair<vector<size_t>, size_t> cluster : all_clusters[0]) {
+        size_t fragment_num = cluster.second;
+        if (fragment_num+1 > has_first_read.size()) {
+            has_first_read.resize(fragment_num+1, false);
+        }
+        has_first_read[fragment_num] = true;
+    }
+    vector<bool> fragment_cluster_has_pair ( has_first_read.size(), false);
+    bool found_paired_cluster = false;
+    for (pair<vector<size_t>, size_t> cluster : all_clusters[1]) {
+        size_t fragment_num = cluster.second;
+        fragment_cluster_has_pair[fragment_num] = has_first_read[fragment_num];
+        if (has_first_read[fragment_num]) {
+            found_paired_cluster = true;
+        }
+    }
+
     if (track_provenance) {
         funnels[0].substage("score");
         funnels[1].substage("score");
@@ -1144,55 +1163,64 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             [&](size_t cluster_num) {
                 // Handle sufficiently good clusters in descending coverage order
                 
-                if (track_provenance) {
-                    funnels[read_num].pass("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
-                    funnels[read_num].pass("max-extensions", cluster_num);
-                }
-                
-                // First check against the additional score filter
-                if (cluster_score_threshold != 0 && cluster_score[cluster_num] < cluster_score_cutoff) {
-                    //If the score isn't good enough, ignore this cluster
+                if (!found_paired_cluster || fragment_cluster_has_pair[clusters[cluster_num].second]) { 
+                    //If this cluster has a pair or if we aren't looking at pairs
                     if (track_provenance) {
-                        funnels[read_num].fail("cluster-score", cluster_num, cluster_score[cluster_num]);
+                        funnels[read_num].pass("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
+                        funnels[read_num].pass("max-extensions", cluster_num);
+                        funnels[read_num].pass("paired-clusters", cluster_num);
+                    }
+                    
+                    // First check against the additional score filter
+                    if (cluster_score_threshold != 0 && cluster_score[cluster_num] < cluster_score_cutoff) {
+                        //If the score isn't good enough, ignore this cluster
+                        if (track_provenance) {
+                            funnels[read_num].fail("cluster-score", cluster_num, cluster_score[cluster_num]);
+                        }
+                        return false;
+                    }
+                    
+                    if (track_provenance) {
+                        funnels[read_num].pass("cluster-score", cluster_num, cluster_score[cluster_num]);
+                        funnels[read_num].processing_input(cluster_num);
+                    }
+                    vector<size_t>& cluster = clusters[cluster_num].first;
+
+#ifdef debug
+                    cerr << "Cluster " << cluster_num << endl;
+#endif
+                     
+                    // Pack the seeds for GaplessExtender.
+                    GaplessExtender::cluster_type seed_matchings;
+                    for (auto& seed_index : cluster) {
+                        // Insert the (graph position, read offset) pair.
+                        seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
+#ifdef debug
+                        cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
+                            << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index.count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
+#endif
+                    }
+                    
+                    // Extend seed hits in the cluster into one or more gapless extensions
+                    cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())), 
+                                                    clusters[cluster_num].second);
+                    max_fragment_num = max(max_fragment_num, clusters[cluster_num].second);
+                    
+                    if (track_provenance) {
+                        // Record with the funnel that the previous group became a group of this size.
+                        // Don't bother recording the seed to extension matching...
+                        funnels[read_num].project_group(cluster_num, cluster_extensions.back().first.size());
+                        
+                        // Say we finished with this cluster, for now.
+                        funnels[read_num].processed_input();
+                    }
+                    return true;
+                } else {
+                    if (track_provenance) {
+                        funnels[read_num].fail("paired-clusters", cluster_num);
                     }
                     return false;
                 }
-                
-                if (track_provenance) {
-                    funnels[read_num].pass("cluster-score", cluster_num, cluster_score[cluster_num]);
-                    funnels[read_num].processing_input(cluster_num);
-                }
-                vector<size_t>& cluster = clusters[cluster_num].first;
-
-#ifdef debug
-                cerr << "Cluster " << cluster_num << endl;
-#endif
-                 
-                // Pack the seeds for GaplessExtender.
-                GaplessExtender::cluster_type seed_matchings;
-                for (auto& seed_index : cluster) {
-                    // Insert the (graph position, read offset) pair.
-                    seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
-#ifdef debug
-                    cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
-                        << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index.count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
-#endif
-                }
-                
-                // Extend seed hits in the cluster into one or more gapless extensions
-                cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())), 
-                                                clusters[cluster_num].second);
-                max_fragment_num = max(max_fragment_num, clusters[cluster_num].second);
-                
-                if (track_provenance) {
-                    // Record with the funnel that the previous group became a group of this size.
-                    // Don't bother recording the seed to extension matching...
-                    funnels[read_num].project_group(cluster_num, cluster_extensions.back().first.size());
-                    
-                    // Say we finished with this cluster, for now.
-                    funnels[read_num].processed_input();
-                }
-                return true;
                 
             }, [&](size_t cluster_num) {
                 // There are too many sufficiently good clusters

@@ -374,8 +374,8 @@ int main_gaffe(int argc, char** argv) {
     Range<double> extension_set = 20;
     //Throw away extensions with scores that are this amount below the best
     Range<int> extension_score = 1;
-    //Attempt up to this many rescues per read in a pair
-    int rescue_attempts = 0;
+    //Attempt up to this many rescues of reads with no pairs
+    int rescue_attempts = 10;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
