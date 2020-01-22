@@ -21,7 +21,7 @@ namespace vg {
         return std::get<0>(all_clusters)[0].all_groups();
     };
 
-    vector<vector<pair<vector<size_t>, size_t>>> SnarlSeedClusterer::cluster_seeds (
+    vector<vector<vector<vector<size_t>>>> SnarlSeedClusterer::cluster_seeds (
                   const vector<vector<pos_t>>& all_seeds, int64_t read_distance_limit,
                   int64_t fragment_distance_limit) const {
         //Wrapper for paired end
@@ -32,12 +32,11 @@ namespace vg {
         vector<structures::UnionFind> read_union_finds = std::move(std::get<0>(union_finds));
         structures::UnionFind* fragment_union_find = &std::get<1>(union_finds);
 
-        vector<<vector<vector<size_t>>>> all_clusters;
+        vector<vector<vector<vector<size_t>>>> all_clusters;
         //Map the old group heads to new indices
         size_t curr_index = 0;
         size_t read_num_offset = 0;
         hash_map<size_t, size_t> old_to_new_cluster_index;//Map old fragment cluster head to new index
-        size_t max_new_fragment_index = 0;
 
         for (size_t read_num = 0 ; read_num < read_union_finds.size() ; read_num++) {
             vector<vector<size_t>> read_clusters = read_union_finds[read_num].all_groups();
