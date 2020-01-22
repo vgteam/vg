@@ -79,7 +79,7 @@ public:
      * read to it.
      * Rescue_forward is true if the aligned read is the first and false otherwise. Assumes that both reads are facing the same direction
      */
-     void attempt_rescue( const Alignment& aligned_read, const Alignment& unaligned_read, bool rescue_forward, Alignment& rescued_alignment);
+     void attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
 
     // Mapping settings.
     // TODO: document each

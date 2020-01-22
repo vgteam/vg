@@ -1021,7 +1021,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     vector<vector<pair<vector<size_t>, size_t>>> all_clusters = clusterer.cluster_seeds(seeds_by_read, distance_limit, 
             fragment_length_distr.mean() + 2*fragment_length_distr.stdev());
             //TODO: Choose a good distance for the fragment distance limit ^
-            //TODO: Could also drop clusters here if they don't have a pair
 
     if (track_provenance) {
         funnels[0].substage("score");
@@ -1080,7 +1079,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
             //Get the cluster coverage
             // We set bits in here to true when query anchors cover them
-            sdsl::bit_vector covered(read_num == 0 ? aln1.sequence().size() : aln2.sequence().size(), 0);
+            sdsl::bit_vector covered( aln.sequence().size(), 0);
             std::uint64_t k_bit_mask = sdsl::bits::lo_set[minimizer_index.k()];
 
             for (auto hit_index : cluster) {
@@ -1386,7 +1385,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     }
     
     
-//TODO:
     if (track_provenance) {
         // Now say we are finding the winner(s)
         funnels[0].stage("pair");
@@ -1409,12 +1407,11 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     bool found_pair = false;
     //Alignments that didn't have a mate at the clustering stage
     vector<Alignment> unpaired_alignments;
-    vector<bool> unpaired_alignment_ends; //True if alignment was first pair, false for second
+    vector<bool> unpaired_alignment_is_first; //True if alignment was first mate, false for second
 
     for (size_t fragment_num = 0 ; fragment_num < alignments.size() ; fragment_num ++ ) {
         //Get pairs of plausible alignments
         
-        //TODO: Maybe don't keep all pairs per fragment cluster
         pair<vector<Alignment>, vector<Alignment>>& fragment_alignments = alignments[fragment_num];
         if (!fragment_alignments.first.empty() && ! fragment_alignments.second.empty()) {
             //Only keep pairs of alignments that were in the same fragment cluster
@@ -1430,8 +1427,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     int64_t fragment_distance = distance_between(alignment1, alignment2); 
                     double dev = fragment_distance - fragment_length_distr.mean();
                     double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
-                    //TODO: I'm not sure if this is the right thing to do? 
-                    //They were in the same cluster so they'd be reasonably close together, but there's not path between them so they should still be penalized fairly harshly I think?
                     if (fragment_distance != std::numeric_limits<int64_t>::max() ) {
                         double score = alignment1.score() + alignment2.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
                         paired_alignments.emplace_back(alignment1, alignment2);
@@ -1453,13 +1448,13 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 }
             }
         } else if (!fragment_alignments.first.empty()) {
-            unpaired_alignment_ends.insert(unpaired_alignment_ends.end(), true, fragment_alignments.first.size());
             std::move(fragment_alignments.first.begin(), fragment_alignments.first.end(), 
                       std::back_inserter(unpaired_alignments));
+            unpaired_alignment_is_first.resize(unpaired_alignments.size(), true);
         } else if (!fragment_alignments.second.empty()) {
-            unpaired_alignment_ends.insert(unpaired_alignment_ends.end(), false, fragment_alignments.first.size());
             std::move(fragment_alignments.second.begin(), fragment_alignments.second.end(),
                       std::back_inserter(unpaired_alignments));
+            unpaired_alignment_is_first.resize(unpaired_alignments.size(), false);
         }
 
         /* else {
@@ -1499,7 +1494,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
             for (size_t i = 0 ; i < unpaired_alignments.size() ; i++ ) {
                 Alignment& alignment = unpaired_alignments[i];
-                if (unpaired_alignment_ends[i]) {
+                if (unpaired_alignment_is_first[i]) {
                     if (alignment.score() > best_aln1.score()) {
                         best_aln1 = alignment;
                     }
@@ -1513,8 +1508,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             set_annotation(best_aln2, "unpaired", true);
 
             pair<vector<Alignment>, vector<Alignment>> paired_mappings;
-            paired_mappings.first.emplace_back(best_aln1);
-            paired_mappings.second.emplace_back(best_aln2);
+            paired_mappings.first.emplace_back(std::move(best_aln1));
+            paired_mappings.second.emplace_back(std::move(best_aln2));
             // Flip aln2 back to input orientation
             reverse_complement_alignment_in_place(&paired_mappings.second.back(), [&](vg::id_t node_id) {
                 return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
@@ -1526,19 +1521,18 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             return paired_mappings;
         } else {
             
-            //Attempt rescue on both reads
-            //
-            //TODO: Remove duplicate alignments
+            //Attempt rescue
 
             process_until_threshold(unpaired_alignments, (std::function<double(size_t)>) [&](size_t i) -> double{
                 return (double) unpaired_alignments.at(i).score();
             }, 0, 1, max_rescue_attempts, [&](size_t i) {
-                bool rescue_second = unpaired_alignment_ends[i]; 
+                bool rescue_second = unpaired_alignment_is_first[i]; 
                 Alignment& mapped_aln = unpaired_alignments[i];
                 Alignment rescued_aln = rescue_second ? aln2 : aln1;
+                rescued_aln.clear_path();
 
-                rescue_second ? attempt_rescue(mapped_aln, aln2, true, rescued_aln) : 
-                                             attempt_rescue(mapped_aln, aln1, false, rescued_aln); 
+                rescue_second ? attempt_rescue(mapped_aln, rescued_aln, true ) : 
+                                attempt_rescue(mapped_aln, rescued_aln, false); 
                 int64_t fragment_dist = rescue_second ? distance_between(mapped_aln, rescued_aln) :
                                                                     distance_between(rescued_aln, mapped_aln);
                 if (fragment_dist != std::numeric_limits<int64_t>::max()) {
@@ -1546,20 +1540,21 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     Alignment& new_first = rescue_second ? mapped_aln : rescued_aln;
                     Alignment& new_second = rescue_second ? rescued_aln : mapped_aln;
 
+                    double dev = fragment_dist - fragment_length_distr.mean();
+                    double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
+                    double score = mapped_aln.score() + rescued_aln.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
                     for (pair<Alignment, Alignment>& old_pair: paired_alignments) {
                         //Make sure that this pair is not a duplicate of one we already found
                         if (abs(distance_between(old_pair.first, new_first)) <= 20 &&
                             abs(distance_between(old_pair.second, new_second)) <= 20) {
                             duplicated = true;
+                            //TODO: Could also check if the score improves but I doubt it will make a difference
                         }
                     }
                     if (!duplicated) {
-                        double dev = fragment_dist - fragment_length_distr.mean();
-                        double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
-                        double score = mapped_aln.score() + rescued_aln.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
                         set_annotation(mapped_aln, "rescuer", true);
                         set_annotation(rescued_aln, "rescued", true);
-                        paired_alignments.emplace_back(std::move(new_first), std::move(new_second)) :
+                        paired_alignments.emplace_back(std::move(new_first), std::move(new_second)) ;
                         paired_scores.emplace_back(score);
                     }
                 }
@@ -1571,7 +1566,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 return;
             });
         }
-
     }
 
     
@@ -1800,14 +1794,15 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 #endif
 }
 
-void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, const Alignment& unaligned_read, bool rescue_forward, Alignment& rescued_alignment) {
+void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment,  bool rescue_forward) {
     
 
     //Get the subgraph of all nodes within a reasonable range from aligned_read
     SubHandleGraph sub_graph(path_graph);
     //TODO: maybe should be gbwt_graph
-    int64_t min_distance = max(0.0, fragment_length_distr.mean() - unaligned_read.sequence().size() - fragment_length_distr.stdev());
-    int64_t max_distance = fragment_length_distr.mean() + fragment_length_distr.stdev();
+    //TODO: How big should the rescue subgraph be?
+    int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - 2*fragment_length_distr.stdev());
+    int64_t max_distance = fragment_length_distr.mean() + 2*fragment_length_distr.stdev();
     distance_index.subgraphInRange(aligned_read.path(), path_graph, min_distance, max_distance, sub_graph, rescue_forward); 
 
 
@@ -1818,13 +1813,12 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, const Align
     if (!algorithms::is_directed_acyclic(&sub_graph)) {
 
         bdsg::HashGraph dagified;
-        unordered_map<id_t, id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, unaligned_read.sequence().size());
+        unordered_map<id_t, id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, rescued_alignment.sequence().size());
         align_graph = move(dagified);
         node_trans = overlay_node_translations(dagify_trans, node_trans);
     }
 
     //Align to the subgraph
-    rescued_alignment = unaligned_read;
     rescued_alignment.clear_path();
     get_regular_aligner()->align(rescued_alignment, align_graph, true, false);
 
