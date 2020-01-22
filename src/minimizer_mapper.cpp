@@ -1156,6 +1156,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         //TODO: If we have a fragment cluster with both ends, we might not want to throw away one end even if it is below one of the score caps
         //Could just turn off these filters
         //Process clusters sorted by both score and read coverage
+
+        //Make sure that each fragment ends up with at least one read cluster for each end
+        vector<bool> has_cluster ( max_fragment_num + 1 , false);
         process_until_threshold(clusters, read_coverage_by_cluster,
             [&](size_t a, size_t b) {
                 if (read_coverage_by_cluster[a] == read_coverage_by_cluster[b]){
@@ -1218,6 +1221,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         // Say we finished with this cluster, for now.
                         funnels[read_num].processed_input();
                     }
+                    has_cluster[clusters[cluster_num].second] = true;
                     return true;
                 } else {
                     if (track_provenance) {
@@ -1228,12 +1232,54 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 
             }, [&](size_t cluster_num) {
                 // There are too many sufficiently good clusters
+                if ( !has_cluster[clusters[cluster_num].second] && found_paired_cluster &&
+                     fragment_cluster_has_pair[clusters[cluster_num].second]) {
+                    //If we added too many clusters but this fragment doesn't have a cluster for this end yet
+
+                    vector<size_t>& cluster = clusters[cluster_num].first;
+
+                     
+                    // Pack the seeds for GaplessExtender.
+                    GaplessExtender::cluster_type seed_matchings;
+                    for (auto& seed_index : cluster) {
+                        // Insert the (graph position, read offset) pair.
+                        seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
+                    }
+                    
+                    // Extend seed hits in the cluster into one or more gapless extensions
+                    cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())), 
+                                                    clusters[cluster_num].second);
+                    has_cluster[clusters[cluster_num].second] = true;
+
+                }
+
                 if (track_provenance) {
                     funnels[read_num].pass("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
                     funnels[read_num].fail("max-extensions", cluster_num);
                 }
             }, [&](size_t cluster_num) {
                 // This cluster is not sufficiently good.
+
+                if ( !has_cluster[clusters[cluster_num].second] && found_paired_cluster &&
+                     fragment_cluster_has_pair[clusters[cluster_num].second]) {
+                    //but this fragment doesn't have a cluster for this end yet
+
+                    vector<size_t>& cluster = clusters[cluster_num].first;
+
+                     
+                    // Pack the seeds for GaplessExtender.
+                    GaplessExtender::cluster_type seed_matchings;
+                    for (auto& seed_index : cluster) {
+                        // Insert the (graph position, read offset) pair.
+                        seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
+                    }
+                    
+                    // Extend seed hits in the cluster into one or more gapless extensions
+                    cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())), 
+                                                    clusters[cluster_num].second);
+                    has_cluster[clusters[cluster_num].second] = true;
+
+                }
                 if (track_provenance) {
                     funnels[read_num].fail("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
                 }
