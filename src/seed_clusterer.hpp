@@ -31,7 +31,7 @@ class SnarlSeedClusterer {
         // TODO: Fix documentation
         // Returns: For each read, a vector of clusters. One cluster is a pair of the index of the fragment cluster and
         // a vector of the indices of the seeds it contains
-        vector<vector<pair<vector<size_t>, size_t>>> cluster_seeds ( 
+        vector<vector<vector<size_t>>> cluster_seeds ( 
                 const vector<vector<pos_t>>& all_seeds, int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
 
     private:
