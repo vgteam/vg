@@ -137,14 +137,14 @@ namespace unittest {
             all_seeds.push_back(seeds1);
 
 
-            vector<vector<vector<vector<size_t>>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 7, 15); 
-            //Should be[ [[[0,1,2]],[[3,4,5,6]]] ] 
-            REQUIRE( paired_clusters.size() == 1);
-            REQUIRE( paired_clusters[0].size() == 2);
-            REQUIRE( paired_clusters[0][0].size() == 1);
-            REQUIRE( paired_clusters[0][1].size() == 1);
-            REQUIRE( paired_clusters[0][0][0].size() == 3);
-            REQUIRE( paired_clusters[0][1][0].size() == 4);
+            vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 7, 15); 
+            //Should be [[<[0,1,2], 0>],[<[3,4,5,6], 0>]] 
+            REQUIRE( paired_clusters.size() == 2);
+            REQUIRE( paired_clusters[0].size() == 1);
+            REQUIRE( paired_clusters[1].size() == 1);
+            REQUIRE( paired_clusters[0][0].first.size() == 3);
+            REQUIRE( paired_clusters[1][0].first.size() == 4);
+            REQUIRE( paired_clusters[0][0].second == paired_clusters[1][0].second);
         }
         SECTION( "Two fragment clusters" ) {
  
@@ -165,23 +165,15 @@ namespace unittest {
             all_seeds.push_back(seeds1);
 
 
-            vector<vector<vector<vector<size_t>>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 2, 7); 
+            vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 2, 7); 
             // read_clusters = [ [[0,1,2]],[[3,4],[5,6]] ]
             // fragment_clusters = [ [0,1,2], [3,4,5,6] ]
             REQUIRE( paired_clusters.size() == 2) ;
-
-            REQUIRE( paired_clusters[0].size() == 2);
+            REQUIRE( paired_clusters[0].size() == 1);
             REQUIRE( paired_clusters[1].size() == 2);
-
-            REQUIRE( paired_clusters[0][0].size() == 1);
-            REQUIRE( paired_clusters[0][1].size() == 0);
-            REQUIRE( paired_clusters[1][0].size() == 0);
-            REQUIRE( paired_clusters[1][1].size() == 2);
-
-            REQUIRE( paired_clusters[0][0][0].size() == 3);
-            REQUIRE( paired_clusters[1][1][0].size() == 2);
-            REQUIRE( paired_clusters[1][1][1].size() == 2);
-
+            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][0].second);
+            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][1].second);
+            REQUIRE( paired_clusters[1][0].second == paired_clusters[1][1].second);
 
         }
     }//End test case
@@ -427,10 +419,16 @@ namespace unittest {
 
             vector<vector<pos_t>> all_seeds;
             all_seeds.push_back(seeds);
-            vector<vector<vector<vector<size_t>>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3); 
-            REQUIRE( paired_clusters.size() == 4);
-            REQUIRE( paired_clusters[0].size() == 1);
-            REQUIRE( paired_clusters[0][0].size() == 1);
+            vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3); 
+
+            REQUIRE( paired_clusters.size() == 1);
+            REQUIRE( paired_clusters[0].size() == 4);
+            REQUIRE( paired_clusters[0][0].second != paired_clusters[0][1].second);
+            REQUIRE( paired_clusters[0][0].second != paired_clusters[0][2].second);
+            REQUIRE( paired_clusters[0][0].second != paired_clusters[0][3].second);
+            REQUIRE( paired_clusters[0][1].second != paired_clusters[0][2].second);
+            REQUIRE( paired_clusters[0][1].second != paired_clusters[0][3].second);
+            REQUIRE( paired_clusters[0][2].second != paired_clusters[0][3].second);
 
             //New fragment clusters
         } SECTION ("Four fragment clusters") {
@@ -452,21 +450,17 @@ namespace unittest {
             seeds.push_back(make_pos_t(15, false, 0));
             all_seeds.push_back(seeds);
 
-            vector<vector<vector<vector<size_t>>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3);
+            vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3);
 
-            REQUIRE( paired_clusters.size() == 4);
+            REQUIRE( paired_clusters.size() == 2);
             REQUIRE( paired_clusters[0].size() == 2);
             REQUIRE( paired_clusters[1].size() == 2);
-            REQUIRE( paired_clusters[2].size() == 2);
-            REQUIRE( paired_clusters[3].size() == 2);
-            REQUIRE( paired_clusters[0][0].size() == 1);
-            REQUIRE( paired_clusters[1][0].size() == 1);
-            REQUIRE( paired_clusters[2][0].size() == 0);
-            REQUIRE( paired_clusters[3][0].size() == 0);
-            REQUIRE( paired_clusters[0][1].size() == 0);
-            REQUIRE( paired_clusters[1][1].size() == 0);
-            REQUIRE( paired_clusters[2][1].size() == 1);
-            REQUIRE( paired_clusters[3][1].size() == 1);
+            REQUIRE( paired_clusters[0][0].second != paired_clusters[0][1].second);
+            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][2].second);
+            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][3].second);
+            REQUIRE( paired_clusters[0][1].second != paired_clusters[1][2].second);
+            REQUIRE( paired_clusters[0][1].second != paired_clusters[1][3].second);
+            REQUIRE( paired_clusters[1][2].second != paired_clusters[1][3].second);
 
             //New fragment clusters
 
@@ -475,6 +469,12 @@ namespace unittest {
             REQUIRE( paired_clusters.size() == 2);
             REQUIRE( paired_clusters[0].size() == 2);
             REQUIRE( paired_clusters[1].size() == 2);
+            REQUIRE( paired_clusters[0][0].second == paired_clusters[0][1].second);
+            REQUIRE( paired_clusters[0][0].second == paired_clusters[1][0].second);
+            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][1].second);
+            REQUIRE( paired_clusters[0][1].second == paired_clusters[1][0].second);
+            REQUIRE( paired_clusters[0][1].second != paired_clusters[1][1].second);
+            REQUIRE( paired_clusters[1][0].second != paired_clusters[1][1].second);
         }
         SECTION( "Same node, same cluster" ) {
             vector<pos_t> seeds;
@@ -880,96 +880,96 @@ namespace unittest {
 
                     }
                 }
-                vector<vector<vector<vector<size_t>>>> paired_clusters = clusterer.cluster_seeds(all_seeds, read_lim, fragment_lim); 
+                vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, read_lim, fragment_lim); 
 
 
                 
-                vector<vector<pos_t>> fragment_clusters(paired_clusters.size());
+                vector<vector<pos_t>> fragment_clusters;
 
-//TODO: Check between fragment clusters too
-                for (size_t fragment_num = 0 ; fragment_num < paired_clusters.size() ; fragment_num++) {
-                    vector<vector<vector<size_t>>>& read_clusters = paired_clusters[fragment_num];
-                    for (size_t read_num = 0 ; read_num < read_clusters.size() ; read_num++) {
-                        vector<vector<size_t>>&  one_read_clusters = read_clusters[read_num];
-                        if (one_read_clusters.size() > 0) {
-                            for (size_t a = 0; a < one_read_clusters.size(); a++) {
-                                // For each cluster -cluster this cluster to ensure that 
-                                // there is only one
-                                vector<size_t>& clust = one_read_clusters[a];
-                                
-                                structures::UnionFind new_clusters (clust.size(), false);
+                for (size_t read_num = 0 ; read_num < 2 ; read_num ++) {
+                    auto& one_read_clusters = paired_clusters[read_num];
+                    if (one_read_clusters.size() > 0) {
+                        for (size_t a = 0; a < one_read_clusters.size(); a++) {
+                            // For each cluster -cluster this cluster to ensure that 
+                            // there is only one
+                            vector<size_t> clust = one_read_clusters[a].first;
+                            size_t fragment_cluster = one_read_clusters[a].second;
+                            if (fragment_cluster >= fragment_clusters.size()) {
+                                fragment_clusters.resize(fragment_cluster+1);
+                            }
+                            
+                            structures::UnionFind new_clusters (clust.size(), false);
 
-                                for (size_t i1 = 0 ; i1 < clust.size() ; i1++) {
-                                    pos_t pos1 = all_seeds[read_num][clust[i1]];
-                                    fragment_clusters[fragment_num].emplace_back(pos1);
-                                    size_t len1 = graph.get_length(graph.get_handle(get_id(pos1), false));
-                                    pos_t rev1 = make_pos_t(get_id(pos1), !is_rev(pos1),len1 - get_offset(pos1)-1); 
+                            for (size_t i1 = 0 ; i1 < clust.size() ; i1++) {
+                                pos_t pos1 = all_seeds[read_num][clust[i1]];
+                                fragment_clusters[fragment_cluster].emplace_back(pos1);
+                                size_t len1 = graph.get_length(graph.get_handle(get_id(pos1), false));
+                                pos_t rev1 = make_pos_t(get_id(pos1), !is_rev(pos1),len1 - get_offset(pos1)-1); 
 
-                                    for (size_t b = 0 ; b < one_read_clusters.size() ; b++) {
-                                        if (b != a) {
-                                            //For each other cluster
-                                            vector<size_t> clust2 = one_read_clusters[b];
-                                            for (size_t i2 = 0 ; i2 < clust2.size() ; i2++) {
-                                                //And each position in each other cluster,
-                                                //make sure that this position is far away from i1
-                                                pos_t pos2 = all_seeds[read_num][clust2[i2]];
-                                                size_t len2 = graph.get_length(graph.get_handle(get_id(pos2), false));
-                                                pos_t rev2 = make_pos_t(get_id(pos2), 
-                                                                 !is_rev(pos2),
-                                                                 len2 - get_offset(pos2)-1); 
-
-                                                int64_t dist1 = dist_index.minDistance(pos1, pos2);
-                                                int64_t dist2 = dist_index.minDistance(pos1, rev2);
-                                                int64_t dist3 = dist_index.minDistance(rev1, pos2);
-                                                int64_t dist4 = dist_index.minDistance(rev1, rev2);
-                                                int64_t dist = MinimumDistanceIndex::minPos({dist1, 
-                                                                   dist2, dist3, dist4});
-                                                if ( dist != -1 && dist <= read_lim) {
-                                                    dist_index.printSelf();
-                                                    graph.serialize_to_file("testGraph");
-                                                    cerr << "These should have been in the same read cluster: " ;
-                                                    cerr << pos1 << " and " << pos2 << endl;
-                                                    cerr << dist1 << " " << dist2 << " " << dist3 << " " << dist4 << endl;
-                                                    REQUIRE(false);
-                                                }
-                                                
-                                            }
-                                        }
-                                    }
-                                    for (size_t i2 = 0 ; i2 < clust.size() ; i2++) {
-                                        //For each position in the same cluster
-                                        pos_t pos2 = all_seeds[read_num][clust[i2]];
-                                        size_t len2 = graph.get_length(graph.get_handle(get_id(pos2), false));
-                                        pos_t rev2 = make_pos_t(get_id(pos2), 
+                                for (size_t b = 0 ; b < one_read_clusters.size() ; b++) {
+                                    if (b != a) {
+                                        //For each other cluster
+                                        vector<size_t> clust2 = one_read_clusters[b].first;
+                                        for (size_t i2 = 0 ; i2 < clust2.size() ; i2++) {
+                                            //And each position in each other cluster,
+                                            //make sure that this position is far away from i1
+                                            pos_t pos2 = all_seeds[read_num][clust2[i2]];
+                                            size_t len2 = graph.get_length(graph.get_handle(get_id(pos2), false));
+                                            pos_t rev2 = make_pos_t(get_id(pos2), 
                                                              !is_rev(pos2),
                                                              len2 - get_offset(pos2)-1); 
-                                        int64_t dist1 = dist_index.minDistance(pos1, pos2);
-                                        int64_t dist2 = dist_index.minDistance(pos1, rev2);
-                                        int64_t dist3 = dist_index.minDistance(rev1, pos2);
-                                        int64_t dist4 = dist_index.minDistance(rev1, rev2);
-                                        int64_t dist = MinimumDistanceIndex::minPos({dist1, 
-                                                           dist2, dist3, dist4});
-                                        if ( dist != -1 && dist <= read_lim) {
-                                            new_clusters.union_groups(i1, i2);
-                                        }
 
-                                    }
-                                }
-                                auto actual_clusters = new_clusters.all_groups();
-                                if (actual_clusters.size() != 1) {
-                                                    dist_index.printSelf();
-                                    graph.serialize_to_file("testGraph");
-                                    cerr << "These should be different read clusters: " << endl;
-                                    for (auto c : actual_clusters) {
-                                        cerr << "cluster: " ; 
-                                        for (size_t i1 : c) {
-                                            cerr << all_seeds[read_num][clust[i1]] << " ";
+                                            int64_t dist1 = dist_index.minDistance(pos1, pos2);
+                                            int64_t dist2 = dist_index.minDistance(pos1, rev2);
+                                            int64_t dist3 = dist_index.minDistance(rev1, pos2);
+                                            int64_t dist4 = dist_index.minDistance(rev1, rev2);
+                                            int64_t dist = MinimumDistanceIndex::minPos({dist1, 
+                                                               dist2, dist3, dist4});
+                                            if ( dist != -1 && dist <= read_lim) {
+                                                dist_index.printSelf();
+                                                graph.serialize_to_file("testGraph");
+                                                cerr << "These should have been in the same read cluster: " ;
+                                                cerr << pos1 << " and " << pos2 << endl;
+                                                cerr << dist1 << " " << dist2 << " " << dist3 << " " << dist4 << endl;
+                                                REQUIRE(false);
+                                            }
+                                            
                                         }
-                                        cerr << endl;
                                     }
                                 }
-                                REQUIRE(actual_clusters.size() == 1);
+                                for (size_t i2 = 0 ; i2 < clust.size() ; i2++) {
+                                    //For each position in the same cluster
+                                    pos_t pos2 = all_seeds[read_num][clust[i2]];
+                                    size_t len2 = graph.get_length(graph.get_handle(get_id(pos2), false));
+                                    pos_t rev2 = make_pos_t(get_id(pos2), 
+                                                         !is_rev(pos2),
+                                                         len2 - get_offset(pos2)-1); 
+                                    int64_t dist1 = dist_index.minDistance(pos1, pos2);
+                                    int64_t dist2 = dist_index.minDistance(pos1, rev2);
+                                    int64_t dist3 = dist_index.minDistance(rev1, pos2);
+                                    int64_t dist4 = dist_index.minDistance(rev1, rev2);
+                                    int64_t dist = MinimumDistanceIndex::minPos({dist1, 
+                                                       dist2, dist3, dist4});
+                                    if ( dist != -1 && dist <= read_lim) {
+                                        new_clusters.union_groups(i1, i2);
+                                    }
+
+                                }
                             }
+                            auto actual_clusters = new_clusters.all_groups();
+                            if (actual_clusters.size() != 1) {
+                                                dist_index.printSelf();
+                                graph.serialize_to_file("testGraph");
+                                cerr << "These should be different read clusters: " << endl;
+                                for (auto c : actual_clusters) {
+                                    cerr << "cluster: " ; 
+                                    for (size_t i1 : c) {
+                                        cerr << all_seeds[read_num][clust[i1]] << " ";
+                                    }
+                                    cerr << endl;
+                                }
+                            }
+                            REQUIRE(actual_clusters.size() == 1);
                         }
                     }
                 }

@@ -21,7 +21,7 @@ namespace vg {
         return std::get<0>(all_clusters)[0].all_groups();
     };
 
-    vector<vector<vector<vector<size_t>>>> SnarlSeedClusterer::cluster_seeds (
+    vector<vector<pair<vector<size_t>, size_t>>> SnarlSeedClusterer::cluster_seeds (
                   const vector<vector<pos_t>>& all_seeds, int64_t read_distance_limit,
                   int64_t fragment_distance_limit) const {
         //Wrapper for paired end
@@ -32,13 +32,14 @@ namespace vg {
         vector<structures::UnionFind> read_union_finds = std::move(std::get<0>(union_finds));
         structures::UnionFind* fragment_union_find = &std::get<1>(union_finds);
 
-        vector<vector<vector<vector<size_t>>>> all_clusters;
+        vector<vector<pair<vector<size_t>, size_t>>> all_clusters;
         //Map the old group heads to new indices
         size_t curr_index = 0;
         size_t read_num_offset = 0;
-        hash_map<size_t, size_t> old_to_new_cluster_index;//Map old fragment cluster head to new index
+        hash_map<size_t, size_t> old_to_new_cluster_index;
 
         for (size_t read_num = 0 ; read_num < read_union_finds.size() ; read_num++) {
+            all_clusters.emplace_back();
             vector<vector<size_t>> read_clusters = read_union_finds[read_num].all_groups();
             for (vector<size_t>& cluster : read_clusters) {
                 size_t fragment_index = read_num_offset + cluster[0];
@@ -50,23 +51,7 @@ namespace vg {
                 } else {
                     fragment_cluster_head = old_to_new_cluster_index[fragment_cluster_head];
                 }
-                //all_clusters.back().emplace_back(std::move(cluster), fragment_cluster_head);
-            }
-            read_num_offset += all_seeds[read_num].size();
-        }
-
-        all_clusters.resize(curr_index);
-        read_num_offset = 0;
-
-        for (size_t read_num = 0 ; read_num < read_union_finds.size() ; read_num++) {
-            vector<vector<size_t>> read_clusters = read_union_finds[read_num].all_groups();
-            for (vector<size_t>& cluster : read_clusters) {
-                size_t fragment_index = read_num_offset + cluster[0];
-                size_t fragment_cluster_head = old_to_new_cluster_index[fragment_union_find->find_group(fragment_index)];
-                if (all_clusters[fragment_cluster_head].empty()) {
-                    all_clusters[fragment_cluster_head].resize(all_seeds.size());
-                }
-                all_clusters[fragment_cluster_head][read_num].emplace_back(std::move(cluster));
+                all_clusters.back().emplace_back(std::move(cluster), fragment_cluster_head);
             }
             read_num_offset += all_seeds[read_num].size();
         }

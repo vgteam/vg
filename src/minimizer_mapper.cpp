@@ -1018,15 +1018,29 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // Cluster the seeds. Get sets of input seed indexes that go together.
     // If the fragment length distribution hasn't been fixed yet (if the expected fragment length = 0),
     // then everything will be in the same cluster and the best pair will be the two best independent mappings
-    vector<vector<vector<vector<size_t>>>> all_clusters = clusterer.cluster_seeds(seeds_by_read, distance_limit, 
+    vector<vector<pair<vector<size_t>, size_t>>> all_clusters = clusterer.cluster_seeds(seeds_by_read, distance_limit, 
             fragment_length_distr.mean() + 2*fragment_length_distr.stdev());
             //TODO: Choose a good distance for the fragment distance limit ^
 
-    //Are any of the fragment clusters we found pairs?
+    //For each fragment cluster, determine if it has clusters from both reads
+    size_t max_fragment_num = 0;
+    for (pair<vector< size_t>, size_t>& cluster : all_clusters[0]) {
+        max_fragment_num = std::max(max_fragment_num, cluster.second);
+    }
+    for (pair<vector< size_t>, size_t>& cluster : all_clusters[1]) {
+        max_fragment_num = std::max(max_fragment_num, cluster.second);
+    }
+    vector<bool> has_first_read (max_fragment_num+1, false);//For each fragment cluster, does it have a cluster for the first read
+    vector<bool> fragment_cluster_has_pair (max_fragment_num+1, false);//Does a fragment cluster have both reads
     bool found_paired_cluster = false;
-    for (vector<vector<vector<size_t>>> paired_clusters : all_clusters) {
-        assert(paired_clusters.size() == 2);
-        if (!paired_clusters[0].empty() && ! paired_clusters[0].empty()){
+    for (pair<vector<size_t>, size_t>& cluster : all_clusters[0]) {
+        size_t fragment_num = cluster.second;
+        has_first_read[fragment_num] = true;
+    }
+    for (pair<vector<size_t>, size_t>& cluster : all_clusters[1]) {
+        size_t fragment_num = cluster.second;
+        fragment_cluster_has_pair[fragment_num] = has_first_read[fragment_num];
+        if (has_first_read[fragment_num]) {
             found_paired_cluster = true;
         }
     }
@@ -1038,366 +1052,368 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
     //For each fragment cluster (cluster of clusters), for each read, a vector of all alignments + the order they were fed into the funnel 
     //so the funnel can track them
-    //
-    // We will fill this with all computed alignments in estimated score order.
-    vector<pair<vector<Alignment>, vector<Alignment>>> alignments (all_clusters.size());
-    vector<pair<vector<size_t>, vector<size_t>>> alignment_indices(all_clusters.size());
+    vector<pair<vector<Alignment>, vector<Alignment>>> alignments;
+    vector<pair<vector<size_t>, vector<size_t>>> alignment_indices;
 
-    for (size_t fragment_num = 0 ; fragment_num < all_clusters.size() ; fragment_num++) {
-        vector<vector<vector<size_t>>>& fragment_cluster = all_clusters[fragment_num];
+    for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
 
-        if (!found_paired_cluster || (!fragment_cluster[0].empty() && !fragment_cluster[1].empty())){
-            //Only process if this is a pair or we aren't looking for pairs
+        Alignment& aln = read_num == 0 ? aln1 : aln2;
+        vector<size_t>& seed_to_source = read_num == 0 ? seed_to_source_by_read.first : seed_to_source_by_read.second;
+        vector<pair<vector<size_t>, size_t>>& clusters = all_clusters[read_num];
+        vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type>& minimizers = read_num == 0 ?
+                        minimizers_by_read.first : minimizers_by_read.second;
+        vector<pos_t>& seeds = seeds_by_read[read_num];
 
-            for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
-    
-                Alignment& aln = read_num == 0 ? aln1 : aln2;
-                vector<size_t>& seed_to_source = read_num == 0 ? seed_to_source_by_read.first : seed_to_source_by_read.second;
-                vector<vector<size_t>>& read_clusters = fragment_cluster[read_num];
-                vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type>& minimizers = read_num == 0 ?
-                                minimizers_by_read.first : minimizers_by_read.second;
-                vector<pos_t>& seeds = seeds_by_read[read_num];
-    
-                // Cluster score is the sum of minimizer scores.
-                vector<double> cluster_score(read_clusters.size(), 0.0);
-                vector<double> read_coverage_by_cluster;
-                read_coverage_by_cluster.reserve(read_clusters.size());
-    
-                for (size_t i = 0; i < read_clusters.size(); i++) {
-                    // For each cluster
-                    auto& cluster = read_clusters[i];
-    
-                    if (track_provenance) {
-                        // Say we're making it
-                        funnels[read_num].producing_output(i);
-                    }
-    
-                    // Which minimizers are present in the cluster.
-                    vector<bool> present(minimizers.size(), false);
-                    for (auto hit_index : cluster) {
-                        present[seed_to_source[hit_index]] = true;
-                    }
-    
-                    // Compute the score.
-                    for (size_t j = 0; j < minimizers.size(); j++) {
-                        if (present[j]) {
-                            cluster_score[i] += read_num == 0 ? minimizer_score_by_read.first[j] : minimizer_score_by_read.second[j];
-                        }
-                    }
-    
-                    if (track_provenance) {
-                        // Record the cluster in the funnel as a group of the size of the number of items.
-                        funnels[read_num].merge_group(cluster.begin(), cluster.end());
-                        funnels[read_num].score(funnels[read_num].latest(), cluster_score[i]);
-    
-                        // Say we made it.
-                        funnels[read_num].produced_output();
-                    }
-    
-                    //Get the cluster coverage
-                    // We set bits in here to true when query anchors cover them
-                    sdsl::bit_vector covered( aln.sequence().size(), 0);
-                    std::uint64_t k_bit_mask = sdsl::bits::lo_set[minimizer_index.k()];
-    
-                    for (auto hit_index : cluster) {
-                        // For each hit in the cluster, work out what anchor sequence it is from.
-                        size_t source_index = seed_to_source[hit_index];
-    
-                        // The offset of a reverse minimizer is the endpoint of the kmer
-                        size_t start_offset = minimizers[source_index].offset;
-                        if (minimizers[source_index].is_reverse) {
-                            start_offset = start_offset + 1 - minimizer_index.k();
-                        }
-    
-                        // Set the k bits starting at start_offset.
-                        covered.set_int(start_offset, k_bit_mask, minimizer_index.k());
-                    }
-    
-                    // Count up the covered positions
-                    size_t covered_count = sdsl::util::cnt_one_bits(covered);
-    
-                    // Turn that into a fraction
-                    read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
-    
-    
+        // Cluster score is the sum of minimizer scores.
+        vector<double> cluster_score(clusters.size(), 0.0);
+        vector<double> read_coverage_by_cluster;
+        read_coverage_by_cluster.reserve(clusters.size());
+
+        for (size_t i = 0; i < clusters.size(); i++) {
+            // For each cluster
+            auto& cluster = clusters[i].first;
+
+            if (track_provenance) {
+                // Say we're making it
+                funnels[read_num].producing_output(i);
+            }
+
+            // Which minimizers are present in the cluster.
+            vector<bool> present(minimizers.size(), false);
+            for (auto hit_index : cluster) {
+                present[seed_to_source[hit_index]] = true;
+            }
+
+            // Compute the score.
+            for (size_t j = 0; j < minimizers.size(); j++) {
+                if (present[j]) {
+                    cluster_score[i] += read_num == 0 ? minimizer_score_by_read.first[j] : minimizer_score_by_read.second[j];
                 }
-    
+            }
+
+            if (track_provenance) {
+                // Record the cluster in the funnel as a group of the size of the number of items.
+                funnels[read_num].merge_group(cluster.begin(), cluster.end());
+                funnels[read_num].score(funnels[read_num].latest(), cluster_score[i]);
+
+                // Say we made it.
+                funnels[read_num].produced_output();
+            }
+
+            //Get the cluster coverage
+            // We set bits in here to true when query anchors cover them
+            sdsl::bit_vector covered( aln.sequence().size(), 0);
+            std::uint64_t k_bit_mask = sdsl::bits::lo_set[minimizer_index.k()];
+
+            for (auto hit_index : cluster) {
+                // For each hit in the cluster, work out what anchor sequence it is from.
+                size_t source_index = seed_to_source[hit_index];
+
+                // The offset of a reverse minimizer is the endpoint of the kmer
+                size_t start_offset = minimizers[source_index].offset;
+                if (minimizers[source_index].is_reverse) {
+                    start_offset = start_offset + 1 - minimizer_index.k();
+                }
+
+                // Set the k bits starting at start_offset.
+                covered.set_int(start_offset, k_bit_mask, minimizer_index.k());
+            }
+
+            // Count up the covered positions
+            size_t covered_count = sdsl::util::cnt_one_bits(covered);
+
+            // Turn that into a fraction
+            read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
+
+
+        }
+
 #ifdef debug
         cerr << "Found " << clusters.size() << " clusters for read " << read_num << endl;
 #endif
-    
-                // Retain clusters only if their score is better than this, in addition to the coverage cutoff
-                double cluster_score_cutoff = cluster_score.size() == 0 ? 0 :
-                    *std::max_element(cluster_score.begin(), cluster_score.end()) - cluster_score_threshold;
-    
-                if (track_provenance) {
-                    // Now we go from clusters to gapless extensions
-                    funnels[read_num].stage("extend");
+
+        // Retain clusters only if their score is better than this, in addition to the coverage cutoff
+        double cluster_score_cutoff = cluster_score.size() == 0 ? 0 :
+            *std::max_element(cluster_score.begin(), cluster_score.end()) - cluster_score_threshold;
+
+        if (track_provenance) {
+            // Now we go from clusters to gapless extensions
+            funnels[read_num].stage("extend");
+        }
+
+        // These are the GaplessExtensions for all the clusters (and fragment cluster assignments), in cluster_indexes_in_order order.
+        vector<pair<vector<GaplessExtension>, size_t>> cluster_extensions;
+        cluster_extensions.reserve(clusters.size());
+        //TODO: Maybe put this back 
+        //For each cluster, what fraction of "equivalent" clusters did we keep?
+        //vector<vector<double>> probability_cluster_lost;
+        //What is the score and coverage we are considering and how many reads
+        //size_t curr_coverage = 0;
+        //size_t curr_score = 0;
+        //size_t curr_kept = 0;
+        //size_t curr_count = 0;
+        
+        //TODO: If we have a fragment cluster with both ends, we might not want to throw away one end even if it is below one of the score caps
+        //Could just turn off these filters
+        //Process clusters sorted by both score and read coverage
+        process_until_threshold(clusters, read_coverage_by_cluster,
+            [&](size_t a, size_t b) {
+                if (read_coverage_by_cluster[a] == read_coverage_by_cluster[b]){
+                    return cluster_score[a] > cluster_score[b];
+                } else {
+                    return read_coverage_by_cluster[a] > read_coverage_by_cluster[b];
                 }
-    
-                // These are the GaplessExtensions for all the clusters (and fragment cluster assignments), in cluster_indexes_in_order order.
-                vector<vector<GaplessExtension>> cluster_extensions;
-                cluster_extensions.reserve(read_clusters.size());
-                //TODO: Maybe put this back 
-                //For each cluster, what fraction of "equivalent" clusters did we keep?
-                //vector<vector<double>> probability_cluster_lost;
-                //What is the score and coverage we are considering and how many reads
-                //size_t curr_coverage = 0;
-                //size_t curr_score = 0;
-                //size_t curr_kept = 0;
-                //size_t curr_count = 0;
+            },
+            cluster_coverage_threshold, 1, max_extensions,
+            [&](size_t cluster_num) {
+                // Handle sufficiently good clusters in descending coverage order
                 
-                //TODO: If we have a fragment cluster with both ends, we might not want to throw away one end even if it is below one of the score caps
-                //Could just turn off these filters
-                //Process clusters sorted by both score and read coverage
-                process_until_threshold(read_clusters, read_coverage_by_cluster,
-                    [&](size_t a, size_t b) {
-                        if (read_coverage_by_cluster[a] == read_coverage_by_cluster[b]){
-                            return cluster_score[a] > cluster_score[b];
-                        } else {
-                            return read_coverage_by_cluster[a] > read_coverage_by_cluster[b];
-                        }
-                    },
-                    cluster_coverage_threshold, 1, max_extensions,
-                    [&](size_t cluster_num) {
-                        // Handle sufficiently good clusters in descending coverage order
-                        
-                        //If this cluster has a pair or if we aren't looking at pairs
-                        if (track_provenance) {
-                            funnels[read_num].pass("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
-                            funnels[read_num].pass("max-extensions", cluster_num);
-                            funnels[read_num].pass("paired-clusters", cluster_num);
-                        }
-                        
-                        // First check against the additional score filter
-                        if (cluster_score_threshold != 0 && cluster_score[cluster_num] < cluster_score_cutoff) {
-                            //If the score isn't good enough, ignore this cluster
-                            if (track_provenance) {
-                                funnels[read_num].fail("cluster-score", cluster_num, cluster_score[cluster_num]);
-                            }
-                            return false;
-                        }
-                        
-                        if (track_provenance) {
-                            funnels[read_num].pass("cluster-score", cluster_num, cluster_score[cluster_num]);
-                            funnels[read_num].processing_input(cluster_num);
-                        }
-                        vector<size_t>& cluster = read_clusters[cluster_num];
-    
-#ifdef debug
-                    cerr"Cluster " << cluster_num << endl;
-#endif
-                         
-                        // Pack the seeds for GaplessExtender.
-                        GaplessExtender::cluster_type seed_matchings;
-                        for (auto& seed_index : cluster) {
-                            // Insert the (graph position, read offset) pair.
-                            seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
-#ifdef debug
-                         << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
-                        << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index.count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
-#endif
-                        }
-                        
-                        // Extend seed hits in the cluster into one or more gapless extensions
-                        cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())));
-                        
-                        if (track_provenance) {
-                            // Record with the funnel that the previous group became a group of this size.
-                            // Don't bother recording the seed to extension matching...
-                            funnels[read_num].project_group(cluster_num, cluster_extensions.back().size());
-                            
-                            // Say we finished with this cluster, for now.
-                            funnels[read_num].processed_input();
-                        }
-                        return true;
-                        
-                        
-                    }, [&](size_t cluster_num) {
-                        // There are too many sufficiently good clusters
-                        if (track_provenance) {
-                            funnels[read_num].pass("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
-                            funnels[read_num].fail("max-extensions", cluster_num);
-                        }
-                    }, [&](size_t cluster_num) {
-                        // This cluster is not sufficiently good.
-                        if (track_provenance) {
-                            funnels[read_num].fail("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
-                        }
-                    });
-                    
-                
-                if (track_provenance) {
-                    funnels[read_num].substage("score");
-                }
-    
-                // We now estimate the best possible alignment score for each cluster.
-                vector<int> cluster_extension_scores;
-                cluster_extension_scores.reserve(cluster_extensions.size());
-                for (size_t i = 0; i < cluster_extensions.size(); i++) {
-                    // For each group of GaplessExtensions
-                    
+                if (!found_paired_cluster || fragment_cluster_has_pair[clusters[cluster_num].second]) { 
+                    //If this cluster has a pair or if we aren't looking at pairs
                     if (track_provenance) {
-                        funnels[read_num].producing_output(i);
+                        funnels[read_num].pass("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
+                        funnels[read_num].pass("max-extensions", cluster_num);
+                        funnels[read_num].pass("paired-clusters", cluster_num);
                     }
                     
-                    vector<GaplessExtension>& extensions = cluster_extensions[i];
-                    // Work out the score of the best chain of extensions, accounting for gaps/overlaps in the read only
-                    cluster_extension_scores.push_back(score_extension_group(aln, extensions,
-                        get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension));
+                    // First check against the additional score filter
+                    if (cluster_score_threshold != 0 && cluster_score[cluster_num] < cluster_score_cutoff) {
+                        //If the score isn't good enough, ignore this cluster
+                        if (track_provenance) {
+                            funnels[read_num].fail("cluster-score", cluster_num, cluster_score[cluster_num]);
+                        }
+                        return false;
+                    }
                     
                     if (track_provenance) {
-                        // Record the score with the funnel
-                        funnels[read_num].score(i, cluster_extension_scores.back());
-                        funnels[read_num].produced_output();
+                        funnels[read_num].pass("cluster-score", cluster_num, cluster_score[cluster_num]);
+                        funnels[read_num].processing_input(cluster_num);
                     }
+                    vector<size_t>& cluster = clusters[cluster_num].first;
+
+#ifdef debug
+                    cerr << "Cluster " << cluster_num << endl;
+#endif
+                     
+                    // Pack the seeds for GaplessExtender.
+                    GaplessExtender::cluster_type seed_matchings;
+                    for (auto& seed_index : cluster) {
+                        // Insert the (graph position, read offset) pair.
+                        seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
+#ifdef debug
+                        cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
+                            << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index.count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
+#endif
+                    }
+                    
+                    // Extend seed hits in the cluster into one or more gapless extensions
+                    cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())), 
+                                                    clusters[cluster_num].second);
+                    
+                    if (track_provenance) {
+                        // Record with the funnel that the previous group became a group of this size.
+                        // Don't bother recording the seed to extension matching...
+                        funnels[read_num].project_group(cluster_num, cluster_extensions.back().first.size());
+                        
+                        // Say we finished with this cluster, for now.
+                        funnels[read_num].processed_input();
+                    }
+                    return true;
+                } else {
+                    if (track_provenance) {
+                        funnels[read_num].fail("paired-clusters", cluster_num);
+                    }
+                    return false;
                 }
                 
+            }, [&](size_t cluster_num) {
+                // There are too many sufficiently good clusters
                 if (track_provenance) {
-                    funnels[read_num].stage("align");
+                    funnels[read_num].pass("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
+                    funnels[read_num].fail("max-extensions", cluster_num);
                 }
-                
-                // Now start the alignment step. Everything has to become an alignment.
-    
-    
-    
-                
-                // Clear any old refpos annotation and path
-                aln.clear_refpos();
-                aln.clear_path();
-                aln.set_score(0);
-                aln.set_identity(0);
-                aln.set_mapping_quality(0);
-                
-                //Since we will lose the order in which we pass alignments to the funnel, use this to keep track
-                size_t curr_funnel_index = 0;
-    
-                // Go through the gapless extension groups in score order.
-                process_until_threshold(cluster_extensions, cluster_extension_scores,
-                    extension_set_score_threshold, 2, max_alignments,
-                    [&](size_t extension_num) {
-                        // This extension set is good enough.
-                        // Called in descending score order.
-                        
-                        if (track_provenance) {
-                            funnels[read_num].pass("extension-set", extension_num, cluster_extension_scores[extension_num]);
-                            funnels[read_num].pass("max-alignments", extension_num);
-                            funnels[read_num].processing_input(extension_num);
-                        }
-                        
-                        auto& extensions = cluster_extensions[extension_num];
-                        
-                        // Get an Alignments best_ and second_best_alignment of it somehow, and throw it in.
-                        Alignment best_alignment = aln;
-                        Alignment second_best_alignment = aln;
-                        
-                        if (extensions[0].full()) {
-                            // We got full-length extensions, so directly convert to an Alignment.
-                            
-                            if (track_provenance) {
-                                funnels[read_num].substage("direct");
-                            }
-    
-                            //Fill in the best alignments from the extension
-                            
-                            *best_alignment.mutable_path() = extensions.front().to_path(gbwt_graph, best_alignment.sequence());
-                            size_t mismatch_count = extensions.front().mismatches();
-                            double identity = best_alignment.sequence().size() == 0 ? 0.0 
-                                    : (best_alignment.sequence().size() - mismatch_count) / (double) best_alignment.sequence().size();
-                            
-                            // Fill in the score and identity
-                            best_alignment.set_score(extensions.front().score);
-                            best_alignment.set_identity(identity);
-    
-                            if (extensions.size() > 1) {
-                                //Do the same thing for the second extension, if one exists
-                                *second_best_alignment.mutable_path() = extensions.back().to_path(gbwt_graph, second_best_alignment.sequence());
-                                size_t mismatch_count = extensions.back().mismatches();
-                                double identity = second_best_alignment.sequence().size() == 0 ? 0.0 
-                                        : (second_best_alignment.sequence().size() - mismatch_count) / (double) second_best_alignment.sequence().size();
-                                
-                                // Fill in the score and identity
-                                second_best_alignment.set_score(extensions.back().score);
-                                second_best_alignment.set_identity(identity);
-                            }
-    
-                            if (track_provenance) {
-                                // Stop the current substage
-                                funnels[read_num].substage_stop();
-                            }
-                        } else if (do_dp) {
-                            // We need to do chaining.
-                            
-                            if (track_provenance) {
-                                funnels[read_num].substage("chain");
-                            }
-                            
-                            // Do the DP and compute alignment into best_alignment and
-                            // second_best_alignment, if there is a second best
-                            find_optimal_tail_alignments(aln, extensions, best_alignment, second_best_alignment);
-    
-                            
-                            if (track_provenance) {
-                                // We're done chaining. Next alignment may not go through this substage.
-                                funnels[read_num].substage_stop();
-                            }
-                        } else {
-                            // We would do chaining but it is disabled.
-                            // Leave best_alignment unaligned
-                        }
-                        
-                        
-                        if (second_best_alignment.score() != 0 && 
-                            second_best_alignment.score() > best_alignment.score() * 0.8) {
-                            //If there is a second extension and its score is at least half of the best score
-                            read_num == 0 ? alignments[fragment_num ].first.emplace_back(std::move(second_best_alignment) ) :
-                                            alignments[fragment_num ].second.emplace_back(std::move(second_best_alignment));
-                            read_num == 0 ? alignment_indices[fragment_num].first.emplace_back(curr_funnel_index)
-                                          : alignment_indices[fragment_num].second.emplace_back(curr_funnel_index);
-                                curr_funnel_index++;
-    
-                            if (track_provenance) {
-                
-                                funnels[read_num].project(extension_num);
-                                read_num == 0 ? funnels[read_num].score(extension_num, alignments[fragment_num ].first.back().score()) :
-                                                funnels[read_num].score(extension_num, alignments[fragment_num].second.back().score());
-                                // We're done with this input item
-                                funnels[read_num].processed_input();
-                            }
-                        }
-    
-                        read_num == 0 ? alignments[fragment_num].first.emplace_back(std::move(best_alignment))
-                                      : alignments[fragment_num].second.emplace_back(std::move(best_alignment));
-                        read_num == 0 ? alignment_indices[fragment_num].first.emplace_back(curr_funnel_index)
-                                      : alignment_indices[fragment_num].second.emplace_back(curr_funnel_index);
-    
-                        curr_funnel_index++; 
-    
-                        if (track_provenance) {
-    
-                            funnels[read_num].project(extension_num);
-                            read_num == 0 ? funnels[read_num].score(extension_num, alignments[fragment_num].first.back().score())
-                                          : funnels[read_num].score(extension_num, alignments[fragment_num].second.back().score());
-                            
-                            // We're done with this input item
-                            funnels[read_num].processed_input();
-                        }
-                        
-                        return true;
-                    }, [&](size_t extension_num) {
-                        // There are too many sufficiently good extensions
-                        if (track_provenance) {
-                            funnels[read_num].pass("extension-set", extension_num, cluster_extension_scores[extension_num]);
-                            funnels[read_num].fail("max-alignments", extension_num);
-                        }
-                    }, [&](size_t extension_num) {
-                        // This extension is not good enough.
-                        if (track_provenance) {
-                            funnels[read_num].fail("extension-set", extension_num, cluster_extension_scores[extension_num]);
-                        }
-                });
+            }, [&](size_t cluster_num) {
+                // This cluster is not sufficiently good.
+                if (track_provenance) {
+                    funnels[read_num].fail("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
+                }
+            });
+            
+        
+        if (track_provenance) {
+            funnels[read_num].substage("score");
+        }
+
+        // We now estimate the best possible alignment score for each cluster.
+        vector<int> cluster_extension_scores;
+        cluster_extension_scores.reserve(cluster_extensions.size());
+        for (size_t i = 0; i < cluster_extensions.size(); i++) {
+            // For each group of GaplessExtensions
+            
+            if (track_provenance) {
+                funnels[read_num].producing_output(i);
+            }
+            
+            vector<GaplessExtension>& extensions = cluster_extensions[i].first;
+            // Work out the score of the best chain of extensions, accounting for gaps/overlaps in the read only
+            cluster_extension_scores.push_back(score_extension_group(aln, extensions,
+                get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension));
+            
+            if (track_provenance) {
+                // Record the score with the funnel
+                funnels[read_num].score(i, cluster_extension_scores.back());
+                funnels[read_num].produced_output();
             }
         }
+        
+        if (track_provenance) {
+            funnels[read_num].stage("align");
+        }
+        
+        // Now start the alignment step. Everything has to become an alignment.
+
+        // We will fill this with all computed alignments in estimated score order.
+        alignments.resize(max_fragment_num + 1);
+        alignment_indices.resize(max_fragment_num + 1);
+
+
+        
+        // Clear any old refpos annotation and path
+        aln.clear_refpos();
+        aln.clear_path();
+        aln.set_score(0);
+        aln.set_identity(0);
+        aln.set_mapping_quality(0);
+        
+        //Since we will lose the order in which we pass alignments to the funnel, use this to keep track
+        size_t curr_funnel_index = 0;
+
+        // Go through the gapless extension groups in score order.
+        process_until_threshold(cluster_extensions, cluster_extension_scores,
+            extension_set_score_threshold, 2, max_alignments,
+            [&](size_t extension_num) {
+                // This extension set is good enough.
+                // Called in descending score order.
+                
+                if (track_provenance) {
+                    funnels[read_num].pass("extension-set", extension_num, cluster_extension_scores[extension_num]);
+                    funnels[read_num].pass("max-alignments", extension_num);
+                    funnels[read_num].processing_input(extension_num);
+                }
+                
+                auto& extensions = cluster_extensions[extension_num].first;
+                
+                // Get an Alignments best_ and second_best_alignment of it somehow, and throw it in.
+                Alignment best_alignment = aln;
+                Alignment second_best_alignment = aln;
+                
+                if (extensions[0].full()) {
+                    // We got full-length extensions, so directly convert to an Alignment.
+                    
+                    if (track_provenance) {
+                        funnels[read_num].substage("direct");
+                    }
+
+                    //Fill in the best alignments from the extension
+                    
+                    *best_alignment.mutable_path() = extensions.front().to_path(gbwt_graph, best_alignment.sequence());
+                    size_t mismatch_count = extensions.front().mismatches();
+                    double identity = best_alignment.sequence().size() == 0 ? 0.0 
+                            : (best_alignment.sequence().size() - mismatch_count) / (double) best_alignment.sequence().size();
+                    
+                    // Fill in the score and identity
+                    best_alignment.set_score(extensions.front().score);
+                    best_alignment.set_identity(identity);
+
+                    if (extensions.size() > 1) {
+                        //Do the same thing for the second extension, if one exists
+                        *second_best_alignment.mutable_path() = extensions.back().to_path(gbwt_graph, second_best_alignment.sequence());
+                        size_t mismatch_count = extensions.back().mismatches();
+                        double identity = second_best_alignment.sequence().size() == 0 ? 0.0 
+                                : (second_best_alignment.sequence().size() - mismatch_count) / (double) second_best_alignment.sequence().size();
+                        
+                        // Fill in the score and identity
+                        second_best_alignment.set_score(extensions.back().score);
+                        second_best_alignment.set_identity(identity);
+                    }
+
+                    if (track_provenance) {
+                        // Stop the current substage
+                        funnels[read_num].substage_stop();
+                    }
+                } else if (do_dp) {
+                    // We need to do chaining.
+                    
+                    if (track_provenance) {
+                        funnels[read_num].substage("chain");
+                    }
+                    
+                    // Do the DP and compute alignment into best_alignment and
+                    // second_best_alignment, if there is a second best
+                    find_optimal_tail_alignments(aln, extensions, best_alignment, second_best_alignment);
+
+                    
+                    if (track_provenance) {
+                        // We're done chaining. Next alignment may not go through this substage.
+                        funnels[read_num].substage_stop();
+                    }
+                } else {
+                    // We would do chaining but it is disabled.
+                    // Leave best_alignment unaligned
+                }
+                
+                
+                size_t fragment_num = cluster_extensions[extension_num].second;
+                if (second_best_alignment.score() != 0 && 
+                    second_best_alignment.score() > best_alignment.score() * 0.8) {
+                    //If there is a second extension and its score is at least half of the best score
+                    read_num == 0 ? alignments[fragment_num ].first.emplace_back(std::move(second_best_alignment) ) :
+                                    alignments[fragment_num ].second.emplace_back(std::move(second_best_alignment));
+                    read_num == 0 ? alignment_indices[fragment_num].first.emplace_back(curr_funnel_index)
+                                  : alignment_indices[fragment_num].second.emplace_back(curr_funnel_index);
+                        curr_funnel_index++;
+
+                    if (track_provenance) {
+        
+                        funnels[read_num].project(extension_num);
+                        read_num == 0 ? funnels[read_num].score(extension_num, alignments[fragment_num ].first.back().score()) :
+                                        funnels[read_num].score(extension_num, alignments[fragment_num].second.back().score());
+                        // We're done with this input item
+                        funnels[read_num].processed_input();
+                    }
+                }
+
+                read_num == 0 ? alignments[fragment_num].first.emplace_back(std::move(best_alignment))
+                              : alignments[fragment_num].second.emplace_back(std::move(best_alignment));
+                read_num == 0 ? alignment_indices[fragment_num].first.emplace_back(curr_funnel_index)
+                              : alignment_indices[fragment_num].second.emplace_back(curr_funnel_index);
+
+                curr_funnel_index++; 
+
+                if (track_provenance) {
+
+                    funnels[read_num].project(extension_num);
+                    read_num == 0 ? funnels[read_num].score(extension_num, alignments[fragment_num].first.back().score())
+                                  : funnels[read_num].score(extension_num, alignments[fragment_num].second.back().score());
+                    
+                    // We're done with this input item
+                    funnels[read_num].processed_input();
+                }
+                
+                return true;
+            }, [&](size_t extension_num) {
+                // There are too many sufficiently good extensions
+                if (track_provenance) {
+                    funnels[read_num].pass("extension-set", extension_num, cluster_extension_scores[extension_num]);
+                    funnels[read_num].fail("max-alignments", extension_num);
+                }
+            }, [&](size_t extension_num) {
+                // This extension is not good enough.
+                if (track_provenance) {
+                    funnels[read_num].fail("extension-set", extension_num, cluster_extension_scores[extension_num]);
+                }
+            });
+        
     }
     
     
