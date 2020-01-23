@@ -1156,9 +1156,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         //TODO: If we have a fragment cluster with both ends, we might not want to throw away one end even if it is below one of the score caps
         //Could just turn off these filters
         //Process clusters sorted by both score and read coverage
-
-        //Make sure that each fragment ends up with at least one read cluster for each end
-        vector<bool> has_cluster ( max_fragment_num + 1 , false);
         process_until_threshold(clusters, read_coverage_by_cluster,
             [&](size_t a, size_t b) {
                 if (read_coverage_by_cluster[a] == read_coverage_by_cluster[b]){
@@ -1221,7 +1218,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         // Say we finished with this cluster, for now.
                         funnels[read_num].processed_input();
                     }
-                    has_cluster[clusters[cluster_num].second] = true;
                     return true;
                 } else {
                     if (track_provenance) {
@@ -1232,55 +1228,12 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 
             }, [&](size_t cluster_num) {
                 // There are too many sufficiently good clusters
-                // TODO: This probably does something funny to the funnel
-                if ( !has_cluster[clusters[cluster_num].second] && found_paired_cluster &&
-                     fragment_cluster_has_pair[clusters[cluster_num].second]) {
-                    //If we added too many clusters but this fragment doesn't have a cluster for this end yet
-
-                    vector<size_t>& cluster = clusters[cluster_num].first;
-
-                     
-                    // Pack the seeds for GaplessExtender.
-                    GaplessExtender::cluster_type seed_matchings;
-                    for (auto& seed_index : cluster) {
-                        // Insert the (graph position, read offset) pair.
-                        seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
-                    }
-                    
-                    // Extend seed hits in the cluster into one or more gapless extensions
-                    cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())), 
-                                                    clusters[cluster_num].second);
-                    has_cluster[clusters[cluster_num].second] = true;
-
-                }
-
                 if (track_provenance) {
                     funnels[read_num].pass("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
                     funnels[read_num].fail("max-extensions", cluster_num);
                 }
             }, [&](size_t cluster_num) {
                 // This cluster is not sufficiently good.
-
-                if ( !has_cluster[clusters[cluster_num].second] && found_paired_cluster &&
-                     fragment_cluster_has_pair[clusters[cluster_num].second]) {
-                    //but this fragment doesn't have a cluster for this end yet
-
-                    vector<size_t>& cluster = clusters[cluster_num].first;
-
-                     
-                    // Pack the seeds for GaplessExtender.
-                    GaplessExtender::cluster_type seed_matchings;
-                    for (auto& seed_index : cluster) {
-                        // Insert the (graph position, read offset) pair.
-                        seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
-                    }
-                    
-                    // Extend seed hits in the cluster into one or more gapless extensions
-                    cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())), 
-                                                    clusters[cluster_num].second);
-                    has_cluster[clusters[cluster_num].second] = true;
-
-                }
                 if (track_provenance) {
                     funnels[read_num].fail("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
                 }
@@ -1335,8 +1288,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         //Since we will lose the order in which we pass alignments to the funnel, use this to keep track
         size_t curr_funnel_index = 0;
 
-        //Make sure that each fragment ends up with at least one extension for each end
-        vector<bool> has_extension ( max_fragment_num + 1 , false);
         // Go through the gapless extension groups in score order.
         process_until_threshold(cluster_extensions, cluster_extension_scores,
             extension_set_score_threshold, 2, max_alignments,
@@ -1449,7 +1400,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     funnels[read_num].processed_input();
                 }
                 
-                has_extension[fragment_num] = true;
                 return true;
             }, [&](size_t extension_num) {
                 // There are too many sufficiently good extensions
@@ -1457,194 +1407,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     funnels[read_num].pass("extension-set", extension_num, cluster_extension_scores[extension_num]);
                     funnels[read_num].fail("max-alignments", extension_num);
                 }
-                size_t fragment_num = cluster_extensions[extension_num].second;
-                if (!has_extension[fragment_num]){
-
-                    auto& extensions = cluster_extensions[extension_num].first;
-                    
-                    // Get an Alignments best_ and second_best_alignment of it somehow, and throw it in.
-                    Alignment best_alignment = aln;
-                    Alignment second_best_alignment = aln;
-                    
-                    if (extensions[0].full()) {
-                        // We got full-length extensions, so directly convert to an Alignment.
-                        
-                        if (track_provenance) {
-                            funnels[read_num].substage("direct");
-                        }
-    
-                        //Fill in the best alignments from the extension
-                        
-                        *best_alignment.mutable_path() = extensions.front().to_path(gbwt_graph, best_alignment.sequence());
-                        size_t mismatch_count = extensions.front().mismatches();
-                        double identity = best_alignment.sequence().size() == 0 ? 0.0 
-                                : (best_alignment.sequence().size() - mismatch_count) / (double) best_alignment.sequence().size();
-                        
-                        // Fill in the score and identity
-                        best_alignment.set_score(extensions.front().score);
-                        best_alignment.set_identity(identity);
-    
-                        if (extensions.size() > 1) {
-                            //Do the same thing for the second extension, if one exists
-                            *second_best_alignment.mutable_path() = extensions.back().to_path(gbwt_graph, second_best_alignment.sequence());
-                            size_t mismatch_count = extensions.back().mismatches();
-                            double identity = second_best_alignment.sequence().size() == 0 ? 0.0 
-                                    : (second_best_alignment.sequence().size() - mismatch_count) / (double) second_best_alignment.sequence().size();
-                            
-                            // Fill in the score and identity
-                            second_best_alignment.set_score(extensions.back().score);
-                            second_best_alignment.set_identity(identity);
-                        }
-    
-                        if (track_provenance) {
-                            // Stop the current substage
-                            funnels[read_num].substage_stop();
-                        }
-                    } else if (do_dp) {
-                        // We need to do chaining.
-                        
-                        if (track_provenance) {
-                            funnels[read_num].substage("chain");
-                        }
-                        
-                        // Do the DP and compute alignment into best_alignment and
-                        // second_best_alignment, if there is a second best
-                        find_optimal_tail_alignments(aln, extensions, best_alignment, second_best_alignment);
-    
-                        
-                        if (track_provenance) {
-                            // We're done chaining. Next alignment may not go through this substage.
-                            funnels[read_num].substage_stop();
-                        }
-                    } else {
-                        // We would do chaining but it is disabled.
-                        // Leave best_alignment unaligned
-                    }
-                    
-                    
-                    size_t fragment_num = cluster_extensions[extension_num].second;
-                    if (second_best_alignment.score() != 0 && 
-                        second_best_alignment.score() > best_alignment.score() * 0.8) {
-                        //If there is a second extension and its score is at least half of the best score
-                        read_num == 0 ? alignments[fragment_num ].first.emplace_back(std::move(second_best_alignment) ) :
-                                        alignments[fragment_num ].second.emplace_back(std::move(second_best_alignment));
-                        read_num == 0 ? alignment_indices[fragment_num].first.emplace_back(curr_funnel_index)
-                                      : alignment_indices[fragment_num].second.emplace_back(curr_funnel_index);
-                            curr_funnel_index++;
-    
-                        if (track_provenance) {
-            
-                            funnels[read_num].project(extension_num);
-                            read_num == 0 ? funnels[read_num].score(extension_num, alignments[fragment_num ].first.back().score()) :
-                                            funnels[read_num].score(extension_num, alignments[fragment_num].second.back().score());
-                            // We're done with this input item
-                            funnels[read_num].processed_input();
-                        }
-                    }
-    
-                    read_num == 0 ? alignments[fragment_num].first.emplace_back(std::move(best_alignment))
-                                  : alignments[fragment_num].second.emplace_back(std::move(best_alignment));
-                    read_num == 0 ? alignment_indices[fragment_num].first.emplace_back(curr_funnel_index)
-                                  : alignment_indices[fragment_num].second.emplace_back(curr_funnel_index);
-    
-                    curr_funnel_index++; 
-                    has_extension[fragment_num] = true;
-                }
             }, [&](size_t extension_num) {
                 // This extension is not good enough.
-                size_t fragment_num = cluster_extensions[extension_num].second;
-                if (!has_extension[fragment_num]){
-
-                    auto& extensions = cluster_extensions[extension_num].first;
-                    
-                    // Get an Alignments best_ and second_best_alignment of it somehow, and throw it in.
-                    Alignment best_alignment = aln;
-                    Alignment second_best_alignment = aln;
-                    
-                    if (extensions[0].full()) {
-                        // We got full-length extensions, so directly convert to an Alignment.
-                        
-                        if (track_provenance) {
-                            funnels[read_num].substage("direct");
-                        }
-    
-                        //Fill in the best alignments from the extension
-                        
-                        *best_alignment.mutable_path() = extensions.front().to_path(gbwt_graph, best_alignment.sequence());
-                        size_t mismatch_count = extensions.front().mismatches();
-                        double identity = best_alignment.sequence().size() == 0 ? 0.0 
-                                : (best_alignment.sequence().size() - mismatch_count) / (double) best_alignment.sequence().size();
-                        
-                        // Fill in the score and identity
-                        best_alignment.set_score(extensions.front().score);
-                        best_alignment.set_identity(identity);
-    
-                        if (extensions.size() > 1) {
-                            //Do the same thing for the second extension, if one exists
-                            *second_best_alignment.mutable_path() = extensions.back().to_path(gbwt_graph, second_best_alignment.sequence());
-                            size_t mismatch_count = extensions.back().mismatches();
-                            double identity = second_best_alignment.sequence().size() == 0 ? 0.0 
-                                    : (second_best_alignment.sequence().size() - mismatch_count) / (double) second_best_alignment.sequence().size();
-                            
-                            // Fill in the score and identity
-                            second_best_alignment.set_score(extensions.back().score);
-                            second_best_alignment.set_identity(identity);
-                        }
-    
-                        if (track_provenance) {
-                            // Stop the current substage
-                            funnels[read_num].substage_stop();
-                        }
-                    } else if (do_dp) {
-                        // We need to do chaining.
-                        
-                        if (track_provenance) {
-                            funnels[read_num].substage("chain");
-                        }
-                        
-                        // Do the DP and compute alignment into best_alignment and
-                        // second_best_alignment, if there is a second best
-                        find_optimal_tail_alignments(aln, extensions, best_alignment, second_best_alignment);
-    
-                        
-                        if (track_provenance) {
-                            // We're done chaining. Next alignment may not go through this substage.
-                            funnels[read_num].substage_stop();
-                        }
-                    } else {
-                        // We would do chaining but it is disabled.
-                        // Leave best_alignment unaligned
-                    }
-                    
-                    
-                    size_t fragment_num = cluster_extensions[extension_num].second;
-                    if (second_best_alignment.score() != 0 && 
-                        second_best_alignment.score() > best_alignment.score() * 0.8) {
-                        //If there is a second extension and its score is at least half of the best score
-                        read_num == 0 ? alignments[fragment_num ].first.emplace_back(std::move(second_best_alignment) ) :
-                                        alignments[fragment_num ].second.emplace_back(std::move(second_best_alignment));
-                        read_num == 0 ? alignment_indices[fragment_num].first.emplace_back(curr_funnel_index)
-                                      : alignment_indices[fragment_num].second.emplace_back(curr_funnel_index);
-                            curr_funnel_index++;
-    
-                        if (track_provenance) {
-            
-                            funnels[read_num].project(extension_num);
-                            read_num == 0 ? funnels[read_num].score(extension_num, alignments[fragment_num ].first.back().score()) :
-                                            funnels[read_num].score(extension_num, alignments[fragment_num].second.back().score());
-                            // We're done with this input item
-                            funnels[read_num].processed_input();
-                        }
-                    }
-    
-                    read_num == 0 ? alignments[fragment_num].first.emplace_back(std::move(best_alignment))
-                                  : alignments[fragment_num].second.emplace_back(std::move(best_alignment));
-                    read_num == 0 ? alignment_indices[fragment_num].first.emplace_back(curr_funnel_index)
-                                  : alignment_indices[fragment_num].second.emplace_back(curr_funnel_index);
-    
-                    curr_funnel_index++; 
-                    has_extension[fragment_num] = true;
-                }
                 if (track_provenance) {
                     funnels[read_num].fail("extension-set", extension_num, cluster_extension_scores[extension_num]);
                 }
@@ -2067,8 +1831,8 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& 
     SubHandleGraph sub_graph(path_graph);
     //TODO: maybe should be gbwt_graph
     //TODO: How big should the rescue subgraph be?
-    int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - 2*fragment_length_distr.stdev());
-    int64_t max_distance = fragment_length_distr.mean() + 2*fragment_length_distr.stdev();
+    int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4*fragment_length_distr.stdev());
+    int64_t max_distance = fragment_length_distr.mean() + 4*fragment_length_distr.stdev();
     distance_index.subgraphInRange(aligned_read.path(), path_graph, min_distance, max_distance, sub_graph, rescue_forward); 
 
 
