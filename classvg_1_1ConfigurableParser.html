@@ -76,8 +76,8 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a43ef14957a4270116687a11bd6c41aa2"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ConfigurableParser.html#a43ef14957a4270116687a11bd6c41aa2">ConfigurableParser</a> (const char *base_short_options=nullptr, const struct option *base_long_options=nullptr, function&lt; void(int)&gt; <a class="el" href="classvg_1_1ConfigurableParser.html#a0c39f36cf64d91a336afaac0604ff9f0">handle_base_option</a>=[](int c) { <a class="el" href="yeet_8hpp.html#a7bddcde37a1eba55700826773e82007e">yeet</a> runtime_error(&quot;Invalid option: &quot;+string(1,(char) c));})</td></tr>
-<tr class="separator:a43ef14957a4270116687a11bd6c41aa2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad04ba6f1c85aa2ab15b93e51c4a093f7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ConfigurableParser.html#ad04ba6f1c85aa2ab15b93e51c4a093f7">ConfigurableParser</a> (const char *base_short_options=nullptr, const struct option *base_long_options=nullptr, function&lt; void(int)&gt; <a class="el" href="classvg_1_1ConfigurableParser.html#a0c39f36cf64d91a336afaac0604ff9f0">handle_base_option</a>=[](int c) { throw runtime_error(&quot;Invalid option: &quot;+string(1,(char) c));})</td></tr>
+<tr class="separator:ad04ba6f1c85aa2ab15b93e51c4a093f7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3c42646beeac7fb48f57c44f1420ec7b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ConfigurableParser.html#a3c42646beeac7fb48f57c44f1420ec7b">register_configurable</a> (<a class="el" href="classvg_1_1Configurable.html">Configurable</a> *configurable)</td></tr>
 <tr class="separator:a3c42646beeac7fb48f57c44f1420ec7b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a29abcf4fbb780c4e586130b095aa0098"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ConfigurableParser.html#a29abcf4fbb780c4e586130b095aa0098">print_help</a> (ostream &amp;out) const</td></tr>
@@ -112,8 +112,8 @@ Private Attributes</h2></td></tr>
 <div class="textblock"><p>Actual implementation class that connects a bunch of <a class="el" href="classvg_1_1Configurable.html">Configurable</a> things to getopt.</p>
 <p>TODO: right now every option must have a long option and a char short option. In theory we can use any int as an ID for a long option. We should support long options with untypeable or non-char option IDs. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a43ef14957a4270116687a11bd6c41aa2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a43ef14957a4270116687a11bd6c41aa2">&#9670;&nbsp;</a></span>ConfigurableParser()</h2>
+<a id="ad04ba6f1c85aa2ab15b93e51c4a093f7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad04ba6f1c85aa2ab15b93e51c4a093f7">&#9670;&nbsp;</a></span>ConfigurableParser()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -134,7 +134,7 @@ Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">function&lt; void(int)&gt;&#160;</td>
-          <td class="paramname"><em>handle_base_option</em> = <code>[](int&#160;c)&#160;{&#160;<a class="el" href="yeet_8hpp.html#a7bddcde37a1eba55700826773e82007e">yeet</a>&#160;runtime_error(&quot;Invalid&#160;option:&#160;&quot;&#160;+&#160;string(1,&#160;(char)&#160;c));&#160;}</code>&#160;</td>
+          <td class="paramname"><em>handle_base_option</em> = <code>[](int&#160;c)&#160;{&#160;throw&#160;runtime_error(&quot;Invalid&#160;option:&#160;&quot;&#160;+&#160;string(1,&#160;(char)&#160;c));&#160;}</code>&#160;</td>
         </tr>
         <tr>
           <td></td>

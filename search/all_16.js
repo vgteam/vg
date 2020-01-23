@@ -63,7 +63,6 @@ var searchData=
   ['vg_5fset_2ecpp',['vg_set.cpp',['../vg__set_8cpp.html',1,'']]],
   ['vg_5fset_2ehpp',['vg_set.hpp',['../vg__set_8hpp.html',1,'']]],
   ['vg_5fstandard_5flibrary_5fversion',['VG_STANDARD_LIBRARY_VERSION',['../version_8cpp.html#a923fcc9a50a1ddbec3aa567d4f91d576',1,'version.cpp']]],
-  ['vg_5fyeet_5fhpp_5fincluded',['VG_YEET_HPP_INCLUDED',['../json2pb_8cpp.html#a0d0b20e58eb9969c9ce02bae16b1d918',1,'json2pb.cpp']]],
   ['vgalignmentemitter',['VGAlignmentEmitter',['../classvg_1_1VGAlignmentEmitter.html',1,'vg::VGAlignmentEmitter'],['../classvg_1_1VGAlignmentEmitter.html#abe7d2e13b9d7acfe0cb49176a9779a0a',1,'vg::VGAlignmentEmitter::VGAlignmentEmitter()']]],
   ['vgset',['VGset',['../classvg_1_1VGset.html',1,'vg::VGset'],['../classvg_1_1VGset.html#a5ff9a6c4fa0223bcee7072f86a657751',1,'vg::VGset::VGset()'],['../classvg_1_1VGset.html#a6adbb25be82de20911fd901da4e9fe41',1,'vg::VGset::VGset(vector&lt; string &gt; &amp;files)']]],
   ['view_5fmain_2ecpp',['view_main.cpp',['../view__main_8cpp.html',1,'']]],
