@@ -2891,9 +2891,6 @@ namespace vg {
         // the longest path we could possibly align to (full gap and a full sequence)
         size_t target_length = alignment.sequence().size() + get_aligner()->longest_detectable_gap(alignment);
         
-        // convert from bidirected to directed
-        bdsg::HashGraph align_graph;
-        
         // check if we can get away with using only one strand of the graph
         bool use_single_stranded = algorithms::is_single_stranded(graph);
         bool mem_strand = false;
@@ -2912,10 +2909,23 @@ namespace vg {
         cerr << "use_single_stranded: " << use_single_stranded << " mem_strand: " << mem_strand << endl;
 #endif
         
-        // make our options of for single stranded graphs
-        IdentityOverlay fwd_graph(&align_graph);
-        ReverseGraph rev_graph(&align_graph, true);
-        StrandSplitGraph split_graph(&align_graph);
+#ifdef debug_multipath_mapper_alignment
+        cerr << "initial alignment graph:" << endl;
+        graph->for_each_handle([&](const handle_t& h) {
+            cerr << graph->get_id(h) << " " << graph->get_sequence(h);
+            graph->follow_edges(h, false, [&](const handle_t& n) {
+                cerr << "\t-> " << graph->get_id(n) << " " << (graph->get_is_reverse(n) ? "-" : "+") << endl;
+            });
+            graph->follow_edges(h, true, [&](const handle_t& n) {
+                cerr << "\t " << graph->get_id(n) << " " << (graph->get_is_reverse(n) ? "-" : "+") << " <-" << endl;
+            });
+        });
+#endif
+        
+        // make our options for single stranded graphs
+        IdentityOverlay fwd_graph(graph);
+        ReverseGraph rev_graph(graph, true);
+        StrandSplitGraph split_graph(graph);
         
         // choose which one we want
         ExpandingOverlayGraph* align_digraph = nullptr;
@@ -2955,8 +2965,22 @@ namespace vg {
         
         function<pair<id_t, bool>(id_t)> translator = [&](const id_t& node_id) {
             handle_t original = align_digraph->get_underlying_handle(align_dag->get_underlying_handle(align_dag->get_handle(node_id)));
-            return make_pair(align_graph.get_id(original), align_graph.get_is_reverse(original));
+            return make_pair(graph->get_id(original), graph->get_is_reverse(original));
         };
+        
+#ifdef debug_multipath_mapper_alignment
+        cerr << "final alignment graph:" << endl;
+        align_dag->for_each_handle([&](const handle_t& h) {
+            auto tr = translator(align_dag->get_id(h));
+            cerr << align_dag->get_id(h) << " (" << tr.first << (tr.second ? "-" : "+") << ") " << align_dag->get_sequence(h);
+            align_dag->follow_edges(h, false, [&](const handle_t& n) {
+                cerr << "\t-> " << align_dag->get_id(n) << " " << (align_dag->get_is_reverse(n) ? "-" : "+") << endl;
+            });
+            align_dag->follow_edges(h, true, [&](const handle_t& n) {
+                cerr << "\t " << align_dag->get_id(n) << " " << (align_dag->get_is_reverse(n) ? "-" : "+") << " <-" << endl;
+            });
+        });
+#endif
         
         MultipathAlignmentGraph multi_aln_graph(*align_dag, graph_mems, translator, max_branch_trim_length, gcsa);
         
