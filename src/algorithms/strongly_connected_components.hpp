@@ -10,7 +10,8 @@ namespace algorithms {
 
 using namespace std;
 
-/// Find all of the nodes with no edges on their left sides.
+// TODO: is this the return value we really want?
+/// Identify strongly connected components
 vector<unordered_set<id_t>> strongly_connected_components(const HandleGraph* g);
     
 }

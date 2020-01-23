@@ -2,27 +2,26 @@
 #define VG_DAGIFIED_GRAPH_HPP_INCLUDED
 
 /** \file
- * reverse_graph.hpp: defines a handle graph implementation that reverses the sequences
- * of some other graph
+ * dagified_graph.hpp: defines a handle graph overlay implementation transforms cyclic graphs into DAGs
  */
 
 #include "handle.hpp"
-#include "utility.hpp"
+#include "algorithms/eades_algorithm.hpp"
+#include "algorithms/strongly_connected_components.hpp"
 
 namespace vg {
 
 using namespace std;
 
     /**
-     * A HandleGraph implementation that wraps some other handle graph and reverses
-     * and optionally complements the sequences.
+     * A HandleGraph implementation that wraps some other handle graph and converts it into a
+     * DAG, preserving all paths up a a minimum length.
      */
     class DagifiedGraph : public ExpandingOverlayGraph {
     public:
         
-        /// Initialize as the reverse version of another graph, optionally also
-        /// complementing
-        DagifiedGraph(const HandleGraph* forward_graph, bool complement);
+        /// Expand a single-stranded graph into a DAG, preserving alll walks up to the minimum length.
+        DagifiedGraph(const HandleGraph* graph, size_t min_preserved_path_length);
         
         /// Default constructor -- not actually functional
         DagifiedGraph() = default;
@@ -77,7 +76,7 @@ using namespace std;
         
         /// Return the largest ID in the graph, or some larger number if the
         /// largest ID is unavailable. Return value is unspecified if the graph is empty.
-        id_t max_node_id() const
+        id_t max_node_id() const;
         
         
         ///////////////////////////////////
@@ -92,8 +91,60 @@ using namespace std;
         
     protected:
         
-        /// The forward version of the graph we're making backwards
+        /*
+         * Helper methods
+         */
+        
+        /// Helper function to identify which ordinal copy of a strongly connected component
+        /// in the underlying graph the handle belongs to
+        uint64_t scc_copy_of_handle(const handle_t& handle) const;
+        
+        /// Helper function to identify which ordinal copy of a strongly connected component
+        /// in the underlying graph the node ID belongs to
+        uint64_t scc_copy_of_node_id(const id_t& node_id) const;
+        
+        /// Helper function that returns the layout order of a handle from the underlying graph
+        size_t layout_order_of_handle(const handle_t& handle) const;
+        
+        /// Helper function to identify the node ID in the original graph that corresponds to a
+        /// node in the dagified graph
+        id_t get_underlying_id(const id_t& node_id) const;
+        
+        /// Helper function, returns the n-th copy in the dagified graph of a handle in the underlying graph
+        handle_t nth_copy_of_handle(const handle_t& handle, const uint64_t& n) const;
+                
+        /*
+         * Member variables
+         */
+                
+        /// The underlying graph we're dagifiying
         const HandleGraph* graph = nullptr;
+        
+        /// Map from a canonical orientation of underlying handles (not necessarily forward!)
+        /// to the ordinal position of the node in a low-FAS layout
+        unordered_map<handle_t, size_t> layout_order;
+        
+        /// The ID of the strongly connected component that the handle at each layout position
+        /// belongs to
+        vector<uint64_t> scc_of_handle;
+        
+        /// The number of times each strongly connected component is duplicated in the
+        /// dagified graph
+        vector<uint64_t> scc_copy_count;
+        
+        /// The minimum value of a handle in the underlying graph, interpreted as an integer
+        uint64_t min_handle = std::numeric_limits<uint64_t>::max();
+        
+        /// The width of the range of values that handles in the underlying graph take
+        uint64_t handle_val_range = 0;
+        
+        /// The number of nodes including duplicated nodes, computed during construction
+        size_t node_count = 0;
+        
+        /// The maximum ID of the graph, computed during construction
+        id_t max_id = std::numeric_limits<uint64_t>::min();
+        
+    };
 }
 
 #endif
