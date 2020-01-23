@@ -286,7 +286,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
     }
 }
     
-TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][multipathmapper][failing]" ) {
+TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][multipathmapper]" ) {
     
     string graph_json = R"({
         "node": [{"id": 1, "sequence": "GATTACA"}],
