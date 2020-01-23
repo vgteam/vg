@@ -42,14 +42,14 @@ using namespace std;
         return graph->get_sequence(handle);
     }
     
-    bool IdentityOverlay::follow_edges(const handle_t& handle, bool go_left,
+    bool IdentityOverlay::follow_edges_impl(const handle_t& handle, bool go_left,
                                       const function<bool(const handle_t&)>& iteratee) const {
         return graph->follow_edges(handle, go_left, iteratee);
     }
     
-    void IdentityOverlay::for_each_handle(const function<bool(const handle_t&)>& iteratee,
+    bool IdentityOverlay::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee,
                                           bool parallel) const {
-        graph->for_each_handle(iteratee, parallel);
+        return graph->for_each_handle(iteratee, parallel);
     }
     
     size_t IdentityOverlay::get_node_count() const {

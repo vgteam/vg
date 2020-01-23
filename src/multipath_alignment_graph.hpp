@@ -44,9 +44,17 @@ namespace vg {
         /// making it a member.
         static unordered_multimap<id_t, pair<id_t, bool>> create_injection_trans(const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
         
+        /// Create the constant injection translation data from a function instead
+        /// of a map
+        static unordered_multimap<id_t, pair<id_t, bool>> create_injection_trans(const HandleGraph& graph,
+                                                                                 const function<pair<id_t, bool>(id_t)>& project);
+        
         /// Create an identity projection translation from a DAG that did not
         /// need to be modified during dagification.
         static unordered_map<id_t, pair<id_t, bool>> create_identity_projection_trans(const HandleGraph& graph);
+        
+        /// Create a lambda function that projects using a map that projects
+        static function<pair<id_t, bool>(id_t)> create_projector(const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
         
         /// Construct a graph of the reachability between MEMs in a DAG-ified
         /// graph. If a GCSA is specified, use it to collapse MEMs whose
@@ -55,7 +63,7 @@ namespace vg {
         /// is sorted by primarily length and secondarily lexicographically by
         /// read interval.
         MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
-                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                const function<pair<id_t, bool>(id_t)>& project,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                 size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr);
                                 
@@ -64,24 +72,40 @@ namespace vg {
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                 size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr);
         
+        /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
+        /// using a lambda for a projector
+        MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
+                                const function<pair<id_t, bool>(id_t)>& project,
+                                size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr);
+        
         /// Construct a graph of the reachability between MEMs in a linearized
         /// path graph. Produces a graph with reachability edges.
         MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
-                                const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
        
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
         MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
                                 const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
         
+        /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
+        /// using a lambda for a projector
+        MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+                                const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project);
+        
         /// Make a multipath alignment graph using the path of a single-path alignment
         MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
-                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                const function<pair<id_t, bool>(id_t)>& project,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
         
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
         MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
+        
+        /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
+        /// using a function instead of a map
+        MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
+                                const function<pair<id_t, bool>(id_t)>& project);
         
         ~MultipathAlignmentGraph();
         
@@ -114,7 +138,7 @@ namespace vg {
         /// Cut the interior of snarls out of anchoring paths (and split
         /// alignment nodes accordingly) unless they are longer than the max
         /// cut size. Reachability edges must be cleared.
-        void resect_snarls_from_paths(SnarlManager* cutting_snarls, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+        void resect_snarls_from_paths(SnarlManager* cutting_snarls, const function<pair<id_t, bool>(id_t)>& project,
                                       int64_t max_snarl_cut_size = 5);
         
         /// Do some exploratory alignments of the tails of the graph, outside
@@ -132,7 +156,7 @@ namespace vg {
         
         /// Add edges between reachable nodes and split nodes at overlaps
         void add_reachability_edges(const HandleGraph& vg,
-                                    const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                    const function<pair<id_t, bool>(id_t)>& project,
                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
                                     
         /// Do intervening and tail alignments between the anchoring paths and
@@ -198,12 +222,12 @@ namespace vg {
         
         /// Add the path chunks as nodes to the connectivity graph
         void create_path_chunk_nodes(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
-                                     const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                     const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
         
         /// Walk out MEMs into match nodes and filter out redundant sub-MEMs
         void create_match_nodes(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
-                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                const function<pair<id_t, bool>(id_t)>& project,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
         
         /// Identifies runs of exact matches that are sub-maximal because they hit the order of the GCSA

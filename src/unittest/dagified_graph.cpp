@@ -432,7 +432,7 @@ namespace unittest {
         
         size_t num_trials = 1000;
         for (size_t i = 0; i < num_trials; ++i) {
-
+ 
             bdsg::HashGraph graph;
             random_graph(seq_size, variant_len, variant_count, &graph);
 

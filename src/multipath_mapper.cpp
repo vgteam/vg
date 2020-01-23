@@ -485,17 +485,22 @@ namespace vg {
         size_t target_length = other_aln.sequence().size() + get_aligner()->longest_detectable_gap(other_aln);
         
         // convert from bidirected to directed
-        bdsg::HashGraph align_graph;
-        unordered_map<id_t, pair<id_t, bool> > node_trans = algorithms::split_strands(&rescue_graph, &align_graph);
-        // if necessary, convert from cyclic to acylic
-        if (!algorithms::is_directed_acyclic(&rescue_graph)) {
-            // make a dagified graph and translation
-            bdsg::HashGraph dagified;
-            unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
-            
-            // replace the original with the dagified ones
-            align_graph = move(dagified);
-            node_trans = overlay_node_translations(dagify_trans, node_trans);
+        StrandSplitGraph align_digraph(&rescue_graph);
+        
+        // if necessary, convert from cyclic to acylic (this is expensive, so only do it if we need to)
+        IdentityOverlay undagified(&align_digraph);
+        DagifiedGraph* dagified = nullptr;
+        
+        ExpandingOverlayGraph* align_dag = nullptr;
+        if (algorithms::is_directed_acyclic(&align_digraph)) {
+            align_dag = &undagified;
+        }
+        else {
+#ifdef debug_multipath_mapper_alignment
+            cerr << "graph contains directed cycles, performing dagification" << endl;
+#endif
+            dagified = new DagifiedGraph(&align_digraph, target_length);
+            align_dag = dagified;
         }
         
         // put local alignment here
@@ -503,10 +508,14 @@ namespace vg {
         // in case we're realigning a GAM, get rid of the path
         aln.clear_path();
         
-        get_aligner()->align(aln, align_graph, true, false);
+        get_aligner()->align(aln, *align_dag, true, false);
         
         // get the IDs back into the space of the reference graph
-        translate_oriented_node_ids(*aln.mutable_path(), node_trans);
+        function<pair<id_t, bool>(id_t)> translator = [&](const id_t& node_id) {
+            handle_t original = align_digraph.get_underlying_handle(align_dag->get_underlying_handle(align_dag->get_handle(node_id)));
+            return make_pair(rescue_graph.get_id(original), rescue_graph.get_is_reverse(original));
+        };
+        translate_oriented_node_ids(*aln.mutable_path(), translator);
         
 #ifdef debug_multipath_mapper
         cerr << "resecued direct alignment is" << endl;
@@ -515,7 +524,7 @@ namespace vg {
         
         if (num_alt_alns > 1 && snarl_manager != nullptr) {
             // make an interesting multipath alignment by realigning the single path alignment inside snarls
-            make_nontrivial_multipath_alignment(aln, align_graph, node_trans, *snarl_manager, rescue_multipath_aln);
+            make_nontrivial_multipath_alignment(aln, *align_dag, translator, *snarl_manager, rescue_multipath_aln);
             
         }
         else {
@@ -552,6 +561,9 @@ namespace vg {
 #endif
             return false;
         }
+        
+        // clean up (safe on nullptr)
+        delete dagified;
         
         return true;
     }
@@ -2880,7 +2892,6 @@ namespace vg {
         size_t target_length = alignment.sequence().size() + get_aligner()->longest_detectable_gap(alignment);
         
         // convert from bidirected to directed
-        unordered_map<id_t, pair<id_t, bool> > node_trans;
         bdsg::HashGraph align_graph;
         
         // check if we can get away with using only one strand of the graph
@@ -2900,38 +2911,40 @@ namespace vg {
 #ifdef debug_multipath_mapper_alignment
         cerr << "use_single_stranded: " << use_single_stranded << " mem_strand: " << mem_strand << endl;
 #endif
-        if (use_single_stranded) {
-            if (mem_strand) {
-                node_trans = algorithms::reverse_complement_graph(graph, &align_graph);
-            }
-            else {
-                // if we are using only the forward strand of the current graph, a make trivial node translation so
-                // the later code's expectations are met
-                // TODO: can we do this without the copy constructor?
-                align_graph = *graph;
-                node_trans.reserve(graph->get_node_count());
-                graph->for_each_handle([&](const handle_t& handle) {
-                    node_trans[graph->get_id(handle)] = make_pair(graph->get_id(handle), false);
-                    return true;
-                });
-            }
+        
+        // make our options of for single stranded graphs
+        IdentityOverlay fwd_graph(&align_graph);
+        ReverseGraph rev_graph(&align_graph, true);
+        StrandSplitGraph split_graph(&align_graph);
+        
+        // choose which one we want
+        ExpandingOverlayGraph* align_digraph = nullptr;
+        if (!use_single_stranded) {
+            align_digraph = &split_graph;
+        }
+        else if (mem_strand) {
+            align_digraph = &rev_graph;
         }
         else {
-            node_trans = algorithms::split_strands(graph, &align_graph);
+            align_digraph = &fwd_graph;
         }
 
-        // if necessary, convert from cyclic to acylic
-        if (!algorithms::is_directed_acyclic(&align_graph)) {
+        // if necessary, convert from cyclic to acylic (can be expensive to construct, only do it
+        // if we need to)
+        
+        IdentityOverlay undagified(align_digraph);
+        DagifiedGraph* dagified = nullptr;
+        
+        ExpandingOverlayGraph* align_dag = nullptr;
+        if (algorithms::is_directed_acyclic(align_digraph)) {
+            align_dag = &undagified;
+        }
+        else {
 #ifdef debug_multipath_mapper_alignment
             cerr << "graph contains directed cycles, performing dagification" << endl;
 #endif
-            // make a dagified graph and translation
-            bdsg::HashGraph dagified;
-            unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
-            
-            // replace the original with the dagified ones
-            align_graph = move(dagified);
-            node_trans = overlay_node_translations(dagify_trans, node_trans);
+            dagified = new DagifiedGraph(align_digraph, target_length);
+            align_dag = dagified;
         }
         
 #ifdef debug_multipath_mapper_alignment
@@ -2939,9 +2952,13 @@ namespace vg {
 #endif
         
         // construct a graph that summarizes reachability between MEMs
-        // First we need to reverse node_trans
-        auto node_inj = MultipathAlignmentGraph::create_injection_trans(node_trans);
-        MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, node_trans, node_inj, max_branch_trim_length, gcsa);
+        
+        function<pair<id_t, bool>(id_t)> translator = [&](const id_t& node_id) {
+            handle_t original = align_digraph->get_underlying_handle(align_dag->get_underlying_handle(align_dag->get_handle(node_id)));
+            return make_pair(align_graph.get_id(original), align_graph.get_is_reverse(original));
+        };
+        
+        MultipathAlignmentGraph multi_aln_graph(*align_dag, graph_mems, translator, max_branch_trim_length, gcsa);
         
         {
             // Compute a topological order over the graph
@@ -2965,7 +2982,7 @@ namespace vg {
 #endif
 
                 // Make fake anchor paths to cut the snarls out of in the tails
-                multi_aln_graph.synthesize_tail_anchors(alignment, align_graph, get_aligner(), min_tail_anchor_length, num_alt_alns, false);
+                multi_aln_graph.synthesize_tail_anchors(alignment, *align_dag, get_aligner(), min_tail_anchor_length, num_alt_alns, false);
                 
             }
        
@@ -2975,7 +2992,7 @@ namespace vg {
 #endif
         
             // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
-            multi_aln_graph.resect_snarls_from_paths(snarl_manager, node_trans, max_snarl_cut_size);
+            multi_aln_graph.resect_snarls_from_paths(snarl_manager, translator, max_snarl_cut_size);
         }
 
 
@@ -2993,13 +3010,13 @@ namespace vg {
 #endif
         
         function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
-            size_t read_length = seq.sequence().end() - seq.sequence().begin();
+            size_t read_length = seq.sequence().size();
             return read_length < band_padding_memo.size() ? band_padding_memo.at(read_length)
                                                           : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
         };
         
         // do the connecting alignments and fill out the MultipathAlignment object
-        multi_aln_graph.align(alignment, align_graph, get_aligner(), true, num_alt_alns, dynamic_max_alt_alns, choose_band_padding, multipath_aln_out);
+        multi_aln_graph.align(alignment, *align_dag, get_aligner(), true, num_alt_alns, dynamic_max_alt_alns, choose_band_padding, multipath_aln_out);
         
         // Note that we do NOT topologically order the MultipathAlignment. The
         // caller has to do that, after it is finished breaking it up into
@@ -3009,16 +3026,19 @@ namespace vg {
         cerr << "multipath alignment before translation: " << pb2json(multipath_aln_out) << endl;
 #endif
         for (size_t j = 0; j < multipath_aln_out.subpath_size(); j++) {
-            translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), node_trans);
+            translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), translator);
         }
         
 #ifdef debug_multipath_mapper_alignment
         cerr << "completed multipath alignment: " << pb2json(multipath_aln_out) << endl;
 #endif
+        
+        // clean up (safe on nullptr if we didn't choose it)
+        delete dagified;
     }
             
     void MultipathMapper::make_nontrivial_multipath_alignment(const Alignment& alignment, const HandleGraph& subgraph,
-                                                              unordered_map<id_t, pair<id_t, bool>>& translator,
+                                                              const function<pair<id_t, bool>(id_t)>& translator,
                                                               SnarlManager& snarl_manager, MultipathAlignment& multipath_aln_out) const {
         
 #ifdef debug_multipath_mapper_alignment
