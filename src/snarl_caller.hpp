@@ -27,23 +27,30 @@ class SnarlCaller {
 public:
     virtual ~SnarlCaller();
 
+    /// implementation-dependent metadata for calls that get paseed between genotype()
+    /// and update_vcf_info().
+    struct CallInfo {
+        virtual ~CallInfo() = default;
+    };
+
     /// Get the genotype of a site
     /// snarl : site
     /// traversals : all traversals to consider
     /// ref_trav_idx : index of reference path traversal in traversals (in case it needs special treatment)
     /// ref_path : the reference path associated with the snarl
     /// ref_range : the interval along the reference path (forward coordinates) spanned by snarl
-    virtual vector<int> genotype(const Snarl& snarl,
-                                 const vector<SnarlTraversal>& traversals,
-                                 int ref_trav_idx,
-                                 int ploidy,
-                                 const string& ref_path_name,
-                                 pair<size_t, size_t> ref_range) = 0;
+    virtual pair<vector<int>, unique_ptr<CallInfo>> genotype(const Snarl& snarl,
+                                                             const vector<SnarlTraversal>& traversals,
+                                                             int ref_trav_idx,
+                                                             int ploidy,
+                                                             const string& ref_path_name,
+                                                             pair<size_t, size_t> ref_range) = 0;
     
     /// Update INFO and FORMAT fields of the called variant
     virtual void update_vcf_info(const Snarl& snarl,
                                  const vector<SnarlTraversal>& traversals,
                                  const vector<int>& genotype,
+                                 const unique_ptr<CallInfo>& call_info,
                                  const string& sample_name,
                                  vcflib::Variant& variant) = 0;
 
@@ -70,6 +77,7 @@ public:
     virtual void update_vcf_info(const Snarl& snarl,
                                  const vector<SnarlTraversal>& traversals,
                                  const vector<int>& genotype,
+                                 const unique_ptr<CallInfo>& call_info,
                                  const string& sample_name,
                                  vcflib::Variant& variant);
 
@@ -130,17 +138,18 @@ public:
     void set_het_bias(double het_bias, double ref_het_bias = 0.);
 
     /// Get the genotype of a site
-    virtual vector<int> genotype(const Snarl& snarl,
-                                 const vector<SnarlTraversal>& traversals,
-                                 int ref_trav_idx,
-                                 int ploidy,
-                                 const string& ref_path_name,
-                                 pair<size_t, size_t> ref_range);
+    virtual pair<vector<int>, unique_ptr<CallInfo>> genotype(const Snarl& snarl,
+                                                             const vector<SnarlTraversal>& traversals,
+                                                             int ref_trav_idx,
+                                                             int ploidy,
+                                                             const string& ref_path_name,
+                                                             pair<size_t, size_t> ref_range);
 
     /// Update INFO and FORMAT fields of the called variant
     virtual void update_vcf_info(const Snarl& snarl,
                                  const vector<SnarlTraversal>& traversals,
                                  const vector<int>& genotype,
+                                 const unique_ptr<CallInfo>& call_info,
                                  const string& sample_name,
                                  vcflib::Variant& variant);
 
@@ -190,18 +199,26 @@ public:
                               const algorithms::BinnedDepthIndex& depth_index);
     virtual ~PoissonSupportSnarlCaller();
 
+    struct PoissonCallInfo : public SnarlCaller::CallInfo {
+        virtual ~PoissonCallInfo() = default;
+        double gq;
+        double posterior;
+        double expected_depth;
+    };
+
     /// Get the genotype of a site
-    virtual vector<int>  genotype(const Snarl& snarl,
-                                       const vector<SnarlTraversal>& traversals,
-                                       int ref_trav_idx,
-                                       int ploidy,
-                                       const string& ref_path_name,
-                                       pair<size_t, size_t> ref_range);
+    virtual pair<vector<int>, unique_ptr<CallInfo>>  genotype(const Snarl& snarl,
+                                                              const vector<SnarlTraversal>& traversals,
+                                                              int ref_trav_idx,
+                                                              int ploidy,
+                                                              const string& ref_path_name,
+                                                              pair<size_t, size_t> ref_range);
     
     /// Update INFO and FORMAT fields of the called variant
     virtual void update_vcf_info(const Snarl& snarl,
                                  const vector<SnarlTraversal>& traversals,
                                  const vector<int>& genotype,
+                                 const unique_ptr<CallInfo>& call_info,
                                  const string& sample_name,
                                  vcflib::Variant& variant);
 

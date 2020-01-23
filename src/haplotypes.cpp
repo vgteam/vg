@@ -294,7 +294,7 @@ int64_t linear_haplo_structure::get_SNP_ref_position(size_t node_id) const {
         return false;
                                           });
     if (!found_lnbr) {
-        yeet runtime_error("SNP at node ID " + to_string(node_id) + " does not have neighbors that can be used to find reference path " + graph.get_path_name(ref_path_handle));
+        throw runtime_error("SNP at node ID " + to_string(node_id) + " does not have neighbors that can be used to find reference path " + graph.get_path_name(ref_path_handle));
     }
     
     // walk back to the right and get the position of the allele that's on the
@@ -312,7 +312,7 @@ int64_t linear_haplo_structure::get_SNP_ref_position(size_t node_id) const {
     });
     
     if (!found_ref_pos) {
-        yeet runtime_error("SNP at node ID " + to_string(node_id) + " is not adjacent to the reference path " + graph.get_path_name(ref_path_handle));
+        throw runtime_error("SNP at node ID " + to_string(node_id) + " is not adjacent to the reference path " + graph.get_path_name(ref_path_handle));
     }
     
     return ref_pos;
@@ -351,7 +351,7 @@ bool linear_haplo_structure::sn_deletion_between_ref(int64_t left, int64_t right
   } else if(gap == 1) {
     return true;
   } else {
-    yeet linearUnrepresentable("indel not of length 1");
+    throw linearUnrepresentable("indel not of length 1");
   }
 }
 
@@ -369,7 +369,7 @@ int64_t linear_haplo_structure::get_ref_following(int64_t node_id) const {
     });
         
     if (refs.empty()) {
-        yeet runtime_error("SNP at node ID " + to_string(node_id) + " does not have a following node on the reference path " + graph.get_path_name(ref_path_handle));
+        throw runtime_error("SNP at node ID " + to_string(node_id) + " does not have a following node on the reference path " + graph.get_path_name(ref_path_handle));
     }
     
     size_t smallest = numeric_limits<size_t>::max();
@@ -400,7 +400,7 @@ linear_haplo_structure::SNVvector linear_haplo_structure::SNVs(const vg::Path& p
     last_pos = get_SNP_ref_position(last_node);
     to_return.push_back(get_SNV_allele(last_node), last_pos, false);
   } else {
-    yeet linearUnrepresentable("not an SNV");
+    throw linearUnrepresentable("not an SNV");
   }
 
   for(size_t i = 1; i < path.mapping_size(); i++) {
@@ -411,18 +411,18 @@ linear_haplo_structure::SNVvector linear_haplo_structure::SNVs(const vg::Path& p
     size_t this_pos;
 
     if(this_type == invalid) {
-      yeet linearUnrepresentable("not an SNV");
+      throw linearUnrepresentable("not an SNV");
     } else if(this_type == snv) {
       this_pos = get_SNP_ref_position(this_node);
       if(this_pos != last_pos + graph.get_length(graph.get_handle(last_node))) {
-        yeet linearUnrepresentable("indel immediately before SNV");
+        throw linearUnrepresentable("indel immediately before SNV");
       }
       to_return.push_back(get_SNV_allele(this_node), this_pos, false);
     } else {
       this_pos = position_assuming_acyclic(this_node);
       if(last_type == snv) {
         if(this_pos != last_pos + graph.get_length(graph.get_handle(last_node))) {
-          yeet linearUnrepresentable("indel immediately after SNV");
+          throw linearUnrepresentable("indel immediately after SNV");
         }
       } else {
         if(sn_deletion_between_ref(last_node, this_node)) {
@@ -454,7 +454,7 @@ size_t linear_haplo_structure::position_assuming_acyclic(int64_t node_id) const 
     });
     
   if (!found_pos) {
-      yeet runtime_error("requested position-in-path of node " + to_string(node_id) + " not in path " + graph.get_path_name(ref_path_handle));
+      throw runtime_error("requested position-in-path of node " + to_string(node_id) + " not in path " + graph.get_path_name(ref_path_handle));
   }
     
   return pos;
@@ -645,11 +645,11 @@ linear_haplo_structure::linear_haplo_structure(istream& slls_index, double log_m
                                                vg::path_handle_t ref_path_handle) : graph(graph), ref_path_handle(ref_path_handle) {
   
   if (log_mut_penalty > 0) {
-    yeet runtime_error("log mutation penalty must be negative");
+    throw runtime_error("log mutation penalty must be negative");
   }
   
   if (log_recomb_penalty > 0) {
-    yeet runtime_error("log recombination penalty must be negative");
+    throw runtime_error("log recombination penalty must be negative");
   }
   
   index = new siteIndex(slls_index);
@@ -692,11 +692,11 @@ bool ScoreProvider::has_incremental_search() const {
 }
 
 IncrementalSearchState ScoreProvider::incremental_find(const vg::Position& pos) const {
-  yeet runtime_error("Incremental search not implemented");
+  throw runtime_error("Incremental search not implemented");
 }
 
 IncrementalSearchState ScoreProvider::incremental_extend(const IncrementalSearchState& state, const vg::Position& pos) const {
-  yeet runtime_error("Incremental search not implemented");
+  throw runtime_error("Incremental search not implemented");
 }
 
 /*******************************************************************************

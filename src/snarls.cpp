@@ -465,7 +465,7 @@ ChainIterator& ChainIterator::operator++() {
             
         if (pos == chain_start) {
             if (is_rend) {
-                yeet runtime_error("Walked off start!");
+                throw runtime_error("Walked off start!");
             }
                 
             // We're already at the start, so next is just going to become rend
@@ -478,7 +478,7 @@ ChainIterator& ChainIterator::operator++() {
         // Walk right
             
         if (pos == chain_end) {
-            yeet runtime_error("Walked off end!");
+            throw runtime_error("Walked off end!");
         }
             
         ++pos;
@@ -577,7 +577,7 @@ ChainIterator chain_begin_from(const Chain& chain, const Snarl* start_snarl, boo
         // We are at the right end of the chain, so go reverse complement
         return chain_rcbegin(chain);
     } else {
-        yeet runtime_error("Tried to view a chain from a snarl not at either end!");
+        throw runtime_error("Tried to view a chain from a snarl not at either end!");
     }
     return ChainIterator();
 }
@@ -591,7 +591,7 @@ ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl, bool 
         // We are at the right end of the chain, so go reverse complement
         return chain_rcend(chain);
     } else {
-        yeet runtime_error("Tried to view a chain from a snarl not at either end!");
+        throw runtime_error("Tried to view a chain from a snarl not at either end!");
     }
     return ChainIterator();
 } 
@@ -1463,7 +1463,7 @@ const Snarl* SnarlManager::manage(const Snarl& not_owned) const {
     if (it == snarl_into.end()) {
         // It's not there. Someone is trying to manage a snarl we don't
         // really own. Complain.
-        yeet runtime_error("Unable to find snarl " +  pb2json(not_owned) + " in SnarlManager");
+        throw runtime_error("Unable to find snarl " +  pb2json(not_owned) + " in SnarlManager");
     }
         
     // Return the official copy of that snarl
@@ -1558,7 +1558,7 @@ vector<Visit> SnarlManager::visits_right(const Visit& visit, const HandleGraph& 
                 to_return.push_back(child_visit);
             } else {
                 // Should never happen
-                yeet runtime_error("Read into child " + pb2json(*child) + " with non-matching traversal");
+                throw runtime_error("Read into child " + pb2json(*child) + " with non-matching traversal");
             }
         } else {
             // We just go into a normal node
@@ -1759,13 +1759,13 @@ handle_t NetGraph::flip(const handle_t& handle) const {
 size_t NetGraph::get_length(const handle_t& handle) const {
     // TODO: We don't really want to support this operation; maybe lengths
     // and sequences should be factored out into another interface.
-    yeet runtime_error("Cannot expose sequence lengths via NetGraph");
+    throw runtime_error("Cannot expose sequence lengths via NetGraph");
 }
     
 string NetGraph::get_sequence(const handle_t& handle) const {
     // TODO: We don't really want to support this operation; maybe lengths
     // and sequences should be factored out into another interface.
-    yeet runtime_error("Cannot expose sequences via NetGraph");
+    throw runtime_error("Cannot expose sequences via NetGraph");
 }
     
 bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
@@ -2284,7 +2284,7 @@ handle_t NetGraph::get_inward_backing_handle(const handle_t& child_handle) const
         // TODO: what if we're reading out of a chain *and* into a unary snarl?
         return child_handle;
     } else {
-        yeet runtime_error("Cannot get backing handle for a handle that is not a handle to a child's node in the net graph");
+        throw runtime_error("Cannot get backing handle for a handle that is not a handle to a child's node in the net graph");
     }
 }
 
@@ -2299,7 +2299,7 @@ handle_t NetGraph::get_handle_from_inward_backing_handle(const handle_t& backing
         // Unary snarl handles are passed through too.
         return backing_handle;
     } else {
-        yeet runtime_error("Cannot assign backing handle to a child chain or unary snarl");
+        throw runtime_error("Cannot assign backing handle to a child chain or unary snarl");
     }
 }
 

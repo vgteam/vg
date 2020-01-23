@@ -305,18 +305,18 @@ void PathChunker::extract_path_component(const string& path_name, MutablePathMut
         path_ids.insert(graph->get_id(handle));
     }
     
-    extract_component(path_ids, subgraph);
+    extract_component(path_ids, subgraph, true);
     out_region.seq = path_name;
 }
 
-void PathChunker::extract_component(const unordered_set<nid_t>& node_ids, MutablePathMutableHandleGraph& subgraph) {
+void PathChunker::extract_component(const unordered_set<nid_t>& node_ids, MutablePathMutableHandleGraph& subgraph, bool subpath_naming) {
 
     for (nid_t node_id : node_ids) {
         subgraph.create_handle(graph->get_sequence(graph->get_handle(node_id)), node_id);
     }
 
     algorithms::expand_subgraph_by_steps(*graph, subgraph, numeric_limits<uint64_t>::max());
-    algorithms::add_subpaths_to_subgraph(*graph, subgraph);
+    algorithms::add_subpaths_to_subgraph(*graph, subgraph, subpath_naming);
 }
 
 void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int64_t context, int64_t length,

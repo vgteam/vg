@@ -1452,6 +1452,20 @@ namespace vg {
         // note: not transferring paired_read_name because it is unclear whether
         // it should go into fragment_prev or fragment_next
     }
+
+    void transfer_read_metadata(const Alignment& from, Alignment& to) {
+        to.set_sequence(from.sequence());
+        to.set_quality(from.quality());
+        to.set_read_group(from.read_group());
+        to.set_name(from.name());
+        to.set_sample_name(from.sample_name());
+        if (from.has_fragment_prev()) {
+            *to.mutable_fragment_prev() = from.fragment_prev();
+        }
+        if (from.has_fragment_next()) {
+            *to.mutable_fragment_next() = from.fragment_next();
+        }
+    }
     
     void merge_non_branching_subpaths(MultipathAlignment& multipath_aln) {
         

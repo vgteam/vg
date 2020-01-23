@@ -1385,7 +1385,7 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
    
     if (haplotype_count == 0 || haplotype_count == -1) {
         // We really should have a haplotype count
-        yeet runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
+        throw runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
     }
     
     // We don't look at strip_bonuses here, because we need these bonuses added

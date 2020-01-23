@@ -60,7 +60,7 @@ tuple<Support, Support, int> TraversalSupportFinder::get_child_support(const Sna
 
 
 Support TraversalSupportFinder::get_traversal_support(const SnarlTraversal& traversal) const {
-    return get_traversal_set_support({traversal}, {}, {}, false, false, false).at(0);
+    return get_traversal_set_support({traversal}, {}, {}, false, {}, false).at(0);
 }
 
 vector<Support> TraversalSupportFinder::get_traversal_genotype_support(const vector<SnarlTraversal>& traversals,
@@ -70,9 +70,9 @@ vector<Support> TraversalSupportFinder::get_traversal_genotype_support(const vec
     set<int> tgt_trav_set(genotype.begin(), genotype.end());
     vector<int> tgt_travs(tgt_trav_set.begin(), tgt_trav_set.end());
     // get the support of just the alleles in the genotype, evenly splitting shared stuff
-    vector<Support> allele_support = get_traversal_set_support(traversals, tgt_travs, tgt_trav_set, false, false, true, ref_trav_idx);
+    vector<Support> allele_support = get_traversal_set_support(traversals, tgt_travs, tgt_trav_set, false, {}, true, ref_trav_idx);
     // get the support of everythin else, treating stuff in the genotype alleles as 0
-    vector<Support> other_support = get_traversal_set_support(traversals, tgt_travs, other_trav_subset, false, true, false, ref_trav_idx);
+    vector<Support> other_support = get_traversal_set_support(traversals, tgt_travs, other_trav_subset, false, allele_support, false, ref_trav_idx);
     // combine the above two vectors
     for (int allele : tgt_travs) {
         other_support[allele] = allele_support[allele];
@@ -84,35 +84,38 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
                                                                   const vector<int>& shared_travs,
                                                                   const set<int>& tgt_travs,
                                                                   bool exclusive_only,
-                                                                  bool exclusive_count,
+                                                                  const vector<Support>& exclusive_count_support,
                                                                   bool mutual_shared,
                                                                   int ref_trav_idx) const {
 
     // mutual_shared only makes sense when everything is shared
     assert(!mutual_shared || shared_travs.size() == traversals.size() || shared_travs.size() == tgt_travs.size());
+    // exclusive_count_support corresponds to traversals
+    assert(exclusive_count_support.empty() || exclusive_count_support.size() == traversals.size());
     
     // pass 1: how many times have we seen a node or edge
-    unordered_map<id_t, int> node_counts;
-    unordered_map<edge_t, int> edge_counts;
-    map<Snarl, int> child_counts;
+    unordered_map<id_t, double> node_counts;
+    unordered_map<edge_t, double> edge_counts;
+    map<Snarl, double> child_counts;
 
     for (auto trav_idx : shared_travs) {
         const SnarlTraversal& trav = traversals[trav_idx];
         for (int i = 0; i < trav.visit_size(); ++i) {
             const Visit& visit = trav.visit(i);
+            double value = exclusive_count_support.empty() ? 1. : support_val(exclusive_count_support[trav_idx]);
             if (visit.node_id() != 0) {
                 // Count the node once
                 if (node_counts.count(visit.node_id())) {
-                    node_counts[visit.node_id()] += 1;
+                    node_counts[visit.node_id()] += value;
                 } else {
-                    node_counts[visit.node_id()] = 1;
+                    node_counts[visit.node_id()] = value;
                 }
             } else {
                 // Count the child once
                 if (child_counts.count(visit.snarl())) {
-                    child_counts[visit.snarl()] += 1;
+                    child_counts[visit.snarl()] += value;
                 } else {
-                    child_counts[visit.snarl()] = 1;
+                    child_counts[visit.snarl()] = value;
                 }
             }
             // note: there is no edge between adjacent snarls as they overlap
@@ -121,9 +124,9 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
                 edge_t edge = to_edge(graph, trav.visit(i - 1), visit);
                 // Count the edge once
                 if (edge_counts.count(edge)) {
-                    edge_counts[edge] += 1;
+                    edge_counts[edge] += value;
                 } else {
-                    edge_counts[edge] = 1;
+                    edge_counts[edge] = value;
                 }
             }
         }
@@ -153,21 +156,31 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
     bool count_end_nodes = false; // toggle to include snarl ends
 
     auto update_support = [&] (int trav_idx, const Support& min_support,
-                               const Support& avg_support, int length, int share_count) {
+                               const Support& avg_support, int length, double share_count) {
         // keep track of overall size of longest traversal
         tot_sizes_all[trav_idx] += length;
         max_trav_size = std::max(tot_sizes_all[trav_idx], max_trav_size);
 
         // apply the scaling
         double denom_add = mutual_shared ? 0 : 1;
-        double scale_factor = ((exclusive_only || exclusive_count) && share_count > 0) ? 0. : 1. / (denom_add + share_count);
+        double scale_factor = (exclusive_only && share_count > 0) ? 0. : 1. / (denom_add + share_count);
         
         // when looking at exclusive support, we don't normalize by skipped lengths
-        if (scale_factor != 0 || !exclusive_only || exclusive_count) {
+        if (scale_factor != 0 || !exclusive_only || !exclusive_count_support.empty()) {
             has_support[trav_idx] = true;
-            Support scaled_support_min = min_support * scale_factor;
-            Support scaled_support_avg = avg_support * scale_factor;
-
+            Support scaled_support_min;
+            Support scaled_support_avg;
+            if (!exclusive_count_support.empty()) {
+                scaled_support_min = min_support * scale_factor;
+                scaled_support_avg = avg_support * scale_factor;
+            } else {
+                if (support_val(min_support) > share_count) {
+                    scaled_support_min.set_forward(support_val(min_support) - share_count);
+                }
+                if (support_val(avg_support) > share_count) {
+                    scaled_support_avg.set_forward(support_val(avg_support) - share_count);
+                }                
+            }
             tot_supports_min[trav_idx] += scaled_support_min;
             tot_supports_avg[trav_idx] += scaled_support_avg * length;
             tot_sizes[trav_idx] += length;
