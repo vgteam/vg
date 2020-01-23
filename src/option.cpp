@@ -128,7 +128,7 @@ void ConfigurableParser::register_configurable(Configurable* configurable) {
         if (long_options_used.count(option->get_long_option())) {
             // TODO: we should try and reassign long options or something if
             // there are collisions.
-            yeet runtime_error("Duplicate long option: --" +
+            throw runtime_error("Duplicate long option: --" +
                 option->get_long_option());
         }
         long_options_used.insert(option->get_long_option());
@@ -148,7 +148,7 @@ void ConfigurableParser::register_configurable(Configurable* configurable) {
         }
         if (assigned == 0) {
             // Die because we ran out of room
-            yeet runtime_error("Unable to assign short option to " + option->get_long_option());
+            throw runtime_error("Unable to assign short option to " + option->get_long_option());
         }
         // Mark the character as used
         available_short_options.erase(assigned);

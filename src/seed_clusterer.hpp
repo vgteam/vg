@@ -4,7 +4,6 @@
 #include "snarls.hpp"
 #include "min_distance.hpp"
 #include "hash_map.hpp"
-#include "yeet.hpp"
 #include <structures/union_find.hpp>
 
 namespace vg{

@@ -165,7 +165,7 @@ void addArbitraryTelomerePair(vector<stCactusEdgeEnd*> ends, stList *telomeres) 
 
     // If empty graph, print warning and exit
     if(ends.empty()) {
-        yeet runtime_error("Empty graph, no telomeres to select");
+        throw runtime_error("Empty graph, no telomeres to select");
     }
 
     // Pick an arbitrary edge end
@@ -315,7 +315,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& grap
     }
     weak_components_all.clear();
     if (weak_components.empty())  {
-        yeet runtime_error("Cactus does not currently support finding snarls in graph of single-node connected components");
+        throw runtime_error("Cactus does not currently support finding snarls in graph of single-node connected components");
     }
        
     // We also want a map so we can efficiently find which component a node lives in.
@@ -380,7 +380,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& grap
             
             if (node_to_component[graph.get_id(handle)] != component) {
                 // If we use a path like this to pick telomeres we will segfault Cactus.
-                yeet runtime_error("Path " + name + " spans multiple connected components!");
+                throw runtime_error("Path " + name + " spans multiple connected components!");
             }
         }
         

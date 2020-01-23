@@ -39,7 +39,7 @@ inline void save_handle_graph(HandleGraph* graph, ostream& os) {
     } else if (dynamic_cast<xg::XG*>(graph) != nullptr) {
         vg::io::VPKG::save(*dynamic_cast<xg::XG*>(graph), os);
     } else {
-        yeet runtime_error("Internal error: unable to serialize graph");
+        throw runtime_error("Internal error: unable to serialize graph");
     }
 }
 
@@ -55,7 +55,7 @@ inline void save_handle_graph(HandleGraph* graph, const string& dest_path) {
     } else if (dynamic_cast<xg::XG*>(graph) != nullptr) {
         vg::io::VPKG::save(*dynamic_cast<xg::XG*>(graph), dest_path);
     } else {
-        yeet runtime_error("Internal error: unable to serialize graph");
+        throw runtime_error("Internal error: unable to serialize graph");
     }    
 }
 

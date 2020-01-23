@@ -3256,7 +3256,7 @@ namespace vg {
                 
                 if (haplotype_count == 0 || haplotype_count == -1) {
                     // We really should have a haplotype count
-                    yeet runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
+                    throw runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
                 }
                 
                 // Make sure to grab the memo
@@ -3596,7 +3596,7 @@ namespace vg {
                 
                 if (haplotype_count == 0 || haplotype_count == -1) {
                     // We really should have a haplotype count
-                    yeet runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
+                    throw runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
                 }
                 
                 // Make sure to grab the memo

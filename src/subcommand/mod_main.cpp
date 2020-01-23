@@ -429,7 +429,7 @@ int main_mod(int argc, char** argv) {
             if(!graph->has_path("_alt_" + var_name + "_0")) {
                 // There isn't a reference alt path for this variant. Someone messed up.
                 cerr << variant << endl;
-                yeet runtime_error("Reference alt for " + var_name + " not in graph!");
+                throw runtime_error("Reference alt for " + var_name + " not in graph!");
             }
 
             // For now always work on sample 0. TODO: let the user specify a

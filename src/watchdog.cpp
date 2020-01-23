@@ -34,7 +34,7 @@ void Watchdog::check_in(size_t thread, const string& task) {
     
     if (t.is_checked_in) {
         // Don't let anyone check in twice
-        yeet runtime_error("vg::Watchdog: Thread " + to_string(thread) +
+        throw runtime_error("vg::Watchdog: Thread " + to_string(thread) +
             " is checked in already on " + t.task_name +
             " but is trying to check in for " + task + "!");
     }
@@ -56,7 +56,7 @@ void Watchdog::check_out(size_t thread) {
     
     if (!t.is_checked_in) {
         // Don't let anyone check out twice
-        yeet runtime_error("vg::Watchdog: Thread " + to_string(thread) +
+        throw runtime_error("vg::Watchdog: Thread " + to_string(thread) +
             " is checked out from last task " + t.task_name +
             " but is trying to check out again!");
     }
