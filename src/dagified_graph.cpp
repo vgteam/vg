@@ -5,6 +5,7 @@
 
 #include "dagified_graph.hpp"
 
+//#define debug_dagify
 
 namespace vg {
 
@@ -183,7 +184,7 @@ using namespace std;
             for (const handle_t& handle : component) {
                 comp_max_id = max(comp_max_id, graph->get_id(handle));
             }
-            max_id = max<id_t>(max_id, comp_max_id + copy_num * (graph->max_node_id() - graph->min_node_id() + 1));
+            max_id = max<id_t>(max_id, comp_max_id + (copy_num - 1) * (graph->max_node_id() - graph->min_node_id() + 1));
         }
     }
     
