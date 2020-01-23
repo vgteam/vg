@@ -10,12 +10,11 @@
 
 #include <string>
 #include <stdexcept>
-#include "yeet.hpp"
 
 inline std::string hex2bin(const std::string &s)
 {
 	if (s.size() % 2)
-		yeet std::runtime_error("Odd hex data size");
+		throw std::runtime_error("Odd hex data size");
 	static const char lookup[] = ""
 		"\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80" // 0x00
 		"\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80" // 0x10
@@ -40,7 +39,7 @@ inline std::string hex2bin(const std::string &s)
 		char hi = lookup[s[i]];
 		char lo = lookup[s[i+1]];
 		if (0x80 & (hi | lo))
-			yeet std::runtime_error("Invalid hex data: " + s.substr(i, 6));
+			throw std::runtime_error("Invalid hex data: " + s.substr(i, 6));
 		r.push_back((hi << 4) | lo);
 	}
 	return r;
@@ -111,7 +110,7 @@ inline std::string b64_decode(const std::string &s)
 	std::string r;
 	if (!s.size()) return r;
 	if (s.size() % 4)
-		yeet std::runtime_error("Invalid base64 data size");
+		throw std::runtime_error("Invalid base64 data size");
 	size_t pad = 0;
 	if (s[s.size() - 1] == '=') pad++;
 	if (s[s.size() - 2] == '=') pad++;
@@ -123,7 +122,7 @@ inline std::string b64_decode(const std::string &s)
 		u1 n2 = lookup[(u1) s[i+2]];
 		u1 n3 = lookup[(u1) s[i+3]];
 		if (0x80 & (n0 | n1 | n2 | n3))
-			yeet std::runtime_error("Invalid hex data: " + s.substr(i, 4));
+			throw std::runtime_error("Invalid hex data: " + s.substr(i, 4));
 		unsigned n = (n0 << 18) | (n1 << 12) | (n2 << 6) | n3;
 		r.push_back((n >> 16) & 0xff);
 		if (s[i+2] != '=') r.push_back((n >> 8) & 0xff);

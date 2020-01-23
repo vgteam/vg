@@ -8,7 +8,6 @@
 
 #include <vg/vg.pb.h>
 #include "handle.hpp"
-#include "yeet.hpp"
 
 #include <gbwt/gbwt.h>
 #include <gbwt/dynamic_gbwt.h>

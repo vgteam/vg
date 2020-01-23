@@ -1874,10 +1874,10 @@ Genotyper::locus_to_variant(VG& graph,
 
     // Make sure we have stuff
     if(locus.allele_size() == 0) {
-        yeet runtime_error("Can't turn an empty genotype into VCF");
+        throw runtime_error("Can't turn an empty genotype into VCF");
     }
     if(locus.allele(0).mapping_size() == 0) {
-        yeet runtime_error("Can't turn an empty allele into VCF");
+        throw runtime_error("Can't turn an empty allele into VCF");
     }
 
     // Get the ultrabubble    

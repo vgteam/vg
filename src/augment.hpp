@@ -9,7 +9,6 @@
 #include <functional>
 
 #include "handle.hpp"
-#include "yeet.hpp"
 
 namespace vg {
 

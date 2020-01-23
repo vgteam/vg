@@ -320,11 +320,11 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                 case 'S':
                     // Soft clip = extra sink?
                     // Probably shouldn't be allowed.
-                    yeet runtime_error("GFA CIGAR contains a soft-clip operation; semantics unclear");
+                    throw runtime_error("GFA CIGAR contains a soft-clip operation; semantics unclear");
                     break;
                 case 'H':
                     // Hard clip = extra sink also, but even weirder than a soft clip.
-                    yeet runtime_error("GFA CIGAR contains a hard-clip operation; semantics unclear");
+                    throw runtime_error("GFA CIGAR contains a hard-clip operation; semantics unclear");
                     break;
                 default:
                     // This is an invalid operation; the GFA is invalid.
@@ -433,7 +433,7 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                     // off our dangling tip tucking algorithm and which
                     // shouldn't happen anyway in a well-behaved alignment.
                     // TODO: accomodate this somehow.
-                    yeet runtime_error("GFA importer cannot (yet) handle adjacent insertions and deletions.");
+                    throw runtime_error("GFA importer cannot (yet) handle adjacent insertions and deletions.");
                 }
                 
                 // Decompose each operation into a series of suboperations.
@@ -497,7 +497,7 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                         break;
                     default:
                         // We should have already checked for weird operations.
-                        yeet runtime_error("Invalid operation " + subelem.second + " in pre-screened CIGAR");
+                        throw runtime_error("Invalid operation " + subelem.second + " in pre-screened CIGAR");
                     }
                     
                     // Work out the sequence-local start of the region in each sequence that it may apply to, which depends on orientation.
@@ -530,7 +530,7 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                             stPinchThread_pinch(source_thread, sink_thread, source_region_start, sink_region_start, length, pinch_same_strand);
                         } else {
                             // If we aren't in always_perfect_match mode this should have become =/X
-                            yeet runtime_error("Encountered unparsed M operation");
+                            throw runtime_error("Encountered unparsed M operation");
                         }
                         break;
                     case '=':
@@ -634,7 +634,7 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                         break;
                     default:
                         // We should have already checked for weird operations twice now.
-                        yeet runtime_error("Invalid operation " + subelem.second + " in pre-screened CIGAR");
+                        throw runtime_error("Invalid operation " + subelem.second + " in pre-screened CIGAR");
                     }
                     
                     // Advance the cursors
@@ -1014,7 +1014,7 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                         << " = " << prev_thread_name << (prev_thread_backward ? 'L' : 'R') 
                         << " to " << path.segment_names[i] << " = " << thread_name << (thread_backward ? 'R' : 'L')
                         << " is not present. The GFA file is malformed!";
-                    yeet runtime_error(msg.str());
+                    throw runtime_error(msg.str());
                 }
                 
                 // Remove the path and skip out on adding the rest of it
