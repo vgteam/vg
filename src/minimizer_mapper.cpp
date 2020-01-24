@@ -767,6 +767,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // We want to have a MAPQ cap based on minimum error bases it would take to
     // have created all our windows we located.
     double mapq_window_breaking_cap = numeric_limits<double>::infinity();
+    size_t minimum_disruptive_bases = 0;
     
     if (located_windows > 0) {
         // Some windows were located, so we can use this algorithm safely
@@ -781,7 +782,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Since each base can disrupt window length - 1 windows on either side, we
         // tile the overlapped windows with windows to work out how many bases
         // would need to change to create them all. This is at least 1.
-        size_t minimum_disruptive_bases = overlapped_window_length / minimizer_index.w();
+        minimum_disruptive_bases = overlapped_window_length / minimizer_index.w();
         // Then we find that many of the lowest base qualities that aren't for Ns (which don't participate in windows)
         // TODO: Replace with C++ 20 https://en.cppreference.com/w/cpp/ranges/filter_view and C++17 std::partial_sort_copy
         // This will have at least one entry since we got at least 1 window.
@@ -811,6 +812,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Remember the uncapped MAPQ and the cap
     set_annotation(mappings[0], "mapq_uncapped", mapq);
     set_annotation(mappings[0], "mapq_window_breaking_cap", mapq_window_breaking_cap);
+    set_annotation(mappings[0], "mapq_minimum_disruptive_bases", minimum_disruptive_bases);
     
     // Apply the cap
     mapq = min(mapq, mapq_window_breaking_cap);
