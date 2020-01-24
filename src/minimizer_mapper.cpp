@@ -1429,6 +1429,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 //
     // each alignment is <fragment index, alignment index> into alignments
     vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> paired_alignments;
+    //For each alignment, which paired_alignment includes it. Follows structure of alignments
+    vector<pair<vector<vector<size_t>>, vector<vector<size_t>>>> alignment_groups(alignments.size());
+
     // Grab all the scores in order for MAPQ computation.
     vector<double> paired_scores;
     paired_alignments.reserve(alignments.size());
@@ -1442,6 +1445,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
     for (size_t fragment_num = 0 ; fragment_num < alignments.size() ; fragment_num ++ ) {
         //Get pairs of plausible alignments
+        alignment_groups[fragment_num].first.resize(alignments[fragment_num].first.size());
+        alignment_groups[fragment_num].second.resize(alignments[fragment_num].second.size());
         
         pair<vector<Alignment>, vector<Alignment>>& fragment_alignments = alignments[fragment_num];
         if (!fragment_alignments.first.empty() && ! fragment_alignments.second.empty()) {
@@ -1460,6 +1465,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
                     if (fragment_distance != std::numeric_limits<int64_t>::max() ) {
                         double score = alignment1.score() + alignment2.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
+                        alignment_groups[fragment_num].first[i1].emplace_back(paired_alignments.size());
+                        alignment_groups[fragment_num].second[i2].emplace_back(paired_alignments.size());
                         paired_alignments.emplace_back(make_pair(fragment_num, i1), make_pair(fragment_num, i2));
                         paired_scores.emplace_back(score);
                     }
@@ -1582,6 +1589,16 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     double dev = fragment_dist - fragment_length_distr.mean();
                     double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
                     double score = mapped_aln.score() + rescued_aln.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
+
+                    pair<size_t, size_t> mapped_index (std::get<0>(index), std::get<1>(index)); 
+                    pair<size_t, size_t> rescued_index (alignments.size() - 1, 
+                                found_first ? alignments.back().second.size() : alignments.back().first.size());
+                    found_first ? alignments.back().second.emplace_back(std::move(rescued_aln)) 
+                                : alignments.back().first.emplace_back(std::move(rescued_aln));
+                    pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair = found_first ? 
+                                make_pair(mapped_index, rescued_index) : make_pair(rescued_index, mapped_index);
+                    paired_alignments.push_back(index_pair);
+                    paired_scores.emplace_back(score);
 //TODO: Could check for duplicates but I don't think we'll get any since pairs we can't rescue anything we wouldn't have clustered
 //                    for (pair<Alignment, Alignment>& old_pair: paired_alignments) {
 //                        //Make sure that this pair is not a duplicate of one we already found
@@ -1625,7 +1642,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     pair<vector<Alignment>, vector<Alignment>> mappings;
     // Grab all the scores in order for MAPQ computation.
     vector<double> scores;
-
+    vector<double> scores_group_1;
+    vector<double> scores_group_2;
     mappings.first.reserve(paired_alignments.size());
     mappings.second.reserve(paired_alignments.size());
     scores.reserve(paired_scores.size());
@@ -1634,17 +1652,43 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     }, 0, 1, max_multimaps, [&](size_t alignment_num) {
         // This alignment makes it
         // Called in score order
+
+        pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair = paired_alignments[alignment_num];
         
         // Remember the score at its rank
         scores.emplace_back(paired_scores[alignment_num]);
-
-
         // Remember the output alignment
-        pair<pair<size_t, size_t>, pair<size_t, size_t>> pair = paired_alignments[alignment_num];
-        mappings.first.emplace_back( std::move(alignments[pair.first.first].first[pair.first.second]));
-        mappings.second.emplace_back(std::move(alignments[pair.second.first].second[pair.second.second]));
+        mappings.first.emplace_back( std::move(alignments[index_pair.first.first].first[index_pair.first.second]));
+        mappings.second.emplace_back(std::move(alignments[index_pair.second.first].second[index_pair.second.second]));
+        if (mappings.first.size() == 1) {
+            //If this is the best pair of alignments that we're going to return, get the group scores for mapq
 
-            // Flip aln2 back to input orientation
+            //Get the scores of 
+            scores_group_1.push_back(paired_scores[alignment_num]);
+            scores_group_2.push_back(paired_scores[alignment_num]);
+
+            //The indices (into paired_alignments) of pairs with the same first read as this
+            vector<size_t>& alignment_group_1 = alignment_groups[index_pair.first.first].first[index_pair.first.second];
+            vector<size_t>& alignment_group_2 = alignment_groups[index_pair.second.first].second[index_pair.second.second];
+
+            for (size_t other_alignment_num : alignment_group_1) {
+                if (other_alignment_num != alignment_num) {
+                    scores_group_1.push_back(paired_scores[other_alignment_num]);
+                }
+            }
+            for (size_t other_alignment_num : alignment_group_2) {
+                if (other_alignment_num != alignment_num) {
+                    scores_group_2.push_back(paired_scores[other_alignment_num]);
+                }
+            }
+
+
+
+        }
+
+
+
+        // Flip aln2 back to input orientation
         reverse_complement_alignment_in_place(&mappings.second.back(), [&](vg::id_t node_id) {
             return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
         });
@@ -1690,11 +1734,15 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     for (auto& score : scores) cerr << score << " ";
 #endif
 
-//TODO: Could also cap mapq at the probability of the fragment length
     size_t winning_index;
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
+    // If either of the mappings was duplicated in other pairs, use the group scores to determine mapq
     double mapq = (mappings.first.empty() || scores[0] == 0) ? 0 : 
         get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index) / 2;
+    double mapq_group1 = scores_group_1.size() > 1 ? 0 : 
+        get_regular_aligner()->maximum_mapping_quality_exact(scores_group_1, &winning_index) / 2;
+    double mapq_group2 = scores_group_2.size() > 1 ? 0 : 
+        get_regular_aligner()->maximum_mapping_quality_exact(scores_group_2, &winning_index) / 2;
     
 #ifdef debug
     cerr << "MAPQ is " << mapq << endl;
@@ -1723,8 +1771,10 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
     } else {
 
-        mappings.first.back().set_mapping_quality(max(min(mapq, 60.0), 0.0));
-        mappings.second.back().set_mapping_quality(max(min(mapq, 60.0), 0.0));
+        mapq_group1 == 0 ? mappings.first.back().set_mapping_quality(max(min(mapq, 60.0), 0.0))
+                         : mappings.first.back().set_mapping_quality(max(min(mapq_group1, 60.0), 0.0)) ;
+        mapq_group2 == 0 ? mappings.second.back().set_mapping_quality(max(min(mapq, 60.0), 0.0))
+                         : mappings.first.back().set_mapping_quality(max(min(mapq_group2, 60.0), 0.0)) ;
     
     
     }
