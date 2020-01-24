@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 35
+plan tests 37
 
 vg view -J -v pileup/tiny.json > tiny.vg
 
@@ -185,5 +185,17 @@ vg map -s CAGAGAGTTGGAATATAATAGAACTCCAGAAAATTCCNCCTCCAAGCCTTATTTG -d t.idx | vg 
 is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l) 0 "augmenting within node with N filter  works as expected on reverse strand"
 
 rm -f t.augr1.vg t.augr1.nodes t.augr1f.vg t.augr1f.nodes t.augr1nf.vg t.augr1nf.nodes
+
+vg map -s CAAATANNNAGGCTTGGAAATTTTCTGGAGTTCTATTATATNNNNNTCCAACTCTCTG -d t.idx > t.gam
+vg augment t.vg t.gam -N 0.5 -A t.aug1.gam > t.aug1.vg
+is $(vg view -a t.aug1.gam | jq -c '.sequence' | sed 's/\"//g') $(tail -1 tiny/tiny.fa) "sequence in filtered alignment has removed insertion"
+
+rm -f t.gam t.aug1.gam t.aug1.vg
+
+vg map -s CAGAGAGTTGGANNNNNATATAATAGAACTCCAGAAAATTTCCAAGCCTNNNTATTTG -d t.idx > t.gam
+vg augment t.vg t.gam -N 0.5 -A t.aug1.gam > t.aug1.vg
+is $(vg view -a t.aug1.gam | jq -c '.sequence' | sed 's/\"//g') CAGAGAGTTGGAATATAATAGAACTCCAGAAAATTTCCAAGCCTTATTTG "sequence in filtered alignment has removed insertion on reverse strand"
+
+rm -f t.gam t.aug1.gam t.aug1.vg
 
 rm -f t.vg t.idx.gcsa t.idx.xg t.nodes t.aug.nodes

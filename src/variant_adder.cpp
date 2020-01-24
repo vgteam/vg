@@ -84,7 +84,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 continue;
             } else {
                 // Explode!
-                yeet runtime_error("Contig " + variant_path_name + " mentioned in VCF but not found in graph");
+                throw runtime_error("Contig " + variant_path_name + " mentioned in VCF but not found in graph");
             }
         }
         
@@ -92,7 +92,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // Complain if the variant has no samples. If there are no samples
             // in the VCF, we can't generate any haplotypes to use to add the
             // variants.
-            yeet runtime_error("No samples in variant at " + variant_path_name +
+            throw runtime_error("No samples in variant at " + variant_path_name +
                 ":" + to_string(variant_path_offset) +"; can't make haplotypes");
         }
         
@@ -1045,7 +1045,7 @@ string VariantAdder::haplotype_to_string(const vector<int>& haplotype, const vec
         if (variant->alleles.at(0) != ref.substr(sep_start + sep_length, variant->alleles.at(0).size())) {
             // Complain if the variant reference doesn't match the real reference.
             // TODO: should avoid doing this for every single haplotype...
-            yeet runtime_error("Variant reference does not match actual reference at " +
+            throw runtime_error("Variant reference does not match actual reference at " +
                 variant->sequenceName + ":" + to_string(variant->position));
         }
     }

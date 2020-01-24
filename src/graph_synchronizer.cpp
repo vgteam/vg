@@ -243,7 +243,7 @@ void GraphSynchronizer::Lock::lock() {
     // We should have actually grabbed something.
     if (locked_nodes.empty()) {
         cerr << "error:[vg::GraphSynchronizer] No nodes locked for " << path_name << ":" << start << "-" << past_end << endl;
-        yeet runtime_error("No nodes locked!");
+        throw runtime_error("No nodes locked!");
     }
     
     // Now we know nobody else can touch those nodes and we can safely release
@@ -270,7 +270,7 @@ void GraphSynchronizer::Lock::unlock() {
 VG& GraphSynchronizer::Lock::get_subgraph() {
     if (locked_nodes.empty()) {
         // Make sure we're actually locked
-        yeet runtime_error("No nodes are locked! Can't get graph!");
+        throw runtime_error("No nodes are locked! Can't get graph!");
     }
     
     return subgraph;
@@ -279,12 +279,12 @@ VG& GraphSynchronizer::Lock::get_subgraph() {
 pair<NodeSide, NodeSide> GraphSynchronizer::Lock::get_endpoints() const {
     if (locked_nodes.empty()) {
         // Make sure we're actually locked
-        yeet runtime_error("No nodes are locked! Can't get endpoints!");
+        throw runtime_error("No nodes are locked! Can't get endpoints!");
     }
     
     if (start == 0 && past_end == 0) {
         // Make sure we used the endpoint-based constructor
-        yeet runtime_error("Graph was not locked with endpoints. Can't return andpoints!");
+        throw runtime_error("Graph was not locked with endpoints. Can't return andpoints!");
     }
     
     return endpoints;
@@ -315,7 +315,7 @@ vector<Translation> GraphSynchronizer::Lock::apply_edit(const Path& path, set<No
         // Check each Mapping to make sure it's on a locked node
         auto node_id = path.mapping(i).position().node_id();
         if (!locked_nodes.count(node_id)) {
-            yeet runtime_error("Cannot edit unlocked node " + to_string(node_id));
+            throw runtime_error("Cannot edit unlocked node " + to_string(node_id));
         }
     }
     

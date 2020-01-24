@@ -8,10 +8,10 @@ using namespace std;
         
         // If converting or converted is a null pointer, throw a runtime error
         if (converting == nullptr) {
-            yeet runtime_error("There is no graph to convert from");
+            throw runtime_error("There is no graph to convert from");
         }
         if (converted == nullptr) {
-            yeet runtime_error("There is no graph to convert to");
+            throw runtime_error("There is no graph to convert to");
         }
 
         // Iterate through each handles in graph and create the same handle in mutable graph

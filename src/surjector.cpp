@@ -293,9 +293,7 @@ using namespace std;
                                          const path_handle_t& path_handle, const vector<path_chunk_t>& path_chunks,
                                          const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                          bool allow_negative_scores) const {
-        
-        cerr << source.name() << endl;
-        
+                
         assert(path_chunks.size() == ref_chunks.size());
         
         auto get_strand = [&](size_t i) {
@@ -405,9 +403,7 @@ using namespace std;
             pair<string::const_iterator, string::const_iterator> read_range;
             pair<step_handle_t, step_handle_t> ref_range;
             vector<path_chunk_t> section_path_chunks;
-            
-            
-            
+                        
             bool strand = get_strand(comp_groups[i].front());
             
             vector<size_t>& group = comp_groups[i];
@@ -446,10 +442,11 @@ using namespace std;
             
 #ifdef debug_spliced_surject
             cerr << "surjecting section " << i << ": " << pb2json(section_source) << endl;
+            cerr << "consists of " << section_path_chunks.size() << " path chunks" << endl;
 #endif
             
             // perform a full length surjection within the section section
-            sections.push_back(realigning_surject(graph, section_source, path_handle, section_path_chunks, false));
+            sections.push_back(realigning_surject(graph, section_source, path_handle, section_path_chunks, true));
             read_ranges.push_back(read_range);
             ref_ranges.push_back(ref_range);
             
@@ -541,9 +538,11 @@ using namespace std;
         }
         
         // do the dynamic programming
+        vector<bool> is_sink(score_dp.size(), true);
         for (size_t i = 0; i < constrictions.size(); ++i) {
             size_t from = constriction_comps[constrictions[i]];
             size_t to = constriction_comps[constriction_targets[i]];
+            is_sink[from] = false;
             
             int32_t extended_score = score_dp[from] + section_edge_scores[i] + sections[to].score();
             if (extended_score > score_dp[to]) {
@@ -552,11 +551,11 @@ using namespace std;
             }
         }
         
-        // find the maximum
+        // find the maximum, subject to full length requirements
         vector<size_t> traceback(1, -1);
         int32_t max_score = numeric_limits<int32_t>::min();
         for (size_t i = 0; i < score_dp.size(); ++i) {
-            if (score_dp[i] > max_score) {
+            if (score_dp[i] > max_score && (!allow_negative_scores || is_sink[i])) {
                 max_score = score_dp[i];
                 traceback[0] = i;
             }
@@ -1055,7 +1054,8 @@ using namespace std;
         }
         
 #ifdef debug_anchored_surject
-        cerr << "choosing a path position for surjected alignment on path " << graph->get_path_name(best_path_handle) << endl;
+        cerr << "choosing a path position for surjected alignment of " << surjected.name() << " on path " << graph->get_path_name(best_path_handle) << endl;
+        cerr << "alignment is " << pb2json(surjected.path()) << endl;
 #endif
         
         const Position& start_pos = path.mapping(0).position();
@@ -1063,7 +1063,7 @@ using namespace std;
         // TODO: depending on path coverage, it could be inefficient to iterate over all steps on the handle
         for (const step_handle_t& step : graph->steps_of_handle(start_handle)) {
 #ifdef debug_anchored_surject
-            cerr << "found step on " << graph->get_path_name(graph->get_path_handle_of_step(step)) << endl;
+            cerr << "found step on " << graph->get_path_name(graph->get_path_handle_of_step(step)) << " with offset " << graph->get_position_of_step(step) << " at start pos " << make_pos_t(start_pos) << endl;
 #endif
             if (graph->get_path_handle_of_step(step) != best_path_handle) {
                 // this is not the path we surjected onto
@@ -1092,7 +1092,7 @@ using namespace std;
                 
                 const Position& pos = path.mapping(i).position();
 #ifdef debug_anchored_surject
-                cerr << "at mapping pos " << make_pos_t(pos) << " and path pos " << graph->get_id(graph->get_handle_of_step(path_step)) << (graph->get_is_reverse(graph->get_handle_of_step(path_step)) ? "-" : "+") << endl;
+                cerr << "at mapping pos " << make_pos_t(pos) << " and path pos " << graph->get_id(graph->get_handle_of_step(path_step)) << (graph->get_is_reverse(graph->get_handle_of_step(path_step)) ? "-" : "+") << " with offset " << graph->get_position_of_step(path_step) << endl;
 #endif
                 
                 if (pos.node_id() != graph->get_id(graph->get_handle_of_step(path_step)) ||

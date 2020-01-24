@@ -6,17 +6,41 @@ namespace vg {
 
 
 void Sampler::set_source_paths(const vector<string>& source_paths,
-                               const vector<pair<string, double>>& transcript_expressions) {
+                               const vector<pair<string, double>>& transcript_expressions,
+                               const vector<tuple<string, string, size_t>>& haplotype_transcripts) {
     if (!source_paths.empty() && !transcript_expressions.empty()) {
         cerr << "error:[Sampler] cannot sample from list of paths and from list of transcripts simultaneously" << endl;
+        exit(1);
+    }
+    else if (!haplotype_transcripts.empty() && transcript_expressions.empty()) {
+        cerr << "error:[Sampler] cannot sample from haplotype transcripts without an expression profile" << endl;
         exit(1);
     }
     else if (!transcript_expressions.empty()) {
         this->source_paths.clear();
         vector<double> expression_values;
-        for (const pair<string, double>& transcript_expression : transcript_expressions) {
-            this->source_paths.push_back(transcript_expression.first);
-            expression_values.push_back(transcript_expression.second);
+        if (haplotype_transcripts.empty()) {
+            for (const pair<string, double>& transcript_expression : transcript_expressions) {
+                this->source_paths.push_back(transcript_expression.first);
+                expression_values.push_back(transcript_expression.second);
+            }
+        }
+        else {
+            unordered_map<string, vector<size_t>> haplotypes_of_transcript;
+            for (size_t i = 0; i < haplotype_transcripts.size(); ++i) {
+                haplotypes_of_transcript[get<1>(haplotype_transcripts[i])].push_back(i);
+            }
+            for (const pair<string, double>& transcript_expression : transcript_expressions) {
+                size_t total_haplotypes = 0;
+                for (size_t i : haplotypes_of_transcript[transcript_expression.first]) {
+                    total_haplotypes += get<2>(haplotype_transcripts[i]);
+                }
+                for (size_t i : haplotypes_of_transcript[transcript_expression.first]) {
+                    double haplotype_expression = (transcript_expression.second * get<2>(haplotype_transcripts[i])) / total_haplotypes;
+                    expression_values.push_back(haplotype_expression);
+                    this->source_paths.push_back(get<0>(haplotype_transcripts[i]));
+                }
+            }
         }
         path_sampler = vg::discrete_distribution<>(expression_values.begin(), expression_values.end());
     }
@@ -568,9 +592,11 @@ const string NGSSimulator::alphabet = "ACGT";
 
 NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                            const string& ngs_fastq_file,
+                           const string& ngs_paired_fastq_file,
                            bool interleaved_fastq,
                            const vector<string>& source_paths_input,
                            const vector<pair<string, double>>& transcript_expressions,
+                           const vector<tuple<string, string, size_t>>& haplotype_transcripts,
                            double substition_polymorphism_rate,
                            double indel_polymorphism_rate,
                            double indel_error_proportion,
@@ -598,12 +624,18 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
     , source_paths(source_paths_input)
     , joint_initial_distr(seed - 1)
 {
-    graph.for_each_handle([&](const handle_t& handle) {
-            total_seq_length += graph.get_length(handle);
-        });
+    if (!ngs_paired_fastq_file.empty() && interleaved_fastq) {
+        cerr << "error:[NGSSimulator] cannot indicate interleaved FASTQ and paired FASTQs simultaneously" << endl;
+        exit(1);
+    }
     
     if (!source_paths.empty() && !transcript_expressions.empty()) {
         cerr << "error:[NGSSimulator] cannot simultaneously limit sampling to paths and match an expresssion profile" << endl;
+        exit(1);
+    }
+    
+    if (!haplotype_transcripts.empty() && transcript_expressions.empty()) {
+        cerr << "error:[NGSSimulator] cannot sample from haplotype transcripts without an expression profile" << endl;
         exit(1);
     }
     
@@ -634,24 +666,61 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
             << ") > 5 * insert length standard deviation (" << insert_length_stdev << ")" << endl;
     }
     
-    if (source_paths.empty() && transcript_expressions.empty()) {
+    graph.for_each_handle([&](const handle_t& handle) {
+        total_seq_length += graph.get_length(handle);
+    });
+    
+    if (source_paths_input.empty() && transcript_expressions.empty()) {
+        // we are sampling from all positions
         start_pos_samplers.emplace_back(1, total_seq_length);
     }
-    else if (!source_paths.empty()) {
+    else if (!source_paths_input.empty()) {
+        // we are sampling from a given set of source paths
         vector<size_t> path_sizes;
-        for (const auto& source_path : source_paths) {
+        for (const auto& source_path : source_paths_input) {
             path_sizes.push_back(graph.get_path_length(graph.get_path_handle(source_path)));
             start_pos_samplers.emplace_back(0, path_sizes.back() - 1);
         }
         path_sampler = vg::discrete_distribution<>(path_sizes.begin(), path_sizes.end());
     }
     else {
+        // we are sampling according to an expression profile
         vector<double> expression_values;
-        for (const pair<string, double>& transcript_expression : transcript_expressions) {
-            source_paths.push_back(transcript_expression.first);
-            start_pos_samplers.emplace_back(0, graph.get_path_length(graph.get_path_handle(transcript_expression.first)) - 1);
-            expression_values.push_back(transcript_expression.second);
+        
+        if (haplotype_transcripts.empty()) {
+            // no transcript name file provided, path names should match transcript names in the
+            // expression file
+            for (const pair<string, double>& transcript_expression : transcript_expressions) {
+                source_paths.push_back(transcript_expression.first);
+                start_pos_samplers.emplace_back(0, graph.get_path_length(graph.get_path_handle(transcript_expression.first)) - 1);
+                expression_values.push_back(transcript_expression.second);
+            }
         }
+        else {
+            // map the transcript names to the haplotype transcript names
+            unordered_map<string, vector<size_t>> haplotypes_of_transcript;
+            for (size_t i = 0; i < haplotype_transcripts.size(); ++i) {
+                haplotypes_of_transcript[get<1>(haplotype_transcripts[i])].push_back(i);
+            }
+            for (const pair<string, double>& transcript_expression : transcript_expressions) {
+                // split the expression up among the haplotype transcripts according to their count
+                size_t total_haplotypes = 0;
+                for (size_t i : haplotypes_of_transcript[transcript_expression.first]) {
+                    total_haplotypes += get<2>(haplotype_transcripts[i]);
+                }
+                for (size_t i : haplotypes_of_transcript[transcript_expression.first]) {
+                    size_t path_length = graph.get_path_length(graph.get_path_handle(get<0>(haplotype_transcripts[i])));
+                    if (path_length == 0) {
+                        continue;
+                    }
+                    double haplotype_expression = (transcript_expression.second * get<2>(haplotype_transcripts[i])) / total_haplotypes;
+                    expression_values.push_back(haplotype_expression);
+                    source_paths.push_back(get<0>(haplotype_transcripts[i]));
+                    start_pos_samplers.emplace_back(0, path_length - 1);
+                }
+            }
+        }
+        
         path_sampler = vg::discrete_distribution<>(expression_values.begin(), expression_values.end());
     }
     
@@ -671,9 +740,17 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
         }
     }
     
+    // record read lengths and the empirical distribution of base qualities
     unordered_map<size_t, size_t> length_count;
     if (interleaved_fastq) {
         fastq_paired_interleaved_for_each(ngs_fastq_file, [&](const Alignment& aln_1, const Alignment& aln_2) {
+            length_count[aln_1.quality().size()]++;
+            length_count[aln_2.quality().size()]++;
+            record_read_pair_quality(aln_1, aln_2);
+        });
+    }
+    else if (!ngs_paired_fastq_file.empty()) {
+        fastq_paired_two_files_for_each(ngs_fastq_file, ngs_paired_fastq_file, [&](const Alignment& aln_1, const Alignment& aln_2) {
             length_count[aln_1.quality().size()]++;
             length_count[aln_2.quality().size()]++;
             record_read_pair_quality(aln_1, aln_2);
@@ -686,6 +763,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
         });
     }
     
+    // auto-detect the read length
     size_t modal_length = 0;
     size_t modal_length_count = 0;
     size_t total_reads = 0;
@@ -705,6 +783,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
         cerr << "warning:[NGSSimulator] Auto-detected read length of " << modal_length << " is long compared to mean insert length " << insert_length_mean << " and standard deviation " << insert_length_stdev << ", sampling may take additional time and statistical properties of insert length distribution may not reflect input parameters" << endl;
     }
     
+    // shorten the quality string samplers until they are the modal length (this determines read length later)
     while (transition_distrs_1.size() > modal_length) {
         transition_distrs_1.pop_back();
     }
@@ -1125,7 +1204,7 @@ pos_t NGSSimulator::walk_backwards(const Path& path, size_t distance) {
     // Walking back the whole path length puts you at the start of the path.
     
     if (distance > path_to_length(path)) {
-        yeet runtime_error("Cannot walk back " + to_string(distance) + " on path of length " + to_string(path_to_length(path)));
+        throw runtime_error("Cannot walk back " + to_string(distance) + " on path of length " + to_string(path_to_length(path)));
     }
     assert(distance > 0);
 
@@ -1191,7 +1270,7 @@ pos_t NGSSimulator::walk_backwards(const Path& path, size_t distance) {
         cerr << pb2json(path) << endl;
         cerr << "Covering mapping: " << pb2json(mapping) << endl;
         cerr << "Covering edit: " << pb2json(mapping.edit(edit_idx)) << endl;
-        yeet runtime_error("Could not go back " + to_string(distance) + " in path of length " +
+        throw runtime_error("Could not go back " + to_string(distance) + " in path of length " +
             to_string(path_to_length(path)) + "; hit node " + to_string(mapping_pos.node_id()) + " length " +
             to_string(node_length) + " end at offset " + to_string(offset));
     }

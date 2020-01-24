@@ -8,7 +8,7 @@ namespace vg{
         // subtract the soft clips
         // the discordant insert size reads
         // and a flat penalty for discordant orientation
-        yeet runtime_error("Unimplemented!");
+        throw runtime_error("Unimplemented!");
     }
 
     void SRPE::call_svs_paired_end(vg::VG* graph, ifstream& gamstream, vector<BREAKPOINT>& bps, string refpath){
