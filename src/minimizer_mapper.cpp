@@ -63,12 +63,16 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Start the minimizer locating stage
         funnel.stage("seed");
     }
+    
+    // Get hit counts for all the minimizers
+    std::vector<size_t> minimizer_hit_counts(minimizers.size(), 0);
 
     // Compute minimizer scores for all minimizers as 1 + ln(hard_hit_cap) - ln(hits).
     std::vector<double> minimizer_score(minimizers.size(), 0.0);
     double base_target_score = 0.0;
     for (size_t i = 0; i < minimizers.size(); i++) {
-        size_t hits = minimizer_index.count(minimizers[i]);
+        minimizer_hit_counts[i] = minimizer_index.count(minimizers[i]);
+        size_t& hits = minimizer_hit_counts[i];
         if (hits > 0) {
             if (hits <= hard_hit_cap) {
                 minimizer_score[i] = 1.0 + std::log(hard_hit_cap) - std::log(hits);
@@ -92,9 +96,17 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Select the minimizers we use for seeds.
     size_t rejected_count = 0;
     double selected_score = 0.0;
+    // And count how many hits we had available and we actually located
+    size_t total_hits = 0;
+    size_t located_hits = 0;
+    // And log the minimizer counts for those we keep and reject
+    vector<size_t> used_minimizer_hit_counts;
+    used_minimizer_hit_counts.reserve(minimizers.size());
+    vector<size_t> unused_minimizer_hit_counts;
+    unused_minimizer_hit_counts.reserve(minimizers.size());
     for (size_t i = 0; i < minimizers.size(); i++) {
         size_t minimizer_num = minimizers_in_order[i];
-
+        
         if (track_provenance) {
             // Say we're working on it
             funnel.processing_input(minimizer_num);
@@ -102,17 +114,22 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
         // Select the minimizer if it is informative enough or if the total score
         // of the selected minimizers is not high enough.
-        size_t hits = minimizer_index.count(minimizers[minimizer_num]);
+        size_t& hits = minimizer_hit_counts[minimizer_num];
         
 #ifdef debug
         cerr << "Minimizer " << minimizer_num << " = " << minimizers[minimizer_num].key.decode(minimizer_index.k())
             << " has " << hits << " hits" << endl;
 #endif
+
+        // Record that we had this many hits of a minimizer
+        total_hits += hits;
         
         if (hits == 0) {
             // A minimizer with no hits can't go on.
             if (track_provenance) {
                 funnel.fail("any-hits", minimizer_num);
+                
+                unused_minimizer_hit_counts.push_back(hits);
             }
         } else if (seeds.size() == 1 || hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
             // Locate the hits.
@@ -128,12 +145,17 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
             selected_score += minimizer_score[minimizer_num];
             
+            // Remember that we located these hits
+            located_hits += hits;
+            
             if (track_provenance) {
                 // Record in the funnel that this minimizer gave rise to these seeds.
                 funnel.pass("any-hits", minimizer_num);
                 funnel.pass("hard-hit-cap", minimizer_num);
                 funnel.pass("hit-cap||score-fraction", minimizer_num, selected_score  / base_target_score);
                 funnel.expand(minimizer_num, hits);
+                
+                used_minimizer_hit_counts.push_back(hits);
             }
         } else if (hits <= hard_hit_cap) {
             // Passed hard hit cap but failed score fraction/normal hit cap
@@ -142,6 +164,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 funnel.pass("any-hits", minimizer_num);
                 funnel.pass("hard-hit-cap", minimizer_num);
                 funnel.fail("hit-cap||score-fraction", minimizer_num, (selected_score + minimizer_score[minimizer_num]) / base_target_score);
+                
+                unused_minimizer_hit_counts.push_back(hits);
             }
         } else {
             // Failed hard hit cap
@@ -149,6 +173,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             if (track_provenance) {
                 funnel.pass("any-hits", minimizer_num);
                 funnel.fail("hard-hit-cap", minimizer_num);
+                
+                unused_minimizer_hit_counts.push_back(hits);
             }
         }
         if (track_provenance) {
@@ -279,9 +305,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         funnel.stage("extend");
     }
     
-    // These are the GaplessExtensions for all the clusters, in cluster_indexes_in_order order.
+    // These are the GaplessExtensions for all the clusters.
     vector<vector<GaplessExtension>> cluster_extensions;
     cluster_extensions.reserve(clusters.size());
+    // These are the clusters the extensions came from, which we need to trace
+    // back from alignments to minimizers for MAPQ
+    vector<size_t> cluster_extensions_to_source;
+    cluster_extensions_to_source.reserve(clusters.size());
     //For each cluster, what fraction of "equivalent" clusters did we keep?
     vector<double> probability_cluster_lost;
     //What is the score and coverage we are considering and how many reads
@@ -365,6 +395,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             // Extend seed hits in the cluster into one or more gapless extensions
             cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())));
+            cluster_extensions_to_source.push_back(cluster_num);
             
             if (track_provenance) {
                 // Record with the funnel that the previous group became a group of this size.
@@ -448,6 +479,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // We will fill this with all computed alignments in estimated score order.
     vector<Alignment> alignments;
     alignments.reserve(cluster_extensions.size());
+    // This maps from alignment index back to cluster extension index, for
+    // tracing back to minimizers for MAPQ. Can hold
+    // numeric_limits<size_t>::max() for an unaligned alignment.
+    vector<size_t> alignments_to_source;
+    alignments_to_source.reserve(cluster_extensions.size());
     //probability_cluster_lost but ordered by alignment
     vector<double> probability_alignment_lost;
     probability_alignment_lost.reserve(cluster_extensions.size());
@@ -546,8 +582,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             if (second_best_alignment.score() != 0 && 
                 second_best_alignment.score() > best_alignment.score() * 0.8) {
-                //If there is a second extension and its score is at least half of the best score
-                alignments.push_back(std::move(second_best_alignment));
+                //If there is a second extension and its score is at least half of the best score, bring it along
+                alignments.emplace_back(std::move(second_best_alignment));
+                alignments_to_source.push_back(extension_num);
                 probability_alignment_lost.push_back(probability_cluster_lost[extension_num]);
 
                 if (track_provenance) {
@@ -560,6 +597,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
 
             alignments.push_back(std::move(best_alignment));
+            alignments_to_source.push_back(extension_num);
             probability_alignment_lost.push_back(probability_cluster_lost[extension_num]);
 
             if (track_provenance) {
@@ -588,6 +626,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     if (alignments.size() == 0) {
         // Produce an unaligned Alignment
         alignments.emplace_back(aln);
+        alignments_to_source.push_back(numeric_limits<size_t>::max());
         probability_alignment_lost.push_back(0);
         
         if (track_provenance) {
@@ -601,9 +640,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         funnel.stage("winner");
     }
     
-    // Fill this in with the alignments we will output
+    // Fill this in with the alignments we will output as mappings
     vector<Alignment> mappings;
     mappings.reserve(min(alignments.size(), max_multimaps));
+    // Track which Alignments they are
+    vector<size_t> mappings_to_source;
+    mappings_to_source.reserve(min(alignments.size(), max_multimaps));
     
     // Grab all the scores in order for MAPQ computation.
     vector<double> scores;
@@ -621,6 +663,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         
         // Remember the output alignment
         mappings.emplace_back(std::move(alignments[alignment_num]));
+        mappings_to_source.push_back(alignment_num);
         probability_mapping_lost.push_back(probability_alignment_lost[alignment_num]);
         
         if (track_provenance) {
@@ -687,6 +730,64 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     funnel.stop();
     
     if (track_provenance) {
+    
+        // Annotate with statistics we may want to use to compute MAPQ
+        
+        // Some of them are medians, so we define median of a *sorted* vector.
+        auto median = [](const std::vector<size_t>& nums) -> size_t {
+            return nums.size() ? nums[nums.size() / 2] : 0;
+        };
+        
+        set_annotation(mappings[0], "mapq_index_hits_total", (double)total_hits);
+        set_annotation(mappings[0], "mapq_index_hits_located", (double)located_hits);
+        set_annotation(mappings[0], "mapq_index_hits_fraction", (double)located_hits/max(1.0, (double)total_hits));
+        set_annotation(mappings[0], "mapq_cluster_equivalent_extended_fraction", 1.0 - probability_mapping_lost.front());
+        
+        // Get all the minimizer hit counts for minimizers in the cluster that
+        // contributed to the winning mapping, if any.
+        vector<size_t> cluster_minimizer_hit_counts;
+        // Look up the extension number. TODO: query the funnel?
+        size_t alignment_num = mappings_to_source.at(0);
+        size_t extension_num = alignments_to_source.at(alignment_num);
+        if (extension_num != numeric_limits<size_t>::max()) {
+            // The mapping came from an extension and is not unmapped. So find the cluster.
+            size_t cluster_num = cluster_extensions_to_source.at(extension_num);
+            const vector<size_t>& cluster = clusters.at(cluster_num);
+            
+            // Which minimizers are present in the cluster?
+            // Deduplicate with a bit set.
+            // TODO: don't recompute this
+            vector<bool> present(minimizers.size(), false);
+            for (auto hit_index : cluster) {
+                present[seed_to_source[hit_index]] = true;
+            }
+
+            for (size_t minimizer_num = 0; minimizer_num < present.size(); minimizer_num++) {
+                if (present[minimizer_num]) {
+                    // For each minimizer in the cluster, record its hit count
+                    cluster_minimizer_hit_counts.push_back(minimizer_hit_counts.at(minimizer_num));
+                }
+            }
+            
+            std::sort(cluster_minimizer_hit_counts.begin(), cluster_minimizer_hit_counts.end());
+        }
+        // Annotate each read with the minimizer counts from the winning cluster
+        set_annotation(mappings[0], "mapq_winning_cluster_minimizer_counts", cluster_minimizer_hit_counts);
+        // And the median count, or 0 if not present.
+        set_annotation(mappings[0], "mapq_winning_cluster_median_minimizer_count", median(cluster_minimizer_hit_counts));
+       
+        // Also annotate with MAPQ-relevant facts about the read and not just the cluster
+        // minimizer_hit_counts is not used after here so we can modify it.
+        std::sort(minimizer_hit_counts.begin(), minimizer_hit_counts.end());
+        set_annotation(mappings[0], "mapq_minimizer_counts", minimizer_hit_counts);
+        set_annotation(mappings[0], "mapq_median_minimizer_count", median(minimizer_hit_counts));
+        std::sort(used_minimizer_hit_counts.begin(), used_minimizer_hit_counts.end());
+        set_annotation(mappings[0], "mapq_used_minimizer_counts", used_minimizer_hit_counts);
+        set_annotation(mappings[0], "mapq_median_used_minimizer_count", median(used_minimizer_hit_counts));
+        std::sort(unused_minimizer_hit_counts.begin(), unused_minimizer_hit_counts.end());
+        set_annotation(mappings[0], "mapq_unused_minimizer_counts", unused_minimizer_hit_counts);
+        set_annotation(mappings[0], "mapq_median_unused_minimizer_count", median(unused_minimizer_hit_counts));
+        
     
         // Annotate with the number of results in play at each stage
         funnel.for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
