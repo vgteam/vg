@@ -290,7 +290,8 @@ void help_gaffe(char** argv) {
     << "  -x, --xg-name FILE            use this xg index or graph (required if -g not specified)" << endl
     << "  -g, --graph-name FILE         use this GBWTGraph (required if -x not specified)" << endl
     << "  -H, --gbwt-name FILE          use this GBWT index (required)" << endl
-    << "  -m, --minimizer-name FILE     use this minimizer index (required)" << endl
+    << "  -m, --minimizer-name FILE     use this minimizer index (required; may repeat)" << endl
+    << "                                (subsequent indexes are used when the earlier ones find no seeds)" << endl
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
     << "  -p, --progress                show progress" << endl
     << "input options:" << endl
@@ -339,7 +340,7 @@ int main_gaffe(int argc, char** argv) {
     string xg_name;
     string graph_name;
     string gbwt_name;
-    string minimizer_name;
+    vector<string> minimizer_names;
     string distance_name;
     string output_basename;
     string report_name;
@@ -468,8 +469,8 @@ int main_gaffe(int argc, char** argv) {
                 break;
                 
             case 'm':
-                minimizer_name = optarg;
-                if (minimizer_name.empty()) {
+                minimizer_names.emplace_back(optarg);
+                if (minimizer_names.back().empty()) {
                     cerr << "error:[vg gaffe] Must provide minimizer file with -m." << endl;
                     exit(1);
                 }
@@ -669,7 +670,7 @@ int main_gaffe(int argc, char** argv) {
         exit(1);
     }
     
-    if (minimizer_name.empty()) {
+    if (minimizer_names.empty()) {
         cerr << "error:[vg gaffe] Mapping requires a minimizer index (-m)" << endl;
         exit(1);
     }
@@ -696,10 +697,13 @@ int main_gaffe(int argc, char** argv) {
     }
     unique_ptr<gbwt::GBWT> gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
 
-    if (progress) {
-        cerr << "Loading minimizer index " << minimizer_name << endl;
+    vector<unique_ptr<gbwtgraph::DefaultMinimizerIndex>> minimizer_indexes;
+    for (const string& minimizer_name : minimizer_names) {
+        if (progress) {
+            cerr << "Loading minimizer index " << minimizer_name << endl;
+        }
+        minimizer_indexes.emplace_back(vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(minimizer_name));
     }
-    unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(minimizer_name);
 
     if (progress) {
         cerr << "Loading distance index " << distance_name << endl;
@@ -728,7 +732,7 @@ int main_gaffe(int argc, char** argv) {
     if (progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(*gbwt_graph, *minimizer_index, distance_index, xg_index);
+    MinimizerMapper minimizer_mapper(*gbwt_graph, minimizer_indexes, distance_index, xg_index);
     
     std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
     std::chrono::duration<double> init_seconds = init - launch;
