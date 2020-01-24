@@ -84,13 +84,16 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     }
     double target_score = (base_target_score * minimizer_score_fraction) + 0.000001;
 
-    // Sort the minimizers by score.
+    // Sort the minimizers by score, and then by minimizer key.
+    // Since multiple instances of the same minimizer have the same hit count,
+    // they all have the same score and will sort together.
     std::vector<size_t> minimizers_in_order(minimizers.size());
     for (size_t i = 0; i < minimizers_in_order.size(); i++) {
         minimizers_in_order[i] = i;
     }
-    std::sort(minimizers_in_order.begin(), minimizers_in_order.end(), [&minimizer_score](const size_t a, const size_t b) {
-        return (minimizer_score[a] > minimizer_score[b]);
+    std::sort(minimizers_in_order.begin(), minimizers_in_order.end(), [&](const size_t a, const size_t b) {
+        return (minimizer_score[a] > minimizer_score[b]) ||
+            (minimizer_score[a] == minimizer_score[b] && minimizers[a].key < minimizers[b].key);
     });
 
     // Select the minimizers we use for seeds.
@@ -104,6 +107,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     used_minimizer_hit_counts.reserve(minimizers.size());
     vector<size_t> unused_minimizer_hit_counts;
     unused_minimizer_hit_counts.reserve(minimizers.size());
+    // In order to consistently take either all or none of the minimizers in
+    // the read with a particular sequence, we track whether we took the
+    // previous one.
+    bool took_last = false;
     for (size_t i = 0; i < minimizers.size(); i++) {
         size_t minimizer_num = minimizers_in_order[i];
         
@@ -126,12 +133,20 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         
         if (hits == 0) {
             // A minimizer with no hits can't go on.
+            took_last = false;
             if (track_provenance) {
                 funnel.fail("any-hits", minimizer_num);
                 
                 unused_minimizer_hit_counts.push_back(hits);
             }
-        } else if (seeds.size() == 1 || hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
+        } else if (seeds.size() == 1 || hits <= hit_cap ||
+            (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score) ||
+            (took_last && i > 0 && minimizers[minimizer_num].key == minimizers[minimizers_in_order[i-1]].key)) {
+            // We should keep this minimizer instance because we only have one
+            // seed location already, or it is sufficiently rare, or we want it
+            // to make target_score, or it is the same sequence as the previous
+            // minimizer which we also took.
+            
             // Locate the hits.
             for (auto& hit : minimizer_index.find(minimizers[minimizer_num])) {
                 // Reverse the hits for a reverse minimizer
@@ -139,14 +154,24 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     size_t node_length = gbwt_graph.get_length(gbwt_graph.get_handle(id(hit)));
                     hit = reverse_base_pos(hit, node_length);
                 }
-                // For each position, remember it and what minimizer it came from
+                // For each position, remember it and what minimizer it came from.
+                // Minimizers that occur multiple times will have multiple
+                // copies of the same seed locations in the reference, paired
+                // with different places in the read.
                 seeds.push_back(hit);
                 seed_to_source.push_back(minimizer_num);
             }
-            selected_score += minimizer_score[minimizer_num];
+            
+            if (!(took_last && i > 0 && minimizers[minimizer_num].key == minimizers[minimizers_in_order[i-1]].key)) {
+                // We did not also take a previous identical-sequence minimizer, so count this one towards the score.
+                selected_score += minimizer_score[minimizer_num];
+            }
             
             // Remember that we located these hits
             located_hits += hits;
+            
+            // And that we took this minimizer
+            took_last = true;
             
             if (track_provenance) {
                 // Record in the funnel that this minimizer gave rise to these seeds.
@@ -159,6 +184,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
         } else if (hits <= hard_hit_cap) {
             // Passed hard hit cap but failed score fraction/normal hit cap
+            took_last = false;
             rejected_count++;
             if (track_provenance) {
                 funnel.pass("any-hits", minimizer_num);
@@ -169,6 +195,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
         } else {
             // Failed hard hit cap
+            took_last = false;  
             rejected_count++;
             if (track_provenance) {
                 funnel.pass("any-hits", minimizer_num);
