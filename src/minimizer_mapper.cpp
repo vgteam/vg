@@ -48,13 +48,17 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // We will find all the seed hits
     vector<pos_t> seeds;
     
-    // This will hold all the minimizers in the query
-    vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type> minimizers;
+    // This will hold all the minimizers in the query, and the number of
+    // windows they are responsible for. When multiple minimizer instances
+    // exist in a window (necessarily with the same sequence), the window is
+    // assigned arbitrarily. So we need to make sure we always take all the
+    // minimizers or none with a given sequence.
+    vector<pair<gbwtgraph::DefaultMinimizerIndex::minimizer_type, size_t>> minimizers;
     // And either way this will map from seed to minimizer that generated it
     vector<size_t> seed_to_source;
     
     // Find minimizers in the query
-    minimizers = minimizer_index.minimizers(aln.sequence());
+    minimizers = minimizer_index.weighted_minimizers(aln.sequence());
     
     if (track_provenance) {
         // Record how many we found, as new lines.
@@ -71,7 +75,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     std::vector<double> minimizer_score(minimizers.size(), 0.0);
     double base_target_score = 0.0;
     for (size_t i = 0; i < minimizers.size(); i++) {
-        minimizer_hit_counts[i] = minimizer_index.count(minimizers[i]);
+        minimizer_hit_counts[i] = minimizer_index.count(minimizers[i].first);
         size_t& hits = minimizer_hit_counts[i];
         if (hits > 0) {
             if (hits <= hard_hit_cap) {
@@ -93,7 +97,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     }
     std::sort(minimizers_in_order.begin(), minimizers_in_order.end(), [&](const size_t a, const size_t b) {
         return (minimizer_score[a] > minimizer_score[b]) ||
-            (minimizer_score[a] == minimizer_score[b] && minimizers[a].key < minimizers[b].key);
+            (minimizer_score[a] == minimizer_score[b] && minimizers[a].first.key < minimizers[b].first.key);
     });
 
     // Select the minimizers we use for seeds.
@@ -124,7 +128,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         size_t& hits = minimizer_hit_counts[minimizer_num];
         
 #ifdef debug
-        cerr << "Minimizer " << minimizer_num << " = " << minimizers[minimizer_num].key.decode(minimizer_index.k())
+        cerr << "Minimizer " << minimizer_num << " = " << minimizers[minimizer_num].first.key.decode(minimizer_index.k())
             << " has " << hits << " hits" << endl;
 #endif
 
@@ -141,16 +145,16 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
         } else if (seeds.size() == 1 || hits <= hit_cap ||
             (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score) ||
-            (took_last && i > 0 && minimizers[minimizer_num].key == minimizers[minimizers_in_order[i-1]].key)) {
+            (took_last && i > 0 && minimizers[minimizer_num].first.key == minimizers[minimizers_in_order[i-1]].first.key)) {
             // We should keep this minimizer instance because we only have one
             // seed location already, or it is sufficiently rare, or we want it
             // to make target_score, or it is the same sequence as the previous
             // minimizer which we also took.
             
             // Locate the hits.
-            for (auto& hit : minimizer_index.find(minimizers[minimizer_num])) {
+            for (auto& hit : minimizer_index.find(minimizers[minimizer_num].first)) {
                 // Reverse the hits for a reverse minimizer
-                if (minimizers[minimizer_num].is_reverse) {
+                if (minimizers[minimizer_num].first.is_reverse) {
                     size_t node_length = gbwt_graph.get_length(gbwt_graph.get_handle(id(hit)));
                     hit = reverse_base_pos(hit, node_length);
                 }
@@ -162,7 +166,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 seed_to_source.push_back(minimizer_num);
             }
             
-            if (!(took_last && i > 0 && minimizers[minimizer_num].key == minimizers[minimizers_in_order[i-1]].key)) {
+            if (!(took_last && i > 0 && minimizers[minimizer_num].first.key == minimizers[minimizers_in_order[i-1]].first.key)) {
                 // We did not also take a previous identical-sequence minimizer, so count this one towards the score.
                 selected_score += minimizer_score[minimizer_num];
             }
@@ -300,8 +304,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             size_t source_index = seed_to_source[hit_index];
 
             // The offset of a reverse minimizer is the endpoint of the kmer
-            size_t start_offset = minimizers[source_index].offset;
-            if (minimizers[source_index].is_reverse) {
+            size_t start_offset = minimizers[source_index].first.offset;
+            if (minimizers[source_index].first.is_reverse) {
                 start_offset = start_offset + 1 - minimizer_index.k();
             }
 
@@ -413,10 +417,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             GaplessExtender::cluster_type seed_matchings;
             for (auto& seed_index : cluster) {
                 // Insert the (graph position, read offset) pair.
-                seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].offset));
+                seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].first.offset));
 #ifdef debug
-                cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
-                    << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index.count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
+                cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].first.offset << " = " << seeds[seed_index]
+                    << " from minimizer " << seed_to_source[seed_index] << "("
+                    << minimizer_index.count(minimizers[seed_to_source[seed_index]].first) << ")" << endl;
 #endif
             }
             
