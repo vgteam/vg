@@ -897,6 +897,21 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         set_annotation(mappings[0], "mapq_unused_minimizer_counts", unused_minimizer_hit_counts);
         set_annotation(mappings[0], "mapq_median_unused_minimizer_count", median(unused_minimizer_hit_counts));
         
+        // Also do the count values in terms of windows' minimizers' counts.
+        
+        std::sort(used_window_hit_counts.begin(), used_window_hit_counts.end());
+        set_annotation(mappings[0], "mapq_used_window_minimizer_counts", used_window_hit_counts);
+        set_annotation(mappings[0], "mapq_median_used_window_minimizer_count", median(used_window_hit_counts));
+        std::sort(unused_window_hit_counts.begin(), unused_window_hit_counts.end());
+        set_annotation(mappings[0], "mapq_unused_window_minimizer_counts", minimizer_hit_counts);
+        set_annotation(mappings[0], "mapq_median_unused_window_minimizer_count", median(minimizer_hit_counts));
+        vector<size_t> all_window_hit_counts;
+        all_window_hit_counts.reserve(used_window_hit_counts.size() + unused_window_hit_counts.size());
+        std::copy(used_window_hit_counts.begin(), used_window_hit_counts.end(), std::back_inserter(all_window_hit_counts));
+        std::copy(unused_window_hit_counts.begin(), unused_window_hit_counts.end(), std::back_inserter(all_window_hit_counts));
+        std::sort(all_window_hit_counts.begin(), all_window_hit_counts.end());
+        set_annotation(mappings[0], "mapq_window_minimizer_counts", all_window_hit_counts);
+        set_annotation(mappings[0], "mapq_median_window_minimizer_count", median(all_window_hit_counts));
     
         // Annotate with the number of results in play at each stage
         funnel.for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
