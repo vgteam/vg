@@ -106,11 +106,19 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // And count how many hits we had available and we actually located
     size_t total_hits = 0;
     size_t located_hits = 0;
-    // And log the minimizer counts for those we keep and reject
+    // And log the hit counts for minimizers we keep and reject
     vector<size_t> used_minimizer_hit_counts;
     used_minimizer_hit_counts.reserve(minimizers.size());
     vector<size_t> unused_minimizer_hit_counts;
     unused_minimizer_hit_counts.reserve(minimizers.size());
+    // And how many windows we had available and actually located the minimizer of
+    size_t total_windows = 0;
+    size_t located_windows = 0;
+    // And log the hit counts for *windows* whose minimizers we keep and reject
+    vector<size_t> used_window_hit_counts;
+    used_window_hit_counts.reserve(aln.sequence().size());
+    vector<size_t> unused_window_hit_counts;
+    unused_window_hit_counts.reserve(aln.sequence().size());
     // In order to consistently take either all or none of the minimizers in
     // the read with a particular sequence, we track whether we took the
     // previous one.
@@ -134,6 +142,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
         // Record that we had this many hits of a minimizer
         total_hits += hits;
+        // And how many windows it represents
+        total_windows += minimizers[minimizer_num].second;
         
         if (hits == 0) {
             // A minimizer with no hits can't go on.
@@ -142,6 +152,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 funnel.fail("any-hits", minimizer_num);
                 
                 unused_minimizer_hit_counts.push_back(hits);
+                for (size_t i = 0; i < minimizers[minimizer_num].second; i++) {
+                    unused_window_hit_counts.push_back(hits);
+                }
             }
         } else if (seeds.size() == 1 || hits <= hit_cap ||
             (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score) ||
@@ -174,6 +187,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             // Remember that we located these hits
             located_hits += hits;
             
+            // And that we located all these windows
+            located_windows += minimizers[minimizer_num].second;
+            
             // And that we took this minimizer
             took_last = true;
             
@@ -185,6 +201,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 funnel.expand(minimizer_num, hits);
                 
                 used_minimizer_hit_counts.push_back(hits);
+                for (size_t i = 0; i < minimizers[minimizer_num].second; i++) {
+                    used_window_hit_counts.push_back(hits);
+                }
             }
         } else if (hits <= hard_hit_cap) {
             // Passed hard hit cap but failed score fraction/normal hit cap
@@ -196,6 +215,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 funnel.fail("hit-cap||score-fraction", minimizer_num, (selected_score + minimizer_score[minimizer_num]) / base_target_score);
                 
                 unused_minimizer_hit_counts.push_back(hits);
+                for (size_t i = 0; i < minimizers[minimizer_num].second; i++) {
+                    unused_window_hit_counts.push_back(hits);
+                }
             }
         } else {
             // Failed hard hit cap
@@ -206,6 +228,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 funnel.fail("hard-hit-cap", minimizer_num);
                 
                 unused_minimizer_hit_counts.push_back(hits);
+                for (size_t i = 0; i < minimizers[minimizer_num].second; i++) {
+                    unused_window_hit_counts.push_back(hits);
+                }
             }
         }
         if (track_provenance) {
@@ -738,10 +763,62 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     if (probability_mapping_lost.front() > 0) {
         mapq = min(mapq,round(prob_to_phred(probability_mapping_lost.front())));
     }
+    
+    // We want to have a MAPQ cap based on minimum error bases it would take to
+    // have created all our windows we located.
+    double mapq_window_breaking_cap = numeric_limits<double>::infinity();
+    
+    if (located_windows > 0) {
+        // Some windows were located, so we can use this algorithm safely
+    
+        // Now compute a MAPQ bound based on how many mutations it would take to
+        // have created all the windows for the minimizers we located.
+        
+        // First compute how the windows could most overlap, since we forgot where
+        // they actually were in the read. If they all overlap, they cover the
+        // window size plus one for each window after the first.
+        size_t overlapped_window_length = minimizer_index.w() + located_windows - 1;
+        // Since each base can disrupt window length - 1 windows on either side, we
+        // tile the overlapped windows with windows to work out how many bases
+        // would need to change to create them all. This is at least 1.
+        size_t minimum_disruptive_bases = overlapped_window_length / minimizer_index.w();
+        // Then we find that many of the lowest base qualities that aren't for Ns (which don't participate in windows)
+        // TODO: Replace with C++ 20 https://en.cppreference.com/w/cpp/ranges/filter_view and C++17 std::partial_sort_copy
+        // This will have at least one entry since we got at least 1 window.
+        vector<uint8_t> worst_qualities;
+        worst_qualities.reserve(aln.quality().size());
+        for (size_t i = 0; i < min(aln.sequence().size(), aln.quality().size()); i++) {
+            if (isATGC(aln.sequence()[i])) {
+                // The base qwuality is not for an N
+                worst_qualities.push_back(aln.quality()[i]);
+            }
+        }
+       
+        // Make sure the first minimum_disruptive_bases elements are the smallest.
+        std::partial_sort(worst_qualities.begin(),
+            worst_qualities.begin() + min(worst_qualities.size() - 1, minimum_disruptive_bases - 1), worst_qualities.end());
+            
+        // Sum them
+        size_t total_errored_quality = std::accumulate(worst_qualities.begin(),
+            worst_qualities.begin() + min(worst_qualities.size(), minimum_disruptive_bases), (size_t) 0);
+            
+        // We can't be more confident in our mapping than we are that all our
+        // located minimizers were not from windows that were created by errors
+        // in the read. This can't be <0.
+        mapq_window_breaking_cap = total_errored_quality;
+    }
+    
+    // Remember the uncapped MAPQ and the cap
+    set_annotation(mappings[0], "mapq_uncapped", mapq);
+    set_annotation(mappings[0], "mapq_window_breaking_cap", mapq_window_breaking_cap);
+    
+    // Apply the cap
+    mapq = min(mapq, mapq_window_breaking_cap);
+    
 #ifdef debug
     cerr << "MAPQ is " << mapq << endl;
 #endif
-        
+
     // Make sure to clamp 0-60.
     mappings.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
    
