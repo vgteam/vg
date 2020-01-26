@@ -1660,8 +1660,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         // Remember the output alignment
         mappings.first.emplace_back( std::move(alignments[index_pair.first.first].first[index_pair.first.second]));
         mappings.second.emplace_back(std::move(alignments[index_pair.second.first].second[index_pair.second.second]));
-        if (mappings.first.size() == 1) {
-            //If this is the best pair of alignments that we're going to return, get the group scores for mapq
+        if (mappings.first.size() == 1 && found_pair) {
+            //If this is the best pair of alignments that we're going to return and we didn't attempt rescue, 
+            //get the group scores for mapq
 
             //Get the scores of 
             scores_group_1.push_back(paired_scores[alignment_num]);
