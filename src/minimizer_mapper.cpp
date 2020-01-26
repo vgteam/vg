@@ -1740,9 +1740,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // If either of the mappings was duplicated in other pairs, use the group scores to determine mapq
     double mapq = (mappings.first.empty() || scores[0] == 0) ? 0 : 
         get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index) / 2;
-    double mapq_group1 = scores_group_1.size() > 1 ? 0 : 
+    double mapq_group1 = scores_group_1.size() > 1 ? mapq : 
         get_regular_aligner()->maximum_mapping_quality_exact(scores_group_1, &winning_index) / 2;
-    double mapq_group2 = scores_group_2.size() > 1 ? 0 : 
+    double mapq_group2 = scores_group_2.size() > 1 ? mapq : 
         get_regular_aligner()->maximum_mapping_quality_exact(scores_group_2, &winning_index) / 2;
     
 #ifdef debug
