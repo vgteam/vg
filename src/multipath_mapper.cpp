@@ -2455,7 +2455,7 @@ namespace vg {
                 memcluster_t& graph_mems1 = get<1>(cluster_graphs1[cluster_pair.first.first]);
                 
 #ifdef debug_multipath_mapper
-                cerr << "performing alignment to subgraph" << endl;
+                cerr << "performing alignment of read 1 to subgraph" << endl;
 #endif
                 
                 multipath_align(alignment1, graph1, graph_mems1, multipath_aln_pairs_out.back().first);
@@ -2480,7 +2480,7 @@ namespace vg {
                 memcluster_t& graph_mems2 = get<1>(cluster_graphs2[cluster_pair.first.second]);
                 
 #ifdef debug_multipath_mapper
-                cerr << "performing alignment to subgraph" << endl;
+                cerr << "performing alignment of read 2 to subgraph" << endl;
 #endif
                 
                 multipath_align(alignment2, graph2, graph_mems2, multipath_aln_pairs_out.back().second);
@@ -2912,7 +2912,7 @@ namespace vg {
 #ifdef debug_multipath_mapper_alignment
         cerr << "initial alignment graph:" << endl;
         graph->for_each_handle([&](const handle_t& h) {
-            cerr << graph->get_id(h) << " " << graph->get_sequence(h);
+            cerr << graph->get_id(h) << " " << graph->get_sequence(h) << endl;
             graph->follow_edges(h, false, [&](const handle_t& n) {
                 cerr << "\t-> " << graph->get_id(n) << " " << (graph->get_is_reverse(n) ? "-" : "+") << endl;
             });
@@ -2972,7 +2972,7 @@ namespace vg {
         cerr << "final alignment graph:" << endl;
         align_dag->for_each_handle([&](const handle_t& h) {
             auto tr = translator(align_dag->get_id(h));
-            cerr << align_dag->get_id(h) << " (" << tr.first << (tr.second ? "-" : "+") << ") " << align_dag->get_sequence(h);
+            cerr << align_dag->get_id(h) << " (" << tr.first << (tr.second ? "-" : "+") << ") " << align_dag->get_sequence(h) << endl;
             align_dag->follow_edges(h, false, [&](const handle_t& n) {
                 cerr << "\t-> " << align_dag->get_id(n) << " " << (align_dag->get_is_reverse(n) ? "-" : "+") << endl;
             });
