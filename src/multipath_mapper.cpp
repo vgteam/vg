@@ -652,7 +652,7 @@ namespace vg {
         for (size_t i = 0; i < num_simulations; i++) {
             
             Alignment alignment;
-            alignment.set_sequence(random_sequence(simulated_read_length));
+            alignment.set_sequence(pseudo_random_sequence(simulated_read_length, i));
             vector<MultipathAlignment> multipath_alns;
             multipath_map(alignment, multipath_alns);
             
@@ -675,7 +675,7 @@ namespace vg {
         //
         // where:
         //   G = genome size
-        //   R = read length
+        //   L = read length
         //   S = scale parameter (which we optimize below)
         
         

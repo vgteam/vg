@@ -439,6 +439,9 @@ size_t modular_exponent(uint64_t base, uint64_t exponent, uint64_t modulus);
 /// Returns a uniformly random DNA sequence of the given length
 string random_sequence(size_t length);
 
+/// Returns a uniformly random DNA sequence sequence deterministically from a seed
+string pseudo_random_sequence(size_t length, uint64_t seed);
+
 /// Escape "%" to "%25"
 string percent_url_encode(const string& seq);
 string replace_in_string(string subject, const string& search, const string& replace);
