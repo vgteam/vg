@@ -1429,13 +1429,15 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 //
     // each alignment is <fragment index, alignment index> into alignments
     vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> paired_alignments;
-    //For each alignment, which paired_alignment includes it. Follows structure of alignments
+    paired_alignments.reserve(alignments.size());
+    //For each alignment in alignments, which paired_alignment includes it. Follows structure of alignments
     vector<pair<vector<vector<size_t>>, vector<vector<size_t>>>> alignment_groups(alignments.size());
 
     // Grab all the scores in order for MAPQ computation.
     vector<double> paired_scores;
-    paired_alignments.reserve(alignments.size());
     paired_scores.reserve(alignments.size());
+    vector<int64_t> fragment_distances;
+    fragment_distances.reserve(alignments.size());
 
     //Keep track of alignments with no pairs in the same fragment cluster
     bool found_pair = false;
@@ -1590,6 +1592,10 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
                     double score = mapped_aln.score() + rescued_aln.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
 
+                    set_annotation(mapped_aln, "rescuer", true);
+                    set_annotation(rescued_aln, "rescued", true);
+                    set_annotation(mapped_aln,  "fragment-length", (double)fragment_dist);
+                    set_annotation(rescued_aln, "fragment-length", (double)fragment_dist);
                     pair<size_t, size_t> mapped_index (std::get<0>(index), std::get<1>(index)); 
                     pair<size_t, size_t> rescued_index (alignments.size() - 1, 
                                 found_first ? alignments.back().second.size() : alignments.back().first.size());
@@ -1599,6 +1605,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                                 make_pair(mapped_index, rescued_index) : make_pair(rescued_index, mapped_index);
                     paired_alignments.push_back(index_pair);
                     paired_scores.emplace_back(score);
+                    fragment_distances.emplace_back(fragment_dist);
 //TODO: Could check for duplicates but I don't think we'll get any since pairs we can't rescue anything we wouldn't have clustered
 //                    for (pair<Alignment, Alignment>& old_pair: paired_alignments) {
 //                        //Make sure that this pair is not a duplicate of one we already found
@@ -1644,9 +1651,11 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     vector<double> scores;
     vector<double> scores_group_1;
     vector<double> scores_group_2;
+    vector<int64_t> distances;
     mappings.first.reserve(paired_alignments.size());
     mappings.second.reserve(paired_alignments.size());
     scores.reserve(paired_scores.size());
+    distances.reserve(fragment_distances.size());
     process_until_threshold(paired_alignments, (std::function<double(size_t)>) [&](size_t i) -> double {
         return paired_scores[i];
     }, 0, 1, max_multimaps, [&](size_t alignment_num) {
@@ -1657,6 +1666,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         
         // Remember the score at its rank
         scores.emplace_back(paired_scores[alignment_num]);
+        distances.emplace_back(fragment_distances[alignment_num]);
         // Remember the output alignment
         mappings.first.emplace_back( std::move(alignments[index_pair.first.first].first[index_pair.first.second]));
         mappings.second.emplace_back(std::move(alignments[index_pair.second.first].second[index_pair.second.second]));
@@ -1682,9 +1692,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     scores_group_2.push_back(paired_scores[other_alignment_num]);
                 }
             }
-
-
-
         }
 
 
@@ -1729,25 +1736,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         funnels[0].substage("mapq");
         funnels[1].substage("mapq");
     }
-    
-#ifdef debug
-    cerr << "For scores ";
-    for (auto& score : scores) cerr << score << " ";
-#endif
-
-    size_t winning_index;
-    // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
-    // If either of the mappings was duplicated in other pairs, use the group scores to determine mapq
-    double mapq = (mappings.first.empty() || scores[0] == 0) ? 0 : 
-        get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index) / 2;
-    double mapq_group1 = scores_group_1.size() > 1 ? mapq : 
-        get_regular_aligner()->maximum_mapping_quality_exact(scores_group_1, &winning_index) / 2;
-    double mapq_group2 = scores_group_2.size() > 1 ? mapq : 
-        get_regular_aligner()->maximum_mapping_quality_exact(scores_group_2, &winning_index) / 2;
-    
-#ifdef debug
-    cerr << "MAPQ is " << mapq << endl;
-#endif
  
     if (mappings.first.empty()) {
         //If we didn't get an alignment, return empty alignments
@@ -1771,12 +1759,37 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         mappings.first.back().set_mapping_quality(0);
 
     } else {
-
-        mapq_group1 == 0 ? mappings.first.back().set_mapping_quality(max(min(mapq, 60.0), 0.0))
-                         : mappings.first.back().set_mapping_quality(max(min(mapq_group1, 60.0), 0.0)) ;
-        mapq_group2 == 0 ? mappings.second.back().set_mapping_quality(max(min(mapq, 60.0), 0.0))
-                         : mappings.first.back().set_mapping_quality(max(min(mapq_group2, 60.0), 0.0)) ;
     
+    #ifdef debug
+        cerr << "For scores ";
+        for (auto& score : scores) cerr << score << " ";
+    #endif
+    
+        size_t winning_index;
+        // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
+        // If either of the mappings was duplicated in other pairs, use the group scores to determine mapq
+        double mapq = (mappings.first.empty() || scores[0] == 0) ? 0 : 
+            get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index) / 2;
+        double mapq_group1 = scores_group_1.size() <= 1 ? mapq : 
+            min(mapq, get_regular_aligner()->maximum_mapping_quality_exact(scores_group_1, &winning_index) / 2);
+        double mapq_group2 = scores_group_2.size() <= 1 ? mapq : 
+            min(mapq, get_regular_aligner()->maximum_mapping_quality_exact(scores_group_2, &winning_index) / 2);
+        
+    #ifdef debug
+        cerr << "MAPQ is " << mapq << ", group MAPQ scores are " << mapq_group1 << " and " << mapq_group2 << endl;
+    #endif
+
+        mappings.first.front().set_mapping_quality(max(min(mapq_group1, 60.0), 0.0)) ;
+        mappings.second.front().set_mapping_quality(max(min(mapq_group2, 60.0), 0.0)) ;
+    
+        //Annotate top pair with its fragment distance, fragment length distrubution, and secondary scores
+        set_annotation(mappings.first.front(), "fragment_distance", (double) distances.front());
+        set_annotation(mappings.second.front(), "fragment_distance", (double) distances.front());
+        string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.stdev());
+        set_annotation(mappings.first [0],"fragment_length_distribution", distribution);
+        set_annotation(mappings.second[0],"fragment_length_distribution", distribution);
+        set_annotation(mappings.first [0],"secondary_scores", scores);
+        set_annotation(mappings.second[0],"secondary_scores", scores);
     
     }
        
@@ -1875,11 +1888,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         set_annotation(mappings.second[0], "param_extension-set", (double) extension_set_score_threshold);
         set_annotation(mappings.second[0], "param_max-multimaps", (double) max_multimaps);
 
-        string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.stdev());
-        set_annotation(mappings.first [0],"fragment_length_distribution", distribution);
-        set_annotation(mappings.second[0],"fragment_length_distribution", distribution);
-        set_annotation(mappings.first [0],"secondary_scores", scores);
-        set_annotation(mappings.second[0],"secondary_scores", scores);
     }
     
     // Ship out all the aligned alignments
