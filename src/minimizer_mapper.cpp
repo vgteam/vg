@@ -1475,8 +1475,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         paired_scores.emplace_back(score);
                         fragment_distances.emplace_back(fragment_distance);
 #ifdef debug
-        cerr << "Found pair of alignments from fragment " << fragment num << " with scores " 
-             << alignment1.score() << " " << alignment2.score << " at distance " << fragment_distance << endl;
+        cerr << "Found pair of alignments from fragment " << fragment_num << " with scores " 
+             << alignment1.score() << " " << alignment2.score() << " at distance " << fragment_distance 
+             << " gets pair score " << score << endl;
         cerr << "Alignment 1: " << pb2json(alignment1) << endl << "Alignment 2: " << pb2json(alignment2) << endl;
 #endif
                     }
@@ -1680,8 +1681,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         scores.emplace_back(paired_scores[alignment_num]);
         distances.emplace_back(fragment_distances[alignment_num]);
         // Remember the output alignment
-        mappings.first.emplace_back( std::move(alignments[index_pair.first.first].first[index_pair.first.second]));
-        mappings.second.emplace_back(std::move(alignments[index_pair.second.first].second[index_pair.second.second]));
+        mappings.first.emplace_back( alignments[index_pair.first.first].first[index_pair.first.second]);
+        mappings.second.emplace_back(alignments[index_pair.second.first].second[index_pair.second.second]);
         if (mappings.first.size() == 1 && found_pair) {
             //If this is the best pair of alignments that we're going to return and we didn't attempt rescue, 
             //get the group scores for mapq
@@ -1799,10 +1800,10 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         set_annotation(mappings.first.front(), "fragment_length", (double) distances.front());
         set_annotation(mappings.second.front(), "fragment_length", (double) distances.front());
         string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.stdev());
-        set_annotation(mappings.first [0],"fragment_length_distribution", distribution);
-        set_annotation(mappings.second[0],"fragment_length_distribution", distribution);
-        set_annotation(mappings.first [0],"secondary_scores", scores);
-        set_annotation(mappings.second[0],"secondary_scores", scores);
+        set_annotation(mappings.first.front(),"fragment_length_distribution", distribution);
+        set_annotation(mappings.second.front(),"fragment_length_distribution", distribution);
+        set_annotation(mappings.first.front(),"secondary_scores", scores);
+        set_annotation(mappings.second.front(),"secondary_scores", scores);
     
     }
        
