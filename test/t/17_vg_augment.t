@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 23
+plan tests 37
 
 vg view -J -v pileup/tiny.json > tiny.vg
 
@@ -124,3 +124,78 @@ is "$?" 0 "augmenting a hash graph produces same results as a vg graph"
 
 rm -f flat.vg flat.gcsa flat.xg flat.pg flat.hg 2snp.vg 2snp.xg 2snp.sim 2snp.gam vg_augment.nodes packed_graph_augment.nodes hash_graph_augment.nodes
 rm -f 2err.sim 2err.gam 4edits.gam 2snp_default.nodes 2snp_m1.nodes 4edits_m11.nodes 2qual.gam qual.fq
+
+vg construct -m 10 -r tiny/tiny.fa >t.vg
+vg index -k 11 -g t.idx.gcsa -x t.idx.xg t.vg
+vg view t.vg | grep ^S | awk '{print $3}' | sort > t.nodes
+( vg view t.vg | grep ^S | awk '{print $3}' ; echo "GGNGG" ) | sort > t.aug.nodes
+
+vg map -s CAAATAAGGCTTGGAAATTTGGNGGTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -N 1 -m 0 > t.aug1.vg
+vg view t.aug1.vg | grep ^S | awk '{print $3}' | sort > t.aug1.nodes
+diff t.aug1.nodes t.aug.nodes
+is "$?" 0 "augmenting between nodes without filters works as expected"
+
+vg map -s CAAATAAGGCTTGGAAATTTGGNGGTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -N 0.5 -m 1 > t.aug1f.vg
+vg view t.aug1f.vg | grep ^S | awk '{print $3}' | sort > t.aug1f.nodes
+diff t.aug1f.nodes t.aug.nodes
+is "$?" 0 "augmenting between nodes with inactive filters works as expected"
+
+vg map -s CAAATAAGGCTTGGAAATTTGGNGGTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -N 0.1 > t.aug1nf.vg
+vg view t.aug1nf.vg | grep ^S | awk '{print $3}' | sort > t.aug1nf.nodes
+diff t.aug1nf.nodes t.nodes
+is "$?" 0 "augmenting between nodes N filter works as expected"
+
+rm -f t.aug1.vg t.aug1.nodes t.aug1f.vg t.aug1f.nodes t.aug1nf.vg t.aug1nf.nodes
+
+vg map -s CAGAGAGTTGGAATATAATAGAACTCCAGACCNCCAAATTTCCAAGCCTTATTTG -d t.idx | vg augment t.vg - -N 1 -m 0 > t.augr1.vg
+vg view t.augr1.vg | grep ^S | awk '{print $3}' | sort > t.augr1.nodes
+diff t.augr1.nodes t.aug.nodes
+is "$?" 0 "augmenting between nodes without filters works as expected on reverse strand"
+
+vg map -s CAGAGAGTTGGAATATAATAGAACTCCAGACCNCCAAATTTCCAAGCCTTATTTG -d t.idx | vg augment t.vg - -N 0.5 -m 1 > t.augr1f.vg
+vg view t.augr1f.vg | grep ^S | awk '{print $3}' | sort > t.augr1f.nodes
+diff t.augr1f.nodes t.aug.nodes
+is "$?" 0 "augmenting between nodes with inactive filters works as expected on reverse strand"
+
+vg map -s CAGAGAGTTGGAATATAATAGAACTCCAGACCNCCAAATTTCCAAGCCTTATTTG -d t.idx | vg augment t.vg - -N 0.1 > t.augr1nf.vg
+vg view t.augr1nf.vg | grep ^S | awk '{print $3}' | sort > t.augr1nf.nodes
+diff t.augr1nf.nodes t.nodes
+is "$?" 0 "augmenting between nodes N filter works as expected on reverse strand"
+
+rm -f t.augr1.vg t.augr1.nodes t.augr1f.vg t.augr1f.nodes t.augr1nf.vg t.augr1nf.nodes
+
+vg map -s CAAATAAGGCTTGGAGGNGGAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -N 1 -m 0 > t.aug1.vg
+is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l) 1 "augmenting within node without filters works as expected"
+
+vg map -s CAAATAAGGCTTGGAGGNGGAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -N 0.5 -m 1 > t.aug1.vg
+is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l) 1 "augmenting within node with inactive filters works as expected"
+
+vg map -s CAAATAAGGCTTGGAGGNGGAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -N 0.1  > t.aug1.vg
+is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l) 0 "augmenting within node with N filter  works as expected"
+
+rm -f t.aug.nodes t.aug1.vg t.aug1.nodes t.aug1f.vg t.aug1f.nodes t.aug1nf.vg t.aug1nf.nodes
+
+vg map -s CAGAGAGTTGGAATATAATAGAACTCCAGAAAATTCCNCCTCCAAGCCTTATTTG -d t.idx | vg augment t.vg - -N 1 -m 0 > t.aug1.vg
+is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l) 1 "augmenting within node without filters works as expected on reverse strand"
+
+vg map -s CAGAGAGTTGGAATATAATAGAACTCCAGAAAATTCCNCCTCCAAGCCTTATTTG -d t.idx | vg augment t.vg - -N 0.5 -m 1 > t.aug1.vg
+is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l) 1 "augmenting within node with inactive filters works as expected on reverse strand"
+
+vg map -s CAGAGAGTTGGAATATAATAGAACTCCAGAAAATTCCNCCTCCAAGCCTTATTTG -d t.idx | vg augment t.vg - -N 0.1  > t.aug1.vg
+is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l) 0 "augmenting within node with N filter  works as expected on reverse strand"
+
+rm -f t.augr1.vg t.augr1.nodes t.augr1f.vg t.augr1f.nodes t.augr1nf.vg t.augr1nf.nodes
+
+vg map -s CAAATANNNAGGCTTGGAAATTTTCTGGAGTTCTATTATATNNNNNTCCAACTCTCTG -d t.idx > t.gam
+vg augment t.vg t.gam -N 0.5 -A t.aug1.gam > t.aug1.vg
+is $(vg view -a t.aug1.gam | jq -c '.sequence' | sed 's/\"//g') $(tail -1 tiny/tiny.fa) "sequence in filtered alignment has removed insertion"
+
+rm -f t.gam t.aug1.gam t.aug1.vg
+
+vg map -s CAGAGAGTTGGANNNNNATATAATAGAACTCCAGAAAATTTCCAAGCCTNNNTATTTG -d t.idx > t.gam
+vg augment t.vg t.gam -N 0.5 -A t.aug1.gam > t.aug1.vg
+is $(vg view -a t.aug1.gam | jq -c '.sequence' | sed 's/\"//g') CAGAGAGTTGGAATATAATAGAACTCCAGAAAATTTCCAAGCCTTATTTG "sequence in filtered alignment has removed insertion on reverse strand"
+
+rm -f t.gam t.aug1.gam t.aug1.vg
+
+rm -f t.vg t.idx.gcsa t.idx.xg t.nodes t.aug.nodes

@@ -6,6 +6,7 @@
  */
 
 #include <handlegraph/handle_graph.hpp>
+#include <handlegraph/serializable_handle_graph.hpp>
 #include <handlegraph/mutable_handle_graph.hpp>
 #include <handlegraph/path_handle_graph.hpp>
 #include <handlegraph/path_position_handle_graph.hpp>
@@ -48,6 +49,13 @@ using VectorizableHandleGraph = handlegraph::VectorizableHandleGraph;
 template<>
 struct wang_hash<handle_t> {
     size_t operator()(const handlegraph::handle_t& handle) const {
+        return wang_hash<std::int64_t>()(handlegraph::as_integer(handle));
+    }
+};
+
+template<>
+struct wang_hash<path_handle_t> {
+    size_t operator()(const handlegraph::path_handle_t& handle) const {
         return wang_hash<std::int64_t>()(handlegraph::as_integer(handle));
     }
 };

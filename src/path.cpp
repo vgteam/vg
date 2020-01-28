@@ -530,20 +530,33 @@ void Paths::increment_node_ids(id_t inc) {
     rebuild_node_mapping();
 }
 
-void Paths::swap_node_ids(hash_map<id_t, id_t>& id_mapping) {
+void Paths::swap_node_ids(const std::function<nid_t(const nid_t&)>& get_new_id) {
     for (auto& p : _paths) {
         const string& name = p.first;
         list<mapping_t>& path = p.second;
         for (auto& m : path) {
             // Look up the replacement ID
-            auto replacement = id_mapping.find(m.node_id());
-            if(replacement != id_mapping.end()) {
-                // If there is a replacement, use it.
-                m.set_node_id((*replacement).second);
+            auto replacement = get_new_id(m.node_id());
+            if(replacement != 0) {
+                // If there is a nonzero replacement, use it.
+                m.set_node_id(replacement);
             }
         }
     }
     rebuild_node_mapping();
+}
+
+void Paths::swap_node_ids(hash_map<id_t, id_t>& id_mapping) {
+    swap_node_ids([&](const nid_t& id) -> nid_t {
+        auto it = id_mapping.find(id);
+        if (it == id_mapping.end()) {
+            // Not found
+            return 0;
+        } else {
+            // Use the result
+            return it->second;
+        }
+    });
 }
 
 void Paths::reassign_node(id_t new_id, mapping_t* m) {
@@ -2327,6 +2340,15 @@ void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t
     for (size_t i = 0; i < path.mapping_size(); i++) {
         Position* position = path.mutable_mapping(i)->mutable_position();
         const pair<id_t, bool>& translation = translator.at(position->node_id());
+        position->set_node_id(translation.first);
+        position->set_is_reverse(translation.second != position->is_reverse());
+    }
+}
+
+void translate_oriented_node_ids(Path& path, const function<pair<id_t, bool>(id_t)>& translator) {
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        Position* position = path.mutable_mapping(i)->mutable_position();
+        const pair<id_t, bool>& translation = translator(position->node_id());
         position->set_node_id(translation.first);
         position->set_is_reverse(translation.second != position->is_reverse());
     }

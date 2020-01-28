@@ -144,16 +144,18 @@
 </tr>
 <tr><td><a href="#Properties">
                                     Properties (
-                                    8
+                                    10
                                     )
                             </a></td></tr>
 <tr>
 <td><a style="objectPropertySearch" href="#ObjectProperties">
                                     Object properties (
-                                    7
+                                    9
                                     )
                             </a></td>
-<td><select onChange="window.location.hash = document.getElementById('navi3').value" id="navi3"><option value="linksForwardToForward">
+<td><select onChange="window.location.hash = document.getElementById('navi3').value" id="navi3"><option value="links">
+				vg:links</option>
+<option value="linksForwardToForward">
 				vg:linksForwardToForward</option>
 <option value="linksForwardToReverse">
 				vg:linksForwardToReverse</option>
@@ -163,6 +165,8 @@
 				vg:linksReverseToReverse</option>
 <option value="node">
 				vg:node</option>
+<option value="path">
+				vg:path</option>
 <option value="position">
 				vg:position</option>
 <option value="reverseOfNode">
@@ -525,7 +529,7 @@
 <tr>
 <td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
 					rdfs:comment</a></td>
-<td>Nodes, Edges, Paths. Nodes have ID and sequence, Edges consist of two node sides (so the graph is bidirected), Paths are a sequence of Nodes and orientations. Paths also have names</td>
+<td>Consists of nodes, edges, and paths. Nodes each have a unique ID and a DNA sequence, edges consist of two node sides (so the graph is bidirected), and paths are a sequence of nodes and orientations. Paths also have names.</td>
 </tr>
 <tr>
 <td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
@@ -591,6 +595,48 @@
 <div class="nice-content" id="Properties">
 <h3 id="ObjectProperties">Object properties</h3>
 <table class="subsection">
+<a name="http://biohackathon.org/resource/vg#links"></a><tbody>
+<tr><th id="links">
+				vg:links<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The super property that says two nodes are linked and does not allow one to infer wwhich side to side it goes"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Node">
+				vg:Node</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"links"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Node">
+				vg:Node</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
 <a name="http://biohackathon.org/resource/vg#linksForwardToForward"></a><tbody>
 <tr><th id="linksForwardToForward">
 				vg:linksForwardToForward<span class="cp-type">
@@ -638,6 +684,12 @@
 					rdfs:range</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Node">
 				vg:Node</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subPropertyOf">
+					rdfs:subPropertyOf</a></td>
+<td><a href="http://biohackathon.org/resource/vg#links">
+				vg:links</a></td>
 </tr>
 </tbody>
 </table>
@@ -690,6 +742,12 @@
 <td><a href="http://biohackathon.org/resource/vg#Node">
 				vg:Node</a></td>
 </tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subPropertyOf">
+					rdfs:subPropertyOf</a></td>
+<td><a href="http://biohackathon.org/resource/vg#links">
+				vg:links</a></td>
+</tr>
 </tbody>
 </table>
 <table class="subsection">
@@ -740,6 +798,12 @@
 					rdfs:range</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Node">
 				vg:Node</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subPropertyOf">
+					rdfs:subPropertyOf</a></td>
+<td><a href="http://biohackathon.org/resource/vg#links">
+				vg:links</a></td>
 </tr>
 </tbody>
 </table>
@@ -792,6 +856,12 @@
 <td><a href="http://biohackathon.org/resource/vg#Node">
 				vg:Node</a></td>
 </tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subPropertyOf">
+					rdfs:subPropertyOf</a></td>
+<td><a href="http://biohackathon.org/resource/vg#links">
+				vg:links</a></td>
+</tr>
 </tbody>
 </table>
 <table class="subsection">
@@ -833,6 +903,48 @@
 					rdfs:range</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Node">
 				vg:Node</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#path"></a><tbody>
+<tr><th id="path">
+				vg:path<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"This means that this step occurs on the path that is the object of this statment"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Step">
+				vg:Step</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"path"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Path">
+				vg:Path</a></td>
 </tr>
 </tbody>
 </table>

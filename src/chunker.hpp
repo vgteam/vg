@@ -50,7 +50,7 @@ public:
     /**
      * Extract a connected component starting from an id set
      */
-    void extract_component(const unordered_set<nid_t>& node_ids, MutablePathMutableHandleGraph& subgraph);   
+    void extract_component(const unordered_set<nid_t>& node_ids, MutablePathMutableHandleGraph& subgraph, bool subpath_naming);   
 
     /**
      * Like above, but use (inclusive) id range instead of region on path.

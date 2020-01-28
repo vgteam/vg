@@ -60,14 +60,14 @@ public:
     /// shared_travs:    if a node appears N times in shared_travs, then it will count as 1 / (N+1) support
     /// tgt_travs:       if not empty, only compute support for these traversals (remaining slots in output vector left 0)
     /// eclusive_only:   shared_travs are completely ignored
-    /// exclusive_count: anything in shared_travs treated as 0
+    /// exclusive_count_support: anything in shared_travs has this much support subtracted from it
     /// mutual_shared:   shared_travs count as 1/N support (instead of 1/(N+1)).  usefuly for total support
     /// ref_trav_idx:    index of reference traversal if known
     virtual vector<Support> get_traversal_set_support(const vector<SnarlTraversal>& traversals,
                                                       const vector<int>& shared_travs,
                                                       const set<int>& tgt_travs,
                                                       bool exclusive_only,
-                                                      bool exclusive_count,
+                                                      const vector<Support>& exclusive_count_support,
                                                       bool mutual_shared,
                                                       int ref_trav_idx = -1) const;
 

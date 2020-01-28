@@ -1,8 +1,8 @@
-#ifndef VG_IO_SAVE_HANDLE_GRAPH_IO_HPP_INCLUDED
-#define VG_IO_REGISTER_LIBVG_IO_HPP_INCLUDED
+#ifndef VG_IO_SAVE_HANDLE_GRAPH_HPP_INCLUDED
+#define VG_IO_SAVE_HANDLE_GRAPH_HPP_INCLUDED
 
 /**
- * \save_handle_graph.hpp
+ * \file save_handle_graph.hpp
  * Use vpkg to serialize a HandleGraph object
  */
 
@@ -13,6 +13,8 @@
 #include "xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+
+#include <memory>
 
 namespace vg {
 
@@ -64,15 +66,15 @@ inline bool valid_output_format(const string& fmt_string) {
 
 // Create a new graph (of handle graph type T) where the implementation is chosen using the format string
 template<class T>
-T* new_output_graph(const string& fmt_string) {
+unique_ptr<T> new_output_graph(const string& fmt_string) {
     if (fmt_string == "vg") {
-        return new VG();
+        return make_unique<VG>();
     } else if (fmt_string == "pg") {
-        return new bdsg::PackedGraph();
+        return make_unique<bdsg::PackedGraph>();
     } else if (fmt_string == "hg") {
-        return new bdsg::HashGraph();
+        return make_unique<bdsg::HashGraph>();
     } else {
-        return nullptr;
+        return unique_ptr<T>();
     }
 }
 

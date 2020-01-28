@@ -237,8 +237,9 @@ public:
     bool for_each_name_stoppable(const function<bool(const string&)>& lambda) const;
     void for_each_stream(istream& in, const function<void(Path&)>& lambda);
     void increment_node_ids(id_t inc);
-    // Replace the node IDs used as keys with those used as values.
+    // Replace the node IDs according to a mapping from old ID to new ID.
     // This is only efficient to do in a batch.
+    void swap_node_ids(const std::function<nid_t(const nid_t&)>& get_new_id);
     void swap_node_ids(hash_map<id_t, id_t>& id_mapping);
     // sets the mapping to the new id
     // erases current (old index information)
@@ -344,6 +345,8 @@ void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator)
 void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator, id_t cut_node, size_t bases_removed, bool from_right);
 /// Switches the node ids and orientations in the path to the ones indicated by the translator
 void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t, bool>>& translator);
+/// Switches node ids and orientations in the path to the ones indicated by the translator
+void translate_oriented_node_ids(Path& path, const function<pair<id_t, bool>(id_t)>& translator);
     
 // the first position on the path
 pos_t initial_position(const Path& path);
