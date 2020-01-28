@@ -1030,6 +1030,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     for (pair<vector< size_t>, size_t>& cluster : all_clusters[1]) {
         max_fragment_num = std::max(max_fragment_num, cluster.second);
     }
+#ifdef debug
+    cerr << "Found " << max_fragment_num << " fragment clusters" << endl;
+#endif
     vector<bool> has_first_read (max_fragment_num+1, false);//For each fragment cluster, does it have a cluster for the first read
     vector<bool> fragment_cluster_has_pair (max_fragment_num+1, false);//Does a fragment cluster have both reads
     bool found_paired_cluster = false;
@@ -1042,6 +1045,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         fragment_cluster_has_pair[fragment_num] = has_first_read[fragment_num];
         if (has_first_read[fragment_num]) {
             found_paired_cluster = true;
+#ifdef debug
+            cerr << "Fragment cluster " << fragment_num << " has read clusters from both reads" << endl;
+#endif
         }
     }
 
@@ -1422,12 +1428,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         funnels[0].stage("pair");
         funnels[1].stage("pair");
     }
-    // Fill this in with the alignments we will output
-// TODO: This could do a lot of copying of alignments, but it makes things simpler with rescue so I'll keep it for now
-//    // Tuple of fragment index, index of first alignment, index of second alignment in alignments, 
-//    //  and the indexes from the funnel of the alignments
-//
-    // each alignment is <fragment index, alignment index> into alignments
+    // Fill this in with the pairs of alignments we will output
+    // each alignment is stored as <fragment index, alignment index> into alignments
     vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> paired_alignments;
     paired_alignments.reserve(alignments.size());
     //For each alignment in alignments, which paired_alignment includes it. Follows structure of alignments
@@ -1471,6 +1473,12 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         alignment_groups[fragment_num].second[i2].emplace_back(paired_alignments.size());
                         paired_alignments.emplace_back(make_pair(fragment_num, i1), make_pair(fragment_num, i2));
                         paired_scores.emplace_back(score);
+                        fragment_distances.emplace_back(fragment_distance);
+#ifdef debug
+        cerr << "Found pair of alignments from fragment " << fragment num << " with scores " 
+             << alignment1.score() << " " << alignment2.score << " at distance " << fragment_distance << endl;
+        cerr << "Alignment 1: " << pb2json(alignment1) << endl << "Alignment 2: " << pb2json(alignment2) << endl;
+#endif
                     }
                     //TODO: Could also give each alignment a group score depending on how many identical alignments it has
 
@@ -1517,6 +1525,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         if (max_rescue_attempts == 0 ) {
             //If we aren't attempting rescue, just return the best for each
 
+#ifdef debug
+            cerr << "Found no pairs and we aren't doing rescue: return best alignment for each read" << endl;
+#endif
             Alignment& best_aln1 = aln1;
             Alignment& best_aln2 = aln2;
 
@@ -1561,6 +1572,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
             paired_mappings.first.back().set_mapping_quality(1);
             paired_mappings.second.back().set_mapping_quality(1);
+
             return paired_mappings;
         } else {
             
@@ -1594,8 +1606,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
                     set_annotation(mapped_aln, "rescuer", true);
                     set_annotation(rescued_aln, "rescued", true);
-                    set_annotation(mapped_aln,  "fragment-length", (double)fragment_dist);
-                    set_annotation(rescued_aln, "fragment-length", (double)fragment_dist);
+                    set_annotation(mapped_aln,  "fragment_length", (double)fragment_dist);
+                    set_annotation(rescued_aln, "fragment_length", (double)fragment_dist);
                     pair<size_t, size_t> mapped_index (std::get<0>(index), std::get<1>(index)); 
                     pair<size_t, size_t> rescued_index (alignments.size() - 1, 
                                 found_first ? alignments.back().second.size() : alignments.back().first.size());
@@ -1721,6 +1733,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         
         // Remember the score at its rank anyway
         scores.emplace_back(paired_scores[alignment_num]);
+        distances.emplace_back(fragment_distances[alignment_num]);
         
         if (track_provenance) {
             funnels[0].fail("max-multimaps", alignment_num);
@@ -1783,8 +1796,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         mappings.second.front().set_mapping_quality(max(min(mapq_group2, 60.0), 0.0)) ;
     
         //Annotate top pair with its fragment distance, fragment length distrubution, and secondary scores
-        set_annotation(mappings.first.front(), "fragment_distance", (double) distances.front());
-        set_annotation(mappings.second.front(), "fragment_distance", (double) distances.front());
+        set_annotation(mappings.first.front(), "fragment_length", (double) distances.front());
+        set_annotation(mappings.second.front(), "fragment_length", (double) distances.front());
         string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.stdev());
         set_annotation(mappings.first [0],"fragment_length_distribution", distribution);
         set_annotation(mappings.second[0],"fragment_length_distribution", distribution);
