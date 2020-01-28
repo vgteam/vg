@@ -138,6 +138,11 @@ public:
     size_t max_rescue_attempts = 0;
     
     bool fragment_distr_is_finalized () {return fragment_length_distr.is_finalized();}
+    void finalize_fragment_length_distr() {
+        if (!fragment_length_distr.is_finalized()) {
+            fragment_length_distr.force_parameters(fragment_length_distr.mean(), fragment_length_distr.stdev());
+        } 
+    }
     /**
      * Get the distance between a pair of read alignments
      */

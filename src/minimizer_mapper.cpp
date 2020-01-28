@@ -1159,7 +1159,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         //size_t curr_kept = 0;
         //size_t curr_count = 0;
         
-        //TODO: If we have a fragment cluster with both ends, we might not want to throw away one end even if it is below one of the score caps
         //Could just turn off these filters
         //Process clusters sorted by both score and read coverage
         process_until_threshold(clusters, read_coverage_by_cluster,
@@ -1296,6 +1295,15 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
         // Go through the gapless extension groups in score order.
         process_until_threshold(cluster_extensions, cluster_extension_scores,
+        [&](size_t a, size_t b) {
+            //Sort primarily by score, but break ties to favor earlier fragment clusters so its more likely that
+            //we end up with extensions in the same fragment cluster
+            if (cluster_extension_scores[a] == cluster_extension_scores[b]){
+                return cluster_extensions[a].second < cluster_extensions[b].second;
+            } else {
+                return cluster_extension_scores[a] > cluster_extension_scores[b];
+            }
+        },
             extension_set_score_threshold, 2, max_alignments,
             [&](size_t extension_num) {
                 // This extension set is good enough.
@@ -1497,12 +1505,22 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 }
             }
         } else if (!fragment_alignments.first.empty()) {
+#ifdef debug
+            cerr << "Found unpaired alignments from fragment " << fragment_num << " for first read" << endl;
+#endif
             for (size_t i = 0 ; i < fragment_alignments.first.size() ; i++) {
                 unpaired_alignments.emplace_back(fragment_num, i, true);
+#ifdef debug
+                cerr << "\t" << pb2json(fragment_alignments.first[i]) << endl;
+#endif
             }
         } else if (!fragment_alignments.second.empty()) {
+            cerr << "Found unpaired alignments from fragment " << fragment_num << " for second read" << endl;
             for (size_t i = 0 ; i < fragment_alignments.second.size() ; i++) {
                 unpaired_alignments.emplace_back(fragment_num, i, false);
+#ifdef debug
+                cerr << "\t" << pb2json(fragment_alignments.second[i]) << endl;
+#endif
             }
         }
 
