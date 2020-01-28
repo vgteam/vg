@@ -585,6 +585,10 @@ using namespace std;
 #ifdef debug_spliced_surject
             cerr << "appending path section " << pb2json(copy_path) << endl;
 #endif
+            if (copy_path.mapping_size() == 0) {
+                // this happens if the surjected section is a pure deletion, we can just skip it
+                continue;
+            }
             
             // we have to have some special logic for the first mapping in each new path
             if (surj_path->mapping_size() > 0) {
