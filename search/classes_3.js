@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['dagifiedgraph',['DagifiedGraph',['../classvg_1_1DagifiedGraph.html',1,'vg']]],
   ['deconstructor',['Deconstructor',['../classvg_1_1Deconstructor.html',1,'vg']]],
   ['deflection',['Deflection',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
   ['deletablehandlegraph',['DeletableHandleGraph',['../classhandlegraph_1_1DeletableHandleGraph.html',1,'handlegraph']]],

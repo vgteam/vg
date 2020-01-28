@@ -1,5 +1,7 @@
 var searchData=
 [
+  ['dagified_5fgraph_2ecpp',['dagified_graph.cpp',['../dagified__graph_8cpp.html',1,'']]],
+  ['dagified_5fgraph_2ehpp',['dagified_graph.hpp',['../dagified__graph_8hpp.html',1,'']]],
   ['deconstruct_5fmain_2ecpp',['deconstruct_main.cpp',['../deconstruct__main_8cpp.html',1,'']]],
   ['deconstructor_2ecpp',['deconstructor.cpp',['../deconstructor_8cpp.html',1,'']]],
   ['deconstructor_2ehpp',['deconstructor.hpp',['../deconstructor_8hpp.html',1,'']]],

@@ -1,5 +1,8 @@
 var searchData=
 [
+  ['dagified_5fgraph_2ecpp',['dagified_graph.cpp',['../dagified__graph_8cpp.html',1,'']]],
+  ['dagified_5fgraph_2ehpp',['dagified_graph.hpp',['../dagified__graph_8hpp.html',1,'']]],
+  ['dagifiedgraph',['DagifiedGraph',['../classvg_1_1DagifiedGraph.html',1,'vg::DagifiedGraph'],['../classvg_1_1DagifiedGraph.html#a39a79b11b4cfea62302e826ec357acf3',1,'vg::DagifiedGraph::DagifiedGraph(const HandleGraph *graph, size_t min_preserved_path_length)'],['../classvg_1_1DagifiedGraph.html#ada562ce53bd2fc9a59aeef495eafa6c8',1,'vg::DagifiedGraph::DagifiedGraph()=default']]],
   ['dagify',['dagify',['../classvg_1_1VG.html#a7958e987d875acb903acabf9903a8a88',1,'vg::VG']]],
   ['dagify_5fsteps',['dagify_steps',['../classvg_1_1Genotyper.html#a384f22f52c2a1f78b7ca613468e2e186',1,'vg::Genotyper']]],
   ['data',['data',['../structhandlegraph_1_1handle__t.html#a83dd8888c344b33ba7e3ebf8c0b578a9',1,'handlegraph::handle_t::data()'],['../structhandlegraph_1_1path__handle__t.html#a887f73bef5f50884ab956f6cb7b544c0',1,'handlegraph::path_handle_t::data()'],['../structhandlegraph_1_1step__handle__t.html#ad62b1978c001199b0077ea154c350dfe',1,'handlegraph::step_handle_t::data()']]],

@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['dagifiedgraph',['DagifiedGraph',['../classvg_1_1DagifiedGraph.html#a39a79b11b4cfea62302e826ec357acf3',1,'vg::DagifiedGraph::DagifiedGraph(const HandleGraph *graph, size_t min_preserved_path_length)'],['../classvg_1_1DagifiedGraph.html#ada562ce53bd2fc9a59aeef495eafa6c8',1,'vg::DagifiedGraph::DagifiedGraph()=default']]],
   ['dagify',['dagify',['../classvg_1_1VG.html#a7958e987d875acb903acabf9903a8a88',1,'vg::VG']]],
   ['decompose',['decompose',['../namespacevg.html#a90fe8f4de1196dd902ac05f7567b9b7b',1,'vg']]],
   ['decompose_5fgenotype_5ffast',['decompose_genotype_fast',['../classvg_1_1WindowedVcfBuffer.html#ae05d4861f68f92b5c11e293f1a34618b',1,'vg::WindowedVcfBuffer']]],

@@ -3,6 +3,7 @@ var searchData=
   ['last_5fcorrect_5fstage',['last_correct_stage',['../classvg_1_1Funnel.html#a99b8a07d0b3a1d0649aae4090918bfad',1,'vg::Funnel']]],
   ['last_5fpath_5fposition',['last_path_position',['../namespacevg.html#aa1c1e5b8ce9f9607976913317102d6dc',1,'vg']]],
   ['latest',['latest',['../classvg_1_1Funnel.html#a933c8a296c5a680aa96b0b913c465250',1,'vg::Funnel']]],
+  ['layout_5forder_5fof_5fhandle',['layout_order_of_handle',['../classvg_1_1DagifiedGraph.html#af364d952c459117f871368bcc9d33573',1,'vg::DagifiedGraph']]],
   ['left_5fdegree',['left_degree',['../classvg_1_1VG.html#af9ac6e61dfa9350459dbb9586088c4a5',1,'vg::VG']]],
   ['legacycaller',['LegacyCaller',['../classvg_1_1LegacyCaller.html#ad87508fd4b5f5e757de685050f4f8462',1,'vg::LegacyCaller']]],
   ['length',['length',['../structvg_1_1GaplessExtension.html#a9c16f9e41fdfafb22a6a64c1e852bb9c',1,'vg::GaplessExtension::length()'],['../classvg_1_1MaximalExactMatch.html#a8f70425ec532b9c43694efbd40d2d587',1,'vg::MaximalExactMatch::length()'],['../classvg_1_1BitString.html#a07225c6d00ba670f2dd0b3d6dd83bf70',1,'vg::BitString::length()'],['../classvg_1_1VG.html#a23641dedefa2b6d573939515fcf5974c',1,'vg::VG::length()']]],

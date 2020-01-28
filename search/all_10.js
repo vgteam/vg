@@ -319,6 +319,7 @@ var searchData=
   ['pruningparameters',['PruningParameters',['../structPruningParameters.html',1,'']]],
   ['pseudo_5flength',['pseudo_length',['../classvg_1_1MultipathMapper.html#a65a84033d5c54ddfb4a07acc5e1c9089',1,'vg::MultipathMapper']]],
   ['pseudo_5flength_5fmultiplier',['pseudo_length_multiplier',['../classvg_1_1MultipathMapper.html#a8c463a9a1350cd7220abd8575d9e7bd3',1,'vg::MultipathMapper']]],
+  ['pseudo_5frandom_5fsequence',['pseudo_random_sequence',['../namespacevg.html#a1924855da445b625609837c0920af7b2',1,'vg']]],
   ['ptr',['ptr',['../structjson__autoptr.html#a8eeb7c64d99d1378d9524ede91d6faa4',1,'json_autoptr']]],
   ['push_5fback',['push_back',['../structhaplo_1_1gbwt__thread__t.html#a726f2772b4725564569e4889f89db7c6',1,'haplo::gbwt_thread_t::push_back()'],['../structhaplo_1_1linear__haplo__structure_1_1SNVvector.html#ade3cdc2fdb2dc88b735bee5be2c04cee',1,'haplo::linear_haplo_structure::SNVvector::push_back()']]],
   ['push_5fedit',['push_edit',['../classvg_1_1XdropAligner.html#a0fdcf4192f3f5045ed4025f2a2dbe8f6',1,'vg::XdropAligner']]],

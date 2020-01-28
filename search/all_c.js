@@ -11,6 +11,8 @@ var searchData=
   ['last_5fpath_5fposition',['last_path_position',['../namespacevg.html#aa1c1e5b8ce9f9607976913317102d6dc',1,'vg']]],
   ['last_5fprogress',['last_progress',['../classvg_1_1Progressive.html#a4984481e2b887e5fb78ea40728f1b97f',1,'vg::Progressive']]],
   ['latest',['latest',['../classvg_1_1Funnel.html#a933c8a296c5a680aa96b0b913c465250',1,'vg::Funnel']]],
+  ['layout_5forder',['layout_order',['../classvg_1_1DagifiedGraph.html#a50789da1e0a8c4ede5e2c1b73c7980a0',1,'vg::DagifiedGraph']]],
+  ['layout_5forder_5fof_5fhandle',['layout_order_of_handle',['../classvg_1_1DagifiedGraph.html#af364d952c459117f871368bcc9d33573',1,'vg::DagifiedGraph']]],
   ['lcp',['lcp',['../classvg_1_1BaseMapper.html#a4046b98185c00ff397089435d5b2b8d8',1,'vg::BaseMapper']]],
   ['lcp_5find',['lcp_ind',['../classvg_1_1Filter.html#ab65e7196a6b891a266d16838e5d870d4',1,'vg::Filter']]],
   ['left',['left',['../structvg_1_1Support.html#a31d59f62a09c71915856740c5450ecf5',1,'vg::Support']]],

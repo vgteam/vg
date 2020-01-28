@@ -15,6 +15,7 @@ var searchData=
   ['_7ecallinfo',['~CallInfo',['../structvg_1_1SnarlCaller_1_1CallInfo.html#a596d13cd23b7d5dd9a24bdea876a286d',1,'vg::SnarlCaller::CallInfo']]],
   ['_7ecolors',['~Colors',['../classvg_1_1Colors.html#ac08aaa9a815d639d327c3ea80b97ed2b',1,'vg::Colors']]],
   ['_7econsistencycalculator',['~ConsistencyCalculator',['../classvg_1_1ConsistencyCalculator.html#afb05d4ab7a962df47c62c408d0154ba0',1,'vg::ConsistencyCalculator']]],
+  ['_7edagifiedgraph',['~DagifiedGraph',['../classvg_1_1DagifiedGraph.html#acb7989cf7dcc34da6fd11228d36321f7',1,'vg::DagifiedGraph']]],
   ['_7edeconstructor',['~Deconstructor',['../classvg_1_1Deconstructor.html#a875c8006f289ad46470c05c8808bdd73',1,'vg::Deconstructor']]],
   ['_7edeflection',['~Deflection',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html#af4deb014af190975b2e7fe3540f6f461',1,'vg::BandedGlobalAligner::AltTracebackStack::Deflection']]],
   ['_7edeletablehandlegraph',['~DeletableHandleGraph',['../classhandlegraph_1_1DeletableHandleGraph.html#a62ed805e124ceb05cfa98d4e631a9ebd',1,'handlegraph::DeletableHandleGraph']]],

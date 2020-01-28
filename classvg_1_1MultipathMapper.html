@@ -351,8 +351,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a402e09bb8cda64bd0612e61ba448b7b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa98780e50d8bf1c0e75355540b05fe1c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aa98780e50d8bf1c0e75355540b05fe1c">multipath_align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const bdsg::HashGraph *graph, <a class="el" href="classvg_1_1MultipathMapper.html#ad39836d9d474da1ac41bdafd6db76d43">memcluster_t</a> &amp;graph_mems, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out) const</td></tr>
 <tr class="separator:aa98780e50d8bf1c0e75355540b05fe1c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2ac573ebbf39f24e179190cd5736df47"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a2ac573ebbf39f24e179190cd5736df47">make_nontrivial_multipath_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;subgraph, unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&gt; &amp;translator, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1MultipathMapper.html#a82e1a1af4b8ba0170cf7817cd44f1008">snarl_manager</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out) const</td></tr>
-<tr class="separator:a2ac573ebbf39f24e179190cd5736df47"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9f62d4314d77f81629aea10dc752e5f2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a9f62d4314d77f81629aea10dc752e5f2">make_nontrivial_multipath_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;subgraph, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; &amp;translator, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1MultipathMapper.html#a82e1a1af4b8ba0170cf7817cd44f1008">snarl_manager</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out) const</td></tr>
+<tr class="separator:a9f62d4314d77f81629aea10dc752e5f2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7d85cde488d139e4a7f5b9573d630abd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a7d85cde488d139e4a7f5b9573d630abd">strip_full_length_bonuses</a> (<a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln) const</td></tr>
 <tr class="memdesc:a7d85cde488d139e4a7f5b9573d630abd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remove the full length bonus from all source or sink subpaths that received it.  <a href="#a7d85cde488d139e4a7f5b9573d630abd">More...</a><br /></td></tr>
 <tr class="separator:a7d85cde488d139e4a7f5b9573d630abd"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1600,8 +1600,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a2ac573ebbf39f24e179190cd5736df47"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2ac573ebbf39f24e179190cd5736df47">&#9670;&nbsp;</a></span>make_nontrivial_multipath_alignment()</h2>
+<a id="a9f62d4314d77f81629aea10dc752e5f2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9f62d4314d77f81629aea10dc752e5f2">&#9670;&nbsp;</a></span>make_nontrivial_multipath_alignment()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1624,7 +1624,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; &amp;&#160;</td>
           <td class="paramname"><em>translator</em>, </td>
         </tr>
         <tr>
