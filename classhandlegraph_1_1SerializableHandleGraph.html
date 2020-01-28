@@ -65,32 +65,34 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="classhandlegraph_1_1SerializableHandleGraph-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">handlegraph::SerializableHandleGraph Class Reference<span class="mlabels"><span class="mlabel">abstract</span></span></div>  </div>
 </div><!--header-->
 <div class="contents">
 
-<p><code>#include &lt;handle_graph.hpp&gt;</code></p>
-<div class="dynheader">
-Inheritance diagram for handlegraph::SerializableHandleGraph:</div>
-<div class="dyncontent">
- <div class="center">
-  <img src="classhandlegraph_1_1SerializableHandleGraph.png" usemap="#handlegraph::SerializableHandleGraph_map" alt=""/>
-  <map id="handlegraph::SerializableHandleGraph_map" name="handlegraph::SerializableHandleGraph_map">
-<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="0,56,230,80"/>
-</map>
- </div></div>
+<p><code>#include &lt;serializable_handle_graph.hpp&gt;</code></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a21940e94ff216cfd44eaf540044d8fc7"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a21940e94ff216cfd44eaf540044d8fc7">~SerializableHandleGraph</a> ()=default</td></tr>
 <tr class="separator:a21940e94ff216cfd44eaf540044d8fc7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7ab06a8c1224d3289ff24065c62c642a"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a7ab06a8c1224d3289ff24065c62c642a">serialize</a> (std::ostream &amp;out) const =0</td></tr>
-<tr class="memdesc:a7ab06a8c1224d3289ff24065c62c642a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Write the contents of this graph to an ostream.  <a href="#a7ab06a8c1224d3289ff24065c62c642a">More...</a><br /></td></tr>
-<tr class="separator:a7ab06a8c1224d3289ff24065c62c642a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab48afce25d93bf5ee91fe84f36a56452"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#ab48afce25d93bf5ee91fe84f36a56452">deserialize</a> (std::istream &amp;in)=0</td></tr>
-<tr class="separator:ab48afce25d93bf5ee91fe84f36a56452"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9a599d81c23e4f13e4a94f7252e8351d"><td class="memItemLeft" align="right" valign="top">virtual uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a9a599d81c23e4f13e4a94f7252e8351d">get_magic_number</a> () const =0</td></tr>
+<tr class="separator:a9a599d81c23e4f13e4a94f7252e8351d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aed30acaddc8cc1650044fd8299643a24"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#aed30acaddc8cc1650044fd8299643a24">serialize</a> (std::ostream &amp;out) const</td></tr>
+<tr class="separator:aed30acaddc8cc1650044fd8299643a24"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9736fd91bf5becf144e4e9c1a247af31"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a9736fd91bf5becf144e4e9c1a247af31">deserialize</a> (std::istream &amp;in)</td></tr>
+<tr class="separator:a9736fd91bf5becf144e4e9c1a247af31"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
+<tr class="memitem:a4d33bf8cbf4fb0d5e81df696be177057"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a4d33bf8cbf4fb0d5e81df696be177057">serialize_members</a> (std::ostream &amp;out) const =0</td></tr>
+<tr class="memdesc:a4d33bf8cbf4fb0d5e81df696be177057"><td class="mdescLeft">&#160;</td><td class="mdescRight">Underlying implementation for "serialize" method.  <a href="#a4d33bf8cbf4fb0d5e81df696be177057">More...</a><br /></td></tr>
+<tr class="separator:a4d33bf8cbf4fb0d5e81df696be177057"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab33e6ceec2d8af4eb90607fa271cb7fb"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#ab33e6ceec2d8af4eb90607fa271cb7fb">deserialize_members</a> (std::istream &amp;in)=0</td></tr>
+<tr class="memdesc:ab33e6ceec2d8af4eb90607fa271cb7fb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Underlying implementation to "deserialize" method.  <a href="#ab33e6ceec2d8af4eb90607fa271cb7fb">More...</a><br /></td></tr>
+<tr class="separator:ab33e6ceec2d8af4eb90607fa271cb7fb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a21940e94ff216cfd44eaf540044d8fc7"></a>
@@ -119,8 +121,8 @@ Public Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="ab48afce25d93bf5ee91fe84f36a56452"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab48afce25d93bf5ee91fe84f36a56452">&#9670;&nbsp;</a></span>deserialize()</h2>
+<a id="a9736fd91bf5becf144e4e9c1a247af31"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9736fd91bf5becf144e4e9c1a247af31">&#9670;&nbsp;</a></span>deserialize()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -129,7 +131,7 @@ Public Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void handlegraph::SerializableHandleGraph::deserialize </td>
+          <td class="memname">void handlegraph::SerializableHandleGraph::deserialize </td>
           <td>(</td>
           <td class="paramtype">std::istream &amp;&#160;</td>
           <td class="paramname"><em>in</em></td><td>)</td>
@@ -138,18 +140,16 @@ Public Member Functions</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Sets the contents of this graph to the contents of a serialized graph from an istream. The serialized graph must be from the same implementation of the <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> interface as is calling <a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#ab48afce25d93bf5ee91fe84f36a56452">deserialize()</a>. Can only be called by an empty graph. </p>
-
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a24359ba8e4ecbbd692bba5a517456659">vg::VG</a>.</p>
+<p>Sets the contents of this graph to the contents of a serialized graph from an istream. The serialized graph must be from the same implementation of the <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> interface as is calling <a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a9736fd91bf5becf144e4e9c1a247af31">deserialize()</a>. Can only be called on an empty graph. </p>
 
 </div>
 </div>
-<a id="a7ab06a8c1224d3289ff24065c62c642a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7ab06a8c1224d3289ff24065c62c642a">&#9670;&nbsp;</a></span>serialize()</h2>
+<a id="ab33e6ceec2d8af4eb90607fa271cb7fb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab33e6ceec2d8af4eb90607fa271cb7fb">&#9670;&nbsp;</a></span>deserialize_members()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -158,10 +158,37 @@ Public Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void handlegraph::SerializableHandleGraph::serialize </td>
+          <td class="memname">virtual void handlegraph::SerializableHandleGraph::deserialize_members </td>
           <td>(</td>
-          <td class="paramtype">std::ostream &amp;&#160;</td>
-          <td class="paramname"><em>out</em></td><td>)</td>
+          <td class="paramtype">std::istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Underlying implementation to "deserialize" method. </p>
+
+</div>
+</div>
+<a id="a9a599d81c23e4f13e4a94f7252e8351d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9a599d81c23e4f13e4a94f7252e8351d">&#9670;&nbsp;</a></span>get_magic_number()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual uint32_t handlegraph::SerializableHandleGraph::get_magic_number </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
           <td> const</td>
         </tr>
       </table>
@@ -171,15 +198,68 @@ Public Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<p>Returns a number that is specific to the serialized implementation for type checking. Does not depend on the contents of any particular instantiation (i.e. behaves as if static, but cannot be static and virtual). </p>
 
-<p>Write the contents of this graph to an ostream. </p>
+</div>
+</div>
+<a id="aed30acaddc8cc1650044fd8299643a24"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aed30acaddc8cc1650044fd8299643a24">&#9670;&nbsp;</a></span>serialize()</h2>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a0ee4603518e9cd5915a65e65c2d763b2">vg::VG</a>.</p>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void handlegraph::SerializableHandleGraph::serialize </td>
+          <td>(</td>
+          <td class="paramtype">std::ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Write the contents of this graph to an ostream. Makes sure to include a leading magic number.</p>
+<p>Inline implementations </p>
+
+</div>
+</div>
+<a id="a4d33bf8cbf4fb0d5e81df696be177057"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4d33bf8cbf4fb0d5e81df696be177057">&#9670;&nbsp;</a></span>serialize_members()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void handlegraph::SerializableHandleGraph::serialize_members </td>
+          <td>(</td>
+          <td class="paramtype">std::ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Underlying implementation for "serialize" method. </p>
 
 </div>
 </div>
 <hr/>The documentation for this class was generated from the following file:<ul>
-<li>deps/libhandlegraph/src/include/handlegraph/<a class="el" href="handle__graph_8hpp.html">handle_graph.hpp</a></li>
+<li>deps/libhandlegraph/src/include/handlegraph/<a class="el" href="serializable__handle__graph_8hpp.html">serializable_handle_graph.hpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

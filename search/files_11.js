@@ -6,6 +6,7 @@ var searchData=
   ['scanner_2ehpp',['scanner.hpp',['../scanner_8hpp.html',1,'']]],
   ['seed_5fclusterer_2ecpp',['seed_clusterer.cpp',['../seed__clusterer_8cpp.html',1,'']]],
   ['seed_5fclusterer_2ehpp',['seed_clusterer.hpp',['../seed__clusterer_8hpp.html',1,'']]],
+  ['serializable_5fhandle_5fgraph_2ehpp',['serializable_handle_graph.hpp',['../serializable__handle__graph_8hpp.html',1,'']]],
   ['sift_5fmain_2ecpp',['sift_main.cpp',['../sift__main_8cpp.html',1,'']]],
   ['sim_5fmain_2ecpp',['sim_main.cpp',['../sim__main_8cpp.html',1,'']]],
   ['simplify_5fmain_2ecpp',['simplify_main.cpp',['../simplify__main_8cpp.html',1,'']]],

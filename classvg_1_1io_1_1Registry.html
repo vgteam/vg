@@ -100,6 +100,9 @@ Static Public Member Functions</h2></td></tr>
 <tr class="memitem:ad3f16de5d24cb503429d358e2af8c831"><td class="memTemplParams" colspan="2">template&lt;typename Handled , typename... Bases&gt; </td></tr>
 <tr class="memitem:ad3f16de5d24cb503429d358e2af8c831"><td class="memTemplItemLeft" align="right" valign="top">static void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#ad3f16de5d24cb503429d358e2af8c831">register_bare_loader_saver_with_magic</a> (const string &amp;tag, const string &amp;magic, <a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a> loader, <a class="el" href="namespacevg_1_1io.html#af8c1fde642062992c5179d67196ee4f2">bare_save_function_t</a> saver)</td></tr>
 <tr class="separator:ad3f16de5d24cb503429d358e2af8c831"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af4180fbb60edaa1cd1aec325945d2af5"><td class="memTemplParams" colspan="2">template&lt;typename Handled , typename... Bases&gt; </td></tr>
+<tr class="memitem:af4180fbb60edaa1cd1aec325945d2af5"><td class="memTemplItemLeft" align="right" valign="top">static void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#af4180fbb60edaa1cd1aec325945d2af5">register_bare_loader_saver_with_magics</a> (const string &amp;tag, const vector&lt; string &gt; &amp;magics, <a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a> loader, <a class="el" href="namespacevg_1_1io.html#af8c1fde642062992c5179d67196ee4f2">bare_save_function_t</a> saver)</td></tr>
+<tr class="separator:af4180fbb60edaa1cd1aec325945d2af5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a82c329d405f2dc83880623561a10962f"><td class="memTemplParams" colspan="2">template&lt;typename Handled , typename... Bases&gt; </td></tr>
 <tr class="memitem:a82c329d405f2dc83880623561a10962f"><td class="memTemplItemLeft" align="right" valign="top">static void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1Registry.html#a82c329d405f2dc83880623561a10962f">register_loader</a> (const string &amp;tag, <a class="el" href="namespacevg_1_1io.html#a645533291ad3ae31bd8db73e51b3ac31">load_function_t</a> loader)</td></tr>
 <tr class="separator:a82c329d405f2dc83880623561a10962f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -502,6 +505,57 @@ template&lt;typename Handled , typename... Bases&gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Like <a class="el" href="classvg_1_1io_1_1Registry.html#aab501bb8db46d45e8b1946da37f0b382">register_bare_loader_saver()</a>, except that additionally the function will be used when attempting to load any of the base classes when the file begins with the specified magic bytes. </p>
+
+</div>
+</div>
+<a id="af4180fbb60edaa1cd1aec325945d2af5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af4180fbb60edaa1cd1aec325945d2af5">&#9670;&nbsp;</a></span>register_bare_loader_saver_with_magics()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Handled , typename... Bases&gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::Registry::register_bare_loader_saver_with_magics </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>tag</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>magics</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a>&#160;</td>
+          <td class="paramname"><em>loader</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacevg_1_1io.html#af8c1fde642062992c5179d67196ee4f2">bare_save_function_t</a>&#160;</td>
+          <td class="paramname"><em>saver</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Like <a class="el" href="classvg_1_1io_1_1Registry.html#aab501bb8db46d45e8b1946da37f0b382">register_bare_loader_saver()</a>, except that additionally the function will be used when attempting to load any of the base classes when the file begins with any of the the specified magic byte sequences. </p>
 
 </div>
 </div>

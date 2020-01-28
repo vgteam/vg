@@ -89,6 +89,7 @@ var searchData=
   ['register_5fbare_5floader',['register_bare_loader',['../classvg_1_1io_1_1Registry.html#aaf8339640cdf9162563246a1e136b57f',1,'vg::io::Registry']]],
   ['register_5fbare_5floader_5fsaver',['register_bare_loader_saver',['../classvg_1_1io_1_1Registry.html#aab501bb8db46d45e8b1946da37f0b382',1,'vg::io::Registry']]],
   ['register_5fbare_5floader_5fsaver_5fwith_5fmagic',['register_bare_loader_saver_with_magic',['../classvg_1_1io_1_1Registry.html#ad3f16de5d24cb503429d358e2af8c831',1,'vg::io::Registry']]],
+  ['register_5fbare_5floader_5fsaver_5fwith_5fmagics',['register_bare_loader_saver_with_magics',['../classvg_1_1io_1_1Registry.html#af4180fbb60edaa1cd1aec325945d2af5',1,'vg::io::Registry']]],
   ['register_5fbarrier',['register_barrier',['../classvg_1_1io_1_1StreamMultiplexer.html#acb05844bf345313fc1710db7f3610ac5',1,'vg::io::StreamMultiplexer']]],
   ['register_5fbreakpoint',['register_breakpoint',['../classvg_1_1io_1_1StreamMultiplexer.html#a562910d0ca3b3fac6b95b0c3ee3c81dd',1,'vg::io::StreamMultiplexer']]],
   ['register_5fconfigurable',['register_configurable',['../classvg_1_1ConfigurableParser.html#a3c42646beeac7fb48f57c44f1420ec7b',1,'vg::ConfigurableParser']]],
