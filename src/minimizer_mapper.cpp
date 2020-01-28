@@ -1295,15 +1295,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
         // Go through the gapless extension groups in score order.
         process_until_threshold(cluster_extensions, cluster_extension_scores,
-        [&](size_t a, size_t b) {
-            //Sort primarily by score, but break ties to favor earlier fragment clusters so its more likely that
-            //we end up with extensions in the same fragment cluster
-            if (cluster_extension_scores[a] == cluster_extension_scores[b]){
-                return cluster_extensions[a].second < cluster_extensions[b].second;
-            } else {
-                return cluster_extension_scores[a] > cluster_extension_scores[b];
-            }
-        },
             extension_set_score_threshold, 2, max_alignments,
             [&](size_t extension_num) {
                 // This extension set is good enough.
@@ -1515,7 +1506,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 #endif
             }
         } else if (!fragment_alignments.second.empty()) {
+#ifdef debug
             cerr << "Found unpaired alignments from fragment " << fragment_num << " for second read" << endl;
+#endif
             for (size_t i = 0 ; i < fragment_alignments.second.size() ; i++) {
                 unpaired_alignments.emplace_back(fragment_num, i, false);
 #ifdef debug
