@@ -47,7 +47,7 @@ is $? 0 "HLA K-3138 correctly includes all input paths"
 vg msga -f msgas/cycle.fa -b s1 -w 64 -t 1 | vg validate -
 is $? 0 "a difficult cyclic path can be included to produce a valid graph"
 
-is $(vg msga -f msgas/inv.fa -w 20 -O 10 | vg mod -U 10 - | vg view -j - | jq -c '.path[] | select(.name == "inv") | .mapping[] | select(.position.is_reverse)'  | wc -l) 2 "a reference sequence set representing an inversion in it may be msga'd and detected" 
+is $(vg msga -f msgas/inv.fa -w 20 -O 10 | vg mod -U 10 - | vg view -j - | jq -c '.path[] | select(.name == "inv") | .mapping[] | select(.position.is_reverse)'  | wc -l) 1 "a reference sequence set representing an inversion in it may be msga'd and detected" 
 
 vg msga -f msgas/l.fa -b a1 -w 16 | vg validate -
 is $? 0 "edges in cycles with two nodes are correctly included"

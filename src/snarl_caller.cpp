@@ -28,6 +28,7 @@ SupportBasedSnarlCaller::~SupportBasedSnarlCaller() {
 void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
                                               const vector<SnarlTraversal>& traversals,
                                               const vector<int>& genotype,
+                                              const unique_ptr<CallInfo>& call_info,
                                               const string& sample_name,
                                               vcflib::Variant& variant) {
     
@@ -95,13 +96,13 @@ void RatioSupportSnarlCaller::set_het_bias(double het_bias, double ref_het_bias)
     }
 }
 
-vector<int> RatioSupportSnarlCaller::genotype(const Snarl& snarl,
-                                              const vector<SnarlTraversal>& traversals,
-                                              int ref_trav_idx,
-                                              int ploidy,
-                                              const string& ref_path_name,
-                                              pair<size_t, size_t> ref_range) { 
-
+pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> RatioSupportSnarlCaller::genotype(const Snarl& snarl,
+                                                                                       const vector<SnarlTraversal>& traversals,
+                                                                                       int ref_trav_idx,
+                                                                                       int ploidy,
+                                                                                       const string& ref_path_name,
+                                                                                       pair<size_t, size_t> ref_range) { 
+    
 #ifdef debug
     cerr << "Support calling site " << pb2json(snarl) << endl;
 #endif
@@ -110,7 +111,7 @@ vector<int> RatioSupportSnarlCaller::genotype(const Snarl& snarl,
     vector<int> traversal_sizes = support_finder.get_traversal_sizes(traversals);
 
     // get the supports of each traversal independently
-    vector<Support> supports = support_finder.get_traversal_set_support(traversals, {}, {}, false, false, false, ref_trav_idx);
+    vector<Support> supports = support_finder.get_traversal_set_support(traversals, {}, {}, false, {}, false, ref_trav_idx);
     int best_allele = get_best_support(supports, {});
 
 #ifdef debug
@@ -125,7 +126,7 @@ vector<int> RatioSupportSnarlCaller::genotype(const Snarl& snarl,
 
     // we prune out traversals whose exclusive support (structure that is not shared with best traversal)
     // doesn't meet a certain cutoff
-    vector<Support> secondary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, {}, true, false, false, ref_trav_idx);    
+    vector<Support> secondary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, {}, true, {}, false, ref_trav_idx);    
     vector<int> skips = {best_allele};
     for (int i = 0; i < secondary_exclusive_supports.size(); ++i) {
         double bias = get_bias(traversal_sizes, i, best_allele, ref_trav_idx);
@@ -138,7 +139,7 @@ vector<int> RatioSupportSnarlCaller::genotype(const Snarl& snarl,
         }
     }
     // get the supports of each traversal in light of best
-    vector<Support> secondary_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, {}, false, false, false, ref_trav_idx);
+    vector<Support> secondary_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, {}, false, {}, false, ref_trav_idx);
     int second_best_allele = get_best_support(secondary_supports, {skips});
 
     // get the supports of each traversal in light of second best
@@ -147,7 +148,7 @@ vector<int> RatioSupportSnarlCaller::genotype(const Snarl& snarl,
     int third_best_allele = -1;
     if (second_best_allele != -1) {
         // prune out traversals whose exclusive support relative to second best doesn't pass cut
-        vector<Support> tertiary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {second_best_allele}, {}, true, false, false, ref_trav_idx);
+        vector<Support> tertiary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {second_best_allele}, {}, true, {}, false, ref_trav_idx);
         skips.push_back(best_allele);
         skips.push_back(second_best_allele);
         for (int i = 0; i < tertiary_exclusive_supports.size(); ++i) {
@@ -156,7 +157,7 @@ vector<int> RatioSupportSnarlCaller::genotype(const Snarl& snarl,
                 skips.push_back(i);
             }
         }
-        tertiary_supports = support_finder.get_traversal_set_support(traversals, {second_best_allele}, {}, false, false, false, ref_trav_idx);
+        tertiary_supports = support_finder.get_traversal_set_support(traversals, {second_best_allele}, {}, false, {}, false, ref_trav_idx);
         third_best_allele = get_best_support(tertiary_supports, skips);
     }
 
@@ -199,7 +200,7 @@ vector<int> RatioSupportSnarlCaller::genotype(const Snarl& snarl,
 
     // Single ploidy case when doing recursive genotyping.  Just return the best allele
     if (ploidy == 1) {
-        return vector<int>(1, best_allele);
+        return make_pair(vector<int>(1, best_allele), unique_ptr<SnarlCaller::CallInfo>());
     }
     // Call 1/2 : REF-Alt1/Alt2 even if Alt2 has only third best support
     else if (ploidy >= 2 &&
@@ -288,12 +289,13 @@ vector<int> RatioSupportSnarlCaller::genotype(const Snarl& snarl,
 
     // Todo: specify call_info to use new interface, then fix up update_vcf_info to read it,
     // and move common logic up to SupportBasedCaller if possible.
-    return genotype;
+    return make_pair(genotype, unique_ptr<SnarlCaller::CallInfo>());
 }
 
 void RatioSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
                                               const vector<SnarlTraversal>& traversals,
                                               const vector<int>& genotype,
+                                              const unique_ptr<CallInfo>& call_info,
                                               const string& sample_name,
                                               vcflib::Variant& variant) {
 
@@ -382,6 +384,10 @@ void RatioSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     // Set the total support of the min allele as the variant quality
     variant.quality = min_site_support;
 
+    // And store the minimum support just to be clear
+    variant.format.push_back("MAD");
+    variant.samples[sample_name]["MAD"].push_back(std::to_string((int)(min_site_support)));
+
     // Now do the filters
     variant.filter = "PASS";            
     if (min_site_support < min_mad_for_filter) {
@@ -400,6 +406,7 @@ void RatioSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
 void RatioSupportSnarlCaller::update_vcf_header(string& header) const {
     header += "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">\n";
     header += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">\n";
+    header += "##FORMAT=<ID=MAD,Number=1,Type=Integer,Description=\"Minimum site allele depth\">\n";
     header += "##FORMAT=<ID=XADL,Number=1,Type=Float,Description=\"Likelihood of allelic depths for called alleles\">\n";
     // We need this field to stratify on for VCF comparison. The info is in SB but vcfeval can't pull it out
     header += "##FORMAT=<ID=XAAD,Number=1,Type=Integer,Description=\"Alt allele read count.\">\n";
@@ -457,12 +464,12 @@ PoissonSupportSnarlCaller::~PoissonSupportSnarlCaller() {
     
 }
 
-vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
-                                                const vector<SnarlTraversal>& traversals,
-                                                int ref_trav_idx,
-                                                int ploidy,
-                                                const string& ref_path_name,
-                                                pair<size_t, size_t> ref_range) {
+pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
+                                                                                         const vector<SnarlTraversal>& traversals,
+                                                                                         int ref_trav_idx,
+                                                                                         int ploidy,
+                                                                                         const string& ref_path_name,
+                                                                                         pair<size_t, size_t> ref_range) {
     
     
 #ifdef debug
@@ -476,7 +483,7 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
     vector<int> traversal_sizes = support_finder.get_traversal_sizes(traversals);
 
     // get the supports of each traversal independently
-    vector<Support> supports = support_finder.get_traversal_set_support(traversals, {}, {}, false, false, false, ref_trav_idx);
+    vector<Support> supports = support_finder.get_traversal_set_support(traversals, {}, {}, false, {}, false, ref_trav_idx);
 
     // sort the traversals by support
     vector<int> ranked_traversals = rank_by_support(supports);
@@ -487,6 +494,7 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
 
     // the candidate genotypes and their supports.  the numbers here are alleles as indexed in traversals[]
     set<vector<int>> candidates;
+    // we always consider the reference allele
 
     // pre-filter out some alleles based on poor exclusive support
     set<int> skips;
@@ -499,7 +507,7 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
         if (skips.count(best_allele)) {
             continue;
         }
-        if (support_val(supports[best_allele]) < min_total_support_for_call) {
+        if (support_val(supports[best_allele]) < min_total_support_for_call && candidates.size() >= max_trav) {
             break;
         }
 
@@ -510,7 +518,7 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
         
             // we prune out traversals whose exclusive support (structure that is not shared with best traversal)
             // doesn't meet a certain cutoff
-            vector<Support> secondary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, top_traversals, true, false, false, ref_trav_idx);
+            vector<Support> secondary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, top_traversals, true, {}, false, ref_trav_idx);
             for (int j = 0; j < secondary_exclusive_supports.size(); ++j) {
                 if (j != best_allele &&
                     support_val(secondary_exclusive_supports[j]) < min_total_support_for_call &&
@@ -520,7 +528,7 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
             }
 
             // get the supports of each traversal in light of best
-            vector<Support> secondary_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, top_traversals, false, false, false, ref_trav_idx);
+            vector<Support> secondary_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, top_traversals, false, {}, false, ref_trav_idx);
             vector<int> ranked_secondary_traversals = rank_by_support(secondary_supports);
 
             // add the homozygous genotype for our best allele
@@ -530,7 +538,7 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
             size_t sec_count = 0;
             for (int j = 0; j < ranked_secondary_traversals.size() && sec_count < top_k; ++j) {
                 int second_best_allele = ranked_secondary_traversals[j];
-                if (support_val(secondary_supports[second_best_allele]) < min_total_support_for_call) {
+                if (support_val(secondary_supports[second_best_allele]) < min_total_support_for_call && candidates.size() >= max_trav) {
                     break;
                 }
                 if (!skips.count(second_best_allele) && second_best_allele != best_allele) {
@@ -553,19 +561,43 @@ vector<int> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
 
     // genotype (log) likelihoods
     double best_genotype_likelihood = -numeric_limits<double>::max();
+    double second_best_genotype_likelihood = -numeric_limits<double>::max();
+    double total_likelihood = 0;
     vector<int> best_genotype;
     for (const auto& candidate : candidates) {
         double gl = genotype_likelihood(candidate, traversals, top_traversals, ref_trav_idx, exp_depth, depth_err);
         if (gl > best_genotype_likelihood) {
+            second_best_genotype_likelihood = best_genotype_likelihood;
             best_genotype_likelihood = gl;
             best_genotype = candidate;
+        } else if (gl > second_best_genotype_likelihood) {
+            assert(gl <= best_genotype_likelihood);
+            second_best_genotype_likelihood = gl;
         }
+        total_likelihood = total_likelihood == 0 ? gl : add_log(total_likelihood, gl);
     }
+
+    PoissonCallInfo* call_info = new PoissonCallInfo();
+
+    call_info->posterior = 0;
+    if (!candidates.empty()) {
+        // compute the posterior from our likelihoods using a uniform prior
+        call_info->posterior = best_genotype_likelihood - log(candidates.size()) - total_likelihood;  
+    }
+    
+    // GQ computed as here https://gatk.broadinstitute.org/hc/en-us/articles/360035890451?id=11075
+    // as difference between best and second best likelihoods
+    call_info->gq = 0;
+    if (!isnan(best_genotype_likelihood) && !isnan(second_best_genotype_likelihood)) {
+        call_info->gq = logprob_to_phred(second_best_genotype_likelihood) - logprob_to_phred(best_genotype_likelihood);
+    }
+
+    call_info->expected_depth = exp_depth;
 
 #ifdef debug
     cerr << " best genotype: "; for (auto a : best_genotype) {cerr << a <<",";} cerr << " gl=" << best_genotype_likelihood << endl;
 #endif
-    return best_genotype;
+    return make_pair(best_genotype, unique_ptr<SnarlCaller::CallInfo>(call_info));
 }
 
 double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotype,
@@ -649,6 +681,7 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
 void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
                                                 const vector<SnarlTraversal>& traversals,
                                                 const vector<int>& genotype,
+                                                const unique_ptr<CallInfo>& call_info,
                                                 const string& sample_name,
                                                 vcflib::Variant& variant) {
 
@@ -659,6 +692,8 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
 
     // get the genotype support
     vector<Support> genotype_supports = support_finder.get_traversal_genotype_support(traversals, genotype, {}, 0);
+
+    // get the genotype_
 
     // Get the depth of the site
     Support total_site_support = std::accumulate(genotype_supports.begin(), genotype_supports.end(), Support());    
@@ -706,6 +741,10 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     // variance/std-err can be nan when binsize < 2.  We just clamp it to 0
     double depth_err = depth_info.second ? !isnan(depth_info.second) : 0.;
 
+    double total_likelihood = 0.;
+    double ref_likelihood = 1.;
+    double alt_likelihood = 0.;
+    
     // assume ploidy 2
     for (int i = 0; i < traversals.size(); ++i) {
         for (int j = i; j < traversals.size(); ++j) {
@@ -714,30 +753,47 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
             if (vector<int>({i, j}) == genotype || vector<int>({j,i}) == genotype) {
                 gen_likelihood = gl;
             }
+            if (i == 0 && j == 0) {
+                ref_likelihood = gl;
+            } else {
+                alt_likelihood = alt_likelihood == 0. ? gl : add_log(alt_likelihood, gl);
+            }
+            total_likelihood = total_likelihood == 0 ? gl : add_log(total_likelihood, gl);
             // convert from natural log to log10 by dividing by ln(10)
             variant.samples[sample_name]["GL"].push_back(std::to_string(gl / 2.30258));
         }
     }
 
-    // get the GQ
-    double prior = log(1. / (double)traversals.size());
-    double p_reads = prior + gen_likelihoods[0];
-    // note that we should be summing over all the likelihoods as considered in genotype()
-    // todo: figure out a way how to move this to that method.
-    // (or make sure more uncalled stuff makes it into the vcf so we have more traversals to sum over here)
-    /*
-    for (int i = 1; i < gen_likelihoods.size(); ++i) {
-        p_reads = add_log(p_reads, prior + gen_likelihoods[i]);
-    }
-    double posterior = gen_likelihood + prior - p_reads;
-    double gq = logprob_to_phred(logprob_invert(posterior));
+    const SnarlCaller::CallInfo* s_call_info = call_info.get();
+    const PoissonCallInfo* p_call_info = dynamic_cast<const PoissonCallInfo*>(call_info.get());
     variant.format.push_back("GQ");
-    variant.samples[sample_name]["GQ"].push_back(std::to_string(gq));
-    */
+    variant.samples[sample_name]["GQ"].push_back(std::to_string(min((int)256, max((int)0, (int)p_call_info->gq))));
 
-    // our old min-support based quality as hack until
-    // qual / gq properly sorted out
-    variant.quality = min_site_support;
+    variant.format.push_back("GP");
+    variant.samples[sample_name]["GP"].push_back(std::to_string(p_call_info->posterior));
+
+    variant.format.push_back("XD");
+    variant.samples[sample_name]["XD"].push_back(std::to_string(p_call_info->expected_depth));
+
+    // The QUAL field is the probability that we have variation as a PHRED score (of wrongness)
+    // We derive this from the posterior probability of the reference genotype.
+    // But if it's a reference call, we take the total of all the alts
+    variant.quality = 0;
+    if (genotype.size() == 2) {
+        // our flat prior and p[traversal coverage]
+        double posterior = -log(gen_likelihoods.size()) - total_likelihood;
+        if (genotype[0] != 0 || genotype[1] != 0) {
+            posterior += ref_likelihood;
+        } else {
+            posterior += alt_likelihood;
+        }
+        variant.quality = logprob_to_phred(posterior);
+    }
+
+    // Minmum allele depth.  This historically has been our QUAL field for the sole reason
+    // that it was better than anything else at making ROC curves
+    variant.format.push_back("MAD");
+    variant.samples[sample_name]["MAD"].push_back(std::to_string((int)(min_site_support)));
 
     // Now do the filters
     // todo: fix and share with other caller
@@ -754,9 +810,12 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
 void PoissonSupportSnarlCaller::update_vcf_header(string& header) const {
     header += "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">\n";
     header += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">\n";
+    header += "##FORMAT=<ID=MAD,Number=1,Type=Integer,Description=\"Minimum site allele depth\">\n";
     header += "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">\n";
     header += "##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype Likelihood, log10-scaled likelihoods of the data given the called genotype for each possible genotype generated from the reference and alternate alleles given the sample ploidy\">\n";
-    //header += "##FORMAT=<ID=GQ,Number=1,Type=Float,Description=\"Genotype Quality, the Phred-scaled probability of the called genotype\">\n";
+    header += "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality, the Phred-scaled probability estimate of the called genotype\">\n";
+    header += "##FORMAT=<ID=GP,Number=1,Type=Float,Description=\"Genotype Probability, the log-scaled posterior probability of the called genotype\">\n";
+    header += "##FORMAT=<ID=XD,Number=1,Type=Float,Description=\"eXpected Depth, background coverage as used for the Poisson model\">\n";
     header += "##FILTER=<ID=lowad,Description=\"Variant does not meet minimum allele read support threshold of " +
         std::to_string(min_mad_for_filter) + "\">\n";
     header += "##FILTER=<ID=lowdepth,Description=\"Variant has read depth less than " +

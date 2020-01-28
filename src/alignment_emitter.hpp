@@ -20,6 +20,8 @@
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/stream_multiplexer.hpp>
 
+#include "handle.hpp"
+
 namespace vg {
 using namespace std;
 
@@ -88,8 +90,12 @@ public:
 /// given format. A table of contig lengths is required for HTSlib formats.
 /// Automatically applies per-thread buffering, but needs to know how many OMP
 /// threads will be in use.
+/// If the alignments are spliced at known splice sites (i.e. edges in the graph),
+/// the graph can be provided in order to form spliced CIGAR strings for the HTSlib
+/// formats. Other output formats ignore the graph.
 unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, 
-    const map<string, int64_t>& path_length,  size_t max_threads);
+    const map<string, int64_t>& path_length, size_t max_threads,
+    const PathPositionHandleGraph* splicing_graph = nullptr);
 
 /**
  * Discards all alignments.
@@ -229,12 +235,15 @@ private:
     /// Remember the HTSlib mode string we need to open our files.
     string hts_mode;
     
+    virtual void convert_alignment(const Alignment& aln, vector<pair<int, char>>& cigar, bool& pos_rev, int64_t& pos, string& path_name) const;
+    
     /// Convert an unpaired alignment to HTS format.
     /// Header must have been created already.
-    void convert_unpaired(Alignment& aln, vector<bam1_t*>& dest);
+    void convert_unpaired(Alignment& aln, bam_hdr_t* header, vector<bam1_t*>& dest);
     /// Convert a paired alignment to HTS format.
     /// Header must have been created already.
-    void convert_paired(Alignment& aln1, Alignment& aln2, int64_t tlen_limit, vector<bam1_t*>& dest);
+    void convert_paired(Alignment& aln1, Alignment& aln2, bam_hdr_t* header, int64_t tlen_limit,
+                        vector<bam1_t*>& dest);
     
     /// Write and deallocate a bunch of BAM records. Takes care of locking the
     /// file. Header must have been written already.
@@ -258,6 +267,38 @@ private:
     /// the multiplexer. If the samFile* was already initialized, flushes it
     /// out and makes a breakpoint.
     void initialize_sam_file(bam_hdr_t* header, size_t thread_number, bool keep_header = false);
+    
+};
+
+class SplicedHTSAlignmentEmitter : public HTSAlignmentEmitter {
+    
+public:
+    
+    SplicedHTSAlignmentEmitter(const string& filename, const string& format,
+                               const PathPositionHandleGraph& graph,
+                               size_t max_threads);
+    
+    ~SplicedHTSAlignmentEmitter() = default;
+    
+    /// The minimum length of a deletion relative to the path that will be coded as a splice junction in the CIGAR
+    size_t min_splice_length = 20;
+    
+private:
+
+    /// Helper for constructor, makes path length map for parent class
+    static map<string, int64_t> make_path_length_index(const PathPositionHandleGraph& graph);
+    
+    /// Override for convert alignment that converts splices implicitly
+    void convert_alignment(const Alignment& aln, vector<pair<int, char>>& cigar, bool& pos_rev, int64_t& pos, string& path_name) const;
+    
+    /// Convert a spliced alignment against a path to a cigar. The alignment must be
+    /// colinear along a path and contain only mappings on the path, but it can have
+    /// deletions relative to the path that follow edges in the graph.
+    vector<pair<int, char>> spliced_cigar_against_path(const Alignment& aln, const string& path_name,
+                                                       int64_t pos, bool rev) const;
+    
+    /// Graph that alignments were aligned against
+    const PathPositionHandleGraph& graph;
     
 };
 

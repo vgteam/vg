@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 20
+plan tests 24
 
 # Construct a graph with alt paths so we can make a gPBWT and later a GBWT
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
@@ -65,14 +65,24 @@ rm -f chunk_*.annotate.txt
 vg construct -r small/xy.fa -v small/xy.vcf.gz > xy.vg
 vg construct -r small/xy.fa -v small/xy.vcf.gz -R x > x.vg
 vg construct -r small/xy.fa -v small/xy.vcf.gz -R y > y.vg
+vg ids -j x.vg y.vg
+vg sim -x x.vg -n 50 -a > x.gam
+vg sim -x y.vg -n 100 -a > y.gam
+cat x.gam y.gam > xy.gam
 # test that exploding into components works
-vg chunk -x xy.vg -M -b path_chunk -O hg
+vg chunk -x xy.vg -M -b path_chunk -O hg -a xy.gam -g
 vg view x.vg | grep "^S" | awk '{print $3}' | sort > x_nodes.txt
 vg view y.vg | grep "^S" | awk '{print $3}' | sort > y_nodes.txt
 vg convert path_chunk_x.hg -v | vg view - | grep "^S" | awk '{print $3}' | sort > pc_x_nodes.txt
 vg convert path_chunk_y.hg -v | vg view - | grep "^S" | awk '{print $3}' | sort > pc_y_nodes.txt
 diff x_nodes.txt pc_x_nodes.txt && diff y_nodes.txt pc_y_nodes.txt
 is "$?" 0 "path-based components finds subgraphs"
+is $(vg view -a path_chunk_x.gam | wc -l) $(vg view -a x.gam | wc -l) "x gam chunk has correct number of reads"
+is $(vg view -a path_chunk_y.gam | wc -l) $(vg view -a y.gam | wc -l) "y gam chunk has correct number of reads"
+vg chunk -x xy.vg -C -p x -b path_chunk_ind -O hg -a xy.gam -g > /dev/null
+vg chunk -x xy.vg -C -p y -b path_chunk_ind -O hg -a xy.gam -g > /dev/null
+is $(vg view -a path_chunk_ind_x.gam | wc -l) $(vg view -a x.gam | wc -l) "x gam chunk has correct number of reads with -p path"
+is $(vg view -a path_chunk_ind_y.gam | wc -l) $(vg view -a y.gam | wc -l) "y gam chunk has correct number of reads with -p path"
 vg paths -v x.vg -E > x_paths.txt
 vg paths -v path_chunk_x.hg -E > pc_x_paths.txt
 diff pc_x_paths.txt x_paths.txt
@@ -85,7 +95,7 @@ cat x_nodes.txt y_nodes.txt | sort > nodes.txt
 diff comp_nodes.txt nodes.txt
 is "$?" 0 "components finds subgraphs"
 
-rm -f xy.vg x.vg y.vg x_nodes.txt y_nodes.txt convert path_chunk_x.hg  convert path_chunk_y.hg pc_x_nodes.txt pc_y_nodes.txt x_paths.txt pc_x_paths.txt components_chunk_0.vg components_chunk_1.vg comp_0_nodes.txt comp_1_nodes.txt comp_nodes.txt nodes.txt
+rm -f xy.vg x.vg y.vg x_nodes.txt y_nodes.txt convert path_chunk_x.hg  convert path_chunk_y.hg pc_x_nodes.txt pc_y_nodes.txt x_paths.txt pc_x_paths.txt components_chunk_0.vg components_chunk_1.vg comp_0_nodes.txt comp_1_nodes.txt comp_nodes.txt nodes.txt x.gam y.gam xy.gam path_chunk_x.gam path_chunk_y.gam
 
 
 

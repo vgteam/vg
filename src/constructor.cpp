@@ -293,7 +293,8 @@ namespace vg {
         // Automatically fills in rank, starting from 1.
         auto add_match = [&](Path* path, Node* node, bool is_reverse = false) {
             #ifdef debug
-            cerr << "Add node " << node->id() << " orientation " << is_reverse << " to path " << path->name() << endl;
+            cerr << "Add node " << node->id() << " orientation " << is_reverse
+                << " length " << node->sequence().size() << " to path " << path->name() << endl;
             #endif
         
             // Make a mapping for it
@@ -445,7 +446,6 @@ namespace vg {
                 // TODO: make sure long SVs don't fall outside chunk
                 clump_end = max(clump_end, next_variant->zeroBasedPosition() + next_variant->ref.size() - chunk_offset);
 
-
                 // Try the variant after that
                 next_variant++;
             } else {
@@ -453,7 +453,7 @@ namespace vg {
                 // Handle the clump.
                 
                 #ifdef debug
-                cerr << "Handling clump of " << clump.size() << " variants" << endl;
+                cerr << "Handling clump of " << clump.size() << " variants up to " << (clump_end + chunk_offset) << endl;
                 #endif
 
                 // Parse all the variants into VariantAllele edits
@@ -485,7 +485,12 @@ namespace vg {
                 // vector.
                 set<vcflib::Variant*> duplicates;
                 
-                for (vcflib::Variant* variant : clump) {
+                for (size_t var_num = 0; var_num < clump.size(); var_num++) {
+                    // For each variant in the clump
+                    vcflib::Variant* variant = clump[var_num];
+#ifdef debug
+                    cerr << "Handling clump variant " << var_num << "/" << clump.size() << " @ " << variant->zeroBasedPosition() << endl;
+#endif
                 
                     // No variants should still be symbolic at this point.
                     // Either we canonicalized them into base-level sequence, or we rejected them whn making the clump.
@@ -708,7 +713,8 @@ namespace vg {
                     auto* variant = kv.second;
                     
                     #ifdef debug
-                    cerr << "Process variant " << variant_name << " with " << parsed_clump[variant].size() << " alts" << endl;
+                    cerr << "Process variant " << variant_name << " @ " << variant->zeroBasedPosition()
+                        << " with " << parsed_clump[variant].size() << " alts" << endl;
                     #endif
 
                     if (alt_paths) {
@@ -965,7 +971,7 @@ namespace vg {
                     size_t to_return = last_edit_end;
                     
                     #ifdef debug
-                    cerr << "Next breakpoint must be at or before " << last_edit_end << endl;
+                    cerr << "Next breakpoint after " << position << " must be at or before " << last_edit_end << endl;
                     #endif
 
                     // See if any nodes are registered as starting after our
@@ -997,10 +1003,8 @@ namespace vg {
                         #endif
                     }
 
-                    // See if any deletions are registered as ending after here.
-                    // Deletions break the reference before their past-the-end base,
-                    // so we don't care about deletions ending here exactly.
-                    auto deletion_end_iter = deletions_ending_at.upper_bound(position);
+                    // See if any deletions are registered as ending at or after here.
+                    auto deletion_end_iter = deletions_ending_at.lower_bound(position);
 
                     if(deletion_end_iter != deletions_ending_at.end()) {
                         // If we found something, walk back where the breakpoint
@@ -1146,12 +1150,6 @@ namespace vg {
                 }
 
                 // Now we have gotten through all the places where nodes start, before the end of the clump.
-                
-                #ifdef debug
-                for (auto& kv : ref_runs_by_end) {
-                    cerr << "Ref run ends at " << kv.first << endl;
-                }
-                #endif
                 
                 for (auto& to_trace : inversion_trace_queue) {
                     // Now that all the ref nodes exist, create the path entries for inversion alt paths.
@@ -1484,13 +1482,13 @@ namespace vg {
         while(variant_source.get() && (variant_source.get()->sequenceName != vcf_contig ||
                     variant_source.get()->zeroBasedPosition() < leading_offset ||
                     variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() > reference_end)) {
-            // This variant comes before our region
+            // This variant comes before or ends after our region
 
-            // Discard variants that come out that are before our region
+            // Discard variants that come out that are outside our region
             variant_source.handle_buffer();
             variant_source.fill_buffer();
         }
-
+        
         // Now we're on the variants we actually want.
 
         // This is where the next chunk will start in the reference sequence.
@@ -1661,9 +1659,9 @@ namespace vg {
                 // Update its ID separately, since it's no longer in the graph.
                 last_node_buffer.set_id(last_node_buffer.id() + max_id);
                 
-#ifdef debug
+                #ifdef debug
                 cerr << "Buffered final node becomes: " << last_node_buffer.id() << endl;
-#endif
+                #endif
             }
 
             // Up all the IDs in the graph
@@ -1749,14 +1747,27 @@ namespace vg {
             // those with seqs in the vcf.
 
         }
+        
+        #ifdef debug 
+        cerr << "Handling run of variants starting in region..." << endl;
+        #endif
 
         while (variant_source.get() && variant_source.get()->sequenceName == vcf_contig &&
-                variant_source.get()->zeroBasedPosition() >= leading_offset &&
-                variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() <= reference_end) {
+               variant_source.get()->zeroBasedPosition() >= leading_offset &&
+               variant_source.get()->zeroBasedPosition() <= reference_end) {
+               
+            // For each variant that begins inside our region
 
+            // Skip variants that don't fit in our range
+            // (maybe there's one that does fit after, so we continue checking)
+            if (variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() > reference_end) {
+                variant_source.handle_buffer();
+                variant_source.fill_buffer();
+                continue;
+            }
+                
             // While we have variants we want to include
             auto vvar = variant_source.get();
-
 
             // We need to decide if we want to use this variant. By default we will use all variants.
             bool variant_acceptable = true;
@@ -1913,6 +1924,10 @@ namespace vg {
                 // Loop again on the same variant.
             }
         }
+
+        #ifdef debug
+        cerr << "Variants in region depleted, which we know because we found a starting-after-region variant." << endl;
+        #endif
 
         // We ran out of variants, so finish this chunk and all the others after it
         // without looking for variants.

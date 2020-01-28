@@ -17,8 +17,8 @@ using namespace std;
 using namespace vg::io;
 
 void register_loader_saver_odgi() {
-    Registry::register_bare_loader_saver<bdsg::ODGI, MutablePathDeletableHandleGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>("PackedGraph", [](istream& input) -> void* {
-        // Allocate a PackedGraph
+    Registry::register_bare_loader_saver<bdsg::ODGI, MutablePathDeletableHandleGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>("ODGI", [](istream& input) -> void* {
+        // Allocate an ODGI graph
         bdsg::ODGI* odgi = new bdsg::ODGI();
         
         // Load it
@@ -27,7 +27,7 @@ void register_loader_saver_odgi() {
         // Return it so the caller owns it.
         return (void*) odgi;
     }, [](const void* odgi_void, ostream& output) {
-        // Cast to PackedGraph and serialize to the stream.
+        // Cast to ODGI and serialize to the stream.
         assert(odgi_void != nullptr);
         ((bdsg::ODGI*) odgi_void)->serialize(output);
     });

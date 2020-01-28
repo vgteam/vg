@@ -1118,6 +1118,21 @@ void graph_to_gfa(const VG* graph, ostream& out) {
         ee.source_orientation_forward = ! e->from_start();
         ee.sink_orientation_forward =  ! e->to_end();
         ee.alignment = std::to_string(e->overlap()) + "M";
+        
+        if (e->from_start() && (e->to_end() || e->to() < e->from())) {
+            // Canonicalize edges to be + orientation first if possible, and
+            // then low-ID to high-ID if possible, for testability. This edge
+            // needs to flip.
+            
+            // Swap the nodes
+            std::swap(ee.source_name, ee.sink_name);
+            // Swap the orientations
+            std::swap(ee.source_orientation_forward, ee.sink_orientation_forward);
+            // Reverse the orientations
+            ee.source_orientation_forward = !ee.source_orientation_forward;
+            ee.sink_orientation_forward = !ee.sink_orientation_forward;
+        }
+        
         out << ee.to_string_1() << endl;;
         //gg.add_edge(ee.source_name, ee);
         //link_elem l;

@@ -1,4 +1,5 @@
 #include "convert_handle.hpp"
+
 namespace vg {
 using namespace std;
     void convert_handle_graph(const HandleGraph* converting, MutableHandleGraph* converted) {
@@ -21,6 +22,11 @@ using namespace std;
             string converting_seq = converting->get_sequence(here);
             // Create a handle in mutable graph using the graph id and sequence
             converted->create_handle(converting_seq, converting_id);
+            
+#ifdef debug
+            cerr << "Create handle " << converting_id << ": " << converting_seq << endl;
+#endif
+            
         });
         // add any edges that are not yet present
         converting->for_each_edge([&](const edge_t& edge) {
@@ -28,6 +34,17 @@ using namespace std;
                              converted->get_handle(converting->get_id(edge.second), converting->get_is_reverse(edge.second)));
             if (!converted->has_edge(converted_edge)) {
                 converted->create_edge(converted_edge);
+                
+#ifdef debug
+                cerr << "Create edge "
+                    << converted->get_id(converted_edge.first)
+                    << (converted->get_is_reverse(converted_edge.first) ? '-' : '+')
+                    << "->"
+                    << converted->get_id(converted_edge.second)
+                    << (converted->get_is_reverse(converted_edge.second) ? '-' : '+')
+                    << endl;
+#endif
+                
             }
             // always keep going
             return true;
@@ -46,15 +63,30 @@ using namespace std;
             string path_name = converting->get_path_name(path);
             path_handle_t converted_path = converted->create_path_handle(path_name);
             
+#ifdef debug
+                cerr << "Create path " << path_name << endl;
+#endif
+            
             // convert steps of path
             for (handle_t converting_handle : converting->scan_path(path)) {
                 handle_t converted_handle = converted->get_handle(converting->get_id(converting_handle),
                                                                   converting->get_is_reverse(converting_handle));
                 converted->append_step(converted_path, converted_handle);
+                
+#ifdef debug
+                cerr << "Create step of " << path_name << " on "
+                    << converted->get_id(converted_handle)
+                    << (converted->get_is_reverse(converted_handle) ? '-' : '+') << endl;
+#endif
+                
             }
             
             // set circularity to match
             converted->set_circularity(converted_path, converting->get_is_circular(path));
+            
+#ifdef debug
+                cerr << "Set circularity of " << path_name << " to " << converted->get_is_circular(converted_path) << endl;
+#endif
         });
     }
 }

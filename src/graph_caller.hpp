@@ -157,17 +157,17 @@ protected:
     /// re-genotype output of top_down_genotype.  it may give slightly different results as
     /// it's working with fully-defined traversals and can exactly determine lengths and supports
     /// it will also make sure the reference traversal is in the beginning of the output
-    pair<vector<SnarlTraversal>, vector<int>> re_genotype(const Snarl& snarl,
-                                                          TraversalFinder& trav_finder,
-                                                          const vector<SnarlTraversal>& in_traversals,
-                                                          const vector<int>& in_genotype,
-                                                          int ploidy,
-                                                          const string& ref_path_name,
-                                                          pair<size_t, size_t> ref_interval) const;
+    tuple<vector<SnarlTraversal>, vector<int>, unique_ptr<SnarlCaller::CallInfo>> re_genotype(const Snarl& snarl,
+                                                                                              TraversalFinder& trav_finder,
+                                                                                              const vector<SnarlTraversal>& in_traversals,
+                                                                                              const vector<int>& in_genotype,
+                                                                                              int ploidy,
+                                                                                              const string& ref_path_name,
+                                                                                              pair<size_t, size_t> ref_interval) const;
 
     /// print a vcf variant 
     void emit_variant(const Snarl& snarl, TraversalFinder& trav_finder, const vector<SnarlTraversal>& called_traversals,
-                      const vector<int>& genotype, const string& ref_path_name) const;
+                      const vector<int>& genotype, const unique_ptr<SnarlCaller::CallInfo>& call_info, const string& ref_path_name) const;
 
     /// check if a site can be handled by the RepresentativeTraversalFinder
     bool is_traversable(const Snarl& snarl);

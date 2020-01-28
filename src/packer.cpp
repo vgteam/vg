@@ -38,8 +38,13 @@ Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, 
     num_edges_dynamic = 0;
     if (record_edges) {
         graph->for_each_edge([&](const edge_t& edge) {
-                num_edges_dynamic = std::max(num_edges_dynamic,
-                                          dynamic_cast<const VectorizableHandleGraph*>(graph)->edge_index(edge));
+                const VectorizableHandleGraph* vec_graph = dynamic_cast<const VectorizableHandleGraph*>(graph);
+                assert(vec_graph != nullptr);
+                auto edge_index = vec_graph->edge_index(edge);
+#ifdef debug
+                cerr << "Observed edge at index " << edge_index << endl;
+#endif
+                num_edges_dynamic = std::max(num_edges_dynamic, edge_index);
             });
         ++num_edges_dynamic; // add one so our size is greater than the max element
     }
@@ -79,6 +84,10 @@ Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, 
     for (size_t i = 0; i < get_thread_count(); ++i) {
         quality_cache.push_back(new LRUCache<pair<int, int>, int>(lru_cache_size));
     }
+    
+#ifdef debug
+    cerr << "Packing across " << num_edges_dynamic << " edge slots and " << num_bases_dynamic << " base slots in " << coverage_bins << " bins" << endl;
+#endif
 }
 
 void Packer::clear() {
@@ -284,6 +293,11 @@ void Packer::make_compact(void) {
     int_vector<> coverage_iv;
     size_t edge_coverage_length = edge_vector_size();
     int_vector<> edge_coverage_iv;
+    
+#ifdef debug
+    cerr << "Concatenating entries for " << basis_length << " bases and " << edge_coverage_length << " edges" << endl;
+#endif
+    
 #pragma omp parallel
     {
 #pragma omp single
@@ -462,6 +476,9 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq , bool qual_a
             e.set_to(mapping.position().node_id());
             e.set_to_end(mapping.position().is_reverse());
             size_t edge_idx = edge_index(e);
+#ifdef debug
+            cerr << "Observed visit to edge " << pb2json(e) << " at index " << edge_idx << endl;
+#endif
             if (edge_idx != 0) {
                 // heuristic:  for an edge, we average out the base qualities from the matches in its two flanking mappings
                 int avg_base_quality = -1;
@@ -637,6 +654,9 @@ void Packer::increment_edge_coverage(size_t i) {
     std::lock_guard<std::mutex> guard(edge_locks[bin_offset.first]);
     init_edge_coverage_bin(bin_offset.first);
     edge_coverage_dynamic.at(bin_offset.first)->increment(bin_offset.second);
+#ifdef debug
+    cerr << "Set coverage of edge " << i << " at " << bin_offset.first << "/" << bin_offset.second << " to " << (*edge_coverage_dynamic.at(bin_offset.first))[bin_offset.second] << endl;
+#endif
 }
 
 void Packer::increment_edge_coverage(size_t i, size_t v) {
@@ -645,6 +665,9 @@ void Packer::increment_edge_coverage(size_t i, size_t v) {
         std::lock_guard<std::mutex> guard(edge_locks[bin_offset.first]);
         init_edge_coverage_bin(bin_offset.first);
         edge_coverage_dynamic.at(bin_offset.first)->increment(bin_offset.second, v);
+#ifdef debug
+        cerr << "Set coverage of edge " << i << " at " << bin_offset.first << "/" << bin_offset.second << " to " << (*edge_coverage_dynamic.at(bin_offset.first))[bin_offset.second] << endl;
+#endif
     }
 }
 
@@ -715,6 +738,12 @@ vector<Edit> Packer::edits_at_position(size_t i) const {
 size_t Packer::edge_index(const Edge& e) const {
     edge_t edge = graph->edge_handle(graph->get_handle(e.from(), e.from_start()),
                                      graph->get_handle(e.to(), e.to_end()));
+                                     
+    if (!graph->has_edge(edge)) {
+        // We can only query the edge index for edges that exist. This edge doesn't.
+        return 0;
+    }
+                                     
     return dynamic_cast<const VectorizableHandleGraph*>(graph)->edge_index(edge);
 }
 
@@ -763,16 +792,42 @@ ostream& Packer::as_edge_table(ostream& out, vector<vg::id_t> node_ids) {
             edge.set_to(graph->get_id(handle_edge.second));
             edge.set_to_end(graph->get_is_reverse(handle_edge.second));
             
-            if (edge.from() <= edge.to() && (node_ids.empty() ||
-                    find(node_ids.begin(), node_ids.end(), edge.from()) != node_ids.end() ||
-                    find(node_ids.begin(), node_ids.end(), edge.to()) != node_ids.end())) {
-                out << edge.from() << "\t"
-                    << edge.from_start() << "\t"
-                    << edge.to() << "\t"
-                    << edge.to_end() << "\t"
-                    << edge_coverage_civ[edge_index(edge)]
-                    << endl;
+            if (!node_ids.empty() &&
+                (find(node_ids.begin(), node_ids.end(), edge.from()) == node_ids.end() ||
+                find(node_ids.begin(), node_ids.end(), edge.to()) == node_ids.end())) {
+                
+                // We need to skip this edge because it deals with nodes outsode of our set.
+                return true;
             }
+            
+            // Otherwise, we need to use the edge; all edges are visited exactly once.
+            // But we want to output it smaller node ID first, which is not guaranteed.
+            if (edge.from() > edge.to()) {
+                {
+                    // Swap the from and to around
+                    nid_t temp = edge.from();
+                    edge.set_from(edge.to());
+                    edge.set_to(temp);
+                }
+                {
+                    // And the flags 
+                    bool temp = edge.from_start();
+                    edge.set_from_start(!edge.to_end());
+                    edge.set_to_end(!temp);
+                }
+            }
+            
+            // TODO: we don't canonicalize self loops at all
+            
+            // Print out the edge
+            out << edge.from() << "\t"
+                << edge.from_start() << "\t"
+                << edge.to() << "\t"
+                << edge.to_end() << "\t"
+                << edge_coverage_civ[edge_index(edge)]
+                << endl;
+            
+            // Look at the enxt edge
             return true;
         });
     return out;

@@ -94,8 +94,10 @@ rm -f test.vg test.xg
 
 vg construct -m 1000 -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a 2> /dev/null | vg view -j - | sed s/_alt/alt/g | vg view -Jv - >w.vg
 vg index -x w.xg w.vg
-is $(( cat w.vg | vg paths -d -v - ; vg find -x w.xg -Q alt ) | vg paths -L -v - | wc -l) 38 "pattern based path extraction works"
-rm -f w.xg w.vg
+cat w.vg | vg paths -d -v - > part1.tmp
+vg find -x w.xg -Q alt > part2.tmp
+is $(vg combine part1.tmp part2.tmp | vg paths -L -v - | wc -l) 38 "pattern based path extraction works"
+rm -f w.xg w.vg part1.tmp part2.tmp
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >t.vg
 vg index -x t.xg t.vg
@@ -109,6 +111,6 @@ echo x 10 21 | tr ' ' '\t' >>t.bed
 vg find -x t.xg -E -R t.bed -W q.
 is $((vg view q.x:10:20.vg; vg view q.x:30:35.vg) | md5sum | cut -f 1 -d\ ) $((vg view t.x:10:20.vg ; vg view t.x:30:35.vg)| md5sum | cut -f 1 -d\ ) "the same extraction can be made using BED input"
 
-is $(vg find -x t.xg -E -p x:30-35 -p x:10-20 -K 5 | wc -l) 22 "we see the expected number of kmers in the given targets"
+is $(vg find -x t.xg -E -p x:30-35 -p x:10-20 -K 5 | wc -l) 36 "we see the expected number of kmers in the given targets"
 
 rm -f t.xg t.vg t.x:30:35.vg t.x:10:20.vg q.x:30:35.vg q.x:10:20.vg t.bed

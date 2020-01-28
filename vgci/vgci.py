@@ -278,19 +278,15 @@ class VGCITest(TestCase):
         if true_vcf_path:
             opts += '--vcfeval_baseline {} '.format(true_vcf_path)
             opts += '--vcfeval_fasta {} '.format(fasta_path)
+            opts += '--vcfeval_opts \' --ref-overlap --vcf-score-field GQ\'  '
         if interleaved:
             opts += '--interleaved '
         if multipath:
             opts += '--mapper mpmap '
         if misc_opts:
             opts += ' {} '.format(misc_opts)
-        if genotype:
-            opts += '--genotype '
-            opts += '--vcfeval_opts \'--ref-overlap --vcf-score-field GQ\' '
-        # don't waste time sharding reads since we only run on one node
-        opts += '--single_reads_chunk '
         opts += '--gcsa_index_cores {} \
-        --alignment_cores {} --calling_cores {} --call_chunk_cores {} --vcfeval_cores {} '.format(
+        --alignment_cores {} --calling_cores {} --calling_cores {} --vcfeval_cores {} '.format(
             self.cores, self.cores, self.cores, max(1, self.cores / 4),
             max(1, self.cores / 2), self.cores)
         
@@ -513,6 +509,9 @@ class VGCITest(TestCase):
         extra_opts = '--vcf_offsets {}'.format(offset)
         if misc_opts:
             extra_opts += ' {}'.format(misc_opts)
+        # these are the options these tests were trained on.  specify here instead of relying
+        # on them being baked into toil-vg
+        extra_opts += ' --min_mapq 15 --filter_opts \' -r 0.9 -fu -m 1 -q 15 -D 999\''
         
         self._toil_vg_run('NA12878', chrom,
                           self._input('{}-{}.vg'.format(graph, region)),
@@ -1088,25 +1087,19 @@ class VGCITest(TestCase):
         cmd = ['toil-vg', 'calleval', job_store, out_store]
         if self.vg_docker:
             cmd += ['--vg_docker', self.vg_docker]
-        cmd += ['--calling_cores', str(min(8, self.cores))]
         # Test test_call_chr21_snp1kg has been running out of memory on 32 GB
         # nodes, maybe due to too many calling jobs running at once. The
         # default memory limit is 4 GB, so we double that to 8 GB so we retain
         # some parallelism while hopefully not going way over the limits and
         # OOM-ing.
         cmd += ['--calling_mem', '8G']
-        cmd += ['--call_chunk_cores', str(min(6, self.cores))]
+        cmd += ['--calling_cores', str(min(4, self.cores))]
         cmd += ['--maxCores', str(self.cores)]
         cmd += self._toil_vg_io_opts() 
         if self.container:
             cmd += ['--container', self.container]
-        # run both gentoype and call
-        cmd += ['--call', '--genotype']
-        # vg genotype needs this not to run out of ram
-        cmd += ['--call_chunk_size', '500000']
-        # turn off defray filter so genotype doesn't spend time xg-indexing chunks
-        # (but leave on the other filters)
-        # cmd += ['--filter_opts_gt', '-r', '0.9', '-fu', '-s', '1000', '-m', '1', '-q', '15']
+        # run call
+        cmd += ['--call']
         # run freebayes
         if bam_path:
             cmd += ['--freebayes']
@@ -1115,10 +1108,13 @@ class VGCITest(TestCase):
         # gam
         cmd += ['--gams', gam_path]
         cmd += ['--gam_names', 'vg']
-        cmd += ['--chroms', str(chrom)]
+        cmd += ['--ref_paths', str(chrom)]
+        cmd += ['--min_mapq', '15', '--min_augment_coverage', '3']
+        cmd += ['--filter_opts', '-r 0.9 -fu -m 1 -q 15 -D 999']
+        cmd += ['--augment_cores', str(min(4, self.cores))]
         if offset:
             cmd += ['--vcf_offsets', str(offset)]
-        cmd += ['--sample_name', sample]
+        cmd += ['--sample', sample]
         # xg
         cmd += ['--xg_paths', xg_path]
         # truth vcf
@@ -1127,6 +1123,7 @@ class VGCITest(TestCase):
             cmd += ['--vcfeval_bed_regions', bed_regions_path]
         # fasta: required for both vcfeval and freebayes
         cmd += ['--vcfeval_fasta', fasta_path]
+        cmd += ['--vcfeval_opts', '--ref-overlap --vcf-score-field GQ']
 
         subprocess.check_call(cmd, shell=False)
 
@@ -1347,12 +1344,6 @@ class VGCITest(TestCase):
         """ Mapping and calling bakeoff F1 test for BRCA1 snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA1', 'snp1kg', True)
-
-    @timeout_decorator.timeout(400)
-    def test_map_brca1_snp1kg_genotype(self):
-        """ Mapping and calling (with vg genotype) bakeoff F1 test for BRCA1 snp1kg graph """
-        log.info("Test start at {}".format(datetime.now()))
-        self._test_bakeoff('BRCA1', 'snp1kg', True, tag_ext='-genotype', genotype=True)
         
     @timeout_decorator.timeout(600)
     def test_map_brca1_snp1kg_mpmap(self):
@@ -1440,20 +1431,6 @@ class VGCITest(TestCase):
         """ Indexing, mapping and calling bakeoff F1 test for MHC snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('MHC', 'snp1kg', True)
-
-    @timeout_decorator.timeout(1600)        
-    def test_map_mhc_primary_genotype(self):
-        """ Mapping and calling (with vg genotype) bakeoff F1 test for MHC primary graph 
-        """
-        log.info("Test start at {}".format(datetime.now()))
-        self._test_bakeoff('MHC', 'primary', True, tag_ext='-genotype', genotype=True)
-        
-    @timeout_decorator.timeout(1800)        
-    def test_map_mhc_snp1kg_genotype(self):
-        """ Mapping and calling (with vg genotype) bakeoff F1 test for MHC snp1kg graph 
-        """
-        log.info("Test start at {}".format(datetime.now()))
-        self._test_bakeoff('MHC', 'snp1kg', True, tag_ext='-genotype', genotype=True)
 
     @skip("skipping test to keep runtime down (baseline missing as well)")          
     @timeout_decorator.timeout(1200)        
