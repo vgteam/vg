@@ -986,6 +986,11 @@ int main_gaffe(int argc, char** argv) {
                 }
 
                 //Now map all the ambiguous pairs
+                //TODO: What do we do if we haven't finalized the distribution?
+                if (!minimizer_mapper.fragment_distr_is_finalized()){
+                    cerr << "warning[vg::gaffe]: Finalizing fragment length distribution before reaching maximum sample size" << endl;
+                    minimizer_mapper.finalize_fragment_length_distr();
+                }
                 for (pair<Alignment, Alignment>& alignment_pair : ambiguous_pair_buffer) {
 
                     auto mapped_pairs = minimizer_mapper.map_paired(alignment_pair.first, alignment_pair.second);
