@@ -22,6 +22,21 @@ namespace vg {
         
         return injection_trans;
     }
+
+    function<pair<id_t, bool>(id_t)> MultipathAlignmentGraph::create_projector(const unordered_map<id_t, pair<id_t, bool>>& projection_trans) {
+        return [&](id_t node_id) { return projection_trans.at(node_id); };
+    }
+
+    unordered_multimap<id_t, pair<id_t, bool>> MultipathAlignmentGraph::create_injection_trans(const HandleGraph& graph,
+                                                                                               const function<pair<id_t, bool>(id_t)>& project) {
+        unordered_multimap<id_t, pair<id_t, bool>> injection_trans;
+        graph.for_each_handle([&](const handle_t& handle) {
+            id_t node_id = graph.get_id(handle);
+            auto proj = project(node_id);
+            injection_trans.emplace(proj.first, make_pair(node_id, proj.second));
+        });
+        return injection_trans;
+    }
     
     unordered_map<id_t, pair<id_t, bool>> MultipathAlignmentGraph::create_identity_projection_trans(const HandleGraph& graph) {
         unordered_map<id_t, pair<id_t, bool>> to_return;
@@ -36,36 +51,45 @@ namespace vg {
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
                                                      const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
-                                                     const Alignment& alignment,  const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                     const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
         
         // Set up the initial multipath graph from the given path chunks.
-        create_path_chunk_nodes(graph, path_chunks, alignment, projection_trans, injection_trans);
+        create_path_chunk_nodes(graph, path_chunks, alignment, project, injection_trans);
         
         // trim indels off of nodes to make the score dynamic programmable across nodes
         trim_hanging_indels(alignment);
         
         // compute reachability and add edges
-        add_reachability_edges(graph, projection_trans, injection_trans);
+        add_reachability_edges(graph, project, injection_trans);
         
     }
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
                                                      const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+                                                     const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project) :
+                                                     MultipathAlignmentGraph(graph, path_chunks, alignment, project,
+                                                                             create_injection_trans(graph, project)) {
+        // Nothing to do
+        
+    }
+
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
+                                                     const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
                                                      const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans) :
-                                                     MultipathAlignmentGraph(graph, path_chunks, alignment, projection_trans,
+                                                     MultipathAlignmentGraph(graph, path_chunks, alignment, create_projector(projection_trans),
                                                                              create_injection_trans(projection_trans)) {
         // Nothing to do
         
     }
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
-                                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                     const function<pair<id_t, bool>(id_t)>& project,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                                      size_t max_branch_trim_length, gcsa::GCSA* gcsa) {
         
         // initialize the match nodes
-        create_match_nodes(graph, hits, projection_trans, injection_trans);
+        create_match_nodes(graph, hits, project, injection_trans);
         
         if (gcsa) {
             // we indicated that these MEMs came from a GCSA, so there might be order-length MEMs that we can combine
@@ -91,13 +115,23 @@ namespace vg {
 #endif
         
         // compute reachability and add edges
-        add_reachability_edges(graph, projection_trans, injection_trans);
+        add_reachability_edges(graph, project, injection_trans);
     }
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
+                                                     const function<pair<id_t, bool>(id_t)>& project,
+                                                     size_t max_branch_trim_length, gcsa::GCSA* gcsa) :
+                                                     MultipathAlignmentGraph(graph, hits, project,
+                                                                             create_injection_trans(graph, project),
+                                                                             max_branch_trim_length, gcsa) {
+        // Nothing to do
+        
+    }
+
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                                      size_t max_branch_trim_length, gcsa::GCSA* gcsa) :
-                                                     MultipathAlignmentGraph(graph, hits, projection_trans,
+                                                     MultipathAlignmentGraph(graph, hits, create_projector(projection_trans),
                                                                              create_injection_trans(projection_trans),
                                                                              max_branch_trim_length, gcsa) {
         // Nothing to do
@@ -105,7 +139,7 @@ namespace vg {
     }
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
-                                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                     const function<pair<id_t, bool>(id_t)>& project,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
         
         // this can only be done on aligned sequences
@@ -116,10 +150,10 @@ namespace vg {
         // shim the aligned path into the path chunks constructor to make a node for it
         vector<pair<pair<string::const_iterator, string::const_iterator>, Path>> path_holder;
         path_holder.emplace_back(make_pair(alignment.sequence().begin(), alignment.sequence().end()), alignment.path());
-        create_path_chunk_nodes(graph, path_holder, alignment, projection_trans, injection_trans);
+        create_path_chunk_nodes(graph, path_holder, alignment, project, injection_trans);
         
         // cut the snarls out of the aligned path so we can realign through them
-        resect_snarls_from_paths(&snarl_manager, projection_trans, max_snarl_cut_size);
+        resect_snarls_from_paths(&snarl_manager, project, max_snarl_cut_size);
         
         // the snarls algorithm adds edges where necessary
         has_reachability_edges = true;
@@ -127,16 +161,23 @@ namespace vg {
         // trim indels from the end of path nodes so that scores will be dynamic programmable across subpaths
         trim_hanging_indels(alignment);
     }
-    
+
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans) :
-                                                     MultipathAlignmentGraph(graph, alignment, snarl_manager, max_snarl_cut_size, projection_trans,
+                                                     MultipathAlignmentGraph(graph, alignment, snarl_manager, max_snarl_cut_size, create_projector(projection_trans),
                                                                              create_injection_trans(projection_trans)) {
+        // Nothing to do
+    }
+
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
+                                                     const function<pair<id_t, bool>(id_t)>& project) :
+                                                     MultipathAlignmentGraph(graph, alignment, snarl_manager, max_snarl_cut_size, project,
+                                                                             create_injection_trans(graph, project)) {
         // Nothing to do
     }
     
     void MultipathAlignmentGraph::create_path_chunk_nodes(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
-                                                          const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                          const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
                                                           const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
         
         for (const auto& path_chunk : path_chunks) {
@@ -175,32 +216,28 @@ namespace vg {
 #ifdef debug_multipath_alignment
                     cerr << "checking node " << graph.get_id(trav) << endl;
 #endif
+                    pair<id_t, bool> projected_trav = project(graph.get_id(trav));
                     
-                    auto f = projection_trans.find(graph.get_id(trav));
-                    if (f != projection_trans.end()) {
-                        pair<id_t, bool> projected_trav = f->second;
+                    const Position& pos = path.mapping(stack.size() - 1).position();
+                    if (projected_trav.first == pos.node_id() &&
+                        projected_trav.second == (projected_trav.second != graph.get_is_reverse(trav))) {
                         
-                        const Position& pos = path.mapping(stack.size() - 1).position();
-                        if (projected_trav.first == pos.node_id() &&
-                            projected_trav.second == (projected_trav.second != graph.get_is_reverse(trav))) {
-                            
-                            // position matched the path
-                            
+                        // position matched the path
+                        
 #ifdef debug_multipath_alignment
-                            cerr << "chunk position " << pb2json(pos) << " matches traversal " << projected_trav.first << (projected_trav.second ? "-" : "+") << endl;
+                        cerr << "chunk position " << pb2json(pos) << " matches traversal " << projected_trav.first << (projected_trav.second ? "-" : "+") << endl;
 #endif
-                            
-                            if (stack.size() == path.mapping_size()) {
+                        
+                        if (stack.size() == path.mapping_size()) {
 #ifdef debug_multipath_alignment
-                                cerr << "finished walking path" << endl;
+                            cerr << "finished walking path" << endl;
 #endif
-                                break;
-                            }
-                            stack.emplace_back(0, vector<handle_t>());
-                            graph.follow_edges(trav, false, [&](const handle_t& next) {
-                                stack.back().second.emplace_back(next);
-                            });
+                            break;
                         }
+                        stack.emplace_back(0, vector<handle_t>());
+                        graph.follow_edges(trav, false, [&](const handle_t& next) {
+                            stack.back().second.emplace_back(next);
+                        });
                     }
                 }
                 
@@ -483,7 +520,7 @@ namespace vg {
     }
     
     void MultipathAlignmentGraph::create_match_nodes(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
-                                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                     const function<pair<id_t, bool>(id_t)>& project,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
         
 #ifdef debug_multipath_alignment
@@ -581,9 +618,9 @@ namespace vg {
                                 id_t node_id_here = mapping.position().node_id();
                                 is_partial_mem = is_partial_mem || (injected_id == node_id_here
                                                                     && offset(hit_pos) == mapping.position().offset() + relative_offset - prefix_length
-                                                                    && projection_trans.at(node_id_here).second == is_rev(hit_pos));
+                                                                    && project(node_id_here).second == is_rev(hit_pos));
 #ifdef debug_multipath_alignment
-                                cerr << "this mapping crosses where we would expect a child to be: " << node_id_here << (projection_trans.at(node_id_here).second ? "-" : "+") << ":" << mapping.position().offset() + relative_offset - prefix_length << endl;
+                                cerr << "this mapping crosses where we would expect a child to be: " << node_id_here << (project(node_id_here).second ? "-" : "+") << ":" << mapping.position().offset() + relative_offset - prefix_length << endl;
                                 cerr << "this MEM is actually at: " << injected_id << (is_rev(hit_pos) ? "-" : "+") << ":" << offset(hit_pos) << endl;
 #endif
                                 
@@ -1113,7 +1150,7 @@ namespace vg {
     }
     
     void MultipathAlignmentGraph::resect_snarls_from_paths(SnarlManager* cutting_snarls,
-                                                           const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                           const function<pair<id_t, bool>(id_t)>& project,
                                                            int64_t max_snarl_cut_size) {
 #ifdef debug_multipath_alignment
         cerr << "cutting with snarls" << endl;
@@ -1148,7 +1185,7 @@ namespace vg {
             size_t prefix_length = 0;
             for (size_t j = 0, last = path->mapping_size() - 1; j <= last; j++) {
                 const Position& position = path->mapping(j).position();
-                const auto& projection = projection_trans.at(position.node_id());
+                const auto& projection = project(position.node_id());
                 id_t projected_id = projection.first;
                 bool projected_rev = (projection.second != position.is_reverse());
                 
@@ -1551,7 +1588,7 @@ namespace vg {
     }
 
     void MultipathAlignmentGraph::add_reachability_edges(const HandleGraph& graph,
-                                                         const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                         const function<pair<id_t, bool>(id_t)>& project,
                                                          const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
                                                          
         

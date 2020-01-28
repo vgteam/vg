@@ -28,6 +28,7 @@
 #include "identity_overlay.hpp"
 #include "reverse_graph.hpp"
 #include "split_strand_graph.hpp"
+#include "dagified_graph.hpp"
 
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/extract_containing_graph.hpp"
@@ -303,7 +304,7 @@ namespace vg {
         /// to create a multipath alignment with non-trivial topology.
         /// Guarantees that the resulting MultipathAlignment is in topological order.
         void make_nontrivial_multipath_alignment(const Alignment& alignment, const HandleGraph& subgraph,
-                                                 unordered_map<id_t, pair<id_t, bool>>& translator,
+                                                 const function<pair<id_t, bool>(id_t)>& translator,
                                                  SnarlManager& snarl_manager, MultipathAlignment& multipath_aln_out) const;
         
         /// Remove the full length bonus from all source or sink subpaths that received it

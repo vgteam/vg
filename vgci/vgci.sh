@@ -296,7 +296,7 @@ then
         rm -rf awscli
     fi
     if [ ! -e awscli ]; then
-        virtualenv --never-download awscli && awscli/bin/pip install awscli
+        virtualenv --python=python2 --never-download awscli && awscli/bin/pip install awscli
     fi
     # Expose binaries to the PATH
     ln -snf ${PWD}/awscli/bin/aws bin/
@@ -307,7 +307,7 @@ then
         rm -rf .env
     fi
     if [ ! -e .env ]; then
-        virtualenv  .env
+        virtualenv --python=python2  .env
     fi
     . .env/bin/activate
 
@@ -328,7 +328,7 @@ then
     # Dependencies for running tests.  Need numpy, scipy and sklearn
     # for running toil-vg mapeval, and dateutils and reqests for ./mins_since_last_build.py
     pip install numpy
-    pip install scipy==1.0.0rc2
+    pip install scipy==1.0.0rc2 --only-binary :all:
     pip install sklearn
     pip install dateutils
     pip install requests
@@ -451,7 +451,7 @@ then
             rm -rf awscli
         fi
         if [ ! -e awscli ]; then
-            virtualenv --never-download awscli && awscli/bin/pip install awscli
+            virtualenv --python=python2 --never-download awscli && awscli/bin/pip install awscli
         fi
         # Expose binaries to the PATH
         ln -snf ${PWD}/awscli/bin/aws bin/

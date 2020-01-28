@@ -345,6 +345,8 @@ void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator)
 void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator, id_t cut_node, size_t bases_removed, bool from_right);
 /// Switches the node ids and orientations in the path to the ones indicated by the translator
 void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t, bool>>& translator);
+/// Switches node ids and orientations in the path to the ones indicated by the translator
+void translate_oriented_node_ids(Path& path, const function<pair<id_t, bool>(id_t)>& translator);
     
 // the first position on the path
 pos_t initial_position(const Path& path);
