@@ -311,6 +311,7 @@ void help_gaffe(char** argv) {
     << "  -e, --max-extensions INT      extend up to INT clusters [48]" << endl
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
     << "  -s, --cluster-score INT       only extend clusters if they are within INT of the best score [50]" << endl
+    << "  -S, --pad-cluster-score INT   only extend clusters if they are within INT of the best score [50]" << endl
     << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within FLOAT of the best read coverage [0.4]" << endl
     << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [1]" << endl
     << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
@@ -363,6 +364,8 @@ int main_gaffe(int argc, char** argv) {
     Range<size_t> max_alignments = 6;
     //Throw away cluster with scores that are this amount below the best
     Range<double> cluster_score = 50;
+    //Unless they are the second best and within this amount beyond that
+    Range<double> pad_cluster_score = 20;
     //Throw away clusters with coverage this amount below the best 
     Range<double> cluster_coverage = 0.4;
     //Throw away extension sets with scores that are this amount below the best
@@ -389,6 +392,7 @@ int main_gaffe(int argc, char** argv) {
         .chain(max_extensions)
         .chain(max_alignments)
         .chain(cluster_score)
+        .chain(pad_cluster_score)
         .chain(cluster_coverage)
         .chain(extension_set)
         .chain(extension_score)
@@ -421,6 +425,7 @@ int main_gaffe(int argc, char** argv) {
             {"max-extensions", required_argument, 0, 'e'},
             {"max-alignments", required_argument, 0, 'a'},
             {"cluster-score", required_argument, 0, 's'},
+            {"pad-cluster-score", required_argument, 0, 'S'},
             {"cluster-coverage", required_argument, 0, 'u'},
             {"extension-score", required_argument, 0, 'v'},
             {"extension-set", required_argument, 0, 'w'},
@@ -433,7 +438,7 @@ int main_gaffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:D:F:e:a:s:u:v:w:Ot:",
+        c = getopt_long (argc, argv, "hx:g:H:m:d:pG:f:M:N:R:nc:C:D:F:e:a:s:S:u:v:w:Ot:",
                          long_options, &option_index);
 
 
@@ -586,6 +591,17 @@ int main_gaffe(int argc, char** argv) {
                         exit(1);
                     }
                     cluster_score = score;
+                }
+                break;
+                
+            case 'S':
+                {
+                    auto score = parse<Range<double>>(optarg);
+                    if (score < 0) {
+                        cerr << "error: [vg gaffe] Second best cluster score threshold (" << score << ") must be positive" << endl;
+                        exit(1);
+                    }
+                    pad_cluster_score = score;
                 }
                 break;
 
@@ -812,6 +828,11 @@ int main_gaffe(int argc, char** argv) {
             cerr << "--cluster-score " << cluster_score << endl;
         }
         minimizer_mapper.cluster_score_threshold = cluster_score;
+        
+        if (progress) {
+            cerr << "--pad-cluster-score " << pad_cluster_score << endl;
+        }
+        minimizer_mapper.pad_cluster_score_threshold = pad_cluster_score;
 
         if (progress) {
             cerr << "--cluster-coverage " << cluster_coverage << endl;

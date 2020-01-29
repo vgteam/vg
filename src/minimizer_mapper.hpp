@@ -64,6 +64,12 @@ public:
     //If a cluster's score is smaller than the best score of any cluster by more than
     //this much, then don't extend it
     double cluster_score_threshold = 50;
+    
+    //If the second best cluster's score is no more than this many points below
+    //the cutoff set by cluster_score_threshold, snap that cutoff down to the
+    //second best cluster's score, to avoid throwing away promising
+    //secondaries.
+    double pad_cluster_score_threshold = 20;
 
     //If the read coverage of a cluster is less than the best coverage of any cluster
     //by more than this much, don't extend it

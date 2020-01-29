@@ -367,11 +367,18 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     }
     
     // We will set a score cutoff based on the best, but move it down to the
-    // second best if it does not include the second best. This ensures that we
-    // won't throw away all but one cluster based on score alone.
+    // second best if it does not include the second best and the second best
+    // is within pad_cluster_score_threshold of where the cutoff would
+    // otherwise be. This ensures that we won't throw away all but one cluster
+    // based on score alone, unless it is really bad.
                                     
     // Retain clusters only if their score is better than this, in addition to the coverage cutoff
-    double cluster_score_cutoff = std::min(best_cluster_score - cluster_score_threshold, second_best_cluster_score);
+    double cluster_score_cutoff = best_cluster_score - cluster_score_threshold;
+    
+    if (cluster_score_cutoff - pad_cluster_score_threshold < second_best_cluster_score) {
+        // The second best cluster score is high enough that we might want to snap down to it as the cutoff instead.
+        cluster_score_cutoff = std::min(cluster_score_cutoff, second_best_cluster_score);
+    }
     
     if (track_provenance) {
         // Now we go from clusters to gapless extensions
@@ -982,6 +989,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         set_annotation(mappings[0], "param_max-extensions", (double) max_extensions);
         set_annotation(mappings[0], "param_max-alignments", (double) max_alignments);
         set_annotation(mappings[0], "param_cluster-score", (double) cluster_score_threshold);
+        set_annotation(mappings[0], "param_pad-cluster-score", (double) pad_cluster_score_threshold);
         set_annotation(mappings[0], "param_cluster-coverage", (double) cluster_coverage_threshold);
         set_annotation(mappings[0], "param_extension-set", (double) extension_set_score_threshold);
         set_annotation(mappings[0], "param_max-multimaps", (double) max_multimaps);
