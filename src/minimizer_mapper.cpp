@@ -876,7 +876,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
     // And either way this will map from seed to minimizer that generated it
     pair<vector<size_t>, vector<size_t>> seed_to_source_by_read;
-    pair<vector<double>, vector<double>> minimizer_score_by_read;
     
     for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
         std::vector<Minimizer>& minimizers = read_num == 0 ?
@@ -1096,7 +1095,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             // Compute the score.
             for (size_t j = 0; j < minimizers.size(); j++) {
                 if (present[j]) {
-                    cluster_score[i] += read_num == 0 ? minimizer_score_by_read.first[j] : minimizer_score_by_read.second[j];
+                    cluster_score[i] += minimizers[j].score;
                 }
             }
 
