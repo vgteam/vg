@@ -350,11 +350,28 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #ifdef debug
     cerr << "Found " << clusters.size() << " clusters" << endl;
 #endif
+
+    // Find the best and second-best cluster scores.
+    double best_cluster_score = 0;
+    double second_best_cluster_score = 0;
+    for (auto& score : cluster_score) {
+        // For each cluster's score
+        if (score > best_cluster_score) {
+            // If it is the new best bump down the old best
+            second_best_cluster_score = best_cluster_score;
+            best_cluster_score = score;
+        } else if (score > second_best_cluster_score) {
+            // If it only beats the second best, replace that instead.
+            second_best_cluster_score = score;
+        }
+    }
+    
+    // We will set a score cutoff based on the best, but move it down to the
+    // second best if it does not include the second best. This ensures that we
+    // won't throw away all but one cluster based on score alone.
                                     
     // Retain clusters only if their score is better than this, in addition to the coverage cutoff
-    double cluster_score_cutoff = cluster_score.size() == 0 ? 0 :
-                    *std::max_element(cluster_score.begin(), cluster_score.end())
-                                    - cluster_score_threshold;
+    double cluster_score_cutoff = std::min(best_cluster_score - cluster_score_threshold, second_best_cluster_score);
     
     if (track_provenance) {
         // Now we go from clusters to gapless extensions
@@ -973,10 +990,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Ship out all the aligned alignments
     alignment_emitter.emit_mapped_single(std::move(mappings));
 
+#define debug
 #ifdef debug
     // Dump the funnel info graph.
     funnel.to_dot(cerr);
 #endif
+#undef debug
 }
 
 int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<GaplessExtension>& extended_seeds,
