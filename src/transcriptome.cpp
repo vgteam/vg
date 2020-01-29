@@ -481,9 +481,17 @@ void Transcriptome::project_transcripts_callback(list<TranscriptPath> * proj_tra
         while (cur_transcript_paths_it != cur_transcript_paths.end()) {
 
             // Set transcript path name. The name contains the original transcript name/id 
-            // and a unique index for each copy of the transcript.
-            cur_transcript_paths_it->name = cur_transcript_paths_it->transcript_origin + "_" + to_string(transcript_path_idx);
-            ++transcript_path_idx;
+            // and a unique index for each copy of non-reference transcripts.
+
+            if (cur_transcript_paths_it->reference_origin.empty()) {
+
+                cur_transcript_paths_it->name = cur_transcript_paths_it->transcript_origin + "_" + to_string(transcript_path_idx);
+                ++transcript_path_idx;
+
+            } else {
+
+                cur_transcript_paths_it->name = cur_transcript_paths_it->transcript_origin;                
+            }
 
             ++cur_transcript_paths_it;
         }
