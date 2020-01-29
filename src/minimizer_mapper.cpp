@@ -990,12 +990,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Ship out all the aligned alignments
     alignment_emitter.emit_mapped_single(std::move(mappings));
 
-#define debug
 #ifdef debug
     // Dump the funnel info graph.
     funnel.to_dot(cerr);
 #endif
-#undef debug
 }
 
 int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<GaplessExtension>& extended_seeds,
