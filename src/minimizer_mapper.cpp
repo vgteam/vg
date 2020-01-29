@@ -882,23 +882,24 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         minimizers_by_read.first : minimizers_by_read.second;
         seeds_by_read.emplace_back();
         vector<pos_t>& seeds = seeds_by_read.back();
+        Funnel& funnel = funnels[read_num];
+        Alignment& aln = read_num == 0 ? aln1 : aln2;
 
         vector<size_t>& seed_to_source = read_num == 0 ? seed_to_source_by_read.first : seed_to_source_by_read.second;
         
         if (track_provenance) {
             // Record how many we found, as new lines.
-            funnels[read_num].introduce(minimizers.size());
+            funnel.introduce(minimizers.size());
             
             // Start the minimizer locating stage
-            funnels[read_num].stage("seed");
+            funnel.stage("seed");
         }
 
         // Find the minimizers and score them.
         double base_target_score = 0.0;
         double base_score = 1.0 + std::log(hard_hit_cap);
         for (size_t i = 0; i < minimizer_indexes.size(); i++) {
-            auto current_minimizers = read_num == 0 ? minimizer_indexes[i]->minimizers(aln1.sequence())
-                                                    :minimizer_indexes[i]->minimizers(aln2.sequence());
+            auto current_minimizers = minimizer_indexes[i]->minimizers(aln.sequence());
             for (auto& minimizer : current_minimizers) {
                 double score = 0.0;
                 size_t hits = minimizer_indexes[i]->count(minimizer);
@@ -914,6 +915,16 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             }
         }
         double target_score = (base_target_score * minimizer_score_fraction) + 0.000001;
+        std::sort(minimizers.begin(), minimizers.end());
+    
+        if (track_provenance) {
+            // Record how many we found, as new lines.
+            funnel.introduce(minimizers.size());
+            
+            // Start the minimizer locating stage
+            funnel.stage("seed");
+        }
+    
     
         // Select the minimizers we use for seeds.
         size_t rejected_count = 0;
@@ -921,7 +932,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         for (size_t i = 0; i < minimizers.size(); i++) {
             if (track_provenance) {
                 // Say we're working on it
-                funnels[read_num].processing_input(i);
+                funnel.processing_input(i);
             }
     
             // Select the minimizer if it is informative enough or if the total score
@@ -929,15 +940,15 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             const Minimizer& minimizer = minimizers[i];
             size_t hits = minimizer_indexes[minimizer.origin]->count(minimizer.value);
             
-    #ifdef debug
+#ifdef debug
             cerr << "Minimizer " << i << " = " << minimizer.value.key.decode(minimizer_indexes[minimizer.origin]->k())
                  << " has " << hits << " hits" << endl;
-    #endif
+#endif
             
             if (hits == 0) {
                 // A minimizer with no hits can't go on.
                 if (track_provenance) {
-                    funnels[read_num].fail("any-hits", i);
+                    funnel.fail("any-hits", i);
                 }
             } else if (hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer.score <= target_score)) {
                 // Locate the hits.
@@ -955,48 +966,49 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 
                 if (track_provenance) {
                     // Record in the funnel that this minimizer gave rise to these seeds.
-                    funnels[read_num].pass("any-hits", i);
-                    funnels[read_num].pass("hard-hit-cap", i);
-                    funnels[read_num].pass("hit-cap||score-fraction", i, selected_score  / base_target_score);
-                    funnels[read_num].expand(i, hits);
+                    funnel.pass("any-hits", i);
+                    funnel.pass("hard-hit-cap", i);
+                    funnel.pass("hit-cap||score-fraction", i, selected_score  / base_target_score);
+                    funnel.expand(i, hits);
                 }
             } else if (hits <= hard_hit_cap) {
                 // Passed hard hit cap but failed score fraction/normal hit cap
                 rejected_count++;
                 if (track_provenance) {
-                    funnels[read_num].pass("any-hits", i);
-                    funnels[read_num].pass("hard-hit-cap", i);
-                    funnels[read_num].fail("hit-cap||score-fraction", i, (selected_score + minimizer.score) / base_target_score);
+                    funnel.pass("any-hits", i);
+                    funnel.pass("hard-hit-cap", i);
+                    funnel.fail("hit-cap||score-fraction", i, (selected_score + minimizer.score) / base_target_score);
                 }
             } else {
                 // Failed hard hit cap
                 rejected_count++;
                 if (track_provenance) {
-                    funnels[read_num].pass("any-hits", i);
-                    funnels[read_num].fail("hard-hit-cap", i);
+                    funnel.pass("any-hits", i);
+                    funnel.fail("hard-hit-cap", i);
                 }
             }
             if (track_provenance) {
                 // Say we're done with this input item
-                funnels[read_num].processed_input();
+                funnel.processed_input();
             }
         }
-    #ifdef debug
-        cerr << "For read " << read_num << ", found " << seeds.size() << " seeds from " << (minimizers.size() - rejected_count) << " minimizers, rejected " << rejected_count << endl;
+#ifdef debug
+        cerr << "For read " << read_num <<  " found " << seeds.size() << " seeds from " << (minimizers.size() - rejected_count) << " minimizers, rejected " << rejected_count << endl;
 #endif
+    
         if (track_provenance && track_correctness) {
             // Tag seeds with correctness based on proximity along paths to the input read's refpos
-            funnels[read_num].substage("correct");
-
+            funnel.substage("correct");
+          
             if (path_graph == nullptr) {
                 cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
                 exit(1);
             }
-
-            if (read_num == 0 ? (aln1.refpos_size() != 0) :  (aln2.refpos_size() != 0)) {
+            
+            if (aln.refpos_size() != 0) {
                 // Take the first refpos as the true position.
-                auto& true_pos = read_num == 0 ? aln1.refpos(0) : aln2.refpos(0);
-
+                auto& true_pos = aln.refpos(0);
+                
                 for (size_t i = 0; i < seeds.size(); i++) {
                     // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
                     auto offsets = algorithms::nearest_offsets_in_paths(path_graph, seeds[i], 100);
@@ -1004,7 +1016,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         // Look at all the ones on the path the read's true position is on.
                         if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
                             // Call this seed hit close enough to be correct
-                            funnels[read_num].tag_correct(i);
+                            funnel.tag_correct(i);
                         }
                     }
                 }
