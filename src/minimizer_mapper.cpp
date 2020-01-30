@@ -165,6 +165,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     used_window_hit_counts.reserve(aln.sequence().size());
     vector<size_t> unused_window_hit_counts;
     unused_window_hit_counts.reserve(aln.sequence().size());
+    // And flag whether each minimizer in the read was located or not.
+    // TODO: should we count minimizers with no hits? We do right now because
+    // we need them to be created in the read when coming from a cluster that
+    // doesn't have them.
+    vector<bool> minimizer_located(minimizers.size(), false);
     // In order to consistently take either all or none of the minimizers in
     // the read with a particular sequence, we track whether we took the
     // previous one.
@@ -194,6 +199,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         if (hits == 0) {
             // A minimizer with no hits can't go on.
             took_last = false;
+            // But we should treat it as located, because we know it isn't anywhere.
+            minimizer_located[minimizer_num] = true;
             if (track_provenance) {
                 funnel.fail("any-hits", minimizer_num);
                 
@@ -211,6 +218,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             // minimizer which we also took.
             
             // Locate the hits.
+            minimizer_located[minimizer_num] = true;
             for (auto& hit : minimizer_index.find(minimizers[minimizer_num].first)) {
                 // Reverse the hits for a reverse minimizer
                 if (minimizers[minimizer_num].first.is_reverse) {
@@ -332,6 +340,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     std::vector<double> cluster_score(clusters.size(), 0.0);
     vector<double> read_coverage_by_cluster;
     read_coverage_by_cluster.reserve(clusters.size());
+    
+    // Also track which minimizers from the read participate in each cluster.
+    // We need this for scoring the cluster, and also for bounding MAPQ by
+    // considering creating subsets of the minimizers.
+    vector<vector<bool>> present_in_cluster(clusters.size(), vector<bool>(minimizers.size(), false));
 
     for (size_t i = 0; i < clusters.size(); i++) {
         // For each cluster
@@ -343,14 +356,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         }
 
         // Which minimizers are present in the cluster.
-        vector<bool> present(minimizers.size(), false);
         for (auto hit_index : cluster) {
-            present[seed_to_source[hit_index]] = true;
+            present_in_cluster[i][seed_to_source[hit_index]] = true;
         }
 
         // Compute the score.
         for (size_t j = 0; j < minimizers.size(); j++) {
-            if (present[j]) {
+            if (present_in_cluster[i][j]) {
                 cluster_score[i] += minimizer_score[j];
             }
         }
@@ -435,9 +447,17 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     vector<vector<GaplessExtension>> cluster_extensions;
     cluster_extensions.reserve(clusters.size());
     // These are the clusters the extensions came from, which we need to trace
-    // back from alignments to minimizers for MAPQ
+    // back from alignments to minimizers for annotation.
+    // TODO: Do we need those annotations?
     vector<size_t> cluster_extensions_to_source;
     cluster_extensions_to_source.reserve(clusters.size());
+    // Across all non-extended clusters, what is the minimum number of windows
+    // in the read where the minimizer was located but didn't occur in the
+    // cluster?
+    size_t min_created_windows_for_non_extended_clusters = numeric_limits<size_t>::max();
+    // To compute the windows present in any extended cluster, we need to get
+    // all the minimizers in any extended cluster.
+    vector<bool> present_in_any_extended_cluster(minimizers.size(), false);
     //For each cluster, what fraction of "equivalent" clusters did we keep?
     vector<double> probability_cluster_lost;
     //What is the score and coverage we are considering and how many reads
@@ -445,6 +465,23 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     size_t curr_score = 0;
     size_t curr_kept = 0;
     size_t curr_count = 0;
+    
+    // When a cluster is rejected for extension, call this to record its stats for MAPQ capping.
+    auto cluster_not_extended = [&](size_t cluster_num) {
+        // Since we didn't take this cluster, we need to cap the MAPQ with
+        // the probability that the read came from it.
+        // So we need to know the minimum number of windows that are for
+        // minimizers located in the read but not participating in this
+        // cluster.
+        size_t cluster_wrong_windows = 0;
+        for (size_t i = 0; i < minimizers.size(); i++) {
+            if (!present_in_cluster[cluster_num][i] && minimizer_located[i]) {
+                // This minimizer and all its windows would have to have been created by mistake.
+                cluster_wrong_windows += minimizers[i].second; 
+            }
+        }
+        min_created_windows_for_non_extended_clusters = std::min(min_created_windows_for_non_extended_clusters, cluster_wrong_windows);
+    };
     
     //Process clusters sorted by both score and read coverage
     process_until_threshold(clusters, read_coverage_by_cluster,
@@ -470,6 +507,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 if (track_provenance) {
                     funnel.fail("cluster-score", cluster_num, cluster_score[cluster_num]);
                 }
+                
+                // Record MAPQ implications of not extending this cluster.
+                cluster_not_extended(cluster_num);
                 return false;
             }
             
@@ -496,6 +536,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 //If this cluster is equivalent to the previous one and we already took enough
                 //equivalent clusters
                 curr_count ++;
+                
+                // TODO: shouldn't we fail something for the funnel here?
+                
+                // Record MAPQ implications of not extending this cluster.
+                cluster_not_extended(cluster_num);
                 return false;
             }
             
@@ -523,6 +568,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             // Extend seed hits in the cluster into one or more gapless extensions
             cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())));
             cluster_extensions_to_source.push_back(cluster_num);
+            
+            for (size_t i = 0; i < minimizers.size(); i++) {
+                // Since the cluster was extended, OR in its minimizers with
+                // those in all the other extended clusters
+                present_in_any_extended_cluster[i] =  present_in_any_extended_cluster[i] | present_in_cluster[cluster_num][i];
+            }
             
             if (track_provenance) {
                 // Record with the funnel that the previous group became a group of this size.
@@ -553,6 +604,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 curr_kept = 0;
                 curr_count = 0;
             }
+            
+            // Record MAPQ implications of not extending this cluster.
+            cluster_not_extended(cluster_num);
+            
         }, [&](size_t cluster_num) {
             // This cluster is not sufficiently good.
             if (track_provenance) {
@@ -565,11 +620,14 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             curr_count = 0;
             curr_score = 0;
             curr_coverage = 0;
+            
+            // Record MAPQ implications of not extending this cluster.
+            cluster_not_extended(cluster_num);
         });
         
-        for (size_t i = 0 ; i < curr_kept ; i++ ) {
-            probability_cluster_lost.push_back(1.0 - (double(curr_kept) / double(curr_count)));
-        }
+    for (size_t i = 0 ; i < curr_kept ; i++ ) {
+        probability_cluster_lost.push_back(1.0 - (double(curr_kept) / double(curr_count)));
+    }
     
     if (track_provenance) {
         funnel.substage("score");
@@ -839,12 +897,31 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // TODO: tighten this bound by reporting the actual positions of the windows and not just the count.
     double mapq_locate_cap = window_breaking_quality(located_windows, aln.sequence(), aln.quality());
     
-    // Remember the uncapped MAPQ and the cap
+    // Compute the total windows present in any extended cluster.
+    size_t extended_cluster_windows = 0;
+    for (size_t i = 0; i < minimizers.size(); i++) {
+        if (present_in_any_extended_cluster[i]) {
+            extended_cluster_windows += minimizers[i].second;
+        }
+    }
+    
+    // We need to cap MAPQ based on the likelihood of generating all the windows in the extended clusters by chance, too.
+    // TODO: is this redundant with the above?
+    double mapq_extended_cap = window_breaking_quality(extended_cluster_windows, aln.sequence(), aln.quality());
+    
+    // And we also need to cap based on the probability of creating the windows
+    // in the read that distinguish it from the most plausible (minimum created
+    // windows needed) non-extended cluster.
+    double mapq_non_extended_cap = window_breaking_quality(min_created_windows_for_non_extended_clusters, aln.sequence(), aln.quality());
+    
+    // Remember the uncapped MAPQ and the caps
     set_annotation(mappings[0], "mapq_uncapped", mapq);
     set_annotation(mappings[0], "mapq_locate_cap", mapq_locate_cap);
+    set_annotation(mappings[0], "mapq_extended_cap", mapq_extended_cap);
+    set_annotation(mappings[0], "mapq_non_extended_cap", mapq_non_extended_cap);
     
-    // Apply the cap
-    mapq = min(mapq, mapq_locate_cap);
+    // Apply the caps
+    mapq = min(min(mapq, mapq_locate_cap), min(mapq_extended_cap, mapq_non_extended_cap));
     
 #ifdef debug
     cerr << "MAPQ is " << mapq << endl;
