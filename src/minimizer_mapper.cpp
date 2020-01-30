@@ -771,8 +771,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         vector<Alignment> alns1(map(aln1));
         vector<Alignment> alns2(map(aln2));
 
-        // TODO: How do we decide what an unambiguous mapping is? 
-        // TODO: Double check what the actual best possible score is - which aligner are we actually using? 
         // Check if the separately-mapped ends are both sufficiently perfect and sufficiently unique
         int32_t max_score_aln_1 = get_regular_aligner()->score_exact_match(aln1, 0, aln1.sequence().size());
         int32_t max_score_aln_2 = get_regular_aligner()->score_exact_match(aln2, 0, aln2.sequence().size());
@@ -1037,7 +1035,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             fragment_length_distr.mean() + 2*fragment_length_distr.stdev());
             //TODO: Choose a good distance for the fragment distance limit ^
 
-    //For each fragment cluster, determine if it has clusters from both reads
+    //Find out how many fragment clusters we got
     size_t max_fragment_num = 0;
     for (pair<vector< size_t>, size_t>& cluster : all_clusters[0]) {
         max_fragment_num = std::max(max_fragment_num, cluster.second);
@@ -1049,7 +1047,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     cerr << "Found " << max_fragment_num << " fragment clusters" << endl;
 #endif
     //TODO: Change clusterer to sort by fragment cluster in the first place
-    vector<vector<vector<vector<size_t>>>> clusters_by_fragment (max_fragment_num+1);
+    vector<pair<vector<vector<size_t>>, vector<vector<size_t>>>> clusters_by_fragment (max_fragment_num+1);
     //The cluster score and coverage for each cluster
     vector<vector<vector<double>>> cluster_score_by_fragment (max_fragment_num+1);
     vector<vector<vector<double>>> cluster_coverage_by_fragment (max_fragment_num+1);
@@ -1065,14 +1063,15 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     for (size_t read_num = 0 ; read_num < 2 ; read_num ++) {
         for (pair<vector<size_t>, size_t>& cluster : all_clusters[read_num]) {
             size_t fragment_num = cluster.second;
-            clusters_by_fragment[fragment_num][read_num].emplace_back(std::move(cluster.first));
+            read_num == 0 ? clusters_by_fragment[fragment_num].first.emplace_back(std::move(cluster.first))
+                          : clusters_by_fragment[fragment_num].second.emplace_back(std::move(cluster.first));
         }
     }
 
 
-    //Get the scores of all the clusters
+    //Get the scores of all the read clusters and the best score per end for each fragment cluster
     for ( size_t fragment_num = 0 ; fragment_num < clusters_by_fragment.size() ; fragment_num ++) {
-        if (!clusters_by_fragment[fragment_num][0].empty() && ! clusters_by_fragment[fragment_num][1].empty()) {
+        if (!clusters_by_fragment[fragment_num].first.empty() && ! clusters_by_fragment[fragment_num].second.empty()) {
             found_paired_cluster = true;
         }
         for (size_t read_num = 0 ; read_num < 2 ; read_num ++) {
@@ -1080,14 +1079,16 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             vector<size_t>& seed_to_source = read_num == 0 ? seed_to_source_by_read.first : seed_to_source_by_read.second;
             std::vector<Minimizer>& minimizers = read_num == 0 ? minimizers_by_read.first : minimizers_by_read.second;
             vector<pos_t>& seeds = seeds_by_read[read_num];
-            cluster_score_by_fragment[fragment_num][read_num].resize(clusters_by_fragment[fragment_num][read_num].size(), 0.0);
-            cluster_coverage_by_fragment[fragment_num][read_num].resize(clusters_by_fragment[fragment_num][read_num].size(), 0.0);
+            vector<vector<size_t>>& read_clusters = read_num == 0 ? clusters_by_fragment[fragment_num].first 
+                                                                  : clusters_by_fragment[fragment_num].second;
+            cluster_score_by_fragment[fragment_num][read_num].resize(read_clusters.size(), 0.0);
+            cluster_coverage_by_fragment[fragment_num][read_num].resize(read_clusters.size(), 0.0);
             vector<double> best_score = read_num == 0 ? best_cluster_score.first : best_cluster_score.second;
             vector<double> best_coverage = read_num == 0 ? best_cluster_coverage.first : best_cluster_coverage.second;
 
-            for (size_t i = 0 ; i < clusters_by_fragment[fragment_num][read_num].size() ; i++) {
+            for (size_t i = 0 ; i < read_clusters.size() ; i++) {
 
-                auto& cluster = clusters_by_fragment[fragment_num][read_num].back();
+                auto& cluster = read_clusters[i];
 
                 if (track_provenance) {
                     // Say we're making it
@@ -1160,6 +1161,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     //TODO: Don't really need to threshold so could just do this as a loop except that it makes sorting easy
     vector<double> empty_scores(max_fragment_num+1, 0.0);
 
+    //Process clusters by their fragment cluster, ordered by the best cluster coverages and scores for each end
     process_until_threshold(clusters_by_fragment, empty_scores,
         [&](size_t a, size_t b) {
             double coverage_a = best_cluster_coverage.first[a]+best_cluster_coverage.second[a];
@@ -1182,7 +1184,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 vector<size_t>& seed_to_source = read_num == 0 ? seed_to_source_by_read.first : seed_to_source_by_read.second;
                 std::vector<Minimizer>& minimizers = read_num == 0 ? minimizers_by_read.first : minimizers_by_read.second;
                 vector<pos_t>& seeds = seeds_by_read[read_num];
-                vector<vector<size_t>>& clusters = clusters_by_fragment[fragment_num][read_num];
+                vector<vector<size_t>>& clusters = read_num == 0 ? clusters_by_fragment[fragment_num].first
+                                                                 : clusters_by_fragment[fragment_num].second;
                 vector<double>& cluster_score = cluster_score_by_fragment[fragment_num][read_num];
                 vector<double>& cluster_coverage = cluster_coverage_by_fragment[fragment_num][read_num];
         
@@ -1226,7 +1229,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         // Handle sufficiently good clusters in descending coverage order
                         
                         if (!found_paired_cluster || 
-                            (!clusters_by_fragment[fragment_num][0].empty() && ! clusters_by_fragment[fragment_num][1].empty())) { 
+                            (!clusters_by_fragment[fragment_num].first.empty() && ! clusters_by_fragment[fragment_num].second.empty())) { 
                             //TODO: Could check this earlier but should be fine for now
                             //If this cluster has a pair or if we aren't looking at pairs
                             if (track_provenance) {
