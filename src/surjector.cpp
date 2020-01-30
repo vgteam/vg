@@ -963,7 +963,7 @@ using namespace std;
         step_handle_t begin = graph->get_step_at_position(path_handle, first);
         step_handle_t end = graph->get_step_at_position(path_handle, last);
         
-        if (graph->get_position_of_step(end) < last && end != graph->path_end(path_handle)) {
+        if (graph->get_position_of_step(end) <= last && end != graph->path_end(path_handle)) {
             // we actually want part of this step too, so we use the next one as the end iterator
             end = graph->get_next_step(end);
         }
