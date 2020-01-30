@@ -309,7 +309,7 @@ void help_gaffe(char** argv) {
     << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [300]" << endl
     << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.8]" << endl
     << "  -D, --distance-limit INT      cluster using this distance limit [200]" << endl
-    << "  -e, --max-extensions INT      extend up to INT clusters [48]" << endl
+    << "  -e, --max-extensions INT      extend up to INT clusters [300]" << endl
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
     << "  -s, --cluster-score INT       only extend clusters if they are within INT of the best score [50]" << endl
     << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within FLOAT of the best read coverage [0.4]" << endl

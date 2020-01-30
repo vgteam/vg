@@ -96,9 +96,6 @@ public:
     /// of total score
     double minimizer_score_fraction = 0.6;
 
-    //How many fragment clusters (clusters of read clusters) should we extend
-    size_t max_extension_pairs = 48;
-
     /// How many clusters should we align?
     size_t max_extensions = 48;
 
