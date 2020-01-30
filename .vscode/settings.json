@@ -1,0 +1,19 @@
+{
+    "files.associations": {
+        "iostream": "cpp",
+        "ostream": "cpp",
+        "dense_hash_map": "cpp",
+        "dense_hash_set": "cpp",
+        "sparse_hash_map": "cpp",
+        "sparse_hash_set": "cpp",
+        "hash_map": "cpp",
+        "hash_set": "cpp",
+        "*.tcc": "cpp",
+        "string": "cpp",
+        "unordered_map": "cpp",
+        "unordered_set": "cpp",
+        "string_view": "cpp",
+        "streambuf": "cpp",
+        "list": "cpp"
+    }
+}
