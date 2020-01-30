@@ -114,6 +114,18 @@ protected:
     SnarlSeedClusterer clusterer;
     
     /**
+     * Compute a bound on the Phred score probability of having created the
+     * specified minimizer-bearing windows by base errors from the given
+     * sequence, which was sequenced with the given qualities.
+     *
+     * Currently computes a lower-score-bound, upper-probability-bound,
+     * suitable for use as a mapping quality cap, by assuming the
+     * easiest-to-disrupt possible layout of the windows, and the lowest
+     * possible qualities for the disrupting bases.
+     */
+    double window_breaking_quality(size_t total_windows, const string& sequence, const string& quality_bytes) const;
+    
+    /**
      * Score the given group of gapless extensions. Determines the best score
      * that can be obtained by chaining extensions together, using the given
      * gap open and gap extend penalties to charge for either overlaps or gaps

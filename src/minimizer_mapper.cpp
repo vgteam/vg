@@ -28,6 +28,52 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph, const gbwtgr
     // Nothing to do!
 }
 
+double MinimizerMapper::window_breaking_quality(size_t total_windows, const string& sequence, const string& quality_bytes) const {
+    if (total_windows == 0) {
+        // No limit can be imposed
+        return numeric_limits<double>::infinity();
+    } else {
+        // Some windows were located, so we can use this algorithm safely
+        
+        // How many bases need to be modified to have been modified to have
+        // created all of these windows?
+        size_t minimum_disruptive_bases = 0;
+    
+        // First compute how the windows could most overlap, since we forgot where
+        // they actually were in the read. If they all overlap, they cover the
+        // window size plus one for each window after the first.
+        size_t overlapped_window_length = minimizer_index.w() + total_windows - 1;
+        // Since each base can disrupt window length - 1 windows on either side, we
+        // tile the overlapped windows with windows to work out how many bases
+        // would need to change to create them all. This is at least 1.
+        minimum_disruptive_bases = overlapped_window_length / minimizer_index.w();
+        // Then we find that many of the lowest base qualities that aren't for Ns (which don't participate in windows)
+        // TODO: Replace with C++ 20 https://en.cppreference.com/w/cpp/ranges/filter_view and C++17 std::partial_sort_copy
+        // This will have at least one entry since we got at least 1 window.
+        vector<uint8_t> worst_qualities;
+        worst_qualities.reserve(quality_bytes.size());
+        for (size_t i = 0; i < min(sequence.size(), quality_bytes.size()); i++) {
+            if (isATGC(sequence[i])) {
+                // The base qwuality is not for an N
+                worst_qualities.push_back(quality_bytes[i]);
+            }
+        }
+       
+        // Make sure the first minimum_disruptive_bases elements are the smallest.
+        std::partial_sort(worst_qualities.begin(),
+            worst_qualities.begin() + min(worst_qualities.size() - 1, minimum_disruptive_bases - 1), worst_qualities.end());
+            
+        // Sum them
+        size_t total_errored_quality = std::accumulate(worst_qualities.begin(),
+            worst_qualities.begin() + min(worst_qualities.size(), minimum_disruptive_bases), (size_t) 0);
+            
+        // We can't be more confident in our mapping than we are that all our
+        // located minimizers were not from windows that were created by errors
+        // in the read. This can't be <0.
+        return total_errored_quality;
+    }
+}
+
 void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // For each input alignment
     
@@ -789,54 +835,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     }
     
     // We want to have a MAPQ cap based on minimum error bases it would take to
-    // have created all our windows we located.
-    double mapq_window_breaking_cap = numeric_limits<double>::infinity();
-    size_t minimum_disruptive_bases = 0;
-    
-    if (located_windows > 0) {
-        // Some windows were located, so we can use this algorithm safely
-    
-        // Now compute a MAPQ bound based on how many mutations it would take to
-        // have created all the windows for the minimizers we located.
-        
-        // First compute how the windows could most overlap, since we forgot where
-        // they actually were in the read. If they all overlap, they cover the
-        // window size plus one for each window after the first.
-        size_t overlapped_window_length = minimizer_index.w() + located_windows - 1;
-        // Since each base can disrupt window length - 1 windows on either side, we
-        // tile the overlapped windows with windows to work out how many bases
-        // would need to change to create them all. This is at least 1.
-        minimum_disruptive_bases = overlapped_window_length / minimizer_index.w();
-        // Then we find that many of the lowest base qualities that aren't for Ns (which don't participate in windows)
-        // TODO: Replace with C++ 20 https://en.cppreference.com/w/cpp/ranges/filter_view and C++17 std::partial_sort_copy
-        // This will have at least one entry since we got at least 1 window.
-        vector<uint8_t> worst_qualities;
-        worst_qualities.reserve(aln.quality().size());
-        for (size_t i = 0; i < min(aln.sequence().size(), aln.quality().size()); i++) {
-            if (isATGC(aln.sequence()[i])) {
-                // The base qwuality is not for an N
-                worst_qualities.push_back(aln.quality()[i]);
-            }
-        }
-       
-        // Make sure the first minimum_disruptive_bases elements are the smallest.
-        std::partial_sort(worst_qualities.begin(),
-            worst_qualities.begin() + min(worst_qualities.size() - 1, minimum_disruptive_bases - 1), worst_qualities.end());
-            
-        // Sum them
-        size_t total_errored_quality = std::accumulate(worst_qualities.begin(),
-            worst_qualities.begin() + min(worst_qualities.size(), minimum_disruptive_bases), (size_t) 0);
-            
-        // We can't be more confident in our mapping than we are that all our
-        // located minimizers were not from windows that were created by errors
-        // in the read. This can't be <0.
-        mapq_window_breaking_cap = total_errored_quality;
-    }
+    // have created all our windows we located in the read we have.
+    // TODO: tighten this bound by reporting the actual positions of the windows and not just the count.
+    double mapq_window_breaking_cap = window_breaking_quality(located_windows, aln.sequence(), aln.quality());
     
     // Remember the uncapped MAPQ and the cap
     set_annotation(mappings[0], "mapq_uncapped", mapq);
     set_annotation(mappings[0], "mapq_window_breaking_cap", mapq_window_breaking_cap);
-    set_annotation(mappings[0], "mapq_minimum_disruptive_bases", minimum_disruptive_bases);
     
     // Apply the cap
     mapq = min(mapq, mapq_window_breaking_cap);
