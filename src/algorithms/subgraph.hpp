@@ -5,7 +5,6 @@
 #include "../types.hpp"
 #include "shortest_cycle.hpp"
 #include "eades_algorithm.hpp"
-#include "strongly_connected_components.hpp"
 #include "is_single_stranded.hpp"
 #include <unordered_map>
 
@@ -40,7 +39,10 @@ void extract_path_range(const PathPositionHandleGraph& source, path_handle_t pat
 /// add subpaths to the subgraph, providing a concatenation of subpaths that are discontiguous over the subgraph
 /// based on their order in the path position index provided by the source graph
 /// will clear any path found in both graphs before writing the new steps into it
-void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePathHandleGraph& subgraph);
+/// if subpath_naming is true, a suffix will be added to each path in the subgraph denoting its offset
+/// in the source graph (unless the subpath was not cut up at all)
+void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePathHandleGraph& subgraph,
+                              bool subpath_naming = false);
 
 /// We can accumulate a subgraph without accumulating all the edges between its nodes
 /// this helper ensures that we get the full set

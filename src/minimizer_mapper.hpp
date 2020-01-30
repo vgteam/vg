@@ -30,7 +30,8 @@ public:
      * as we only use it for correctness tracking.
      */
 
-    MinimizerMapper(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+    MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
+         const std::vector<std::unique_ptr<gbwtgraph::DefaultMinimizerIndex>>& minimizer_indexes,
          MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
@@ -63,22 +64,22 @@ public:
 
     //If a cluster's score is smaller than the best score of any cluster by more than
     //this much, then don't extend it
-    double cluster_score_threshold = 0;
+    double cluster_score_threshold = 50;
 
     //If the read coverage of a cluster is less than the best coverage of any cluster
     //by more than this much, don't extend it
-    double cluster_coverage_threshold = 0;
+    double cluster_coverage_threshold = 0.4;
 
     //If an extension set's score is smaller than the best 
     //extension's score by more than this much, don't align it
-    double extension_set_score_threshold = 0;
+    double extension_set_score_threshold = 20;
 
     //If an extension's score is smaller than the best extension's score by
     //more than this much, don't align it
     int extension_score_threshold = 1;
 
     size_t max_multimaps = 1;
-    size_t distance_limit = 1000;
+    size_t distance_limit = 200;
     bool do_dp = true;
     string sample_name;
     string read_group;
@@ -95,7 +96,7 @@ public:
 protected:
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
-    const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
+    const std::vector<std::unique_ptr<gbwtgraph::DefaultMinimizerIndex>>& minimizer_indexes;
     MinimumDistanceIndex& distance_index;
 
     /// This is our primary graph.
@@ -271,6 +272,17 @@ protected:
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
      
+    /**
+     * Same as the other process_until_threshold overload, except user supplies 
+     * comparator to sort the items (must still be sorted by score).
+     */
+    template<typename Item, typename Score = double>
+    void process_until_threshold(const vector<Item>& items, const vector<Score>& scores,
+        const function<bool(size_t, size_t)>& comparator,
+        double threshold, size_t min_count, size_t max_count,
+        const function<bool(size_t)>& process_item,
+        const function<void(size_t)>& discard_item_by_count,
+        const function<void(size_t)>& discard_item_by_score) const;
 };
 
 template<typename Item, typename Score>
@@ -350,7 +362,66 @@ void MinimizerMapper::process_until_threshold(const vector<Item>& items, const v
     }, threshold, min_count, max_count, process_item, discard_item_by_count, discard_item_by_score);
     
 }
+template<typename Item, typename Score>
+void MinimizerMapper::process_until_threshold(const vector<Item>& items, const vector<Score>& scores,
+        const function<bool(size_t, size_t)>& comparator,
+        double threshold, size_t min_count, size_t max_count,
+        const function<bool(size_t)>& process_item,
+        const function<void(size_t)>& discard_item_by_count,
+        const function<void(size_t)>& discard_item_by_score) const {
 
+    // Sort item indexes by item score
+    vector<size_t> indexes_in_order;
+    indexes_in_order.reserve(items.size());
+    for (size_t i = 0; i < items.size(); i++) {
+        indexes_in_order.push_back(i);
+    }
+    
+    // Put the highest scores first
+    std::sort(indexes_in_order.begin(), indexes_in_order.end(), comparator);
+
+    // Retain items only if their score is at least as good as this
+    double cutoff = items.size() == 0 ? 0 : scores[indexes_in_order[0]] - threshold;
+    
+    // Count up non-skipped items for min_count and max_count
+    size_t unskipped = 0;
+    
+    // Go through the items in descending score order.
+    for (size_t i = 0; i < indexes_in_order.size(); i++) {
+        // Find the item we are talking about
+        size_t& item_num = indexes_in_order[i];
+        
+        if (threshold != 0 && scores[item_num] <= cutoff) {
+            // Item would fail the score threshold
+            
+            if (unskipped < min_count) {
+                // But we need it to make up the minimum number.
+                
+                // Go do it.
+                // If it is not skipped by the user, add it to the total number
+                // of unskipped items, for min/max number accounting.
+                unskipped += (size_t) process_item(item_num);
+            } else {
+                // We will reject it for score
+                discard_item_by_score(item_num);
+            }
+        } else {
+            // The item has a good enough score
+            
+            if (unskipped < max_count) {
+                // We have room for it, so accept it.
+                
+                // Go do it.
+                // If it is not skipped by the user, add it to the total number
+                // of unskipped items, for min/max number accounting.
+                unskipped += (size_t) process_item(item_num);
+            } else {
+                // We are out of room! Reject for count.
+                discard_item_by_count(item_num);
+            }
+        }
+    }
+}
 }
 
 

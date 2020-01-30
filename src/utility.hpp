@@ -31,6 +31,9 @@ void reverse_complement_in_place(string& seq);
 /// Return True if the given string is entirely Ns of either case, and false
 /// otherwise.
 bool is_all_n(const string& seq);
+/// Return the number of Ns as a fraction of the total sequence length
+/// (or 0 if the sequence is empty)
+double get_fraction_of_ns(const string& seq);
 /// Return the number of threads that OMP will produce for a parallel section.
 /// TODO: Assumes that this is the same for every parallel section.
 int get_thread_count(void);
@@ -435,6 +438,9 @@ size_t modular_exponent(uint64_t base, uint64_t exponent, uint64_t modulus);
 
 /// Returns a uniformly random DNA sequence of the given length
 string random_sequence(size_t length);
+
+/// Returns a uniformly random DNA sequence sequence deterministically from a seed
+string pseudo_random_sequence(size_t length, uint64_t seed);
 
 /// Escape "%" to "%25"
 string percent_url_encode(const string& seq);

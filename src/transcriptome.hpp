@@ -7,6 +7,9 @@
 
 #include <google/protobuf/util/message_differencer.h>
 #include <gbwt/dynamic_gbwt.h>
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
+#include <handlegraph/mutable_path_mutable_handle_graph.hpp>
 
 #include "../vg.hpp"
 #include "../path_index.hpp"
@@ -82,13 +85,15 @@ class Transcriptome {
     public:
 
         Transcriptome(const string &, const bool);   
-        ~Transcriptome();
 
         /// Number of threads used for transcript path construction. 
         int32_t num_threads = 1;
 
+        /// Feature type to parse in the gtf/gff file. Parse all types if empty. 
+        string feature_type; 
+
         /// Attribute tag used to parse the transcript id/name in the gtf/gff file. 
-        string transcript_tag = "transcript_id";
+        string transcript_tag;
 
         /// Use all paths embedded in the graph for transcript path construction. 
         bool use_embedded_paths = false;
@@ -99,9 +104,15 @@ class Transcriptome {
         /// Collapse identical transcript paths.
         bool collapse_transcript_paths = true;
 
+        /// Constructs transcript paths by projecting introns from a bed file onto 
+        /// embedded paths in a variation graph and/or haplotypes in a GBWT index. Augments 
+        /// graph with splice-junctions. Returns number of introns added.
+        int32_t add_introns(istream & intron_stream, const gbwt::GBWT & haplotype_index);
+
         /// Constructs transcript paths by projecting transcripts from a gtf/gff file onto 
-        /// embedded paths in a variation graph and/or haplotypes in a GBWT index.   
-        void add_transcripts(istream & transcript_stream, const gbwt::GBWT & haplotype_index);
+        /// embedded paths in a variation graph and/or haplotypes in a GBWT index. Augments 
+        /// graph with transcriptome splice-junctions. Returns number of transcripts added.
+        int32_t add_transcripts(istream & transcript_stream, const gbwt::GBWT & haplotype_index);
         
         /// Returns transcript paths.
         const vector<TranscriptPath> & transcript_paths() const;
@@ -110,7 +121,11 @@ class Transcriptome {
         int32_t size() const;
 
         /// Returns spliced variation graph.
-        const VG & splice_graph() const; 
+        const MutablePathDeletableHandleGraph & splice_graph() const; 
+
+        /// Returns true if nodes in the spliced variation graph 
+        /// have been updated (e.g. split) since parsed.
+        bool splice_graph_node_updated() const;
 
         /// Removes non-transcribed (not in transcript paths) nodes.
         /// Optionally create new reference paths that only include
@@ -120,21 +135,25 @@ class Transcriptome {
         /// Topological sort and compact graph.
         void compact_ordered();
 
-        /// Embeds transcript paths in spliced variation graph. 
-        /// Optionally rebuild paths indexes.
-        void embed_transcript_paths(const bool add_reference_paths, const bool add_non_reference_paths, const bool rebuild_indexes);
+        /// Embeds transcript paths in spliced variation graph.  
+        /// Returns number of paths embedded.
+        int32_t embed_transcript_paths(const bool add_reference_paths, const bool add_non_reference_paths);
 
         /// Add transcript paths as threads in GBWT index.
-        void construct_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool output_reference_transcripts, const bool add_bidirectional) const;
+        /// Returns number of added threads.
+        int32_t construct_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool output_reference_transcripts, const bool add_bidirectional) const;
         
         /// Writes transcript paths as alignments to a gam file.
-        void write_alignments(ostream * gam_ostream, const bool output_reference_transcripts) const;
+        /// Returns number of written alignments.
+        int32_t write_alignments(ostream * gam_ostream, const bool output_reference_transcripts) const;
 
         /// Writes transcript path sequences to a fasta file.  
-        void write_sequences(ostream * fasta_ostream, const bool output_reference_transcripts);
+        /// Returns number of written sequences.
+        int32_t write_sequences(ostream * fasta_ostream, const bool output_reference_transcripts);
 
         /// Writes origin info on transcripts to tsv file.
-        void write_info(ostream * tsv_ostream, const bool output_reference_transcripts) const;
+        /// Returns number of written transcripts.
+        int32_t write_info(ostream * tsv_ostream, const bool output_reference_transcripts) const;
 
         /// Writes spliced variation graph to vg file
         void write_splice_graph(ostream * graph_ostream);
@@ -145,7 +164,14 @@ class Transcriptome {
         vector<TranscriptPath> _transcript_paths;
 
         /// Spliced variation graph.
-        VG * _splice_graph;
+        unique_ptr<MutablePathDeletableHandleGraph> _splice_graph;
+
+        /// Have nodes in the spliced variation graph been
+        /// updated (e.g. split) since parsed.
+        bool _splice_graph_node_updated;
+
+        /// Returns the mean node length of the graph
+        float mean_node_length() const;
 
         /// Finds the position of each end of a exon on a path in the  
         /// variation graph and adds the exon to a transcript.
@@ -172,19 +198,19 @@ class Transcriptome {
         /// Projects transcripts onto embedded paths in a variation graph and returns resulting transcript paths.
         list<TranscriptPath> project_transcript_embedded(const Transcript & cur_transcript) const;
 
-        /// Add new transcript paths to current set. Optionally add only unique paths.
+        /// Adds new transcript paths to current set. Has argument to only add unique paths.
         void append_transcript_paths(list<TranscriptPath> * cur_transcript_paths, list<TranscriptPath> * new_transcript_paths, const bool add_unqiue_paths_only) const;
 
-        /// Adds transcript paths to transcriptome. Augments the variation graph 
-        /// with transcript path splice-junctions and updates transcript path traversals
-        /// to match the augmented graph if the paths contain any novel start/end sites 
-        /// or junctions.
-        void add_paths_to_transcriptome(list<TranscriptPath> * cur_transcript_paths);
 
-        /// Adds novel splice-junctions in transcript paths to splice graph 
-        /// which does not require node splitting. Return false if a novel junction
-        /// requires node splitting.
-        bool add_novel_transcript_junctions(const list<TranscriptPath> & cur_transcript_paths);
+        /// Checks whether transcript path contain any novel exon boundaries.
+        bool has_novel_exon_boundaries(const list<TranscriptPath> & cur_transcript_paths, const bool include_transcript_ends);
+
+        /// Augments the variation graph with transcript path exon boundaries and 
+        /// splice-junctions. Updates transcript path traversals to match the augmented graph. 
+        void augment_splice_graph(list<TranscriptPath> * new_transcript_paths, const bool break_at_transcript_ends);
+
+        /// Adds transcript path splice-junctions to splice graph
+        void add_splice_junctions(const list<TranscriptPath> & cur_transcript_paths);
 };
 
 }

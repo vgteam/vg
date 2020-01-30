@@ -6,15 +6,16 @@
 #include <functional>
 #include <stdlib.h>
 #include <gcsa/gcsa.h>
-#include "vg.hpp"
+#include "handle.hpp"
 #include "index.hpp"
 #include "xg.hpp"
+#include "vg.hpp"
 #include "kmer.hpp"
 
 
 namespace vg {
 
-// for dealing with collections of VGs on disk
+// for dealing with collections of HandleGraphs on disk
 class VGset {
 public:
 
@@ -26,9 +27,8 @@ public:
         : filenames(files)
         { };
 
-    void transform(std::function<void(VG*)> lambda);
-    void for_each(std::function<void(VG*)> lambda);
-    void for_each_graph_chunk(std::function<void(Graph&)> lamda);
+    void transform(std::function<void(MutableHandleGraph*)> lambda);
+    void for_each(std::function<void(HandleGraph*)> lambda);
 
     /// Stream through the files and determine the max node id
     id_t max_node_id(void);

@@ -275,7 +275,7 @@ namespace vg {
                     
                 // map read in alignment to graph and make multipath alignments 
                 for(int i = 0; i< reads.size(); i++){
-                    multipath_mapper.multipath_map(alns[i], vect[i], 1);
+                    multipath_mapper.multipath_map(alns[i], vect[i]);
                 }
 
                 // accumulate the mapped reads in one vector
@@ -664,7 +664,7 @@ namespace vg {
                     
                 // map read in alignment to graph and make multipath alignments 
                 for(int i = 0; i< reads.size(); i++){
-                    multipath_mapper.multipath_map(alns[i], vect[i], 1);
+                    multipath_mapper.multipath_map(alns[i], vect[i]);
                 }
                     
                 // accumulate the mapped reads in one vector
@@ -805,7 +805,7 @@ namespace vg {
                     
                     // map read in alignment to graph and make multipath alignments 
                     for(int i = 0; i< reads.size(); i++){
-                        multipath_mapper.multipath_map(alns[i], vect[i], 1);
+                        multipath_mapper.multipath_map(alns[i], vect[i]);
                     }
                     
                     // accumulate the mapped reads in one vector
@@ -964,7 +964,7 @@ namespace vg {
                 
                 // map read in alignment to graph and make multipath alignments 
                 for(int i = 0; i< reads.size(); i++){
-                    multipath_mapper.multipath_map(alns[i], vect[i], 1);
+                    multipath_mapper.multipath_map(alns[i], vect[i]);
                 }
                 
                 // accumulate the mapped reads in one vector

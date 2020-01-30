@@ -224,11 +224,12 @@ Variation from alignments can be embedded back into the graph.  This process is 
 
 ```sh
 # augment the graph with all variation from the GAM except that implied by soft clips, saving to aug.vg.  aug.gam contains the same reads as aln.gam but mapped to aug.vg
-vg augment x.vg aln.gam -C -A aug.gam > aug.vg
+vg augment x.vg aln.gam -A aug.gam > aug.vg
 
 # augment the graph with all variation from the GAM, saving each mapping as a path in the graph.
+# softclips of alignment paths are preserved (`-S`).
 # Note, this can be much less efficient than the above example if there are many alignments in the GAM
-vg augment x.vg aln.gam -i > aug_with_paths.vg
+vg augment x.vg aln.gam -i -S > aug_with_paths.vg
 ```
 
 ### Variant Calling
@@ -247,7 +248,7 @@ vg pack -x x.xg -g aln.gam -Q 5 -o aln.pack
 vg call x.xg -k aln.pack > graph_calls.vcf
 ```
 
-In order to also consider *novel* variants from the reads, use the augmented graph and gam (as created in the previous example using `vg augment -C -A`):
+In order to also consider *novel* variants from the reads, use the augmented graph and gam (as created in the previous example using `vg augment -A`):
 
 ```sh
 # Index our augmented graph

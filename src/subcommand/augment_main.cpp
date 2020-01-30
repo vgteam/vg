@@ -26,6 +26,7 @@
 #include "../vg.hpp"
 #include "../augment.hpp"
 #include "../packer.hpp"
+#include "../io/save_handle_graph.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/mutable_path_mutable_handle_graph.hpp>
@@ -33,6 +34,7 @@
 #include "bdsg/hash_graph.hpp"
 #include "bdsg/odgi.hpp"
 #include <bdsg/overlay_helper.hpp>
+
 
 using namespace std;
 using namespace vg;
@@ -44,7 +46,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << endl
          << "general options:" << endl
          << "    -i, --include-paths         merge the paths implied by alignments into the graph" << endl
-         << "    -C, --cut-softclips         drop softclips from the paths (recommended)" << endl
+         << "    -S, --keep-softclips        include softclips from input alignments (they are cut by default)" << endl
          << "    -B, --label-paths           don't augment with alignments, just use them for labeling the graph" << endl
          << "    -Z, --translation FILE      save translations from augmented back to base graph to FILE" << endl
          << "    -A, --alignment-out FILE    save augmented GAM reads to FILE" << endl
@@ -53,6 +55,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "    -c, --expected-cov N        expected coverage.  used only for memory tuning [default : 128]" << endl
          << "    -q, --min-baseq N           ignore edits whose sequence have average base quality < N" << endl
          << "    -Q, --min-mapq N            ignore alignments with mapping quality < N" << endl
+         << "    -N, --max-n F               maximum fraction of N bases in an edit for it to be included [default : 0.25]" << endl
          << "    -h, --help                  print this help message" << endl
          << "    -p, --progress              show progress" << endl
          << "    -v, --verbose               print information and warnings about vcf generation" << endl
@@ -74,7 +77,7 @@ int main_augment(int argc, char** argv) {
     bool include_paths = false;
 
     // Include the softclips for each path
-    bool include_softclips = true;
+    bool include_softclips = false;
 
     // Just label the paths with the GAM
     bool label_paths = false;
@@ -108,6 +111,9 @@ int main_augment(int argc, char** argv) {
     // Minimum mapping quality of an alignment for it to be used
     double min_mapq = 0;
 
+    // Maximum fraction of Ns
+    double max_frac_n = 0.25;
+
     // Print some progress messages to screen
     bool show_progress = false;
 
@@ -122,12 +128,14 @@ int main_augment(int argc, char** argv) {
         {"alignment-out", required_argument, 0, 'A'},
         {"include-paths", no_argument, 0, 'i'},
         {"cut-softclips", no_argument, 0, 'C'},
+        {"keep-softclips", no_argument, 0, 'S'},
         {"label-paths", no_argument, 0, 'B'},
         {"subgraph", no_argument, 0, 's'},
         {"min-coverage", required_argument, 0, 'm'},
         {"expected-cov", required_argument, 0, 'c'},
         {"min-baseq", required_argument, 0, 'q'},
         {"min-mapq", required_argument, 0, 'Q'},
+        {"max-n", required_argument, 0, 'N'},
         {"help", no_argument, 0, 'h'},
         {"progress", required_argument, 0, 'p'},
         {"verbose", no_argument, 0, 'v'},
@@ -137,7 +145,7 @@ int main_augment(int argc, char** argv) {
         {"include-gt", required_argument, 0, 'L'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "a:Z:A:iCBhpvt:l:L:sm:c:q:Q:";
+    static const char* short_options = "a:Z:A:iCSBhpvt:l:L:sm:c:q:Q:N:";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -160,7 +168,10 @@ int main_augment(int argc, char** argv) {
             include_paths = true;
             break;
         case 'C':
-            include_softclips = false;
+            cerr << "[vg augment] warning: -C / --cut-softclips option is deprecated (now enabled by default)" << endl;
+            break;
+        case 'S':
+            include_softclips = true;
             break;
         case 'B':
             label_paths = true;
@@ -179,6 +190,9 @@ int main_augment(int argc, char** argv) {
             break;
         case 'Q':
             min_mapq = parse<double>(optarg);
+            break;
+        case 'N':
+            max_frac_n = parse<double>(optarg);
             break;
         case 'h':
         case '?':
@@ -246,6 +260,9 @@ int main_augment(int argc, char** argv) {
     if (gam_in_file_name == "-" && !label_paths) {
         cerr << "[vg augment] warning: reading the entire GAM from stdin into memory.  it is recommended to pass in"
              << " a filename rather than - so it can be streamed over two passes" << endl;
+        if (!gam_out_file_name.empty()) {
+            cerr << "             warning: when streaming in a GAM with -A, the output GAM will lose all non-Path related fields from the input" << endl;
+        }
     }
 
     // read the graph
@@ -263,12 +280,14 @@ int main_augment(int argc, char** argv) {
     unique_ptr<Packer> packer;
     bdsg::VectorizableOverlayHelper overlay_helper;
     // the packer's required for any kind of filtering logic -- so we use it when
-    // baseq is present as well.
-    if (min_coverage > 0 || min_baseq ) {
+    // baseq is present as well, or n-fraction
+    if (min_coverage > 0 || min_baseq || max_frac_n < 1.) {
         vectorizable_graph = dynamic_cast<HandleGraph*>(overlay_helper.apply(graph.get()));
         size_t data_width = Packer::estimate_data_width(expected_coverage);
         size_t bin_count = Packer::estimate_bin_count(get_thread_count());
         packer = make_unique<Packer>(vectorizable_graph, 0, bin_count, data_width, true, false, false);
+        // makes sure filters are activated. 
+        min_coverage = max(size_t(min_coverage), size_t(1));
     }
     
     if (label_paths) {
@@ -349,7 +368,8 @@ int main_augment(int argc, char** argv) {
                     min_baseq,
                     min_mapq,
                     packer.get(),
-                    min_coverage);
+                    min_coverage,
+                    max_frac_n);
         } else {
             // much better to stream from a file so we can do two passes without storing in memory
             get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
@@ -364,7 +384,8 @@ int main_augment(int argc, char** argv) {
                             min_baseq,
                             min_mapq,
                             packer.get(),
-                            min_coverage);
+                            min_coverage,
+                            max_frac_n);
                 });
         }
 
@@ -384,19 +405,8 @@ int main_augment(int argc, char** argv) {
         }
     } 
 
-    // Serialize the graph using VPKG.  Todo: is there away to do this in one line?
-    // could just call serialie() directly if willing to forego vpkg...
-    if (vg_graph != nullptr) {
-        vg::io::VPKG::save(*vg_graph, cout);
-    } else if (dynamic_cast<bdsg::HashGraph*>(graph.get()) != nullptr) {
-        vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph*>(graph.get()), cout);
-    } else if (dynamic_cast<bdsg::PackedGraph*>(graph.get()) != nullptr) {
-        vg::io::VPKG::save(*dynamic_cast<bdsg::PackedGraph*>(graph.get()), cout);
-    } else if (dynamic_cast<bdsg::ODGI*>(graph.get()) != nullptr) {
-        vg::io::VPKG::save(*dynamic_cast<bdsg::ODGI*>(graph.get()), cout);
-    } else {
-        throw runtime_error("Internal error: vg augment cannot output this graph format");
-    }
+    // Serialize the graph using VPKG.
+    vg::io::save_handle_graph(graph.get(), cout);
     
     return 0;
 }

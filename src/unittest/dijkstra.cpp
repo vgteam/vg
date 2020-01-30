@@ -112,7 +112,6 @@ TEST_CASE("Dijkstra search works on a particular problem graph", "[dijkstra][alg
     
     algorithms::dijkstra(&graph, start, [&](const handle_t& reached, size_t distance) {
         seen[reached] = distance;
-        cerr << "Saw " << graph.get_id(reached) << " " << graph.get_is_reverse(reached) << " at distance " << distance << endl;
         return true;
     });
     

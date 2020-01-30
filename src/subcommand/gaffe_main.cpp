@@ -290,7 +290,7 @@ void help_gaffe(char** argv) {
     << "  -x, --xg-name FILE            use this xg index or graph (required if -g not specified)" << endl
     << "  -g, --graph-name FILE         use this GBWTGraph (required if -x not specified)" << endl
     << "  -H, --gbwt-name FILE          use this GBWT index (required)" << endl
-    << "  -m, --minimizer-name FILE     use this minimizer index (required)" << endl
+    << "  -m, --minimizer-name FILE     use this minimizer index (required; may repeat)" << endl
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
     << "  -p, --progress                show progress" << endl
     << "input options:" << endl
@@ -306,14 +306,14 @@ void help_gaffe(char** argv) {
     << "computational parameters:" << endl
     << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
     << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [300]" << endl
-    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.6]" << endl
-    << "  -D, --distance-limit INT      cluster using this distance limit [1000]" << endl
+    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.8]" << endl
+    << "  -D, --distance-limit INT      cluster using this distance limit [200]" << endl
     << "  -e, --max-extensions INT      extend up to INT clusters [48]" << endl
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
-    << "  -s, --cluster-score INT       only extend clusters if they are within cluster-score of the best score" << endl
-    << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within cluster-coverage of the best read coverage" << endl
-    << "  -v, --extension-score INT     only align extensions if their score is within extension-score of the best score [1]" << endl
-    << "  -w, --extension-set INT       only align extension sets if their score is within extension-set of the best score" << endl
+    << "  -s, --cluster-score INT       only extend clusters if they are within INT of the best score [50]" << endl
+    << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within FLOAT of the best read coverage [0.4]" << endl
+    << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [1]" << endl
+    << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
@@ -339,7 +339,7 @@ int main_gaffe(int argc, char** argv) {
     string xg_name;
     string graph_name;
     string gbwt_name;
-    string minimizer_name;
+    vector<string> minimizer_names;
     string distance_name;
     string output_basename;
     string report_name;
@@ -360,11 +360,11 @@ int main_gaffe(int argc, char** argv) {
     // How many clusters should we extend?
     Range<size_t> max_extensions = 300;
     // How many extended clusters should we align, max?
-    Range<size_t> max_alignments = 4;
+    Range<size_t> max_alignments = 6;
     //Throw away cluster with scores that are this amount below the best
     Range<double> cluster_score = 50;
     //Throw away clusters with coverage this amount below the best 
-    Range<double> cluster_coverage = 0.3;
+    Range<double> cluster_coverage = 0.4;
     //Throw away extension sets with scores that are this amount below the best
     Range<double> extension_set = 20;
     //Throw away extensions with scores that are this amount below the best
@@ -468,8 +468,8 @@ int main_gaffe(int argc, char** argv) {
                 break;
                 
             case 'm':
-                minimizer_name = optarg;
-                if (minimizer_name.empty()) {
+                minimizer_names.emplace_back(optarg);
+                if (minimizer_names.back().empty()) {
                     cerr << "error:[vg gaffe] Must provide minimizer file with -m." << endl;
                     exit(1);
                 }
@@ -669,7 +669,7 @@ int main_gaffe(int argc, char** argv) {
         exit(1);
     }
     
-    if (minimizer_name.empty()) {
+    if (minimizer_names.empty()) {
         cerr << "error:[vg gaffe] Mapping requires a minimizer index (-m)" << endl;
         exit(1);
     }
@@ -696,10 +696,13 @@ int main_gaffe(int argc, char** argv) {
     }
     unique_ptr<gbwt::GBWT> gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
 
-    if (progress) {
-        cerr << "Loading minimizer index " << minimizer_name << endl;
+    vector<unique_ptr<gbwtgraph::DefaultMinimizerIndex>> minimizer_indexes;
+    for (const string& minimizer_name : minimizer_names) {
+        if (progress) {
+            cerr << "Loading minimizer index " << minimizer_name << endl;
+        }
+        minimizer_indexes.emplace_back(vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(minimizer_name));
     }
-    unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(minimizer_name);
 
     if (progress) {
         cerr << "Loading distance index " << distance_name << endl;
@@ -728,7 +731,7 @@ int main_gaffe(int argc, char** argv) {
     if (progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(*gbwt_graph, *minimizer_index, distance_index, xg_index);
+    MinimizerMapper minimizer_mapper(*gbwt_graph, minimizer_indexes, distance_index, xg_index);
     
     std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
     std::chrono::duration<double> init_seconds = init - launch;

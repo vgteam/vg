@@ -28,8 +28,9 @@ void help_call(char** argv) {
        << endl
        << "support calling options:" << endl
        << "    -k, --pack FILE         Supports created from vg pack for given input graph" << endl
-       << "    -b, --het-bias M,N      Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
        << "    -m, --min-support M,N   Minimum allele support (M) and minimum site support (N) for call [default = 1,4]" << endl
+       << "    -B, --bias-mode         Use old ratio-based genotyping algorithm as opposed to porbablistic model" << endl
+       << "    -b, --het-bias M,N      Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
        << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
@@ -55,6 +56,7 @@ int main_call(int argc, char** argv) {
     vector<size_t> ref_path_lengths;
     string min_support_string;
     string bias_string;
+    bool ratio_caller = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -62,6 +64,7 @@ int main_call(int argc, char** argv) {
 
         static const struct option long_options[] = {
             {"pack", required_argument, 0, 'k'},
+            {"bias-mode", no_argument, 0, 'B'},
             {"het-bias", required_argument, 0, 'b'},
             {"min-support", required_argument, 0, 'm'},
             {"vcf", required_argument, 0, 'v'},
@@ -79,7 +82,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:b:m:v:f:i:s:r:p:o:l:t:h",
+        c = getopt_long (argc, argv, "k:Bb:m:v:f:i:s:r:p:o:l:t:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -90,6 +93,9 @@ int main_call(int argc, char** argv) {
         {
         case 'k':
             pack_filename = optarg;
+            break;
+        case 'B':
+            ratio_caller = true;
             break;
         case 'b':
             bias_string = optarg;
@@ -218,6 +224,11 @@ int main_call(int argc, char** argv) {
         cerr << "error [vg call]: when using -l, the same number paths must be given with -p" << endl;
         return 1;
     }
+    // Check bias option
+    if (!bias_string.empty() && !ratio_caller) {
+        cerr << "error [vg call]: -b can only be used with -B" << endl;
+        return 1;
+    }
 
     // No paths specified: use them all
     if (ref_paths.empty()) {
@@ -240,30 +251,49 @@ int main_call(int argc, char** argv) {
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
     } else {
         CactusSnarlFinder finder(*graph);
-        snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls())));
+        snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
     
     unique_ptr<GraphCaller> graph_caller;
     unique_ptr<SnarlCaller> snarl_caller;
+    algorithms::BinnedDepthIndex depth_index;
 
     // Make a Packed Support Caller
     unique_ptr<Packer> packer;
+    unique_ptr<TraversalSupportFinder> support_finder;
     if (!pack_filename.empty()) {        
         // Load our packed supports (they must have come from vg pack on graph)
         packer = unique_ptr<Packer>(new Packer(graph));
         packer->load_from_file(pack_filename);
-        PackedSupportSnarlCaller* packed_caller = new PackedSupportSnarlCaller(*packer, *snarl_manager);
-        if (het_bias >= 0) {
-            packed_caller->set_het_bias(het_bias, ref_het_bias);
+        // Make a packed traversal support finder (using cached veresion important for poisson caller)
+        PackedTraversalSupportFinder* packed_support_finder = new CachedPackedTraversalSupportFinder(*packer, *snarl_manager);
+        support_finder = unique_ptr<TraversalSupportFinder>(packed_support_finder);
+        
+        SupportBasedSnarlCaller* packed_caller = nullptr;
+
+        if (ratio_caller == false) {
+            // Make a depth index
+            depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, 50, 0, true, true);
+            // Make a new-stype probablistic caller
+            auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder, depth_index);
+            packed_caller = poisson_caller;
+        } else {
+            // Make an old-style ratio support caller
+            auto ratio_caller = new RatioSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder);
+            if (het_bias >= 0) {
+                ratio_caller->set_het_bias(het_bias, ref_het_bias);
+            }
+            packed_caller = ratio_caller;
         }
         if (min_allele_support >= 0) {
             packed_caller->set_min_supports(min_allele_support, min_allele_support, min_site_support);
         }
+        
         snarl_caller = unique_ptr<SnarlCaller>(packed_caller);
     }
 
     if (!snarl_caller) {
-        cerr << "error [vg call]: pack file (-p) is required" << endl;
+        cerr << "error [vg call]: pack file (-k) is required" << endl;
         return 1;
     }
 

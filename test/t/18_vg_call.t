@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 7
+plan tests 6
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -23,24 +23,6 @@ is $(grep -v '#' tiny_aug.vcf | wc -l) 0 "calling empty gam gives empty VCF"
 
 rm -f tiny.vg tiny_aug.vg tiny_aug.xg empty_aug.gam tiny_aug.pack tiny_aug.vcf empty.gam
 
-echo '{"node": [{"id": 1, "sequence": "CGTAGCGTGGTCGCATAAGTACAGTAGATCCTCCCCGCGCATCCTATTTATTAAGTTAAT"}]}' | vg view -Jv - > test.vg
-vg index -x test.xg -g test.gcsa -k 16 test.vg
-true >reads.txt
-for REP in seq 1 5; do
-    echo 'CGTAGCGTGGTCGCATAAGTACAGTANATCCTCCCCGCGCATCCTATTTATTAAGTTAAT' >>reads.txt
-done
-vg map -x test.xg -g test.gcsa --reads reads.txt > test.gam
-vg augment test.vg test.gam -A test_aug.gam > test_aug.vg
-vg index test_aug.vg -x test_aug.xg
-vg pack -x test_aug.xg -g test_aug.gam -o test_aug.pack
-vg call test_aug.xg -k test_aug.pack > /dev/null
-
-N_COUNT=$(vg view -j test.aug.vg | grep "N" | wc -l)
-
-is "${N_COUNT}" "0" "N bases are not augmented into the graph"
-
-rm -rf reads.txt test.vg test.gam test_aug.gam test_aug.vg test_aug.xg test_aug.pack test.xg test.gcsa test.gcsa.lcp
-
 vg construct -r inverting/miniFasta.fa -v inverting/miniFasta_VCFinversion.vcf.gz -S > miniFastaGraph.vg
 vg index -x miniFastaGraph.xg -g miniFastaGraph.gcsa miniFastaGraph.vg
 vg sim -x miniFastaGraph.xg -n 1000 -l 30 -a > miniFasta.gam
@@ -53,7 +35,7 @@ vg call  mappedminitest_aug.xg -k mappedminitest_aug.pack > calledminitest.vcf
 L_COUNT=$(cat calledminitest.vcf | grep "#" -v | wc -l)
 is "${L_COUNT}" "1" "Called microinversion"
  
-rm -f miniFastaGraph.vg miniFasta.gam miniFastaGraph.gam mappedminitest.aug.vg calledminitest.vcf mappedminitest.trans mappedminitest.support mappedminitest.pileup miniFastaGraph.xg miniFastaGraph.gcsa mappedminitest_aug.vg mappedminitest_aug.gam mappedminitest_aug.xg mappedminitest_aug.pack miniFastaGraph.gcsa.lcp
+rm -f miniFastaGraph.vg miniFasta.gam miniFastaGraph.gam calledminitest.vcf mappedminitest.trans mappedminitest.support mappedminitest.pileup miniFastaGraph.xg miniFastaGraph.gcsa mappedminitest_aug.vg mappedminitest_aug.gam mappedminitest_aug.xg mappedminitest_aug.pack miniFastaGraph.gcsa.lcp
 
 ## SV Genotyping test
 # augment the graph with the alt paths
@@ -95,6 +77,10 @@ rm -f x.vg x.xg sim.gam x.xg.cx x.vg.cx x.xg.vcf x.vg.vcf x.xg.gt.vcf x.vg.gt.vc
 
 vg msga -f msgas/cycle.fa -b s1 -w 64 -t 1 >c.vg
 vg index -x c.xg -g c.gcsa c.vg
+# True alignment has 3 variants:
+# TCCCTCCTCAAGGGCTTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTC
+# TCCCTCCTCAAAGGCTTCTCACTACTCCA-ATCAAAGCTACCCAGGCCATTTTAAGTTTC
+#            *       *
 cat msgas/cycle.fa | sed s/TCCCTCCTCAAGGGCTTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTC/TCCCTCCTCAAAGGCTTCTCACTACTCCAATCAAAGCTACCCAGGCCATTTTAAGTTTC/ >m.fa
 vg construct -r m.fa >m.vg
 vg index -x m.xg m.vg
