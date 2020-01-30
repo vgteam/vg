@@ -837,14 +837,14 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // We want to have a MAPQ cap based on minimum error bases it would take to
     // have created all our windows we located in the read we have.
     // TODO: tighten this bound by reporting the actual positions of the windows and not just the count.
-    double mapq_window_breaking_cap = window_breaking_quality(located_windows, aln.sequence(), aln.quality());
+    double mapq_locate_cap = window_breaking_quality(located_windows, aln.sequence(), aln.quality());
     
     // Remember the uncapped MAPQ and the cap
     set_annotation(mappings[0], "mapq_uncapped", mapq);
-    set_annotation(mappings[0], "mapq_window_breaking_cap", mapq_window_breaking_cap);
+    set_annotation(mappings[0], "mapq_locate_cap", mapq_locate_cap);
     
     // Apply the cap
-    mapq = min(mapq, mapq_window_breaking_cap);
+    mapq = min(mapq, mapq_locate_cap);
     
 #ifdef debug
     cerr << "MAPQ is " << mapq << endl;
