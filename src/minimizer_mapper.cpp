@@ -1076,6 +1076,20 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     vector<pair<vector<Alignment>, vector<Alignment>>> alignments;
     vector<pair<vector<size_t>, vector<size_t>>> alignment_indices;
 
+
+    //Scores and coverage of each of the clusters
+    pair<vector<double>, vector<double>> cluster_scores;
+    pair<vector<double>, vector<double>>  cluster_coverages;
+
+
+    //Keep track of the best cluster score and coverage per end for each fragment cluster
+    pair<vector<double>, vector<double>> cluster_score_by_fragment;
+    cluster_score_by_fragment.first.resize(max_fragment_num + 1, 0.0);
+    cluster_score_by_fragment.second.resize(max_fragment_num + 1, 0.0);
+    pair<vector<double>, vector<double>> cluster_coverage_by_fragment;
+    cluster_score_by_fragment.first.resize(max_fragment_num + 1, 0.0);
+    cluster_score_by_fragment.second.resize(max_fragment_num + 1, 0.0);
+
     for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
 
         Alignment& aln = read_num == 0 ? aln1 : aln2;
@@ -1083,10 +1097,13 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         vector<pair<vector<size_t>, size_t>>& clusters = all_clusters[read_num];
         std::vector<Minimizer>& minimizers = read_num == 0 ? minimizers_by_read.first : minimizers_by_read.second;
         vector<pos_t>& seeds = seeds_by_read[read_num];
+        vector<double>& best_cluster_score = read_num == 0 ? cluster_score_by_fragment.first : cluster_score_by_fragment.second;
+        vector<double>& best_cluster_coverage = read_num == 0 ? cluster_coverage_by_fragment.first : cluster_coverage_by_fragment.second;
 
         // Cluster score is the sum of minimizer scores.
-        vector<double> cluster_score(clusters.size(), 0.0);
-        vector<double> read_coverage_by_cluster;
+        vector<double>& cluster_score = read_num == 0 ? cluster_scores.first : cluster_scores.second;
+        cluster_score.resize(clusters.size(), 0.0);
+        vector<double>& read_coverage_by_cluster = read_num == 0 ? cluster_coverages.first : cluster_coverages.second;
         read_coverage_by_cluster.reserve(clusters.size());
 
         for (size_t i = 0; i < clusters.size(); i++) {
@@ -1110,6 +1127,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     cluster_score[i] += minimizers[j].score;
                 }
             }
+            best_cluster_score[clusters[i].second] = max(best_cluster_score[clusters[i].second], cluster_score[i]);
 
             if (track_provenance) {
                 // Record the cluster in the funnel as a group of the size of the number of items.
@@ -1144,8 +1162,21 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
             // Turn that into a fraction
             read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
+            best_cluster_coverage[clusters[i].second] = max(best_cluster_coverage[clusters[i].second], read_coverage_by_cluster.back());
 
         }
+    }
+
+    //Now that we've scored each of the clusters, extend them
+    for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
+
+        Alignment& aln = read_num == 0 ? aln1 : aln2;
+        vector<size_t>& seed_to_source = read_num == 0 ? seed_to_source_by_read.first : seed_to_source_by_read.second;
+        vector<pair<vector<size_t>, size_t>>& clusters = all_clusters[read_num];
+        std::vector<Minimizer>& minimizers = read_num == 0 ? minimizers_by_read.first : minimizers_by_read.second;
+        vector<pos_t>& seeds = seeds_by_read[read_num];
+        vector<double>& cluster_score = read_num == 0 ? cluster_scores.first : cluster_scores.second;
+        vector<double>& read_coverage_by_cluster = read_num == 0 ? cluster_coverages.first : cluster_coverages.second;
 
 #ifdef debug
         cerr << "Found " << clusters.size() << " clusters for read " << read_num << endl;
@@ -1176,10 +1207,21 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         //Process clusters sorted by both score and read coverage
         process_until_threshold(clusters, read_coverage_by_cluster,
             [&](size_t a, size_t b) {
-                if (read_coverage_by_cluster[a] == read_coverage_by_cluster[b]){
-                    return cluster_score[a] > cluster_score[b];
-                } else {
+                size_t fragment_a = clusters[a].second;
+                size_t fragment_b = clusters[b].second;
+
+                double coverage_a = cluster_coverage_by_fragment.first[fragment_a]+cluster_coverage_by_fragment.second[fragment_a];
+                double coverage_b = cluster_coverage_by_fragment.first[fragment_b]+cluster_coverage_by_fragment.second[fragment_b];
+                double score_a = cluster_score_by_fragment.first[fragment_a]+cluster_score_by_fragment.second[fragment_a];
+                double score_b = cluster_score_by_fragment.first[fragment_b]+cluster_score_by_fragment.second[fragment_b];
+                if (coverage_a != coverage_b){
+                    return coverage_a > coverage_b;
+                } else if (score_a != score_b) {
+                    return score_a > score_b;
+                } else if (read_coverage_by_cluster[a] != read_coverage_by_cluster[b]){
                     return read_coverage_by_cluster[a] > read_coverage_by_cluster[b];
+                } else {
+                    return cluster_score[a] > cluster_score[b];
                 }
             },
             cluster_coverage_threshold, 1, max_extensions,
