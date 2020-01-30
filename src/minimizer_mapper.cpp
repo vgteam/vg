@@ -1049,8 +1049,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     //TODO: Change clusterer to sort by fragment cluster in the first place
     vector<pair<vector<vector<size_t>>, vector<vector<size_t>>>> clusters_by_fragment (max_fragment_num+1);
     //The cluster score and coverage for each cluster
-    vector<vector<vector<double>>> cluster_score_by_fragment (max_fragment_num+1);
-    vector<vector<vector<double>>> cluster_coverage_by_fragment (max_fragment_num+1);
+    vector<pair<vector<double>, vector<double>>> cluster_score_by_fragment (max_fragment_num+1);
+    vector<pair<vector<double>, vector<double>>> cluster_coverage_by_fragment (max_fragment_num+1);
     //The best score and coverage for each end in each fragment cluster
     pair<vector<double>, vector<double>> best_cluster_score;
     best_cluster_score.first.resize(max_fragment_num+1, 0.0);
@@ -1081,8 +1081,12 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             vector<pos_t>& seeds = seeds_by_read[read_num];
             vector<vector<size_t>>& read_clusters = read_num == 0 ? clusters_by_fragment[fragment_num].first 
                                                                   : clusters_by_fragment[fragment_num].second;
-            cluster_score_by_fragment[fragment_num][read_num].resize(read_clusters.size(), 0.0);
-            cluster_coverage_by_fragment[fragment_num][read_num].resize(read_clusters.size(), 0.0);
+            vector<double>& cluster_scores = read_num == 0 ? cluster_score_by_fragment[fragment_num].first
+                                                           : cluster_score_by_fragment[fragment_num].second;
+            cluster_scores.resize(read_clusters.size(), 0.0);
+            vector<double>& cluster_coverages = read_num == 0 ? cluster_coverage_by_fragment[fragment_num].first
+                                                              : cluster_coverage_by_fragment[fragment_num].second;
+            cluster_coverages.resize(read_clusters.size(), 0.0);
             vector<double> best_score = read_num == 0 ? best_cluster_score.first : best_cluster_score.second;
             vector<double> best_coverage = read_num == 0 ? best_cluster_coverage.first : best_cluster_coverage.second;
 
@@ -1104,15 +1108,15 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 // Compute the score.
                 for (size_t j = 0; j < minimizers.size(); j++) {
                     if (present[j]) {
-                        cluster_score_by_fragment[fragment_num][read_num][i] += minimizers[j].score;
+                        cluster_scores[i] += minimizers[j].score;
                     }
                 }
-                best_score[fragment_num] = max(best_score[fragment_num], cluster_score_by_fragment[fragment_num][read_num][i]);
+                best_score[fragment_num] = max(best_score[fragment_num], cluster_scores[i]);
 
                 if (track_provenance) {
                     // Record the cluster in the funnel as a group of the size of the number of items.
                     funnels[read_num].merge_group(cluster.begin(), cluster.end());
-                    funnels[read_num].score(funnels[read_num].latest(), cluster_score_by_fragment[fragment_num][read_num][i]);
+                    funnels[read_num].score(funnels[read_num].latest(), cluster_scores[i]);
 
                     // Say we made it.
                     funnels[read_num].produced_output();
@@ -1141,8 +1145,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 size_t covered_count = sdsl::util::cnt_one_bits(covered);
 
                 // Turn that into a fraction
-                cluster_coverage_by_fragment[fragment_num][read_num][i] = covered_count / (double) covered.size();
-                best_coverage[fragment_num] = max(best_coverage[fragment_num], cluster_coverage_by_fragment[fragment_num][read_num][i]);
+                cluster_coverages[i] = covered_count / (double) covered.size();
+                best_coverage[fragment_num] = max(best_coverage[fragment_num], cluster_coverages[i]);
 
             }
         }
@@ -1186,8 +1190,10 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 vector<pos_t>& seeds = seeds_by_read[read_num];
                 vector<vector<size_t>>& clusters = read_num == 0 ? clusters_by_fragment[fragment_num].first
                                                                  : clusters_by_fragment[fragment_num].second;
-                vector<double>& cluster_score = cluster_score_by_fragment[fragment_num][read_num];
-                vector<double>& cluster_coverage = cluster_coverage_by_fragment[fragment_num][read_num];
+                vector<double>& cluster_score = read_num == 0 ? cluster_score_by_fragment[fragment_num].first
+                                                              : cluster_score_by_fragment[fragment_num].second;
+                vector<double>& cluster_coverage = read_num == 0 ? cluster_coverage_by_fragment[fragment_num].first
+                                                                 : cluster_coverage_by_fragment[fragment_num].second;
         
         #ifdef debug
                 cerr << "Found " << clusters.size() << " clusters for read " << read_num << " on fragment cluster " << fragment_num << endl;
