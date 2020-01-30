@@ -1087,8 +1087,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     cluster_score_by_fragment.first.resize(max_fragment_num + 1, 0.0);
     cluster_score_by_fragment.second.resize(max_fragment_num + 1, 0.0);
     pair<vector<double>, vector<double>> cluster_coverage_by_fragment;
-    cluster_score_by_fragment.first.resize(max_fragment_num + 1, 0.0);
-    cluster_score_by_fragment.second.resize(max_fragment_num + 1, 0.0);
+    cluster_coverage_by_fragment.first.resize(max_fragment_num + 1, 0.0);
+    cluster_coverage_by_fragment.second.resize(max_fragment_num + 1, 0.0);
 
     for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
 
@@ -1167,7 +1167,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         }
     }
 
-    //Now that we've scored each of the clusters, extend them
+    //Now that we've scored each of the clusters, extend and align them
     for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
 
         Alignment& aln = read_num == 0 ? aln1 : aln2;
@@ -1206,7 +1206,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         //Could just turn off these filters
         //Process clusters sorted by both score and read coverage
         process_until_threshold(clusters, read_coverage_by_cluster,
-            [&](size_t a, size_t b) {
+            [&](size_t a, size_t b) -> bool {
+                //Sort clusters by first whether it was paired, then by the best coverage and score of any pair in the fragment cluster, then by its coverage and score
                 size_t fragment_a = clusters[a].second;
                 size_t fragment_b = clusters[b].second;
 
@@ -1214,7 +1215,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 double coverage_b = cluster_coverage_by_fragment.first[fragment_b]+cluster_coverage_by_fragment.second[fragment_b];
                 double score_a = cluster_score_by_fragment.first[fragment_a]+cluster_score_by_fragment.second[fragment_a];
                 double score_b = cluster_score_by_fragment.first[fragment_b]+cluster_score_by_fragment.second[fragment_b];
-                if (coverage_a != coverage_b){
+                if (fragment_cluster_has_pair[fragment_a] != fragment_cluster_has_pair[fragment_b]) {
+                    return fragment_cluster_has_pair[fragment_a];
+                } else if (coverage_a != coverage_b){
                     return coverage_a > coverage_b;
                 } else if (score_a != score_b) {
                     return score_a > score_b;
