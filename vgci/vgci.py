@@ -633,12 +633,13 @@ class VGCITest(TestCase):
         mapeval_options.mapeval_threshold = 200
         if score_baseline_name is not None:
             mapeval_options.compare_gam_scores = score_baseline_name
-        mapeval_options.mappers = ['map']
-        if multipath:
-            mapeval_options.mappers.append('mpmap')
-        mapeval_options.ignore_quals = multipath and not sim_fastq
+        mapeval_options.mappers = []
         # If we're doing more than one mpmap test, disable vg map
-        mapeval_options.multipath_only = multipath and more_mpmap_opts
+        if not (multipath and more_mpmap_opts):
+            mapeval_options.mappers.append('map')
+        if multipath:
+            mapeval_options.mappers.append('mpmap')        
+        mapeval_options.ignore_quals = multipath and not sim_fastq
         
         # Make Toil
         with context.get_toil(job_store) as toil:
