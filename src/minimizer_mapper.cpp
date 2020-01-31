@@ -1177,15 +1177,17 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     });
 
     vector<size_t> better_cluster_count (max_fragment_num+1); // How many fragment clusters are at least as good as the one at each index
-    for (size_t i = fragment_cluster_indices_by_score.size() - 1 ; i >= 0 ; i--) {
-        if (i == fragment_cluster_indices_by_score.size()-1) {
-            better_cluster_count[i] = i;
+    for (int j = fragment_cluster_indices_by_score.size() - 1 ; j >= 0 ; j--) {
+        size_t i = fragment_cluster_indices_by_score[j];
+        if (j == fragment_cluster_indices_by_score.size()-1) {
+            better_cluster_count[i] = j;
         } else {
+            size_t i2 = fragment_cluster_indices_by_score[j+1];
             if(cluster_coverage_by_fragment.first[i] + cluster_coverage_by_fragment.second[i] + cluster_score_by_fragment.first[i] + cluster_score_by_fragment.second[i] 
-                == cluster_coverage_by_fragment.first[i+1] + cluster_coverage_by_fragment.second[i+1] + cluster_score_by_fragment.first[i+1] + cluster_score_by_fragment.second[i+1]) {
-                better_cluster_count[i] = better_cluster_count[i+1];
+                == cluster_coverage_by_fragment.first[i2] + cluster_coverage_by_fragment.second[i2] + cluster_score_by_fragment.first[i2] + cluster_score_by_fragment.second[i2]) {
+                better_cluster_count[i] = better_cluster_count[i2];
             } else {
-                better_cluster_count[i] = i;
+                better_cluster_count[i] = j;
             }
         }
     }
@@ -1220,7 +1222,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         // These are the GaplessExtensions for all the clusters (and fragment cluster assignments), in cluster_indexes_in_order order.
         vector<pair<vector<GaplessExtension>, size_t>> cluster_extensions;
         cluster_extensions.reserve(clusters.size());
-        vector<size_t> better_cluster_count_extensions;
         //TODO: Maybe put this back 
         //For each cluster, what fraction of "equivalent" clusters did we keep?
         //vector<vector<double>> probability_cluster_lost;
@@ -1530,6 +1531,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     paired_scores.reserve(alignments.size());
     vector<int64_t> fragment_distances;
     fragment_distances.reserve(alignments.size());
+
+    //For each fragment cluster, get the fraction of equivalent or better clusters that got thrown away
 
     vector<size_t> better_cluster_count_alignment_pairs; 
     better_cluster_count_alignment_pairs.reserve(alignments.size());
@@ -1899,7 +1902,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index) / 2;
 
         //Cap mapq at probability that there was a better fragment cluster that had the correct mapping
-        if (better_cluster_count.size() != 0 && better_cluster_count_mappings.front() > 0) {
+        if (better_cluster_count_mappings.size() != 0 && better_cluster_count_mappings.front() > 0) {
             mapq = min(mapq,round(prob_to_phred((1.0 / (double) better_cluster_count_mappings.front()))));
         }
 
