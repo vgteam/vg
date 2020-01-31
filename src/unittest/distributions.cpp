@@ -3,7 +3,7 @@
  */
 
 #include "catch.hpp"
-#include "distributions.hpp"
+#include "statistics.hpp"
 
 namespace vg {
 namespace unittest {

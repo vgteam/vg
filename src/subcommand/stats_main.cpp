@@ -23,7 +23,7 @@
 #include "../handle.hpp"
 
 #include "../path.hpp"
-#include "../distributions.hpp"
+#include "../statistics.hpp"
 #include "../genotypekit.hpp"
 
 using namespace std;
