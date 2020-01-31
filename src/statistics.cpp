@@ -236,6 +236,7 @@ pair<double, double> fit_weibull(const vector<double>& x) {
 tuple<double, double, double> fit_offset_weibull(const vector<double>& x,
                                                  double tolerance) {
     
+    // the max log likelihood of the data for a fixed location parameter
     function<double(double)> fit_log_likelihood = [&](double loc) {
         vector<double> x_offset(x.size());
         for (size_t i = 0; i < x.size(); ++i) {
@@ -361,7 +362,7 @@ vector<double> matrix_multiply(const vector<vector<double>>& A,
     
     vector<double> Ab(A.size(), 0.0);
     for (size_t i = 0; i < A.size(); ++i) {
-        for (size_t j = 0; j < A.front().size(); ++i) {
+        for (size_t j = 0; j < A.front().size(); ++j) {
             Ab[i] += A[i][j] * b[j];
         }
     }
@@ -391,9 +392,13 @@ vector<vector<double>> matrix_invert(const vector<vector<double>>& A) {
         while (A_loc[ii][i] == 0.0 && ii < A_loc.size()) {
             ++ii;
         }
+        if (ii == A_loc.size()) {
+            std::runtime_error("error: matrix is not invertible!");
+            
+        }
         swap(A_loc[i],A_loc[ii]);
         swap(A_inv[i], A_inv[ii]);
-        
+                
         // make the diagonal entry 1
         double factor = A_loc[i][i];
         for (int64_t j = 0; j < A_loc.size(); ++j) {
@@ -403,7 +408,6 @@ vector<vector<double>> matrix_invert(const vector<vector<double>>& A) {
         
         // make the off diagonals in one column 0's
         for (ii = i + 1; ii < A_loc.size(); ++ii) {
-            
             factor = A_loc[ii][i];
             for (size_t j = 0; j < A_loc.size(); ++j) {
                 A_loc[ii][j] -= factor * A_loc[i][j];
@@ -431,7 +435,7 @@ vector<vector<double>> matrix_invert(const vector<vector<double>>& A) {
 
 vector<double> regress(const vector<vector<double>>& X, vector<double>& y) {
     auto X_t = transpose(X);
-    return matrix_multiply(matrix_multiply(matrix_invert(matrix_multiply(X, X_t)), X_t), y);
+    return matrix_multiply(matrix_multiply(matrix_invert(matrix_multiply(X_t, X)), X_t), y);
 }
 
 }
