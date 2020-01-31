@@ -629,7 +629,7 @@ namespace vg {
             return iter->second;
         }
         else {
-            double p_value = 1.0 - pow(1.0 - exp(-(match_length * pseudo_length_multiplier)), total_seq_length * read_length);
+            double p_value = 1.0 - max_exponential_cdf(match_length, pseudo_length_multiplier, total_seq_length * read_length);
             if (p_value_memo.size() < max_p_value_memo_size) {
                 p_value_memo[make_pair(match_length, read_length)] = p_value;
             }
@@ -658,71 +658,15 @@ namespace vg {
             
             if (!multipath_alns.empty()) {
                 lengths[i] = pseudo_length(multipath_alns.front());
-#pragma omp critical
-                {
-                    length_sum += lengths[i];
-                    max_length = max(lengths[i], max_length);
-                }
             }
         }
         
         // reset the memo of p-values (which we are calibrating) for any updates using the default parameter during the null mappings
         p_value_memo.clear();
         
-        // model the lengths as the maximum of genome_size * read_length exponential variables, which gives density function:
-        //
-        //   GLS exp(-Sx) (1 - exp(-Sx))^(GL - 1)
-        //
-        // where:
-        //   G = genome size
-        //   L = read length
-        //   S = scale parameter (which we optimize below)
-        
-        
-        // compute the log of the 1st and 2nd derivatives for the log likelihood (split up by positive and negative summands)
-        // we have to do it this wonky way because the exponentiated numbers get very large and cause overflow otherwise
-        
-        double log_deriv_neg_part = log(length_sum);
-        
-        function<double(double)> log_deriv_pos_part = [&](double scale) {
-            double accumulator = numeric_limits<double>::lowest();
-            for (size_t i = 0; i < lengths.size(); i++) {
-                double length = lengths[i];
-                accumulator = add_log(accumulator, log(length) - scale * length - log(1.0 - exp(-scale * length)));
-            }
-            accumulator += log(total_seq_length * simulated_read_length - 1.0);
-            return add_log(accumulator, log(num_simulations / scale));
-        };
-        
-        function<double(double)> log_deriv2_neg_part = [&](double scale) {
-            double accumulator = numeric_limits<double>::lowest();
-            for (size_t i = 0; i < lengths.size(); i++) {
-                double length = lengths[i];
-                accumulator = add_log(accumulator, 2.0 * log(length) - scale * length - 2.0 * log(1.0 - exp(-scale * length)));
-            }
-            accumulator += log(total_seq_length * simulated_read_length - 1.0);
-            return add_log(accumulator, log(num_simulations / (scale * scale)));
-        };
-        
-        // use Newton's method to find the MLE
-        double tolerance = 1e-10;
-        double scale = 1.0 / max_length;
-        double prev_scale = scale * (1.0 + 10.0 * tolerance);
-        while (abs(prev_scale / scale - 1.0) > tolerance) {
-            prev_scale = scale;
-            double log_d2 = log_deriv2_neg_part(scale);
-            double log_d_pos = log_deriv_pos_part(scale);
-            double log_d_neg = log_deriv_neg_part;
-            // determine if the value of the 1st deriv is positive or negative, and compute the
-            // whole ratio to the 2nd deriv from the positive and negative parts accordingly
-            if (log_d_pos > log_d_neg) {
-                scale += exp(subtract_log(log_d_pos, log_d_neg) - log_d2);
-            }
-            else {
-                scale -= exp(subtract_log(log_d_neg, log_d_pos) - log_d2);
-            }
-        }
-        
+        // model the lengths as the maximum of genome_size * read_length exponential variables
+        double scale = fit_max_exponential(lengths, total_seq_length * simulated_read_length);
+                
 #ifdef debug_report_startup_training
         cerr << "trained scale: " << scale << endl;
 #endif

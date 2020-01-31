@@ -24,6 +24,7 @@
 #include "annotation.hpp"
 #include "path_component_index.hpp"
 #include "memoizing_graph.hpp"
+#include "statistics.hpp"
 
 #include "identity_overlay.hpp"
 #include "reverse_graph.hpp"
