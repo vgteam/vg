@@ -179,16 +179,16 @@ double fit_max_exponential(const vector<double>& x, double N, double tolerance) 
             accumulator = add_log(accumulator, log(val) - scale * val - log(1.0 - exp(-scale * val)));
         }
         accumulator += log(N - 1.0);
-        return add_log(accumulator, log(num_simulations / scale));
+        return add_log(accumulator, log(x.size() / scale));
     };
     
     function<double(double)> log_deriv2_neg_part = [&](double scale) {
         double accumulator = numeric_limits<double>::lowest();
         for (const double& val : x) {
-            accumulator = add_log(accumulator, 2.0 * log(val) - scale * val - 2.0 * log(1.0 - exp(-scale * length)));
+            accumulator = add_log(accumulator, 2.0 * log(val) - scale * val - 2.0 * log(1.0 - exp(-scale * val)));
         }
         accumulator += log(N - 1.0);
-        return add_log(accumulator, log(num_simulations / (scale * scale)));
+        return add_log(accumulator, log(x.size() / (scale * scale)));
     };
     
     // use Newton's method to find the MLE
@@ -209,6 +209,229 @@ double fit_max_exponential(const vector<double>& x, double N, double tolerance) 
         }
     }
     return scale;
+}
+
+pair<double, double> fit_weibull(const vector<double>& x) {
+    // Method adapted from Datsiou & Overend (2018) Weibull parameter estimation and
+    // goodness-of-fit for glass strength data
+    
+    assert(x.size() >= 3);
+    
+    vector<double> x_local = x;
+    sort(x_local.begin(), x_local.end());
+    
+    // regress the transformed ordered data points against the inverse CDF
+    vector<vector<double>> X(x_local.size() - 1, vector<double>(2, 1.0));
+    vector<double> y(X.size());
+    for (size_t i = 1; i < x_local.size(); ++i) {
+        X[i - 1][1] = log(x_local[i]);
+        y[i] = log(-log(1.0 - double(i) / double(x.size())));
+    }
+    vector<double> coefs = regress(X, y);
+    
+    // convert the coefficients into the parameters
+    return make_pair(exp(-coefs[0] / coefs[1]), coefs[1]);
+}
+
+tuple<double, double, double> fit_offset_weibull(const vector<double>& x,
+                                                 double tolerance) {
+    
+    function<double(double)> fit_log_likelihood = [&](double loc) {
+        vector<double> x_offset(x.size());
+        for (size_t i = 0; i < x.size(); ++i) {
+            x_offset[i] = x[i] - loc;
+        }
+        pair<double, double> params = fit_weibull(x_offset);
+        return weibull_log_likelihood(x, params.first, params.second, loc);
+    };
+    
+    // the maximum value of location so that all data points are in the support
+    double max_loc = *min_element(x.begin(), x.end());
+    
+    // search with exponentially expanding windows backward to find the window
+    // that contains the highest likelihood MLE for the location
+    double min_loc = max_loc - 1.0;
+    double log_likelihood = numeric_limits<double>::lowest();
+    double probe_log_likelihood = fit_log_likelihood(min_loc);
+    while (probe_log_likelihood > log_likelihood) {
+        log_likelihood = probe_log_likelihood;
+        double probe_loc = max_loc - 2.0 * (max_loc - min_loc);
+        probe_log_likelihood = fit_log_likelihood(probe_loc);
+        min_loc = probe_loc;
+    }
+    
+    // find the MLE location
+    double location = golden_section_search(fit_log_likelihood, min_loc, max_loc, tolerance);
+    
+    // fit the scale and shape given the locatino
+    vector<double> x_offset(x.size());
+    for (size_t i = 0; i < x.size(); ++i) {
+        x_offset[i] = x[i] - location;
+    }
+    auto params = fit_weibull(x_offset);
+    
+    return make_tuple(params.first, params.second, location);
+}
+
+double weibull_log_likelihood(const vector<double>& x, double scale, double shape,
+                              double location) {
+    double sum_1 = 0.0, sum_2 = 0.0;
+    for (const double& val : x) {
+        sum_1 += log(val - location);
+        sum_2 += pow((val - location) / scale, shape);
+    }
+    return x.size() * (log(shape) - shape * log(scale)) + (shape - 1.0) * sum_1 - sum_2;
+}
+
+double golden_section_search(const function<double(double)>& f, double x_min, double x_max,
+                             double tolerance) {
+     
+    const static double inv_phi = (sqrt(5.0) - 1.0) / 2.0;
+    
+    // the number of steps needed to achieve the required precision (precalculating avoids
+    // fiddly floating point issues on the breakout condition)
+    size_t steps = size_t(ceil(log(tolerance / (x_max - x_min)) / log(inv_phi)));
+    
+    // the two interior points we will evaluate the function at
+    double x_lo = x_min + inv_phi * inv_phi * (x_max - x_min);
+    double x_hi = x_min + inv_phi * (x_max - x_min);
+    
+    // the function value at the two interior points
+    double f_lo = f(x_lo);
+    double f_hi = f(x_hi);
+    
+    for (size_t step = 0; step < steps; ++step) {
+        if (f_lo < f_hi) {
+            // there is a max in one of the right two sections
+            x_min = x_lo;
+            x_lo = x_hi;
+            x_hi = x_min + inv_phi * (x_max - x_min);
+            f_lo = f_hi;
+            f_hi = f(x_hi);
+        }
+        else {
+            // there is a max in one of the left two sections
+            x_max = x_hi;
+            x_hi = x_lo;
+            x_lo = x_min + inv_phi * inv_phi * (x_max - x_min);
+            f_hi = f_lo;
+            f_lo = f(x_lo);
+        }
+    }
+    
+    // return the midpoint of the interval we narrowed down to
+    if (f_lo > f_hi) {
+        return (x_min + x_hi) / 2.0;
+    }
+    else {
+        return (x_lo + x_max) / 2.0;
+    }
+}
+
+vector<vector<double>> transpose(const vector<vector<double>>& A) {
+    vector<vector<double>> AT(A.front().size());
+    for (size_t i = 0; i < AT.size(); ++i) {
+        AT[i].resize(A.size());
+        for (size_t j = 0; j < A.size(); ++j) {
+            AT[i][j] = A[j][i];
+        }
+    }
+    return AT;
+}
+
+vector<vector<double>> matrix_multiply(const vector<vector<double>>& A,
+                                       const vector<vector<double>>& B) {
+    assert(A.front().size() == B.size());
+    
+    vector<vector<double>> AB(A.size());
+    for (size_t i = 0; i < A.size(); ++i) {
+        AB[i].resize(B.front().size(), 0.0);
+        for (size_t j = 0; j < B.front().size(); ++j) {
+            for (size_t k = 0; k < B.size(); ++k) {
+                AB[i][j] += A[i][k] * B[k][j];
+            }
+        }
+    }
+    return AB;
+}
+
+vector<double> matrix_multiply(const vector<vector<double>>& A,
+                               const vector<double>& b) {
+    assert(A.front().size() == b.size());
+    
+    vector<double> Ab(A.size(), 0.0);
+    for (size_t i = 0; i < A.size(); ++i) {
+        for (size_t j = 0; j < A.front().size(); ++i) {
+            Ab[i] += A[i][j] * b[j];
+        }
+    }
+    return Ab;
+}
+
+vector<vector<double>> matrix_invert(const vector<vector<double>>& A) {
+    
+    // invert by Gaussian elimination
+    
+    assert(A.front().size() == A.size());
+    
+    vector<vector<double>> A_inv(A.size());
+    
+    for (size_t i = 0; i < A.size(); ++i) {
+        A_inv[i].resize(A.size(), 0.0);
+        A_inv[i][i] = 1.0;
+    }
+    
+    // a non-const local copy
+    auto A_loc = A;
+    
+    // forward loop, make upper triangular
+    
+    for (int64_t i = 0; i < A_loc.size(); ++i) {
+        int64_t ii = i;
+        while (A_loc[ii][i] == 0.0 && ii < A_loc.size()) {
+            ++ii;
+        }
+        swap(A_loc[i],A_loc[ii]);
+        swap(A_inv[i], A_inv[ii]);
+        
+        // make the diagonal entry 1
+        double factor = A_loc[i][i];
+        for (int64_t j = 0; j < A_loc.size(); ++j) {
+            A_loc[i][j] /= factor;
+            A_inv[i][j] /= factor;
+        }
+        
+        // make the off diagonals in one column 0's
+        for (ii = i + 1; ii < A_loc.size(); ++ii) {
+            
+            factor = A_loc[ii][i];
+            for (size_t j = 0; j < A_loc.size(); ++j) {
+                A_loc[ii][j] -= factor * A_loc[i][j];
+                A_inv[ii][j] -= factor * A_inv[i][j];
+            }
+            
+        }
+    }
+    
+    // backward loop, make identity
+    
+    for (int64_t i = A_loc.size() - 1; i >= 0; --i) {
+        // make the off diagonals in one column 0's
+        for (int64_t ii = i - 1; ii >= 0; --ii) {
+            double factor = A_loc[ii][i];
+            for (size_t j = 0; j < A_loc.size(); ++j) {
+                A_loc[ii][j] -= factor * A_loc[i][j];
+                A_inv[ii][j] -= factor * A_inv[i][j];
+            }
+        }
+    }
+    
+    return A_inv;
+}
+
+vector<double> regress(const vector<vector<double>>& X, vector<double>& y) {
+    auto X_t = transpose(X);
+    return matrix_multiply(matrix_multiply(matrix_invert(matrix_multiply(X, X_t)), X_t), y);
 }
 
 }
