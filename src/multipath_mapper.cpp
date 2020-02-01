@@ -665,6 +665,18 @@ namespace vg {
             }
         }
         
+#ifdef debug_report_startup_training
+        cerr << "mismatch calibration training data" << endl;
+        cerr << "\t";
+        for (size_t i = 0; i < lengths.size(); ++i) {
+            cerr << lengths[i] << ", ";
+            if (i && !(i % 5)) {
+                cerr << endl << "\t";
+            }
+        }
+        cerr << endl;
+#endif
+        
         // reset the memo of p-values (which we are calibrating) for any updates using the default parameter during the null mappings
         p_value_memo.clear();
         
