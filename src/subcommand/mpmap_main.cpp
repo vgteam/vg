@@ -181,6 +181,7 @@ int main_mpmap(int argc, char** argv) {
     double max_mapping_p_value = 0.00001;
     size_t num_calibration_simulations = 250;
     size_t calibration_read_length = 150;
+    bool use_weibull_calibration = true;
     size_t order_length_repeat_hit_max = 3000;
     size_t sub_mem_count_thinning = 4;
     size_t sub_mem_thinning_burn_in = 16;
@@ -988,6 +989,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.mapping_quality_method = mapq_method;
     multipath_mapper.max_mapping_quality = max_mapq;
     multipath_mapper.report_group_mapq = report_group_mapq;
+    multipath_mapper.use_weibull_calibration = use_weibull_calibration;
     // Use population MAPQs when we have the right option combination to make that sensible.
     multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr && population_max_paths > 0);
     multipath_mapper.population_max_paths = population_max_paths;

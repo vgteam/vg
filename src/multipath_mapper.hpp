@@ -116,7 +116,11 @@ namespace vg {
         size_t min_clustering_mem_length = 0;
         size_t max_p_value_memo_size = 500;
         size_t band_padding_memo_size = 500;
-        double pseudo_length_multiplier = 1.65;
+        bool use_weibull_calibration = false;
+        double max_exponential_scale = 1.65;
+        double weibull_scale = 1.0;
+        double weibull_shape_per_length = 1.0;
+        double weibull_offset = 0.0;
         double max_mapping_p_value = 0.00001;
         size_t max_alt_mappings = 1;
         size_t max_single_end_mappings_for_rescue = 64;

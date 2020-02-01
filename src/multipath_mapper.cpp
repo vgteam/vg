@@ -629,7 +629,13 @@ namespace vg {
             return iter->second;
         }
         else {
-            double p_value = 1.0 - max_exponential_cdf(match_length, pseudo_length_multiplier, total_seq_length * read_length);
+            double p_value;
+            if (use_weibull_calibration) {
+                p_value = 1.0 - weibull_cdf(match_length, weibull_scale, weibull_shape_per_length * read_length, weibull_offset);
+            }
+            else {
+                p_value = 1.0 - max_exponential_cdf(match_length, max_exponential_scale, total_seq_length * read_length);
+            }
             if (p_value_memo.size() < max_p_value_memo_size) {
                 p_value_memo[make_pair(match_length, read_length)] = p_value;
             }
@@ -663,14 +669,21 @@ namespace vg {
         p_value_memo.clear();
         
         // model the lengths as the maximum of genome_size * read_length exponential variables
-        double scale = fit_max_exponential(lengths, total_seq_length * simulated_read_length);
+        max_exponential_scale = fit_max_exponential(lengths, total_seq_length * simulated_read_length);
+        
+        // alternatively model lengths with a weibull distribution that has an offset
+        auto params = fit_offset_weibull(lengths);
+        weibull_scale = get<0>(params);
+        weibull_shape_per_length = get<1>(params) / simulated_read_length;
+        weibull_offset = get<2>(params);
                 
 #ifdef debug_report_startup_training
-        cerr << "trained scale: " << scale << endl;
+        cerr << "trained parameters: " << endl;
+        cerr << "\tmax exponential scale: " << max_exponential_scale << endl;
+        cerr << "\tweibull scale: " << weibull_scale << endl;
+        cerr << "\tweibull shape: " << get<1>(params) << " (per length " << weibull_shape_per_length << ")" << endl;
+        cerr << "\tweibull offset: " << weibull_offset << endl;
 #endif
-        
-        // set the multipler to the maximimum likelihood
-        pseudo_length_multiplier = scale;
         
         adjust_alignments_for_base_quality = reset_quality_adjustments;
     }
