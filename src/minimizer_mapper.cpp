@@ -1167,9 +1167,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     }
 
     //TODO: Might not want to use this
-    //For each fragment cluster, we want to know how many equivalent or better clusters we found and discarded as a mapq cap
-    //Start by counting how many equivalent clusters we found for each
-    vector<size_t> fragment_cluster_indices_by_score (max_fragment_num + 1); //List of cluster indices sorted by score
+    vector<size_t> fragment_cluster_indices_by_score (max_fragment_num + 1);
     for (size_t i = 0 ; i < fragment_cluster_indices_by_score.size() ; i++) {
         fragment_cluster_indices_by_score[i] = i;
     }
@@ -1178,28 +1176,21 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             > cluster_coverage_by_fragment.first[b] + cluster_coverage_by_fragment.second[b] + cluster_score_by_fragment.first[b] + cluster_score_by_fragment.second[b];  
     });
 
-    //For each fragment cluster, how many other clusters were equivalently good or better
-    vector<size_t> better_cluster_count (max_fragment_num+1); 
+    vector<size_t> better_cluster_count (max_fragment_num+1); // How many fragment clusters are at least as good as the one at each index
     for (int j = fragment_cluster_indices_by_score.size() - 1 ; j >= 0 ; j--) {
-        size_t fragment_num = fragment_cluster_indices_by_score[j];
+        size_t i = fragment_cluster_indices_by_score[j];
         if (j == fragment_cluster_indices_by_score.size()-1) {
-            better_cluster_count[fragment_num] = j;
+            better_cluster_count[i] = j;
         } else {
-            size_t fragment_num2 = fragment_cluster_indices_by_score[j+1];
-            if(cluster_coverage_by_fragment.first[fragment_num] + cluster_coverage_by_fragment.second[fragment_num] 
-                    + cluster_score_by_fragment.first[fragment_num] + cluster_score_by_fragment.second[fragment_num] 
-                == cluster_coverage_by_fragment.first[fragment_num2] + cluster_coverage_by_fragment.second[fragment_num2] 
-                    + cluster_score_by_fragment.first[fragment_num2] + cluster_score_by_fragment.second[fragment_num2]) {
-                //If this cluster scores the same as the next one
-                better_cluster_count[fragment_num] = better_cluster_count[fragment_num2];
+            size_t i2 = fragment_cluster_indices_by_score[j+1];
+            if(cluster_coverage_by_fragment.first[i] + cluster_coverage_by_fragment.second[i] + cluster_score_by_fragment.first[i] + cluster_score_by_fragment.second[i] 
+                == cluster_coverage_by_fragment.first[i2] + cluster_coverage_by_fragment.second[i2] + cluster_score_by_fragment.first[i2] + cluster_score_by_fragment.second[i2]) {
+                better_cluster_count[i] = better_cluster_count[i2];
             } else {
-                better_cluster_count[fragment_num] = j;
+                better_cluster_count[i] = j;
             }
         }
     }
-    //True if we stop processing a fragment cluster
-    vector<bool> dropped_first(max_fragment_num+1, true);
-    vector<bool> dropped_second(max_fragment_num+1, true);
 
     //Now that we've scored each of the clusters, extend and align them
     for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
@@ -1494,7 +1485,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 read_num == 0 ? alignment_indices[fragment_num].first.emplace_back(curr_funnel_index)
                               : alignment_indices[fragment_num].second.emplace_back(curr_funnel_index);
 
-                read_num == 0 ? dropped_first[fragment_num] = false : dropped_second[fragment_num] = false;
                 curr_funnel_index++; 
 
                 if (track_provenance) {
@@ -1544,32 +1534,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
     //For each fragment cluster, get the fraction of equivalent or better clusters that got thrown away
 
-    //Fraction of clusters with equivalent or better scores that were dropped
-    vector<double> better_clusters_dropped(max_fragment_num+1, 0.0);
-    size_t dropped_so_far = 0;
-    size_t last_j = 0;
-    for (size_t j = 0 ; j < fragment_cluster_indices_by_score.size() ; j++) {
-        size_t fragment_num = fragment_cluster_indices_by_score[j];
-        if (dropped_first[fragment_num] && dropped_second[fragment_num]) {
-            dropped_so_far ++;
-        }
-        if (j == fragment_cluster_indices_by_score.size() - 1) {
-            better_clusters_dropped[fragment_num] = (double) dropped_so_far / (double) j;
-        } else {
-            size_t fragment_num2 = fragment_cluster_indices_by_score[j+1];
-            if (better_cluster_count[fragment_num] != better_cluster_count[fragment_num2]) {
-                //If we're moving to a worse cluster, fill in the equivalent clusters with fraction
-                for (size_t new_j = last_j ; new_j <= j ; new_j++) {
-                    size_t new_fragment = fragment_cluster_indices_by_score[new_j];
-                    better_clusters_dropped[new_fragment] = (double) dropped_so_far / (double) better_cluster_count[fragment_num];
-                }
-                last_j = j+1;
-            }
-        }
-    }
-
-    vector<double> better_clusters_dropped_alignment_pairs; 
-    better_clusters_dropped_alignment_pairs.reserve(alignments.size());
+    vector<size_t> better_cluster_count_alignment_pairs; 
+    better_cluster_count_alignment_pairs.reserve(alignments.size());
 
     //Keep track of alignments with no pairs in the same fragment cluster
     bool found_pair = false;
@@ -1604,7 +1570,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         paired_alignments.emplace_back(make_pair(fragment_num, i1), make_pair(fragment_num, i2));
                         paired_scores.emplace_back(score);
                         fragment_distances.emplace_back(fragment_distance);
-                        better_clusters_dropped_alignment_pairs.emplace_back(better_clusters_dropped[fragment_num]);
+                        better_cluster_count_alignment_pairs.emplace_back(better_cluster_count[fragment_num]);
 #ifdef debug
         cerr << "Found pair of alignments from fragment " << fragment_num << " with scores " 
              << alignment1.score() << " " << alignment2.score() << " at distance " << fragment_distance 
@@ -1762,7 +1728,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     paired_alignments.push_back(index_pair);
                     paired_scores.emplace_back(score);
                     fragment_distances.emplace_back(fragment_dist);
-                    better_clusters_dropped_alignment_pairs.emplace_back(0);
+                    better_cluster_count_alignment_pairs.emplace_back(0);
 //TODO: Could check for duplicates but I don't think we'll get any since pairs we can't rescue anything we wouldn't have clustered
 //                    for (pair<Alignment, Alignment>& old_pair: paired_alignments) {
 //                        //Make sure that this pair is not a duplicate of one we already found
@@ -1813,8 +1779,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     mappings.second.reserve(paired_alignments.size());
     scores.reserve(paired_scores.size());
     distances.reserve(fragment_distances.size());
-    vector<double> better_clusters_dropped_mappings;
-    better_clusters_dropped_mappings.reserve(better_clusters_dropped_alignment_pairs.size());
+    vector<size_t> better_cluster_count_mappings;
+    better_cluster_count_mappings.reserve(better_cluster_count_alignment_pairs.size());
 
     process_until_threshold(paired_alignments, (std::function<double(size_t)>) [&](size_t i) -> double {
         return paired_scores[i];
@@ -1831,7 +1797,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         mappings.first.emplace_back( alignments[index_pair.first.first].first[index_pair.first.second]);
         mappings.second.emplace_back(alignments[index_pair.second.first].second[index_pair.second.second]);
 
-        better_clusters_dropped_mappings.emplace_back(better_clusters_dropped_alignment_pairs[alignment_num]);
+        better_cluster_count_mappings.emplace_back(better_cluster_count_alignment_pairs[alignment_num]);
         if (mappings.first.size() == 1 && found_pair) {
             //If this is the best pair of alignments that we're going to return and we didn't attempt rescue, 
             //get the group scores for mapq
@@ -1935,9 +1901,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         double mapq = (mappings.first.empty() || scores[0] == 0) ? 0 : 
             get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index) / 2;
 
-        //Cap mapq at probability that there was a better fragment cluster that had the correct mapping but we dropped it
-        if (better_clusters_dropped_mappings.size() != 0 && better_clusters_dropped_mappings.front() > 0) {
-            mapq = min(mapq,round(prob_to_phred((1.0 - better_clusters_dropped_mappings.front()))));
+        //Cap mapq at probability that there was a better fragment cluster that had the correct mapping
+        if (better_cluster_count_mappings.size() != 0 && better_cluster_count_mappings.front() > 0) {
+            mapq = min(mapq,round(prob_to_phred((1.0 / (double) better_cluster_count_mappings.front()))));
         }
 
         double mapq_group1 = scores_group_1.size() <= 1 ? mapq : 
