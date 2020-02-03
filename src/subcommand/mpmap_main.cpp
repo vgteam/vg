@@ -179,7 +179,7 @@ int main_mpmap(int argc, char** argv) {
     bool same_strand = false;
     bool auto_calibrate_mismapping_detection = true;
     double max_mapping_p_value = 0.00001;
-    size_t num_calibration_simulations = 250;
+    size_t num_calibration_simulations = 1000;
     size_t calibration_read_length = 150;
     bool use_weibull_calibration = true;
     size_t order_length_repeat_hit_max = 3000;

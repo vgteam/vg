@@ -670,7 +670,7 @@ namespace vg {
         cerr << "\t";
         for (size_t i = 0; i < lengths.size(); ++i) {
             cerr << lengths[i] << ", ";
-            if (i && !(i % 5)) {
+            if (i && !(i % 20)) {
                 cerr << endl << "\t";
             }
         }
@@ -680,6 +680,7 @@ namespace vg {
         // reset the memo of p-values (which we are calibrating) for any updates using the default parameter during the null mappings
         p_value_memo.clear();
         
+        // TODO: this gets nans sometimes, but I bet golden section fitting would actually work better
         // model the lengths as the maximum of genome_size * read_length exponential variables
         max_exponential_scale = fit_max_exponential(lengths, total_seq_length * simulated_read_length);
         
