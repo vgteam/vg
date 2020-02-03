@@ -15,8 +15,6 @@
 #include <algorithm>
 #include <cmath>
 
-#define debug
-
 namespace vg {
 
 using namespace std;
@@ -479,13 +477,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // TODO: Do we need those annotations?
     vector<size_t> cluster_extensions_to_source;
     cluster_extensions_to_source.reserve(clusters.size());
-    // In each non-extended cluster, what is the number of windows in the read
-    // where the window's minimizer was located but no locations of it were
-    // close enough to be in the cluster?
-    // If the read actually came from that cluster, those windows must cvontain
-    // errors.
-    vector<size_t> created_windows_for_non_extended_clusters;
-    created_windows_for_non_extended_clusters.reserve(clusters.size());
+    // Across all non-extended clusters, what is the minimum number of windows
+    // in the read where the minimizer was located but didn't occur in the
+    // cluster?
+    size_t min_created_windows_for_non_extended_clusters = numeric_limits<size_t>::max();
     // To compute the windows present in any extended cluster, we need to get
     // all the minimizers in any extended cluster.
     vector<bool> present_in_any_extended_cluster(minimizers.size(), false);
@@ -515,7 +510,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
             }
         }
-        created_windows_for_non_extended_clusters.push_back(cluster_wrong_windows);
+        min_created_windows_for_non_extended_clusters = min(min_created_windows_for_non_extended_clusters, cluster_wrong_windows);
     };
     
     //Process clusters sorted by both score and read coverage
@@ -970,35 +965,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #ifdef debug
     cerr << "Cap based on read's minimizers not in non-extended clusters all being wrong (and the read actually having come from the non-extended clusters)..." << endl;
 #endif
-    // Across all non-extended clusters, what is the minimum number of windows
-    // in the read where the minimizer was located but didn't occur in the
-    // cluster?
-    size_t min_created_windows_for_non_extended_clusters = numeric_limits<size_t>::max();
-    if (!created_windows_for_non_extended_clusters.empty()) {
-        min_created_windows_for_non_extended_clusters = *std::min_element(created_windows_for_non_extended_clusters.begin(),
-            created_windows_for_non_extended_clusters.end());
-    }
     double mapq_non_extended_cap = window_breaking_quality(min_created_windows_for_non_extended_clusters, aln.sequence(), aln.quality());
-    // Also cap based on each window and proper-OR
-    double summed_cap = numeric_limits<double>::infinity();
-    double prob_wrong = 0;
-#ifdef debug
-    cerr << "Cap for individual non-extended clusters..." << endl;
-#endif
-    for (auto& window_count : created_windows_for_non_extended_clusters) {
-        double cap = window_breaking_quality(window_count, aln.sequence(), aln.quality());
-        double prob = phred_to_prob(cap);
-        // Since the events are the read being generated from each cluster, they are all mutually exclusive.
-        // So we can sum their probabilities for OR, because they share no atoms and do not overlap.
-        prob_wrong += prob;
-    }
-    if (prob_wrong > 0) {
-        summed_cap = prob_to_phred(prob_wrong);
-    }
-#ifdef debug
-    cerr << "Total P(wrong) across " << created_windows_for_non_extended_clusters.size()
-        << " possible unextended source clusters: " << prob_wrong << " = Q " << summed_cap << endl;
-#endif 
     
     // Remember the uncapped MAPQ and the caps
     set_annotation(mappings[0], "mapq_uncapped", mapq);
@@ -1008,7 +975,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     set_annotation(mappings[0], "mapq_non_extended_sum_cap", summed_cap);
     
     // Apply the caps
-    mapq = min(min(mapq, mapq_locate_cap), min(mapq_extended_cap, min(mapq_non_extended_cap, summed_cap)));
+    mapq = min(min(mapq, mapq_locate_cap), min(mapq_extended_cap, mapq_non_extended_cap));
     
 #ifdef debug
     cerr << "MAPQ is " << mapq << endl;
@@ -1166,8 +1133,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     // Ship out all the aligned alignments
     alignment_emitter.emit_mapped_single(std::move(mappings));
-
-#undef debug
 
 #ifdef debug
     // Dump the funnel info graph.
