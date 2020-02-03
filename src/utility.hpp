@@ -161,7 +161,7 @@ inline double phred_geometric_mean(double phred1, double phred2) {
     return prob_to_phred(sqrt(phred_to_prob(phred1 + phred2)));
 }
 
-// normal pdf, from http://stackoverflow.com/a/10848293/238609
+// normal pdf, from http://stackoverflow.com/a/10848293
 template <typename T>
 T normal_pdf(T x, T m, T s)
 {

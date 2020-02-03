@@ -118,6 +118,9 @@ protected:
      * specified minimizer-bearing windows by base errors from the given
      * sequence, which was sequenced with the given qualities.
      *
+     * 0 windows or numeric_limits<size_t>::max() windows are treated specially
+     * and no limit is imposed.
+     *
      * Currently computes a lower-score-bound, upper-probability-bound,
      * suitable for use as a mapping quality cap, by assuming the
      * easiest-to-disrupt possible layout of the windows, and the lowest
