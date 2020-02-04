@@ -1516,8 +1516,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     
     if (track_provenance) {
         // Now say we are finding the winner(s)
-        funnels[0].stage("pair");
-        funnels[1].stage("pair");
+        funnels[0].stage("pairing");
+        funnels[1].stage("pairing");
     }
     // Fill this in with the pairs of alignments we will output
     // each alignment is stored as <fragment index, alignment index> into alignments
@@ -1580,13 +1580,14 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     }
                     //TODO: Could also give each alignment a group score depending on how many identical alignments it has
 
-//TODO: I'm not sure how to process these properly out of order
                     if (track_provenance) {
                         funnels[0].processing_input(j1);
                         funnels[1].processing_input(j2);
-                        funnels[0].pass("pairing", j1);
+                        funnels[0].pass("pair-or-rescue", j1);
+                        funnels[0].pass("max-rescue-attempts", j1);
                         funnels[0].project(j1);
-                        funnels[1].pass("pairing", j2);
+                        funnels[1].pass("pair-or-rescue", j2);
+                        funnels[1].pass("max-rescue-attempts", j2);
                         funnels[1].project(j2);
                         funnels[0].processed_input();
                         funnels[1].processed_input();
@@ -1614,22 +1615,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 #endif
             }
         }
-
-        /* else {
-            if (track_provenance) {
-                if (fragment_alignments.first.empty()) {
-                    for (size_t i = 0 ; i < fragment_alignments.second.size() ; i++) {
-                        funnels[1].fail("pairing", i);
-                    }
-                }
-                if (fragment_alignments.second.empty()) {
-                    for (size_t i = 0 ; i < fragment_alignments.first.size() ; i++) {
-                        funnels[0].fail("pairing", i);
-                    }
-                }
-            }
-        }*/
     }
+
     if (!found_pair){
         //If we didn't find any pairs within the fragment clusters, return the best individual alignments
         if (max_rescue_attempts == 0 ) {
@@ -1657,6 +1644,12 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 Alignment& alignment = std::get<2>(index) ? alignments[std::get<0>(index)].first[std::get<1>(index)]
                                                           : alignments[std::get<0>(index)].second[std::get<1>(index)];
 
+                if (track_provenance) {
+                    size_t j =  std::get<2>(index) ? alignment_indices[std::get<0>(index)].first[std::get<1>(index)]
+                                                   : alignment_indices[std::get<0>(index)].second[std::get<1>(index)];
+                    std::get<2>(index) ? funnels[0].fail("pair-or-rescue", j) : funnels[1].fail("pair-or-rescue", j);
+                }
+
                 if (std::get<2>(index)) {
                     if (alignment.score() > best_aln1.score()) {
                         best_aln1 = alignment;
@@ -1683,6 +1676,73 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             paired_mappings.first.back().set_mapping_quality(1);
             paired_mappings.second.back().set_mapping_quality(1);
 
+            // Stop this alignment
+            funnels[0].stop();
+            funnels[1].stop();
+            
+            if (track_provenance) {
+            
+                // Annotate with the number of results in play at each stage
+                for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
+                    funnels[read_num].for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
+                        // Save the number of items
+                        set_annotation(read_num == 0 ? paired_mappings.first[0] : paired_mappings.second[0], "stage_" + stage + "_results", (double)result_sizes.size());
+                    });
+                    if (track_correctness) {
+                        // And with the last stage at which we had any descendants of the correct seed hit locations
+                        set_annotation(read_num == 0 ? paired_mappings.first[0] : paired_mappings.second[0], "last_correct_stage", funnels[read_num].last_correct_stage());
+                    }
+                    // Annotate with the performances of all the filters
+                    // We need to track filter number
+                    size_t filter_num = 0;
+                    funnels[read_num].for_each_filter([&](const string& stage, const string& filter,
+                        const Funnel::FilterPerformance& by_count, const Funnel::FilterPerformance& by_size,
+                        const vector<double>& filter_statistics_correct, const vector<double>& filter_statistics_non_correct) {
+                        
+                        string filter_id = to_string(filter_num) + "_" + filter + "_" + stage;
+                        
+                        if (read_num == 0) {
+                            // Save the stats
+                            set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
+                            set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
+                            set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
+                            set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
+                            
+                            if (track_correctness) {
+                                set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
+                                set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
+                                set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
+                                set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
+                            }
+                            
+                            // Save the correct and non-correct filter statistics, even if
+                            // everything is non-correct because correctness isn't computed
+                            set_annotation(paired_mappings.first[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
+                            set_annotation(paired_mappings.first[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
+                        
+                        } else {
+                            // Save the stats
+                            set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
+                            set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
+                            set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
+                            set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
+                            
+                            if (track_correctness) {
+                                set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
+                                set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
+                                set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
+                                set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
+                            }
+                            
+                            // Save the correct and non-correct filter statistics, even if
+                            // everything is non-correct because correctness isn't computed
+                            set_annotation(paired_mappings.second[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
+                            set_annotation(paired_mappings.second[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
+                        }
+                        filter_num++;
+                    });
+                }
+            }
             return paired_mappings;
         } else {
             
@@ -1697,6 +1757,12 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             }, 0, 1, max_rescue_attempts, [&](size_t i) {
                 tuple<size_t, size_t, bool> index = unpaired_alignments.at(i);
                 bool found_first = std::get<2>(index); 
+                size_t j = found_first ? alignment_indices[std::get<0>(index)].first[std::get<1>(index)]
+                                        : alignment_indices[std::get<0>(index)].second[std::get<1>(index)];
+                if (track_provenance) {
+
+                    funnels[found_first ? 0 : 1].pass("max-rescue-attempts", j);
+                }
                 Alignment& mapped_aln = found_first ? alignments[std::get<0>(index)].first[std::get<1>(index)]
                                                     : alignments[std::get<0>(index)].second[std::get<1>(index)];
                 Alignment rescued_aln = found_first ? aln2 : aln1;
@@ -1729,33 +1795,33 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     paired_scores.emplace_back(score);
                     fragment_distances.emplace_back(fragment_dist);
                     better_cluster_count_alignment_pairs.emplace_back(0);
-//TODO: Could check for duplicates but I don't think we'll get any since pairs we can't rescue anything we wouldn't have clustered
-//                    for (pair<Alignment, Alignment>& old_pair: paired_alignments) {
-//                        //Make sure that this pair is not a duplicate of one we already found
-//                        if (abs(distance_between(old_pair.first, found_first ? mapped_aln : rescued_aln)) <= 20 &&
-//                            abs(distance_between(old_pair.second, found_first ? rescued_aln : mapped_aln)) <= 20) {
-//                            duplicated = true;
-//                            //TODO: Could also check if the score improves but I doubt it will make a difference
-//                        }
-//                    }
-//                    if (!duplicated) {
-//                        set_annotation(mapped_aln, "rescuer", true);
-//                        set_annotation(rescued_aln, "rescued", true);
-//                        pair<size_t, size_t> mapped_index (std::get<0>(index), std::get<1>(index)); 
-//                        pair<size_t, size_t> rescued_index (alignments.size() - 1, 
-//                                    found_first ? alignments.back().second.size() : alignments.back().first.size());
-//                        found_first ? alignments.back().second.emplace_back(std::move(rescued_aln)) 
-//                                    : alignments.back().first.emplace_back(std::move(rescued_aln));
-//                        alignments.push_back(found_first ? make_pair(mapped_index, rescued_index) : 
-//                                                                  make_pair(rescued_index, mapped_idnex);
-//                        paired_scores.emplace_back(score);
-//                    }
+                    if (track_provenance) {
+                        funnels[found_first ? 0 : 1].pass("pair-or-rescue", j);
+                        funnels[found_first ? 1 : 0].introduce();
+                    }
+                } else {
+                    if (track_provenance) {
+                        funnels[found_first ? 0 : 1].fail("pair-or-rescue", j);
+                    }
                 }
                 return true;
             }, [&](size_t i) {
-                //TODO: Should probably do more funnel stuff here
+                if (track_provenance) {
+                    tuple<size_t, size_t, bool> index = unpaired_alignments.at(i);
+                    bool found_first = std::get<2>(index); 
+                    size_t j = found_first ? alignment_indices[std::get<0>(index)].first[std::get<1>(index)]
+                                            : alignment_indices[std::get<0>(index)].second[std::get<1>(index)];
+                    funnels[found_first ? 0 : 1].fail("pair-or-rescue", j);
+                }
                 return;
             }, [&] (size_t i) {
+                if (track_provenance) {
+                    tuple<size_t, size_t, bool> index = unpaired_alignments.at(i);
+                    bool found_first = std::get<2>(index); 
+                    size_t j = found_first ? alignment_indices[std::get<0>(index)].first[std::get<1>(index)]
+                                            : alignment_indices[std::get<0>(index)].second[std::get<1>(index)];
+                    funnels[found_first ? 0 : 1].fail("pair-or-rescue", j);
+                }
                 return;
             });
         }
