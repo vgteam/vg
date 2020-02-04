@@ -91,9 +91,6 @@ double MinimizerMapper::window_breaking_quality(size_t total_windows, const stri
         // in the read. This can't be <0.
         return total_errored_quality;
     }
-    
-    // We can't get here. Tell the compiler.
-    throw runtime_error("Escaped if-else");
 }
 
 void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
@@ -116,34 +113,15 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Minimizers from each index and scores as 1 + ln(hard_hit_cap) - ln(hits).
     struct Minimizer {
         typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
+        size_t windows; // How many windows in the read are assigned to this minimizer instance?
         size_t hits; // How many hits does the minimizer have?
         const typename gbwtgraph::DefaultMinimizerIndex::code_type* occs;
         size_t origin; // This minimizer came from minimizer_indexes[origin].
         double score;
-        
-        // This minimizer's contributing windows (its agglomeration) can be
-        // found agglomeration_first to agglomeration_last in the read,
-        // inclusive.
-        size_t agglomeration_first;
-        size_t agglomeration_last;
 
-        // Sort the minimizers in descending order by score, then by key (which
-        // maps n keys -> 1 score), so identical keys are in a block.
+        // Sort the minimizers in descending order by score.
         bool operator< (const Minimizer& another) const {
-            return (this->score > another.score) ||
-                (this->score == another.score && this->value.key < another.value.key);
-        }
-    };
-    // We need to find the leftmost base in a minimizer itself, which is
-    // interesting if the minimizer is on the reverse strand, where its
-    // offset will be the lest base.
-    auto lefmost = [&](const Mininizer& m) {
-        if (m.value.is_reverse) {
-            // Find start of the minimizer from the end
-            return m.offset + 1 - minimizer_indexes[m.origin]->k();
-        } else {
-            // Already at the start
-            return m.offset;
+            return (this->score > another.score);
         }
     };
     std::vector<Minimizer> minimizers;
@@ -153,11 +131,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     double base_score = 1.0 + std::log(hard_hit_cap);
     for (size_t i = 0; i < minimizer_indexes.size(); i++) {
         
-        auto current_minimizers = minimizer_indexes[i]->minimizers(aln.sequence());
+        vector<pair<gbwtgraph::DefaultMinimizerIndex::minimizer_type, size_t>> current_minimizers = 
+            minimizer_indexes[i]->weighted_minimizers(aln.sequence());
 
-        for (auto& minimizer : current_minimizers) {
+        for (auto& minimizer_and_windows : current_minimizers) {
             double score = 0.0;
-            auto hits = minimizer_indexes[i]->count_and_find(minimizer);
+            auto hits = minimizer_indexes[i]->count_and_find(minimizer_and_windows.first);
             if (hits.first > 0) {
                 if (hits.first <= hard_hit_cap) {
                     score = base_score - std::log(hits.first);
@@ -165,112 +144,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     score = 1.0;
                 }
             }
-            minimizers.push_back({ minimizer, hits.first, hits.second, i, score, 0, 0 });
+            minimizers.push_back({ minimizer_and_windows.first, minimizer_and_windows.second, hits.first, hits.second, i, score });
             base_target_score += score;
         }
     }
     double target_score = (base_target_score * minimizer_score_fraction) + 0.000001;
-   
-    
-   
-    // Sort the minimizers by minimizer starting position.
-    std::sort(minimizers.begin(), minimizers.end(), [&](const Minimizer& a, const Minimizer& b) {
-        // Sort minimizers by their leftmost bases in the read.
-        return leftmost(a) < leftmost(b);
-    });
-    
-    
-    // Now we have to go through the minimizers in order and fill in their
-    // agglomerations.
-    // TODO: Make Minimizer a real type so this can be a real function.
-    // This is simpler to think about if we actually scan the read. We could do
-    // a sweep line algorithm, but I don't have it worked out yet. TODO: Work
-    // out a sweep line algorithm here.
-    
-    
-    
-    // This tracks the leftest minimizer that was produced from the window ending at i.
-    int leftest_active = -1;
-    // This tracks the rightest minimizer that was produced by a window overlapping i.
-    int rightest_active = -1;
-    // This tracks the next minimizer which has not yet been made active
-    int next_inactive = 0;
-    
-    // All active minimizers will have the same key sequence.
-    for (size_t i = 0; i < read.sequence().size(); i++) {
-        // For each read base
-        
-        while (leftest_active != -1 && ((minimizer_indexes[minimizers[leftest_active].origin]-> k() +
-            minimizer_indexes[minimizers[leftest_active].origin]->w() - 1 +
-            leftmost(minimizers[leftest_active]) - 1) < i)) {
-            
-            // There is a leftmost active minimizer, but it can't possibly be
-            // part of a window that extends out through base i anymore.
-            
-            // Drop it.
-            leftest_active++;
-            
-            if (leftest_active > rightest_active) {
-                // Note that we have dropped everything.
-                leftest_active = -1;
-                rightest_active = -1;
-            }
-        }
-        
-        if (next_inactive < minimizers.size()) {
-            // There is a next minimizer candidate
-            const Minimizer& next = minimizers.at(next_inactive);
-            
-            if (i + (minimizer_indexes[next.origin]->w() - 1) >= leftmost(next)) {
-                // The next minimizer could have come from a window starting at i
-            
-                if (rightest_active == -1 || minimizers.at(rightest_active).value.hash <= next.value.hash) {
-                    // This next minimizer should become active
-                    if (rightest_active == -1) {
-                        // It replaces nothing
-                        leftest_active = next_inactive;
-                        rightest_active = next_inactive;
-                        next_inactive++;
-                    } else if (minimizers.at(rightest_active).value.hash < next.value.hash) {
-                        // It replaces all formerly active minimizer instances.
-                        // Their agglomeration end bases are all up to date.
-                        leftest_active = next_inactive;
-                        rightest_active = next_inactive;
-                        next_inactive++;
-                    } else if (minimizers.at(rightest_active).value.hash == next.value.hash) {
-                        // It just joins on.
-                        rightest_active = next_inactive;
-                        next_inactive++;
-                    }
-                    
-                    // It starts here.
-                    next.agglomeration_first = i;
-                    next.agglomeration_last = i;
-                }
-            }
-        }
-        
-        for (int j = leftest_active; j != -1 && j <= rightest_active; j++) {
-            // Now for all the still-active minimizers, make sure that their
-            // agglomeration_last fields are all i. So when we drop them, they
-            // are up to date and don't need updating. TODO: This *really*
-            // needs to become a sweep-line algorithm somehow; we're
-            // O(minimizers * window size) now I think.
-            minimizers.at(j).agglomeration_last = i;
-        }
-    }
-    
-    
-    for (size_t i = 0; i < minimizers.size(); i++) {
-        // For each minimizer
-        
-        // If it is the first, start it (window count - 1) before the minimizer's leftmost base
-        
-        // Otherwise, see if
-    }
-    
-    
-    
     // Sort (and renumber in best-to-worst order) all the minimizers
     std::sort(minimizers.begin(), minimizers.end());
 
@@ -348,8 +226,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             (took_last && i > 0 && minimizer.value.key == minimizers[i - 1].value.key)) {
             // We should keep this minimizer instance because we only have one
             // seed location already, or it is sufficiently rare, or we want it
-            // to make target_score, or it is the same key as the previous
-            // minimizer which we also took (and so has the same seeds).
+            // to make target_score, or it is the same sequence as the previous
+            // minimizer which we also took.
         
             // Locate the hits.
             for (size_t j = 0; j < minimizer.hits; j++) {
@@ -368,7 +246,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
             
             if (!(took_last && i > 0 && minimizer.value.key == minimizers[i - 1].value.key)) {
-                // We did not also take a previous identical-key minimizer, so count this one towards the score.
+                // We did not also take a previous identical-sequence minimizer, so count this one towards the score.
                 selected_score += minimizer.score;
             }
             
