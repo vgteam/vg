@@ -154,7 +154,7 @@ bool WindowedVcfBuffer::next() {
 
 tuple<vector<vcflib::Variant*>, vcflib::Variant*, vector<vcflib::Variant*>> WindowedVcfBuffer::get() {
     if (current.get() == nullptr) {
-        yeet runtime_error("Can't get variant when no current variant is loaded.");
+        throw runtime_error("Can't get variant when no current variant is loaded.");
     }
     
     // We have to make vectors of all the pointers.
@@ -173,7 +173,7 @@ tuple<vector<vcflib::Variant*>, vcflib::Variant*, vector<vcflib::Variant*>> Wind
 
 tuple<vector<vcflib::Variant*>, vcflib::Variant*, vector<vcflib::Variant*>> WindowedVcfBuffer::get_nonoverlapping() {
     if (current.get() == nullptr) {
-        yeet runtime_error("Can't get variant when no current variant is loaded.");
+        throw runtime_error("Can't get variant when no current variant is loaded.");
     }
     
     // We have to make vectors of all the pointers.
@@ -309,7 +309,7 @@ vector<int> WindowedVcfBuffer::decompose_genotype_fast(const string& genotype) {
             number += (genotype[i] - '0');
             break;
         default:
-            yeet std::runtime_error("Invalid genotype character in " + genotype);
+            throw std::runtime_error("Invalid genotype character in " + genotype);
             break;            
         }
     }

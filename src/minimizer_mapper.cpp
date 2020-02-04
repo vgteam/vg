@@ -19,9 +19,10 @@ namespace vg {
 
 using namespace std;
 
-MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
+    const std::vector<std::unique_ptr<gbwtgraph::DefaultMinimizerIndex>>& minimizer_indexes,
     MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph) :
-    path_graph(path_graph), minimizer_index(minimizer_index),
+    path_graph(path_graph), minimizer_indexes(minimizer_indexes),
     distance_index(distance_index), gbwt_graph(graph),
     extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index) {
     
@@ -32,10 +33,11 @@ double MinimizerMapper::window_breaking_quality(size_t total_windows, const stri
 #ifdef debug
     cerr << "Cap for " << total_windows << ": ";
 #endif
-    if (total_windows == 0 || total_windows == numeric_limits<size_t>::max()) {
+    if (total_windows == 0 || total_windows == numeric_limits<size_t>::max() || minimizer_indexes.size() != 1) {
         // No limit can be imposed (because no windows need breaking, or
         // because we got a sentinel max value which means basically the same
-        // thing).
+        // thing, or because we are using multiple minimizer indexes and don't
+        // keep windows straight between them).
 #ifdef debug
         cerr << "uncapped" << endl;
 #endif
@@ -49,7 +51,7 @@ double MinimizerMapper::window_breaking_quality(size_t total_windows, const stri
         
         // Work out how big a window that gives rise to a minimizer actually is.
         // Use the kmer size and the number of 1-bp-slid kmers in a window
-        size_t window_size = minimizer_index.k() + minimizer_index.w() - 1;
+        size_t window_size = minimizer_indexes[0]->k() + minimizer_indexes[0]->w() - 1;
     
         // Compute how the windows could most overlap, since we forgot where
         // they actually were in the read. If they all overlap, they cover the
@@ -108,21 +110,48 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         funnel.stage("minimizer");
     }
     
-    // We will find all the seed hits
-    vector<pos_t> seeds;
-    
-    // This will hold all the minimizers in the query, and the number of
-    // windows they are responsible for. When multiple minimizer instances
-    // exist in a window (necessarily with the same sequence), the window is
-    // assigned arbitrarily. So we need to make sure we always take all the
-    // minimizers or none with a given sequence.
-    vector<pair<gbwtgraph::DefaultMinimizerIndex::minimizer_type, size_t>> minimizers;
-    // And either way this will map from seed to minimizer that generated it
-    vector<size_t> seed_to_source;
-    
-    // Find minimizers in the query
-    minimizers = minimizer_index.weighted_minimizers(aln.sequence());
-    
+    // Minimizers from each index and scores as 1 + ln(hard_hit_cap) - ln(hits).
+    struct Minimizer {
+        typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
+        size_t windows; // How many windows in the read are assigned to this minimizer instance?
+        size_t hits; // How many hits does the minimizer have?
+        const typename gbwtgraph::DefaultMinimizerIndex::code_type* occs;
+        size_t origin; // This minimizer came from minimizer_indexes[origin].
+        double score;
+
+        // Sort the minimizers in descending order by score.
+        bool operator< (const Minimizer& another) const {
+            return (this->score > another.score);
+        }
+    };
+    std::vector<Minimizer> minimizers;
+
+    // Find the minimizers and score them.
+    double base_target_score = 0.0;
+    double base_score = 1.0 + std::log(hard_hit_cap);
+    for (size_t i = 0; i < minimizer_indexes.size(); i++) {
+        
+        vector<pair<gbwtgraph::DefaultMinimizerIndex::minimizer_type, size_t>> current_minimizers = 
+            minimizer_indexes[i]->weighted_minimizers(aln.sequence());
+
+        for (auto& minimizer_and_windows : current_minimizers) {
+            double score = 0.0;
+            auto hits = minimizer_indexes[i]->count_and_find(minimizer_and_windows.first);
+            if (hits.first > 0) {
+                if (hits.first <= hard_hit_cap) {
+                    score = base_score - std::log(hits.first);
+                } else {
+                    score = 1.0;
+                }
+            }
+            minimizers.push_back({ minimizer_and_windows.first, minimizer_and_windows.second, hits.first, hits.second, i, score });
+            base_target_score += score;
+        }
+    }
+    double target_score = (base_target_score * minimizer_score_fraction) + 0.000001;
+    // Sort (and renumber in best-to-worst order) all the minimizers
+    std::sort(minimizers.begin(), minimizers.end());
+
     if (track_provenance) {
         // Record how many we found, as new lines.
         funnel.introduce(minimizers.size());
@@ -130,38 +159,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Start the minimizer locating stage
         funnel.stage("seed");
     }
-    
-    // Get hit counts for all the minimizers
-    std::vector<size_t> minimizer_hit_counts(minimizers.size(), 0);
 
-    // Compute minimizer scores for all minimizers as 1 + ln(hard_hit_cap) - ln(hits).
-    std::vector<double> minimizer_score(minimizers.size(), 0.0);
-    double base_target_score = 0.0;
-    for (size_t i = 0; i < minimizers.size(); i++) {
-        minimizer_hit_counts[i] = minimizer_index.count(minimizers[i].first);
-        size_t& hits = minimizer_hit_counts[i];
-        if (hits > 0) {
-            if (hits <= hard_hit_cap) {
-                minimizer_score[i] = 1.0 + std::log(hard_hit_cap) - std::log(hits);
-            } else {
-                minimizer_score[i] = 1.0;
-            }
-        }
-        base_target_score += minimizer_score[i];
-    }
-    double target_score = (base_target_score * minimizer_score_fraction) + 0.000001;
-
-    // Sort the minimizers by score, and then by minimizer key.
-    // Since multiple instances of the same minimizer have the same hit count,
-    // they all have the same score and will sort together.
-    std::vector<size_t> minimizers_in_order(minimizers.size());
-    for (size_t i = 0; i < minimizers_in_order.size(); i++) {
-        minimizers_in_order[i] = i;
-    }
-    std::sort(minimizers_in_order.begin(), minimizers_in_order.end(), [&](const size_t a, const size_t b) {
-        return (minimizer_score[a] > minimizer_score[b]) ||
-            (minimizer_score[a] == minimizer_score[b] && minimizers[a].first.key < minimizers[b].first.key);
-    });
+    // Store the seeds and their source minimizers in separate vectors.
+    std::vector<pos_t> seeds;
+    std::vector<size_t> seed_to_source;
 
     // Select the minimizers we use for seeds.
     size_t rejected_count = 0;
@@ -192,53 +193,47 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // previous one.
     bool took_last = false;
     for (size_t i = 0; i < minimizers.size(); i++) {
-        size_t minimizer_num = minimizers_in_order[i];
-        
         if (track_provenance) {
             // Say we're working on it
-            funnel.processing_input(minimizer_num);
+            funnel.processing_input(i);
         }
 
         // Select the minimizer if it is informative enough or if the total score
         // of the selected minimizers is not high enough.
-        size_t& hits = minimizer_hit_counts[minimizer_num];
+        const Minimizer& minimizer = minimizers[i];
         
 #ifdef debug
-        cerr << "Minimizer " << minimizer_num << " = " << minimizers[minimizer_num].first.key.decode(minimizer_index.k())
-            << " has " << hits << " hits" << endl;
+        cerr << "Minimizer " << i << " = " << minimizer.value.key.decode(minimizer_indexes[minimizer.origin]->k())
+             << " has " << minimizer.hits << " hits" << endl;
 #endif
 
         // Record that we had this many hits of a minimizer
-        total_hits += hits;
+        total_hits += minimizer.hits;
         // And how many windows it represents
-        total_windows += minimizers[minimizer_num].second;
+        total_windows += minimizer.windows;
         
-        if (hits == 0) {
+        if (minimizer.hits == 0) {
             // A minimizer with no hits can't go on.
             took_last = false;
             // But we should treat it as located, because we know it isn't anywhere.
-            minimizer_located[minimizer_num] = true;
+            minimizer_located[i] = true;
             if (track_provenance) {
-                funnel.fail("any-hits", minimizer_num);
-                
-                unused_minimizer_hit_counts.push_back(hits);
-                for (size_t i = 0; i < minimizers[minimizer_num].second; i++) {
-                    unused_window_hit_counts.push_back(hits);
-                }
+                funnel.fail("any-hits", i);
             }
-        } else if (seeds.size() == 1 || hits <= hit_cap ||
-            (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score) ||
-            (took_last && i > 0 && minimizers[minimizer_num].first.key == minimizers[minimizers_in_order[i-1]].first.key)) {
+        } else if (seeds.size() == 1 ||
+            minimizer.hits <= hit_cap || 
+            (minimizer.hits <= hard_hit_cap && selected_score + minimizer.score <= target_score) ||
+            (took_last && i > 0 && minimizer.value.key == minimizers[i - 1].value.key)) {
             // We should keep this minimizer instance because we only have one
             // seed location already, or it is sufficiently rare, or we want it
             // to make target_score, or it is the same sequence as the previous
             // minimizer which we also took.
-            
+        
             // Locate the hits.
-            minimizer_located[minimizer_num] = true;
-            for (auto& hit : minimizer_index.find(minimizers[minimizer_num].first)) {
+            for (size_t j = 0; j < minimizer.hits; j++) {
+                pos_t hit = gbwtgraph::DefaultMinimizerIndex::decode(minimizer.occs[j]);
                 // Reverse the hits for a reverse minimizer
-                if (minimizers[minimizer_num].first.is_reverse) {
+                if (minimizer.value.is_reverse) {
                     size_t node_length = gbwt_graph.get_length(gbwt_graph.get_handle(id(hit)));
                     hit = reverse_base_pos(hit, node_length);
                 }
@@ -247,22 +242,22 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // copies of the same seed locations in the reference, paired
                 // with different places in the read.
                 seeds.push_back(hit);
-                seed_to_source.push_back(minimizer_num);
+                seed_to_source.push_back(i);
             }
             
-            if (!(took_last && i > 0 && minimizers[minimizer_num].first.key == minimizers[minimizers_in_order[i-1]].first.key)) {
+            if (!(took_last && i > 0 && minimizer.value.key == minimizers[i - 1].value.key)) {
                 // We did not also take a previous identical-sequence minimizer, so count this one towards the score.
-                selected_score += minimizer_score[minimizer_num];
+                selected_score += minimizer.score;
             }
             
             // Remember that we located these hits
-            located_hits += hits;
+            located_hits += minimizer.hits;
             
             // And that we located all these windows
-            located_windows += minimizers[minimizer_num].second;
+            located_windows += minimizer.windows;
             
 #ifdef debug
-            cerr << "Located " << minimizers[minimizer_num].second << " windows with minimizer " << minimizer_num << endl;
+            cerr << "Located " << minimizer.windows << " windows with minimizer " << i << endl;
 #endif
             
             // And that we took this minimizer
@@ -270,28 +265,28 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             if (track_provenance) {
                 // Record in the funnel that this minimizer gave rise to these seeds.
-                funnel.pass("any-hits", minimizer_num);
-                funnel.pass("hard-hit-cap", minimizer_num);
-                funnel.pass("hit-cap||score-fraction", minimizer_num, selected_score  / base_target_score);
-                funnel.expand(minimizer_num, hits);
+                funnel.pass("any-hits", i);
+                funnel.pass("hard-hit-cap", i);
+                funnel.pass("hit-cap||score-fraction", i, selected_score  / base_target_score);
+                funnel.expand(i, minimizer.hits);
                 
-                used_minimizer_hit_counts.push_back(hits);
-                for (size_t i = 0; i < minimizers[minimizer_num].second; i++) {
-                    used_window_hit_counts.push_back(hits);
+                used_minimizer_hit_counts.push_back(minimizer.hits);
+                for (size_t j = 0; j < minimizer.windows; j++) {
+                    used_window_hit_counts.push_back(minimizer.hits);
                 }
             }
-        } else if (hits <= hard_hit_cap) {
+        } else if (minimizer.hits <= hard_hit_cap) {
             // Passed hard hit cap but failed score fraction/normal hit cap
             took_last = false;
             rejected_count++;
             if (track_provenance) {
-                funnel.pass("any-hits", minimizer_num);
-                funnel.pass("hard-hit-cap", minimizer_num);
-                funnel.fail("hit-cap||score-fraction", minimizer_num, (selected_score + minimizer_score[minimizer_num]) / base_target_score);
+                funnel.pass("any-hits", i);
+                funnel.pass("hard-hit-cap", i);
+                funnel.fail("hit-cap||score-fraction", i, (selected_score + minimizer.score) / base_target_score);
                 
-                unused_minimizer_hit_counts.push_back(hits);
-                for (size_t i = 0; i < minimizers[minimizer_num].second; i++) {
-                    unused_window_hit_counts.push_back(hits);
+                unused_minimizer_hit_counts.push_back(minimizer.hits);
+                for (size_t j = 0; j < minimizer.windows; j++) {
+                    unused_window_hit_counts.push_back(minimizer.hits);
                 }
             }
         } else {
@@ -299,12 +294,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             took_last = false;  
             rejected_count++;
             if (track_provenance) {
-                funnel.pass("any-hits", minimizer_num);
-                funnel.fail("hard-hit-cap", minimizer_num);
+                funnel.pass("any-hits", i);
+                funnel.fail("hard-hit-cap", i);
                 
-                unused_minimizer_hit_counts.push_back(hits);
-                for (size_t i = 0; i < minimizers[minimizer_num].second; i++) {
-                    unused_window_hit_counts.push_back(hits);
+                unused_minimizer_hit_counts.push_back(minimizer.hits);
+                for (size_t j = 0; j < minimizer.windows; j++) {
+                    unused_window_hit_counts.push_back(minimizer.hits);
                 }
             }
         }
@@ -389,7 +384,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Compute the score.
         for (size_t j = 0; j < minimizers.size(); j++) {
             if (present_in_cluster[i][j]) {
-                cluster_score[i] += minimizer_score[j];
+                cluster_score[i] += minimizers[j].score;
             }
         }
         
@@ -402,24 +397,22 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             funnel.produced_output();
         }
 
-        //TODO:
-        //Get the cluster coverage
+        // Get the cluster coverage
         // We set bits in here to true when query anchors cover them
         sdsl::bit_vector covered(aln.sequence().size(), 0);
-        std::uint64_t k_bit_mask = sdsl::bits::lo_set[minimizer_index.k()];
-
         for (auto hit_index : cluster) {
             // For each hit in the cluster, work out what anchor sequence it is from.
-            size_t source_index = seed_to_source[hit_index];
+            const Minimizer& minimizer = minimizers[seed_to_source[hit_index]];
 
             // The offset of a reverse minimizer is the endpoint of the kmer
-            size_t start_offset = minimizers[source_index].first.offset;
-            if (minimizers[source_index].first.is_reverse) {
-                start_offset = start_offset + 1 - minimizer_index.k();
+            size_t start_offset = minimizer.value.offset;
+            size_t k = minimizer_indexes[minimizer.origin]->k();
+            if (minimizer.value.is_reverse) {
+                start_offset = start_offset + 1 - k;
             }
 
             // Set the k bits starting at start_offset.
-            covered.set_int(start_offset, k_bit_mask, minimizer_index.k());
+            covered.set_int(start_offset, sdsl::bits::lo_set[k], k);
         }
 
         // Count up the covered positions
@@ -427,8 +420,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
         // Turn that into a fraction
         read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
-
-
     }
 
 #ifdef debug
@@ -503,10 +494,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         for (size_t i = 0; i < minimizers.size(); i++) {
             if (!present_in_cluster[cluster_num][i] && minimizer_located[i]) {
                 // This minimizer and all its windows would have to have been created by mistake.
-                cluster_wrong_windows += minimizers[i].second; 
+                cluster_wrong_windows += minimizers[i].windows; 
 #ifdef debug
                 cerr << "Cluster " << cluster_num << " lacks located minimizer " << i << " and would have "
-                    << minimizers[i].second << " errored windows if it produced this read" << endl;
+                    << minimizers[i].windows << " errored windows if it produced this read" << endl;
 #endif
             }
         }
@@ -552,8 +543,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 curr_kept < max_extensions * 0.75) {
                 curr_kept++;
                 curr_count++;
-            } else if (!read_coverage_by_cluster[cluster_num] == curr_coverage ||
-                    !cluster_score[cluster_num] == curr_score) {
+            } else if (read_coverage_by_cluster[cluster_num] != curr_coverage ||
+                    cluster_score[cluster_num] != curr_score) {
                     //If this is a cluster that has scores different than the previous one
                     for (size_t i = 0 ; i < curr_kept ; i++ ) {
                         probability_cluster_lost.push_back(1.0 - (double(curr_kept) / double(curr_count)));
@@ -589,11 +580,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             GaplessExtender::cluster_type seed_matchings;
             for (auto& seed_index : cluster) {
                 // Insert the (graph position, read offset) pair.
-                seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].first.offset));
+                seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].value.offset));
 #ifdef debug
-                cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].first.offset << " = " << seeds[seed_index]
-                    << " from minimizer " << seed_to_source[seed_index] << "("
-                    << minimizer_index.count(minimizers[seed_to_source[seed_index]].first) << ")" << endl;
+                const Minimizer& minimizer = minimizers[seed_to_source[seed_index]];
+                cerr << "Seed read:" << minimizer.value.offset << " = " << seeds[seed_index]
+                    << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer.hits << ")" << endl;
 #endif
             }
             
@@ -716,16 +707,15 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
       temp.set_sequence(aln.sequence());
       temp.set_name(aln.name());
       temp.set_quality(aln.quality());
-
-      // Annotate the original read with metadata
-      if (!sample_name.empty()) {
-          aln.set_sample_name(sample_name);
-      }
-      if (!read_group.empty()) {
-          aln.set_read_group(read_group);
-      }
-
       aln = std::move(temp);
+    }
+
+    // Annotate the read with metadata
+    if (!sample_name.empty()) {
+        aln.set_sample_name(sample_name);
+    }
+    if (!read_group.empty()) {
+        aln.set_read_group(read_group);
     }
     
     // Go through the gapless extension groups in score order.
@@ -945,9 +935,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     size_t extended_cluster_windows = 0;
     for (size_t i = 0; i < minimizers.size(); i++) {
         if (present_in_any_extended_cluster[i]) {
-            extended_cluster_windows += minimizers[i].second;
+            extended_cluster_windows += minimizers[i].windows;
 #ifdef debug
-            cerr << "Get " << minimizers[i].second << " windows from minimizer " << i << endl;
+            cerr << "Get " << minimizers[i].windows << " windows from minimizer " << i << endl;
 #endif
         }
     }
@@ -1035,7 +1025,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             for (size_t minimizer_num = 0; minimizer_num < present.size(); minimizer_num++) {
                 if (present[minimizer_num]) {
                     // For each minimizer in the cluster, record its hit count
-                    cluster_minimizer_hit_counts.push_back(minimizer_hit_counts.at(minimizer_num));
+                    cluster_minimizer_hit_counts.push_back(minimizers.at(minimizer_num).hits);
                 }
             }
             
@@ -1047,7 +1037,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         set_annotation(mappings[0], "mapq_winning_cluster_median_minimizer_count", median(cluster_minimizer_hit_counts));
        
         // Also annotate with MAPQ-relevant facts about the read and not just the cluster
-        // minimizer_hit_counts is not used after here so we can modify it.
+        vector<size_t> minimizer_hit_counts;
+        minimizer_hit_counts.reserve(minimizers.size());
+        for (auto& minimizer : minimizers) {
+            minimizer_hit_counts.push_back(minimizer.hits);
+        }
         std::sort(minimizer_hit_counts.begin(), minimizer_hit_counts.end());
         set_annotation(mappings[0], "mapq_minimizer_counts", minimizer_hit_counts);
         set_annotation(mappings[0], "mapq_median_minimizer_count", median(minimizer_hit_counts));

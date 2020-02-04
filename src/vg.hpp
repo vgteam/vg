@@ -79,12 +79,12 @@ namespace vg {
  * However, edges can connect to either the start or end of either node.
  *
  */
-class VG : public Progressive, public MutablePathDeletableHandleGraph, public SerializableHandleGraph {
+class VG : public Progressive, public MutablePathDeletableHandleGraph {
 
 public:
     
     ////////////////////////////////////////////////////////////////////////////
-    // HandleGraph serialization
+    // Custom, concatenateable serialization
     ////////////////////////////////////////////////////////////////////////////
     
     /// Write the contents of this graph to an ostream.

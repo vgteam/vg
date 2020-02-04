@@ -293,9 +293,7 @@ using namespace std;
                                          const path_handle_t& path_handle, const vector<path_chunk_t>& path_chunks,
                                          const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                          bool allow_negative_scores) const {
-        
-        cerr << source.name() << endl;
-        
+                
         assert(path_chunks.size() == ref_chunks.size());
         
         auto get_strand = [&](size_t i) {
@@ -405,9 +403,7 @@ using namespace std;
             pair<string::const_iterator, string::const_iterator> read_range;
             pair<step_handle_t, step_handle_t> ref_range;
             vector<path_chunk_t> section_path_chunks;
-            
-            
-            
+                        
             bool strand = get_strand(comp_groups[i].front());
             
             vector<size_t>& group = comp_groups[i];
@@ -446,10 +442,11 @@ using namespace std;
             
 #ifdef debug_spliced_surject
             cerr << "surjecting section " << i << ": " << pb2json(section_source) << endl;
+            cerr << "consists of " << section_path_chunks.size() << " path chunks" << endl;
 #endif
             
             // perform a full length surjection within the section section
-            sections.push_back(realigning_surject(graph, section_source, path_handle, section_path_chunks, false));
+            sections.push_back(realigning_surject(graph, section_source, path_handle, section_path_chunks, true));
             read_ranges.push_back(read_range);
             ref_ranges.push_back(ref_range);
             
@@ -541,9 +538,11 @@ using namespace std;
         }
         
         // do the dynamic programming
+        vector<bool> is_sink(score_dp.size(), true);
         for (size_t i = 0; i < constrictions.size(); ++i) {
             size_t from = constriction_comps[constrictions[i]];
             size_t to = constriction_comps[constriction_targets[i]];
+            is_sink[from] = false;
             
             int32_t extended_score = score_dp[from] + section_edge_scores[i] + sections[to].score();
             if (extended_score > score_dp[to]) {
@@ -552,11 +551,11 @@ using namespace std;
             }
         }
         
-        // find the maximum
+        // find the maximum, subject to full length requirements
         vector<size_t> traceback(1, -1);
         int32_t max_score = numeric_limits<int32_t>::min();
         for (size_t i = 0; i < score_dp.size(); ++i) {
-            if (score_dp[i] > max_score) {
+            if (score_dp[i] > max_score && (!allow_negative_scores || is_sink[i])) {
                 max_score = score_dp[i];
                 traceback[0] = i;
             }
@@ -586,6 +585,10 @@ using namespace std;
 #ifdef debug_spliced_surject
             cerr << "appending path section " << pb2json(copy_path) << endl;
 #endif
+            if (copy_path.mapping_size() == 0) {
+                // this happens if the surjected section is a pure deletion, we can just skip it
+                continue;
+            }
             
             // we have to have some special logic for the first mapping in each new path
             if (surj_path->mapping_size() > 0) {
@@ -960,7 +963,7 @@ using namespace std;
         step_handle_t begin = graph->get_step_at_position(path_handle, first);
         step_handle_t end = graph->get_step_at_position(path_handle, last);
         
-        if (graph->get_position_of_step(end) < last && end != graph->path_end(path_handle)) {
+        if (graph->get_position_of_step(end) <= last && end != graph->path_end(path_handle)) {
             // we actually want part of this step too, so we use the next one as the end iterator
             end = graph->get_next_step(end);
         }

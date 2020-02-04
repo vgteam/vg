@@ -614,7 +614,7 @@ namespace vg{
         
         if (found){
             //return ret_alns;
-            yeet runtime_error("Unimplemented!");
+            throw runtime_error("Unimplemented!");
         }
         else {
             return make_pair(Alignment(), Alignment());
@@ -629,7 +629,7 @@ namespace vg{
     * and read depth, one day
     */
     pair<Locus, Locus> Filter::insertion_filter(Alignment& aln_first, Alignment& aln_second) {
-        yeet runtime_error("Unimplemented!");
+        throw runtime_error("Unimplemented!");
     }
 
     /**
@@ -637,7 +637,7 @@ namespace vg{
     *
     */
     pair<Locus, Locus> Filter::duplication_filter(Alignment& aln_first, Alignment& aln_second) {
-        yeet runtime_error("Unimplemented!");
+        throw runtime_error("Unimplemented!");
     }
 
     /**
@@ -661,7 +661,7 @@ namespace vg{
     * we'd like to report all possible breakends, even if that don't match an SV type very well.
     */
     pair<Locus, Locus> Filter::breakend_filter(Alignment& aln_first, Alignment& aln_second){
-        yeet runtime_error("Unimplemented!");
+        throw runtime_error("Unimplemented!");
     }
 
 
@@ -781,7 +781,7 @@ namespace vg{
 
 
     Alignment Filter::coverage_filter(Alignment& aln){
-        yeet runtime_error("Unimplemented!");
+        throw runtime_error("Unimplemented!");
     }
     
     Alignment Filter::avg_qual_filter(Alignment& aln){

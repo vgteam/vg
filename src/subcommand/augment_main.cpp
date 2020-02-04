@@ -260,6 +260,9 @@ int main_augment(int argc, char** argv) {
     if (gam_in_file_name == "-" && !label_paths) {
         cerr << "[vg augment] warning: reading the entire GAM from stdin into memory.  it is recommended to pass in"
              << " a filename rather than - so it can be streamed over two passes" << endl;
+        if (!gam_out_file_name.empty()) {
+            cerr << "             warning: when streaming in a GAM with -A, the output GAM will lose all non-Path related fields from the input" << endl;
+        }
     }
 
     // read the graph

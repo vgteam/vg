@@ -76,7 +76,7 @@ using namespace std;
     }
 
     handle_t ReverseGraph::get_underlying_handle(const handle_t& handle) const {
-        return handle;
+        return flip(handle);
     }
 }
 

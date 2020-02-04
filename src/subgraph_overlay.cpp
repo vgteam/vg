@@ -30,7 +30,7 @@ handle_t SubgraphOverlay::get_handle(const nid_t& node_id, bool is_reverse) cons
     if (has_node(node_id)) {
         return backing_graph->get_handle(node_id, is_reverse);
     } else {
-        yeet runtime_error("Node " + std::to_string(node_id) + " not in subgraph overlay");
+        throw runtime_error("Node " + std::to_string(node_id) + " not in subgraph overlay");
     }
 }
     
@@ -134,7 +134,7 @@ bool PathSubgraphOverlay::has_path(const std::string& path_name) const {
     
 path_handle_t PathSubgraphOverlay::get_path_handle(const std::string& path_name) const {
     if (!has_path(path_name)) {
-        yeet runtime_error("Path " + path_name + " not in subgraph overlay");
+        throw runtime_error("Path " + path_name + " not in subgraph overlay");
     } else {
         return backing_path_graph->get_path_handle(path_name);
     }

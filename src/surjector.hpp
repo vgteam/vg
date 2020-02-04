@@ -26,7 +26,7 @@ namespace vg {
 
 using namespace std;
 
-    class Surjector : AlignerClient {
+    class Surjector : public AlignerClient {
     public:
         
         Surjector(const PathPositionHandleGraph* graph);

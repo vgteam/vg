@@ -37,7 +37,7 @@ void VG::from_istream(istream& in, bool showp, bool warn_on_duplicates) {
     size_t file_size = 0;
     
     if (!in.good()) {
-        yeet runtime_error("Cannot read VG graph from bad stream");
+        throw runtime_error("Cannot read VG graph from bad stream");
     }
     
     
@@ -258,7 +258,7 @@ size_t VG::get_length(const handle_t& handle) const {
         // We found a node. Grab its sequence length
         return (*found).second->sequence().size();
     } else {
-        yeet runtime_error("No node " + to_string(get_id(handle)) + " in graph");
+        throw runtime_error("No node " + to_string(get_id(handle)) + " in graph");
     }
 }
 
@@ -277,7 +277,7 @@ string VG::get_sequence(const handle_t& handle) const {
             return sequence;
         }
     } else {
-        yeet runtime_error("No node " + to_string(get_id(handle)) + " in graph");
+        throw runtime_error("No node " + to_string(get_id(handle)) + " in graph");
     }
     
     
@@ -398,7 +398,7 @@ char VG::get_base(const handle_t& handle, size_t index) const {
             return found->second->sequence().at(index);
         }
     } else {
-        yeet runtime_error("No node " + to_string(get_id(handle)) + " in graph");
+        throw runtime_error("No node " + to_string(get_id(handle)) + " in graph");
     }
 }
 
@@ -415,7 +415,7 @@ string VG::get_subsequence(const handle_t& handle, size_t index, size_t size) co
             return found->second->sequence().substr(index, size);
         }
     } else {
-        yeet runtime_error("No node " + to_string(get_id(handle)) + " in graph");
+        throw runtime_error("No node " + to_string(get_id(handle)) + " in graph");
     }
 }
 
@@ -1047,11 +1047,11 @@ id_t VG::get_node_at_nucleotide(string pathname, int nuc){
         }
         nt_start += node->sequence().length();
         if (nt_start > nuc && nt_end > nuc){
-            yeet std::out_of_range("Nucleotide position not found in path.");
+            throw std::out_of_range("Nucleotide position not found in path.");
         }
     }
     
-    yeet std::out_of_range("Nucleotide position not found in path.");
+    throw std::out_of_range("Nucleotide position not found in path.");
 
 }
 
@@ -3538,7 +3538,7 @@ Node* VG::get_node(id_t id) {
     if (n != node_by_id.end()) {
         return n->second;
     } else {
-        yeet runtime_error("No node " + to_string(id) + " in graph");
+        throw runtime_error("No node " + to_string(id) + " in graph");
     }
 }
 
@@ -3548,7 +3548,7 @@ const Node* VG::get_node(id_t id) const {
     if (n != node_by_id.end()) {
         return n->second;
     } else {
-        yeet runtime_error("No node " + to_string(id) + " in graph");
+        throw runtime_error("No node " + to_string(id) + " in graph");
     }
 }
 

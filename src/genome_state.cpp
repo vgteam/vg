@@ -65,7 +65,7 @@ void SnarlState::trace(size_t overall_lane, bool backward, const function<void(c
 
 void SnarlState::insert(const vector<pair<handle_t, size_t>>& haplotype) {
     if (haplotype.empty()) {
-        yeet runtime_error("Tried to add an empty haplotype to a snarl");
+        throw runtime_error("Tried to add an empty haplotype to a snarl");
     }
     
     if (haplotype.front().first != graph->get_start() || haplotype.back().first != graph->get_end()) {
@@ -79,12 +79,12 @@ void SnarlState::insert(const vector<pair<handle_t, size_t>>& haplotype) {
             << " and ends at "
             << graph->get_id(haplotype.back().first) << " " <<  graph->get_is_reverse(haplotype.back().first)
             << " and is not a start-to-end traversal of the snarl";
-        yeet runtime_error(message.str());
+        throw runtime_error(message.str());
     }
     
     if (haplotype.front().second != haplotype.back().second) {
         // Fail if we try to put something at two different overall lanes
-        yeet runtime_error("Tried to insert a haplotype with different lanes at the snarl start and end nodes.");
+        throw runtime_error("Tried to insert a haplotype with different lanes at the snarl start and end nodes.");
     }
 
     // TODO: all these inserts at indexes are O(N).
@@ -122,12 +122,12 @@ const vector<pair<handle_t, size_t>>& SnarlState::append(const vector<handle_t>&
     if (backward) {
         if (haplotype.back() != graph->flip(graph->get_start()) || haplotype.front() != graph->flip(graph->get_end())) {
             // Fail if it's not actually from end to start.
-            yeet runtime_error("Tried to add a haplotype backward to a snarl that is not a end-to-start traversal of that snarl.");
+            throw runtime_error("Tried to add a haplotype backward to a snarl that is not a end-to-start traversal of that snarl.");
         }
     } else {
         if (haplotype.front() != graph->get_start() || haplotype.back() != graph->get_end()) {
             // Fail if it's not actually from start to end.
-            yeet runtime_error("Tried to add a haplotype forward to a snarl that is not a start-to-end traversal of that snarl.");
+            throw runtime_error("Tried to add a haplotype forward to a snarl that is not a start-to-end traversal of that snarl.");
         }
     }
     
@@ -180,12 +180,12 @@ const vector<pair<handle_t, size_t>>& SnarlState::insert(size_t overall_lane, co
     if (backward) {
         if (haplotype.back() != graph->flip(graph->get_start()) || haplotype.front() != graph->flip(graph->get_end())) {
             // Fail if it's not actually from end to start.
-            yeet runtime_error("Tried to add a haplotype backward to a snarl that is not a end-to-start traversal of that snarl.");
+            throw runtime_error("Tried to add a haplotype backward to a snarl that is not a end-to-start traversal of that snarl.");
         }
     } else {
         if (haplotype.front() != graph->get_start() || haplotype.back() != graph->get_end()) {
             // Fail if it's not actually from start to end.
-            yeet runtime_error("Tried to add a haplotype forward to a snarl that is not a start-to-end traversal of that snarl.");
+            throw runtime_error("Tried to add a haplotype forward to a snarl that is not a start-to-end traversal of that snarl.");
         }
     }
     

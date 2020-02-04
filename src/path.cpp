@@ -1482,7 +1482,7 @@ Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
                     if (n.position().node_id() == 0) {
                         // Complain if a Mapping has no position *and* has edit-initial
                         // deletions, which we need to remove but can't.
-                        yeet runtime_error(
+                        throw runtime_error(
                             "Cannot simplify Mapping with no position: need to update position when removing leading deletion");
                     }
                     
@@ -2340,6 +2340,15 @@ void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t
     for (size_t i = 0; i < path.mapping_size(); i++) {
         Position* position = path.mutable_mapping(i)->mutable_position();
         const pair<id_t, bool>& translation = translator.at(position->node_id());
+        position->set_node_id(translation.first);
+        position->set_is_reverse(translation.second != position->is_reverse());
+    }
+}
+
+void translate_oriented_node_ids(Path& path, const function<pair<id_t, bool>(id_t)>& translator) {
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        Position* position = path.mutable_mapping(i)->mutable_position();
+        const pair<id_t, bool>& translation = translator(position->node_id());
         position->set_node_id(translation.first);
         position->set_is_reverse(translation.second != position->is_reverse());
     }

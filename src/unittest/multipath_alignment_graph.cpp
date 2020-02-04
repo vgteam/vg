@@ -187,7 +187,8 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
             mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false);
             
             // Cut new anchors on snarls
-            mpg.resect_snarls_from_paths(&snarl_manager, identity, 5);
+            mpg.resect_snarls_from_paths(&snarl_manager,
+                                         MultipathAlignmentGraph::create_projector(identity), 5);
             
             // Make it align, with alignments per gap/tail
             mpg.align(query, vg, &aligner, true, 2, false, 5, out);
@@ -281,7 +282,8 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
             mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false);
             
             // Cut new anchors on snarls
-            mpg.resect_snarls_from_paths(&snarl_manager, identity, 5);
+            mpg.resect_snarls_from_paths(&snarl_manager,
+                                         MultipathAlignmentGraph::create_projector(identity), 5);
             
             // Make it align, with alignments per gap/tail
             mpg.align(query, vg, &aligner, true, 2, false, 5, out);
