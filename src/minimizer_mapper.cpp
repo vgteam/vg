@@ -972,7 +972,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     set_annotation(mappings[0], "mapq_locate_cap", mapq_locate_cap);
     set_annotation(mappings[0], "mapq_extended_cap", mapq_extended_cap);
     set_annotation(mappings[0], "mapq_non_extended_cap", mapq_non_extended_cap);
-    set_annotation(mappings[0], "mapq_non_extended_sum_cap", summed_cap);
     
     // Apply the caps
     mapq = min(min(mapq, mapq_locate_cap), min(mapq_extended_cap, mapq_non_extended_cap));
