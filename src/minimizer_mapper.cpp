@@ -1264,13 +1264,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     //If this cluster has a pair or if we aren't looking at pairs
                     
                     // First check against the additional score filter
-                    if (cluster_score_threshold != 0 && cluster_score[cluster_num] < cluster_score_cutoff) {
-                        //If the score isn't good enough, ignore this cluster
-                        if (track_provenance) {
-                            funnels[read_num].fail("cluster-score", cluster_num, cluster_score[cluster_num]);
-                        }
-                        return false;
-                    }
                     if (cluster_coverage_threshold != 0 && read_coverage_by_cluster[cluster_num] < cluster_coverage_cutoff) {
                         //If the score isn't good enough, ignore this cluster
                         if (track_provenance) {
@@ -1278,12 +1271,21 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         }
                         return false;
                     }
+                    if (cluster_score_threshold != 0 && cluster_score[cluster_num] < cluster_score_cutoff) {
+                        //If the score isn't good enough, ignore this cluster
+                        if (track_provenance) {
+                            funnels[read_num].pass("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
+                            funnels[read_num].pass("max-extensions", cluster_num);
+                            funnels[read_num].fail("cluster-score", cluster_num, cluster_score[cluster_num]);
+                        }
+                        return false;
+                    }
                     if (track_provenance) {
                         funnels[read_num].pass("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
                         funnels[read_num].pass("max-extensions", cluster_num);
+                        funnels[read_num].pass("cluster-score", cluster_num, cluster_score[cluster_num]);
                         funnels[read_num].pass("paired-clusters", cluster_num);
 
-                        funnels[read_num].pass("cluster-score", cluster_num, cluster_score[cluster_num]);
                         funnels[read_num].processing_input(cluster_num);
                     }
                     vector<size_t>& cluster = clusters[cluster_num].first;
@@ -1318,6 +1320,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     return true;
                 } else {
                     if (track_provenance) {
+                        funnels[read_num].pass("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
+                        funnels[read_num].pass("max-extensions", cluster_num);
+                        funnels[read_num].pass("cluster-score", cluster_num, cluster_score[cluster_num]);
                         funnels[read_num].fail("paired-clusters", cluster_num);
                     }
                     return false;
@@ -1331,6 +1336,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 }
             }, [&](size_t cluster_num) {
                 // This cluster is not sufficiently good.
+                // TODO: I'm not sure if this is what should be failing
                 if (track_provenance) {
                     funnels[read_num].fail("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
                 }
@@ -1475,8 +1481,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         funnels[read_num].project(extension_num);
                         read_num == 0 ? funnels[read_num].score(extension_num, alignments[fragment_num ].first.back().score()) :
                                         funnels[read_num].score(extension_num, alignments[fragment_num].second.back().score());
-                        // We're done with this input item
-                        funnels[read_num].processed_input();
                     }
                 }
 
@@ -1583,12 +1587,16 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     if (track_provenance) {
                         funnels[0].processing_input(j1);
                         funnels[1].processing_input(j2);
+                        funnels[0].substage("pair-clusters");
+                        funnels[1].substage("pair-clusters");
                         funnels[0].pass("pair-or-rescue", j1);
                         funnels[0].pass("max-rescue-attempts", j1);
                         funnels[0].project(j1);
                         funnels[1].pass("pair-or-rescue", j2);
                         funnels[1].pass("max-rescue-attempts", j2);
                         funnels[1].project(j2);
+                        funnels[0].substage_stop();
+                        funnels[1].substage_stop();
                         funnels[0].processed_input();
                         funnels[1].processed_input();
                     }
@@ -1760,8 +1768,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 size_t j = found_first ? alignment_indices[std::get<0>(index)].first[std::get<1>(index)]
                                         : alignment_indices[std::get<0>(index)].second[std::get<1>(index)];
                 if (track_provenance) {
-
+                    funnels[found_first ? 0 : 1].processing_input(j);
                     funnels[found_first ? 0 : 1].pass("max-rescue-attempts", j);
+                    funnels[found_first ? 0 : 1].substage("rescue");
                 }
                 Alignment& mapped_aln = found_first ? alignments[std::get<0>(index)].first[std::get<1>(index)]
                                                     : alignments[std::get<0>(index)].second[std::get<1>(index)];
@@ -1797,12 +1806,17 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     better_cluster_count_alignment_pairs.emplace_back(0);
                     if (track_provenance) {
                         funnels[found_first ? 0 : 1].pass("pair-or-rescue", j);
+                        funnels[found_first ? 0 : 1].project(j);
+                        funnels[found_first ? 0 : 1].substage_stop();
                         funnels[found_first ? 1 : 0].introduce();
                     }
                 } else {
                     if (track_provenance) {
                         funnels[found_first ? 0 : 1].fail("pair-or-rescue", j);
                     }
+                }
+                if (track_provenance) {
+                    funnels[found_first ? 0 : 1].processed_input();
                 }
                 return true;
             }, [&](size_t i) {
@@ -1811,7 +1825,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     bool found_first = std::get<2>(index); 
                     size_t j = found_first ? alignment_indices[std::get<0>(index)].first[std::get<1>(index)]
                                             : alignment_indices[std::get<0>(index)].second[std::get<1>(index)];
-                    funnels[found_first ? 0 : 1].fail("pair-or-rescue", j);
+                    funnels[found_first ? 0 : 1].fail("max-rescue-attempts", j);
+                    funnels[found_first ? 0 : 1].pass("pair-or-rescue", j);
                 }
                 return;
             }, [&] (size_t i) {
@@ -1821,6 +1836,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     size_t j = found_first ? alignment_indices[std::get<0>(index)].first[std::get<1>(index)]
                                             : alignment_indices[std::get<0>(index)].second[std::get<1>(index)];
                     funnels[found_first ? 0 : 1].fail("pair-or-rescue", j);
+                    funnels[found_first ? 0 : 1].pass("max-rescue-attempts", j);
                 }
                 return;
             });
