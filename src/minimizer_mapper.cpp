@@ -1167,6 +1167,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     }
 
     //TODO: Might not want to use this
+    //For each fragment cluster, we want to know how many equivalent or better clusters we found
     vector<size_t> fragment_cluster_indices_by_score (max_fragment_num + 1);
     for (size_t i = 0 ; i < fragment_cluster_indices_by_score.size() ; i++) {
         fragment_cluster_indices_by_score[i] = i;
@@ -1582,7 +1583,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         cerr << "Alignment 1: " << pb2json(alignment1) << endl << "Alignment 2: " << pb2json(alignment2) << endl;
 #endif
                     }
-                    //TODO: Could also give each alignment a group score depending on how many identical alignments it has
 
                     if (track_provenance) {
                         funnels[0].processing_input(j1);
@@ -1769,7 +1769,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                                         : alignment_indices[std::get<0>(index)].second[std::get<1>(index)];
                 if (track_provenance) {
                     funnels[found_first ? 0 : 1].processing_input(j);
-                    funnels[found_first ? 0 : 1].pass("max-rescue-attempts", j);
                     funnels[found_first ? 0 : 1].substage("rescue");
                 }
                 Alignment& mapped_aln = found_first ? alignments[std::get<0>(index)].first[std::get<1>(index)]
@@ -1806,6 +1805,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     better_cluster_count_alignment_pairs.emplace_back(0);
                     if (track_provenance) {
                         funnels[found_first ? 0 : 1].pass("pair-or-rescue", j);
+                        funnels[found_first ? 0 : 1].pass("max-rescue-attempts", j);
                         funnels[found_first ? 0 : 1].project(j);
                         funnels[found_first ? 0 : 1].substage_stop();
                         funnels[found_first ? 1 : 0].introduce();
@@ -1825,8 +1825,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     bool found_first = std::get<2>(index); 
                     size_t j = found_first ? alignment_indices[std::get<0>(index)].first[std::get<1>(index)]
                                             : alignment_indices[std::get<0>(index)].second[std::get<1>(index)];
-                    funnels[found_first ? 0 : 1].fail("max-rescue-attempts", j);
                     funnels[found_first ? 0 : 1].pass("pair-or-rescue", j);
+                    funnels[found_first ? 0 : 1].fail("max-rescue-attempts", j);
                 }
                 return;
             }, [&] (size_t i) {
@@ -1836,7 +1836,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     size_t j = found_first ? alignment_indices[std::get<0>(index)].first[std::get<1>(index)]
                                             : alignment_indices[std::get<0>(index)].second[std::get<1>(index)];
                     funnels[found_first ? 0 : 1].fail("pair-or-rescue", j);
-                    funnels[found_first ? 0 : 1].pass("max-rescue-attempts", j);
                 }
                 return;
             });
