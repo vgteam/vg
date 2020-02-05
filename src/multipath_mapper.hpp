@@ -95,7 +95,7 @@ namespace vg {
         
         /// Map random sequences against the graph to calibrate a parameterized distribution that detects
         /// when mappings are likely to have occurred by chance
-        void calibrate_mismapping_detection(size_t num_simulations = 1000, size_t simulated_read_length = 150);
+        void calibrate_mismapping_detection(size_t num_simulations, const vector<size_t>& simulated_read_lengths);
         
         /// Should be called once after construction, or any time the band padding multiplier is changed
         void init_band_padding_memo();
@@ -118,9 +118,12 @@ namespace vg {
         size_t band_padding_memo_size = 500;
         bool use_weibull_calibration = false;
         double max_exponential_scale = 1.65;
-        double weibull_scale = 3.53;
-        double weibull_shape_per_length = 0.0135;
-        double weibull_offset = 15.3;
+        double weibull_scale_intercept = 3.53;
+        double weibull_scale_slope = 3.53;
+        double weibull_shape_intercept = 0.0135;
+        double weibull_shape_slope = 0.0135;
+        double weibull_offset_intercept = 15.3;
+        double weibull_offset_slope = 15.3;
         double max_mapping_p_value = 0.00001;
         size_t max_alt_mappings = 1;
         size_t max_single_end_mappings_for_rescue = 64;

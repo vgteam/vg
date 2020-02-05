@@ -631,7 +631,10 @@ namespace vg {
         else {
             double p_value;
             if (use_weibull_calibration) {
-                p_value = 1.0 - weibull_cdf(match_length, weibull_scale, weibull_shape_per_length * read_length, weibull_offset);
+                double scale = exp(weibull_scale_intercept + weibull_scale_slope * log(read_length));
+                double shape = exp(weibull_shape_intercept + weibull_shape_slope * log(read_length));
+                double offset = exp(weibull_offset_intercept + weibull_offset_slope * log(read_length));
+                p_value = 1.0 - weibull_cdf(match_length, scale, shape, offset);
             }
             else {
                 p_value = 1.0 - max_exponential_cdf(match_length, max_exponential_scale, total_seq_length * read_length);
@@ -644,61 +647,90 @@ namespace vg {
     }
     
     
-    void MultipathMapper::calibrate_mismapping_detection(size_t num_simulations, size_t simulated_read_length) {
+    void MultipathMapper::calibrate_mismapping_detection(size_t num_simulations, const vector<size_t>& simulated_read_lengths) {
         // we don't want to do base quality adjusted alignments for this stage since we are just simulating random sequences
         // with no base qualities
         bool reset_quality_adjustments = adjust_alignments_for_base_quality;
         adjust_alignments_for_base_quality = false;
         
-        // compute the pseudo length of a bunch of randomly generated sequences
-        vector<double> lengths(num_simulations, 0.0);
-#pragma omp parallel for
-        for (size_t i = 0; i < num_simulations; i++) {
-            
-            Alignment alignment;
-            alignment.set_sequence(pseudo_random_sequence(simulated_read_length, i));
-            vector<MultipathAlignment> multipath_alns;
-            multipath_map(alignment, multipath_alns);
-            
-            if (!multipath_alns.empty()) {
-                lengths[i] = pseudo_length(multipath_alns.front());
-            }
-        }
+        // and we expect small MEMs, so don't filter them out
+        int reset_min_mem_length = min_mem_length;
+        size_t reset_min_clustering_mem_length = min_clustering_mem_length;
+        min_mem_length = 1;
+        min_clustering_mem_length = 1;
         
-#ifdef debug_report_startup_training
-        cerr << "mismatch calibration training data" << endl;
-        cerr << "\t";
-        for (size_t i = 0; i < lengths.size(); ++i) {
-            cerr << lengths[i] << ", ";
-            if (i && !(i % 20)) {
-                cerr << endl << "\t";
-            }
-        }
-        cerr << endl;
-#endif
+        // and these reads are slow to map, but we only need primaries
+        size_t reset_max_alt_mappings = max_alt_mappings;
+        max_alt_mappings = 1;
         
         // reset the memo of p-values (which we are calibrating) for any updates using the default parameter during the null mappings
         p_value_memo.clear();
         
-        // TODO: this gets nans sometimes, but I bet golden section fitting would actually work better
-        // model the lengths as the maximum of genome_size * read_length exponential variables
-        max_exponential_scale = fit_max_exponential(lengths, total_seq_length * simulated_read_length);
+        // the logarithms of the MLE estimators at each read length
+        vector<double> log_mle_weibull_scales;
+        vector<double> log_mle_weibull_shapes;
+        vector<double> log_mle_weibull_offsets;
         
-        // alternatively model lengths with a weibull distribution that has an offset
-        auto params = fit_offset_weibull(lengths);
-        weibull_scale = get<0>(params);
-        weibull_shape_per_length = get<1>(params) / simulated_read_length;
-        weibull_offset = get<2>(params);
+        for (const size_t simulated_read_length : simulated_read_lengths) {
+            // compute the pseudo length of a bunch of randomly generated sequences
+            vector<double> pseudo_lengths(num_simulations, 0.0);
+#pragma omp parallel for
+            for (size_t i = 0; i < num_simulations; i++) {
                 
+                Alignment alignment;
+                alignment.set_sequence(pseudo_random_sequence(simulated_read_length, i));
+                vector<MultipathAlignment> multipath_alns;
+                multipath_map(alignment, multipath_alns);
+                
+                if (!multipath_alns.empty()) {
+                    pseudo_lengths[i] = pseudo_length(multipath_alns.front());
+                }
+            }
+            
+            // alternatively model lengths with a weibull distribution that has an offset
+            auto params = fit_offset_weibull(pseudo_lengths);
+            log_mle_weibull_scales.push_back(log(get<0>(params)));
+            log_mle_weibull_shapes.push_back(log(get<1>(params)));
+            log_mle_weibull_offsets.push_back(log(get<2>(params)));
+            
 #ifdef debug_report_startup_training
-        cerr << "trained parameters: " << endl;
-        cerr << "\tmax exponential scale: " << max_exponential_scale << endl;
-        cerr << "\tweibull scale: " << weibull_scale << endl;
-        cerr << "\tweibull shape: " << get<1>(params) << " (per length " << weibull_shape_per_length << ")" << endl;
-        cerr << "\tweibull offset: " << weibull_offset << endl;
+            cerr << "trained parameters for length " << simulated_read_length << ": " << endl;
+            cerr << "\tweibull scale: " << get<0>(params) << endl;
+            cerr << "\tweibull shape: " << get<1>(params) << endl;
+            cerr << "\tweibull offset: " << get<2>(params) << endl;
+#endif
+        }
+        
+        // make a design matrix for a log-log regression
+        vector<vector<double>> X(simulated_read_lengths.size());
+        for (size_t i = 0; i < X.size(); ++i) {
+            X[i].resize(2, 1.0);
+            X[i][1] = log(simulated_read_lengths[i]);
+        }
+        
+        auto scale_coefs = regress(X, log_mle_weibull_scales);
+        auto shape_coefs = regress(X, log_mle_weibull_shapes);
+        auto offset_coefs = regress(X, log_mle_weibull_offsets);
+        
+        weibull_scale_intercept = scale_coefs[0];
+        weibull_scale_slope = scale_coefs[1];
+        weibull_shape_intercept = shape_coefs[0];
+        weibull_shape_slope = shape_coefs[1];
+        weibull_offset_intercept = offset_coefs[0];
+        weibull_offset_slope = offset_coefs[1];
+        
+#ifdef debug_report_startup_training
+        cerr << "final regression parameters:" << endl;
+        cerr << "\tweibull scale = exp(" << weibull_scale_intercept << " + " << weibull_scale_slope << " * log L)" << endl;
+        cerr << "\tweibull shape = exp(" << weibull_shape_intercept << " + " << weibull_shape_slope << " * log L)" << endl;
+        cerr << "\tweibull offset = exp(" << weibull_offset_intercept << " + " << weibull_offset_slope << " * log L)" << endl;
 #endif
         
+        // reset mapping parameters to their original values
         adjust_alignments_for_base_quality = reset_quality_adjustments;
+        min_clustering_mem_length = reset_min_clustering_mem_length;
+        min_mem_length = reset_min_mem_length;
+        max_alt_mappings = reset_max_alt_mappings;
     }
     
     int64_t MultipathMapper::distance_between(const MultipathAlignment& multipath_aln_1,

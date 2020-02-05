@@ -180,7 +180,7 @@ int main_mpmap(int argc, char** argv) {
     bool auto_calibrate_mismapping_detection = true;
     double max_mapping_p_value = 0.00001;
     size_t num_calibration_simulations = 1000;
-    size_t calibration_read_length = 150;
+    vector<size_t> calibration_read_lengths{100, 150, 250, 450, 750};
     bool use_weibull_calibration = true;
     size_t order_length_repeat_hit_max = 3000;
     size_t sub_mem_count_thinning = 4;
@@ -1033,13 +1033,7 @@ int main_mpmap(int argc, char** argv) {
     
     // if directed to, auto calibrate the mismapping detection to the graph
     if (auto_calibrate_mismapping_detection) {
-        // drop the maximum number of mappings to compute down to 1 temporarily so this doesn't take forever
-        size_t stored_max_mappings = multipath_mapper.max_alt_mappings;
-        multipath_mapper.max_alt_mappings = 1;
-        
-        multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_length);
-        
-        multipath_mapper.max_alt_mappings = stored_max_mappings;
+        multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_lengths);
     }
     
     // Count our threads 
