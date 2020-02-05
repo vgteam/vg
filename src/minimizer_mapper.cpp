@@ -1262,8 +1262,11 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             [&](size_t cluster_num) {
                 // Handle sufficiently good clusters 
                 
-                if (!found_paired_cluster || fragment_cluster_has_pair[clusters[cluster_num].second]) { 
+                if (!found_paired_cluster || fragment_cluster_has_pair[clusters[cluster_num].second] || 
+                    (read_coverage_by_cluster[cluster_num] == cluster_coverage_cutoff + cluster_coverage_threshold &&
+                           cluster_score[cluster_num] == cluster_score_cutoff + cluster_score_threshold)) { 
                     //If this cluster has a pair or if we aren't looking at pairs
+                    //Or if it is the best cluster
                     
                     // First check against the additional score filter
                     if (cluster_coverage_threshold != 0 && read_coverage_by_cluster[cluster_num] < cluster_coverage_cutoff) {
@@ -1625,9 +1628,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         }
     }
 
-    if (!found_pair) {
+    if (!unpaired_alignments.empty()) {
         //If we didn't find any pairs within the fragment clusters, return the best individual alignments
-        if (max_rescue_attempts == 0 ) {
+        if (!found_pair && max_rescue_attempts == 0 ) {
             //If we aren't attempting rescue, just return the best for each
 
 #ifdef debug
@@ -1757,7 +1760,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 tuple<size_t, size_t, bool> index = unpaired_alignments.at(i);
                 return (double) std::get<2>(index) ? alignments[std::get<0>(index)].first[std::get<1>(index)].score()
                                                    : alignments[std::get<0>(index)].second[std::get<1>(index)].score();
-            }, 0, 1, max_rescue_attempts, [&](size_t i) {
+            }, 0, 1, found_pair ? 1 : max_rescue_attempts, [&](size_t i) {
+                //If we have a pair, attempt rescue on only the best unpaired alignment, otherwise up to max_rescue_attempts
                 tuple<size_t, size_t, bool> index = unpaired_alignments.at(i);
                 bool found_first = std::get<2>(index); 
                 size_t j = found_first ? alignment_indices[std::get<0>(index)].first[std::get<1>(index)]
@@ -1800,7 +1804,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     better_cluster_count_alignment_pairs.emplace_back(0);
                     if (track_provenance) {
                         funnels[found_first ? 0 : 1].pass("max-rescue-attempts", j);
-                        funnels[found_first ? 0 : 1].project(j)
+                        funnels[found_first ? 0 : 1].project(j);
                         funnels[found_first ? 1 : 0].introduce();
                     }
                 } 
