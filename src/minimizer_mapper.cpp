@@ -1779,7 +1779,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 Alignment rescued_aln = found_first ? aln2 : aln1;
                 rescued_aln.clear_path();
 
-                if (found_pair && mapped_aln.score() < found_first ? best_alignment_scores.first : best_alignment_scores.second) {
+                if (found_pair && (double) mapped_aln.score() < (double) (found_first ? best_alignment_scores.first : best_alignment_scores.second) * 0.9) {
                     //If this is not the best alignment we found for this end, do nothing
                     return true;
                 }
