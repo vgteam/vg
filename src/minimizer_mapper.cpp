@@ -1074,6 +1074,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     //so the funnel can track them
     vector<pair<vector<Alignment>, vector<Alignment>>> alignments;
     vector<pair<vector<size_t>, vector<size_t>>> alignment_indices;
+    pair<int, int> best_alignment_scores (0, 0); // The best alignment score for each end
 
 
     //Scores and coverage of each of the clusters
@@ -1476,6 +1477,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 if (second_best_alignment.score() != 0 && 
                     second_best_alignment.score() > best_alignment.score() * 0.8) {
                     //If there is a second extension and its score is at least half of the best score
+                    read_num == 0 ? best_alignment_scores.first = max(best_alignment_scores.first, second_best_alignment.score())
+                                  : best_alignment_scores.second = max(best_alignment_scores.second, second_best_alignment.score());
                     read_num == 0 ? alignments[fragment_num ].first.emplace_back(std::move(second_best_alignment) ) :
                                     alignments[fragment_num ].second.emplace_back(std::move(second_best_alignment));
                     read_num == 0 ? alignment_indices[fragment_num].first.emplace_back(curr_funnel_index)
@@ -1490,6 +1493,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     }
                 }
 
+                read_num == 0 ? best_alignment_scores.first = max(best_alignment_scores.first, best_alignment.score())
+                              : best_alignment_scores.second = max(best_alignment_scores.second, best_alignment.score());
                 read_num == 0 ? alignments[fragment_num].first.emplace_back(std::move(best_alignment))
                               : alignments[fragment_num].second.emplace_back(std::move(best_alignment));
                 read_num == 0 ? alignment_indices[fragment_num].first.emplace_back(curr_funnel_index)
@@ -1553,7 +1558,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // <fragment index, alignment_index, true if its the first end> 
     vector<tuple<size_t, size_t, bool>> unpaired_alignments;
 
-    pair<int, int> best_alignment_scores (0, 0); // The best alignment score for each end
     for (size_t fragment_num = 0 ; fragment_num < alignments.size() ; fragment_num ++ ) {
         //Get pairs of plausible alignments
         alignment_groups[fragment_num].first.resize(alignments[fragment_num].first.size());
@@ -1583,8 +1587,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         fragment_distances.emplace_back(fragment_distance);
                         better_cluster_count_alignment_pairs.emplace_back(better_cluster_count[fragment_num]);
 
-                        best_alignment_scores.first = max(best_alignment_scores.first, alignment1.score());
-                        best_alignment_scores.second = max(best_alignment_scores.second, alignment2.score());
 #ifdef debug
         cerr << "Found pair of alignments from fragment " << fragment_num << " with scores " 
              << alignment1.score() << " " << alignment2.score() << " at distance " << fragment_distance 
@@ -1763,7 +1765,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 tuple<size_t, size_t, bool> index = unpaired_alignments.at(i);
                 return (double) std::get<2>(index) ? alignments[std::get<0>(index)].first[std::get<1>(index)].score()
                                                    : alignments[std::get<0>(index)].second[std::get<1>(index)].score();
-            }, 0, 1, found_pair ? 1 : max_rescue_attempts, [&](size_t i) {
+            }, 0, 1,  max_rescue_attempts, [&](size_t i) {
                 //If we have a pair, attempt rescue on only the best unpaired alignment, otherwise up to max_rescue_attempts
                 //TODO: How many rescue attempts or how do we decide which ones?
                 tuple<size_t, size_t, bool> index = unpaired_alignments.at(i);
