@@ -1382,8 +1382,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         // Now start the alignment step. Everything has to become an alignment.
 
         // We will fill this with all computed alignments in estimated score order.
-        alignments.resize(max_fragment_num + 1);
-        alignment_indices.resize(max_fragment_num + 1);
+        alignments.resize(max_fragment_num + 2);
+        alignment_indices.resize(max_fragment_num + 2);
 
 
         
@@ -1755,13 +1755,13 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             //Attempt rescue
 
             //Add a new "fragment cluster" of rescued alignments that we will keep track of
-            alignments.emplace_back();
             process_until_threshold(unpaired_alignments, (std::function<double(size_t)>) [&](size_t i) -> double{
                 tuple<size_t, size_t, bool> index = unpaired_alignments.at(i);
                 return (double) std::get<2>(index) ? alignments[std::get<0>(index)].first[std::get<1>(index)].score()
                                                    : alignments[std::get<0>(index)].second[std::get<1>(index)].score();
             }, 0, 1, found_pair ? 1 : max_rescue_attempts, [&](size_t i) {
                 //If we have a pair, attempt rescue on only the best unpaired alignment, otherwise up to max_rescue_attempts
+                //TODO: How many rescue attempts or how do we decide which ones?
                 tuple<size_t, size_t, bool> index = unpaired_alignments.at(i);
                 bool found_first = std::get<2>(index); 
                 size_t j = found_first ? alignment_indices[std::get<0>(index)].first[std::get<1>(index)]
@@ -1796,6 +1796,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                                 found_first ? alignments.back().second.size() : alignments.back().first.size());
                     found_first ? alignments.back().second.emplace_back(std::move(rescued_aln)) 
                                 : alignments.back().first.emplace_back(std::move(rescued_aln));
+
+                    found_first ? alignment_groups.back().second.emplace_back() : alignment_groups.back().first.emplace_back();
                     pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair = found_first ? 
                                 make_pair(mapped_index, rescued_index) : make_pair(rescued_index, mapped_index);
                     paired_alignments.push_back(index_pair);
