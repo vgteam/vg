@@ -1553,6 +1553,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // <fragment index, alignment_index, true if its the first end> 
     vector<tuple<size_t, size_t, bool>> unpaired_alignments;
 
+    pair<int, int> best_alignment_scores (0, 0); // The best alignment score for each end
     for (size_t fragment_num = 0 ; fragment_num < alignments.size() ; fragment_num ++ ) {
         //Get pairs of plausible alignments
         alignment_groups[fragment_num].first.resize(alignments[fragment_num].first.size());
@@ -1581,6 +1582,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         paired_scores.emplace_back(score);
                         fragment_distances.emplace_back(fragment_distance);
                         better_cluster_count_alignment_pairs.emplace_back(better_cluster_count[fragment_num]);
+
+                        best_alignment_scores.first = max(best_alignment_scores.first, alignment1.score());
+                        best_alignment_scores.second = max(best_alignment_scores.second, alignment2.score());
 #ifdef debug
         cerr << "Found pair of alignments from fragment " << fragment_num << " with scores " 
              << alignment1.score() << " " << alignment2.score() << " at distance " << fragment_distance 
@@ -1774,6 +1778,11 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                                                     : alignments[std::get<0>(index)].second[std::get<1>(index)];
                 Alignment rescued_aln = found_first ? aln2 : aln1;
                 rescued_aln.clear_path();
+
+                if (found_pair && mapped_aln.score() < found_first ? best_alignment_scores.first : best_alignment_scores.second) {
+                    //If this is not the best alignment we found for this end, do nothing
+                    return true;
+                }
 
                 found_first ? attempt_rescue(mapped_aln, rescued_aln, true ) : 
                                 attempt_rescue(mapped_aln, rescued_aln, false); 
