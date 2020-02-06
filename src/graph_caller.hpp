@@ -220,6 +220,65 @@ protected:
 };
 
 
+/**
+ * FlowCaller : Uses the FlowTraversal finder to find best-supported
+ * traversals, and calls those.  should work on any graph but will not
+ * report cyclic traversals.  Does not (yet, anyway) support nested
+ * calling, so the entire site is processes in one shot. 
+ * Designed to replace LegacyCaller, as it should miss fewer obviously
+ * good traversals, and is not dependent on old protobuf-based structures. 
+ */
+class FlowCaller : public GraphCaller, public VCFOutputCaller {
+public:
+    FlowCaller(const PathPositionHandleGraph& graph,
+               SupportBasedSnarlCaller& snarl_caller,
+               SnarlManager& snarl_manager,
+               const string& sample_name,
+               size_t max_traverals = 100,
+               const vector<string>& ref_paths = {},
+               const vector<size_t>& ref_path_offsets = {},
+               ostream& out_stream = cout);
+   
+    virtual ~FlowCaller();
+
+    virtual bool call_snarl(const Snarl& snarl);
+
+    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                              const vector<size_t>& contig_length_overrides = {}) const;
+
+protected:
+
+    // TODO:
+    // these methods can and should be merged with legacy caller, maybe by pushing up to VCFOutputCaller
+
+    /// print a vcf variant 
+    void emit_variant(const Snarl& snarl, int ref_trav_idx, const vector<SnarlTraversal>& called_traversals,
+                      const vector<int>& genotype, const unique_ptr<SnarlCaller::CallInfo>& call_info, const string& ref_path_name) const;
+
+    /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
+    /// the bool is true if the snarl's backward on the path
+    tuple<size_t, size_t, bool, step_handle_t, step_handle_t> get_ref_interval(const Snarl& snarl, const string& ref_path_name) const;
+
+    /// clean up the alleles to not share common prefixes / suffixes
+    void flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const;
+
+protected:
+
+    /// the graph
+    const PathPositionHandleGraph& graph;
+
+    /// the traversal finder
+    FlowTraversalFinder* traversal_finder;
+
+    /// keep track of the reference paths
+    vector<string> ref_paths;
+
+    /// keep track of offsets in the reference paths
+    map<string, size_t> ref_offsets;
+
+};
+
+
 
 }
 

@@ -558,6 +558,58 @@ protected:
                                 
 };
 
+/** Finds traversals with the most flow.  Node and edge weights are specified 
+ * using the callbacks and can be used, ex, to yield read supports.  
+ * If one traversal is requested, then the path with the highest flow (whose
+ * node or edge with the minimum weight is maximum) is returned.  If K
+ * traversals are specified, then the K highest flow traversals are returned.
+ * This is designed to be a replacement for RepresentativeTraversalFinder.
+ * It should do a better job of enumerating off-reference traversals, and will
+ * of course guarantee to return all the optimal traversals (in the context of max flow).
+ * Unlike RepresentativeTraversalFinder, it does not currently support nested
+ * snarls, so all traversals returned are explicit.  
+ * It is possible that it will blow up on massive snarls, espeically for large Ks. 
+ */ 
+class FlowTraversalFinder : public TraversalFinder {
+    
+protected:
+    const PathHandleGraph& graph;
+    
+    SnarlManager& snarl_manager;
+
+    /// The K-best traversals are returned
+    size_t K;
+
+    /// Callbacks to get supports
+    function<double(handle_t)> node_weight_callback;
+    function<double(edge_t)> edge_weight_callback;
+    
+public:
+    
+    // if path_names not empty, only those paths will be considered
+    FlowTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager,
+                        size_t K,
+                        function<double(handle_t)> node_weight_callback,
+                        function<double(edge_t)> edge_weight_callback);
+
+    /**
+     * Return the K widest (most flow) traversals through the site
+     * The reference traversal will be returned first (regardless of its flow).
+     * After, the traversals are listed in decreasing order
+     */
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+
+    /**
+     * Return the K widest traversals, along with their flows
+     */
+    virtual pair<vector<SnarlTraversal>, vector<double>> find_weighted_traversals(const Snarl& site);
+
+    /// Set K
+    void setK(size_t k);
+
+};    
+
+
 }
 
 #endif
