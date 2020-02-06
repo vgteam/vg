@@ -1372,7 +1372,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 4, 6, sub_graph, false); 
+            dist_index.subgraphInRange(path, &graph, 5, 7, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(3));
             REQUIRE(sub_graph.has_node(4));
@@ -1390,7 +1390,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 3, 6, sub_graph, false); 
+            dist_index.subgraphInRange(path, &graph, 4, 7, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(3));
             REQUIRE(sub_graph.has_node(4));
@@ -1435,7 +1435,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 3, 6, sub_graph, false); 
+            dist_index.subgraphInRange(path, &graph, 4, 7, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(3));
             REQUIRE(sub_graph.has_node(4));
@@ -1452,7 +1452,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 9, 9, sub_graph, false); 
+            dist_index.subgraphInRange(path, &graph, 10, 10, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(3));
             REQUIRE(!sub_graph.has_node(4));
@@ -1470,7 +1470,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 5, 5, sub_graph, false); 
+            dist_index.subgraphInRange(path, &graph, 6, 6, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(3));
             REQUIRE(!sub_graph.has_node(4));
@@ -1530,7 +1530,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 6, 6, sub_graph, false); 
+            dist_index.subgraphInRange(path, &graph, 9, 9, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(3));
             REQUIRE(!sub_graph.has_node(8));
@@ -1551,7 +1551,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 11, 13, sub_graph, false); 
+            dist_index.subgraphInRange(path, &graph, 12, 14, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(3));
             REQUIRE(!sub_graph.has_node(8));
@@ -1571,7 +1571,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 7, 10, sub_graph, false); 
+            dist_index.subgraphInRange(path, &graph, 8, 11, sub_graph, true); 
 
             REQUIRE(sub_graph.has_node(1));
             REQUIRE(!sub_graph.has_node(2));
@@ -1592,7 +1592,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 8, 9, sub_graph, false); 
+            dist_index.subgraphInRange(path, &graph, 12, 13, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(1));
             REQUIRE(!sub_graph.has_node(2));
@@ -1615,7 +1615,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 12, 13, sub_graph, false); 
+            dist_index.subgraphInRange(path, &graph, 16, 17, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(1));
             REQUIRE(!sub_graph.has_node(2));
@@ -1688,12 +1688,13 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
                 id_t nodeID1 = node1->id();
                 handle_t handle = graph.get_handle(nodeID1, false);
                 path_handle_t path_handle = graph.create_path_handle("test_path");
-                graph.append_step(path_handle, handle);
+                graph.prepend_step(path_handle, handle);
                 Path path = path_from_path_handle(graph, path_handle);
-                pos_t pos1 = make_pos_t(nodeID1, false, graph.get_length(handle)-1 );
+                pos_t pos1 = make_pos_t(nodeID1, false, 0 );
 
                 SubHandleGraph sub_graph(&graph);
-                dist_index.subgraphInRange(path, &graph, min, max, sub_graph, false); 
+                size_t node_len = graph.get_length(handle);
+                dist_index.subgraphInRange(path, &graph, min+1, max+1, sub_graph, true); 
 
                 graph.for_each_handle([&] (const handle_t h ) { 
                     id_t node_id = graph.get_id(h);
@@ -1718,6 +1719,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
                             cerr << "Node " << node_id << " from pos " << pos1 << " with distances " 
                                  << dist_index.minDistance(pos1, make_pos_t(node_id, false, 0)) << " and " 
                                  << dist_index.minDistance(pos1, make_pos_t(node_id, true, 0)) 
+                                 << " (" << dist_start_fd << " " << dist_end_fd << " " << dist_start_bk << " " << dist_end_bk << ") "
                                  << " is in the subgraph but shouldn't be " << endl;
                             graph.serialize_to_file("testGraph");
                         }
@@ -1728,6 +1730,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
                             cerr << "Node " << node_id << " from pos " << pos1 <<" with distances " 
                                  << dist_index.minDistance(pos1, make_pos_t(node_id, false, 0)) << " and " 
                                  << dist_index.minDistance(pos1, make_pos_t(node_id, true, 0)) 
+                                 << " (" << dist_start_fd << " " << dist_end_fd << " " << dist_start_bk << " " << dist_end_bk << ") "
                                  << " is not in the subgraph but should be " << endl;
                             graph.serialize_to_file("testGraph");
                             REQUIRE(!(start_forward || end_forward || in_forward || start_backward || end_backward || in_backward));
