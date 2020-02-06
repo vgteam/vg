@@ -637,7 +637,9 @@ namespace vg {
                 p_value = 1.0 - weibull_cdf(match_length, scale, shape, offset);
             }
             else {
-                p_value = 1.0 - max_exponential_cdf(match_length, max_exponential_rate, max_exponential_shape);
+                double rate = max_exponential_rate_intercept + max_exponential_rate_slope * read_length;
+                double shape = exp(max_exponential_shape_intercept + max_exponential_shape_slope * read_length);
+                p_value = 1.0 - max_exponential_cdf(match_length, rate, shape);
             }
             if (p_value_memo.size() < max_p_value_memo_size) {
                 p_value_memo[make_pair(match_length, read_length)] = p_value;
@@ -670,6 +672,8 @@ namespace vg {
         vector<double> log_mle_weibull_scales;
         vector<double> log_mle_weibull_shapes;
         vector<double> log_mle_weibull_offsets;
+        vector<double> mle_max_exponential_rates;
+        vector<double> log_mle_max_exponential_shapes;
         
         for (const size_t simulated_read_length : simulated_read_lengths) {
             // compute the pseudo length of a bunch of randomly generated sequences
@@ -694,8 +698,8 @@ namespace vg {
             log_mle_weibull_offsets.push_back(log(get<2>(weibull_params)));
             
             auto max_exp_params = fit_max_exponential(pseudo_lengths);
-            max_exponential_rate = max_exp_params.first;
-            max_exponential_shape = max_exp_params.second;
+            mle_max_exponential_rates.push_back(max_exp_params.first);
+            log_mle_max_exponential_shapes.push_back(log(max_exp_params.second));
                         
 #ifdef debug_report_startup_training
             cerr << "trained parameters for length " << simulated_read_length << ": " << endl;
@@ -707,29 +711,42 @@ namespace vg {
 #endif
         }
         
-        // make a design matrix for a log-log regression
+        // make a design matrix for a log regression and a linear regression
         vector<vector<double>> X(simulated_read_lengths.size());
+        vector<vector<double>> X_log(simulated_read_lengths.size());
         for (size_t i = 0; i < X.size(); ++i) {
             X[i].resize(2, 1.0);
-            X[i][1] = log(simulated_read_lengths[i]);
+            X_log[i].resize(2, 1.0);
+            X[i][1] = simulated_read_lengths[i];
+            X_log[i][1] = log(simulated_read_lengths[i]);
         }
         
-        auto scale_coefs = regress(X, log_mle_weibull_scales);
-        auto shape_coefs = regress(X, log_mle_weibull_shapes);
-        auto offset_coefs = regress(X, log_mle_weibull_offsets);
+        auto weibull_scale_coefs = regress(X, log_mle_weibull_scales);
+        auto weibull_shape_coefs = regress(X, log_mle_weibull_shapes);
+        auto weibull_offset_coefs = regress(X, log_mle_weibull_offsets);
         
-        weibull_scale_intercept = scale_coefs[0];
-        weibull_scale_slope = scale_coefs[1];
-        weibull_shape_intercept = shape_coefs[0];
-        weibull_shape_slope = shape_coefs[1];
-        weibull_offset_intercept = offset_coefs[0];
-        weibull_offset_slope = offset_coefs[1];
+        weibull_scale_intercept = weibull_scale_coefs[0];
+        weibull_scale_slope = weibull_scale_coefs[1];
+        weibull_shape_intercept = weibull_shape_coefs[0];
+        weibull_shape_slope = weibull_shape_coefs[1];
+        weibull_offset_intercept = weibull_offset_coefs[0];
+        weibull_offset_slope = weibull_offset_coefs[1];
+        
+        auto max_exp_rate_coefs = regress(X, mle_max_exponential_rates);
+        auto max_exp_shape_coefs = regress(X, log_mle_max_exponential_shapes);
+        
+        max_exponential_rate_intercept = max_exp_rate_coefs[0];
+        max_exponential_rate_slope = max_exp_rate_coefs[1];
+        max_exponential_shape_intercept = max_exp_shape_coefs[0];
+        max_exponential_shape_slope = max_exp_shape_coefs[1];
         
 #ifdef debug_report_startup_training
         cerr << "final regression parameters:" << endl;
         cerr << "\tweibull scale = exp(" << weibull_scale_intercept << " + " << weibull_scale_slope << " * log L)" << endl;
         cerr << "\tweibull shape = exp(" << weibull_shape_intercept << " + " << weibull_shape_slope << " * log L)" << endl;
         cerr << "\tweibull offset = exp(" << weibull_offset_intercept << " + " << weibull_offset_slope << " * log L)" << endl;
+        cerr << "\tmax exp rate = " << max_exponential_rate_intercept << " + " << max_exponential_rate_slope << " * L" << endl;
+        cerr << "\tmax exp shape = exp(" << max_exponential_shape_intercept << " + " << max_exponential_shape_slope << " * L)" << endl;
 #endif
         
         // reset mapping parameters to their original values
