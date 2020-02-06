@@ -865,6 +865,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // Minimizers from each index and scores as 1 + ln(hard_hit_cap) - ln(hits).
     struct Minimizer {
         typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
+        size_t hits;
+        const typename gbwtgraph::DefaultMinimizerIndex::code_type* occs;
         size_t origin; // From minimizer_indexes[origin].
         double score;
 
@@ -903,15 +905,15 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             auto current_minimizers = minimizer_indexes[i]->minimizers(aln.sequence());
             for (auto& minimizer : current_minimizers) {
                 double score = 0.0;
-                size_t hits = minimizer_indexes[i]->count(minimizer);
-                if (hits > 0) {
-                    if (hits <= hard_hit_cap) {
-                        score = base_score - std::log(hits);
+                auto hits = minimizer_indexes[i]->count_and_find(minimizer);
+                if (hits.first > 0) {
+                    if (hits.first <= hard_hit_cap) {
+                        score = base_score - std::log(hits.first);
                     } else {
                         score = 1.0;
                     }
                 }
-                minimizers.push_back({ minimizer, i, score });
+                minimizers.push_back({ minimizer, hits.first, hits.second, i, score });
                 base_target_score += score;
             }
         }
@@ -939,21 +941,21 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             // Select the minimizer if it is informative enough or if the total score
             // of the selected minimizers is not high enough.
             const Minimizer& minimizer = minimizers[i];
-            size_t hits = minimizer_indexes[minimizer.origin]->count(minimizer.value);
             
 #ifdef debug
             cerr << "Minimizer " << i << " = " << minimizer.value.key.decode(minimizer_indexes[minimizer.origin]->k())
-                 << " has " << hits << " hits" << endl;
+                 << " has " << minimizer.hits << " hits" << endl;
 #endif
             
-            if (hits == 0) {
+            if (minimizer.hits == 0) {
                 // A minimizer with no hits can't go on.
                 if (track_provenance) {
                     funnel.fail("any-hits", i);
                 }
-            } else if (hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer.score <= target_score)) {
+            } else if (minimizer.hits <= hit_cap || (minimizer.hits <= hard_hit_cap && selected_score + minimizer.score <= target_score)) {
                 // Locate the hits.
-                for (auto& hit : minimizer_indexes[minimizer.origin]->find(minimizer.value)) {
+                for (size_t j = 0 ; j < minimizer.hits ; j++) {
+                    pos_t hit = gbwtgraph::DefaultMinimizerIndex::decode(minimizer.occs[j]);
                     // Reverse the hits for a reverse minimizer
                     if (minimizer.value.is_reverse) {
                         size_t node_length = gbwt_graph.get_length(gbwt_graph.get_handle(id(hit)));
@@ -970,9 +972,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     funnel.pass("any-hits", i);
                     funnel.pass("hard-hit-cap", i);
                     funnel.pass("hit-cap||score-fraction", i, selected_score  / base_target_score);
-                    funnel.expand(i, hits);
+                    funnel.expand(i, minimizer.hits);
                 }
-            } else if (hits <= hard_hit_cap) {
+            } else if (minimizer.hits <= hard_hit_cap) {
                 // Passed hard hit cap but failed score fraction/normal hit cap
                 rejected_count++;
                 if (track_provenance) {
@@ -1309,7 +1311,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].value.offset));
 #ifdef debug
                         cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
-                            << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index.count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
+                            << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer.hits << ")" << endl;
 #endif
                     }
                     
