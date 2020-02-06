@@ -50,6 +50,7 @@ script:
   - if [[ ! -z "$BUILD_DOCS_ONLY" ]]; then doc/publish-docs.sh; fi
 # Cache all our dependency directories, and our lib and include
 cache:
+  ccache: true
   directories:
     - deps
     - lib
@@ -115,5 +116,3 @@ matrix:
     # We have a special entry to do the docs build
     - os: linux
       env: BUILD_DOCS_ONLY=1
-        
-
