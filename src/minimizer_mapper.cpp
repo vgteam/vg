@@ -1766,7 +1766,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 tuple<size_t, size_t, bool> index = unpaired_alignments.at(i);
                 return (double) std::get<2>(index) ? alignments[std::get<0>(index)].first[std::get<1>(index)].score()
                                                    : alignments[std::get<0>(index)].second[std::get<1>(index)].score();
-            }, 0, 1, found_pair ? 1 : max_rescue_attempts, [&](size_t i) {
+            }, 0, 1, max_rescue_attempts, [&](size_t i) {
                 //TODO: How many rescue attempts or how do we decide which ones?
                 tuple<size_t, size_t, bool> index = unpaired_alignments.at(i);
                 bool found_first = std::get<2>(index); 
