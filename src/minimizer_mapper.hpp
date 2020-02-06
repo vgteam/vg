@@ -100,6 +100,25 @@ public:
     bool track_correctness = false;
     
 protected:
+
+    /**
+     * We define our own type for minimizers, to use during mapping and to apss around between our internal functions.
+     */
+    struct Minimizer {
+        typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
+        size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
+        size_t agglomeration_length; // What is the regioin of consecutive windows this minimizer instance is minimal in?
+        size_t hits; // How many hits does the minimizer have?
+        const typename gbwtgraph::DefaultMinimizerIndex::code_type* occs;
+        size_t origin; // This minimizer came from minimizer_indexes[origin].
+        double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
+
+        // Sort the minimizers in descending order by score.
+        bool operator< (const Minimizer& another) const {
+            return (this->score > another.score);
+        }
+    };
+
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const std::vector<std::unique_ptr<gbwtgraph::DefaultMinimizerIndex>>& minimizer_indexes;
@@ -116,18 +135,25 @@ protected:
     
     /**
      * Compute a bound on the Phred score probability of having created the
-     * specified minimizer-bearing windows by base errors from the given
+     * agglomerations of the specified minimizers by base errors from the given
      * sequence, which was sequenced with the given qualities.
      *
-     * 0 windows or numeric_limits<size_t>::max() windows are treated specially
-     * and no limit is imposed.
+     * No limit is imposed if agglomerations is empty.
+     *
+     * Takes the collection of all minimizers found, and a vector of the
+     * indices of minimizers we are interested in the agglomerations of. May
+     * modify the order of that index vector.
+     *
+     * Also takes the sequence of the read (to avoid Ns) and the quality string
+     * (interpreted as a byte array).
      *
      * Currently computes a lower-score-bound, upper-probability-bound,
      * suitable for use as a mapping quality cap, by assuming the
      * easiest-to-disrupt possible layout of the windows, and the lowest
      * possible qualities for the disrupting bases.
      */
-    double window_breaking_quality(size_t total_windows, const string& sequence, const string& quality_bytes) const;
+    double window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
+        const string& sequence, const string& quality_bytes) const;
     
     /**
      * Score the given group of gapless extensions. Determines the best score

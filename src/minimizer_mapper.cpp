@@ -29,7 +29,29 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     // Nothing to do!
 }
 
-double MinimizerMapper::window_breaking_quality(size_t total_windows, const string& sequence, const string& quality_bytes) const {
+double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
+    const string& sequence, const string& quality_bytes) const {
+   
+    // Work out how big a window that gives rise to a minimizer actually is.
+    // Use the kmer size and the number of 1-bp-slid kmers in a window
+    size_t window_size = minimizer_indexes[0]->k() + minimizer_indexes[0]->w() - 1;
+   
+    // For now, sum up a totla windows figure for all the minimizers form index 0.
+    // TODO: Implement the real algorithm.
+    size_t total_windows = 0;
+    
+    for (auto& minimizer_num : broken) {
+        // For each minimizer we have to break/create
+        auto& m = minimizers[minimizer_num];
+        if (m.origin != 0) {
+            // Skip minimizers from other indexes
+            continue;
+        }
+        // Count the number of slid windows in the agglomeration.
+        // TODO: we assume windows aren't double-credited, which admittedly is rare.
+        total_windows += m.agglomeration_length - window_size + 1;
+    }
+   
 #ifdef debug
     cerr << "Cap for " << total_windows << ": ";
 #endif
@@ -49,10 +71,6 @@ double MinimizerMapper::window_breaking_quality(size_t total_windows, const stri
         // created all of these windows?
         size_t minimum_disruptive_bases = 0;
         
-        // Work out how big a window that gives rise to a minimizer actually is.
-        // Use the kmer size and the number of 1-bp-slid kmers in a window
-        size_t window_size = minimizer_indexes[0]->k() + minimizer_indexes[0]->w() - 1;
-    
         // Compute how the windows could most overlap, since we forgot where
         // they actually were in the read. If they all overlap, they cover the
         // window size, plus one for each window after the first.
@@ -110,21 +128,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         funnel.stage("minimizer");
     }
     
-    // Minimizers from each index and scores as 1 + ln(hard_hit_cap) - ln(hits).
-    struct Minimizer {
-        typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
-        size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
-        size_t agglomeration_length; // What is the number of consecutive windows this minimizer instance is minimal in?
-        size_t hits; // How many hits does the minimizer have?
-        const typename gbwtgraph::DefaultMinimizerIndex::code_type* occs;
-        size_t origin; // This minimizer came from minimizer_indexes[origin].
-        double score;
-
-        // Sort the minimizers in descending order by score.
-        bool operator< (const Minimizer& another) const {
-            return (this->score > another.score);
-        }
-    };
+    // This is where we will store the minimizers we find.
     std::vector<Minimizer> minimizers;
 
     // Find the minimizers and score them.
@@ -172,8 +176,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // And count how many hits we had available and we actually located
     size_t total_hits = 0;
     size_t located_hits = 0;
-    // And which windows we locate
-    size_t located_windows = 0;
     // And log the hit counts for minimizers we keep and reject
     vector<size_t> used_minimizer_hit_counts;
     used_minimizer_hit_counts.reserve(minimizers.size());
@@ -210,6 +212,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             // A minimizer with no hits can't go on.
             took_last = false;
             // But we should treat it as located, because we know it isn't anywhere.
+            // TODO: should we also include it as needing to be covered by errors for MAPQ capping?
             minimizer_located[i] = true;
             if (track_provenance) {
                 funnel.fail("any-hits", i);
@@ -246,9 +249,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             // Remember that we located these hits
             located_hits += minimizer.hits;
-            // And these windows
-            located_windows += minimizer.agglomeration_length;
-            
             // And that we took this minimizer
             took_last = true;
             
@@ -448,10 +448,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // TODO: Do we need those annotations?
     vector<size_t> cluster_extensions_to_source;
     cluster_extensions_to_source.reserve(clusters.size());
-    // Across all non-extended clusters, what is the minimum number of windows
-    // in the read where the minimizer was located but didn't occur in the
-    // cluster?
-    size_t min_created_windows_for_non_extended_clusters = numeric_limits<size_t>::max();
     // To compute the windows present in any extended cluster, we need to get
     // all the minimizers in any extended cluster.
     vector<bool> present_in_any_extended_cluster(minimizers.size(), false);
@@ -463,25 +459,17 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     size_t curr_kept = 0;
     size_t curr_count = 0;
     
-    // When a cluster is rejected for extension, call this to record its stats for MAPQ capping.
+    // We track unextended clusters.
+    vector<size_t> unextended_clusters;
+    unextended_clusters.reserve(clusters.size());
+    
+    // When a cluster is rejected for extension, call this to record it for MAPQ capping.
     auto cluster_not_extended = [&](size_t cluster_num) {
         // Since we didn't take this cluster, we need to cap the MAPQ with
         // the probability that the read came from it.
-        // So we need to know the minimum number of windows that are for
-        // minimizers located in the read but not participating in this
-        // cluster.
-        size_t cluster_wrong_windows = 0;
-        for (size_t i = 0; i < minimizers.size(); i++) {
-            if (!present_in_cluster[cluster_num][i] && minimizer_located[i]) {
-                // This minimizer and all its windows would have to have been created by mistake.
-                cluster_wrong_windows += minimizers[i].agglomeration_length; 
-#ifdef debug
-                cerr << "Cluster " << cluster_num << " lacks located minimizer " << i << " and would have "
-                    << minimizers[i].agglomeration_length << " errored windows if it produced this read" << endl;
-#endif
-            }
-        }
-        min_created_windows_for_non_extended_clusters = min(min_created_windows_for_non_extended_clusters, cluster_wrong_windows);
+        
+        // Remember that it is not extended.
+        unextended_clusters.push_back(cluster_num);
     };
     
     //Process clusters sorted by both score and read coverage
@@ -905,29 +893,34 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     // We want to have a MAPQ cap based on minimum error bases it would take to
     // have created all our windows we located in the read we have.
-    // TODO: tighten this bound by reporting the actual positions of the windows and not just the count.
 #ifdef debug
     cerr << "Cap based on located minimizers all being faked by errors..." << endl;
 #endif
-    double mapq_locate_cap = window_breaking_quality(located_windows, aln.sequence(), aln.quality());
-    
-    // Compute the total windows present in any extended cluster.
-    size_t extended_cluster_windows = 0;
+
+    // Convert our flag vector to a list of the minimizers actually located
+    vector<size_t> located_minimizers;
+    located_minimizers.reserve(minimizers.size());
     for (size_t i = 0; i < minimizers.size(); i++) {
-        if (present_in_any_extended_cluster[i]) {
-            extended_cluster_windows += minimizers[i].agglomeration_length;
-#ifdef debug
-            cerr << "Get " << minimizers[i].agglomeration_length << " windows from minimizer " << i << endl;
-#endif
+        if (minimizer_located[i]) {
+            located_minimizers.push_back(i);
         }
     }
+    double mapq_locate_cap = window_breaking_quality(minimizers, located_minimizers, aln.sequence(), aln.quality());
     
     // We need to cap MAPQ based on the likelihood of generating all the windows in the extended clusters by chance, too.
-    // TODO: is this redundant with the above?
 #ifdef debug
     cerr << "Cap based on extended clusters' minimizers all being faked by errors..." << endl;
 #endif
-    double mapq_extended_cap = window_breaking_quality(extended_cluster_windows, aln.sequence(), aln.quality());
+
+    // Convert our flag vector to a list of the minimizers actually in extended clusters
+    vector<size_t> extended_cluster_minimizers;
+    extended_cluster_minimizers.reserve(minimizers.size());
+    for (size_t i = 0; i < minimizers.size(); i++) {
+        if (present_in_any_extended_cluster[i]) {
+            extended_cluster_minimizers.push_back(i);
+        }
+    }
+    double mapq_extended_cap = window_breaking_quality(minimizers, extended_cluster_minimizers, aln.sequence(), aln.quality());
     
     // And we also need to cap based on the probability of creating the windows
     // in the read that distinguish it from the most plausible (minimum created
@@ -935,7 +928,26 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #ifdef debug
     cerr << "Cap based on read's minimizers not in non-extended clusters all being wrong (and the read actually having come from the non-extended clusters)..." << endl;
 #endif
-    double mapq_non_extended_cap = window_breaking_quality(min_created_windows_for_non_extended_clusters, aln.sequence(), aln.quality());
+
+    double mapq_non_extended_cap = numeric_limits<double>::infinity();
+    for (auto& cluster_num : unextended_clusters) {
+        // For each unextended cluster that might have created the read
+        
+        // Collect the minimizers not in it but in the read
+        vector<size_t> synthesized_minimizers;
+        synthesized_minimizers.reserve(minimizers.size());
+        for (size_t i = 0; i < minimizers.size(); i++) {
+            if (!present_in_cluster[cluster_num][i] && minimizer_located[i]) {
+                synthesized_minimizers.push_back(i);
+            }
+        }
+        
+        // Cap MAPQ with MAPQ for creating all these minimizers.
+        // TODO: only run the capping once if we can figure out the easiest-to-create set of minimizers in advance.
+        // TODO: Find the set of minimizers *only* in unextended clusters and use that as the set we have to create.
+        mapq_non_extended_cap = std::min(mapq_non_extended_cap,
+            window_breaking_quality(minimizers, synthesized_minimizers, aln.sequence(), aln.quality()));
+    }
     
     // Remember the uncapped MAPQ and the caps
     set_annotation(mappings[0], "mapq_uncapped", mapq);
