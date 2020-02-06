@@ -154,18 +154,20 @@ double fit_zipf(const vector<double>& y) {
     return -slope(lx, ly);
 }
 
-double fit_max_exponential(const vector<double>& x, double N, double tolerance) {
+double fit_fixed_shape_max_exponential(const vector<double>& x, double shape, double tolerance) {
     
     // Fit S for a fixed N with the density of the maximum of N exponential variables
     //
     //   NS exp(-Sx) (1 - exp(-Sx))^(N - 1)
     //
-    // where S is the scale
+    // where S is the rate
+    // where N is the shape
     
     double x_sum = 0;
     double x_max = numeric_limits<double>::lowest();
     for (const double& val : x) {
         x_sum += val;
+        x_max = max(x_max, val);
     }
     
     // compute the log of the 1st and 2nd derivatives for the log likelihood (split up by positive and negative summands)
@@ -173,42 +175,147 @@ double fit_max_exponential(const vector<double>& x, double N, double tolerance) 
     
     double log_deriv_neg_part = log(x_sum);
     
-    function<double(double)> log_deriv_pos_part = [&](double scale) {
+    function<double(double)> log_deriv_pos_part = [&](double rate) {
         double accumulator = numeric_limits<double>::lowest();
         for (const double& val : x) {
-            accumulator = add_log(accumulator, log(val) - scale * val - log(1.0 - exp(-scale * val)));
+            accumulator = add_log(accumulator, log(val) - rate * val - log(1.0 - exp(-rate * val)));
         }
-        accumulator += log(N - 1.0);
-        return add_log(accumulator, log(x.size() / scale));
+        accumulator += log(shape - 1.0);
+        return add_log(accumulator, log(x.size() / rate));
     };
     
-    function<double(double)> log_deriv2_neg_part = [&](double scale) {
+    function<double(double)> log_deriv2_neg_part = [&](double rate) {
         double accumulator = numeric_limits<double>::lowest();
         for (const double& val : x) {
-            accumulator = add_log(accumulator, 2.0 * log(val) - scale * val - 2.0 * log(1.0 - exp(-scale * val)));
+            accumulator = add_log(accumulator, 2.0 * log(val) - rate * val - 2.0 * log(1.0 - exp(-rate * val)));
         }
-        accumulator += log(N - 1.0);
-        return add_log(accumulator, log(x.size() / (scale * scale)));
+        accumulator += log(shape - 1.0);
+        return add_log(accumulator, log(x.size() / (rate * rate)));
     };
     
     // use Newton's method to find the MLE
-    double scale = 1.0 / x_max;
-    double prev_scale = scale * (1.0 + 10.0 * tolerance);
-    while (abs(prev_scale / scale - 1.0) > tolerance) {
-        prev_scale = scale;
-        double log_d2 = log_deriv2_neg_part(scale);
-        double log_d_pos = log_deriv_pos_part(scale);
+    double rate = 1.0 / x_max;
+    double prev_rate = rate * (1.0 + 10.0 * tolerance);
+    while (abs(prev_rate / rate - 1.0) > tolerance) {
+        prev_rate = rate;
+        double log_d2 = log_deriv2_neg_part(rate);
+        double log_d_pos = log_deriv_pos_part(rate);
         double log_d_neg = log_deriv_neg_part;
         // determine if the value of the 1st deriv is positive or negative, and compute the
         // whole ratio to the 2nd deriv from the positive and negative parts accordingly
         if (log_d_pos > log_d_neg) {
-            scale += exp(subtract_log(log_d_pos, log_d_neg) - log_d2);
+            rate += exp(subtract_log(log_d_pos, log_d_neg) - log_d2);
         }
         else {
-            scale -= exp(subtract_log(log_d_neg, log_d_pos) - log_d2);
+            rate -= exp(subtract_log(log_d_neg, log_d_pos) - log_d2);
         }
     }
-    return scale;
+    return rate;
+}
+
+
+double fit_fixed_rate_max_exponential(const vector<double>& x, double rate, double tolerance) {
+        
+    // Fit N for a fixed S with the density of the maximum of N exponential variables
+    //
+    //   NS exp(-Sx) (1 - exp(-Sx))^(N - 1)
+    //
+    // where S is the rate
+    // where N is the shape
+    
+    function<double(double)> log_likelihood = [&](double shape) {
+        return max_exponential_log_likelihood(x, rate, shape);
+    };
+    // expand interval until we find a region where the likelihood is decreasing with
+    // shape increasing
+    double max_shape = 1.0;
+    double max_shape_likelihood = log_likelihood(max_shape);
+    double prev_max_shape_likelihood = max_shape_likelihood - 1.0;
+    while (prev_max_shape_likelihood <= max_shape_likelihood) {
+        prev_max_shape_likelihood = max_shape_likelihood;
+        max_shape *= 2.0;
+        max_shape_likelihood = log_likelihood(max_shape);
+    }
+    
+    // use golden section search to find the maximum
+    return golden_section_search(log_likelihood, 0.0, max_shape, tolerance);
+}
+
+pair<double, double> fit_max_exponential(const vector<double>& x,
+                                         double tolerance) {
+
+    // alternate maximizing shape and rate until convergence
+    
+    double shape = 1.0;
+    double rate = fit_fixed_shape_max_exponential(x, shape, tolerance / 2.0);
+    double prev_shape = shape + 10.0 * tolerance;
+    double prev_rate = rate + 10.0 * tolerance;
+    while (abs(prev_rate / rate - 1.0) > tolerance / 2.0
+           || abs(prev_shape / shape - 1.0) > tolerance / 2.0) {
+        prev_shape = shape;
+        prev_rate = rate;
+        
+        shape = fit_fixed_rate_max_exponential(x, rate, tolerance / 2.0);
+        rate = fit_fixed_shape_max_exponential(x, shape, tolerance / 2.0);
+        
+    }
+    
+    return pair<double, double>(rate, shape);
+}
+
+//tuple<double, double, double> fit_offset_max_exponential(const vector<double>& x,
+//                                                         const function<double(double)>& shape_prior,
+//                                                         double tolerance) {
+//
+//    // the max log likelihood of the data for a fixed location parameter
+//    function<double(double)> fit_log_likelihood = [&](double loc) {
+//        vector<double> x_offset(x.size());
+//        for (size_t i = 0; i < x.size(); ++i) {
+//            x_offset[i] = x[i] - loc;
+//        }
+//        pair<double, double> params = fit_max_exponential(x_offset);
+//        return max_exponential_log_likelihood(x, params.first, params.second, loc) + log(shape_prior(shape));
+//    };
+//
+//    // the maximum value of location so that all data points are in the support
+//    double max_loc = *min_element(x.begin(), x.end());
+//    // search with exponentially expanding windows backward to find the window
+//    // that contains the highest likelihood MLE for the location
+//    double min_loc = max_loc - 1.0;
+//    double log_likelihood = numeric_limits<double>::lowest();
+//    double probe_log_likelihood = fit_log_likelihood(min_loc);
+//    while (probe_log_likelihood > log_likelihood) {
+//        log_likelihood = probe_log_likelihood;
+//        double probe_loc = max_loc - 2.0 * (max_loc - min_loc);
+//        probe_log_likelihood = fit_log_likelihood(probe_loc);
+//        min_loc = probe_loc;
+//    }
+//
+//    // find the MLE location
+//    double location = golden_section_search(fit_log_likelihood, min_loc, max_loc, tolerance);
+//
+//    // fit the scale and shape given the locatino
+//    vector<double> x_offset(x.size());
+//    for (size_t i = 0; i < x.size(); ++i) {
+//        x_offset[i] = x[i] - location;
+//    }
+//    auto params = fit_max_exponential(x_offset);
+//
+//    return make_tuple(params.first, params.second, location);
+//}
+
+double max_exponential_log_likelihood(const vector<double>& x, double rate, double shape,
+                                      double location) {
+    double accumulator_1 = 0.0;
+    double accumulator_2 = 0.0;
+    for (const double& val : x) {
+        if (val <= location) {
+            return numeric_limits<double>::lowest();
+        }
+        accumulator_1 += log(1.0 - exp(-rate * (val - location)));
+        accumulator_2 += (val - location);
+    }
+    return x.size() * log(rate * shape) - rate * accumulator_2 + (shape - 1.0) * accumulator_1;
 }
 
 pair<double, double> fit_weibull(const vector<double>& x) {

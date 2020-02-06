@@ -182,18 +182,32 @@ typename Collection::value_type logprob_sum(const Collection& collection) {
 double slope(const std::vector<double>& x, const std::vector<double>& y);
 double fit_zipf(const vector<double>& y);
 
-/// Returns the MLE scale parameter for the distribution of N iid exponential RVs
-double fit_max_exponential(const vector<double>& x, double N, double tolerance = 1e-8);
+/// Returns the MLE rate parameter for the distribution of (shape) iid exponential RVs
+double fit_fixed_shape_max_exponential(const vector<double>& x, double shape, double tolerance = 1e-8);
+
+/// Returns the MLE estimate for the number of iid exponential RVs the data are maxima of
+double fit_fixed_rate_max_exponential(const vector<double>& x, double rate, double tolerance = 1e-8);
+
+/// Returns the MLE rate and shape parameters of a max exponential
+pair<double, double> fit_max_exponential(const vector<double>& x, double tolerance = 1e-8);
+
+// TODO: I'm eliminating this algorithm because it is approx non-identifiable for large values of shape
+///// Returns the MLE rate, shape, and location parameters  of an offset max exponential
+//tuple<double, double, double> fit_offset_max_exponential(const vector<double>& x, double tolerance = 1e-8);
 
 /// Return the CDF of a max exponential with the given parameters
-inline double max_exponential_cdf(double x, double scale, double N) {
-    return pow(1.0 - exp(-x * scale), N);
+inline double max_exponential_cdf(double x, double rate, double shape, double location = 0.0) {
+    return x > location ? pow(1.0 - exp(-(x - location) * rate), shape) : 0.0;
 }
 
-/// Returns an estimate of the scale and shape parameters of a Weibull distribution
+/// The log likelihood of a max exponential with the given parameters on the given data
+double max_exponential_log_likelihood(const vector<double>& x, double rate, double shape,
+                                      double location = 0.0);
+
+/// Returns an estimate of the rate and shape parameters of a Weibull distribution
 pair<double, double> fit_weibull(const vector<double>& x);
 
-/// Returns an estimate of the scale, shape, and location (minimum value) of a 3-parameter Weibull distribution
+/// Returns an estimate of the rate, shape, and location (minimum value) of a 3-parameter Weibull distribution
 tuple<double, double, double> fit_offset_weibull(const vector<double>& x,
                                                  double tolerance = 1e-8);
 
