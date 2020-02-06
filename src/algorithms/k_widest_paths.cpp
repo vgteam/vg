@@ -92,7 +92,9 @@ pair<double, vector<handle_t>> widest_dijkstra(const HandleGraph* g, handle_t so
                     } else {
 #ifdef debug_vg_algorithms
                         cerr << "\tDisregard path to " << g->get_id(next) << ":" << g->get_is_reverse(next)
-                             << " at width " << score << endl;
+                             << " at width " << score << " due to " << visited.count(next) << " || "
+                             << is_node_ignored_callback(next) << " || " << is_edge_ignored_callback(g->edge_handle(current, next))
+                             <<endl;
 #endif
                     }
                 });
@@ -162,7 +164,7 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
 
                 // check if the root path is a prefix of p
                 bool is_common_root = true;
-                for (size_t j = 0; j < i && is_common_root; ++j) {
+                for (size_t j = 0; j <= i && is_common_root; ++j) {
                     if (j >= prev_path.size() || p[j] != prev_path[j]) {
                         is_common_root = false;
                     }
@@ -170,6 +172,10 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
 
                 // remove the links that are part of the previous shortest paths which share the same root path
                 if (is_common_root) {
+#ifdef debug_vg_algorithms
+                  cerr << "forgetting edge " << g->get_id(p[i]) << ":" << g->get_is_reverse(p[i]) << " -- "
+                       << g->get_id(p[i+1]) << ":" << g->get_is_reverse(p[i+1]) << endl;
+#endif
                     forgotten_edges.insert(g->edge_handle(p[i], p[i+1]));
                 }
             }
@@ -177,6 +183,9 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
             // forget the root path too (except spur node)
             unordered_set<handle_t> forgotten_nodes;
             for (int j = 0; j < (int)i - 1; ++j) {
+#ifdef debug_vg_algorithms
+              cerr << "forgetting node " << g->get_id(prev_path[j]) << ":" << g->get_is_reverse(prev_path[j]) << endl;
+#endif
                 forgotten_nodes.insert(prev_path[j]);
             }
 

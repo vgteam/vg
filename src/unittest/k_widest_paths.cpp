@@ -1,4 +1,4 @@
-/// \file yen.cpp
+/// \file k_widest_paths.cpp
 ///  
 /// Unit tests for the Yen's K Widest Paths algorithm
 ///
@@ -215,6 +215,40 @@ TEST_CASE("K Widest Paths works correctly on small Wikipedia example", "[k_wides
         REQUIRE(path_to_score.at(vector<handle_t>({C, E, F, G, H})) == 2.);
         
     }
+
+    SECTION("Does yens algorithm give the correct paths as verified by hand in reverse order") {
+
+        vector<pair<double, vector<handle_t>>> widest_paths;
+        widest_paths = algorithms::yens_k_widest_paths(&graph, graph.flip(H), graph.flip(C), 100, node_weight_callback, edge_weight_callback);
+
+        // correct number of paths
+        REQUIRE(widest_paths.size() == 8);
+        // paths listed in decreasing order based on score
+        for (int i = 1; i < widest_paths.size(); ++i) {
+            REQUIRE(widest_paths[i].first <= widest_paths[i-1].first);
+        }
+        // check each path as verified by hand
+        map<vector<handle_t>, double> path_to_score;
+        for (auto sp : widest_paths) {
+            vector<handle_t> flipped_path = sp.second;
+            // flip the paths around so we can use the comparison copy-pasted from above.
+            std::reverse(flipped_path.begin(), flipped_path.end());
+            for (int i = 0; i < flipped_path.size(); ++i) {
+                flipped_path[i] = graph.flip(flipped_path[i]);
+            }
+            path_to_score[flipped_path] = sp.first;
+        }
+        REQUIRE(path_to_score.at(vector<handle_t>({C, D, F, H})) == 1.);
+        REQUIRE(path_to_score.at(vector<handle_t>({C, D, F, G, H})) == 2.);
+        REQUIRE(path_to_score.at(vector<handle_t>({C, D, E, G, H})) == 1.);
+        REQUIRE(path_to_score.at(vector<handle_t>({C, D, E, F, H})) == 1.);
+        REQUIRE(path_to_score.at(vector<handle_t>({C, D, E, F, G, H})) == 1.);
+        REQUIRE(path_to_score.at(vector<handle_t>({C, E, G, H})) == 2.);
+        REQUIRE(path_to_score.at(vector<handle_t>({C, E, F, H})) == 1.);
+        REQUIRE(path_to_score.at(vector<handle_t>({C, E, F, G, H})) == 2.);
+        
+    }
+
 
 
 
