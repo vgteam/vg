@@ -113,7 +113,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Minimizers from each index and scores as 1 + ln(hard_hit_cap) - ln(hits).
     struct Minimizer {
         typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
-        size_t windows; // How many windows in the read are assigned to this minimizer instance?
+        size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
+        size_t agglomeration_length; // What is the number of consecutive windows this minimizer instance is minimal in?
         size_t hits; // How many hits does the minimizer have?
         const typename gbwtgraph::DefaultMinimizerIndex::code_type* occs;
         size_t origin; // This minimizer came from minimizer_indexes[origin].
@@ -131,12 +132,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     double base_score = 1.0 + std::log(hard_hit_cap);
     for (size_t i = 0; i < minimizer_indexes.size(); i++) {
         
-        vector<pair<gbwtgraph::DefaultMinimizerIndex::minimizer_type, size_t>> current_minimizers = 
-            minimizer_indexes[i]->weighted_minimizers(aln.sequence());
+        // Get minimizers and their window agglomeration starts and lengths
+        vector<tuple<gbwtgraph::DefaultMinimizerIndex::minimizer_type, size_t, size_t>> current_minimizers = 
+            minimizer_indexes[i]->minimizer_regions(aln.sequence());
 
-        for (auto& minimizer_and_windows : current_minimizers) {
+        for (auto& m : current_minimizers) {
             double score = 0.0;
-            auto hits = minimizer_indexes[i]->count_and_find(minimizer_and_windows.first);
+            auto hits = minimizer_indexes[i]->count_and_find(get<0>(m));
             if (hits.first > 0) {
                 if (hits.first <= hard_hit_cap) {
                     score = base_score - std::log(hits.first);
@@ -144,7 +146,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     score = 1.0;
                 }
             }
-            minimizers.push_back({ minimizer_and_windows.first, minimizer_and_windows.second, hits.first, hits.second, i, score });
+            minimizers.push_back({ get<0>(m), get<1>(m), get<2>(m), hits.first, hits.second, i, score });
             base_target_score += score;
         }
     }
@@ -170,19 +172,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // And count how many hits we had available and we actually located
     size_t total_hits = 0;
     size_t located_hits = 0;
+    // And which windows we locate
+    size_t located_windows = 0;
     // And log the hit counts for minimizers we keep and reject
     vector<size_t> used_minimizer_hit_counts;
     used_minimizer_hit_counts.reserve(minimizers.size());
     vector<size_t> unused_minimizer_hit_counts;
     unused_minimizer_hit_counts.reserve(minimizers.size());
-    // And how many windows we had available and actually located the minimizer of
-    size_t total_windows = 0;
-    size_t located_windows = 0;
-    // And log the hit counts for *windows* whose minimizers we keep and reject
-    vector<size_t> used_window_hit_counts;
-    used_window_hit_counts.reserve(aln.sequence().size());
-    vector<size_t> unused_window_hit_counts;
-    unused_window_hit_counts.reserve(aln.sequence().size());
     // And flag whether each minimizer in the read was located or not.
     // TODO: should we count minimizers with no hits? We do right now because
     // we need them to be created in the read when coming from a cluster that
@@ -209,8 +205,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
         // Record that we had this many hits of a minimizer
         total_hits += minimizer.hits;
-        // And how many windows it represents
-        total_windows += minimizer.windows;
         
         if (minimizer.hits == 0) {
             // A minimizer with no hits can't go on.
@@ -252,13 +246,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             // Remember that we located these hits
             located_hits += minimizer.hits;
-            
-            // And that we located all these windows
-            located_windows += minimizer.windows;
-            
-#ifdef debug
-            cerr << "Located " << minimizer.windows << " windows with minimizer " << i << endl;
-#endif
+            // And these windows
+            located_windows += minimizer.agglomeration_length;
             
             // And that we took this minimizer
             took_last = true;
@@ -271,9 +260,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 funnel.expand(i, minimizer.hits);
                 
                 used_minimizer_hit_counts.push_back(minimizer.hits);
-                for (size_t j = 0; j < minimizer.windows; j++) {
-                    used_window_hit_counts.push_back(minimizer.hits);
-                }
             }
         } else if (minimizer.hits <= hard_hit_cap) {
             // Passed hard hit cap but failed score fraction/normal hit cap
@@ -285,9 +271,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 funnel.fail("hit-cap||score-fraction", i, (selected_score + minimizer.score) / base_target_score);
                 
                 unused_minimizer_hit_counts.push_back(minimizer.hits);
-                for (size_t j = 0; j < minimizer.windows; j++) {
-                    unused_window_hit_counts.push_back(minimizer.hits);
-                }
             }
         } else {
             // Failed hard hit cap
@@ -298,9 +281,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 funnel.fail("hard-hit-cap", i);
                 
                 unused_minimizer_hit_counts.push_back(minimizer.hits);
-                for (size_t j = 0; j < minimizer.windows; j++) {
-                    unused_window_hit_counts.push_back(minimizer.hits);
-                }
             }
         }
         if (track_provenance) {
@@ -494,10 +474,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         for (size_t i = 0; i < minimizers.size(); i++) {
             if (!present_in_cluster[cluster_num][i] && minimizer_located[i]) {
                 // This minimizer and all its windows would have to have been created by mistake.
-                cluster_wrong_windows += minimizers[i].windows; 
+                cluster_wrong_windows += minimizers[i].agglomeration_length; 
 #ifdef debug
                 cerr << "Cluster " << cluster_num << " lacks located minimizer " << i << " and would have "
-                    << minimizers[i].windows << " errored windows if it produced this read" << endl;
+                    << minimizers[i].agglomeration_length << " errored windows if it produced this read" << endl;
 #endif
             }
         }
@@ -935,9 +915,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     size_t extended_cluster_windows = 0;
     for (size_t i = 0; i < minimizers.size(); i++) {
         if (present_in_any_extended_cluster[i]) {
-            extended_cluster_windows += minimizers[i].windows;
+            extended_cluster_windows += minimizers[i].agglomeration_length;
 #ifdef debug
-            cerr << "Get " << minimizers[i].windows << " windows from minimizer " << i << endl;
+            cerr << "Get " << minimizers[i].agglomeration_length << " windows from minimizer " << i << endl;
 #endif
         }
     }
@@ -1052,22 +1032,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         set_annotation(mappings[0], "mapq_unused_minimizer_counts", unused_minimizer_hit_counts);
         set_annotation(mappings[0], "mapq_median_unused_minimizer_count", median(unused_minimizer_hit_counts));
         
-        // Also do the count values in terms of windows' minimizers' counts.
-        
-        std::sort(used_window_hit_counts.begin(), used_window_hit_counts.end());
-        set_annotation(mappings[0], "mapq_used_window_minimizer_counts", used_window_hit_counts);
-        set_annotation(mappings[0], "mapq_median_used_window_minimizer_count", median(used_window_hit_counts));
-        std::sort(unused_window_hit_counts.begin(), unused_window_hit_counts.end());
-        set_annotation(mappings[0], "mapq_unused_window_minimizer_counts", minimizer_hit_counts);
-        set_annotation(mappings[0], "mapq_median_unused_window_minimizer_count", median(minimizer_hit_counts));
-        vector<size_t> all_window_hit_counts;
-        all_window_hit_counts.reserve(used_window_hit_counts.size() + unused_window_hit_counts.size());
-        std::copy(used_window_hit_counts.begin(), used_window_hit_counts.end(), std::back_inserter(all_window_hit_counts));
-        std::copy(unused_window_hit_counts.begin(), unused_window_hit_counts.end(), std::back_inserter(all_window_hit_counts));
-        std::sort(all_window_hit_counts.begin(), all_window_hit_counts.end());
-        set_annotation(mappings[0], "mapq_window_minimizer_counts", all_window_hit_counts);
-        set_annotation(mappings[0], "mapq_median_window_minimizer_count", median(all_window_hit_counts));
-    
         // Annotate with the number of results in play at each stage
         funnel.for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
             // Save the number of items
