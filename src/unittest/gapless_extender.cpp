@@ -472,6 +472,30 @@ TEST_CASE("Full-length alignments", "[gapless_extender]") {
         };
         full_length_matches(seeds, read, correct_alignments, extender, error_bound);
     }
+
+    // We also test that we avoid finding the same best alignment from multiple seeds.
+    SECTION("secondary alignment has more mismatches") {
+        std::vector<std::pair<pos_t, size_t>> seeds {
+            { make_pos_t(2, false, 0), 1 }, // First seed for the best alignment (1 mismatch).
+            { make_pos_t(4, false, 0), 2 }, // Second seed for the best alignment (1 mismatch).
+            { make_pos_t(4, false, 0), 1 }  // Seed for the secondary alignment (2 mismatches).
+        };
+        std::string read = "GAGGA";
+        size_t error_bound = 2;
+        std::vector<std::vector<std::pair<pos_t, std::string>>> correct_alignments {
+            {
+                { make_pos_t(1, false, 0), "1" },
+                { make_pos_t(2, false, 0), "1" },
+                { make_pos_t(4, false, 0), "2A" }
+            },
+            {
+                { make_pos_t(1, false, 0), "1" },
+                { make_pos_t(4, false, 0), "A2" },
+                { make_pos_t(5, false, 0), "A" }
+            }
+        };
+        full_length_matches(seeds, read, correct_alignments, extender, error_bound);
+    }
 }
 
 //------------------------------------------------------------------------------
