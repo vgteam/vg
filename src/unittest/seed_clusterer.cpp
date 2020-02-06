@@ -456,11 +456,10 @@ namespace unittest {
             REQUIRE( paired_clusters[0].size() == 2);
             REQUIRE( paired_clusters[1].size() == 2);
             REQUIRE( paired_clusters[0][0].second != paired_clusters[0][1].second);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][2].second);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][3].second);
-            REQUIRE( paired_clusters[0][1].second != paired_clusters[1][2].second);
-            REQUIRE( paired_clusters[0][1].second != paired_clusters[1][3].second);
-            REQUIRE( paired_clusters[1][2].second != paired_clusters[1][3].second);
+            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][0].second);
+            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][1].second);
+            REQUIRE( paired_clusters[0][1].second != paired_clusters[1][0].second);
+            REQUIRE( paired_clusters[0][1].second != paired_clusters[1][1].second);
 
             //New fragment clusters
 
