@@ -637,7 +637,7 @@ namespace vg {
                 p_value = 1.0 - weibull_cdf(match_length, scale, shape, offset);
             }
             else {
-                p_value = 1.0 - max_exponential_cdf(match_length, max_exponential_scale, total_seq_length * read_length);
+                p_value = 1.0 - max_exponential_cdf(match_length, max_exponential_rate, max_exponential_shape);
             }
             if (p_value_memo.size() < max_p_value_memo_size) {
                 p_value_memo[make_pair(match_length, read_length)] = p_value;
@@ -688,16 +688,22 @@ namespace vg {
             }
             
             // alternatively model lengths with a weibull distribution that has an offset
-            auto params = fit_offset_weibull(pseudo_lengths);
-            log_mle_weibull_scales.push_back(log(get<0>(params)));
-            log_mle_weibull_shapes.push_back(log(get<1>(params)));
-            log_mle_weibull_offsets.push_back(log(get<2>(params)));
+            auto weibull_params = fit_offset_weibull(pseudo_lengths);
+            log_mle_weibull_scales.push_back(log(get<0>(weibull_params)));
+            log_mle_weibull_shapes.push_back(log(get<1>(weibull_params)));
+            log_mle_weibull_offsets.push_back(log(get<2>(weibull_params)));
             
+            auto max_exp_params = fit_max_exponential(pseudo_lengths);
+            max_exponential_rate = max_exp_params.first;
+            max_exponential_shape = max_exp_params.second;
+                        
 #ifdef debug_report_startup_training
             cerr << "trained parameters for length " << simulated_read_length << ": " << endl;
-            cerr << "\tweibull scale: " << get<0>(params) << endl;
-            cerr << "\tweibull shape: " << get<1>(params) << endl;
-            cerr << "\tweibull offset: " << get<2>(params) << endl;
+            cerr << "\tweibull scale: " << get<0>(weibull_params) << endl;
+            cerr << "\tweibull shape: " << get<1>(weibull_params) << endl;
+            cerr << "\tweibull offset: " << get<2>(weibull_params) << endl;
+            cerr << "\tmax exp rate: " << max_exp_params.first << endl;
+            cerr << "\tmax exp shape: " << max_exp_params.second << endl;
 #endif
         }
         
