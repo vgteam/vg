@@ -2124,12 +2124,11 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& 
     
 
     //Get the subgraph of all nodes within a reasonable range from aligned_read
-    SubHandleGraph sub_graph(path_graph);
-    //TODO: maybe should be gbwt_graph
+    SubHandleGraph sub_graph(&gbwt_graph);
     //TODO: How big should the rescue subgraph be?
     int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4*fragment_length_distr.stdev());
     int64_t max_distance = fragment_length_distr.mean() + 4*fragment_length_distr.stdev();
-    distance_index.subgraphInRange(aligned_read.path(), path_graph, min_distance, max_distance, sub_graph, rescue_forward); 
+    distance_index.subgraphInRange(aligned_read.path(), &gbwt_graph, min_distance, max_distance, sub_graph, rescue_forward); 
 
 
     //Convert subgraph to directed, acyclic graph

@@ -735,11 +735,6 @@ int main_gaffe(int argc, char** argv) {
         cerr << "error:[vg gaffe] Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << endl;
         exit(1);
     }
-
-    if ((!fastq_filename_2.empty() || interleaved) && rescue_attempts > 0 && xg_name.empty()) {
-        cerr << "error:[vg gaffe] Paired-end rescue (-r) requires an XG index (-x)" << endl;
-        exit(1);
-    }
     
     // create in-memory objects
     if (progress && !xg_name.empty()) {
