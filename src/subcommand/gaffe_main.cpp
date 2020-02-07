@@ -316,7 +316,7 @@ void help_gaffe(char** argv) {
     << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [1]" << endl
     << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
-    << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [0]" << endl
+    << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [10]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
@@ -733,6 +733,11 @@ int main_gaffe(int argc, char** argv) {
 
     if (!fastq_filename_1.empty() && !gam_filename.empty()) {
         cerr << "error:[vg gaffe] Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << endl;
+        exit(1);
+    }
+
+    if ((!fastq_filename_2.empty() || interleaved) && rescue_attempts > 0 && xg_name.empty()) {
+        cerr << "error:[vg gaffe] Paired-end rescue (-r) requires an XG index (-x)" << endl;
         exit(1);
     }
     
