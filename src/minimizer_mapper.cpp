@@ -29,6 +29,8 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     // Nothing to do!
 }
 
+#define debug
+
 double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
     const string& sequence, const string& quality_bytes) const {
    
@@ -47,6 +49,22 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
             // Skip minimizers from other indexes
             continue;
         }
+        
+        // Compute a real sequence start position
+        size_t start_pos = m.value.offset;
+        if (m.value.is_reverse) {
+            // We have the last base and we need the first base.
+            start_pos -= (minimizer_indexes[m.origin]->k() - 1);
+        }
+        
+#ifdef debug
+        cerr << "Minimizer " << minimizer_num << " (" << m.value.key.decode(minimizer_indexes[m.origin]->k())
+            << ") @ " << m.value.offset  << " " << (m.value.is_reverse ? '-' : '+') << " has agglomeration at "
+            << m.agglomeration_start << " running " << m.agglomeration_length
+            << " bp and contributes " << (m.agglomeration_length - window_size + 1)
+            << " windows of size " << window_size << endl;
+#endif
+        
         // Count the number of slid windows in the agglomeration.
         // TODO: we assume windows aren't double-credited, which admittedly is rare.
         total_windows += m.agglomeration_length - window_size + 1;
@@ -55,7 +73,7 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 #ifdef debug
     cerr << "Cap for " << total_windows << ": ";
 #endif
-    if (total_windows == 0 || total_windows == numeric_limits<size_t>::max() || minimizer_indexes.size() != 1) {
+    if (total_windows == 0 || total_windows == numeric_limits<size_t>::max()) {
         // No limit can be imposed (because no windows need breaking, or
         // because we got a sentinel max value which means basically the same
         // thing, or because we are using multiple minimizer indexes and don't
@@ -1102,6 +1120,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     // Ship out all the aligned alignments
     alignment_emitter.emit_mapped_single(std::move(mappings));
+
+#undef debug
 
 #ifdef debug
     // Dump the funnel info graph.
