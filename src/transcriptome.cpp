@@ -526,8 +526,6 @@ void Transcriptome::project_and_add_transcripts_callback(const int32_t thread_id
 
     while (transcripts_idx < transcripts.size()) {
 
-        cerr << transcripts_idx << endl;
-
         // Get next transcript belonging to current thread.
         const Transcript & transcript = transcripts.at(transcripts_idx);
 
@@ -570,8 +568,6 @@ void Transcriptome::project_and_add_transcripts_callback(const int32_t thread_id
         thread_completed_transcript_paths.splice(thread_completed_transcript_paths.end(), completed_transcript_paths);
         transcripts_idx += num_threads;
     }
-    cerr << "bla" << endl;
-
 
     // Add transcript paths to transcriptome.
     mutex_transcript_paths.lock();
@@ -1319,22 +1315,26 @@ void Transcriptome::update_haplotype_index(gbwt::GBWT * haplotype_index, const v
         }
     }
 
-    cerr << translation_index.size() << endl;
-
     // Sort translation index 
     for (auto & translation: translation_index) {
 
         sort(translation.second.begin(), translation.second.end());
     }
 
-    cerr << haplotype_index->metadata.paths() << endl;
+    assert(haplotype_index->bidirectional());
 
     // Update gbwt paths
     vector<gbwt::vector_type> new_gbwt_threads; 
     new_gbwt_threads.reserve(haplotype_index->metadata.paths()); 
 
-    for (size_t i = 0; i < haplotype_index->metadata.paths(); i++) {
+    for (size_t i = 0; i < haplotype_index->sequences(); i++) {
 
+        if (i % 2 == 1) {
+
+            continue;
+        }
+
+        // Convert to gbwt thread id
         auto cur_gbwt_thread = haplotype_index->extract(i);
 
         new_gbwt_threads.emplace_back(gbwt::vector_type());
@@ -1366,8 +1366,6 @@ void Transcriptome::update_haplotype_index(gbwt::GBWT * haplotype_index, const v
     }
 
     *haplotype_index = get_gbwt(new_gbwt_threads);
-
-    cerr << haplotype_index->metadata.paths() << endl;
 }   
 
 void Transcriptome::add_splice_junction_edges(const list<EditedTranscriptPath> & edited_transcript_paths) {
