@@ -773,8 +773,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         vector<Alignment> alns1(map(aln1));
         vector<Alignment> alns2(map(aln2));
 
-        // TODO: How do we decide what an unambiguous mapping is? 
-        // TODO: Double check what the actual best possible score is - which aligner are we actually using? 
         // Check if the separately-mapped ends are both sufficiently perfect and sufficiently unique
         int32_t max_score_aln_1 = get_regular_aligner()->score_exact_match(aln1, 0, aln1.sequence().size());
         int32_t max_score_aln_2 = get_regular_aligner()->score_exact_match(aln2, 0, aln2.sequence().size());
@@ -1171,7 +1169,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         }
     }
 
-    //TODO: Might not want to use this
     //For each fragment cluster, we want to know how many equivalent or better clusters we found
     vector<size_t> fragment_cluster_indices_by_score (max_fragment_num + 1);
     for (size_t i = 0 ; i < fragment_cluster_indices_by_score.size() ; i++) {
@@ -1237,7 +1234,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         //size_t curr_kept = 0;
         //size_t curr_count = 0;
         
-        //Could just turn off these filters
         //Process clusters sorted by both score and read coverage
         process_until_threshold(clusters, read_coverage_by_cluster,
             [&](size_t a, size_t b) -> bool {
@@ -1347,10 +1343,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 }
             }, [&](size_t cluster_num) {
                 // This cluster is not sufficiently good.
-                // TODO: I'm not sure if this is what should be failing
-                if (track_provenance) {
-                    funnels[read_num].fail("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
-                }
+                // TODO: I don't think it should ever get here unless we limit the scores of the fragment clusters we look at
             });
             
         
@@ -1639,9 +1632,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     }
 
     if (!unpaired_alignments.empty()) {
-        //If we didn't find any pairs within the fragment clusters, return the best individual alignments
+        //If we found some clusters that don't belong to a fragment cluster
         if (!found_pair && max_rescue_attempts == 0 ) {
-            //If we aren't attempting rescue, just return the best for each
+            //If we didn't find any pairs and we aren't attempting rescue, just return the best for each end
 
 #ifdef debug
             cerr << "Found no pairs and we aren't doing rescue: return best alignment for each read" << endl;
@@ -1687,7 +1680,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             reverse_complement_alignment_in_place(&paired_mappings.second.back(), [&](vg::id_t node_id) {
                 return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
             });
-            // TODO: Maybe don't just give them the same mapq
 
             paired_mappings.first.back().set_mapping_quality(1);
             paired_mappings.second.back().set_mapping_quality(1);
@@ -1762,14 +1754,13 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             return paired_mappings;
         } else {
             
-            //Attempt rescue
+            //Attempt rescue on unpaired alignments if either we didn't find any pairs or if the unpaired alignments are very good
 
             process_until_threshold(unpaired_alignments, (std::function<double(size_t)>) [&](size_t i) -> double{
                 tuple<size_t, size_t, bool> index = unpaired_alignments.at(i);
                 return (double) std::get<2>(index) ? alignments[std::get<0>(index)].first[std::get<1>(index)].score()
                                                    : alignments[std::get<0>(index)].second[std::get<1>(index)].score();
             }, 0, 1, max_rescue_attempts, [&](size_t i) {
-                //TODO: How many rescue attempts or how do we decide which ones?
                 tuple<size_t, size_t, bool> index = unpaired_alignments.at(i);
                 bool found_first = std::get<2>(index); 
                 size_t j = found_first ? alignment_indices[std::get<0>(index)].first[std::get<1>(index)]
@@ -1785,7 +1776,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
                 if (found_pair && (double) mapped_aln.score() < (double) (found_first ? best_alignment_scores.first : best_alignment_scores.second) * 0.9) {
                     //TODO: 0.9?
-                    //If this is not the best alignment we found for this end, do nothing
+                    //If we have already found paired clusters and this unpaired alignment is not good enough, do nothing
                     return true;
                 }
 
@@ -1990,11 +1981,13 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         double mapq = (mappings.first.empty() || scores[0] == 0) ? 0 : 
             get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index) / 2;
 
-        //Cap mapq at probability that there was a better fragment cluster that had the correct mapping
+        //Cap mapq at 1 / # equivalent or better fragment clusters
         if (better_cluster_count_mappings.size() != 0 && better_cluster_count_mappings.front() > 0) {
             mapq = min(mapq,round(prob_to_phred((1.0 / (double) better_cluster_count_mappings.front()))));
         }
 
+        //If one alignment was duplicated in other pairs, cap the mapq for that alignment at the mapq
+        //of the group of duplicated alignments
         double mapq_group1 = scores_group_1.size() <= 1 ? mapq : 
             min(mapq, get_regular_aligner()->maximum_mapping_quality_exact(scores_group_1, &winning_index) / 2);
         double mapq_group2 = scores_group_2.size() <= 1 ? mapq : 
