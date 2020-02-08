@@ -33,6 +33,13 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
 
 double MinimizerMapper::cheapest_cover_cost(const vector<Minimizer>& minimizers,
     vector<size_t>& broken, const string& sequence, const string& quality_bytes) const {
+    
+    if (broken.empty() || quality_bytes.empty()) {
+        // If we have no agglomerations or no qualities, bail
+        return numeric_limits<double>::infinity();
+    }
+    
+    assert(sequence.size() == quality_bytes.size());
 
     // Sort the agglomerations by start position
     std::sort(broken.begin(), broken.end(), [&](const size_t& a, const size_t& b) {
@@ -60,10 +67,6 @@ double MinimizerMapper::cheapest_cover_cost(const vector<Minimizer>& minimizers,
     // Or numeric_limits<double>::infinity() if base cannot be hit.
     vector<double> costs;
     costs.reserve(sequence.size());
-    // And a traceback table pointing you to the previous hit base, or to
-    // numeric_limits<size_t>::max() if no previous base.
-    vector<size_t> traceback;
-    traceback.reserve(sequence.size());
     
     // Keep track of the latest-starting window ending before here. If none, this will be two numeric_limits<size_t>::max() values.
     window_t latest_starting_ending_before = { numeric_limits<size_t>::max(), numeric_limits<size_t>::max() };
@@ -71,41 +74,134 @@ double MinimizerMapper::cheapest_cover_cost(const vector<Minimizer>& minimizers,
     for (size_t i = 0; i < sequence.size(); i++) {
         // For each base in the read
         
+#ifdef debug
+        cerr << "At base " << i << endl;
+#endif
+        
         // We have the start and end of the latest-starting window ending before here (may be none)
         
-        // If this base is N, say we can't hit it.
-        // If this base isn't in an agglomeration (next agglomeration doesn't start at this base, and no windows are in the queue to end), say we can't hit it.
+        if (isATGC(sequence[i]) &&
+            (!active_windows.empty() || 
+            (next_agglomeration != broken.end() && minimizers[*next_agglomeration].agglomeration_start == i))) {
+            
+            // This base is not N, and it is either covered by an agglomeration
+            // that hasn't ended yet, or a new agglomeration starts here.
+            
+#ifdef debug
+            cerr << "\tBase is acceptable (" << sequence[i] << ", " << active_windows.size() << " active windows, "
+                << ((next_agglomeration != broken.end() && minimizers[*next_agglomeration].agglomeration_start == i) ? "new starting" : "") 
+                << ")" << endl;
+#endif
+            
+            // Look at the start of that latest-starting window ending before here.
+            
+            if (latest_starting_ending_before.first == numeric_limits<size_t>::max()) {
+                // If there is no such window, this is the first base hit, so
+                // record the cost of hitting it.
+                
+                costs.push_back(quality_bytes[i]);
+                
+#ifdef debug
+                cerr << "\tFirst base hit, costs " << costs.back() << endl;
+#endif
+            } else {
+                // Else, scan from that window's start to its end in the DP
+                // table, and find the min cost.
+                auto min_prev_cost_at = std::min_element(costs.begin() + latest_starting_ending_before.first,
+                    costs.begin() + latest_starting_ending_before.last + 1);
+                double min_prev_cost = *min_prev_cost_at;
+                    
+                // Add the cost of hitting this base
+                costs.push_back(min_prev_cost + quality_bytes[i]);
+                
+#ifdef debug
+                cerr << "\tComes from prev base at " << (min_prev_cost_at - costs.begin()) << ", costs " << costs.back() << endl;
+#endif
+            }
+            
+        } else {
+            // This base is N, or not covered by an agglomeration.
+            // Say we can't hit it.
+            costs.push_back(numeric_limits<double>::infinity());
+        }
         
-        // Else look at the start of that latest-starting window ending before here.
+        // Now we compute the start of the latest-starting window ending here or before (and update the active windows).
         
-        // If there is no such window, this is the first base hit, so record the cost of hitting it and trace back to nowhere.
-        
-        // Else, scan from that window's start to its end in the DP table
-        // Find the index in it with the min cost, and trace back to there
-        // Add the cost of hitting this base
-        
-        // Now we compute the start of the latest-starting window ending here or before.
-        
-        // While the next agglomeration starts here all the agglomeration's windows to the queue, and advance the cursor
+        while (next_agglomeration != broken.end() && minimizers[*next_agglomeration].agglomeration_start == i) {
+            // While the next agglomeration starts here
+            
+            // Look it up
+            auto& minimizer = minimizers[*next_agglomeration];
+            
+            // Determine its window size from its index.
+            auto& source_index = *minimizer_indexes[minimizer.source];
+            size_t window_size = source_index.k() + source_index.w() - 1;
+            
+            
+            for (size_t start = minimizer.agglomeration_start; start + window_size - 1 < minimizer.agglomeration_length; start++) {
+                // Add all the agglomeration's windows to the queue
+                active_windows.emplace(start, start + window_size - 1);
+            }
+            
+#ifdef debug
+            cerr << "\tBegin agglomeration of " << (minimizer.agglomeration_length - window_size + 1)
+                << " windows of " << window_size << " bp each" << endl;
+#endif
+            
+            // And advance the cursor
+            ++next_agglomeration;
+        }
 
-        // The look at the queue to see if a window ends here.
-            // If so, pop off all such windows, and use the latest-starting as our latest starting window ending here or before result.
+        while (active_windows.top().last == i) {
+            // The look at the queue to see if a window ends here. This is second so that we can handle 1-base windows.
+            
+#ifdef debug
+            cerr << "\tEnd window " << active_windows.top().first << " - " << active_windows.top().last << endl;
+#endif
+            
+            if (latest_starting_ending_before.first == numeric_limits<size_t>::max() ||
+                active_windows.top().first > latest_starting_ending_before.first) {
+                
+#ifdef debug
+                cerr << "\t\tNew latest-starting-before-here!" << endl;
+#endif
+                
+                // If so, use the latest-starting of all such windows as our latest starting window ending here or before result.
+                latest_starting_ending_before = active_windows.top();
+            }
+            
+            
+            
+            // And pop them all off.
+            active_windows.pop();
+        }
+        // If not, use the latest-starting window ending at the previous base or before (i.e. do nothing).
         
-        // If not, use the latest-starting window ending at the previous base or before.
-        
-        // Loop around so we now have the latest-starting window ending before here.
+        // Loop around; we will have the latest-starting window ending before the next here.
     }
-        
-    // When we get to the end, we have the latest-starting window overall
     
-    // Scan it for the best final base to hit
+    // When we get here, all the agglomerations should have been handled
+    assert(next_agglomeration == broken.end());
+    // And all the windows should be off the queue.
+    assert(active_windows.empty());
     
-    // Return the cost there.
-
+    // When we get to the end, we have the latest-starting window overall. It must exist.
+    assert(latest_starting_ending_before.first != numeric_limits<size_t>::max());
+    
+    // Scan it for the best final base to hit and return the cost there.
+    auto min_cost_at = std::min_element(costs.begin() + latest_starting_ending_before.first,
+        costs.begin() + latest_starting_ending_before.last + 1);
+#ifdef debug
+    cerr << "Overall min cost: " << *min_cost_at << " at base " << (min_cost_at - costs.begin()) << endl;
+#endif
+    return *min_cost_at;
 }
 
 double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
     const string& sequence, const string& quality_bytes) const {
+    
+    return cheapest_cover_cost(minimizers, broken, sequence, quality_bytes);
+    
    
     // Work out how big a window that gives rise to a minimizer actually is.
     // Use the kmer size and the number of 1-bp-slid kmers in a window
