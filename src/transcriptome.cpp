@@ -42,8 +42,7 @@ int32_t Transcriptome::add_intron_splice_junctions(istream & intron_stream, gbwt
     auto introns = parse_introns(intron_stream);
 
 #ifdef transcriptome_debug
-    double time_parsing_2 = gcsa::readTimer();
-    cerr << "DEBUG parsing end: " << time_parsing_2 - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "DEBUG parsing end: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
@@ -55,8 +54,7 @@ int32_t Transcriptome::add_intron_splice_junctions(istream & intron_stream, gbwt
     auto edited_transcript_paths = construct_edited_transcript_paths(introns);
 
 #ifdef transcriptome_debug
-    double time_project_2 = gcsa::readTimer();
-    cerr << "DEBUG construct end: " << time_project_2 - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "DEBUG construct end: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
@@ -77,8 +75,7 @@ int32_t Transcriptome::add_intron_splice_junctions(istream & intron_stream, gbwt
     }
 
 #ifdef transcriptome_debug
-    double time_augment_2 = gcsa::readTimer();
-    cerr << "DEBUG augment end: " << time_augment_2 - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "DEBUG augment end: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
     return introns.size();
@@ -94,8 +91,7 @@ int32_t Transcriptome::add_transcript_splice_junctions(istream & transcript_stre
     auto transcripts = parse_transcripts(transcript_stream);
 
 #ifdef transcriptome_debug
-    double time_parsing_2 = gcsa::readTimer();
-    cerr << "DEBUG parsing end: " << time_parsing_2 - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "DEBUG parsing end: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
@@ -107,8 +103,7 @@ int32_t Transcriptome::add_transcript_splice_junctions(istream & transcript_stre
     auto edited_transcript_paths = construct_edited_transcript_paths(transcripts);
 
 #ifdef transcriptome_debug
-    double time_project_2 = gcsa::readTimer();
-    cerr << "DEBUG construct end: " << time_project_2 - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "DEBUG construct end: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
@@ -129,8 +124,7 @@ int32_t Transcriptome::add_transcript_splice_junctions(istream & transcript_stre
     }
 
 #ifdef transcriptome_debug
-    double time_augment_2 = gcsa::readTimer();
-    cerr << "DEBUG augment end: " << time_augment_2 - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "DEBUG augment end: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
     return transcripts.size();
@@ -146,8 +140,7 @@ int32_t Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::
     auto transcripts = parse_transcripts(transcript_stream);
 
 #ifdef transcriptome_debug
-    double time_parsing_2 = gcsa::readTimer();
-    cerr << "DEBUG parsing end: " << time_parsing_2 - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "DEBUG parsing end: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
@@ -164,8 +157,7 @@ int32_t Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::
     add_splice_junction_edges(_transcript_paths);
 
 #ifdef transcriptome_debug
-    double time_project_2 = gcsa::readTimer();
-    cerr << "DEBUG project and add end: " << time_project_2 - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "DEBUG project and add end: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
     assert(_transcript_paths.size() >= pre_num_transcript_paths);
@@ -1215,86 +1207,32 @@ void Transcriptome::augment_splice_graph(list<EditedTranscriptPath> * edited_tra
       
     } else {
 
-        auto pre_augment_reference_paths = extract_reference_paths(reference_path_names);
-
         vector<Translation> translations;
+
+#ifdef transcriptome_debug
+    double time_edit_1 = gcsa::readTimer();
+    cerr << "\tDEBUG edit start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif
 
         // Augment splice graph with edited paths. 
         augment(static_cast<MutablePathMutableHandleGraph *>(_splice_graph.get()), edited_paths, &translations, nullptr, false, break_at_transcript_ends);
 
+#ifdef transcriptome_debug
+    cerr << "\tDEBUG edit end: " << gcsa::readTimer() - time_edit_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif 
+
         cout << translations.size() << endl;
 
-        auto post_augment_reference_paths = extract_reference_paths(reference_path_names);
-
         update_haplotype_index(haplotype_index, translations);
-    
-        // cerr << pb2json(edited_paths.front()) << endl;
-
-        // cerr << pb2json(bla.translate(edited_paths.front())) << endl;
-
-
-        // vg::io::for_each<vg::Alignment>(gam_out_stream, [&](vg::Alignment & alignment) {
-
-        //     cerr << pb2json(alignment.path()) << endl;
-        // });
     }
 }
-
-unordered_map<string, vector<handle_t> > Transcriptome::extract_reference_paths(const unordered_set<string> & reference_path_names) const {
-
-    unordered_map<string, vector<handle_t> > reference_paths;
-
-    for (auto & path_name: reference_path_names) {
-
-        auto reference_paths_it = reference_paths.emplace(path_name, vector<handle_t>());
-        assert(reference_paths_it.second);
-
-        auto path_handle = _splice_graph->get_path_handle(path_name);
-        reference_paths_it.first->second.reserve(_splice_graph->get_step_count(path_handle));
-
-        _splice_graph->for_each_step_in_path(path_handle, [&](const step_handle_t & step_handle) {
-            
-            reference_paths_it.first->second.emplace_back(_splice_graph->get_handle_of_step(step_handle));
-        });      
-    }
-
-    return reference_paths;
-}
-
-// void Transcriptome::update_haplotype_index(gbwt::GBWT * haplotype_index, const unordered_map<string, vector<step_handle_t> > & pre_augment_reference_paths, const unordered_map<string, vector<step_handle_t> > & post_augment_reference_paths) const {
-
-//     assert(pre_augment_reference_paths.size() == post_augment_reference_paths.size());
-
-//     // Create translation index 
-//     unordered_map<handle_t, vector<handle_t> > translation_index;
-
-//     for (auto & pre_reference_path: pre_augment_reference_paths) {
-
-//         auto & post_reference_paths.at(pre_reference_path.first);
-
-//         auto post_reference_paths_it = post_reference_paths.begin();
-//         auto pre_reference_path_it = pre_reference_path.begin();
-
-//         assert(post_reference_paths_it != post_reference_paths.end());
-//         assert(pre_reference_path_it != pre_reference_path.end());
-
-//         while (post_reference_paths_it != post_reference_paths.end() && pre_reference_path_it != pre_reference_path.end()) {
-
-//             if (*post_reference_paths_it != *pre_reference_path_it) {
-
-
-
-//             }
-
-//             ++post_reference_paths_it;
-//             ++pre_reference_path_it;
-//         }
-
-
-//     }
-// }   
 
 void Transcriptome::update_haplotype_index(gbwt::GBWT * haplotype_index, const vector<Translation> & translations) const {
+
+#ifdef transcriptome_debug
+    double time_translation_1 = gcsa::readTimer();
+    cerr << "\tDEBUG translation start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif
 
     unordered_map<gbwt::node_type, vector<pair<int32_t, gbwt::node_type> > > translation_index;
 
@@ -1321,12 +1259,43 @@ void Transcriptome::update_haplotype_index(gbwt::GBWT * haplotype_index, const v
         sort(translation.second.begin(), translation.second.end());
     }
 
+#ifdef transcriptome_debug
+    cerr << "\tDEBUG translation end: " << gcsa::readTimer() - time_translation_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif 
+
+#ifdef transcriptome_debug
+    double time_update_1 = gcsa::readTimer();
+    cerr << "\tDEBUG update start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif
+
     assert(haplotype_index->bidirectional());
 
-    // Update gbwt paths
-    vector<gbwt::vector_type> new_gbwt_threads; 
-    new_gbwt_threads.reserve(haplotype_index->metadata.paths()); 
+    gbwt::size_type total_length = 0;
 
+    for (size_t i = 0; i < haplotype_index->sequences(); i++) {
+
+        if (i % 2 == 1) {
+
+            continue;
+        }
+
+        total_length += 2 * (haplotype_index->extract(i).size() + 1);
+    }
+
+    cerr << gbwt::bit_length(gbwt::Node::encode(_splice_graph->max_node_id(), true)) << endl;
+
+#ifdef transcriptome_debug
+    cerr << "\tDEBUG update middle: " << gcsa::readTimer() - time_update_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif   
+
+    // Silence GBWT index construction. 
+    gbwt::Verbosity::set(gbwt::Verbosity::SILENT); 
+    gbwt::GBWTBuilder gbwt_builder(gbwt::bit_length(gbwt::Node::encode(_splice_graph->max_node_id(), true)), total_length);
+
+    gbwt_builder.index.addMetadata();
+    gbwt_builder.index.metadata = haplotype_index->metadata;
+
+    // Update gbwt paths
     for (size_t i = 0; i < haplotype_index->sequences(); i++) {
 
         if (i % 2 == 1) {
@@ -1337,8 +1306,8 @@ void Transcriptome::update_haplotype_index(gbwt::GBWT * haplotype_index, const v
         // Convert to gbwt thread id
         auto cur_gbwt_thread = haplotype_index->extract(i);
 
-        new_gbwt_threads.emplace_back(gbwt::vector_type());
-        new_gbwt_threads.back().reserve(cur_gbwt_thread.size());
+        gbwt::vector_type new_gbwt_threads;
+        new_gbwt_threads.reserve(cur_gbwt_thread.size());
 
         for (auto & node: cur_gbwt_thread) {
 
@@ -1348,28 +1317,30 @@ void Transcriptome::update_haplotype_index(gbwt::GBWT * haplotype_index, const v
 
                 if (translation_index_it->second.front().first > 0) {
 
-                    new_gbwt_threads.back().emplace_back(node);
+                    new_gbwt_threads.emplace_back(node);
                 }
 
                 for (auto & new_node: translation_index_it->second) {
 
-                    new_gbwt_threads.back().emplace_back(new_node.second);
+                    new_gbwt_threads.emplace_back(new_node.second);
                 }
 
             } else {
 
-                new_gbwt_threads.back().emplace_back(node);
+                new_gbwt_threads.emplace_back(node);
             }
         }
+
+        gbwt_builder.insert(new_gbwt_threads, true);
     }
 
-    auto metadata_backup = haplotype_index->metadata;
-
-    *haplotype_index = get_gbwt(new_gbwt_threads);
+    // Finish contruction and recode index.
+    gbwt_builder.finish();
+    *haplotype_index = gbwt::GBWT(gbwt_builder.index);
     
-    haplotype_index->clearMetadata();
-    haplotype_index->addMetadata();
-    haplotype_index->metadata = metadata_backup;
+#ifdef transcriptome_debug
+    cerr << "\tDEBUG update end: " << gcsa::readTimer() - time_update_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif     
 }   
 
 void Transcriptome::add_splice_junction_edges(const list<EditedTranscriptPath> & edited_transcript_paths) {

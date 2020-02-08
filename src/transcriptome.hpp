@@ -242,8 +242,6 @@ class Transcriptome {
         /// splice-junctions. Updates transcript path traversals to match the augmented graph. 
         void augment_splice_graph(list<EditedTranscriptPath> * edited_transcript_paths, gbwt::GBWT * haplotype_index, const bool break_at_transcript_ends);
 
-        unordered_map<string, vector<handle_t> > extract_reference_paths(const unordered_set<string> & reference_path_names) const;
-
         void update_haplotype_index(gbwt::GBWT * haplotype_index, const vector<Translation> & translation) const;
 
         /// Adds transcript path splice-junction edges to splice graph
