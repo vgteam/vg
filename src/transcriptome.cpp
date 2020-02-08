@@ -1282,8 +1282,6 @@ void Transcriptome::update_haplotype_index(gbwt::GBWT * haplotype_index, const v
         total_length += 2 * (haplotype_index->extract(i).size() + 1);
     }
 
-    cerr << gbwt::bit_length(gbwt::Node::encode(_splice_graph->max_node_id(), true)) << endl;
-
 #ifdef transcriptome_debug
     cerr << "\tDEBUG update middle: " << gcsa::readTimer() - time_update_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif   
