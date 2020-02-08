@@ -74,7 +74,7 @@ struct TranscriptPath {
 };
 
 /**
- * Data structure that defines a edited transcript path.
+ * Data structure that defines an edited transcript path.
  */ 
 struct EditedTranscriptPath : public TranscriptPath {
 
@@ -124,17 +124,17 @@ class Transcriptome {
         /// Collapse identical transcript paths.
         bool collapse_transcript_paths = true;
 
-        /// Add splice-junstions from a BED intro file. 
+        /// Add splice-junstions from a intron BED file. 
         /// Returns number of parsed introns. 
         int32_t add_intron_splice_junctions(istream & intron_stream, gbwt::GBWT * haplotype_index);
 
-        /// Add splice-junstions from a gtf/gff3 transcript file. 
+        /// Add splice-junstions from a transcript gtf/gff3 file. 
         /// Returns number of parsed transcripts.  
         int32_t add_transcript_splice_junctions(istream & transcript_stream, gbwt::GBWT * haplotype_index);
 
         /// Constructs transcript paths by projecting transcripts from a gtf/gff file onto 
         /// embedded paths in a variation graph and/or haplotypes in a GBWT index. Augments 
-        /// graph with transcriptome splice-junctions. Returns number of transcripts paths added.   
+        /// graph with transcriptome splice-junctions. Returns number of transcript paths added.   
         int32_t add_transcripts(istream & transcript_stream, const gbwt::GBWT & haplotype_index);
 
         /// Returns transcript paths.
@@ -241,10 +241,11 @@ class Transcriptome {
         list<CompletedTranscriptPath> construct_completed_transcript_paths(const list<EditedTranscriptPath> & edited_transcript_paths) const;
 
         /// Convert a path to a vector of handles. Checks that 
-        /// the path is complete (i.e. no edits compared to the graph).
+        /// the path is complete (i.e. only consist of whole nodes).
         vector<handle_t> path_to_handles(const Path & path) const;
 
-        /// Checks whether transcript path contain any novel exon boundaries.
+        /// Checks whether transcript path only consist of 
+        /// whole nodes (complete). 
         bool has_novel_exon_boundaries(const list<EditedTranscriptPath> & edited_transcript_paths, const bool include_transcript_ends) const;
 
         /// Augments the variation graph with transcript path exon boundaries and 

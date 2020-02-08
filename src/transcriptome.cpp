@@ -1090,7 +1090,7 @@ void Transcriptome::append_transcript_paths(list<CompletedTranscriptPath> * comp
                         completed_transcript_path.reference_origin = new_completed_transcript_path.reference_origin;
                     }
 
-                    // Merge haplotype origin names.
+                    // Merge haplotype origin ids.
                     completed_transcript_path.haplotype_origin_ids.insert(completed_transcript_path.haplotype_origin_ids.end(), new_completed_transcript_path.haplotype_origin_ids.begin(), new_completed_transcript_path.haplotype_origin_ids.end());
                     
                     new_path_unqiue = false;
@@ -1136,7 +1136,7 @@ vector<handle_t> Transcriptome::path_to_handles(const Path & path) const {
 
         auto handle = _splice_graph->get_handle(mapping.position().node_id(), mapping.position().is_reverse());
 
-        // Check that there is no edits compared to the graph.        
+        // Check that the path only consist of whole nodes (complete).        
         assert(mapping.edit_size() == 1);
         assert(edit_is_match(mapping.edit(0)));
         assert(mapping.position().offset() == 0);
@@ -1192,7 +1192,6 @@ void Transcriptome::augment_splice_graph(list<EditedTranscriptPath> * edited_tra
     assert(_transcript_paths.empty());
     _splice_graph_node_updated = true;
 
-    unordered_set<string> reference_path_names;
 
     // Move paths to data structure compatible with augment.
     vector<Path> edited_paths;
@@ -1201,9 +1200,6 @@ void Transcriptome::augment_splice_graph(list<EditedTranscriptPath> * edited_tra
     for (auto & transcript_path: *edited_transcript_paths) {
 
         edited_paths.emplace_back(move(transcript_path.path));
-
-        assert(!transcript_path.reference_origin.empty());
-        reference_path_names.emplace(transcript_path.reference_origin);
     }
 
     if (haplotype_index->empty()) {
@@ -1283,7 +1279,6 @@ void Transcriptome::update_haplotype_index(gbwt::GBWT * haplotype_index, const v
     gbwt_builder.index.addMetadata();
     gbwt_builder.index.metadata = haplotype_index->metadata;
 
-    // Update gbwt paths
     for (size_t i = 0; i < haplotype_index->sequences(); i++) {
 
         // Only update forward threads in bidirectional gbwt index.
@@ -1292,7 +1287,6 @@ void Transcriptome::update_haplotype_index(gbwt::GBWT * haplotype_index, const v
             continue;
         }
 
-        // Convert to gbwt thread id
         auto cur_gbwt_thread = haplotype_index->extract(i);
 
         gbwt::vector_type new_gbwt_threads;
@@ -1323,7 +1317,7 @@ void Transcriptome::update_haplotype_index(gbwt::GBWT * haplotype_index, const v
             }
         }
 
-        // Insert thread bidirectional.
+        // Insert thread bidirectionally.
         gbwt_builder.insert(new_gbwt_threads, true);
     }
 
@@ -1518,6 +1512,7 @@ int32_t Transcriptome::write_sequences(ostream * fasta_ostream, const bool outpu
 
             ++num_written_sequences;
 
+            // Construct transcript path sequence.
             string transcript_path_sequence = "";
             for (auto & handle: transcript_path.path) {
 
@@ -1545,8 +1540,8 @@ int32_t Transcriptome::write_info(ostream * tsv_ostream, const gbwt::GBWT & hapl
 
             ++num_written_info;
 
+            // Get transcript path length.
             int32_t transcript_path_length = 0;
-
             for (auto & handle: transcript_path.path) {
 
                 transcript_path_length += _splice_graph->get_length(handle);
@@ -1601,9 +1596,9 @@ int32_t Transcriptome::write_info(ostream * tsv_ostream, const gbwt::GBWT & hapl
     return num_written_info;
 }
 
-void Transcriptome::write_splice_graph(ostream * vg_ostream) const {
+void Transcriptome::write_splice_graph(ostream * graph_ostream) const {
 
-    vg::io::save_handle_graph(_splice_graph.get(), *vg_ostream);
+    vg::io::save_handle_graph(_splice_graph.get(), *graph_ostream);
 }
     
 }
