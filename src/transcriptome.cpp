@@ -1311,7 +1311,7 @@ void Transcriptome::update_haplotype_index(gbwt::GBWT * haplotype_index, const v
         if (!google::protobuf::util::MessageDifferencer::Equals(from_mapping, to_mapping)) {
 
             auto translation_index_it = translation_index.emplace(mapping_to_gbwt(from_mapping), vector<pair<int32_t, gbwt::node_type> >());
-            translation_index_it.first->second.emplace_back(to_mapping.position().offset(), mapping_to_gbwt(to_mapping));
+            translation_index_it.first->second.emplace_back(from_mapping.position().offset(), mapping_to_gbwt(to_mapping));
         }
     }
 
@@ -1361,11 +1361,15 @@ void Transcriptome::update_haplotype_index(gbwt::GBWT * haplotype_index, const v
                 new_gbwt_threads.back().emplace_back(node);
             }
         }
-
-        cerr << cur_gbwt_thread.size() << " " << new_gbwt_threads.back().size() << endl;
     }
 
+    auto metadata_backup = haplotype_index->metadata;
+
     *haplotype_index = get_gbwt(new_gbwt_threads);
+    
+    haplotype_index->clearMetadata();
+    haplotype_index->addMetadata();
+    haplotype_index->metadata = metadata_backup;
 }   
 
 void Transcriptome::add_splice_junction_edges(const list<EditedTranscriptPath> & edited_transcript_paths) {
