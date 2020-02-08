@@ -83,6 +83,16 @@ struct GaplessExtension
     bool operator<(const GaplessExtension& another) const {
         return (this->score < another.score);
     }
+
+    /// Two extensions are equal if the same read interval matches the same search state.
+    bool operator==(const GaplessExtension& another) const {
+        return (this->read_interval == another.read_interval && this->state == another.state);
+    }
+
+    /// Two extensions are not equal if the state or the read is different.
+    bool operator!=(const GaplessExtension& another) const {
+        return !(this->operator==(another));
+    }
 };
 
 //------------------------------------------------------------------------------

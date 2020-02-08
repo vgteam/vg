@@ -49,7 +49,7 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
         // Make an emitter that supports HTSlib formats
         if (splicing_graph) {
             // Use the graph to look for spliced alignments
-            backing = new SplicedHTSAlignmentEmitter(filename, format, *splicing_graph, max_threads);
+            backing = new SplicedHTSAlignmentEmitter(filename, format, path_length, *splicing_graph, max_threads);
         }
         else {
             // Assume alignments are contiguous
@@ -582,20 +582,12 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
 }
 
 SplicedHTSAlignmentEmitter::SplicedHTSAlignmentEmitter(const string& filename, const string& format,
+                                                       const map<string, int64_t>& path_length,
                                                        const PathPositionHandleGraph& graph,
                                                        size_t max_threads) :
-    HTSAlignmentEmitter(filename, format, make_path_length_index(graph), max_threads), graph(graph) {
+    HTSAlignmentEmitter(filename, format, path_length, max_threads), graph(graph) {
     
     // nothing else to do
-}
-
-map<string, int64_t> SplicedHTSAlignmentEmitter::make_path_length_index(const PathPositionHandleGraph& graph) {
-    
-    map<string, int64_t> return_val;
-    graph.for_each_path_handle([&](const path_handle_t& path_handle) {
-        return_val[graph.get_path_name(path_handle)] = graph.get_path_length(path_handle);
-    });
-    return return_val;
 }
 
 void SplicedHTSAlignmentEmitter::convert_alignment(const Alignment& aln, vector<pair<int, char>>& cigar,

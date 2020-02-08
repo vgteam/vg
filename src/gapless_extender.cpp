@@ -213,7 +213,7 @@ void remove_duplicates(std::vector<GaplessExtension>& result) {
         if (result[i].empty()) {
             continue;
         }
-        if (tail == 0 || result[i].read_interval != result[tail - 1].read_interval || result[i].state != result[tail - 1].state) {
+        if (tail == 0 || result[i] != result[tail - 1]) {
             if (i > tail) {
                 result[tail] = std::move(result[i]);
             }
@@ -423,7 +423,10 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             if (best_alignment.empty() || best_match.internal_score < best_alignment.internal_score) {
                 second_best_alignment = std::move(best_alignment);
                 best_alignment = std::move(best_match);
-            } else if (second_best_alignment.empty() || best_match.internal_score < second_best_alignment.internal_score) {
+            }
+            // If the best alignment contains mismatches, we may reach it from multiple seeds.
+            // Make sure that we do not report it as the best and the second best alignment.
+            else if ((second_best_alignment.empty() || best_match.internal_score < second_best_alignment.internal_score) && best_match != best_alignment) {
                 second_best_alignment = std::move(best_match);
                 full_length_mismatches = second_best_alignment.internal_score;
             }
