@@ -112,6 +112,7 @@ var searchData=
   ['poisson_5fprob_5fln',['poisson_prob_ln',['../namespacevg.html#a9238b15cc78a87f27c335fc1e3627a62',1,'vg']]],
   ['poissonsupportsnarlcaller',['PoissonSupportSnarlCaller',['../classvg_1_1PoissonSupportSnarlCaller.html#a5cfa35b77f2a1e0343a146e2dcc15d42',1,'vg::PoissonSupportSnarlCaller']]],
   ['populate_5fpath_5ffrom_5ftraceback',['populate_path_from_traceback',['../namespacevg.html#a856b55f4d89ae8bd7e6dacaa70fba0e0',1,'vg']]],
+  ['populatesnarlindex',['populateSnarlIndex',['../classvg_1_1MinimumDistanceIndex.html#a466eef8a6297a68ad1f8aab53661bfc6',1,'vg::MinimumDistanceIndex']]],
   ['pos_5fchar',['pos_char',['../classvg_1_1Sampler.html#a72d922b802775f51f2b02046398d3417',1,'vg::Sampler']]],
   ['pos_5fkey',['pos_key',['../classvg_1_1Packer.html#a128c9b21b9a784c6ea27501463b23862',1,'vg::Packer']]],
   ['pos_5fto_5fgbwt',['pos_to_gbwt',['../namespacevg.html#ae1296fd4e352a120122d4be0a0007819',1,'vg']]],

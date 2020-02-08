@@ -81,9 +81,10 @@ Inheritance diagram for vg::BaseMapper:</div>
  <div class="center">
   <img src="classvg_1_1BaseMapper.png" usemap="#vg::BaseMapper_map" alt=""/>
   <map id="vg::BaseMapper_map" name="vg::BaseMapper_map">
-<area href="classvg_1_1AlignerClient.html" alt="vg::AlignerClient" shape="rect" coords="68,0,195,24"/>
-<area href="classvg_1_1Mapper.html" alt="vg::Mapper" shape="rect" coords="0,112,127,136"/>
-<area href="classvg_1_1MultipathMapper.html" alt="vg::MultipathMapper" shape="rect" coords="137,112,264,136"/>
+<area href="classvg_1_1AlignerClient.html" alt="vg::AlignerClient" shape="rect" coords="0,0,135,24"/>
+<area href="classvg_1_1PairedEndMapper.html" alt="vg::PairedEndMapper" shape="rect" coords="145,0,280,24"/>
+<area href="classvg_1_1Mapper.html" alt="vg::Mapper" shape="rect" coords="0,112,135,136"/>
+<area href="classvg_1_1MultipathMapper.html" alt="vg::MultipathMapper" shape="rect" coords="145,112,280,136"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -95,18 +96,11 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a895c239d974f084e7a0a83025e104fd8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2884c6722e6bd9c9aab6671a85a6c3c0"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a2884c6722e6bd9c9aab6671a85a6c3c0">random_match_length</a> (double chance_random)</td></tr>
 <tr class="separator:a2884c6722e6bd9c9aab6671a85a6c3c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad91089ef5009359b6be8b9455e505396"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#ad91089ef5009359b6be8b9455e505396">set_fragment_length_distr_params</a> (size_t maximum_sample_size=1000, size_t reestimation_frequency=1000, double robust_estimation_fraction=0.95)</td></tr>
-<tr class="separator:ad91089ef5009359b6be8b9455e505396"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0552850ea91ef5c075a63690fe6e6578"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a0552850ea91ef5c075a63690fe6e6578">set_alignment_scores</a> (int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus, uint32_t xdrop_max_gap_length=default_xdrop_max_gap_length, double <a class="el" href="classvg_1_1BaseMapper.html#a33465e76a17e2580a6e095f3373239c5">haplotype_consistency_exponent</a>=1)</td></tr>
 <tr class="memdesc:a0552850ea91ef5c075a63690fe6e6578"><td class="mdescLeft">&#160;</td><td class="mdescRight">Override alignment score setting to support haplotype consistency exponent.  <a href="#a0552850ea91ef5c075a63690fe6e6578">More...</a><br /></td></tr>
 <tr class="separator:a0552850ea91ef5c075a63690fe6e6578"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a903d4be40e368c6dd1c91f6fe2ec4d67"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a903d4be40e368c6dd1c91f6fe2ec4d67">set_cache_size</a> (int new_cache_size)</td></tr>
 <tr class="separator:a903d4be40e368c6dd1c91f6fe2ec4d67"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a605bec54cb2bac4ce873dc7b2783cd5d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a605bec54cb2bac4ce873dc7b2783cd5d">has_fixed_fragment_length_distr</a> ()</td></tr>
-<tr class="memdesc:a605bec54cb2bac4ce873dc7b2783cd5d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if fragment length distribution has been fixed.  <a href="#a605bec54cb2bac4ce873dc7b2783cd5d">More...</a><br /></td></tr>
-<tr class="separator:a605bec54cb2bac4ce873dc7b2783cd5d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9848806a322e4a90d0aaf6f1b0407dc8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a9848806a322e4a90d0aaf6f1b0407dc8">force_fragment_length_distr</a> (double mean, double stddev)</td></tr>
-<tr class="separator:a9848806a322e4a90d0aaf6f1b0407dc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af64a7b36c1880606372d0849842708b0"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#af64a7b36c1880606372d0849842708b0">find_mems_deep</a> (string::const_iterator seq_begin, string::const_iterator seq_end, double &amp;lcp_avg, double &amp;fraction_filtered, int max_mem_length=0, int <a class="el" href="classvg_1_1BaseMapper.html#a6de91c39c73a95b014b1773495985a09">min_mem_length</a>=1, int reseed_length=0, bool use_lcp_reseed_heuristic=false, bool use_diff_based_fast_reseed=false, bool include_parent_in_sub_mem_count=false, bool record_max_lcp=false, int reseed_below_count=0)</td></tr>
 <tr class="separator:af64a7b36c1880606372d0849842708b0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4dd3272837211543ba461472833734a9"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a4dd3272837211543ba461472833734a9">find_mems_simple</a> (string::const_iterator seq_begin, string::const_iterator seq_end, int max_mem_length=0, int <a class="el" href="classvg_1_1BaseMapper.html#a6de91c39c73a95b014b1773495985a09">min_mem_length</a>=1, int reseed_length=0)</td></tr>
@@ -134,6 +128,14 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a2ef1e755d0886e16328eb9818ae31fb2 inherit pub_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a2ef1e755d0886e16328eb9818ae31fb2">load_scoring_matrix</a> (std::ifstream &amp;matrix_stream)</td></tr>
 <tr class="memdesc:a2ef1e755d0886e16328eb9818ae31fb2 inherit pub_methods_classvg_1_1AlignerClient"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a scoring amtrix from a file to set scores.  <a href="classvg_1_1AlignerClient.html#a2ef1e755d0886e16328eb9818ae31fb2">More...</a><br /></td></tr>
 <tr class="separator:a2ef1e755d0886e16328eb9818ae31fb2 inherit pub_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_methods_classvg_1_1PairedEndMapper"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1PairedEndMapper')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1PairedEndMapper.html">vg::PairedEndMapper</a></td></tr>
+<tr class="memitem:a09e89f6da87d25f0ad66fb9eb3139a98 inherit pub_methods_classvg_1_1PairedEndMapper"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PairedEndMapper.html#a09e89f6da87d25f0ad66fb9eb3139a98">set_fragment_length_distr_params</a> (size_t maximum_sample_size=1000, size_t reestimation_frequency=1000, double robust_estimation_fraction=0.95)</td></tr>
+<tr class="separator:a09e89f6da87d25f0ad66fb9eb3139a98 inherit pub_methods_classvg_1_1PairedEndMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad0a2d836cfcaddae8569bf1a024aa56b inherit pub_methods_classvg_1_1PairedEndMapper"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PairedEndMapper.html#ad0a2d836cfcaddae8569bf1a024aa56b">has_fixed_fragment_length_distr</a> ()</td></tr>
+<tr class="memdesc:ad0a2d836cfcaddae8569bf1a024aa56b inherit pub_methods_classvg_1_1PairedEndMapper"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if fragment length distribution has been fixed.  <a href="classvg_1_1PairedEndMapper.html#ad0a2d836cfcaddae8569bf1a024aa56b">More...</a><br /></td></tr>
+<tr class="separator:ad0a2d836cfcaddae8569bf1a024aa56b inherit pub_methods_classvg_1_1PairedEndMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac2731944023ede8d7fb00379ffd8ecbf inherit pub_methods_classvg_1_1PairedEndMapper"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PairedEndMapper.html#ac2731944023ede8d7fb00379ffd8ecbf">force_fragment_length_distr</a> (double mean, double stddev)</td></tr>
+<tr class="separator:ac2731944023ede8d7fb00379ffd8ecbf inherit pub_methods_classvg_1_1PairedEndMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
@@ -199,8 +201,6 @@ Public Attributes</h2></td></tr>
 <tr class="separator:af69ce88df203124121b71bdfdc6f3694"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a33465e76a17e2580a6e095f3373239c5"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a33465e76a17e2580a6e095f3373239c5">haplotype_consistency_exponent</a> = 1</td></tr>
 <tr class="separator:a33465e76a17e2580a6e095f3373239c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8e37826ea32c98f5ce0f6f4dd2206fd5"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1FragmentLengthDistribution.html">FragmentLengthDistribution</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a8e37826ea32c98f5ce0f6f4dd2206fd5">fragment_length_distr</a></td></tr>
-<tr class="separator:a8e37826ea32c98f5ce0f6f4dd2206fd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_attribs_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a25db3953c246e94a7e08ef59fc31b82f">adjust_alignments_for_base_quality</a> = false</td></tr>
 <tr class="separator:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -221,6 +221,10 @@ Additional Inherited Members</h2></td></tr>
 <tr class="separator:a79071998ffe8ea584e2b6c70487ceb67 inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a981d1611f55817d7c375a5665666e408 inherit pro_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a981d1611f55817d7c375a5665666e408">get_regular_aligner</a> () const</td></tr>
 <tr class="separator:a981d1611f55817d7c375a5665666e408 inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pro_attribs_classvg_1_1PairedEndMapper"><td colspan="2" onclick="javascript:toggleInherit('pro_attribs_classvg_1_1PairedEndMapper')"><img src="closed.png" alt="-"/>&#160;Protected Attributes inherited from <a class="el" href="classvg_1_1PairedEndMapper.html">vg::PairedEndMapper</a></td></tr>
+<tr class="memitem:a9d232033ef120e15c47d13fab2750bc1 inherit pro_attribs_classvg_1_1PairedEndMapper"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1FragmentLengthDistribution.html">FragmentLengthDistribution</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PairedEndMapper.html#a9d232033ef120e15c47d13fab2750bc1">fragment_length_distr</a></td></tr>
+<tr class="memdesc:a9d232033ef120e15c47d13fab2750bc1 inherit pro_attribs_classvg_1_1PairedEndMapper"><td class="mdescLeft">&#160;</td><td class="mdescRight">Holds the actual fragment length distribution and estimation information.  <a href="classvg_1_1PairedEndMapper.html#a9d232033ef120e15c47d13fab2750bc1">More...</a><br /></td></tr>
+<tr class="separator:a9d232033ef120e15c47d13fab2750bc1 inherit pro_attribs_classvg_1_1PairedEndMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Base class for basic mapping functionality shared between the <a class="el" href="classvg_1_1Mapper.html">Mapper</a>, <a class="el" href="classvg_1_1MultipathMapper.html">MultipathMapper</a>, etc. Handles holding on to the random access and text indexes needed for mapping operations. </p>
@@ -590,35 +594,6 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a9848806a322e4a90d0aaf6f1b0407dc8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9848806a322e4a90d0aaf6f1b0407dc8">&#9670;&nbsp;</a></span>force_fragment_length_distr()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::BaseMapper::force_fragment_length_distr </td>
-          <td>(</td>
-          <td class="paramtype">double&#160;</td>
-          <td class="paramname"><em>mean</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">double&#160;</td>
-          <td class="paramname"><em>stddev</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Use the given fragment length distribution parameters instead of estimating them. </p>
-
-</div>
-</div>
 <a id="a7f693887391ddeaebf4a4a609e2ab9b3"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a7f693887391ddeaebf4a4a609e2ab9b3">&#9670;&nbsp;</a></span>get_adaptive_min_reseed_length()</h2>
 
@@ -634,25 +609,6 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a id="a605bec54cb2bac4ce873dc7b2783cd5d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a605bec54cb2bac4ce873dc7b2783cd5d">&#9670;&nbsp;</a></span>has_fixed_fragment_length_distr()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::BaseMapper::has_fixed_fragment_length_distr </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Returns true if fragment length distribution has been fixed. </p>
 
 </div>
 </div>
@@ -857,40 +813,6 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="ad91089ef5009359b6be8b9455e505396"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad91089ef5009359b6be8b9455e505396">&#9670;&nbsp;</a></span>set_fragment_length_distr_params()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::BaseMapper::set_fragment_length_distr_params </td>
-          <td>(</td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>maximum_sample_size</em> = <code>1000</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>reestimation_frequency</em> = <code>1000</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">double&#160;</td>
-          <td class="paramname"><em>robust_estimation_fraction</em> = <code>0.95</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <h2 class="groupheader">Member Data Documentation</h2>
 <a id="a653e029302e4442dbabd06a70ec4bbec"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a653e029302e4442dbabd06a70ec4bbec">&#9670;&nbsp;</a></span>adaptive_diff_exponent</h2>
@@ -1022,20 +944,6 @@ Additional Inherited Members</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">double vg::BaseMapper::fast_reseed_length_diff = 0.45</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a8e37826ea32c98f5ce0f6f4dd2206fd5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8e37826ea32c98f5ce0f6f4dd2206fd5">&#9670;&nbsp;</a></span>fragment_length_distr</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classvg_1_1FragmentLengthDistribution.html">FragmentLengthDistribution</a> vg::BaseMapper::fragment_length_distr</td>
         </tr>
       </table>
 </div><div class="memdoc">

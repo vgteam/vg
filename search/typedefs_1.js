@@ -2,7 +2,6 @@ var searchData=
 [
   ['chain',['Chain',['../namespacevg.html#aceea01d66677e39af71921f1bb1911f0',1,'vg']]],
   ['clock',['clock',['../classvg_1_1Watchdog.html#a7ef04f4ac4f47f7bb02f7ac1b17feb09',1,'vg::Watchdog']]],
-  ['cluster_5fgroup_5ft',['cluster_group_t',['../classvg_1_1SnarlSeedClusterer.html#aa70774352ed8422bb9c42093b87354d4',1,'vg::SnarlSeedClusterer']]],
   ['cluster_5ft',['cluster_t',['../classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d',1,'vg::MEMClusterer']]],
   ['cluster_5ftype',['cluster_type',['../classvg_1_1GaplessExtender.html#a7ac1326772ac23e766774279d39e9c04',1,'vg::GaplessExtender']]],
   ['clustergraph_5ft',['clustergraph_t',['../classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde',1,'vg::MultipathMapper']]],

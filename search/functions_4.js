@@ -39,7 +39,7 @@ var searchData=
   ['disjoint_5fsubgraphs',['disjoint_subgraphs',['../classvg_1_1VG.html#af31e90fe77a1d30244011dd8dbbf5f25',1,'vg::VG']]],
   ['display',['display',['../classvg_1_1MEMChainModel.html#ab02e84fb2d25c2ff7f19941b78e458ba',1,'vg::MEMChainModel::display()'],['../classvg_1_1AlignmentChainModel.html#a142994d7c623a99007811acb547e6112',1,'vg::AlignmentChainModel::display()']]],
   ['display_5fdot',['display_dot',['../classvg_1_1MEMChainModel.html#a7d24805bef4ab8de20a975ccfa3a8dce',1,'vg::MEMChainModel::display_dot()'],['../classvg_1_1AlignmentChainModel.html#aa308f545fc899da303c39df9f2208cde',1,'vg::AlignmentChainModel::display_dot()']]],
-  ['distance_5fbetween',['distance_between',['../classvg_1_1MultipathMapper.html#ae037be0bc7d888803241bd4e5b1f9a2f',1,'vg::MultipathMapper']]],
+  ['distance_5fbetween',['distance_between',['../classvg_1_1MinimizerMapper.html#ae68add551501e3b58c9329d9297d620d',1,'vg::MinimizerMapper::distance_between()'],['../classvg_1_1MultipathMapper.html#ae037be0bc7d888803241bd4e5b1f9a2f',1,'vg::MultipathMapper::distance_between()']]],
   ['distance_5fbetween_5fpositions',['distance_between_positions',['../classvg_1_1Filter.html#a9f3ede63fb8518a85f966c3aececb4a6',1,'vg::Filter']]],
   ['disttocommonancestor',['distToCommonAncestor',['../classvg_1_1MinimumDistanceIndex.html#a5f38e6b389aaff2852502502cf9d4115',1,'vg::MinimumDistanceIndex']]],
   ['disttoends',['distToEnds',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a6842540f8a03448c812eece00c6af0bc',1,'vg::MinimumDistanceIndex::SnarlIndex']]],

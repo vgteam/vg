@@ -9,6 +9,7 @@ var searchData=
   ['pair_5fhash_5fmap_3c_20std_3a_3apair_3c_20gbwt_3a_3anode_5ftype_2c_20gbwt_3a_3anode_5ftype_20_3e_2c_20gbwt_3a_3anode_5ftype_20_3e',['pair_hash_map&lt; std::pair&lt; gbwt::node_type, gbwt::node_type &gt;, gbwt::node_type &gt;',['../classvg_1_1pair__hash__map.html',1,'vg']]],
   ['pair_5fhash_5fset',['pair_hash_set',['../classvg_1_1pair__hash__set.html',1,'vg']]],
   ['pair_5fhash_5fset_3c_20std_3a_3apair_3c_20gbwt_3a_3anode_5ftype_2c_20gbwt_3a_3anode_5ftype_20_3e_20_3e',['pair_hash_set&lt; std::pair&lt; gbwt::node_type, gbwt::node_type &gt; &gt;',['../classvg_1_1pair__hash__set.html',1,'vg']]],
+  ['pairedendmapper',['PairedEndMapper',['../classvg_1_1PairedEndMapper.html',1,'vg']]],
   ['path',['Path',['../structvg_1_1Path.html',1,'vg']]],
   ['path_5fhandle_5ft',['path_handle_t',['../structhandlegraph_1_1path__handle__t.html',1,'handlegraph']]],
   ['pathbasedtraversalfinder',['PathBasedTraversalFinder',['../classvg_1_1PathBasedTraversalFinder.html',1,'vg']]],

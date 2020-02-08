@@ -83,6 +83,7 @@ var searchData=
   ['end_5fbackward',['end_backward',['../namespacevg.html#acab8d2ef076a0e866c7849aace290124',1,'vg']]],
   ['end_5fdegree',['end_degree',['../classvg_1_1VG.html#af3cf82dca43799a03d93b199133f1d4b',1,'vg::VG']]],
   ['end_5ffile',['end_file',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#ad31df557e0da72dbd81c865855454e25',1,'vg::io::BlockedGzipOutputStream']]],
+  ['end_5fid',['end_id',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#aeba5b2b207c06dd958555e7bdfe21388',1,'vg::MinimumDistanceIndex::SnarlIndex::end_id()'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#a4ca94a2530cbdd1ba0e9062ec8e8ebc5',1,'vg::MinimumDistanceIndex::ChainIndex::end_id()']]],
   ['end_5fself_5freachable',['end_self_reachable',['../structvg_1_1Snarl.html#a18c06a3bd33bd3385147838d4c7b867c',1,'vg::Snarl']]],
   ['end_5fsep',['end_sep',['../classvg_1_1Index.html#a0c382438efc4d8003d166debd463f1ac',1,'vg::Index']]],
   ['endfile',['EndFile',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#aa6cf204591880e126bacc2d01799f3e6',1,'vg::io::BlockedGzipOutputStream']]],
