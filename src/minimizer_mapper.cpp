@@ -43,7 +43,7 @@ double MinimizerMapper::cheapest_cover_cost(const vector<Minimizer>& minimizers,
 
     // Sort the agglomerations by start position
     std::sort(broken.begin(), broken.end(), [&](const size_t& a, const size_t& b) {
-        return minimizers[a].agglomeration_start < return minimizers[b].agglomeration_start;
+        return minimizers[a].agglomeration_start < minimizers[b].agglomeration_start;
     });
 
     // A window in flight is a pair of start position, inclusive end position
@@ -88,8 +88,8 @@ double MinimizerMapper::cheapest_cover_cost(const vector<Minimizer>& minimizers,
             // that hasn't ended yet, or a new agglomeration starts here.
             
 #ifdef debug
-            cerr << "\tBase is acceptable (" << sequence[i] << ", " << active_windows.size() << " active windows, "
-                << ((next_agglomeration != broken.end() && minimizers[*next_agglomeration].agglomeration_start == i) ? "new starting" : "") 
+            cerr << "\tBase is acceptable (" << sequence[i] << ", " << active_windows.size() << " active windows"
+                << ((next_agglomeration != broken.end() && minimizers[*next_agglomeration].agglomeration_start == i) ? ", new starting" : "") 
                 << ")" << endl;
 #endif
             
@@ -134,25 +134,30 @@ double MinimizerMapper::cheapest_cover_cost(const vector<Minimizer>& minimizers,
             auto& minimizer = minimizers[*next_agglomeration];
             
             // Determine its window size from its index.
-            auto& source_index = *minimizer_indexes[minimizer.source];
+            auto& source_index = *minimizer_indexes[minimizer.origin];
             size_t window_size = source_index.k() + source_index.w() - 1;
-            
-            
-            for (size_t start = minimizer.agglomeration_start; start + window_size - 1 < minimizer.agglomeration_length; start++) {
-                // Add all the agglomeration's windows to the queue
-                active_windows.emplace(start, start + window_size - 1);
-            }
             
 #ifdef debug
             cerr << "\tBegin agglomeration of " << (minimizer.agglomeration_length - window_size + 1)
                 << " windows of " << window_size << " bp each" << endl;
 #endif
             
+            for (size_t start = minimizer.agglomeration_start;
+                start + window_size - 1 < minimizer.agglomeration_start + minimizer.agglomeration_length;
+                start++) {
+                // Add all the agglomeration's windows to the queue, looping over their start bases in the read.
+                window_t add = {start, start + window_size - 1};
+#ifdef debug
+                cerr << "\t\t" << add.first << " - " << add.last << endl;
+#endif
+                active_windows.push(add);
+            }
+            
             // And advance the cursor
             ++next_agglomeration;
         }
 
-        while (active_windows.top().last == i) {
+        while (!active_windows.empty() && active_windows.top().last == i) {
             // The look at the queue to see if a window ends here. This is second so that we can handle 1-base windows.
             
 #ifdef debug
@@ -168,9 +173,12 @@ double MinimizerMapper::cheapest_cover_cost(const vector<Minimizer>& minimizers,
                 
                 // If so, use the latest-starting of all such windows as our latest starting window ending here or before result.
                 latest_starting_ending_before = active_windows.top();
+                
+#ifdef debug
+                cerr << "\t\t\tNow have: " << latest_starting_ending_before.first << " - " << latest_starting_ending_before.last << endl;
+#endif
+                
             }
-            
-            
             
             // And pop them all off.
             active_windows.pop();
@@ -179,6 +187,10 @@ double MinimizerMapper::cheapest_cover_cost(const vector<Minimizer>& minimizers,
         
         // Loop around; we will have the latest-starting window ending before the next here.
     }
+    
+#ifdef debug
+    cerr << "Final window to scan: " << latest_starting_ending_before.first << " - " << latest_starting_ending_before.last << endl;
+#endif
     
     // When we get here, all the agglomerations should have been handled
     assert(next_agglomeration == broken.end());
