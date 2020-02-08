@@ -208,11 +208,15 @@ class Transcriptome {
         /// are ordered in reverse.
         void reorder_exons(Transcript * transcript) const;
 
+        /// Constructs edited transcript paths from a set of 
+        /// reference transcripts. 
         list<EditedTranscriptPath> construct_edited_transcript_paths(const vector<Transcript> & transcripts) const;
+
+        /// Threaded edited transcript path construction.
         void construct_edited_transcript_paths_callback(list<EditedTranscriptPath> * edited_transcript_paths, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<Transcript> & transcripts) const;
 
         /// Constructs transcript paths by projecting transcripts onto embedded paths in
-        /// a variation graph and/or haplotypes in a GBWT index.   
+        /// a variation graph and/or haplotypes in a GBWT index. 
         void project_and_add_transcripts(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length);
 
         /// Threaded transcript projecting.
@@ -231,10 +235,13 @@ class Transcriptome {
         /// Adds new transcript paths to current set. Has argument to only add unique paths.
         void append_transcript_paths(list<CompletedTranscriptPath> * completed_transcript_path, list<CompletedTranscriptPath> * new_completed_transcript_paths, const bool add_unqiue_paths_only) const;
 
+        /// Constructs completed transcripts paths from 
+        /// edited transcript paths. Checks that the
+        /// paths contain no edits compared to the graph.
         list<CompletedTranscriptPath> construct_completed_transcript_paths(const list<EditedTranscriptPath> & edited_transcript_paths) const;
 
         /// Convert a path to a vector of handles. Checks that 
-        /// the path is complete (i.e. no edits from the graph).
+        /// the path is complete (i.e. no edits compared to the graph).
         vector<handle_t> path_to_handles(const Path & path) const;
 
         /// Checks whether transcript path contain any novel exon boundaries.
