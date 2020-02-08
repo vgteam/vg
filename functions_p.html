@@ -166,6 +166,9 @@ $(function() {
 <li>parse_edge()
 : <a class="el" href="classvg_1_1Index.html#a2e4f852179aff69a081bef942bb44b33">vg::Index</a>
 </li>
+<li>parse_introns()
+: <a class="el" href="classvg_1_1Transcriptome.html#a954160949915051dde8820f2b22f822b">vg::Transcriptome</a>
+</li>
 <li>parse_kmer()
 : <a class="el" href="classvg_1_1Index.html#a59cab369954a075f3b2d0a4c7bb9c9ba">vg::Index</a>
 </li>
@@ -183,6 +186,9 @@ $(function() {
 </li>
 <li>parse_subpath_name()
 : <a class="el" href="classvg_1_1Paths.html#a163c64847cf4eb884e5ba10b78a0da3f">vg::Paths</a>
+</li>
+<li>parse_transcripts()
+: <a class="el" href="classvg_1_1Transcriptome.html#a6065810d52c80457eb88eb3032659946">vg::Transcriptome</a>
 </li>
 <li>parse_translation()
 : <a class="el" href="structvg_1_1PathIndex.html#aa5272234ddb7686f1ae88881ebf99a61">vg::PathIndex</a>
@@ -217,12 +223,13 @@ $(function() {
 <li>path
 : <a class="el" href="classhandlegraph_1_1PathForEachSocket.html#a5bd264139b15b7e56ad5a2f6f691202b">handlegraph::PathForEachSocket</a>
 , <a class="el" href="structvg_1_1Alignment.html#a4736db5fe121ef57784c18c3c27aea79">vg::Alignment</a>
+, <a class="el" href="structvg_1_1CompletedTranscriptPath.html#ae6ea83076c2772ac2670e0e06587dc04">vg::CompletedTranscriptPath</a>
+, <a class="el" href="structvg_1_1EditedTranscriptPath.html#a8945ac17c2039bc54e3697553c1563a2">vg::EditedTranscriptPath</a>
 , <a class="el" href="structvg_1_1GaplessExtension.html#a6d46f3e3d3525ea159b11f6e832a37e0">vg::GaplessExtension</a>
 , <a class="el" href="structvg_1_1Graph.html#a850007eb60ce0d25a6bd9799050ec790">vg::Graph</a>
 , <a class="el" href="classvg_1_1PathNode.html#a135155ca8d14a6ea86c85f997fb03b20">vg::PathNode</a>
 , <a class="el" href="classvg_1_1Paths.html#a218a01d5d53bf945ef4f0acafd18d6bc">vg::Paths</a>
 , <a class="el" href="structvg_1_1Subpath.html#a69056b48fb59ee83a8b0307838987e19">vg::Subpath</a>
-, <a class="el" href="structvg_1_1TranscriptPath.html#a39e25456c6f1b47eee43edfc85ed4ddf">vg::TranscriptPath</a>
 </li>
 <li>path_back()
 : <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a31bb33a87ad8efd68876fc5ae1deeb09">handlegraph::PathHandleGraph</a>
@@ -343,10 +350,13 @@ $(function() {
 : <a class="el" href="classvg_1_1VG.html#a4ce6fe02b243b4f0f82bbf801fd507fa">vg::VG</a>
 </li>
 <li>path_string()
-: <a class="el" href="classvg_1_1VG.html#af8f4e2ab506f4ef673836b5901bb3809">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#a927b79f3f4c9582b0f8e988bb4ef1aa1">vg::VG</a>
 </li>
 <li>path_subset
 : <a class="el" href="classvg_1_1PathSubgraphOverlay.html#aef82f75c24c686645b0255685bc4c6f2">vg::PathSubgraphOverlay</a>
+</li>
+<li>path_to_handles()
+: <a class="el" href="classvg_1_1Transcriptome.html#ad8380bf687a8940305d0a080466d44d0">vg::Transcriptome</a>
 </li>
 <li>path_to_input_haplotype()
 : <a class="el" href="structhaplo_1_1linear__haplo__structure.html#acf88c54b278bcacae66383f2668970b2">haplo::linear_haplo_structure</a>
@@ -695,7 +705,7 @@ $(function() {
 : <a class="el" href="classvg_1_1FlowSort.html#a31800555477d90ab371c08852c9cd05b">vg::FlowSort</a>
 </li>
 <li>process_until_threshold()
-: <a class="el" href="classvg_1_1MinimizerMapper.html#a83680e98c2c476a0eb64508e36a5417c">vg::MinimizerMapper</a>
+: <a class="el" href="classvg_1_1MinimizerMapper.html#ad1d26750893360d1eb785473cc3fe741">vg::MinimizerMapper</a>
 </li>
 <li>processed_input()
 : <a class="el" href="classvg_1_1Funnel.html#a94e07fb24eee3bb9284a1ba8945b010a">vg::Funnel</a>
@@ -727,20 +737,20 @@ $(function() {
 <li>project()
 : <a class="el" href="classvg_1_1Funnel.html#a2b9e7695a998b23314c25f7fe3de4701">vg::Funnel</a>
 </li>
+<li>project_and_add_transcripts()
+: <a class="el" href="classvg_1_1Transcriptome.html#a620b76ef0711046783e2184f284678d2">vg::Transcriptome</a>
+</li>
+<li>project_and_add_transcripts_callback()
+: <a class="el" href="classvg_1_1Transcriptome.html#ab51251cb38e108f8bc7ce0809c50cb40">vg::Transcriptome</a>
+</li>
 <li>project_group()
 : <a class="el" href="classvg_1_1Funnel.html#a321b1e593102927ff8677214abce5592">vg::Funnel</a>
 </li>
 <li>project_transcript_embedded()
-: <a class="el" href="classvg_1_1Transcriptome.html#a8c04c4b840db8ad17b86364409efeee4">vg::Transcriptome</a>
+: <a class="el" href="classvg_1_1Transcriptome.html#af9cad48a2fb15da768ad769c0984154f">vg::Transcriptome</a>
 </li>
 <li>project_transcript_gbwt()
-: <a class="el" href="classvg_1_1Transcriptome.html#a7097440e1b699510e442ef274a350966">vg::Transcriptome</a>
-</li>
-<li>project_transcripts()
-: <a class="el" href="classvg_1_1Transcriptome.html#a4dc039b181428f8a0a8dc6c84423ab69">vg::Transcriptome</a>
-</li>
-<li>project_transcripts_callback()
-: <a class="el" href="classvg_1_1Transcriptome.html#a326113aeec95aac5c5f8222cf586a222">vg::Transcriptome</a>
+: <a class="el" href="classvg_1_1Transcriptome.html#ae2fb2bb56f663cfac6df4b6f4b568056">vg::Transcriptome</a>
 </li>
 <li>projected_count
 : <a class="el" href="structvg_1_1Funnel_1_1Stage.html#a74c290d50af94a82c196350d3ee7223d">vg::Funnel::Stage</a>

@@ -73,6 +73,16 @@ $(function() {
 <div class="contents">
 
 <p><code>#include &lt;transcriptome.hpp&gt;</code></p>
+<div class="dynheader">
+Inheritance diagram for vg::TranscriptPath:</div>
+<div class="dyncontent">
+ <div class="center">
+  <img src="structvg_1_1TranscriptPath.png" usemap="#vg::TranscriptPath_map" alt=""/>
+  <map id="vg::TranscriptPath_map" name="vg::TranscriptPath_map">
+<area href="structvg_1_1CompletedTranscriptPath.html" alt="vg::CompletedTranscriptPath" shape="rect" coords="0,56,173,80"/>
+<area href="structvg_1_1EditedTranscriptPath.html" alt="vg::EditedTranscriptPath" shape="rect" coords="183,56,356,80"/>
+</map>
+ </div></div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
@@ -81,9 +91,6 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:a39e25456c6f1b47eee43edfc85ed4ddf"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1TranscriptPath.html#a39e25456c6f1b47eee43edfc85ed4ddf">path</a></td></tr>
-<tr class="memdesc:a39e25456c6f1b47eee43edfc85ed4ddf"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structvg_1_1Transcript.html">Transcript</a> path.  <a href="#a39e25456c6f1b47eee43edfc85ed4ddf">More...</a><br /></td></tr>
-<tr class="separator:a39e25456c6f1b47eee43edfc85ed4ddf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0bdddc1278799c95ef5f785770a109cb"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1TranscriptPath.html#a0bdddc1278799c95ef5f785770a109cb">name</a></td></tr>
 <tr class="memdesc:a0bdddc1278799c95ef5f785770a109cb"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structvg_1_1Transcript.html">Transcript</a> path name.  <a href="#a0bdddc1278799c95ef5f785770a109cb">More...</a><br /></td></tr>
 <tr class="separator:a0bdddc1278799c95ef5f785770a109cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -93,12 +100,12 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:aef224e3773aaa73878ee91cc5f04cc85"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1TranscriptPath.html#aef224e3773aaa73878ee91cc5f04cc85">reference_origin</a></td></tr>
 <tr class="memdesc:aef224e3773aaa73878ee91cc5f04cc85"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reference origin name.  <a href="#aef224e3773aaa73878ee91cc5f04cc85">More...</a><br /></td></tr>
 <tr class="separator:aef224e3773aaa73878ee91cc5f04cc85"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a787dd66418a70a203596199441c45c29"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1TranscriptPath.html#a787dd66418a70a203596199441c45c29">haplotype_origins</a></td></tr>
-<tr class="memdesc:a787dd66418a70a203596199441c45c29"><td class="mdescLeft">&#160;</td><td class="mdescRight">Haplotype origin names.  <a href="#a787dd66418a70a203596199441c45c29">More...</a><br /></td></tr>
-<tr class="separator:a787dd66418a70a203596199441c45c29"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a58ba03efe7c222cf87f864b872eb2fda"><td class="memItemLeft" align="right" valign="top">vector&lt; int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1TranscriptPath.html#a58ba03efe7c222cf87f864b872eb2fda">haplotype_origin_ids</a></td></tr>
+<tr class="memdesc:a58ba03efe7c222cf87f864b872eb2fda"><td class="mdescLeft">&#160;</td><td class="mdescRight">Haplotype origin ids.  <a href="#a58ba03efe7c222cf87f864b872eb2fda">More...</a><br /></td></tr>
+<tr class="separator:a58ba03efe7c222cf87f864b872eb2fda"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Data structure that defines a transcript path. </p>
+<div class="textblock"><p>Data structure that defines a base transcript path. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a94a5ceb6d352a94e6401b3ed0342a834"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a94a5ceb6d352a94e6401b3ed0342a834">&#9670;&nbsp;</a></span>TranscriptPath()</h2>
@@ -127,19 +134,19 @@ Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="a787dd66418a70a203596199441c45c29"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a787dd66418a70a203596199441c45c29">&#9670;&nbsp;</a></span>haplotype_origins</h2>
+<a id="a58ba03efe7c222cf87f864b872eb2fda"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a58ba03efe7c222cf87f864b872eb2fda">&#9670;&nbsp;</a></span>haplotype_origin_ids</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt;string&gt; vg::TranscriptPath::haplotype_origins</td>
+          <td class="memname">vector&lt;int32_t&gt; vg::TranscriptPath::haplotype_origin_ids</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Haplotype origin names. </p>
+<p>Haplotype origin ids. </p>
 
 </div>
 </div>
@@ -156,22 +163,6 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p><a class="el" href="structvg_1_1Transcript.html">Transcript</a> path name. </p>
-
-</div>
-</div>
-<a id="a39e25456c6f1b47eee43edfc85ed4ddf"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a39e25456c6f1b47eee43edfc85ed4ddf">&#9670;&nbsp;</a></span>path</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structvg_1_1Path.html">Path</a> vg::TranscriptPath::path</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p><a class="el" href="structvg_1_1Transcript.html">Transcript</a> path. </p>
 
 </div>
 </div>

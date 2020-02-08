@@ -53,6 +53,7 @@ var searchData=
   ['edit_5fread_5fend_5fidx',['edit_read_end_idx',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#a23e8527fcdc9cd46287a12ed651ebf1f',1,'vg::BandedGlobalAligner::BABuilder']]],
   ['edit_5ftmpfile_5fnames',['edit_tmpfile_names',['../classvg_1_1Packer.html#ad4ccd5a38811117a363b9f69f7c45832',1,'vg::Packer']]],
   ['edit_5fvalue',['edit_value',['../classvg_1_1Packer.html#aff566a3e094a0e28bbc51a468d60b800',1,'vg::Packer']]],
+  ['editedtranscriptpath',['EditedTranscriptPath',['../structvg_1_1EditedTranscriptPath.html',1,'vg::EditedTranscriptPath'],['../structvg_1_1EditedTranscriptPath.html#a47b57f35b50ec1b8d539dcf7bedd3ccd',1,'vg::EditedTranscriptPath::EditedTranscriptPath()']]],
   ['edits_5fat_5fposition',['edits_at_position',['../classvg_1_1Packer.html#a8b632f64e269417895cbc84d0e377a8a',1,'vg::Packer']]],
   ['elementary_5fcycles',['elementary_cycles',['../classvg_1_1VG.html#a310f10ff59e15468e8350844465f15e7',1,'vg::VG']]],
   ['embed_5ftranscript_5fpaths',['embed_transcript_paths',['../classvg_1_1Transcriptome.html#ae30e4b25723e1eb0a1d0cbe94ef1a94a',1,'vg::Transcriptome']]],

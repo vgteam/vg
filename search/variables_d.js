@@ -152,6 +152,8 @@ var searchData=
   ['multiplexer',['multiplexer',['../classvg_1_1TSVAlignmentEmitter.html#aa81f810c79cc9b15865e5034e0fe2a26',1,'vg::TSVAlignmentEmitter::multiplexer()'],['../classvg_1_1HTSAlignmentEmitter.html#ac08d9c47f238a13505835089d5c7b80b',1,'vg::HTSAlignmentEmitter::multiplexer()'],['../classvg_1_1VGAlignmentEmitter.html#ac9ee101cc823bffc99fadede9325f391',1,'vg::VGAlignmentEmitter::multiplexer()']]],
   ['mut_5fsampler',['mut_sampler',['../classvg_1_1NGSSimulator.html#a9501d39b8059ad161395f2b7ba89d424',1,'vg::NGSSimulator']]],
   ['mutation_5falphabets',['mutation_alphabets',['../classvg_1_1NGSSimulator.html#a4a8eacfde748b35453a54ab40c195680',1,'vg::NGSSimulator']]],
+  ['mutex_5fsplice_5fgraph',['mutex_splice_graph',['../classvg_1_1Transcriptome.html#a586441e0f58a0cbedad56965d8d70a57',1,'vg::Transcriptome']]],
+  ['mutex_5ftranscript_5fpaths',['mutex_transcript_paths',['../classvg_1_1Transcriptome.html#a3c6d64194201d695fdcb07078463161a',1,'vg::Transcriptome']]],
   ['my_5fmapper',['my_mapper',['../classvg_1_1Filter.html#a13678a95a03ae4feb7e6ebc0fa00a69f',1,'vg::Filter']]],
   ['my_5fmax_5fdistance',['my_max_distance',['../classvg_1_1Filter.html#ab9ec8e13d2cd4fc50aa86981a0b6475f',1,'vg::Filter']]],
   ['my_5fnames',['my_names',['../classVectorizer.html#a5702f38d3e6d29866e2135d29f7496fd',1,'Vectorizer']]],

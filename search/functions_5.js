@@ -26,6 +26,7 @@ var searchData=
   ['edit_5fis_5fmatch',['edit_is_match',['../namespacevg.html#a97f634c48d66ace99c90ed9e9adea317',1,'vg']]],
   ['edit_5fis_5fsub',['edit_is_sub',['../namespacevg.html#a050347fc49e0ac78c1ab9a0d7238b3df',1,'vg']]],
   ['edit_5fvalue',['edit_value',['../classvg_1_1Packer.html#aff566a3e094a0e28bbc51a468d60b800',1,'vg::Packer']]],
+  ['editedtranscriptpath',['EditedTranscriptPath',['../structvg_1_1EditedTranscriptPath.html#a47b57f35b50ec1b8d539dcf7bedd3ccd',1,'vg::EditedTranscriptPath']]],
   ['edits_5fat_5fposition',['edits_at_position',['../classvg_1_1Packer.html#a8b632f64e269417895cbc84d0e377a8a',1,'vg::Packer']]],
   ['elementary_5fcycles',['elementary_cycles',['../classvg_1_1VG.html#a310f10ff59e15468e8350844465f15e7',1,'vg::VG']]],
   ['embed_5ftranscript_5fpaths',['embed_transcript_paths',['../classvg_1_1Transcriptome.html#ae30e4b25723e1eb0a1d0cbe94ef1a94a',1,'vg::Transcriptome']]],

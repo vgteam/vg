@@ -3,6 +3,7 @@ var searchData=
   ['edge',['Edge',['../structvg_1_1Edge.html',1,'vg']]],
   ['edgepileup',['EdgePileup',['../structvg_1_1EdgePileup.html',1,'vg']]],
   ['edit',['Edit',['../structvg_1_1Edit.html',1,'vg']]],
+  ['editedtranscriptpath',['EditedTranscriptPath',['../structvg_1_1EditedTranscriptPath.html',1,'vg']]],
   ['endianness',['endianness',['../structvg_1_1endianness.html',1,'vg']]],
   ['exhaustivetraversalfinder',['ExhaustiveTraversalFinder',['../classvg_1_1ExhaustiveTraversalFinder.html',1,'vg']]],
   ['expandingoverlaygraph',['ExpandingOverlayGraph',['../classhandlegraph_1_1ExpandingOverlayGraph.html',1,'handlegraph']]],
