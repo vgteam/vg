@@ -1122,7 +1122,7 @@ list<CompletedTranscriptPath> Transcriptome::construct_completed_transcript_path
     return completed_transcript_paths;     
 }
 
-vector<handle_t> Transcriptome::path_to_handles(const Path & path, const bool is_complete) const {
+vector<handle_t> Transcriptome::path_to_handles(const Path & path) const {
 
     vector<handle_t> handle_path;
     handle_path.reserve(path.mapping_size());
@@ -1131,13 +1131,10 @@ vector<handle_t> Transcriptome::path_to_handles(const Path & path, const bool is
 
         auto handle = _splice_graph->get_handle(mapping.position().node_id(), mapping.position().is_reverse());
         
-        if (is_complete) {
-
-            assert(mapping.edit_size() == 1);
-            assert(edit_is_match(mapping.edit(0)));
-            assert(mapping.position().offset() == 0);
-            assert(mapping.edit(0).from_length() == _splice_graph->get_length(handle));
-        }
+        assert(mapping.edit_size() == 1);
+        assert(edit_is_match(mapping.edit(0)));
+        assert(mapping.position().offset() == 0);
+        assert(mapping.edit(0).from_length() == _splice_graph->get_length(handle));
 
         handle_path.emplace_back(handle);
     }
@@ -1270,25 +1267,9 @@ void Transcriptome::update_haplotype_index(gbwt::GBWT * haplotype_index, const v
 
     assert(haplotype_index->bidirectional());
 
-    gbwt::size_type total_length = 0;
-
-    for (size_t i = 0; i < haplotype_index->sequences(); i++) {
-
-        if (i % 2 == 1) {
-
-            continue;
-        }
-
-        total_length += 2 * (haplotype_index->extract(i).size() + 1);
-    }
-
-#ifdef transcriptome_debug
-    cerr << "\tDEBUG update middle: " << gcsa::readTimer() - time_update_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
-#endif   
-
     // Silence GBWT index construction. 
     gbwt::Verbosity::set(gbwt::Verbosity::SILENT); 
-    gbwt::GBWTBuilder gbwt_builder(gbwt::bit_length(gbwt::Node::encode(_splice_graph->max_node_id(), true)), total_length);
+    gbwt::GBWTBuilder gbwt_builder(gbwt::bit_length(gbwt::Node::encode(_splice_graph->max_node_id(), true)));
 
     gbwt_builder.index.addMetadata();
     gbwt_builder.index.metadata = haplotype_index->metadata;

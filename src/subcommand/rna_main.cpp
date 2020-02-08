@@ -251,9 +251,7 @@ int32_t main_rna(int32_t argc, char** argv) {
 
     int32_t num_introns_added = 0;
 
-    // Add introns by projecting them onto embedded paths 
-    // in a graph and/or haplotypes in a GBWT index. Augment graph with 
-    // novel splice-junctions.
+    // Add introns as novel splice-junctions to graph.
     for (auto & filename: intron_filenames) {
 
         get_input_file(filename, [&](istream& transcript_stream) {
@@ -263,9 +261,7 @@ int32_t main_rna(int32_t argc, char** argv) {
 
     int32_t num_transcripts_added = 0;
 
-    // Add transcripts to transcriptome by projecting them onto embedded paths 
-    // in a graph and/or haplotypes in a GBWT index. Augment graph with 
-    // transcriptome exon boundaries and splice-junctions.
+    // Add transcripts as novel exon boundaries and splice-junctions to graph.
     for (auto & filename: transcript_filenames) {
 
         get_input_file(filename, [&](istream& transcript_stream) {
@@ -273,7 +269,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         });
     }
 
-    if (show_progress) { cerr << "[vg rna] " << num_introns_added << " introns and " << num_transcripts_added <<  " transcripts parsed " << ((transcriptome.splice_graph_node_updated()) ? "" : "(no novel boundaries) ") << "in " << gcsa::readTimer() - time_splice_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
+    if (show_progress) { cerr << "[vg rna] " << num_introns_added << " introns and " << num_transcripts_added <<  " transcripts parsed, and graph augmented " << ((transcriptome.splice_graph_node_updated()) ? "" : "(no novel exon boundaries) ") << "in " << gcsa::readTimer() - time_splice_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
 
 
     if (sort_collapse_graph) {
@@ -288,13 +284,12 @@ int32_t main_rna(int32_t argc, char** argv) {
 
 
     double time_project_start = gcsa::readTimer();
-    if (show_progress) { cerr << "[vg rna] Adding novel exon boundaries and splice-junctions to graph ..." << endl; }
+    if (show_progress) { cerr << "[vg rna] Projecting haplotype-specfic transcripts ..." << endl; }
 
     int32_t num_transcripts_projected = 0;
 
     // Add transcripts to transcriptome by projecting them onto embedded paths 
-    // in a graph and/or haplotypes in a GBWT index. Augment graph with 
-    // transcriptome exon boundaries and splice-junctions.
+    // in a graph and/or haplotypes in a GBWT index.
     for (auto & filename: transcript_filenames) {
 
         get_input_file(filename, [&](istream& transcript_stream) {
