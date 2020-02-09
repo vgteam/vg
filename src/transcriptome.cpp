@@ -1399,24 +1399,24 @@ void Transcriptome::remove_non_transcribed(const bool new_reference_paths) {
     assert(_splice_graph->get_path_count() == 0);
 
     // Find all nodes that are in a transcript path.
-    unordered_set<handle_t> transcribed_handles;
+    unordered_set<nid_t> transcribed_nodes;
 
     for (auto & transcript_path: _transcript_paths) {
 
         assert(transcript_path.path.size() > 0);
         for (auto & handle: transcript_path.path) {
 
-            transcribed_handles.emplace(handle);
+            transcribed_nodes.emplace(_splice_graph->get_id(handle));
         }    
     }
 
     vector<handle_t> non_transcribed_handles;
-    non_transcribed_handles.reserve(_splice_graph->get_node_count() - transcribed_handles.size());
+    non_transcribed_handles.reserve(_splice_graph->get_node_count() - transcribed_nodes.size());
 
     // Collect all nodes that are not in a transcript path.
     assert(_splice_graph->for_each_handle([&](const handle_t & handle) {
         
-        if (transcribed_handles.count(handle) == 0) {
+        if (transcribed_nodes.count(_splice_graph->get_id(handle)) == 0) {
 
             non_transcribed_handles.emplace_back(handle); 
         } 
@@ -1428,7 +1428,7 @@ void Transcriptome::remove_non_transcribed(const bool new_reference_paths) {
         _splice_graph->destroy_handle(handle);
     }
 
-    assert(_splice_graph->get_node_count() == transcribed_handles.size());
+    assert(_splice_graph->get_node_count() == transcribed_nodes.size());
 }
 
 void Transcriptome::compact_ordered() {
