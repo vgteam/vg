@@ -96,7 +96,7 @@ using namespace std;
         for (pair<const path_handle_t, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>& surjection_record : path_overlapping_anchors) {
             if (!preserve_deletions) {
                 path_surjections[surjection_record.first] = realigning_surject(&memoizing_graph, source, surjection_record.first,
-                                                                               surjection_record.second.first, allow_negative_scores);
+                                                                               surjection_record.second.first, allow_negative_scores, false);
             }
             else {
                 path_surjections[surjection_record.first] = spliced_surject(&memoizing_graph, source, surjection_record.first,
@@ -446,7 +446,7 @@ using namespace std;
 #endif
             
             // perform a full length surjection within the section section
-            sections.push_back(realigning_surject(graph, section_source, path_handle, section_path_chunks, true));
+            sections.push_back(realigning_surject(graph, section_source, path_handle, section_path_chunks, true, true));
             read_ranges.push_back(read_range);
             ref_ranges.push_back(ref_range);
             
@@ -661,7 +661,7 @@ using namespace std;
 
     Alignment Surjector::realigning_surject(const PathPositionHandleGraph* path_position_graph, const Alignment& source,
                                             const path_handle_t& path_handle, const vector<path_chunk_t>& path_chunks,
-                                            bool allow_negative_scores) const {
+                                            bool allow_negative_scores, bool preserve_N_alignments) const {
         
 #ifdef debug_anchored_surject
         cerr << "using overlap chunks on path " << graph->get_path_name(path_handle) << ", performing realigning surjection" << endl;
@@ -701,7 +701,7 @@ using namespace std;
 #endif
         
         // compute the connectivity between the path chunks
-        MultipathAlignmentGraph mp_aln_graph(split_path_graph, path_chunks, source, node_trans);
+        MultipathAlignmentGraph mp_aln_graph(split_path_graph, path_chunks, source, node_trans, !preserve_N_alignments);
         
         // we don't overlap this reference path at all or we filtered out all of the path chunks, so just make a sentinel
         if (mp_aln_graph.empty()) {
@@ -963,7 +963,7 @@ using namespace std;
         step_handle_t begin = graph->get_step_at_position(path_handle, first);
         step_handle_t end = graph->get_step_at_position(path_handle, last);
         
-        if (graph->get_position_of_step(end) < last && end != graph->path_end(path_handle)) {
+        if (graph->get_position_of_step(end) <= last && end != graph->path_end(path_handle)) {
             // we actually want part of this step too, so we use the next one as the end iterator
             end = graph->get_next_step(end);
         }

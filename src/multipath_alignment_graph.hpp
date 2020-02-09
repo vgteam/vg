@@ -82,16 +82,16 @@ namespace vg {
         /// path graph. Produces a graph with reachability edges.
         MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
                                 const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
-                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
+                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans, bool realign_Ns = true);
        
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
         MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
-                                const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
+                                const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans, bool realign_Ns = true);
         
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
         /// using a lambda for a projector
         MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
-                                const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project);
+                                const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project, bool realign_Ns = true);
         
         /// Make a multipath alignment graph using the path of a single-path alignment
         MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
@@ -115,7 +115,7 @@ namespace vg {
         
         /// Removes non-softclip indels from path nodes. Does not update edges--should be called
         /// prior to adding computing edges.
-        void trim_hanging_indels(const Alignment& alignment);
+        void trim_hanging_indels(const Alignment& alignment, bool trim_Ns = true);
         
         /// Removes all transitive edges from graph (reduces to minimum equivalent graph).
         /// Note: reorders internal representation of adjacency lists.
@@ -217,7 +217,7 @@ namespace vg {
         /// Fills in removed_start_from_length and/or removed_end_from_length
         /// with the bases in the graph removed from the path on each end
         /// during trimming, if set.
-        static bool trim_and_check_for_empty(const Alignment& alignment, PathNode& path_node,
+        static bool trim_and_check_for_empty(const Alignment& alignment, bool trim_Ns, PathNode& path_node,
             int64_t* removed_start_from_length = nullptr, int64_t* removed_end_from_length = nullptr);
         
         /// Add the path chunks as nodes to the connectivity graph

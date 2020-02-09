@@ -275,6 +275,7 @@ class SplicedHTSAlignmentEmitter : public HTSAlignmentEmitter {
 public:
     
     SplicedHTSAlignmentEmitter(const string& filename, const string& format,
+                               const map<string, int64_t>& path_length,
                                const PathPositionHandleGraph& graph,
                                size_t max_threads);
     
@@ -284,9 +285,6 @@ public:
     size_t min_splice_length = 20;
     
 private:
-
-    /// Helper for constructor, makes path length map for parent class
-    static map<string, int64_t> make_path_length_index(const PathPositionHandleGraph& graph);
     
     /// Override for convert alignment that converts splices implicitly
     void convert_alignment(const Alignment& aln, vector<pair<int, char>>& cigar, bool& pos_rev, int64_t& pos, string& path_name) const;

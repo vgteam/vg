@@ -52,13 +52,13 @@ namespace vg {
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
                                                      const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
                                                      const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
-                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
+                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans, bool realign_Ns) {
         
         // Set up the initial multipath graph from the given path chunks.
         create_path_chunk_nodes(graph, path_chunks, alignment, project, injection_trans);
         
         // trim indels off of nodes to make the score dynamic programmable across nodes
-        trim_hanging_indels(alignment);
+        trim_hanging_indels(alignment, realign_Ns);
         
         // compute reachability and add edges
         add_reachability_edges(graph, project, injection_trans);
@@ -67,18 +67,18 @@ namespace vg {
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
                                                      const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
-                                                     const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project) :
+                                                     const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project, bool realign_Ns) :
                                                      MultipathAlignmentGraph(graph, path_chunks, alignment, project,
-                                                                             create_injection_trans(graph, project)) {
+                                                                             create_injection_trans(graph, project), realign_Ns) {
         // Nothing to do
         
     }
 
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
                                                      const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
-                                                     const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans) :
+                                                     const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans, bool realign_Ns) :
                                                      MultipathAlignmentGraph(graph, path_chunks, alignment, create_projector(projection_trans),
-                                                                             create_injection_trans(projection_trans)) {
+                                                                             create_injection_trans(projection_trans), realign_Ns) {
         // Nothing to do
         
     }
@@ -159,7 +159,7 @@ namespace vg {
         has_reachability_edges = true;
         
         // trim indels from the end of path nodes so that scores will be dynamic programmable across subpaths
-        trim_hanging_indels(alignment);
+        trim_hanging_indels(alignment, true);
     }
 
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
@@ -288,7 +288,7 @@ namespace vg {
     }
    
     
-    bool MultipathAlignmentGraph::trim_and_check_for_empty(const Alignment& alignment, PathNode& path_node,
+    bool MultipathAlignmentGraph::trim_and_check_for_empty(const Alignment& alignment, bool trim_Ns, PathNode& path_node,
         int64_t* removed_start_from_length, int64_t* removed_end_from_length) {
         
         // Trim down the given PathNode of everything except softclips.
@@ -332,7 +332,7 @@ namespace vg {
                     const Edit& edit = mapping.edit(edit_start_idx);
                     
                     if (edit.from_length() > 0 && edit.to_length() > 0 &&
-                        (edit.sequence().empty() || any_of(edit.sequence().begin(), edit.sequence().end(), [](char c) {return c != 'N';}))) {
+                        (edit.sequence().empty() || !trim_Ns || any_of(edit.sequence().begin(), edit.sequence().end(), [](char c) {return c != 'N';}))) {
                         found_start = true;
                         break;
                     }
@@ -359,7 +359,7 @@ namespace vg {
                 for (edit_last_idx = mapping.edit_size() - 1; edit_last_idx >= 0; edit_last_idx--) {
                     const Edit& edit = mapping.edit(edit_last_idx);
                     if (edit.from_length() > 0 && edit.to_length() > 0 &&
-                        (edit.sequence().empty() || any_of(edit.sequence().begin(), edit.sequence().end(), [](char c) {return c != 'N';}))) {
+                        (edit.sequence().empty() || !trim_Ns || any_of(edit.sequence().begin(), edit.sequence().end(), [](char c) {return c != 'N';}))) {
                         found_last = true;
                         break;
                     }
@@ -421,7 +421,7 @@ namespace vg {
         return false;
     }
    
-    void MultipathAlignmentGraph::trim_hanging_indels(const Alignment& alignment) {
+    void MultipathAlignmentGraph::trim_hanging_indels(const Alignment& alignment, bool trim_Ns) {
         
         // if the path begins or ends with any gaps we have to remove them to make the score
         // dynamic programmable across Subpaths
@@ -432,7 +432,7 @@ namespace vg {
             
             PathNode& path_node = path_nodes.at(i);
             
-            if (trim_and_check_for_empty(alignment, path_node)) {
+            if (trim_and_check_for_empty(alignment, trim_Ns, path_node)) {
                 // We trimmed it and it all trimmed away
                 to_remove.insert(i);
             }

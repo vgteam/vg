@@ -50,12 +50,9 @@ struct Transcript {
 
 
 /**
- * Data structure that defines a transcript path.
+ * Data structure that defines a base transcript path.
  */ 
 struct TranscriptPath {
-
-    /// Transcript path.
-    Path path;
 
     /// Transcript path name.
     string name;
@@ -66,8 +63,8 @@ struct TranscriptPath {
     /// Reference origin name.
     string reference_origin;
 
-    /// Haplotype origin names.
-    vector<string> haplotype_origins;
+    /// Haplotype origin ids.
+    vector<int32_t> haplotype_origin_ids;
 
     TranscriptPath(const string & transcript_origin_in) : transcript_origin(transcript_origin_in) {
 
@@ -75,6 +72,29 @@ struct TranscriptPath {
         reference_origin = "";
     }
 };
+
+/**
+ * Data structure that defines an edited transcript path.
+ */ 
+struct EditedTranscriptPath : public TranscriptPath {
+
+    /// Transcript path.
+    Path path;
+
+    EditedTranscriptPath(const string & transcript_origin_in) : TranscriptPath(transcript_origin_in) {}
+};
+
+/**
+ * Data structure that defines a completed transcript path.
+ */ 
+struct CompletedTranscriptPath : public TranscriptPath {
+
+    /// Transcript path.
+    vector<handle_t> path;
+
+    CompletedTranscriptPath(const string & transcript_origin_in) : TranscriptPath(transcript_origin_in) {}
+};
+
 
 
 /**
@@ -104,18 +124,21 @@ class Transcriptome {
         /// Collapse identical transcript paths.
         bool collapse_transcript_paths = true;
 
-        /// Constructs transcript paths by projecting introns from a bed file onto 
-        /// embedded paths in a variation graph and/or haplotypes in a GBWT index. Augments 
-        /// graph with splice-junctions. Returns number of introns added.
-        int32_t add_introns(istream & intron_stream, const gbwt::GBWT & haplotype_index);
+        /// Add splice-junstions from a intron BED file. 
+        /// Returns number of parsed introns. 
+        int32_t add_intron_splice_junctions(istream & intron_stream, gbwt::GBWT * haplotype_index);
+
+        /// Add splice-junstions from a transcript gtf/gff3 file. 
+        /// Returns number of parsed transcripts.  
+        int32_t add_transcript_splice_junctions(istream & transcript_stream, gbwt::GBWT * haplotype_index);
 
         /// Constructs transcript paths by projecting transcripts from a gtf/gff file onto 
         /// embedded paths in a variation graph and/or haplotypes in a GBWT index. Augments 
-        /// graph with transcriptome splice-junctions. Returns number of transcripts added.
+        /// graph with transcriptome splice-junctions. Returns number of transcript paths added.   
         int32_t add_transcripts(istream & transcript_stream, const gbwt::GBWT & haplotype_index);
-        
+
         /// Returns transcript paths.
-        const vector<TranscriptPath> & transcript_paths() const;
+        const vector<CompletedTranscriptPath> & transcript_paths() const;
 
         /// Returns number of transcript paths.
         int32_t size() const;
@@ -143,32 +166,36 @@ class Transcriptome {
         /// Returns number of added threads.
         int32_t construct_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool output_reference_transcripts, const bool add_bidirectional) const;
         
-        /// Writes transcript paths as alignments to a gam file.
-        /// Returns number of written alignments.
-        int32_t write_alignments(ostream * gam_ostream, const bool output_reference_transcripts) const;
-
         /// Writes transcript path sequences to a fasta file.  
         /// Returns number of written sequences.
-        int32_t write_sequences(ostream * fasta_ostream, const bool output_reference_transcripts);
+        int32_t write_sequences(ostream * fasta_ostream, const bool output_reference_transcripts) const;
 
         /// Writes origin info on transcripts to tsv file.
         /// Returns number of written transcripts.
-        int32_t write_info(ostream * tsv_ostream, const bool output_reference_transcripts) const;
+        int32_t write_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const bool output_reference_transcripts) const;
 
         /// Writes spliced variation graph to vg file
-        void write_splice_graph(ostream * graph_ostream);
+        void write_splice_graph(ostream * graph_ostream) const;
 
     private:
 
         /// Transcriptome represented by a set of transcript paths. 
-        vector<TranscriptPath> _transcript_paths;
+        vector<CompletedTranscriptPath> _transcript_paths;
+        mutex mutex_transcript_paths;
 
         /// Spliced variation graph.
         unique_ptr<MutablePathDeletableHandleGraph> _splice_graph;
+        mutex mutex_splice_graph;
 
         /// Have nodes in the spliced variation graph been
         /// updated (e.g. split) since parsed.
         bool _splice_graph_node_updated;
+
+        /// Parse BED file of introns.
+        vector<Transcript> parse_introns(istream & intron_stream) const;
+
+        /// Parse gtf/gff3 file of transcripts.
+        vector<Transcript> parse_transcripts(istream & transcript_stream) const;
 
         /// Returns the mean node length of the graph
         float mean_node_length() const;
@@ -181,36 +208,56 @@ class Transcriptome {
         /// are ordered in reverse.
         void reorder_exons(Transcript * transcript) const;
 
+        /// Constructs edited transcript paths from a set of 
+        /// reference transcripts. 
+        list<EditedTranscriptPath> construct_edited_transcript_paths(const vector<Transcript> & transcripts) const;
+
+        /// Threaded edited transcript path construction.
+        void construct_edited_transcript_paths_callback(list<EditedTranscriptPath> * edited_transcript_paths, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<Transcript> & transcripts) const;
+
         /// Constructs transcript paths by projecting transcripts onto embedded paths in
-        /// a variation graph and/or haplotypes in a GBWT index.   
-        list<TranscriptPath> project_transcripts(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length) const;
+        /// a variation graph and/or haplotypes in a GBWT index. 
+        void project_and_add_transcripts(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length);
 
         /// Threaded transcript projecting.
-        void project_transcripts_callback(list<TranscriptPath> * proj_transcript_paths, mutex * transcript_paths_mutex, const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length) const;
+        void project_and_add_transcripts_callback(const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const float mean_node_length);
 
         /// Projects transcripts onto haplotypes in a GBWT index and returns resulting transcript paths.
-        list<TranscriptPath> project_transcript_gbwt(const Transcript & cur_transcript, const gbwt::GBWT & haplotype_index, const float mean_node_length) const;
+        list<EditedTranscriptPath> project_transcript_gbwt(const Transcript & cur_transcript, const gbwt::GBWT & haplotype_index, const float mean_node_length) const;
 
         /// Extracts all unique haplotype paths between two nodes from a GBWT index and returns the 
         /// resulting paths and the corresponding haplotype ids for each path.
         vector<pair<exon_nodes_t, thread_ids_t> > get_exon_haplotypes(const vg::id_t start_node, const vg::id_t end_node, const gbwt::GBWT & haplotype_index, const int32_t expected_length) const;
 
         /// Projects transcripts onto embedded paths in a variation graph and returns resulting transcript paths.
-        list<TranscriptPath> project_transcript_embedded(const Transcript & cur_transcript) const;
+        list<EditedTranscriptPath> project_transcript_embedded(const Transcript & cur_transcript, const bool reference_only) const;
 
         /// Adds new transcript paths to current set. Has argument to only add unique paths.
-        void append_transcript_paths(list<TranscriptPath> * cur_transcript_paths, list<TranscriptPath> * new_transcript_paths, const bool add_unqiue_paths_only) const;
+        void append_transcript_paths(list<CompletedTranscriptPath> * completed_transcript_path, list<CompletedTranscriptPath> * new_completed_transcript_paths, const bool add_unqiue_paths_only) const;
 
+        /// Constructs completed transcripts paths from 
+        /// edited transcript paths. Checks that the
+        /// paths contain no edits compared to the graph.
+        list<CompletedTranscriptPath> construct_completed_transcript_paths(const list<EditedTranscriptPath> & edited_transcript_paths) const;
 
-        /// Checks whether transcript path contain any novel exon boundaries.
-        bool has_novel_exon_boundaries(const list<TranscriptPath> & cur_transcript_paths, const bool include_transcript_ends);
+        /// Convert a path to a vector of handles. Checks that 
+        /// the path is complete (i.e. only consist of whole nodes).
+        vector<handle_t> path_to_handles(const Path & path) const;
+
+        /// Checks whether transcript path only consist of 
+        /// whole nodes (complete). 
+        bool has_novel_exon_boundaries(const list<EditedTranscriptPath> & edited_transcript_paths, const bool include_transcript_ends) const;
 
         /// Augments the variation graph with transcript path exon boundaries and 
-        /// splice-junctions. Updates transcript path traversals to match the augmented graph. 
-        void augment_splice_graph(list<TranscriptPath> * new_transcript_paths, const bool break_at_transcript_ends);
+        /// splice-junctions. Updates threads in gbwt index to match the augmented graph. 
+        void augment_splice_graph(list<EditedTranscriptPath> * edited_transcript_paths, gbwt::GBWT * haplotype_index, const bool break_at_transcript_ends);
 
-        /// Adds transcript path splice-junctions to splice graph
-        void add_splice_junctions(const list<TranscriptPath> & cur_transcript_paths);
+        /// Update threads in gbwt index using graph translations. 
+        void update_haplotype_index(gbwt::GBWT * haplotype_index, const vector<Translation> & translation) const;
+
+        /// Adds transcript path splice-junction edges to splice graph
+        void add_splice_junction_edges(const list<EditedTranscriptPath> & edited_transcript_paths);
+        void add_splice_junction_edges(const vector<CompletedTranscriptPath> & completed_transcript_paths);
 };
 
 }
