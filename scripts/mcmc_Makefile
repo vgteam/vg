@@ -1,20 +1,25 @@
-FASTA = test/small/x.fa
-TBI = test/small/x.vcf.gz.tbi
-VCF = test/small/x.vcf.gz
-BASENAME = x_small
-READS= 100
+FASTA = CHR21.fa
+TBI = 1kg_hg19-CHR21.vcf.gz.tbi
+VCF = 1kg_hg19-CHR21.vcf.gz
+BASENAME = chr21
+READS= 7050000
+PRUNED = pruned
 
 all: $(BASENAME)_paths.vg 
 
 $(BASENAME).vg: $(FASTA) $(VCF) $(TBI)
-	./bin/vg construct -m 1000 -a -r $(FASTA) -v $(VCF) >$(BASENAME).vg
+	./bin/vg construct -m 1000 -a -r $(FASTA) -v $(VCF) > $(BASENAME).vg
 
 $(BASENAME).xg: $(VCF) $(BASENAME).vg
-	./bin/vg  index -x $(BASENAME).xg -g $(BASENAME).gcsa -v $(VCF) --gbwt-name $(BASENAME).gbwt -k 16 $(BASENAME).vg 
+	./bin/vg  index -x $(BASENAME).xg -v $(VCF) --gbwt-name $(BASENAME).gbwt -k 16 $(BASENAME).vg 
 
-$(BASENAME).gcsa: $(BASENAME).xg
+$(BASENAME).gbwt: $(BASENAME).xg
 
-$(BASENAME).gbwt: $(BASENAME).gcsa
+$(PRUNED).vg: $(BASENAME).gbwt $(BASENAME).vg
+	./bin/vg prune -g $(BASENAME).gbwt $(BASENAME).vg > $(PRUNED).vg
+
+$(BASENAME).gcsa: $(PRUNED).vg
+	./bin/vg  index -g $(BASENAME).gcsa $(PRUNED).vg
 
 $(BASENAME).gam: $(BASENAME).xg
 	./bin/vg sim -l 100 -n $(READS) -e 0.1 -i 0.1 -a -x $(BASENAME).xg > $(BASENAME).gam
