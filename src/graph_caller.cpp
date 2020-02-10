@@ -1,6 +1,8 @@
 #include "graph_caller.hpp"
 #include "algorithms/expand_context.hpp"
 
+//#define debug
+
 namespace vg {
 
 GraphCaller::GraphCaller(SnarlCaller& snarl_caller,
@@ -894,9 +896,15 @@ FlowCaller::~FlowCaller() {
 
 bool FlowCaller::call_snarl(const Snarl& snarl) {
 
+    if (snarl.start().node_id() == snarl.end().node_id() ||
+        !graph.has_node(snarl.start().node_id()) || !graph.has_node(snarl.end().node_id())) {
+        // can't call one-node or out-of graph snarls.
+        return false;
+    }
+    
     handle_t start_handle = graph.get_handle(snarl.start().node_id(), snarl.start().backward());
     handle_t end_handle = graph.get_handle(snarl.end().node_id(), snarl.end().backward());
-    
+
     // as we're writing to VCF, we need a reference path through the snarl.  we
     // look it up directly from the graph, and abort if we can't find one
     set<string> start_path_names;
@@ -927,11 +935,12 @@ bool FlowCaller::call_snarl(const Snarl& snarl) {
                           end_path_names.begin(), end_path_names.end(),
                           std::back_inserter(common_names));
 
-    string& ref_path_name = common_names.front();
-                    
-    if (ref_path_name.empty()) {
+    if (common_names.empty()) {
         return false;
     }
+
+    string& ref_path_name = common_names.front();
+                    
 
     // find the max flow traversals, along with their flows (todo: use them?)
     pair<vector<SnarlTraversal>, vector<double>> weighted_travs = traversal_finder->find_weighted_traversals(snarl);
@@ -940,12 +949,15 @@ bool FlowCaller::call_snarl(const Snarl& snarl) {
     tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(snarl, ref_path_name);
 
     SnarlTraversal ref_trav;
-    for (step_handle_t cur = get<3>(ref_interval); cur != get<4>(ref_interval);) {
+    for (step_handle_t cur = get<3>(ref_interval);;) {
         handle_t cur_handle = graph.get_handle_of_step(cur);
         Visit* visit = ref_trav.add_visit();
         visit->set_node_id(graph.get_id(cur_handle));
         visit->set_backward(graph.get_is_reverse(cur_handle));
-        if (get<2>(ref_interval) == true) {
+        if (cur == get<4>(ref_interval)) {
+            break;
+        }
+        else if (get<2>(ref_interval) == true) {
             cur = graph.get_previous_step(cur);            
         } else {
             cur = graph.get_next_step(cur);
@@ -974,18 +986,26 @@ bool FlowCaller::call_snarl(const Snarl& snarl) {
     vector<int> trav_genotype;
     unique_ptr<SnarlCaller::CallInfo> trav_call_info;
     std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, weighted_travs.first, ref_trav_idx, 2, ref_path_name,
-                                                                    make_pair(get<1>(ref_interval), get<2>(ref_interval)));
+                                                                    make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
     assert(trav_genotype.empty() || trav_genotype.size() == 2);
 
-    
+    emit_variant(snarl, ref_trav_idx, weighted_travs.first, trav_genotype, trav_call_info, ref_path_name);
 
     return trav_genotype.size() == 2;    
 }
 
 string FlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides) const {
-    return "";
+    string header = VCFOutputCaller::vcf_header(graph, ref_paths, contig_length_overrides);
+    header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
+    snarl_caller.update_vcf_header(header);
+    header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
+    header += "##SAMPLE=<ID=" + sample_name + ">\n";
+    header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name;
+    assert(output_vcf.openForOutput(header));
+    header += "\n";
+    return header;
 }
 
 void FlowCaller::emit_variant(const Snarl& snarl, int ref_trav_idx, const vector<SnarlTraversal>& called_traversals,
@@ -1001,6 +1021,17 @@ void FlowCaller::emit_variant(const Snarl& snarl, int ref_trav_idx, const vector
         return seq;
     };
 
+#ifdef debug
+    cerr << endl;
+    for (int i = 0 ; i < called_traversals.size() ; ++i) {
+        cerr << "called trav " << i << " " << pb2json(called_traversals[i]) << endl;
+    }
+    for (int i = 0 ; i < genotype.size(); ++i) {
+        cerr << "gt " << i << ": " << genotype[i] << endl;
+    }
+    cerr << endl;
+#endif
+    
     vcflib::Variant out_variant;
 
     vector<SnarlTraversal> site_traversals;
@@ -1008,26 +1039,48 @@ void FlowCaller::emit_variant(const Snarl& snarl, int ref_trav_idx, const vector
     out_variant.ref = trav_string(called_traversals[ref_trav_idx]);
     
     // deduplicate alleles and compute the site traversals and genotype
-    map<string, int> allele_to_gt;    
-    allele_to_gt[out_variant.ref] = 0;    
-    for (int i = 0; i < genotype.size(); ++i) {
+    set<string> allele_set;
+    // todo: using too may structures for this
+    map<int, int> gt_map;
+    set<int> gt_set;
+    // make sure ref traversal is first
+    allele_set.insert(out_variant.ref);
+    site_traversals.push_back(called_traversals[ref_trav_idx]);
+    gt_map[ref_trav_idx] = 0;
+    gt_set.insert(0);
+
+    // merge up common traversals and update the genotype to reflect
+    // their new indices
+    for (int i = 0; i < called_traversals.size(); ++i) {
         string allele_string = trav_string(called_traversals[i]);
-        if (allele_to_gt.count(allele_string)) {
-            site_genotype.push_back(allele_to_gt[allele_string]);
-        } else {
+        if (!allele_set.count(allele_string)) {
+            allele_set.insert(allele_string);
+            gt_map[i] = site_traversals.size();
+            gt_set.insert(site_traversals.size());
             site_traversals.push_back(called_traversals[i]);
-            site_genotype.push_back(allele_to_gt.size());
-                allele_to_gt[allele_string] = site_genotype.back();
         }
     }
+    for (int i = 0; i < genotype.size(); ++i) {
+        site_genotype.push_back(gt_map.at(genotype[i]));
+    }
 
-    out_variant.alt.resize(allele_to_gt.size() - 1);
-    out_variant.alleles.resize(allele_to_gt.size());
-    for (auto& allele_gt : allele_to_gt) {
-        if (allele_gt.second > 0) {
-            out_variant.alt[allele_gt.second - 1] = allele_gt.first;
+#ifdef debug
+    for (int i = 0 ; i < site_traversals.size(); ++i) {
+        cerr << " site trav " << i << " = " << pb2json(site_traversals[i]) << endl;
+    }
+    for (int i = 0 ; i < site_genotype.back(); ++i) {
+        cerr << " site genotype " << i << " = " << site_genotype[i] << endl;
+    }
+#endif
+    
+    out_variant.alleles.push_back(out_variant.ref);
+    for (int i = 1; i < site_traversals.size(); ++i) {
+        // we can toggle this to write all the traversals.
+        if (gt_set.count(i)) {
+            // todo: don't recompute this
+            out_variant.alt.push_back(trav_string(site_traversals[i]));
+            out_variant.alleles.push_back(out_variant.alt.back());
         }
-        out_variant.alleles[allele_gt.second] = allele_gt.first;
     }
 
     // fill out the rest of the variant

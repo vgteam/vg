@@ -57,6 +57,7 @@ int main_call(int argc, char** argv) {
     string min_support_string;
     string bias_string;
     bool ratio_caller = false;
+    bool legacy = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -75,6 +76,7 @@ int main_call(int argc, char** argv) {
             {"ref-path", required_argument, 0, 'p'},
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'},
+            {"legacy", no_argument, 0, 'L'},
             {"threads", required_argument, 0, 't'},
             {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
@@ -82,7 +84,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Bb:m:v:f:i:s:r:p:o:l:t:h",
+        c = getopt_long (argc, argv, "k:Bb:m:v:f:i:s:r:p:o:l:Lt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -126,7 +128,10 @@ int main_call(int argc, char** argv) {
             break;
         case 'l':
             ref_path_lengths.push_back(parse<int>(optarg));
-            break;            
+            break;
+        case 'L':
+            legacy = true;
+            break;
         case 't':
         {
             int num_threads = parse<int>(optarg);
@@ -325,13 +330,19 @@ int main_call(int argc, char** argv) {
                                                        ref_fasta.get(),
                                                        ins_fasta.get());
         graph_caller = unique_ptr<GraphCaller>(vcf_genotyper);
-    } else {
+    } else if (legacy) {
         // de-novo caller (port of the old vg call code, which requires a support based caller)
         LegacyCaller* legacy_caller = new LegacyCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                        *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                                        *snarl_manager,
                                                        sample_name, ref_paths, ref_path_offsets);
         graph_caller = unique_ptr<GraphCaller>(legacy_caller);
+    } else {
+        FlowCaller* flow_caller = new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
+                                                 *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
+                                                 *snarl_manager,
+                                                 sample_name, 100, ref_paths, ref_path_offsets);
+        graph_caller = unique_ptr<GraphCaller>(flow_caller);
     }
 
     // Call the graph
