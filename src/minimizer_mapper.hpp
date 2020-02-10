@@ -15,6 +15,7 @@
 #include "seed_clusterer.hpp"
 #include "snarls.hpp"
 #include "tree_subgraph.hpp"
+#include "funnel.hpp"
 
 #include <gbwtgraph/minimizer.h>
 #include <structures/immutable_list.hpp>
@@ -165,7 +166,40 @@ protected:
     SnarlSeedClusterer clusterer;
 
     FragmentLengthDistribution fragment_length_distr;
-    
+
+    struct Minimizer {
+        typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
+        size_t hits;
+        const typename gbwtgraph::DefaultMinimizerIndex::code_type* occs;
+        size_t origin; // From minimizer_indexes[origin].
+        double score;  // 1 + ln(hard_hit_cap) - ln(hits).
+
+        // Sort the minimizers in descending order by score.
+        bool operator< (const Minimizer& another) const {
+            return (this->score > another.score);
+        }
+    };
+
+    /**
+     * Find the minimizers in the sequence using all minimizer indexes and
+     * return them sorted in descending order by score.
+     */
+    std::vector<Minimizer> find_minimizers(const std::string& sequence, Funnel& funnel) const;
+
+    /**
+     * Find seeds for all minimizers passing the filters. Return the seeds in
+     * one vector and the source minimizers in another vector.
+     */
+    std::pair<std::vector<pos_t>, std::vector<size_t>> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+
+    /**
+     * Return cluster score and read coverage. Score is the sum of the scores
+     * of distinct minimizers in the cluster, while read coverage is the fraction
+     * of the read covered by seeds in the cluster.
+     * TODO JS: Score all clusters at once; calculate fragment scores afterwards.
+     */
+    std::pair<double, double> score_cluster(const std::vector<size_t>& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<size_t>& seed_to_source, size_t seq_length, Funnel& funnel) const;
+
     /**
      * Score the given group of gapless extensions. Determines the best score
      * that can be obtained by chaining extensions together, using the given

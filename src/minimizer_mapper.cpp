@@ -7,7 +7,6 @@
 #include "annotation.hpp"
 #include "path_subgraph.hpp"
 #include "multipath_alignment.hpp"
-#include "funnel.hpp"
 
 #include "algorithms/dijkstra.hpp"
 
@@ -49,158 +48,14 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     Funnel funnel;
     // Start this alignment 
     funnel.start(aln.name());
-   
-    if (track_provenance) {
-        // Start the minimizer finding stage
-        funnel.stage("minimizer");
-    }
     
-    // Minimizers from each index and scores as 1 + ln(hard_hit_cap) - ln(hits).
-    struct Minimizer {
-        typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
-        size_t hits;
-        const typename gbwtgraph::DefaultMinimizerIndex::code_type* occs;
-        size_t origin; // From minimizer_indexes[origin].
-        double score;
+    // Minimizers sorted by score in descending order.
+    std::vector<Minimizer> minimizers = this->find_minimizers(aln.sequence(), funnel);
 
-        // Sort the minimizers in descending order by score.
-        bool operator< (const Minimizer& another) const {
-            return (this->score > another.score);
-        }
-    };
-    std::vector<Minimizer> minimizers;
-
-    // Find the minimizers and score them.
-    double base_target_score = 0.0;
-    double base_score = 1.0 + std::log(hard_hit_cap);
-    for (size_t i = 0; i < minimizer_indexes.size(); i++) {
-        auto current_minimizers = minimizer_indexes[i]->minimizers(aln.sequence());
-        for (auto& minimizer : current_minimizers) {
-            double score = 0.0;
-            auto hits = minimizer_indexes[i]->count_and_find(minimizer);
-            if (hits.first > 0) {
-                if (hits.first <= hard_hit_cap) {
-                    score = base_score - std::log(hits.first);
-                } else {
-                    score = 1.0;
-                }
-            }
-            minimizers.push_back({ minimizer, hits.first, hits.second, i, score });
-            base_target_score += score;
-        }
-    }
-    double target_score = (base_target_score * minimizer_score_fraction) + 0.000001;
-    std::sort(minimizers.begin(), minimizers.end());
-
-    if (track_provenance) {
-        // Record how many we found, as new lines.
-        funnel.introduce(minimizers.size());
-        
-        // Start the minimizer locating stage
-        funnel.stage("seed");
-    }
-
-    // Store the seeds and their source minimizers in separate vectors.
+    // Find the seeds and their source minimizers and store them in separate vectors.
     std::vector<pos_t> seeds;
     std::vector<size_t> seed_to_source;
-
-    // Select the minimizers we use for seeds.
-    size_t rejected_count = 0;
-    double selected_score = 0.0;
-    for (size_t i = 0; i < minimizers.size(); i++) {
-        if (track_provenance) {
-            // Say we're working on it
-            funnel.processing_input(i);
-        }
-
-        // Select the minimizer if it is informative enough or if the total score
-        // of the selected minimizers is not high enough.
-        const Minimizer& minimizer = minimizers[i];
-        
-#ifdef debug
-        cerr << "Minimizer " << i << " = " << minimizer.value.key.decode(minimizer_indexes[minimizer.origin]->k())
-             << " has " << minimizer.hits << " hits" << endl;
-#endif
-        
-        if (minimizer.hits == 0) {
-            // A minimizer with no hits can't go on.
-            if (track_provenance) {
-                funnel.fail("any-hits", i);
-            }
-        } else if (minimizer.hits <= hit_cap || (minimizer.hits <= hard_hit_cap && selected_score + minimizer.score <= target_score)) {
-            // Locate the hits.
-            for (size_t j = 0; j < minimizer.hits; j++) {
-                pos_t hit = gbwtgraph::DefaultMinimizerIndex::decode(minimizer.occs[j]);
-                // Reverse the hits for a reverse minimizer
-                if (minimizer.value.is_reverse) {
-                    size_t node_length = gbwt_graph.get_length(gbwt_graph.get_handle(id(hit)));
-                    hit = reverse_base_pos(hit, node_length);
-                }
-                // For each position, remember it and what minimizer it came from
-                seeds.push_back(hit);
-                seed_to_source.push_back(i);
-            }
-            selected_score += minimizer.score;
-            
-            if (track_provenance) {
-                // Record in the funnel that this minimizer gave rise to these seeds.
-                funnel.pass("any-hits", i);
-                funnel.pass("hard-hit-cap", i);
-                funnel.pass("hit-cap||score-fraction", i, selected_score  / base_target_score);
-                funnel.expand(i, minimizer.hits);
-            }
-        } else if (minimizer.hits <= hard_hit_cap) {
-            // Passed hard hit cap but failed score fraction/normal hit cap
-            rejected_count++;
-            if (track_provenance) {
-                funnel.pass("any-hits", i);
-                funnel.pass("hard-hit-cap", i);
-                funnel.fail("hit-cap||score-fraction", i, (selected_score + minimizer.score) / base_target_score);
-            }
-        } else {
-            // Failed hard hit cap
-            rejected_count++;
-            if (track_provenance) {
-                funnel.pass("any-hits", i);
-                funnel.fail("hard-hit-cap", i);
-            }
-        }
-        if (track_provenance) {
-            // Say we're done with this input item
-            funnel.processed_input();
-        }
-    }
-
-    if (track_provenance && track_correctness) {
-        // Tag seeds with correctness based on proximity along paths to the input read's refpos
-        funnel.substage("correct");
-      
-        if (path_graph == nullptr) {
-            cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
-            exit(1);
-        }
-        
-        if (aln.refpos_size() != 0) {
-            // Take the first refpos as the true position.
-            auto& true_pos = aln.refpos(0);
-            
-            for (size_t i = 0; i < seeds.size(); i++) {
-                // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
-                auto offsets = algorithms::nearest_offsets_in_paths(path_graph, seeds[i], 100);
-                for (auto& hit_pos : offsets[path_graph->get_path_handle(true_pos.name())]) {
-                    // Look at all the ones on the path the read's true position is on.
-                    if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
-                        // Call this seed hit close enough to be correct
-                        funnel.tag_correct(i);
-                    }
-                }
-            }
-        }
-    }
-        
-#ifdef debug
-    cerr << "Found " << seeds.size() << " seeds from " << (minimizers.size() - rejected_count) << " minimizers, rejected " << rejected_count << endl;
-#endif
+    std::tie(seeds, seed_to_source) = this->find_seeds(minimizers, aln, funnel);
 
     if (track_provenance) {
         // Begin the clustering stage
@@ -209,70 +64,17 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         
     // Cluster the seeds. Get sets of input seed indexes that go together.
     vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit);
-    
-    if (track_provenance) {
+
+    // Determine the scores and read coverages for each cluster.
+    if (this->track_provenance) {
         funnel.substage("score");
     }
-
-    // Cluster score is the sum of minimizer scores.
-    std::vector<double> cluster_score(clusters.size(), 0.0);
-    vector<double> read_coverage_by_cluster;
-    read_coverage_by_cluster.reserve(clusters.size());
-
+    std::vector<double> cluster_score;
+    std::vector<double> read_coverage_by_cluster;
     for (size_t i = 0; i < clusters.size(); i++) {
-        // For each cluster
-        auto& cluster = clusters[i];
-        
-        if (track_provenance) {
-            // Say we're making it
-            funnel.producing_output(i);
-        }
-
-        // Which minimizers are present in the cluster.
-        vector<bool> present(minimizers.size(), false);
-        for (auto hit_index : cluster) {
-            present[seed_to_source[hit_index]] = true;
-        }
-
-        // Compute the score.
-        for (size_t j = 0; j < minimizers.size(); j++) {
-            if (present[j]) {
-                cluster_score[i] += minimizers[j].score;
-            }
-        }
-        
-        if (track_provenance) {
-            // Record the cluster in the funnel as a group of the size of the number of items.
-            funnel.merge_group(cluster.begin(), cluster.end());
-            funnel.score(funnel.latest(), cluster_score[i]);
-            
-            // Say we made it.
-            funnel.produced_output();
-        }
-
-        // Get the cluster coverage
-        // We set bits in here to true when query anchors cover them
-        sdsl::bit_vector covered(aln.sequence().size(), 0);
-        for (auto hit_index : cluster) {
-            // For each hit in the cluster, work out what anchor sequence it is from.
-            const Minimizer& minimizer = minimizers[seed_to_source[hit_index]];
-
-            // The offset of a reverse minimizer is the endpoint of the kmer
-            size_t start_offset = minimizer.value.offset;
-            size_t k = minimizer_indexes[minimizer.origin]->k();
-            if (minimizer.value.is_reverse) {
-                start_offset = start_offset + 1 - k;
-            }
-
-            // Set the k bits starting at start_offset.
-            covered.set_int(start_offset, sdsl::bits::lo_set[k], k);
-        }
-
-        // Count up the covered positions
-        size_t covered_count = sdsl::util::cnt_one_bits(covered);
-
-        // Turn that into a fraction
-        read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
+        std::pair<double, double> result = this->score_cluster(clusters[i], i, minimizers, seed_to_source, aln.sequence().length(), funnel);
+        cluster_score.push_back(result.first);
+        read_coverage_by_cluster.push_back(result.second);
     }
 
 #ifdef debug
@@ -849,181 +651,17 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         aln1.set_read_group(read_group);
         aln2.set_read_group(read_group);
     }
-   
-    if (track_provenance) {
-        // Start the minimizer finding stage
-        funnels[0].stage("minimizer");
-        funnels[1].stage("minimizer");
-    }
     
-    // We will find all the seed hits
-    vector<vector<pos_t>> seeds_by_read;
-    
-    // This will hold all the minimizers in the query, one vector of minimizers per read
-    // Minimizers from each index and scores as 1 + ln(hard_hit_cap) - ln(hits).
-    struct Minimizer {
-        typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
-        size_t hits;
-        const typename gbwtgraph::DefaultMinimizerIndex::code_type* occs;
-        size_t origin; // From minimizer_indexes[origin].
-        double score;
+    // Minimizers for both reads, sorted by score in descending order.
+    std::pair<std::vector<Minimizer>, std::vector<Minimizer>> minimizers_by_read;
+    minimizers_by_read.first = this->find_minimizers(aln1.sequence(), funnels[0]);
+    minimizers_by_read.second = this->find_minimizers(aln2.sequence(), funnels[1]);
 
-        // Sort the minimizers in descending order by score.
-        bool operator< (const Minimizer& another) const {
-            return (this->score > another.score);
-        }
-    };
-    pair<std::vector<Minimizer>, std::vector<Minimizer>> minimizers_by_read;
-
-
-    // And either way this will map from seed to minimizer that generated it
-    pair<vector<size_t>, vector<size_t>> seed_to_source_by_read;
-    
-    for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
-        std::vector<Minimizer>& minimizers = read_num == 0 ? minimizers_by_read.first : minimizers_by_read.second;
-        seeds_by_read.emplace_back();
-        vector<pos_t>& seeds = seeds_by_read.back();
-        Funnel& funnel = funnels[read_num];
-        Alignment& aln = read_num == 0 ? aln1 : aln2;
-
-        vector<size_t>& seed_to_source = read_num == 0 ? seed_to_source_by_read.first : seed_to_source_by_read.second;
-        
-        if (track_provenance) {
-            // Record how many we found, as new lines.
-            funnel.introduce(minimizers.size());
-            
-            // Start the minimizer locating stage
-            funnel.stage("seed");
-        }
-
-        // Find the minimizers and score them.
-        double base_target_score = 0.0;
-        double base_score = 1.0 + std::log(hard_hit_cap);
-        for (size_t i = 0; i < minimizer_indexes.size(); i++) {
-            auto current_minimizers = minimizer_indexes[i]->minimizers(aln.sequence());
-            for (auto& minimizer : current_minimizers) {
-                double score = 0.0;
-                auto hits = minimizer_indexes[i]->count_and_find(minimizer);
-                if (hits.first > 0) {
-                    if (hits.first <= hard_hit_cap) {
-                        score = base_score - std::log(hits.first);
-                    } else {
-                        score = 1.0;
-                    }
-                }
-                minimizers.push_back({ minimizer, hits.first, hits.second, i, score });
-                base_target_score += score;
-            }
-        }
-        double target_score = (base_target_score * minimizer_score_fraction) + 0.000001;
-        std::sort(minimizers.begin(), minimizers.end());
-    
-        if (track_provenance) {
-            // Record how many we found, as new lines.
-            funnel.introduce(minimizers.size());
-            
-            // Start the minimizer locating stage
-            funnel.stage("seed");
-        }
-    
-    
-        // Select the minimizers we use for seeds.
-        size_t rejected_count = 0;
-        double selected_score = 0.0;
-        for (size_t i = 0; i < minimizers.size(); i++) {
-            if (track_provenance) {
-                // Say we're working on it
-                funnel.processing_input(i);
-            }
-    
-            // Select the minimizer if it is informative enough or if the total score
-            // of the selected minimizers is not high enough.
-            const Minimizer& minimizer = minimizers[i];
-            
-#ifdef debug
-            cerr << "Minimizer " << i << " = " << minimizer.value.key.decode(minimizer_indexes[minimizer.origin]->k())
-                 << " has " << minimizer.hits << " hits" << endl;
-#endif
-            
-            if (minimizer.hits == 0) {
-                // A minimizer with no hits can't go on.
-                if (track_provenance) {
-                    funnel.fail("any-hits", i);
-                }
-            } else if (minimizer.hits <= hit_cap || (minimizer.hits <= hard_hit_cap && selected_score + minimizer.score <= target_score)) {
-                // Locate the hits.
-                for (size_t j = 0 ; j < minimizer.hits ; j++) {
-                    pos_t hit = gbwtgraph::DefaultMinimizerIndex::decode(minimizer.occs[j]);
-                    // Reverse the hits for a reverse minimizer
-                    if (minimizer.value.is_reverse) {
-                        size_t node_length = gbwt_graph.get_length(gbwt_graph.get_handle(id(hit)));
-                        hit = reverse_base_pos(hit, node_length);
-                    }
-                    // For each position, remember it and what minimizer it came from
-                    seeds.push_back(hit);
-                    seed_to_source.push_back(i);
-                }
-                selected_score += minimizer.score;
-                
-                if (track_provenance) {
-                    // Record in the funnel that this minimizer gave rise to these seeds.
-                    funnel.pass("any-hits", i);
-                    funnel.pass("hard-hit-cap", i);
-                    funnel.pass("hit-cap||score-fraction", i, selected_score  / base_target_score);
-                    funnel.expand(i, minimizer.hits);
-                }
-            } else if (minimizer.hits <= hard_hit_cap) {
-                // Passed hard hit cap but failed score fraction/normal hit cap
-                rejected_count++;
-                if (track_provenance) {
-                    funnel.pass("any-hits", i);
-                    funnel.pass("hard-hit-cap", i);
-                    funnel.fail("hit-cap||score-fraction", i, (selected_score + minimizer.score) / base_target_score);
-                }
-            } else {
-                // Failed hard hit cap
-                rejected_count++;
-                if (track_provenance) {
-                    funnel.pass("any-hits", i);
-                    funnel.fail("hard-hit-cap", i);
-                }
-            }
-            if (track_provenance) {
-                // Say we're done with this input item
-                funnel.processed_input();
-            }
-        }
-#ifdef debug
-        cerr << "For read " << read_num <<  " found " << seeds.size() << " seeds from " << (minimizers.size() - rejected_count) << " minimizers, rejected " << rejected_count << endl;
-#endif
-    
-        if (track_provenance && track_correctness) {
-            // Tag seeds with correctness based on proximity along paths to the input read's refpos
-            funnel.substage("correct");
-          
-            if (path_graph == nullptr) {
-                cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
-                exit(1);
-            }
-            
-            if (aln.refpos_size() != 0) {
-                // Take the first refpos as the true position.
-                auto& true_pos = aln.refpos(0);
-                
-                for (size_t i = 0; i < seeds.size(); i++) {
-                    // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
-                    auto offsets = algorithms::nearest_offsets_in_paths(path_graph, seeds[i], 100);
-                    for (auto& hit_pos : offsets[path_graph->get_path_handle(true_pos.name())]) {
-                        // Look at all the ones on the path the read's true position is on.
-                        if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
-                            // Call this seed hit close enough to be correct
-                            funnel.tag_correct(i);
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // Seeds and their source minimizers for both reads, stored in separate vectors.
+    std::vector<std::vector<pos_t>> seeds_by_read(2);
+    std::pair<std::vector<size_t>, std::vector<size_t>> seed_to_source_by_read;
+    std::tie(seeds_by_read[0], seed_to_source_by_read.first) = this->find_seeds(minimizers_by_read.first, aln1, funnels[0]);
+    std::tie(seeds_by_read[1], seed_to_source_by_read.second) = this->find_seeds(minimizers_by_read.second, aln2, funnels[1]);
 
     if (track_provenance) {
         // Begin the clustering stage
@@ -1104,67 +742,16 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
         // Cluster score is the sum of minimizer scores.
         vector<double>& cluster_score = read_num == 0 ? cluster_scores.first : cluster_scores.second;
-        cluster_score.resize(clusters.size(), 0.0);
         vector<double>& read_coverage_by_cluster = read_num == 0 ? cluster_coverages.first : cluster_coverages.second;
-        read_coverage_by_cluster.reserve(clusters.size());
 
         for (size_t i = 0; i < clusters.size(); i++) {
-            // For each cluster
-            auto& cluster = clusters[i].first;
-
-            if (track_provenance) {
-                // Say we're making it
-                funnels[read_num].producing_output(i);
-            }
-
-            // Which minimizers are present in the cluster.
-            vector<bool> present(minimizers.size(), false);
-            for (auto hit_index : cluster) {
-                present[seed_to_source[hit_index]] = true;
-            }
-
-            // Compute the score.
-            for (size_t j = 0; j < minimizers.size(); j++) {
-                if (present[j]) {
-                    cluster_score[i] += minimizers[j].score;
-                }
-            }
-            best_cluster_score[clusters[i].second] = max(best_cluster_score[clusters[i].second], cluster_score[i]);
-
-            if (track_provenance) {
-                // Record the cluster in the funnel as a group of the size of the number of items.
-                funnels[read_num].merge_group(cluster.begin(), cluster.end());
-                funnels[read_num].score(funnels[read_num].latest(), cluster_score[i]);
-
-                // Say we made it.
-                funnels[read_num].produced_output();
-            }
-
-            
-            // Get the cluster coverage
-            // We set bits in here to true when query anchors cover them
-            sdsl::bit_vector covered(aln.sequence().size(), 0);
-            for (auto hit_index : cluster) {
-                // For each hit in the cluster, work out what anchor sequence it is from.
-                const Minimizer& minimizer = minimizers[seed_to_source[hit_index]];
-
-                // The offset of a reverse minimizer is the endpoint of the kmer
-                size_t start_offset = minimizer.value.offset;
-                size_t k = minimizer_indexes[minimizer.origin]->k();
-                if (minimizer.value.is_reverse) {
-                    start_offset = start_offset + 1 - k;
-                }
-
-                // Set the k bits starting at start_offset.
-                covered.set_int(start_offset, sdsl::bits::lo_set[k], k);
-            }
-
-            // Count up the covered positions
-            size_t covered_count = sdsl::util::cnt_one_bits(covered);
-
-            // Turn that into a fraction
-            read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
-            best_cluster_coverage[clusters[i].second] = max(best_cluster_coverage[clusters[i].second], read_coverage_by_cluster.back());
+            // Deterimine cluster score and read coverage.
+            std::pair<double, double> result = this->score_cluster(clusters[i].first, i, minimizers, seed_to_source, aln.sequence().length(), funnels[read_num]);
+            cluster_score.push_back(result.first);
+            read_coverage_by_cluster.push_back(result.second);
+            size_t fragment = clusters[i].second;
+            best_cluster_score[fragment] = std::max(best_cluster_score[fragment], result.first);
+            best_cluster_coverage[fragment] = std::max(best_cluster_coverage[fragment], result.second);
 
         }
     }
@@ -2162,6 +1749,210 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
 
     int64_t min_dist = distance_index.minDistance(pos1, pos2);
     return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
+}
+
+std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const std::string& sequence, Funnel& funnel) const {
+
+    if (this->track_provenance) {
+        // Start the minimizer finding stage
+        funnel.stage("minimizer");
+    }
+
+    std::vector<Minimizer> result;
+    double base_score = 1.0 + std::log(this->hard_hit_cap);
+    for (size_t i = 0; i < this->minimizer_indexes.size(); i++) {
+        auto current_minimizers = this->minimizer_indexes[i]->minimizers(sequence);
+        for (auto& minimizer : current_minimizers) {
+            double score = 0.0;
+            auto hits = this->minimizer_indexes[i]->count_and_find(minimizer);
+            if (hits.first > 0) {
+                if (hits.first <= this->hard_hit_cap) {
+                    score = base_score - std::log(hits.first);
+                } else {
+                    score = 1.0;
+                }
+            }
+            result.push_back({ minimizer, hits.first, hits.second, i, score });
+        }
+    }
+    std::sort(result.begin(), result.end());
+
+    if (this->track_provenance) {
+        // Record how many we found, as new lines.
+        funnel.introduce(result.size());
+    }
+
+    return result;
+}
+
+std::pair<std::vector<pos_t>, std::vector<size_t>> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const {
+
+    if (this->track_provenance) {
+        // Start the minimizer locating stage
+        funnel.stage("seed");
+    }
+
+    // One of the filters accepts minimizers until selected_score reaches target_score.
+    double base_target_score = 0.0;
+    for (const Minimizer& minimizer : minimizers) {
+        base_target_score += minimizer.score;
+    }
+    double target_score = (base_target_score * this->minimizer_score_fraction) + 0.000001;
+    double selected_score = 0.0;
+
+    // Select the minimizers we use for seeds.
+    size_t rejected_count = 0;
+    std::pair<std::vector<pos_t>, std::vector<size_t>> result;
+    for (size_t i = 0; i < minimizers.size(); i++) {
+        if (this->track_provenance) {
+            // Say we're working on it
+            funnel.processing_input(i);
+        }
+
+        // Select the minimizer if it is informative enough or if the total score
+        // of the selected minimizers is not high enough.
+        const Minimizer& minimizer = minimizers[i];
+
+#ifdef debug
+        std::cerr << "Minimizer " << i << " = " << minimizer.value.key.decode(this->minimizer_indexes[minimizer.origin]->k())
+             << " has " << minimizer.hits << " hits" << std::endl;
+#endif
+
+        if (minimizer.hits == 0) {
+            // A minimizer with no hits can't go on.
+            if (this->track_provenance) {
+                funnel.fail("any-hits", i);
+            }
+        } else if (minimizer.hits <= this->hit_cap || (minimizer.hits <= this->hard_hit_cap && selected_score + minimizer.score <= target_score)) {
+            // Locate the hits.
+            for (size_t j = 0; j < minimizer.hits; j++) {
+                pos_t hit = gbwtgraph::DefaultMinimizerIndex::decode(minimizer.occs[j]);
+                // Reverse the hits for a reverse minimizer
+                if (minimizer.value.is_reverse) {
+                    size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(hit)));
+                    hit = reverse_base_pos(hit, node_length);
+                }
+                // For each position, remember it and what minimizer it came from
+                result.first.push_back(hit);
+                result.second.push_back(i);
+            }
+            selected_score += minimizer.score;
+
+            if (this->track_provenance) {
+                // Record in the funnel that this minimizer gave rise to these seeds.
+                funnel.pass("any-hits", i);
+                funnel.pass("hard-hit-cap", i);
+                funnel.pass("hit-cap||score-fraction", i, selected_score  / base_target_score);
+                funnel.expand(i, minimizer.hits);
+            }
+        } else if (minimizer.hits <= this->hard_hit_cap) {
+            // Passed hard hit cap but failed score fraction/normal hit cap
+            rejected_count++;
+            if (this->track_provenance) {
+                funnel.pass("any-hits", i);
+                funnel.pass("hard-hit-cap", i);
+                funnel.fail("hit-cap||score-fraction", i, (selected_score + minimizer.score) / base_target_score);
+            }
+        } else {
+            // Failed hard hit cap
+            rejected_count++;
+            if (this->track_provenance) {
+                funnel.pass("any-hits", i);
+                funnel.fail("hard-hit-cap", i);
+            }
+        }
+        if (this->track_provenance) {
+            // Say we're done with this input item
+            funnel.processed_input();
+        }
+    }
+
+    if (this->track_provenance && this->track_correctness) {
+        // Tag seeds with correctness based on proximity along paths to the input read's refpos
+        funnel.substage("correct");
+
+        if (this->path_graph == nullptr) {
+            cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
+            exit(1);
+        }
+
+        if (aln.refpos_size() != 0) {
+            // Take the first refpos as the true position.
+            auto& true_pos = aln.refpos(0);
+
+            for (size_t i = 0; i < result.first.size(); i++) {
+                // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
+                auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, result.first[i], 100);
+                for (auto& hit_pos : offsets[this->path_graph->get_path_handle(true_pos.name())]) {
+                    // Look at all the ones on the path the read's true position is on.
+                    if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
+                        // Call this seed hit close enough to be correct
+                        funnel.tag_correct(i);
+                    }
+                }
+            }
+        }
+    }
+
+#ifdef debug
+    std::cerr << "Found " << seeds.size() << " seeds from " << (minimizers.size() - rejected_count) << " minimizers, rejected " << rejected_count << std::endl;
+#endif
+
+    return result;
+}
+
+std::pair<double, double> MinimizerMapper::score_cluster(const std::vector<size_t>& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<size_t>& seed_to_source, size_t seq_length, Funnel& funnel) const {
+
+    if (this->track_provenance) {
+        // Say we're making it
+        funnel.producing_output(i);
+    }
+
+    // Which minimizers are present in the cluster.
+    std::vector<bool> present(minimizers.size(), false);
+    for (auto hit_index : cluster) {
+        present[seed_to_source[hit_index]] = true;
+    }
+
+    // Compute the score.
+    double score = 0.0;
+    for (size_t j = 0; j < minimizers.size(); j++) {
+        if (present[j]) {
+            score += minimizers[j].score;
+        }
+    }
+
+    if (this->track_provenance) {
+        // Record the cluster in the funnel as a group of the size of the number of items.
+        funnel.merge_group(cluster.begin(), cluster.end());
+        funnel.score(funnel.latest(), score);
+
+        // Say we made it.
+        funnel.produced_output();
+    }
+
+    // Get the cluster coverage
+    // We set bits in here to true when query anchors cover them
+    sdsl::bit_vector covered(seq_length, 0);
+    for (size_t hit_index : cluster) {
+        // For each hit in the cluster, work out what anchor sequence it is from.
+        const Minimizer& minimizer = minimizers[seed_to_source[hit_index]];
+
+        // The offset of a reverse minimizer is the endpoint of the kmer
+        size_t start_offset = minimizer.value.offset;
+        size_t k = this->minimizer_indexes[minimizer.origin]->k();
+        if (minimizer.value.is_reverse) {
+            start_offset = start_offset + 1 - k;
+        }
+
+        // Set the k bits starting at start_offset.
+        covered.set_int(start_offset, sdsl::bits::lo_set[k], k);
+    }
+
+    // Count up the covered positions and turn it into a fraction.
+    double coverage = sdsl::util::cnt_one_bits(covered) / static_cast<double>(seq_length);
+
+    return std::pair<double, double>(score, coverage);
 }
 
 int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<GaplessExtension>& extended_seeds,
