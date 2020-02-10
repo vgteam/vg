@@ -1351,11 +1351,11 @@ size_t BaseMapper::get_adaptive_min_reseed_length(size_t parent_mem_length) {
     return adaptive_reseed_length_memo[parent_mem_length];
 }
 
-bool BaseMapper::has_fixed_fragment_length_distr() {
+bool PairedEndMapper::has_fixed_fragment_length_distr() {
     return fragment_length_distr.is_finalized();
 }
 
-void BaseMapper::force_fragment_length_distr(double mean, double stddev) {
+void PairedEndMapper::force_fragment_length_distr(double mean, double stddev) {
     fragment_length_distr.force_parameters(mean, stddev);
 }
     
@@ -1385,7 +1385,7 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
    
     if (haplotype_count == 0 || haplotype_count == -1) {
         // We really should have a haplotype count
-        yeet runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
+        throw runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
     }
     
     // We don't look at strip_bonuses here, because we need these bonuses added
@@ -1513,11 +1513,11 @@ void BaseMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_
     this->haplotype_consistency_exponent = haplotype_consistency_exponent;
 }
     
-void BaseMapper::set_fragment_length_distr_params(size_t maximum_sample_size, size_t reestimation_frequency,
+void PairedEndMapper::set_fragment_length_distr_params(size_t maximum_sample_size, size_t reestimation_frequency,
                                                   double robust_estimation_fraction) {
     
     if (fragment_length_distr.is_finalized()) {
-        cerr << "warning:[vg::Mapper] overwriting a fragment length distribution that has already been estimated" << endl;
+        cerr << "warning:[vg::PairedEndMapper] overwriting a fragment length distribution that has already been estimated" << endl;
     }
     
     fragment_length_distr = FragmentLengthDistribution(maximum_sample_size, reestimation_frequency,

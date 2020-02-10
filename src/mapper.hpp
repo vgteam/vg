@@ -158,10 +158,36 @@ private:
 };
 
 /**
+ * A class trait/mixin which defines a mapper's paired end distribution support.
+ *
+ * Doesn't actually define the paired-end mapping methods.
+ */
+class PairedEndMapper {
+public:
+
+    /// Set parameters for estimating fragment length distribution.
+    /// TODO: setting alignment threads after this could mess up the internal memory for how many threads to reset to
+    void set_fragment_length_distr_params(size_t maximum_sample_size = 1000, size_t reestimation_frequency = 1000,
+                                          double robust_estimation_fraction = 0.95);
+
+    /// Returns true if fragment length distribution has been fixed
+    bool has_fixed_fragment_length_distr();
+    
+    /// Use the given fragment length distribution parameters instead of
+    /// estimating them.
+    void force_fragment_length_distr(double mean, double stddev);
+
+protected:
+    /// Holds the actual fragment length distribution and estimation information
+    FragmentLengthDistribution fragment_length_distr;
+
+};
+
+/**
  * Base class for basic mapping functionality shared between the Mapper, MultipathMapper, etc.
  * Handles holding on to the random access and text indexes needed for mapping operations.
  */
-class BaseMapper : public AlignerClient {
+class BaseMapper : public AlignerClient, public PairedEndMapper {
     
 public:
     /**
@@ -179,10 +205,6 @@ public:
     static double estimate_gc_content(const gcsa::GCSA* gcsa);
     
     int random_match_length(double chance_random);
-   
-    // TODO: setting alignment threads could mess up the internal memory for how many threads to reset to
-    void set_fragment_length_distr_params(size_t maximum_sample_size = 1000, size_t reestimation_frequency = 1000,
-                                          double robust_estimation_fraction = 0.95);
                          
     
     /// Override alignment score setting to support haplotype consistency exponent
@@ -190,13 +212,6 @@ public:
                               uint32_t xdrop_max_gap_length = default_xdrop_max_gap_length, double haplotype_consistency_exponent = 1);
     
     void set_cache_size(int new_cache_size);
-    
-    /// Returns true if fragment length distribution has been fixed
-    bool has_fixed_fragment_length_distr();
-    
-    /// Use the given fragment length distribution parameters instead of
-    /// estimating them.
-    void force_fragment_length_distr(double mean, double stddev);
     
     // MEM-based mapping
     // find maximal exact matches
@@ -331,8 +346,6 @@ public:
     // 0 = no haplotype consistency scoring done.
     // 1 = multiply in haplotype likelihood once when computing alignment score
     double haplotype_consistency_exponent = 1;
-    
-    FragmentLengthDistribution fragment_length_distr;
 };
 
 /**

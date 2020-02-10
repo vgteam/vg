@@ -10,29 +10,55 @@ namespace vg {
                                             dist_index(dist_index){
     };
 
-    SnarlSeedClusterer::cluster_group_t SnarlSeedClusterer::cluster_seeds (const vector<pos_t>& seeds, int64_t read_distance_limit) const {
+    vector<vector<size_t>> SnarlSeedClusterer::cluster_seeds (const vector<pos_t>& seeds, int64_t read_distance_limit) const {
         //Wrapper for single ended
 
         vector<const vector<pos_t>*> all_seeds;
         all_seeds.push_back(&seeds);
 
-        tuple<vector<SnarlSeedClusterer::cluster_group_t>,SnarlSeedClusterer::cluster_group_t> all_clusters =
-            cluster_seeds(all_seeds, read_distance_limit, 0);
+        auto all_clusters = cluster_seeds_internal(all_seeds, read_distance_limit, 0);
 
-        return std::get<0>(all_clusters)[0];
+        return std::get<0>(all_clusters)[0].all_groups();
     };
 
-    tuple<vector<SnarlSeedClusterer::cluster_group_t>,SnarlSeedClusterer::cluster_group_t> SnarlSeedClusterer::cluster_seeds (
+    vector<vector<pair<vector<size_t>, size_t>>> SnarlSeedClusterer::cluster_seeds (
                   const vector<vector<pos_t>>& all_seeds, int64_t read_distance_limit,
                   int64_t fragment_distance_limit) const {
         //Wrapper for paired end
         vector<const vector<pos_t>*> seed_pointers;
         seed_pointers.reserve(all_seeds.size());
         for (const vector<pos_t>& v : all_seeds) seed_pointers.push_back(&v);
-        return cluster_seeds(seed_pointers, read_distance_limit, fragment_distance_limit);
+        auto union_finds = cluster_seeds_internal(seed_pointers, read_distance_limit, fragment_distance_limit);
+        vector<structures::UnionFind> read_union_finds = std::move(std::get<0>(union_finds));
+        structures::UnionFind* fragment_union_find = &std::get<1>(union_finds);
+
+        vector<vector<pair<vector<size_t>, size_t>>> all_clusters;
+        //Map the old group heads to new indices
+        size_t curr_index = 0;
+        size_t read_num_offset = 0;
+        hash_map<size_t, size_t> old_to_new_cluster_index;
+
+        for (size_t read_num = 0 ; read_num < read_union_finds.size() ; read_num++) {
+            all_clusters.emplace_back();
+            vector<vector<size_t>> read_clusters = read_union_finds[read_num].all_groups();
+            for (vector<size_t>& cluster : read_clusters) {
+                size_t fragment_index = read_num_offset + cluster[0];
+                size_t fragment_cluster_head = fragment_union_find->find_group(fragment_index);
+                if (old_to_new_cluster_index.count(fragment_cluster_head) == 0) {
+                    old_to_new_cluster_index.emplace(fragment_cluster_head, curr_index);
+                    fragment_cluster_head = curr_index;
+                    curr_index++;
+                } else {
+                    fragment_cluster_head = old_to_new_cluster_index[fragment_cluster_head];
+                }
+                all_clusters.back().emplace_back(std::move(cluster), fragment_cluster_head);
+            }
+            read_num_offset += all_seeds[read_num].size();
+        }
+        return all_clusters;
     }
 
-    tuple<vector<SnarlSeedClusterer::cluster_group_t>,SnarlSeedClusterer::cluster_group_t> SnarlSeedClusterer::cluster_seeds (
+    tuple<vector<structures::UnionFind>, structures::UnionFind> SnarlSeedClusterer::cluster_seeds_internal (
                   const vector<const vector<pos_t>*>& all_seeds, int64_t read_distance_limit,
                   int64_t fragment_distance_limit) const {
         /* Given a vector of seeds and a limit, find a clustering of seeds where
@@ -44,7 +70,7 @@ cerr << endl << endl << endl << endl << "New cluster calculation:" << endl;
 #endif
         if (fragment_distance_limit != 0 &&
             fragment_distance_limit < read_distance_limit) {
-            yeet std::runtime_error("Fragment distance limit must be greater than read distance limit");
+            throw std::runtime_error("Fragment distance limit must be greater than read distance limit");
         }
 
         //For each level of the snarl tree, maps snarls (index into
@@ -116,7 +142,8 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
         }
         vector<pos_t> ordered_seeds;
         for (size_t i = 0 ; i < tree_state.all_seeds->size() ; i++) {
-            for (auto x : tree_state.all_seeds->at(i)) {
+            const auto v = tree_state.all_seeds->at(i);
+            for ( auto x : *v) {
                 ordered_seeds.push_back(x);
             }
         }
@@ -129,12 +156,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
             cerr << endl;
         }
 #endif
-        vector<SnarlSeedClusterer::cluster_group_t> read_clusters;
-        for (auto& uf : tree_state.read_union_find) {
-            read_clusters.emplace_back(uf.all_groups());
-        }
-        return make_tuple(std::move(read_clusters),
-                          tree_state.fragment_union_find.all_groups());
+        return make_tuple(std::move(tree_state.read_union_find), std::move(tree_state.fragment_union_find));
 
     };
 

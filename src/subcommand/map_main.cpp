@@ -790,7 +790,7 @@ int main_map(int argc, char** argv) {
             m = new Mapper(xgidx, gcsa.get(), lcp.get(), haplo_score_provider);
         } else {
             // Can't continue with null
-            yeet runtime_error("Need XG, GCSA, and LCP to create a Mapper");
+            throw runtime_error("Need XG, GCSA, and LCP to create a Mapper");
         }
         m->hit_max = hit_max;
         m->max_multimaps = max_multimaps;

@@ -6,14 +6,15 @@
  * Defines a mapper that uses the minimizer index and GBWT-based extension.
  */
 
+#include "algorithms/nearest_offsets_in_paths.hpp"
 #include "aligner.hpp"
 #include "alignment_emitter.hpp"
 #include "gapless_extender.hpp"
-#include "snarls.hpp"
+#include "mapper.hpp"
 #include "min_distance.hpp"
 #include "seed_clusterer.hpp"
+#include "snarls.hpp"
 #include "tree_subgraph.hpp"
-#include "algorithms/nearest_offsets_in_paths.hpp"
 
 #include <gbwtgraph/minimizer.h>
 #include <structures/immutable_list.hpp>
@@ -30,7 +31,8 @@ public:
      * as we only use it for correctness tracking.
      */
 
-    MinimizerMapper(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+    MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
+         const std::vector<std::unique_ptr<gbwtgraph::DefaultMinimizerIndex>>& minimizer_indexes,
          MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
@@ -38,6 +40,48 @@ public:
      * TODO: Can't be const because the clusterer's cluster_seeds isn't const.
      */
     void map(Alignment& aln, AlignmentEmitter& alignment_emitter);
+    
+    /**
+     * Map the given read. Return a vector of alignments that it maps to, winner first.
+     */
+    vector<Alignment> map(Alignment& aln);
+    
+    // The idea here is that the subcommand feeds all the reads to the version
+    // of map_paired that takes a buffer, and then empties the buffer by
+    // iterating over it in parallel with the version that doesn't.
+    // TODO: how will we warn about not having a pair distribution yet then?
+    
+    /**
+     * Map the given pair of reads, where aln1 is upstream of aln2 and they are
+     * oriented towards each other in the graph.
+     *
+     * If the reads are ambiguous and there's no fragment length distribution
+     * fixed yet, they will be dropped into ambiguous_pair_buffer.
+     *
+     * Otherwise, at least one result will be returned for them (although it
+     * may be the unmapped alignment).
+     */
+    pair<vector<Alignment>, vector<Alignment>> map_paired(Alignment& aln1, Alignment& aln2,
+        vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer);
+        
+    /**
+     * Map the given pair of reads, where aln1 is upstream of aln2 and they are
+     * oriented towards each other in the graph.
+     *
+     * If the fragment length distribution is not yet fixed, reads will be
+     * mapped independently. Otherwise, they will be mapped according to the
+     * fragment length distribution.
+     */
+    pair<vector<Alignment>, vector<Alignment>> map_paired(Alignment& aln1, Alignment& aln2);
+     
+
+    /**
+     * Given an aligned read, extract a subgraph of the graph within a distance range
+     * based on the fragment length distribution and attempt to align the unaligned
+     * read to it.
+     * Rescue_forward is true if the aligned read is the first and false otherwise. Assumes that both reads are facing the same direction
+     */
+     void attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
 
     // Mapping settings.
     // TODO: document each
@@ -91,11 +135,24 @@ public:
     /// and track if/when their descendants make it through stages of the
     /// algorithm. Only works if track_provenance is true.
     bool track_correctness = false;
+
+    //For paired end mapping, how many times should we attempt rescue (per read)?
+    size_t max_rescue_attempts = 0;
     
+    bool fragment_distr_is_finalized () {return fragment_length_distr.is_finalized();}
+    void finalize_fragment_length_distr() {
+        if (!fragment_length_distr.is_finalized()) {
+            fragment_length_distr.force_parameters(fragment_length_distr.mean(), fragment_length_distr.stdev());
+        } 
+    }
+    /**
+     * Get the distance between a pair of read alignments
+     */
+    int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
 protected:
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
-    const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
+    const std::vector<std::unique_ptr<gbwtgraph::DefaultMinimizerIndex>>& minimizer_indexes;
     MinimumDistanceIndex& distance_index;
 
     /// This is our primary graph.
@@ -106,6 +163,8 @@ protected:
     
     /// We have a clusterer
     SnarlSeedClusterer clusterer;
+
+    FragmentLengthDistribution fragment_length_distr;
     
     /**
      * Score the given group of gapless extensions. Determines the best score

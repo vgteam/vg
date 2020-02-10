@@ -39,15 +39,13 @@ namespace vg {
     }
     
     void MultipathMapper::multipath_map(const Alignment& alignment,
-                                        vector<MultipathAlignment>& multipath_alns_out,
-                                        size_t max_alt_mappings) {
-        multipath_map_internal(alignment, mapping_quality_method, multipath_alns_out, max_alt_mappings);
+                                        vector<MultipathAlignment>& multipath_alns_out) {
+        multipath_map_internal(alignment, mapping_quality_method, multipath_alns_out);
     }
     
     void MultipathMapper::multipath_map_internal(const Alignment& alignment,
                                                  MappingQualityMethod mapq_method,
-                                                 vector<MultipathAlignment>& multipath_alns_out,
-                                                 size_t max_alt_mappings) {
+                                                 vector<MultipathAlignment>& multipath_alns_out) {
         
 #ifdef debug_multipath_mapper
         cerr << "multipath mapping read " << pb2json(alignment) << endl;
@@ -114,6 +112,8 @@ namespace vg {
         if (multipath_alns_out.empty()) {
             // add a null alignment so we know it wasn't mapped
             multipath_alns_out.emplace_back();
+            cluster_graphs.emplace_back();
+            cluster_idxs.push_back(0);
             to_multipath_alignment(alignment, multipath_alns_out.back());
             
             // in case we're realigning GAMs that have paths already
@@ -321,7 +321,7 @@ namespace vg {
 #endif
         sort_and_compute_mapping_quality(multipath_alns_out, mapq_method, cluster_idxs);
         
-        if (!multipath_alns_out.empty() ? likely_mismapping(multipath_alns_out.front()) : false) {
+        if (!multipath_alns_out.empty() && likely_mismapping(multipath_alns_out.front())) {
             multipath_alns_out.front().set_mapping_quality(0);
         }
         
@@ -350,9 +350,9 @@ namespace vg {
         // mapping ambiguity
         vector<MultipathAlignment> multipath_alns_1, multipath_alns_2;
         multipath_map_internal(alignment1, mapping_quality_method == None ? Approx : mapping_quality_method,
-                               multipath_alns_1, 1);
+                               multipath_alns_1);
         multipath_map_internal(alignment2, mapping_quality_method == None ? Approx : mapping_quality_method,
-                               multipath_alns_2, 1);
+                               multipath_alns_2);
         
         bool is_ambiguous = true;
         
@@ -485,17 +485,22 @@ namespace vg {
         size_t target_length = other_aln.sequence().size() + get_aligner()->longest_detectable_gap(other_aln);
         
         // convert from bidirected to directed
-        bdsg::HashGraph align_graph;
-        unordered_map<id_t, pair<id_t, bool> > node_trans = algorithms::split_strands(&rescue_graph, &align_graph);
-        // if necessary, convert from cyclic to acylic
-        if (!algorithms::is_directed_acyclic(&rescue_graph)) {
-            // make a dagified graph and translation
-            bdsg::HashGraph dagified;
-            unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
-            
-            // replace the original with the dagified ones
-            align_graph = move(dagified);
-            node_trans = overlay_node_translations(dagify_trans, node_trans);
+        StrandSplitGraph align_digraph(&rescue_graph);
+        
+        // if necessary, convert from cyclic to acylic (this is expensive, so only do it if we need to)
+        IdentityOverlay undagified(&align_digraph);
+        DagifiedGraph* dagified = nullptr;
+        
+        ExpandingOverlayGraph* align_dag = nullptr;
+        if (algorithms::is_directed_acyclic(&align_digraph)) {
+            align_dag = &undagified;
+        }
+        else {
+#ifdef debug_multipath_mapper_alignment
+            cerr << "graph contains directed cycles, performing dagification" << endl;
+#endif
+            dagified = new DagifiedGraph(&align_digraph, target_length);
+            align_dag = dagified;
         }
         
         // put local alignment here
@@ -503,10 +508,14 @@ namespace vg {
         // in case we're realigning a GAM, get rid of the path
         aln.clear_path();
         
-        get_aligner()->align(aln, align_graph, true, false);
+        get_aligner()->align(aln, *align_dag, true, false);
         
         // get the IDs back into the space of the reference graph
-        translate_oriented_node_ids(*aln.mutable_path(), node_trans);
+        function<pair<id_t, bool>(id_t)> translator = [&](const id_t& node_id) {
+            handle_t original = align_digraph.get_underlying_handle(align_dag->get_underlying_handle(align_dag->get_handle(node_id)));
+            return make_pair(rescue_graph.get_id(original), rescue_graph.get_is_reverse(original));
+        };
+        translate_oriented_node_ids(*aln.mutable_path(), translator);
         
 #ifdef debug_multipath_mapper
         cerr << "resecued direct alignment is" << endl;
@@ -515,7 +524,7 @@ namespace vg {
         
         if (num_alt_alns > 1 && snarl_manager != nullptr) {
             // make an interesting multipath alignment by realigning the single path alignment inside snarls
-            make_nontrivial_multipath_alignment(aln, align_graph, node_trans, *snarl_manager, rescue_multipath_aln);
+            make_nontrivial_multipath_alignment(aln, *align_dag, translator, *snarl_manager, rescue_multipath_aln);
             
         }
         else {
@@ -552,6 +561,9 @@ namespace vg {
 #endif
             return false;
         }
+        
+        // clean up (safe on nullptr)
+        delete dagified;
         
         return true;
     }
@@ -640,9 +652,9 @@ namespace vg {
         for (size_t i = 0; i < num_simulations; i++) {
             
             Alignment alignment;
-            alignment.set_sequence(random_sequence(simulated_read_length));
+            alignment.set_sequence(pseudo_random_sequence(simulated_read_length, i));
             vector<MultipathAlignment> multipath_alns;
-            multipath_map(alignment, multipath_alns, 1);
+            multipath_map(alignment, multipath_alns);
             
             if (!multipath_alns.empty()) {
                 lengths[i] = pseudo_length(multipath_alns.front());
@@ -663,7 +675,7 @@ namespace vg {
         //
         // where:
         //   G = genome size
-        //   R = read length
+        //   L = read length
         //   S = scale parameter (which we optimize below)
         
         
@@ -825,8 +837,7 @@ namespace vg {
                                                               vector<clustergraph_t>& cluster_graphs2,
                                                               bool block_rescue_from_1, bool block_rescue_from_2,
                                                               vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                                              vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
-                                                              size_t max_alt_mappings) {
+                                                              vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances) {
         
         vector<MultipathAlignment> multipath_alns_1, multipath_alns_2;
         vector<size_t> cluster_idxs_1, cluster_idxs_2;
@@ -1277,8 +1288,7 @@ namespace vg {
     
     void MultipathMapper::multipath_map_paired(const Alignment& alignment1, const Alignment& alignment2,
                                                vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                               vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,
-                                               size_t max_alt_mappings) {
+                                               vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer) {
                 
 #ifdef debug_multipath_mapper
         cerr << "multipath mapping paired reads " << pb2json(alignment1) << " and " << pb2json(alignment2) << endl;
@@ -1384,7 +1394,7 @@ namespace vg {
             
             attempt_rescue_of_repeat_from_non_repeat(alignment1, alignment2, mems1, mems2, do_repeat_rescue_from_1, do_repeat_rescue_from_2,
                                                      clusters1, clusters2, cluster_graphs1, cluster_graphs2, multipath_aln_pairs_out,
-                                                     cluster_pairs, max_alt_mappings, *distance_measurer);
+                                                     cluster_pairs, *distance_measurer);
             
             if (multipath_aln_pairs_out.empty() && do_repeat_rescue_from_1 && !do_repeat_rescue_from_2) {
                 // we've clustered and extracted read 1, but rescue failed, so do the same for read 2 to prepare for the
@@ -1513,7 +1523,7 @@ namespace vg {
                     vector<pair<pair<size_t, size_t>, int64_t>> rescue_distances;
                     bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
                                                                        do_repeat_rescue_from_1, do_repeat_rescue_from_2,
-                                                                       rescue_aln_pairs, rescue_distances, max_alt_mappings);
+                                                                       rescue_aln_pairs, rescue_distances);
                     
                     // if we find consistent pairs by rescue, merge the two lists
                     if (rescued) {
@@ -1609,7 +1619,7 @@ namespace vg {
 #endif
                 
                 bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2, do_repeat_rescue_from_1,
-                                                                   do_repeat_rescue_from_2, multipath_aln_pairs_out, cluster_pairs, max_alt_mappings);
+                                                                   do_repeat_rescue_from_2, multipath_aln_pairs_out, cluster_pairs);
                 
                 if (rescued) {
                     // We found valid pairs from rescue
@@ -1704,7 +1714,7 @@ namespace vg {
     }
     
     void MultipathMapper::reduce_to_single_path(const MultipathAlignment& multipath_aln, vector<Alignment>& alns_out,
-                                                size_t max_alt_mappings) const {
+                                                size_t max_number) const {
     
 #ifdef debug_multipath_mapper
         cerr << "linearizing multipath alignment to assess positional diversity" << endl;
@@ -1712,7 +1722,7 @@ namespace vg {
         // Compute a few optimal alignments using disjoint sets of subpaths.
         // This hopefully gives us a feel for the positional diversity of the MultipathMapping.
         // But we still may have duplicates or overlaps in vg node space.
-        auto alns = optimal_alignments_with_disjoint_subpaths(multipath_aln, max_alt_mappings + 1);
+        auto alns = optimal_alignments_with_disjoint_subpaths(multipath_aln, max_number + 1);
         
         if (alns.empty()) {
             // This happens only if the read is totally unmapped
@@ -1780,7 +1790,7 @@ namespace vg {
         
 #ifdef debug_multipath_mapper
         cerr << "overall found optimal mapping with score " << alns_out[0].score() << " plus " << (alns_out.size() - 1)
-            << " of " << max_alt_mappings << " alternate linearizations";
+            << " of " << max_number << " alternate linearizations";
         if (alns_out.size() >= 2) {
             cerr << " with best score " << alns_out[1].score();
         }
@@ -1835,7 +1845,7 @@ namespace vg {
                                                                    vector<memcluster_t>& clusters1, vector<memcluster_t>& clusters2,
                                                                    vector<clustergraph_t>& cluster_graphs1, vector<clustergraph_t>& cluster_graphs2,
                                                                    vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                                                   vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances, size_t max_alt_mappings,
+                                                                   vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
                                                                    OrientedDistanceMeasurer& distance_measurer) {
         
         bool rescue_succeeded_from_1 = false, rescue_succeeded_from_2 = false;
@@ -1856,7 +1866,7 @@ namespace vg {
             vector<pair<MultipathAlignment, MultipathAlignment>> rescued_pairs;
             vector<pair<pair<size_t, size_t>, int64_t>> rescued_distances;
             rescue_succeeded_from_1 = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
-                                                                          false, true, rescued_pairs, pair_distances, max_alt_mappings);
+                                                                          false, true, rescued_pairs, pair_distances);
             
             // move the rescued pairs to the output vectors
             if (rescue_succeeded_from_1) {
@@ -1891,7 +1901,7 @@ namespace vg {
             vector<pair<MultipathAlignment, MultipathAlignment>> rescued_pairs;
             vector<pair<pair<size_t, size_t>, int64_t>> rescued_distances;
             rescue_succeeded_from_2 = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
-                                                                          true, false, rescued_pairs, pair_distances, max_alt_mappings);
+                                                                          true, false, rescued_pairs, pair_distances);
             
             // move the rescued pairs to the output vectors
             if (rescue_succeeded_from_2) {
@@ -2445,7 +2455,7 @@ namespace vg {
                 memcluster_t& graph_mems1 = get<1>(cluster_graphs1[cluster_pair.first.first]);
                 
 #ifdef debug_multipath_mapper
-                cerr << "performing alignment to subgraph" << endl;
+                cerr << "performing alignment of read 1 to subgraph" << endl;
 #endif
                 
                 multipath_align(alignment1, graph1, graph_mems1, multipath_aln_pairs_out.back().first);
@@ -2470,7 +2480,7 @@ namespace vg {
                 memcluster_t& graph_mems2 = get<1>(cluster_graphs2[cluster_pair.first.second]);
                 
 #ifdef debug_multipath_mapper
-                cerr << "performing alignment to subgraph" << endl;
+                cerr << "performing alignment of read 2 to subgraph" << endl;
 #endif
                 
                 multipath_align(alignment2, graph2, graph_mems2, multipath_aln_pairs_out.back().second);
@@ -2881,10 +2891,6 @@ namespace vg {
         // the longest path we could possibly align to (full gap and a full sequence)
         size_t target_length = alignment.sequence().size() + get_aligner()->longest_detectable_gap(alignment);
         
-        // convert from bidirected to directed
-        unordered_map<id_t, pair<id_t, bool> > node_trans;
-        bdsg::HashGraph align_graph;
-        
         // check if we can get away with using only one strand of the graph
         bool use_single_stranded = algorithms::is_single_stranded(graph);
         bool mem_strand = false;
@@ -2902,38 +2908,53 @@ namespace vg {
 #ifdef debug_multipath_mapper_alignment
         cerr << "use_single_stranded: " << use_single_stranded << " mem_strand: " << mem_strand << endl;
 #endif
-        if (use_single_stranded) {
-            if (mem_strand) {
-                node_trans = algorithms::reverse_complement_graph(graph, &align_graph);
-            }
-            else {
-                // if we are using only the forward strand of the current graph, a make trivial node translation so
-                // the later code's expectations are met
-                // TODO: can we do this without the copy constructor?
-                align_graph = *graph;
-                node_trans.reserve(graph->get_node_count());
-                graph->for_each_handle([&](const handle_t& handle) {
-                    node_trans[graph->get_id(handle)] = make_pair(graph->get_id(handle), false);
-                    return true;
-                });
-            }
+        
+#ifdef debug_multipath_mapper_alignment
+        cerr << "initial alignment graph:" << endl;
+        graph->for_each_handle([&](const handle_t& h) {
+            cerr << graph->get_id(h) << " " << graph->get_sequence(h) << endl;
+            graph->follow_edges(h, false, [&](const handle_t& n) {
+                cerr << "\t-> " << graph->get_id(n) << " " << (graph->get_is_reverse(n) ? "-" : "+") << endl;
+            });
+            graph->follow_edges(h, true, [&](const handle_t& n) {
+                cerr << "\t " << graph->get_id(n) << " " << (graph->get_is_reverse(n) ? "-" : "+") << " <-" << endl;
+            });
+        });
+#endif
+        
+        // make our options for single stranded graphs
+        IdentityOverlay fwd_graph(graph);
+        ReverseGraph rev_graph(graph, true);
+        StrandSplitGraph split_graph(graph);
+        
+        // choose which one we want
+        ExpandingOverlayGraph* align_digraph = nullptr;
+        if (!use_single_stranded) {
+            align_digraph = &split_graph;
+        }
+        else if (mem_strand) {
+            align_digraph = &rev_graph;
         }
         else {
-            node_trans = algorithms::split_strands(graph, &align_graph);
+            align_digraph = &fwd_graph;
         }
 
-        // if necessary, convert from cyclic to acylic
-        if (!algorithms::is_directed_acyclic(&align_graph)) {
+        // if necessary, convert from cyclic to acylic (can be expensive to construct, only do it
+        // if we need to)
+        
+        IdentityOverlay undagified(align_digraph);
+        DagifiedGraph* dagified = nullptr;
+        
+        ExpandingOverlayGraph* align_dag = nullptr;
+        if (algorithms::is_directed_acyclic(align_digraph)) {
+            align_dag = &undagified;
+        }
+        else {
 #ifdef debug_multipath_mapper_alignment
             cerr << "graph contains directed cycles, performing dagification" << endl;
 #endif
-            // make a dagified graph and translation
-            bdsg::HashGraph dagified;
-            unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
-            
-            // replace the original with the dagified ones
-            align_graph = move(dagified);
-            node_trans = overlay_node_translations(dagify_trans, node_trans);
+            dagified = new DagifiedGraph(align_digraph, target_length);
+            align_dag = dagified;
         }
         
 #ifdef debug_multipath_mapper_alignment
@@ -2941,9 +2962,27 @@ namespace vg {
 #endif
         
         // construct a graph that summarizes reachability between MEMs
-        // First we need to reverse node_trans
-        auto node_inj = MultipathAlignmentGraph::create_injection_trans(node_trans);
-        MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, node_trans, node_inj, max_branch_trim_length, gcsa);
+        
+        function<pair<id_t, bool>(id_t)> translator = [&](const id_t& node_id) {
+            handle_t original = align_digraph->get_underlying_handle(align_dag->get_underlying_handle(align_dag->get_handle(node_id)));
+            return make_pair(graph->get_id(original), graph->get_is_reverse(original));
+        };
+        
+#ifdef debug_multipath_mapper_alignment
+        cerr << "final alignment graph:" << endl;
+        align_dag->for_each_handle([&](const handle_t& h) {
+            auto tr = translator(align_dag->get_id(h));
+            cerr << align_dag->get_id(h) << " (" << tr.first << (tr.second ? "-" : "+") << ") " << align_dag->get_sequence(h) << endl;
+            align_dag->follow_edges(h, false, [&](const handle_t& n) {
+                cerr << "\t-> " << align_dag->get_id(n) << " " << (align_dag->get_is_reverse(n) ? "-" : "+") << endl;
+            });
+            align_dag->follow_edges(h, true, [&](const handle_t& n) {
+                cerr << "\t " << align_dag->get_id(n) << " " << (align_dag->get_is_reverse(n) ? "-" : "+") << " <-" << endl;
+            });
+        });
+#endif
+        
+        MultipathAlignmentGraph multi_aln_graph(*align_dag, graph_mems, translator, max_branch_trim_length, gcsa);
         
         {
             // Compute a topological order over the graph
@@ -2967,7 +3006,7 @@ namespace vg {
 #endif
 
                 // Make fake anchor paths to cut the snarls out of in the tails
-                multi_aln_graph.synthesize_tail_anchors(alignment, align_graph, get_aligner(), min_tail_anchor_length, num_alt_alns, false);
+                multi_aln_graph.synthesize_tail_anchors(alignment, *align_dag, get_aligner(), min_tail_anchor_length, num_alt_alns, false);
                 
             }
        
@@ -2977,7 +3016,7 @@ namespace vg {
 #endif
         
             // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
-            multi_aln_graph.resect_snarls_from_paths(snarl_manager, node_trans, max_snarl_cut_size);
+            multi_aln_graph.resect_snarls_from_paths(snarl_manager, translator, max_snarl_cut_size);
         }
 
 
@@ -2995,13 +3034,13 @@ namespace vg {
 #endif
         
         function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
-            size_t read_length = seq.sequence().end() - seq.sequence().begin();
+            size_t read_length = seq.sequence().size();
             return read_length < band_padding_memo.size() ? band_padding_memo.at(read_length)
                                                           : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
         };
         
         // do the connecting alignments and fill out the MultipathAlignment object
-        multi_aln_graph.align(alignment, align_graph, get_aligner(), true, num_alt_alns, dynamic_max_alt_alns, choose_band_padding, multipath_aln_out);
+        multi_aln_graph.align(alignment, *align_dag, get_aligner(), true, num_alt_alns, dynamic_max_alt_alns, choose_band_padding, multipath_aln_out);
         
         // Note that we do NOT topologically order the MultipathAlignment. The
         // caller has to do that, after it is finished breaking it up into
@@ -3011,16 +3050,19 @@ namespace vg {
         cerr << "multipath alignment before translation: " << pb2json(multipath_aln_out) << endl;
 #endif
         for (size_t j = 0; j < multipath_aln_out.subpath_size(); j++) {
-            translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), node_trans);
+            translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), translator);
         }
         
 #ifdef debug_multipath_mapper_alignment
         cerr << "completed multipath alignment: " << pb2json(multipath_aln_out) << endl;
 #endif
+        
+        // clean up (safe on nullptr if we didn't choose it)
+        delete dagified;
     }
             
     void MultipathMapper::make_nontrivial_multipath_alignment(const Alignment& alignment, const HandleGraph& subgraph,
-                                                              unordered_map<id_t, pair<id_t, bool>>& translator,
+                                                              const function<pair<id_t, bool>(id_t)>& translator,
                                                               SnarlManager& snarl_manager, MultipathAlignment& multipath_aln_out) const {
         
 #ifdef debug_multipath_mapper_alignment
@@ -3258,7 +3300,7 @@ namespace vg {
                 
                 if (haplotype_count == 0 || haplotype_count == -1) {
                     // We really should have a haplotype count
-                    yeet runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
+                    throw runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
                 }
                 
                 // Make sure to grab the memo
@@ -3439,7 +3481,7 @@ namespace vg {
         for (size_t i = 0; i < scores.size(); i++) {
             Alignment aln;
             optimal_alignment(multipath_alns[i], aln);
-            cerr << "\t" << scores[i] << " " << make_pos_t(aln.path().mapping(0).position()) << endl;
+            cerr << "\t" << scores[i] << " " << (aln.path().mapping_size() ? make_pos_t(aln.path().mapping(0).position()) : pos_t()) << endl;
         }
 #endif
         
@@ -3448,6 +3490,21 @@ namespace vg {
             // Compute and set the mapping quality
             int32_t raw_mapq = compute_raw_mapping_quality_from_scores(scores, mapq_method);
             multipath_alns.front().set_mapping_quality(min<int32_t>(raw_mapq, max_mapping_quality));
+        }
+        
+        if (report_group_mapq) {
+            size_t num_reporting = min(multipath_alns.size(), max_alt_mappings);
+            vector<size_t> reporting_idxs(num_reporting, 0);
+            for (size_t i = 1; i < num_reporting; ++i) {
+                reporting_idxs[i] = i;
+            }
+            double raw_mapq = get_aligner()->compute_group_mapping_quality(scores, reporting_idxs);
+            // TODO: for some reason set_annotation will accept a double but not an int
+            double group_mapq = min<double>(max_mapping_quality, mapq_scaling_factor * raw_mapq);
+            
+            for (size_t i = 0; i < num_reporting; ++i) {
+                set_annotation(multipath_alns[i], "group_mapq", group_mapq);
+            }
         }
     }
     
@@ -3583,7 +3640,7 @@ namespace vg {
                 
                 if (haplotype_count == 0 || haplotype_count == -1) {
                     // We really should have a haplotype count
-                    yeet runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
+                    throw runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
                 }
                 
                 // Make sure to grab the memo
@@ -3867,6 +3924,22 @@ namespace vg {
                     multipath_aln_pairs.front().first.set_mapping_quality(mapq_1);
                     multipath_aln_pairs.front().second.set_mapping_quality(mapq_2);
                 }
+            }
+        }
+        
+        if (report_group_mapq) {
+            size_t num_reporting = min(multipath_aln_pairs.size(), max_alt_mappings);
+            vector<size_t> reporting_idxs(num_reporting, 0);
+            for (size_t i = 1; i < num_reporting; ++i) {
+                reporting_idxs[i] = i;
+            }
+            double raw_mapq = get_aligner()->compute_group_mapping_quality(scores, reporting_idxs);
+            // TODO: for some reason set_annotation will accept a double but not an int
+            double group_mapq = min<double>(max_mapping_quality, mapq_scaling_factor * raw_mapq);
+            
+            for (size_t i = 0; i < num_reporting; ++i) {
+                set_annotation(multipath_aln_pairs[i].first, "group_mapq", group_mapq);
+                set_annotation(multipath_aln_pairs[i].second, "group_mapq", group_mapq);
             }
         }
     }

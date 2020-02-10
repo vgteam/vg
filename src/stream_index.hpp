@@ -16,7 +16,6 @@
 #include <vg/vg.pb.h>
 #include <vg/io/protobuf_iterator.hpp>
 #include "scanner.hpp"
-#include "yeet.hpp"
 
 namespace vg {
 

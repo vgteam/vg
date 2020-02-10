@@ -49,7 +49,7 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
         // Make an emitter that supports HTSlib formats
         if (splicing_graph) {
             // Use the graph to look for spliced alignments
-            backing = new SplicedHTSAlignmentEmitter(filename, format, *splicing_graph, max_threads);
+            backing = new SplicedHTSAlignmentEmitter(filename, format, path_length, *splicing_graph, max_threads);
         }
         else {
             // Assume alignments are contiguous
@@ -288,7 +288,7 @@ void HTSAlignmentEmitter::convert_alignment(const Alignment& aln, vector<pair<in
     cigar = cigar_against_path(aln, pos_rev, pos, path_len, 0);
 }
 
-void HTSAlignmentEmitter::convert_unpaired(Alignment& aln, vector<bam1_t*>& dest) {
+void HTSAlignmentEmitter::convert_unpaired(Alignment& aln, bam_hdr_t* header, vector<bam1_t*>& dest) {
     // Look up the stuff we need from the Alignment to express it in BAM.
     vector<pair<int, char>> cigar;
     bool pos_rev;
@@ -299,7 +299,7 @@ void HTSAlignmentEmitter::convert_unpaired(Alignment& aln, vector<bam1_t*>& dest
     // TODO: We're passing along a text header so we can make a SAM file so
     // we can make a BAM record by re-reading it, which we can then
     // possibly output as SAM again. Make this less complicated.
-    dest.emplace_back(alignment_to_bam(sam_header,
+    dest.emplace_back(alignment_to_bam(header,
                                        aln,
                                        path_name,
                                        pos,
@@ -307,7 +307,8 @@ void HTSAlignmentEmitter::convert_unpaired(Alignment& aln, vector<bam1_t*>& dest
                                        cigar));
 }
 
-void HTSAlignmentEmitter::convert_paired(Alignment& aln1, Alignment& aln2, int64_t tlen_limit, vector<bam1_t*>& dest) {
+void HTSAlignmentEmitter::convert_paired(Alignment& aln1, Alignment& aln2, bam_hdr_t* header, int64_t tlen_limit,
+                                         vector<bam1_t*>& dest) {
     // Look up the stuff we need from the Alignment to express it in BAM.
     
     
@@ -320,11 +321,11 @@ void HTSAlignmentEmitter::convert_paired(Alignment& aln1, Alignment& aln2, int64
     
     // Determine the TLEN for each read.
     auto tlens = compute_template_lengths(pos1, cigar1, pos2, cigar2);
-    
+        
     // TODO: We're passing along a text header so we can make a SAM file so
     // we can make a BAM record by re-reading it, which we can then
     // possibly output as SAM again. Make this less complicated.
-    dest.emplace_back(alignment_to_bam(sam_header,
+    dest.emplace_back(alignment_to_bam(header,
                                        aln1,
                                        path_name1,
                                        pos1,
@@ -335,7 +336,7 @@ void HTSAlignmentEmitter::convert_paired(Alignment& aln1, Alignment& aln2, int64
                                        pos_rev2,
                                        tlens.first,
                                        tlen_limit));
-    dest.emplace_back(alignment_to_bam(sam_header,
+    dest.emplace_back(alignment_to_bam(header,
                                        aln2,
                                        path_name2,
                                        pos2,
@@ -447,7 +448,7 @@ void HTSAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
     
     for (auto& aln : aln_batch) {
         // Convert each alignment to HTS format
-        convert_unpaired(aln, records);
+        convert_unpaired(aln, header, records);
     }
     
     // Save to the stream for this thread.
@@ -486,7 +487,7 @@ void HTSAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_b
     for (auto& alns : alns_batch) {
         for (auto& aln : alns) {
             // Convert each alignment to HTS format
-            convert_unpaired(aln, records);
+            convert_unpaired(aln, header, records);
         }
     }
     
@@ -521,7 +522,7 @@ void HTSAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
     
     for (size_t i = 0; i < aln1_batch.size(); i++) {
         // Convert each alignment pair to HTS format
-        convert_paired(aln1_batch[i], aln2_batch[i], tlen_limit_batch[i], records);
+        convert_paired(aln1_batch[i], aln2_batch[i], header, tlen_limit_batch[i], records);
     }
     
     // Save to the stream for this thread.
@@ -572,7 +573,7 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
     for (size_t i = 0; i < alns1_batch.size(); i++) {
         for (size_t j = 0; j < alns1_batch[i].size(); j++) {
             // Convert each alignment pair to HTS format
-            convert_paired(alns1_batch[i][j], alns2_batch[i][j], tlen_limit_batch[i], records);
+            convert_paired(alns1_batch[i][j], alns2_batch[i][j], header, tlen_limit_batch[i], records);
         }
     }
     
@@ -581,20 +582,12 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
 }
 
 SplicedHTSAlignmentEmitter::SplicedHTSAlignmentEmitter(const string& filename, const string& format,
+                                                       const map<string, int64_t>& path_length,
                                                        const PathPositionHandleGraph& graph,
                                                        size_t max_threads) :
-    HTSAlignmentEmitter(filename, format, make_path_length_index(graph), max_threads), graph(graph) {
+    HTSAlignmentEmitter(filename, format, path_length, max_threads), graph(graph) {
     
     // nothing else to do
-}
-
-map<string, int64_t> SplicedHTSAlignmentEmitter::make_path_length_index(const PathPositionHandleGraph& graph) {
-    
-    map<string, int64_t> return_val;
-    graph.for_each_path_handle([&](const path_handle_t& path_handle) {
-        return_val[graph.get_path_name(path_handle)] = graph.get_path_length(path_handle);
-    });
-    return return_val;
 }
 
 void SplicedHTSAlignmentEmitter::convert_alignment(const Alignment& aln, vector<pair<int, char>>& cigar,
@@ -730,7 +723,7 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
                         // extend a deletion
                         cigar.back().first += deletion_length;
                     }
-                    else {
+                    else if (deletion_length) {
                         // create a new deletion
                         cigar.emplace_back(deletion_length, 'D');
                     }

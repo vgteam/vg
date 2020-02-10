@@ -96,7 +96,7 @@ using namespace std;
         for (pair<const path_handle_t, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>& surjection_record : path_overlapping_anchors) {
             if (!preserve_deletions) {
                 path_surjections[surjection_record.first] = realigning_surject(&memoizing_graph, source, surjection_record.first,
-                                                                               surjection_record.second.first, allow_negative_scores);
+                                                                               surjection_record.second.first, allow_negative_scores, false);
             }
             else {
                 path_surjections[surjection_record.first] = spliced_surject(&memoizing_graph, source, surjection_record.first,
@@ -293,9 +293,7 @@ using namespace std;
                                          const path_handle_t& path_handle, const vector<path_chunk_t>& path_chunks,
                                          const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                          bool allow_negative_scores) const {
-        
-        cerr << source.name() << endl;
-        
+                
         assert(path_chunks.size() == ref_chunks.size());
         
         auto get_strand = [&](size_t i) {
@@ -405,9 +403,7 @@ using namespace std;
             pair<string::const_iterator, string::const_iterator> read_range;
             pair<step_handle_t, step_handle_t> ref_range;
             vector<path_chunk_t> section_path_chunks;
-            
-            
-            
+                        
             bool strand = get_strand(comp_groups[i].front());
             
             vector<size_t>& group = comp_groups[i];
@@ -446,10 +442,11 @@ using namespace std;
             
 #ifdef debug_spliced_surject
             cerr << "surjecting section " << i << ": " << pb2json(section_source) << endl;
+            cerr << "consists of " << section_path_chunks.size() << " path chunks" << endl;
 #endif
             
             // perform a full length surjection within the section section
-            sections.push_back(realigning_surject(graph, section_source, path_handle, section_path_chunks, false));
+            sections.push_back(realigning_surject(graph, section_source, path_handle, section_path_chunks, true, true));
             read_ranges.push_back(read_range);
             ref_ranges.push_back(ref_range);
             
@@ -541,9 +538,11 @@ using namespace std;
         }
         
         // do the dynamic programming
+        vector<bool> is_sink(score_dp.size(), true);
         for (size_t i = 0; i < constrictions.size(); ++i) {
             size_t from = constriction_comps[constrictions[i]];
             size_t to = constriction_comps[constriction_targets[i]];
+            is_sink[from] = false;
             
             int32_t extended_score = score_dp[from] + section_edge_scores[i] + sections[to].score();
             if (extended_score > score_dp[to]) {
@@ -552,11 +551,11 @@ using namespace std;
             }
         }
         
-        // find the maximum
+        // find the maximum, subject to full length requirements
         vector<size_t> traceback(1, -1);
         int32_t max_score = numeric_limits<int32_t>::min();
         for (size_t i = 0; i < score_dp.size(); ++i) {
-            if (score_dp[i] > max_score) {
+            if (score_dp[i] > max_score && (!allow_negative_scores || is_sink[i])) {
                 max_score = score_dp[i];
                 traceback[0] = i;
             }
@@ -586,6 +585,10 @@ using namespace std;
 #ifdef debug_spliced_surject
             cerr << "appending path section " << pb2json(copy_path) << endl;
 #endif
+            if (copy_path.mapping_size() == 0) {
+                // this happens if the surjected section is a pure deletion, we can just skip it
+                continue;
+            }
             
             // we have to have some special logic for the first mapping in each new path
             if (surj_path->mapping_size() > 0) {
@@ -658,7 +661,7 @@ using namespace std;
 
     Alignment Surjector::realigning_surject(const PathPositionHandleGraph* path_position_graph, const Alignment& source,
                                             const path_handle_t& path_handle, const vector<path_chunk_t>& path_chunks,
-                                            bool allow_negative_scores) const {
+                                            bool allow_negative_scores, bool preserve_N_alignments) const {
         
 #ifdef debug_anchored_surject
         cerr << "using overlap chunks on path " << graph->get_path_name(path_handle) << ", performing realigning surjection" << endl;
@@ -698,7 +701,7 @@ using namespace std;
 #endif
         
         // compute the connectivity between the path chunks
-        MultipathAlignmentGraph mp_aln_graph(split_path_graph, path_chunks, source, node_trans);
+        MultipathAlignmentGraph mp_aln_graph(split_path_graph, path_chunks, source, node_trans, !preserve_N_alignments);
         
         // we don't overlap this reference path at all or we filtered out all of the path chunks, so just make a sentinel
         if (mp_aln_graph.empty()) {
@@ -960,7 +963,7 @@ using namespace std;
         step_handle_t begin = graph->get_step_at_position(path_handle, first);
         step_handle_t end = graph->get_step_at_position(path_handle, last);
         
-        if (graph->get_position_of_step(end) < last && end != graph->path_end(path_handle)) {
+        if (graph->get_position_of_step(end) <= last && end != graph->path_end(path_handle)) {
             // we actually want part of this step too, so we use the next one as the end iterator
             end = graph->get_next_step(end);
         }
@@ -1055,7 +1058,8 @@ using namespace std;
         }
         
 #ifdef debug_anchored_surject
-        cerr << "choosing a path position for surjected alignment on path " << graph->get_path_name(best_path_handle) << endl;
+        cerr << "choosing a path position for surjected alignment of " << surjected.name() << " on path " << graph->get_path_name(best_path_handle) << endl;
+        cerr << "alignment is " << pb2json(surjected.path()) << endl;
 #endif
         
         const Position& start_pos = path.mapping(0).position();
@@ -1063,7 +1067,7 @@ using namespace std;
         // TODO: depending on path coverage, it could be inefficient to iterate over all steps on the handle
         for (const step_handle_t& step : graph->steps_of_handle(start_handle)) {
 #ifdef debug_anchored_surject
-            cerr << "found step on " << graph->get_path_name(graph->get_path_handle_of_step(step)) << endl;
+            cerr << "found step on " << graph->get_path_name(graph->get_path_handle_of_step(step)) << " with offset " << graph->get_position_of_step(step) << " at start pos " << make_pos_t(start_pos) << endl;
 #endif
             if (graph->get_path_handle_of_step(step) != best_path_handle) {
                 // this is not the path we surjected onto
@@ -1092,7 +1096,7 @@ using namespace std;
                 
                 const Position& pos = path.mapping(i).position();
 #ifdef debug_anchored_surject
-                cerr << "at mapping pos " << make_pos_t(pos) << " and path pos " << graph->get_id(graph->get_handle_of_step(path_step)) << (graph->get_is_reverse(graph->get_handle_of_step(path_step)) ? "-" : "+") << endl;
+                cerr << "at mapping pos " << make_pos_t(pos) << " and path pos " << graph->get_id(graph->get_handle_of_step(path_step)) << (graph->get_is_reverse(graph->get_handle_of_step(path_step)) ? "-" : "+") << " with offset " << graph->get_position_of_step(path_step) << endl;
 #endif
                 
                 if (pos.node_id() != graph->get_id(graph->get_handle_of_step(path_step)) ||

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 7
+plan tests 10
 
 num_nodes=$(vg construct -r small/x.fa -v small/x.vcf.gz | vg ids -c - | vg view -g - | grep ^S | wc -l)
 
@@ -37,6 +37,12 @@ is $(vg ids -s ids/unordered.vg | vg view -j - | jq -r -c '.edge[] | select((.fr
 rm sorted.vg
 
 is $(vg ids -s ids/unordered.vg | vg view -j - | jq -r -c '.node[1] | (.sequence == "T" and (.id | tostring) == "2")') "true" "sorting assigns node IDs in topological order"
+
+is $(vg ids -s ids/unordered.vg | vg stats -r - | awk '{print $2}') $(vg stats -r ids/unordered.vg | awk '{print $2}') "sorting does not affect id range"
+is $(vg convert ids/unordered.vg -v | vg ids -s - | vg stats -r - | awk '{print $2}') $(vg stats -r ids/unordered.vg | awk '{print $2}') "sorting does not affect id range of vg"
+is $(vg convert ids/unordered.vg -a | vg ids -s - | vg stats -r - | awk '{print $2}') $(vg stats -r ids/unordered.vg | awk '{print $2}') "sorting does not affect id range of hg"
+# this test relies on id sorting being implemented in pg
+#is $(vg convert ids/unordered.vg -p | vg ids -s - | vg stats -r - | awk '{print $2}') $(vg stats -r ids/unordered.vg | awk '{print $2}') "sorting does not affect id range of pg"
 
 # this test now breaks under the current VG.paths semantics, which require our paths to record the exact match lengths of the nodes
 #vg ids -s graphs/snp1kg-brca2-unsorted.vg | vg validate -

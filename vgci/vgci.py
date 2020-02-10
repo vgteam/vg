@@ -252,7 +252,7 @@ class VGCITest(TestCase):
         
         
     def _toil_vg_run(self, sample_name, chrom, graph_path, xg_path, gcsa_path, fq_path,
-                     true_vcf_path, fasta_path, interleaved, multipath, misc_opts, genotype, tag):
+                     true_vcf_path, fasta_path, interleaved, mapper, misc_opts, genotype, tag):
         """ Wrap toil-vg run as a shell command.  Expects reads to be in single fastq
         inputs can be None if toil-vg supports not having them (ie don't need to 
         include gcsa_path if want to reindex)
@@ -278,10 +278,10 @@ class VGCITest(TestCase):
         if true_vcf_path:
             opts += '--vcfeval_baseline {} '.format(true_vcf_path)
             opts += '--vcfeval_fasta {} '.format(fasta_path)
+            opts += '--vcfeval_opts \' --ref-overlap --vcf-score-field GQ\'  '
         if interleaved:
             opts += '--interleaved '
-        if multipath:
-            opts += '--mapper mpmap '
+        opts += '--mapper {} '.format(mapper)
         if misc_opts:
             opts += ' {} '.format(misc_opts)
         opts += '--gcsa_index_cores {} \
@@ -493,7 +493,7 @@ class VGCITest(TestCase):
 
         self.assertGreaterEqual(f1_score, baseline_f1 - threshold)
 
-    def _test_bakeoff(self, region, graph, skip_indexing, multipath=False, tag_ext='', misc_opts=None,
+    def _test_bakeoff(self, region, graph, skip_indexing, mapper='map', tag_ext='', misc_opts=None,
                       genotype=False):
         """ Run bakeoff F1 test for NA12878 """
         assert not tag_ext or tag_ext.startswith('-')
@@ -517,7 +517,7 @@ class VGCITest(TestCase):
                           xg_path, gcsa_path,
                           self._input('platinum_NA12878_{}.fq.gz'.format(region)),
                           self._input('platinum_NA12878_{}.vcf.gz'.format(region)),
-                          self._input('chr{}.fa.gz'.format(chrom)), True, multipath,
+                          self._input('chr{}.fa.gz'.format(chrom)), True, mapper,
                           extra_opts, genotype, tag)
 
         if self.verify:
@@ -525,7 +525,7 @@ class VGCITest(TestCase):
 
     def _mapeval_vg_run(self, reads, base_xg_path, sim_xg_paths,
                         source_path_names, fasta_path, test_index_bases,
-                        test_names, score_baseline_name,  multipath,
+                        test_names, score_baseline_name,  mappers,
                         paired_only, sim_opts, sim_fastq, more_mpmap_opts, tag):
         """ Wrap toil-vg mapeval. 
         
@@ -632,10 +632,14 @@ class VGCITest(TestCase):
         mapeval_options.mapeval_threshold = 200
         if score_baseline_name is not None:
             mapeval_options.compare_gam_scores = score_baseline_name
-        mapeval_options.multipath = multipath
-        mapeval_options.ignore_quals = multipath and not sim_fastq
-        # If we're doing more than one mpmap test, disable vg map
-        mapeval_options.multipath_only = multipath and more_mpmap_opts
+
+        if 'mpmap' in mappers and more_mpmap_opts:
+            # If we're doing more than one mpmap test, disable vg map
+            # Just checking here to make sure old logic preserved across interface change
+            assert mappers == ['mpmap']
+        mapeval_options.mappers = mappers
+        
+        mapeval_options.ignore_quals = 'mpmap' in mappers and not sim_fastq
         
         # Make Toil
         with context.get_toil(job_store) as toil:
@@ -997,7 +1001,7 @@ class VGCITest(TestCase):
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
                       positive_control=None, negative_control=None, sample=None,
-                      source_path_names=set(), multipath=False, paired_only=False,
+                      source_path_names=set(), mappers=['map'], paired_only=False,
                       assembly="hg38", tag_ext="", acc_threshold=0, auc_threshold=0,
                       sim_opts='-l 150 -p 500 -v 50 -e 0.05 -i 0.01', sim_fastq=None,
                       more_mpmap_opts=None):
@@ -1067,7 +1071,7 @@ class VGCITest(TestCase):
             test_tag = '{}-{}'.format(test_graph, region)
             test_index_bases.append(os.path.join(self._outstore(tag), test_tag))
         self._mapeval_vg_run(reads, xg_path, sim_xg_paths, source_path_names, fasta_path, test_index_bases,
-                             test_graphs, score_baseline_graph, multipath, paired_only, sim_opts, sim_fastq,
+                             test_graphs, score_baseline_graph, mappers, paired_only, sim_opts, sim_fastq,
                              more_mpmap_opts, tag)
         if self.verify:
             self._verify_mapeval(reads, baseline_graph, score_baseline_graph,
@@ -1122,6 +1126,7 @@ class VGCITest(TestCase):
             cmd += ['--vcfeval_bed_regions', bed_regions_path]
         # fasta: required for both vcfeval and freebayes
         cmd += ['--vcfeval_fasta', fasta_path]
+        cmd += ['--vcfeval_opts', '--ref-overlap --vcf-score-field GQ']
 
         subprocess.check_call(cmd, shell=False)
 
@@ -1238,7 +1243,7 @@ class VGCITest(TestCase):
         log.info("Test start at {}".format(datetime.now()))        
         self._test_mapeval(10000, 'MHC', 'cactus',
                            ['snp1kg', 'cactus'],
-                           multipath=True,
+                           mappers = ['map', 'mpmap'],
                            source_path_names=['GI568335986', 'GI568335994'], acc_threshold=0.02, auc_threshold=0.04)
 
     @timeout_decorator.timeout(4800)        
@@ -1249,7 +1254,7 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096',
                            assembly="hg19",
-                           acc_threshold=0.0075, auc_threshold=0.075, multipath=True,
+                           acc_threshold=0.0075, auc_threshold=0.075, mappers = ['map', 'mpmap'],
                            sim_opts='-l 150 -p 570 -v 150 -e 0.01 -i 0.002')
 
     @timeout_decorator.timeout(2400)        
@@ -1259,7 +1264,7 @@ class VGCITest(TestCase):
                            #score_baseline_graph='primary',
                            sample='HG00096',
                            assembly="hg19",
-                           acc_threshold=0.0075, auc_threshold=0.075, multipath=True, paired_only=True,
+                           acc_threshold=0.0075, auc_threshold=0.075, mappers = ['map', 'mpmap'], paired_only=True,
                            tag_ext='-trained',
                            sim_opts='-p 570 -v 150 -S 4 -i 0.002 -I',
                            # 800k 148bp reads from Genome in a Bottle NA12878 library
@@ -1277,7 +1282,7 @@ class VGCITest(TestCase):
         self._test_mapeval(50000, 'BRCA2', 'snp1kg',
                            ['primary', 'snp1kg'],
                            score_baseline_graph='primary',
-                           sample='HG00096', multipath=True, tag_ext='-mpmap',
+                           sample='HG00096', mappers=['map','mpmap'], tag_ext='-mpmap',
                            acc_threshold=0.02, auc_threshold=0.02)
 
     @skip("skipping test to keep runtime down")        
@@ -1290,7 +1295,7 @@ class VGCITest(TestCase):
         self._test_mapeval(100000, 'CHR21', 'snp1kg',
                            ['primary', 'snp1kg'],
                            score_baseline_graph='primary',
-                           sample='HG00096', multipath=True, tag_ext='-mpmap',
+                           sample='HG00096', mappers=['map','mpmap'], tag_ext='-mpmap',
                            acc_threshold=0.02,
                            sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5 -I',
                            sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'))
@@ -1304,7 +1309,7 @@ class VGCITest(TestCase):
         log.info("Test start at {}".format(datetime.now()))
         self._test_mapeval(50000, 'MHC', 'snp1kg',
                            ['primary', 'snp1kg'],
-                           sample='HG00096', multipath=True, tag_ext='-mpmap',
+                           sample='HG00096', mappers=['mpmap'], tag_ext='-mpmap',
                            acc_threshold=0.02, auc_threshold=0.02,
                            sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5 -I',
                            sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'),
@@ -1349,7 +1354,7 @@ class VGCITest(TestCase):
         The filter_opts are the defaults minus the identity filter because mpmap doesn't 
         write identities.
         """
-        self._test_bakeoff('BRCA1', 'snp1kg', True, multipath=True, tag_ext='-mpmap',
+        self._test_bakeoff('BRCA1', 'snp1kg', True, mapper='mpmap', tag_ext='-mpmap',
                            misc_opts='--filter_opts \"-q 15 -m 1 -D 999 -s 1000\"')
 
     @timeout_decorator.timeout(200)        

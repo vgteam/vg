@@ -5,7 +5,6 @@
 #include "../types.hpp"
 #include "shortest_cycle.hpp"
 #include "eades_algorithm.hpp"
-#include "strongly_connected_components.hpp"
 #include "is_single_stranded.hpp"
 #include <unordered_map>
 

@@ -338,7 +338,7 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
         vector<MultipathAlignment> results;
         
         // Align for just one alignment
-        mapper.multipath_map(aln, results, 1);
+        mapper.multipath_map(aln, results);
         
         SECTION("there should be one alignment") {
             REQUIRE(results.size() == 1);
@@ -388,7 +388,7 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
         vector<pair<Alignment, Alignment>> buffer;
         
         // Align for just one pair of alignments
-        mapper.multipath_map_paired(read1, read2, results, buffer, 1);
+        mapper.multipath_map_paired(read1, read2, results, buffer);
         
         SECTION("there should be one pair of alignments") {
             REQUIRE(results.size() == 1);
@@ -555,7 +555,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
         vector<pair<Alignment, Alignment>> buffer;
         
         // Align for just one pair of alignments
-        mapper.multipath_map_paired(read1, read2, results, buffer, 1);
+        mapper.multipath_map_paired(read1, read2, results, buffer);
         
         // The second read was ambiguous so we should have buffered this read.
         REQUIRE(results.empty());
@@ -577,7 +577,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
         vector<pair<Alignment, Alignment>> buffer;
         
         // Align for just one pair of alignments
-        mapper.multipath_map_paired(read1, read2, results, buffer, 1);
+        mapper.multipath_map_paired(read1, read2, results, buffer);
         
         // The pair was not ambiguous so we should have produced a result.
         REQUIRE(results.size() == 1);
@@ -606,7 +606,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
         vector<pair<Alignment, Alignment>> buffer;
         
         // Align for just one pair of alignments
-        mapper.multipath_map_paired(read1, read2, results, buffer, 1);
+        mapper.multipath_map_paired(read1, read2, results, buffer);
         
         // The distribution has been estimated so we should have produced a result.
         REQUIRE(results.size() == 1);

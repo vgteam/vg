@@ -14,7 +14,6 @@
 #include "htslib/sam.h"
 #include "htslib/vcf.h"
 #include "handle.hpp"
-#include "yeet.hpp"
 
 namespace vg {
 
@@ -79,7 +78,7 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
  *
  * Remember to clean up with bam_destroy1(b);
  */
-bam1_t* alignment_to_bam(const string& sam_header,
+bam1_t* alignment_to_bam(bam_hdr_t* bam_header,
                          const Alignment& alignment,
                          const string& refseq,
                          const int32_t refpos,
@@ -99,12 +98,12 @@ bam1_t* alignment_to_bam(const string& sam_header,
  *
  * Remember to clean up with bam_destroy1(b);
  */
-bam1_t* alignment_to_bam(const string& sam_header,
-                        const Alignment& alignment,
-                        const string& refseq,
-                        const int32_t refpos,
-                        const bool refrev,
-                        const vector<pair<int, char>>& cigar);
+bam1_t* alignment_to_bam(bam_hdr_t* bam_header,
+                         const Alignment& alignment,
+                         const string& refseq,
+                         const int32_t refpos,
+                         const bool refrev,
+                         const vector<pair<int, char>>& cigar);
                          
 /**
  * Convert a paired Alignment to a SAM record. If the alignment is unmapped,
@@ -139,6 +138,17 @@ string alignment_to_sam(const Alignment& alignment,
                         const vector<pair<int, char>>& cigar);
                         
 
+/// Returns the SAM bit-coded flag for alignment with
+int32_t determine_flag(const Alignment& alignment,
+                       const string& refseq,
+                       const int32_t refpos,
+                       const bool refrev,
+                       const string& mateseq,
+                       const int32_t matepos,
+                       bool materev,
+                       const int32_t tlen,
+                       bool paired,
+                       const int32_t tlen_max);
 
 /// Create a CIGAR from the given Alignment. If softclip_suppress is nonzero,
 /// suppress softclips up to that length. This will necessitate adjusting pos,

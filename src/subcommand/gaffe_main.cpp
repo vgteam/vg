@@ -290,12 +290,13 @@ void help_gaffe(char** argv) {
     << "  -x, --xg-name FILE            use this xg index or graph (required if -g not specified)" << endl
     << "  -g, --graph-name FILE         use this GBWTGraph (required if -x not specified)" << endl
     << "  -H, --gbwt-name FILE          use this GBWT index (required)" << endl
-    << "  -m, --minimizer-name FILE     use this minimizer index (required)" << endl
+    << "  -m, --minimizer-name FILE     use this minimizer index (required; may repeat)" << endl
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
     << "  -p, --progress                show progress" << endl
     << "input options:" << endl
-    << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE (may repeat)" << endl
-    << "  -f, --fastq-in FILE           read and align FASTQ-format reads from FILE (may repeat)" << endl
+    << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE" << endl
+    << "  -f, --fastq-in FILE           read and align FASTQ-format reads from FILE (two are allowed, one for each mate)" << endl
+    << "  -i, --interleaved             GAM/FASTQ input is interleaved pairs, for paired-end alignment" << endl
     << "output options:" << endl
     << "  -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
     << "  -N, --sample NAME             add this sample name" << endl
@@ -308,13 +309,14 @@ void help_gaffe(char** argv) {
     << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [300]" << endl
     << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.8]" << endl
     << "  -D, --distance-limit INT      cluster using this distance limit [200]" << endl
-    << "  -e, --max-extensions INT      extend up to INT clusters [48]" << endl
+    << "  -e, --max-extensions INT      extend up to INT clusters [300]" << endl
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
     << "  -s, --cluster-score INT       only extend clusters if they are within INT of the best score [50]" << endl
     << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within FLOAT of the best read coverage [0.4]" << endl
     << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [1]" << endl
     << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
+    << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [10]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
@@ -339,7 +341,7 @@ int main_gaffe(int argc, char** argv) {
     string xg_name;
     string graph_name;
     string gbwt_name;
-    string minimizer_name;
+    vector<string> minimizer_names;
     string distance_name;
     string output_basename;
     string report_name;
@@ -350,11 +352,14 @@ int main_gaffe(int argc, char** argv) {
     bool progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_dp = true;
-    // What GAMs should we realign?
-    vector<string> gam_filenames;
+    // What GAM should we realign?
+    string gam_filename;
     // What FASTQs should we align.
     // Note: multiple FASTQs are not interpreted as paired.
-    vector<string> fastq_filenames;
+    string fastq_filename_1;
+    string fastq_filename_2;
+    // Is the input interleaved/are we in paired-end mode?
+    bool interleaved = false;
     // How many mappings per read can we emit?
     Range<size_t> max_multimaps = 1;
     // How many clusters should we extend?
@@ -369,6 +374,8 @@ int main_gaffe(int argc, char** argv) {
     Range<double> extension_set = 20;
     //Throw away extensions with scores that are this amount below the best
     Range<int> extension_score = 1;
+    //Attempt up to this many rescues of reads with no pairs
+    int rescue_attempts = 10;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
@@ -409,6 +416,7 @@ int main_gaffe(int argc, char** argv) {
             {"progress", no_argument, 0, 'p'},
             {"gam-in", required_argument, 0, 'G'},
             {"fastq-in", required_argument, 0, 'f'},
+            {"interleaved", no_argument, 0, 'i'},
             {"max-multimaps", required_argument, 0, 'M'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
@@ -426,6 +434,7 @@ int main_gaffe(int argc, char** argv) {
             {"extension-set", required_argument, 0, 'w'},
             {"score-fraction", required_argument, 0, 'F'},
             {"no-dp", no_argument, 0, 'O'},
+            {"rescue-attempts", required_argument, 0, 'r'},
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
             {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
             {"threads", required_argument, 0, 't'},
@@ -433,7 +442,7 @@ int main_gaffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:M:N:R:nc:C:D:F:e:a:s:u:v:w:Ot:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:nc:C:D:F:e:a:s:u:v:w:Ot:r:",
                          long_options, &option_index);
 
 
@@ -468,8 +477,8 @@ int main_gaffe(int argc, char** argv) {
                 break;
                 
             case 'm':
-                minimizer_name = optarg;
-                if (minimizer_name.empty()) {
+                minimizer_names.emplace_back(optarg);
+                if (minimizer_names.back().empty()) {
                     cerr << "error:[vg gaffe] Must provide minimizer file with -m." << endl;
                     exit(1);
                 }
@@ -488,11 +497,35 @@ int main_gaffe(int argc, char** argv) {
                 break;
                 
             case 'G':
-                gam_filenames.push_back(optarg);
+                gam_filename = optarg;
+                if (gam_filename.empty()) {
+                    cerr << "error:[vg gaffe] Must provide GAM file with -G." << endl;
+                    exit(1);
+                }
                 break;
             
             case 'f':
-                fastq_filenames.push_back(optarg);
+                if (fastq_filename_1.empty()) {
+                    fastq_filename_1 = optarg;
+                    if (fastq_filename_1.empty()) {
+                        cerr << "error:[vg gaffe] Must provide FASTQ file with -f." << endl;
+                        exit(1);
+                    }
+                }
+                else if (fastq_filename_2.empty()) {
+                    fastq_filename_2 = optarg;
+                    if (fastq_filename_2.empty()) {
+                        cerr << "error:[vg gaffe] Must provide FASTQ file with -f." << endl;
+                        exit(1);
+                    }
+                } else {
+                    cerr << "error:[vg gaffe] Cannot specify more than two FASTQ files." << endl;
+                    exit(1);
+                }
+                break;
+
+            case 'i':
+                interleaved = true;
                 break;
                 
             case 'M':
@@ -624,6 +657,20 @@ int main_gaffe(int argc, char** argv) {
                 do_dp = false;
                 break;
                 
+            case 'r':
+                {
+                    rescue_attempts = parse<int>( optarg);
+                    if (rescue_attempts < 0) {
+                        cerr << "error: [vg gaffe] Rescue attempts must be positive" << endl;
+                        exit(1);
+                    }
+                    if (!interleaved && fastq_filename_2.empty()) {
+                        cerr << "error: [vg gaffe] Rescue can only be done on paired-end reads" << endl;
+                        exit(1);
+                    }
+                }
+                break;
+                
             case OPT_TRACK_PROVENANCE:
                 track_provenance = true;
                 break;
@@ -669,13 +716,23 @@ int main_gaffe(int argc, char** argv) {
         exit(1);
     }
     
-    if (minimizer_name.empty()) {
+    if (minimizer_names.empty()) {
         cerr << "error:[vg gaffe] Mapping requires a minimizer index (-m)" << endl;
         exit(1);
     }
     
     if (distance_name.empty()) {
         cerr << "error:[vg gaffe] Mapping requires a distance index (-d)" << endl;
+        exit(1);
+    }
+
+    if (interleaved && !fastq_filename_2.empty()) {
+        cerr << "error:[vg gaffe] Cannot designate both interleaved paired ends (-i) and separate paired end file (-f)." << endl;
+        exit(1);
+    }
+
+    if (!fastq_filename_1.empty() && !gam_filename.empty()) {
+        cerr << "error:[vg gaffe] Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << endl;
         exit(1);
     }
     
@@ -696,18 +753,18 @@ int main_gaffe(int argc, char** argv) {
     }
     unique_ptr<gbwt::GBWT> gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
 
-    if (progress) {
-        cerr << "Loading minimizer index " << minimizer_name << endl;
+    vector<unique_ptr<gbwtgraph::DefaultMinimizerIndex>> minimizer_indexes;
+    for (const string& minimizer_name : minimizer_names) {
+        if (progress) {
+            cerr << "Loading minimizer index " << minimizer_name << endl;
+        }
+        minimizer_indexes.emplace_back(vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(minimizer_name));
     }
-    unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(minimizer_name);
 
     if (progress) {
         cerr << "Loading distance index " << distance_name << endl;
     }
-    MinimumDistanceIndex distance_index;
-    ifstream dist_in (distance_name);
-    distance_index.load(dist_in);
-    //unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
+    unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     
     // Build or load the GBWTGraph.
     unique_ptr<gbwtgraph::GBWTGraph> gbwt_graph = nullptr;
@@ -728,7 +785,7 @@ int main_gaffe(int argc, char** argv) {
     if (progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(*gbwt_graph, *minimizer_index, distance_index, xg_index);
+    MinimizerMapper minimizer_mapper(*gbwt_graph, minimizer_indexes, *distance_index, xg_index);
     
     std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
     std::chrono::duration<double> init_seconds = init - launch;
@@ -762,6 +819,9 @@ int main_gaffe(int argc, char** argv) {
             
             s << output_basename;
             
+            if (interleaved) {
+                s << "-i";
+            }
             s << "-D" << distance_limit;
             s << "-c" << hit_cap;
             s << "-C" << hard_hit_cap;
@@ -781,6 +841,10 @@ int main_gaffe(int argc, char** argv) {
     
         if (progress) {
             cerr << "Mapping reads to \"" << output_filename << "\"..." << endl;
+        }
+
+        if (progress && interleaved) {
+            cerr << "--interleaved" << endl;
         }
 
         if (progress) {
@@ -853,6 +917,7 @@ int main_gaffe(int argc, char** argv) {
         }
         minimizer_mapper.track_correctness = track_correctness;
 
+        minimizer_mapper.max_rescue_attempts = rescue_attempts;
         minimizer_mapper.sample_name = sample_name;
         minimizer_mapper.read_group = read_group;
 
@@ -879,26 +944,86 @@ int main_gaffe(int argc, char** argv) {
 
             // Start timing overall mapping time now that indexes are loaded.
             start = std::chrono::system_clock::now();
-            
-            // Define how to align and output a read, in a thread.
-            auto map_read = [&](Alignment& aln) {
-                // Map the read with the MinimizerMapper.
-                minimizer_mapper.map(aln, *alignment_emitter);
-                // Record that we mapped a read.
-                reads_mapped_by_thread.at(omp_get_thread_num())++;
-            };
+
+            if (interleaved || !fastq_filename_2.empty()) {
+                //Map paired end from either one gam or fastq file or two fastq files
+
+                // a buffer to hold read pairs that can't be unambiguously mapped before the fragment length distribution
+                // is estimated
+                // note: sufficient to have only one buffer because multithreading code enforces single threaded mode
+                // during distribution estimation
+                vector<pair<Alignment, Alignment>> ambiguous_pair_buffer;
                 
-            for (auto& gam_name : gam_filenames) {
-                // For every GAM file to remap
-                get_input_file(gam_name, [&](istream& in) {
-                    // Open it and map all the reads in parallel.
-                    vg::io::for_each_parallel<Alignment>(in, map_read);
-                });
-            }
+                // Define how to know if the paired end distribution is ready
+                auto distribution_is_ready = [&]() {
+                    return minimizer_mapper.fragment_distr_is_finalized();
+                };
+                
+                // Define how to align and output a read pair, in a thread.
+                auto map_read_pair = [&](Alignment& aln1, Alignment& aln2) {
+                    
+                    pair<vector<Alignment>, vector<Alignment>> mapped_pairs = minimizer_mapper.map_paired(aln1, aln2, ambiguous_pair_buffer);
+                    if (!mapped_pairs.first.empty() && !mapped_pairs.second.empty()) {
+                        //If we actually tried to map this paired end
+
+                        alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second));
+                        // Record that we mapped a read.
+                        reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
+                    }
+                };
+
+                if (!gam_filename.empty()) {
+                    // GAM file to remap
+                    get_input_file(gam_filename, [&](istream& in) {
+                        // Map pairs of reads to the emitter
+                        vg::io::for_each_interleaved_pair_parallel_after_wait<Alignment>(in, map_read_pair, distribution_is_ready);
+                    });
+                } else if (!fastq_filename_2.empty()) {
+                    //A pair of FASTQ files to map
+                    fastq_paired_two_files_for_each_parallel_after_wait(fastq_filename_1, fastq_filename_2, map_read_pair, distribution_is_ready);
+
+
+                } else if ( !fastq_filename_1.empty()) {
+                    // An interleaved FASTQ file to map, map all its pairs in parallel.
+                    fastq_paired_interleaved_for_each_parallel_after_wait(fastq_filename_1, map_read_pair, distribution_is_ready);
+                }
+
+                //Now map all the ambiguous pairs
+                //TODO: What do we do if we haven't finalized the distribution?
+                if (!minimizer_mapper.fragment_distr_is_finalized()){
+                    cerr << "warning[vg::gaffe]: Finalizing fragment length distribution before reaching maximum sample size" << endl;
+                    minimizer_mapper.finalize_fragment_length_distr();
+                }
+                for (pair<Alignment, Alignment>& alignment_pair : ambiguous_pair_buffer) {
+
+                    auto mapped_pairs = minimizer_mapper.map_paired(alignment_pair.first, alignment_pair.second);
+                    alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second));
+                    // Record that we mapped a read.
+                    reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
+                }
+            } else {
+                // Map single-ended
             
-            for (auto& fastq_name : fastq_filenames) {
-                // For every FASTQ file to map, map all its reads in parallel.
-                fastq_unpaired_for_each_parallel(fastq_name, map_read);
+                // Define how to align and output a read, in a thread.
+                auto map_read = [&](Alignment& aln) {
+                    // Map the read with the MinimizerMapper.
+                    minimizer_mapper.map(aln, *alignment_emitter);
+                    // Record that we mapped a read.
+                    reads_mapped_by_thread.at(omp_get_thread_num())++;
+                };
+                    
+                if (!gam_filename.empty()) {
+                    // GAM file to remap
+                    get_input_file(gam_filename, [&](istream& in) {
+                        // Open it and map all the reads in parallel.
+                        vg::io::for_each_parallel<Alignment>(in, map_read);
+                    });
+                }
+                
+                if (!fastq_filename_1.empty()) {
+                    // FASTQ file to map, map all its reads in parallel.
+                    fastq_unpaired_for_each_parallel(fastq_filename_1, map_read);
+                }
             }
         
         } // Make sure alignment emitter is destroyed and all alignments are on disk.
