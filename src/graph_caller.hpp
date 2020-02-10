@@ -68,6 +68,12 @@ public:
     void write_variants(ostream& out_stream) const;
     
 protected:
+
+    /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
+    /// the bool is true if the snarl's backward on the path
+    tuple<size_t, size_t, bool, step_handle_t, step_handle_t> get_ref_interval(const PathPositionHandleGraph& graph, const Snarl& snarl,
+                                                                               const string& ref_path_name) const;
+    
     /// output vcf
     mutable vcflib::VariantCallFile output_vcf;
 
@@ -175,10 +181,6 @@ protected:
     /// look up a path index for a site and return its name too
     pair<string, PathIndex*> find_index(const Snarl& snarl, const vector<PathIndex*> path_indexes) const;
 
-    /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
-    /// the bool is true if the snarl's backward on the path
-    tuple<size_t, size_t, bool> get_ref_interval(const Snarl& snarl, const string& ref_path_name) const;
-
     /// clean up the alleles to not share common prefixes / suffixes
     void flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const;
 
@@ -254,10 +256,6 @@ protected:
     /// print a vcf variant 
     void emit_variant(const Snarl& snarl, int ref_trav_idx, const vector<SnarlTraversal>& called_traversals,
                       const vector<int>& genotype, const unique_ptr<SnarlCaller::CallInfo>& call_info, const string& ref_path_name) const;
-
-    /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
-    /// the bool is true if the snarl's backward on the path
-    tuple<size_t, size_t, bool, step_handle_t, step_handle_t> get_ref_interval(const Snarl& snarl, const string& ref_path_name) const;
 
     /// clean up the alleles to not share common prefixes / suffixes
     void flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const;
