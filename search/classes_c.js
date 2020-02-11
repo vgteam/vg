@@ -14,6 +14,7 @@ var searchData=
   ['messageemitter',['MessageEmitter',['../classvg_1_1io_1_1MessageEmitter.html',1,'vg::io']]],
   ['messageiterator',['MessageIterator',['../classvg_1_1io_1_1MessageIterator.html',1,'vg::io']]],
   ['mindistanceclusterer',['MinDistanceClusterer',['../classvg_1_1MinDistanceClusterer.html',1,'vg']]],
+  ['minimizer',['Minimizer',['../structvg_1_1MinimizerMapper_1_1Minimizer.html',1,'vg::MinimizerMapper']]],
   ['minimizermapper',['MinimizerMapper',['../classvg_1_1MinimizerMapper.html',1,'vg']]],
   ['minimumdistanceindex',['MinimumDistanceIndex',['../classvg_1_1MinimumDistanceIndex.html',1,'vg']]],
   ['msaconverter',['MSAConverter',['../classvg_1_1MSAConverter.html',1,'vg']]],

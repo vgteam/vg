@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['occs',['occs',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#a8c226c4bddcf03b1666f9da007676d8b',1,'vg::MinimizerMapper::Minimizer']]],
   ['offset',['offset',['../structvg_1_1GaplessExtension.html#a713e8ef2aad7aa94ae4ef91fbe83e159',1,'vg::GaplessExtension::offset()'],['../structvg_1_1PathBranch.html#ad07bed1fbba0e7c94c218f285c2e51cd',1,'vg::PathBranch::offset()'],['../structvg_1_1Position.html#a1244220d4c8ae90633fd7a7e361d309a',1,'vg::Position::offset()']]],
   ['old_5fnode',['old_node',['../classhaplo_1_1hDP__gbwt__graph__accessor.html#ac101c3ba66f96fa569c1de71bf6c51fe',1,'haplo::hDP_gbwt_graph_accessor']]],
   ['old_5fscore',['old_score',['../structvg_1_1GaplessExtension.html#a868af12d5411848f3b8e0e682d053337',1,'vg::GaplessExtension']]],
@@ -8,6 +9,7 @@ var searchData=
   ['options_5fby_5fcode',['options_by_code',['../classvg_1_1ConfigurableParser.html#a8bdfad847167513663ef67839a574e92',1,'vg::ConfigurableParser']]],
   ['order',['order',['../structvg_1_1XdropAligner_1_1OrderedGraph.html#ae3e0b7cb7f5f2cf84acb02557d7863de',1,'vg::XdropAligner::OrderedGraph']]],
   ['order_5flength_5frepeat_5fhit_5fmax',['order_length_repeat_hit_max',['../classvg_1_1MultipathMapper.html#ae87f55f358023f5c881494ccc4ed884f',1,'vg::MultipathMapper']]],
+  ['origin',['origin',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#a11781df7cf275f7593be31be33c3478b',1,'vg::MinimizerMapper::Minimizer']]],
   ['os',['OS',['../classvg_1_1Version.html#a60cb5fa1efa9969bcdfa529484ea4280',1,'vg::Version']]],
   ['other_5forientation_5ftimeout',['other_orientation_timeout',['../classvg_1_1RepresentativeTraversalFinder.html#a5d5136f771fe4566506ff486fb17df49',1,'vg::RepresentativeTraversalFinder']]],
   ['other_5fsupports',['other_supports',['../structvg_1_1BREAKPOINT.html#a2f08ace3f57cff47b7f703fef1ae9792',1,'vg::BREAKPOINT']]],

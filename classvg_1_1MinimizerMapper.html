@@ -64,6 +64,7 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pro-types">Protected Types</a> &#124;
@@ -87,6 +88,11 @@ Inheritance diagram for vg::MinimizerMapper:</div>
 </map>
  </div></div>
 <table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a938595aeb1f6991966c55873e2e89e16"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a938595aeb1f6991966c55873e2e89e16">MinimizerMapper</a> (const gbwtgraph::GBWTGraph &amp;graph, const std::vector&lt; std::unique_ptr&lt; gbwtgraph::DefaultMinimizerIndex &gt;&gt; &amp;<a class="el" href="classvg_1_1MinimizerMapper.html#a9a0ba73956be50806a37c59e4d50eefe">minimizer_indexes</a>, <a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> &amp;<a class="el" href="classvg_1_1MinimizerMapper.html#aad418f42dd9ed77cd6b09743ebae634b">distance_index</a>, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1MinimizerMapper.html#aa75ca7504db85f1ba5d340b8213036de">path_graph</a>=nullptr)</td></tr>
@@ -169,6 +175,12 @@ Protected Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
+<tr class="memitem:af3e5c53b0250173b6d0eb097cf884986"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af3e5c53b0250173b6d0eb097cf884986">find_minimizers</a> (const std::string &amp;sequence, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="separator:af3e5c53b0250173b6d0eb097cf884986"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2727bb3125c6090c4e17a269400749d0"><td class="memItemLeft" align="right" valign="top">std::pair&lt; std::vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;, std::vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2727bb3125c6090c4e17a269400749d0">find_seeds</a> (const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="separator:a2727bb3125c6090c4e17a269400749d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aee20a92b61a4ad9876c31237e71ea543"><td class="memItemLeft" align="right" valign="top">std::pair&lt; double, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aee20a92b61a4ad9876c31237e71ea543">score_cluster</a> (const std::vector&lt; size_t &gt; &amp;cluster, size_t i, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; size_t &gt; &amp;seed_to_source, size_t seq_length, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="separator:aee20a92b61a4ad9876c31237e71ea543"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6e3ec6685f98622b35391ae0d8bac180"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6e3ec6685f98622b35391ae0d8bac180">find_optimal_tail_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;best, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;second_best) const</td></tr>
 <tr class="separator:a6e3ec6685f98622b35391ae0d8bac180"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab3256c8c0ebc49ff72af298684580fa4"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; size_t, unordered_map&lt; size_t, vector&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab3256c8c0ebc49ff72af298684580fa4">find_connecting_paths</a> (const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, size_t read_length) const</td></tr>
@@ -590,6 +602,43 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="af3e5c53b0250173b6d0eb097cf884986"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af3e5c53b0250173b6d0eb097cf884986">&#9670;&nbsp;</a></span>find_minimizers()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">MinimizerMapper::Minimizer</a> &gt; vg::MinimizerMapper::find_minimizers </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>sequence</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;&#160;</td>
+          <td class="paramname"><em>funnel</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Find the minimizers in the sequence using all minimizer indexes and return them sorted in descending order by score. </p>
+
+</div>
+</div>
 <a id="a6e3ec6685f98622b35391ae0d8bac180"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a6e3ec6685f98622b35391ae0d8bac180">&#9670;&nbsp;</a></span>find_optimal_tail_alignments()</h2>
 
@@ -636,6 +685,49 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Operating on the given input alignment, align the tails dangling off the given extended perfect-match seeds and produce an optimal alignment into the given output <a class="el" href="structvg_1_1Alignment.html">Alignment</a> object, best, and the second best alignment into second_best. </p>
+
+</div>
+</div>
+<a id="a2727bb3125c6090c4e17a269400749d0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2727bb3125c6090c4e17a269400749d0">&#9670;&nbsp;</a></span>find_seeds()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::pair&lt; std::vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;, std::vector&lt; size_t &gt; &gt; vg::MinimizerMapper::find_seeds </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>minimizers</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;&#160;</td>
+          <td class="paramname"><em>funnel</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Find seeds for all minimizers passing the filters. Return the seeds in one vector and the source minimizers in another vector. </p>
 
 </div>
 </div>
@@ -1138,6 +1230,67 @@ template&lt;typename Item , typename Score &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Same as the other process_until_threshold overload, except user supplies comparator to sort the items (must still be sorted by score). </p>
+
+</div>
+</div>
+<a id="aee20a92b61a4ad9876c31237e71ea543"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aee20a92b61a4ad9876c31237e71ea543">&#9670;&nbsp;</a></span>score_cluster()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::pair&lt; double, double &gt; vg::MinimizerMapper::score_cluster </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>cluster</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>i</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>minimizers</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>seed_to_source</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>seq_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;&#160;</td>
+          <td class="paramname"><em>funnel</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Return cluster score and read coverage. Score is the sum of the scores of distinct minimizers in the cluster, while read coverage is the fraction of the read covered by seeds in the cluster. TODO JS: Score all clusters at once; calculate fragment scores afterwards. </p>
 
 </div>
 </div>

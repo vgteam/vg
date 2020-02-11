@@ -31,6 +31,7 @@ var searchData=
   ['hint_5fpaths',['hint_paths',['../classvg_1_1CactusSnarlFinder.html#a380a95f5119b76793da6ba19320a1750',1,'vg::CactusSnarlFinder']]],
   ['hit_5fcap',['hit_cap',['../classvg_1_1MinimizerMapper.html#a1097206776713f059fca80f221b8478c',1,'vg::MinimizerMapper']]],
   ['hit_5fmax',['hit_max',['../classvg_1_1BaseMapper.html#a29b8cec81cc68e9d90405c42fbc8ef64',1,'vg::BaseMapper']]],
+  ['hits',['hits',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#aa60067efaa8910104760c8d910471a29',1,'vg::MinimizerMapper::Minimizer']]],
   ['homozygous_5fprior_5fln',['homozygous_prior_ln',['../classvg_1_1FixedGenotypePriorCalculator.html#ade32a0216586eb9467d476e2880c188b',1,'vg::FixedGenotypePriorCalculator']]],
   ['hts_5fmode',['hts_mode',['../classvg_1_1HTSAlignmentEmitter.html#a153522a68e1a526fb794753ab666f840',1,'vg::HTSAlignmentEmitter']]]
 ];

@@ -336,6 +336,7 @@ var searchData=
   ['min_5funique_5fper_5fstrand',['min_unique_per_strand',['../classvg_1_1Genotyper.html#a6b1feebb10944e684e417115e880fe39',1,'vg::Genotyper']]],
   ['mindistance',['minDistance',['../classvg_1_1MinimumDistanceIndex.html#a4957ae7c8ac0291a50900ee902f1a714',1,'vg::MinimumDistanceIndex']]],
   ['mindistanceclusterer',['MinDistanceClusterer',['../classvg_1_1MinDistanceClusterer.html',1,'vg::MinDistanceClusterer'],['../classvg_1_1MinDistanceClusterer.html#ace4b150ada4a32d6729e64e03871aa30',1,'vg::MinDistanceClusterer::MinDistanceClusterer()']]],
+  ['minimizer',['Minimizer',['../structvg_1_1MinimizerMapper_1_1Minimizer.html',1,'vg::MinimizerMapper']]],
   ['minimizer_5findexes',['minimizer_indexes',['../classvg_1_1MinimizerMapper.html#a9a0ba73956be50806a37c59e4d50eefe',1,'vg::MinimizerMapper']]],
   ['minimizer_5fmain_2ecpp',['minimizer_main.cpp',['../minimizer__main_8cpp.html',1,'']]],
   ['minimizer_5fmapper_2ecpp',['minimizer_mapper.cpp',['../minimizer__mapper_8cpp.html',1,'']]],
