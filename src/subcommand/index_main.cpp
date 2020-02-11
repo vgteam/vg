@@ -1281,8 +1281,7 @@ int main_index(int argc, char** argv) {
                 // Create the MinimumDistanceIndex
                 MinimumDistanceIndex di(xg.get(), snarl_manager);
                 // Save the completed DistanceIndex
-                ofstream ostream(dist_name);
-                di.serialize(ostream);
+                vg::io::VPKG::save(di, dist_name);
 
             } else {
                 // We were given a graph generically
@@ -1290,10 +1289,7 @@ int main_index(int argc, char** argv) {
     
                 // Create the MinimumDistanceIndex
                 MinimumDistanceIndex di(graph.get(), snarl_manager);
-                // Save the completed DistanceIndex
-                ofstream ostream(dist_name);
-                di.serialize(ostream);
-//                vg::io::VPKG::save(di, dist_name);
+                vg::io::VPKG::save(di, dist_name);
             }
           
             

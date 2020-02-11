@@ -14,15 +14,11 @@ class SnarlSeedClusterer {
 
         SnarlSeedClusterer(MinimumDistanceIndex& dist_index);
 
-        //Represents all clusters for one vector of seeds (corresponding to a read)
-        //Each cluster is a vector of indexes into the vector of seeds 
-        typedef vector<vector<size_t>> cluster_group_t;
-
         ///Given a vector of seeds (pos_t) and a distance limit, 
         //cluster the seeds such that two seeds whose minimum distance
         //between them (including both of the positions) is less than
         // the distance limit are in the same cluster
-        cluster_group_t cluster_seeds ( const vector<pos_t>& seeds, int64_t read_distance_limit) const;
+        vector<vector<size_t>> cluster_seeds ( const vector<pos_t>& seeds, int64_t read_distance_limit) const;
         
         ///The same thing, but for paired end reads.
         //Given seeds from multiple reads of a fragment, cluster each read
@@ -32,14 +28,16 @@ class SnarlSeedClusterer {
         //The read clusters refer to seeds by their indexes in the input vectors of seeds
         //The fragment clusters give seeds the index they would get if the vectors of
         // seeds were appended to each other in the order given
-        tuple<vector<cluster_group_t>, cluster_group_t> cluster_seeds ( 
-                const vector<vector<pos_t>>& all_seeds,
-                int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
+        // TODO: Fix documentation
+        // Returns: For each read, a vector of clusters. One cluster is a pair of the index of the fragment cluster and
+        // a vector of the indices of the seeds it contains
+        vector<vector<pair<vector<size_t>, size_t>>> cluster_seeds ( 
+                const vector<vector<pos_t>>& all_seeds, int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
 
     private:
 
         //Actual clustering function that takes a vector of pointers to seeds
-        tuple<vector<cluster_group_t>, cluster_group_t> cluster_seeds ( 
+        tuple<vector<structures::UnionFind>, structures::UnionFind> cluster_seeds_internal ( 
                 const vector<const vector<pos_t>*>& all_seeds,
                 int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
 

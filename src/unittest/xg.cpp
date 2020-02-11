@@ -427,6 +427,38 @@ TEST_CASE("Vectorization of xg works correctly", "[xg]") {
         REQUIRE(unique_edge_ranks.size() == xg_index.get_edge_count());
     }
     
+    SECTION("edge ranks are defined for all ways of articulating edges that exist") {
+        vector<handle_t> forwards;
+        vector<handle_t> reverse;
+        xg_index.for_each_handle([&](const handle_t& h) {
+            forwards.push_back(h);
+            reverse.push_back(xg_index.flip(h));
+        });
+        
+        for (size_t i = 0; i < forwards.size(); i++) {
+            for (size_t j = 0; j < forwards.size(); j++) {
+                for (bool flip1 : {false, true}) {
+                    for (bool flip2 : {false, true}) {
+                        // For all possible combinations of handles and orientations
+                        handle_t from = (flip1 ? reverse : forwards)[i];
+                        handle_t to = (flip2 ? reverse : forwards)[j];
+                        if (xg_index.has_edge(from, to)) {
+                            // If the edge exists
+                            
+                            // Make sure it exists the other way
+                            REQUIRE(xg_index.has_edge(xg_index.flip(to), xg_index.flip(from)));
+                            
+                            // Make sure that both directions have the same index, even if someone didn't use edge_handle.
+                            REQUIRE(xg_index.edge_index(std::make_pair(from, to)) ==
+                                xg_index.edge_index(std::make_pair(xg_index.flip(to), xg_index.flip(from))));
+                        }
+                    }
+                }
+            }
+        }
+        
+    }
+    
     
     SECTION("node offsets are unique and map back to the right nodes") {
         // Do the same for the node vector offsets, except mapping offset to node ID. 
