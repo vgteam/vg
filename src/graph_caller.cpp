@@ -873,6 +873,7 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
     
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
+        ref_path_set.insert(ref_paths[i]);
     }
 
     // todo: do we ever want to toggle in min-support?
@@ -911,7 +912,7 @@ bool FlowCaller::call_snarl(const Snarl& snarl) {
     set<string> start_path_names;
     graph.for_each_step_on_handle(start_handle, [&](step_handle_t step_handle) {
             string name = graph.get_path_name(graph.get_path_handle_of_step(step_handle));
-            if (!Paths::is_alt(name)) {
+            if (!Paths::is_alt(name) && (ref_path_set.empty() || ref_path_set.count(name))) {
                 start_path_names.insert(name);
             }
             return true;
@@ -921,7 +922,7 @@ bool FlowCaller::call_snarl(const Snarl& snarl) {
     if (!start_path_names.empty()) {
         graph.for_each_step_on_handle(end_handle, [&](step_handle_t step_handle) {
                 string name = graph.get_path_name(graph.get_path_handle_of_step(step_handle));
-                if (!Paths::is_alt(name)) {
+                if (!Paths::is_alt(name) && (ref_path_set.empty() || ref_path_set.count(name))) {                
                     end_path_names.insert(name);
                 }
                 return true;
@@ -957,9 +958,6 @@ bool FlowCaller::call_snarl(const Snarl& snarl) {
         visit->set_backward(graph.get_is_reverse(cur_handle));
         if (cur == get<4>(ref_interval)) {
             break;
-        }
-        else if (get<2>(ref_interval) == true) {
-            cur = graph.get_previous_step(cur);            
         } else {
             cur = graph.get_next_step(cur);
         }

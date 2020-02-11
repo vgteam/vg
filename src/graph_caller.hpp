@@ -260,6 +260,7 @@ protected:
 
     /// keep track of the reference paths
     vector<string> ref_paths;
+    unordered_set<string> ref_path_set;
 
     /// keep track of offsets in the reference paths
     map<string, size_t> ref_offsets;
