@@ -134,32 +134,11 @@ protected:
     SnarlSeedClusterer clusterer;
     
     /**
-     * Finds the cost in Phred units of the lowest-cost set of bases that
-     * disrupt all of the specified minimizers' agglomerations' windows.
-     * 
-     * Returns infinity if broken is empty.
-     *
-     * Takes the collection of all minimizers found, and a vector of the
-     * indices of minimizers we are interested in the agglomerations of. May
-     * modify the order of that index vector.
-     *
-     * Also takes the sequence of the read (to avoid Ns) and the quality string
-     * (interpreted as a byte array).
-     *
-     * Currently computes a lower-score-bound, upper-probability-bound,
-     * suitable for use as a mapping quality cap, by assuming the
-     * easiest-to-disrupt possible layout of the windows, and the lowest
-     * possible qualities for the disrupting bases.
-     */
-    double cheapest_cover_cost(const vector<Minimizer>& minimizers,
-        vector<size_t>& broken, const string& sequence, const string& quality_bytes) const;
-    
-    /**
      * Compute a bound on the Phred score probability of having created the
      * agglomerations of the specified minimizers by base errors from the given
      * sequence, which was sequenced with the given qualities.
      *
-     * No limit is imposed if agglomerations is empty.
+     * No limit is imposed if broken is empty.
      *
      * Takes the collection of all minimizers found, and a vector of the
      * indices of minimizers we are interested in the agglomerations of. May

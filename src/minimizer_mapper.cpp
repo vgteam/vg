@@ -29,11 +29,13 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     // Nothing to do!
 }
 
-#define debug
-
-double MinimizerMapper::cheapest_cover_cost(const vector<Minimizer>& minimizers,
-    vector<size_t>& broken, const string& sequence, const string& quality_bytes) const {
+double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
+    const string& sequence, const string& quality_bytes) const {
     
+#ifdef debug
+    cerr << "Computing MAPQ cap based on " << broken.size() << "/" << minimizers.size() << " minimizers' windows" << endl;
+#endif
+
     if (broken.empty() || quality_bytes.empty()) {
         // If we have no agglomerations or no qualities, bail
         return numeric_limits<double>::infinity();
@@ -65,11 +67,13 @@ double MinimizerMapper::cheapest_cover_cost(const vector<Minimizer>& minimizers,
     
     // Have a DP table with the cost of the cheapest solution to the problem up to here, including a hit at this base.
     // Or numeric_limits<double>::infinity() if base cannot be hit.
-    vector<double> costs;
-    costs.reserve(sequence.size());
+    // We pre-fill it because I am scared to use end() if we change its size.
+    vector<double> costs(sequence.size(), numeric_limits<double>::infinity());
     
     // Keep track of the latest-starting window ending before here. If none, this will be two numeric_limits<size_t>::max() values.
     window_t latest_starting_ending_before = { numeric_limits<size_t>::max(), numeric_limits<size_t>::max() };
+    // And keep track of the min cost DP table entry, or end if not computed yet.
+    auto latest_starting_ending_before_winner = costs.end();
     
     for (size_t i = 0; i < sequence.size(); i++) {
         // For each base in the read
@@ -99,30 +103,34 @@ double MinimizerMapper::cheapest_cover_cost(const vector<Minimizer>& minimizers,
                 // If there is no such window, this is the first base hit, so
                 // record the cost of hitting it.
                 
-                costs.push_back(quality_bytes[i]);
+                costs[i] = quality_bytes[i];
                 
 #ifdef debug
-                cerr << "\tFirst base hit, costs " << costs.back() << endl;
+                cerr << "\tFirst base hit, costs " << costs[i] << endl;
 #endif
             } else {
                 // Else, scan from that window's start to its end in the DP
                 // table, and find the min cost.
-                auto min_prev_cost_at = std::min_element(costs.begin() + latest_starting_ending_before.first,
-                    costs.begin() + latest_starting_ending_before.last + 1);
-                double min_prev_cost = *min_prev_cost_at;
+
+                if (latest_starting_ending_before_winner == costs.end()) {
+                    // We haven't found the min in the window we come from yet, so do that.
+                    latest_starting_ending_before_winner = std::min_element(costs.begin() + latest_starting_ending_before.first,
+                        costs.begin() + latest_starting_ending_before.last + 1);
+                }
+                double min_prev_cost = *latest_starting_ending_before_winner;
                     
                 // Add the cost of hitting this base
-                costs.push_back(min_prev_cost + quality_bytes[i]);
+                costs[i] = min_prev_cost + quality_bytes[i];
                 
 #ifdef debug
-                cerr << "\tComes from prev base at " << (min_prev_cost_at - costs.begin()) << ", costs " << costs.back() << endl;
+                cerr << "\tComes from prev base at " << (latest_starting_ending_before_winner - costs.begin()) << ", costs " << costs[i] << endl;
 #endif
             }
             
         } else {
             // This base is N, or not covered by an agglomeration.
-            // Say we can't hit it.
-            costs.push_back(numeric_limits<double>::infinity());
+            // Leave infinity there to say we can't hit it.
+            // Nothing to do!
         }
         
         // Now we compute the start of the latest-starting window ending here or before (and update the active windows).
@@ -173,6 +181,8 @@ double MinimizerMapper::cheapest_cover_cost(const vector<Minimizer>& minimizers,
                 
                 // If so, use the latest-starting of all such windows as our latest starting window ending here or before result.
                 latest_starting_ending_before = active_windows.top();
+                // And clear our cache of the lowest cost base to hit it.
+                latest_starting_ending_before_winner = costs.end();
                 
 #ifdef debug
                 cerr << "\t\t\tNow have: " << latest_starting_ending_before.first << " - " << latest_starting_ending_before.last << endl;
@@ -201,113 +211,13 @@ double MinimizerMapper::cheapest_cover_cost(const vector<Minimizer>& minimizers,
     assert(latest_starting_ending_before.first != numeric_limits<size_t>::max());
     
     // Scan it for the best final base to hit and return the cost there.
+    // Don't use the cache here because nothing can come after the last-ending window.
     auto min_cost_at = std::min_element(costs.begin() + latest_starting_ending_before.first,
         costs.begin() + latest_starting_ending_before.last + 1);
 #ifdef debug
     cerr << "Overall min cost: " << *min_cost_at << " at base " << (min_cost_at - costs.begin()) << endl;
 #endif
     return *min_cost_at;
-}
-
-double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
-    const string& sequence, const string& quality_bytes) const {
-    
-    return cheapest_cover_cost(minimizers, broken, sequence, quality_bytes);
-    
-   
-    // Work out how big a window that gives rise to a minimizer actually is.
-    // Use the kmer size and the number of 1-bp-slid kmers in a window
-    size_t window_size = minimizer_indexes[0]->k() + minimizer_indexes[0]->w() - 1;
-   
-    // For now, sum up a totla windows figure for all the minimizers form index 0.
-    // TODO: Implement the real algorithm.
-    size_t total_windows = 0;
-    
-    for (auto& minimizer_num : broken) {
-        // For each minimizer we have to break/create
-        auto& m = minimizers[minimizer_num];
-        if (m.origin != 0) {
-            // Skip minimizers from other indexes
-            continue;
-        }
-        
-        // Compute a real sequence start position
-        size_t start_pos = m.value.offset;
-        if (m.value.is_reverse) {
-            // We have the last base and we need the first base.
-            start_pos -= (minimizer_indexes[m.origin]->k() - 1);
-        }
-        
-#ifdef debug
-        cerr << "Minimizer " << minimizer_num << " (" << m.value.key.decode(minimizer_indexes[m.origin]->k())
-            << ") @ " << m.value.offset  << " " << (m.value.is_reverse ? '-' : '+') << " has agglomeration at "
-            << m.agglomeration_start << " running " << m.agglomeration_length
-            << " bp and contributes " << (m.agglomeration_length - window_size + 1)
-            << " windows of size " << window_size << endl;
-#endif
-        
-        // Count the number of slid windows in the agglomeration.
-        // TODO: we assume windows aren't double-credited, which admittedly is rare.
-        total_windows += m.agglomeration_length - window_size + 1;
-    }
-   
-#ifdef debug
-    cerr << "Cap for " << total_windows << ": ";
-#endif
-    if (total_windows == 0 || total_windows == numeric_limits<size_t>::max()) {
-        // No limit can be imposed (because no windows need breaking, or
-        // because we got a sentinel max value which means basically the same
-        // thing, or because we are using multiple minimizer indexes and don't
-        // keep windows straight between them).
-#ifdef debug
-        cerr << "uncapped" << endl;
-#endif
-        return numeric_limits<double>::infinity();
-    } else {
-        // Some windows were located, so we can use this algorithm safely
-        
-        // How many bases need to be modified to have been modified to have
-        // created all of these windows?
-        size_t minimum_disruptive_bases = 0;
-        
-        // Compute how the windows could most overlap, since we forgot where
-        // they actually were in the read. If they all overlap, they cover the
-        // window size, plus one for each window after the first.
-        size_t overlapped_window_length = window_size + total_windows - 1;
-        // Since each base can disrupt window length - 1 windows on either side, we
-        // tile the overlapped windows with windows to work out how many bases
-        // would need to change to create them all. This is at least 1.
-        minimum_disruptive_bases = overlapped_window_length / window_size;
-        
-        // Then we find that many of the lowest base qualities that aren't for Ns (which don't participate in windows)
-        // TODO: Replace with C++ 20 https://en.cppreference.com/w/cpp/ranges/filter_view and C++17 std::partial_sort_copy
-        // This will have at least one entry since we got at least 1 window.
-        vector<uint8_t> worst_qualities;
-        worst_qualities.reserve(quality_bytes.size());
-        for (size_t i = 0; i < min(sequence.size(), quality_bytes.size()); i++) {
-            if (isATGC(sequence[i])) {
-                // The base qwuality is not for an N
-                worst_qualities.push_back(quality_bytes[i]);
-            }
-        }
-       
-        // Make sure the first minimum_disruptive_bases elements are the smallest.
-        std::partial_sort(worst_qualities.begin(),
-            worst_qualities.begin() + min(worst_qualities.size() - 1, minimum_disruptive_bases - 1), worst_qualities.end());
-            
-        // Sum them
-        size_t total_errored_quality = std::accumulate(worst_qualities.begin(),
-            worst_qualities.begin() + min(worst_qualities.size(), minimum_disruptive_bases), (size_t) 0);
-        
-#ifdef debug
-        cerr << "Sum of " << minimum_disruptive_bases << " worst qualities: " << total_errored_quality << endl;
-#endif
-        
-        // We can't be more confident in our mapping than we are that all our
-        // located minimizers were not from windows that were created by errors
-        // in the read. This can't be <0.
-        return total_errored_quality;
-    }
 }
 
 void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
@@ -426,6 +336,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             // minimizer which we also took.
         
             // Locate the hits.
+            minimizer_located[i] = true;
             for (size_t j = 0; j < minimizer.hits; j++) {
                 pos_t hit = gbwtgraph::DefaultMinimizerIndex::decode(minimizer.occs[j]);
                 // Reverse the hits for a reverse minimizer
@@ -1301,8 +1212,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     // Ship out all the aligned alignments
     alignment_emitter.emit_mapped_single(std::move(mappings));
-
-#undef debug
 
 #ifdef debug
     // Dump the funnel info graph.
