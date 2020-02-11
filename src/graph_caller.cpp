@@ -100,6 +100,109 @@ void VCFOutputCaller::write_variants(ostream& out_stream) const {
     }
 }
 
+void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
+                                   const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
+                                   const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
+                                   const string& ref_path_name, int ref_offset) const {
+  
+    // convert traversal to string
+    function<string(const SnarlTraversal&)> trav_string = [&](const SnarlTraversal& trav) {
+        string seq;
+        for (int i = 0; i < trav.visit_size(); ++i) {
+            seq += graph.get_sequence(graph.get_handle(trav.visit(i).node_id(), trav.visit(i).backward()));
+        }
+        return seq;
+    };
+
+#ifdef debug
+    cerr << "emitting variant for " << pb2json(snarl) << endl;
+    for (int i = 0; i < called_traversals.size(); ++i) {
+        if (i == ref_trav_idx) {
+            cerr << "*";
+        }
+        cerr << "ct[" << i << "]=" << pb2json(called_traversals[i]) << endl;
+    }
+    for (int i = 0; i < genotype.size(); ++i) {
+        cerr << "gt[" << i << "]=" << genotype[i] << endl;
+    }
+#endif
+
+    vcflib::Variant out_variant;
+
+    vector<SnarlTraversal> site_traversals = {called_traversals[ref_trav_idx]};
+    vector<int> site_genotype;
+    out_variant.ref = trav_string(site_traversals[0]);
+    
+    // deduplicate alleles and compute the site traversals and genotype
+    map<string, int> allele_to_gt;    
+    allele_to_gt[out_variant.ref] = 0;    
+    for (int i = 0; i < genotype.size(); ++i) {
+        if (genotype[i] == ref_trav_idx) {
+            site_genotype.push_back(0);
+        } else {
+            string allele_string = trav_string(called_traversals[genotype[i]]);
+            if (allele_to_gt.count(allele_string)) {
+                site_genotype.push_back(allele_to_gt[allele_string]);
+            } else {
+                site_traversals.push_back(called_traversals[genotype[i]]);
+                site_genotype.push_back(allele_to_gt.size());
+                allele_to_gt[allele_string] = site_genotype.back();
+            }
+        }
+    }
+
+    out_variant.alt.resize(allele_to_gt.size() - 1);
+    out_variant.alleles.resize(allele_to_gt.size());
+    for (auto& allele_gt : allele_to_gt) {
+#ifdef debug
+        cerr << "allele " << allele_gt.first << " -> gt " << allele_gt.second << endl;
+#endif
+        if (allele_gt.second > 0) {
+            out_variant.alt[allele_gt.second - 1] = allele_gt.first;
+        }
+        out_variant.alleles[allele_gt.second] = allele_gt.first;
+    }
+
+    // fill out the rest of the variant
+    out_variant.sequenceName = ref_path_name;
+    // +1 to convert to 1-based VCF
+    out_variant.position = get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_offset + 1; 
+    out_variant.id = std::to_string(snarl.start().node_id()) + "_" + std::to_string(snarl.end().node_id());
+    out_variant.filter = "PASS";
+    out_variant.updateAlleleIndexes();
+
+    // add the genotype
+    out_variant.format.push_back("GT");
+    auto& genotype_vector = out_variant.samples[sample_name]["GT"];
+    
+    stringstream vcf_gt;
+    for (int i = 0; i < site_genotype.size(); ++i) {
+        vcf_gt << site_genotype[i];
+        if (i != site_genotype.size() - 1) {
+            vcf_gt << "/";
+        }
+    }
+    genotype_vector.push_back(vcf_gt.str());
+
+    // clean up the alleles to not have so man common prefixes
+    flatten_common_allele_ends(out_variant, true);
+    flatten_common_allele_ends(out_variant, false);
+#ifdef debug
+    for (int i = 0; i < site_traversals.size(); ++i) {
+        cerr << " site trav[" << i << "]=" << pb2json(site_traversals[i]) << endl;
+    }
+    for (int i = 0; i < site_genotype.size(); ++i) {
+        cerr << " site geno[" << i << "]=" << site_genotype[i] << endl;
+    }
+#endif
+    // add some support info
+    snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info, sample_name, out_variant);
+
+    if (!out_variant.alt.empty()) {
+        add_variant(out_variant);
+    }
+}
+
 tuple<size_t, size_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get_ref_interval(
     const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name) const {
     path_handle_t path_handle = graph.get_path_handle(ref_path_name);
@@ -160,6 +263,49 @@ tuple<size_t, size_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get_r
         return make_tuple(end_position, start_position, backward, out_end_step, out_start_step);
     } else {
         return make_tuple(start_position, end_position, backward, out_start_step, out_end_step);
+    }
+}
+
+void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const {
+    if (variant.alt.size() == 0) {
+        return;
+    }
+    size_t min_len = variant.alleles[0].length();
+    for (int i = 1; i < variant.alleles.size(); ++i) {
+        min_len = std::min(min_len, variant.alleles[i].length());
+    }
+    // want to leave at least one in the reference position
+    if (min_len > 0) {
+        --min_len;
+    }
+
+    bool match = true;
+    int shared_prefix_len = 0;
+    for (int i = 0; i < min_len && match; ++i) {
+        char c1 = std::toupper(variant.alleles[0][!backward ? i : variant.alleles[0].length() - 1 - i]);
+        for (int j = 1; j < variant.alleles.size() && match; ++j) {
+            char c2 = std::toupper(variant.alleles[j][!backward ? i : variant.alleles[j].length() - 1 - i]);
+            match = c1 == c2;
+        }
+        if (match) {
+            ++shared_prefix_len;
+        }
+    }
+
+    if (!backward) {
+        variant.position += shared_prefix_len;
+    }
+    for (int i = 0; i < variant.alleles.size(); ++i) {
+        if (!backward) {
+            variant.alleles[i] = variant.alleles[i].substr(shared_prefix_len);
+        } else {
+            variant.alleles[i] = variant.alleles[i].substr(0, variant.alleles[i].length() - shared_prefix_len);
+        }
+        if (i == 0) {
+            variant.ref = variant.alleles[i];
+        } else {
+            variant.alt[i - 1] = variant.alleles[i];
+        }
     }
 }
 
@@ -517,7 +663,7 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
                                                                            path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
             // emit our vcf variant
-            emit_variant(snarl, *rep_trav_finder, called_traversals, genotype, call_info, path_name);
+            emit_variant(graph, snarl_caller, snarl, called_traversals, genotype, 0, call_info, path_name, ref_offsets.find(path_name)->second);
 
             was_called = true;
         }
@@ -676,118 +822,13 @@ LegacyCaller::re_genotype(const Snarl& snarl, TraversalFinder& trav_finder,
             gt_set.insert(in_genotype[i]);
         }
     }
-
+    
     // re-genotype the candidates
     vector<int> rg_genotype;
     unique_ptr<SnarlCaller::CallInfo> rg_call_info;
     std::tie(rg_genotype, rg_call_info) = snarl_caller.genotype(snarl, rg_traversals, 0, ploidy, ref_path_name, ref_interval);
 
-    // convert our output to something that emit_variant() will understand
-    // todo: this is needlessly inefficient and should be streamlined to operate
-    // directly on rg_traversals/rg_genotype once testing done
-    vector<SnarlTraversal> out_traversals;
-    vector<int> out_genotype;
-    
-
-    for (int i = 0; i < rg_genotype.size(); ++i) {
-        out_traversals.push_back(rg_traversals[rg_genotype[i]]);
-        out_genotype.push_back(rg_genotype[i]);
-    }
-
-    return make_tuple(out_traversals, out_genotype, std::move(rg_call_info));
-}
-
-void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder, const vector<SnarlTraversal>& called_traversals,
-                                const vector<int>& genotype, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                                const string& ref_path_name) const {
-    
-    // convert traversal to string
-    function<string(const SnarlTraversal&)> trav_string = [&](const SnarlTraversal& trav) {
-        string seq;
-        for (int i = 0; i < trav.visit_size(); ++i) {
-            seq += graph.get_sequence(graph.get_handle(trav.visit(i).node_id(), trav.visit(i).backward()));
-        }
-        return seq;
-    };
-
-    vcflib::Variant out_variant;
-
-    // when calling alt/alt, the reference traversal doesn't end up in called_traversals.
-    // this should get changed, but in the meantime we add it back here (as we need it for
-    // the VCF output)
-    // udpate: the reference traversal will be there when re-genotyping, but we can leave this logic
-    // in case we want to ever add an option to toggle this.
-    vector<SnarlTraversal> site_traversals;
-    vector<int> site_genotype;
-    for (int i = 0; i < genotype.size(); ++i) {
-        if (genotype[i] == 0) {
-            site_traversals.push_back(called_traversals[i]);
-            break;
-        }
-    }
-    if (site_traversals.empty()) {
-        site_traversals.push_back(get_reference_traversal(snarl, trav_finder));
-    }
-    out_variant.ref = trav_string(site_traversals[0]);
-    
-    // deduplicate alleles and compute the site traversals and genotype
-    map<string, int> allele_to_gt;    
-    allele_to_gt[out_variant.ref] = 0;    
-    for (int i = 0; i < genotype.size(); ++i) {
-        if (genotype[i] == 0) {
-            site_genotype.push_back(0);
-        } else {
-            string allele_string = trav_string(called_traversals[i]);
-            if (allele_to_gt.count(allele_string)) {
-                site_genotype.push_back(allele_to_gt[allele_string]);
-            } else {
-                site_traversals.push_back(called_traversals[i]);
-                site_genotype.push_back(allele_to_gt.size());
-                allele_to_gt[allele_string] = site_genotype.back();
-            }
-        }
-    }
-
-    out_variant.alt.resize(allele_to_gt.size() - 1);
-    out_variant.alleles.resize(allele_to_gt.size());
-    for (auto& allele_gt : allele_to_gt) {
-        if (allele_gt.second > 0) {
-            out_variant.alt[allele_gt.second - 1] = allele_gt.first;
-        }
-        out_variant.alleles[allele_gt.second] = allele_gt.first;
-    }
-
-    // fill out the rest of the variant
-    out_variant.sequenceName = ref_path_name;
-    // +1 to convert to 1-based VCF
-    out_variant.position = get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_offsets.find(ref_path_name)->second + 1; 
-    out_variant.id = std::to_string(snarl.start().node_id()) + "_" + std::to_string(snarl.end().node_id());
-    out_variant.filter = "PASS";
-    out_variant.updateAlleleIndexes();
-
-    // add the genotype
-    out_variant.format.push_back("GT");
-    auto& genotype_vector = out_variant.samples[sample_name]["GT"];
-    
-    stringstream vcf_gt;
-    for (int i = 0; i < site_genotype.size(); ++i) {
-        vcf_gt << site_genotype[i];
-        if (i != site_genotype.size() - 1) {
-            vcf_gt << "/";
-        }
-    }
-    genotype_vector.push_back(vcf_gt.str());
-
-    // clean up the alleles to not have so man common prefixes
-    flatten_common_allele_ends(out_variant, true);
-    flatten_common_allele_ends(out_variant, false);
-
-    // add some support info
-    snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info, sample_name, out_variant);
-
-    if (!out_variant.alt.empty()) {
-        add_variant(out_variant);
-    }
+    return make_tuple(rg_traversals, rg_genotype, std::move(rg_call_info));
 }
 
 bool LegacyCaller::is_traversable(const Snarl& snarl) {
@@ -815,49 +856,6 @@ pair<string, PathIndex*> LegacyCaller::find_index(const Snarl& snarl, const vect
         }
     }
     return make_pair("", nullptr);
-}
-
-void LegacyCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const {
-    if (variant.alt.size() == 0) {
-        return;
-    }
-    size_t min_len = variant.alleles[0].length();
-    for (int i = 1; i < variant.alleles.size(); ++i) {
-        min_len = std::min(min_len, variant.alleles[i].length());
-    }
-    // want to leave at least one in the reference position
-    if (min_len > 0) {
-        --min_len;
-    }
-
-    bool match = true;
-    int shared_prefix_len = 0;
-    for (int i = 0; i < min_len && match; ++i) {
-        char c1 = std::toupper(variant.alleles[0][!backward ? i : variant.alleles[0].length() - 1 - i]);
-        for (int j = 1; j < variant.alleles.size() && match; ++j) {
-            char c2 = std::toupper(variant.alleles[j][!backward ? i : variant.alleles[j].length() - 1 - i]);
-            match = c1 == c2;
-        }
-        if (match) {
-            ++shared_prefix_len;
-        }
-    }
-
-    if (!backward) {
-        variant.position += shared_prefix_len;
-    }
-    for (int i = 0; i < variant.alleles.size(); ++i) {
-        if (!backward) {
-            variant.alleles[i] = variant.alleles[i].substr(shared_prefix_len);
-        } else {
-            variant.alleles[i] = variant.alleles[i].substr(0, variant.alleles[i].length() - shared_prefix_len);
-        }
-        if (i == 0) {
-            variant.ref = variant.alleles[i];
-        } else {
-            variant.alt[i - 1] = variant.alleles[i];
-        }
-    }
 }
 
 FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
@@ -993,7 +991,8 @@ bool FlowCaller::call_snarl(const Snarl& snarl) {
 
     assert(trav_genotype.empty() || trav_genotype.size() == 2);
 
-    emit_variant(snarl, ref_trav_idx, weighted_travs.first, trav_genotype, trav_call_info, ref_path_name);
+    emit_variant(graph, snarl_caller, snarl, weighted_travs.first, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
+                 ref_offsets[ref_path_name]);
 
     return trav_genotype.size() == 2;    
 }
@@ -1011,163 +1010,6 @@ string FlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>
     return header;
 }
 
-void FlowCaller::emit_variant(const Snarl& snarl, int ref_trav_idx, const vector<SnarlTraversal>& called_traversals,
-                                const vector<int>& genotype, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                                const string& ref_path_name) const {
-    
-    // convert traversal to string
-    function<string(const SnarlTraversal&)> trav_string = [&](const SnarlTraversal& trav) {
-        string seq;
-        for (int i = 0; i < trav.visit_size(); ++i) {
-            seq += graph.get_sequence(graph.get_handle(trav.visit(i).node_id(), trav.visit(i).backward()));
-        }
-        return seq;
-    };
-
-#ifdef debug
-    cerr << endl;
-    for (int i = 0 ; i < called_traversals.size() ; ++i) {
-        cerr << "called trav " << i << " " << pb2json(called_traversals[i]) << endl;
-    }
-    for (int i = 0 ; i < genotype.size(); ++i) {
-        cerr << "gt " << i << ": " << genotype[i] << endl;
-    }
-    cerr << endl;
-#endif
-    
-    vcflib::Variant out_variant;
-
-    vector<SnarlTraversal> site_traversals;
-    vector<int> site_genotype;
-    out_variant.ref = trav_string(called_traversals[ref_trav_idx]);
-
-    // todo: using too may structures for this
-
-    // map the string of a traversal to its new index in site_traversals[]
-    map<string, int> allele_map;
-    // map a value in genotypes[] to site_genotypes[]
-    map<int, int> gt_map;
-    set<int> gt_set;
-    // make sure ref traversal is first
-    allele_map[out_variant.ref] = 0;
-    site_traversals.push_back(called_traversals[ref_trav_idx]);
-    gt_map[ref_trav_idx] = 0;
-    gt_set.insert(0);
-        
-    // merge up common traversals and update the genotype to reflect
-    // their new indices
-    for (int i = 0; i < called_traversals.size(); ++i) {
-        string allele_string = trav_string(called_traversals[i]);
-        int new_gt = -1;
-        if (!allele_map.count(allele_string)) {
-            new_gt = site_traversals.size();
-            allele_map[allele_string] = new_gt;
-            site_traversals.push_back(called_traversals[i]);
-        } else {
-            new_gt = allele_map.at(allele_string);
-        }
-        gt_map[i] = new_gt;
-    }
-    for (int i = 0; i < genotype.size(); ++i) {
-        int new_gt = gt_map.at(genotype[i]);
-        site_genotype.push_back(new_gt);
-        gt_set.insert(new_gt);
-    }
-
-#ifdef debug
-    for (int i = 0 ; i < site_traversals.size(); ++i) {
-        cerr << " site trav " << i << " = " << pb2json(site_traversals[i]) << endl;
-    }
-    for (int i = 0 ; i < site_genotype.size(); ++i) {
-        cerr << " site genotype " << i << " = " << site_genotype[i] << endl;
-    }
-#endif
-    
-    out_variant.alleles.push_back(out_variant.ref);
-    for (int i = 1; i < site_traversals.size(); ++i) {
-        // todo: we can toggle this check off to write all the traversals (some folks want this option)
-        if (gt_set.count(i)) {
-            // todo: don't recompute this
-            out_variant.alt.push_back(trav_string(site_traversals[i]));
-            out_variant.alleles.push_back(out_variant.alt.back());
-        }
-    }
-
-    // fill out the rest of the variant
-    out_variant.sequenceName = ref_path_name;
-    // +1 to convert to 1-based VCF
-    out_variant.position = get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_offsets.find(ref_path_name)->second + 1; 
-    out_variant.id = std::to_string(snarl.start().node_id()) + "_" + std::to_string(snarl.end().node_id());
-    out_variant.filter = "PASS";
-    out_variant.updateAlleleIndexes();
-
-    // add the genotype
-    out_variant.format.push_back("GT");
-    auto& genotype_vector = out_variant.samples[sample_name]["GT"];
-    
-    stringstream vcf_gt;
-    for (int i = 0; i < site_genotype.size(); ++i) {
-        vcf_gt << site_genotype[i];
-        if (i != site_genotype.size() - 1) {
-            vcf_gt << "/";
-        }
-    }
-    genotype_vector.push_back(vcf_gt.str());
-
-    // clean up the alleles to not have so man common prefixes
-    flatten_common_allele_ends(out_variant, true);
-    flatten_common_allele_ends(out_variant, false);
-
-    // add some support info
-    snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info, sample_name, out_variant);
-
-    if (!out_variant.alt.empty()) {
-        add_variant(out_variant);
-    }
-}
-
-void FlowCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const {
-    if (variant.alt.size() == 0) {
-        return;
-    }
-    size_t min_len = variant.alleles[0].length();
-    for (int i = 1; i < variant.alleles.size(); ++i) {
-        min_len = std::min(min_len, variant.alleles[i].length());
-    }
-    // want to leave at least one in the reference position
-    if (min_len > 0) {
-        --min_len;
-    }
-
-    bool match = true;
-    int shared_prefix_len = 0;
-    for (int i = 0; i < min_len && match; ++i) {
-        char c1 = std::toupper(variant.alleles[0][!backward ? i : variant.alleles[0].length() - 1 - i]);
-        for (int j = 1; j < variant.alleles.size() && match; ++j) {
-            char c2 = std::toupper(variant.alleles[j][!backward ? i : variant.alleles[j].length() - 1 - i]);
-            match = c1 == c2;
-        }
-        if (match) {
-            ++shared_prefix_len;
-        }
-    }
-
-    if (!backward) {
-        variant.position += shared_prefix_len;
-    }
-    for (int i = 0; i < variant.alleles.size(); ++i) {
-        if (!backward) {
-            variant.alleles[i] = variant.alleles[i].substr(shared_prefix_len);
-        } else {
-            variant.alleles[i] = variant.alleles[i].substr(0, variant.alleles[i].length() - shared_prefix_len);
-        }
-        if (i == 0) {
-            variant.ref = variant.alleles[i];
-        } else {
-            variant.alt[i - 1] = variant.alleles[i];
-        }
-    }
-}
 
 }
 

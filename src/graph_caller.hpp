@@ -69,10 +69,19 @@ public:
     
 protected:
 
+    /// print a vcf variant 
+    void emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
+                      const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
+                      const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
+                      const string& ref_path_name, int ref_offset) const;
+
     /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
     /// the bool is true if the snarl's backward on the path
     tuple<size_t, size_t, bool, step_handle_t, step_handle_t> get_ref_interval(const PathPositionHandleGraph& graph, const Snarl& snarl,
                                                                                const string& ref_path_name) const;
+
+    /// clean up the alleles to not share common prefixes / suffixes
+    void flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const;
     
     /// output vcf
     mutable vcflib::VariantCallFile output_vcf;
@@ -171,18 +180,11 @@ protected:
                                                                                               const string& ref_path_name,
                                                                                               pair<size_t, size_t> ref_interval) const;
 
-    /// print a vcf variant 
-    void emit_variant(const Snarl& snarl, TraversalFinder& trav_finder, const vector<SnarlTraversal>& called_traversals,
-                      const vector<int>& genotype, const unique_ptr<SnarlCaller::CallInfo>& call_info, const string& ref_path_name) const;
-
     /// check if a site can be handled by the RepresentativeTraversalFinder
     bool is_traversable(const Snarl& snarl);
 
     /// look up a path index for a site and return its name too
     pair<string, PathIndex*> find_index(const Snarl& snarl, const vector<PathIndex*> path_indexes) const;
-
-    /// clean up the alleles to not share common prefixes / suffixes
-    void flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const;
 
 protected:
 
@@ -247,18 +249,6 @@ public:
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
-
-protected:
-
-    // TODO:
-    // these methods can and should be merged with legacy caller, maybe by pushing up to VCFOutputCaller
-
-    /// print a vcf variant 
-    void emit_variant(const Snarl& snarl, int ref_trav_idx, const vector<SnarlTraversal>& called_traversals,
-                      const vector<int>& genotype, const unique_ptr<SnarlCaller::CallInfo>& call_info, const string& ref_path_name) const;
-
-    /// clean up the alleles to not share common prefixes / suffixes
-    void flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const;
 
 protected:
 

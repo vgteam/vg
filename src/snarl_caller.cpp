@@ -685,7 +685,7 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
                                                 const string& sample_name,
                                                 vcflib::Variant& variant) {
 
-  //assert(traversals.size() == variant.alleles.size());
+    assert(traversals.size() == variant.alleles.size());
 
     // get the traversal sizes
     vector<int> traversal_sizes = support_finder.get_traversal_sizes(traversals);
