@@ -958,6 +958,8 @@ bool FlowCaller::call_snarl(const Snarl& snarl) {
         visit->set_backward(graph.get_is_reverse(cur_handle));
         if (cur == get<4>(ref_interval)) {
             break;
+        } else if (get<2>(ref_interval) == true) {
+            cur = graph.get_previous_step(cur);
         } else {
             cur = graph.get_next_step(cur);
         }
