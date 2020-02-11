@@ -33,6 +33,7 @@ void help_call(char** argv) {
        << "    -b, --het-bias M,N      Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
+       << "    -g, --genotype          Use genotyping logic without VCF (use when running on non-augmented graph without -v)" << endl
        << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
        << "    -i, --ins-fasta FILE    Insertions fasta (required if VCF contains symbolic insertions)" << endl
        << "    -s, --sample NAME       Sample name [default=SAMPLE]" << endl
@@ -58,6 +59,7 @@ int main_call(int argc, char** argv) {
     string bias_string;
     bool ratio_caller = false;
     bool legacy = false;
+    bool genotype = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -69,6 +71,7 @@ int main_call(int argc, char** argv) {
             {"het-bias", required_argument, 0, 'b'},
             {"min-support", required_argument, 0, 'm'},
             {"vcf", required_argument, 0, 'v'},
+            {"genotype", no_argument, 0, 'g'},
             {"ref-fasta", required_argument, 0, 'f'},
             {"ins-fasta", required_argument, 0, 'i'},
             {"sample", required_argument, 0, 's'},            
@@ -84,7 +87,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Bb:m:v:f:i:s:r:p:o:l:Lt:h",
+        c = getopt_long (argc, argv, "k:Bb:m:v:gf:i:s:r:p:o:l:Lt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -107,6 +110,10 @@ int main_call(int argc, char** argv) {
             break;
         case 'v':
             vcf_filename = optarg;
+            genotype = true;
+            break;
+        case 'g':
+            genotype = true;
             break;
         case 'f':
             ref_fasta_filename = optarg;
@@ -273,7 +280,15 @@ int main_call(int argc, char** argv) {
         // Make a packed traversal support finder (using cached veresion important for poisson caller)
         PackedTraversalSupportFinder* packed_support_finder = new CachedPackedTraversalSupportFinder(*packer, *snarl_manager);
         support_finder = unique_ptr<TraversalSupportFinder>(packed_support_finder);
-        
+        if (genotype) {
+            // need to use average support when genotyping as small differences in between sample and graph
+            // will lead to spots with 0-support, espeically in and around SVs. 
+            support_finder->set_support_switch_threshold(50, 50);
+        } else {
+            // if we're not genotyping, then the graph has been augmented with the reads and there's no
+            // excuse for calling something with 0-support
+            support_finder->set_support_switch_threshold(numeric_limits<size_t>::max(), 50);
+        }        
         SupportBasedSnarlCaller* packed_caller = nullptr;
 
         if (ratio_caller == false) {

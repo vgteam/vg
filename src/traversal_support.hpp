@@ -84,6 +84,9 @@ public:
     /// used for up-weighting large deletion edges in complex snarls with average support
     unordered_map<id_t, size_t> get_ref_offsets(const SnarlTraversal& ref_trav) const;
 
+    /// set the threshold
+    virtual void set_support_switch_threshold(size_t trav_thresh, size_t node_thresh);
+
 protected:
 
     size_t average_traversal_support_switch_threshold = 50;

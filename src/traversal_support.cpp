@@ -71,8 +71,8 @@ vector<Support> TraversalSupportFinder::get_traversal_genotype_support(const vec
     vector<int> tgt_travs(tgt_trav_set.begin(), tgt_trav_set.end());
     // get the support of just the alleles in the genotype, evenly splitting shared stuff
     vector<Support> allele_support = get_traversal_set_support(traversals, tgt_travs, tgt_trav_set, false, {}, true, ref_trav_idx);
-    // get the support of everythin else, treating stuff in the genotype alleles as 0
-    vector<Support> other_support = get_traversal_set_support(traversals, tgt_travs, other_trav_subset, false, allele_support, false, ref_trav_idx);
+    // get the support of everythin else, subtracting genotype supports, and splitting mutual supports
+    vector<Support> other_support = get_traversal_set_support(traversals, tgt_travs, other_trav_subset, false, allele_support, true, ref_trav_idx);
     // combine the above two vectors
     for (int allele : tgt_travs) {
         other_support[allele] = allele_support[allele];
@@ -303,6 +303,11 @@ unordered_map<id_t, size_t> TraversalSupportFinder::get_ref_offsets(const SnarlT
         }
     }
     return ref_offsets;
+}
+
+void TraversalSupportFinder::set_support_switch_threshold(size_t trav_thresh, size_t node_thresh) {
+    average_traversal_support_switch_threshold = trav_thresh;
+    average_node_support_switch_threshold = node_thresh;
 }
 
 PackedTraversalSupportFinder::PackedTraversalSupportFinder(const Packer& packer, SnarlManager& snarl_manager) :
