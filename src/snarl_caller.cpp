@@ -111,7 +111,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> RatioSupportSnarlCaller::ge
     vector<int> traversal_sizes = support_finder.get_traversal_sizes(traversals);
 
     // get the supports of each traversal independently
-    vector<Support> supports = support_finder.get_traversal_set_support(traversals, {}, {}, false, {}, false, ref_trav_idx);
+    vector<Support> supports = support_finder.get_traversal_set_support(traversals, {}, {}, {}, false, {}, {}, ref_trav_idx);
     int best_allele = get_best_support(supports, {});
 
 #ifdef debug
@@ -126,7 +126,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> RatioSupportSnarlCaller::ge
 
     // we prune out traversals whose exclusive support (structure that is not shared with best traversal)
     // doesn't meet a certain cutoff
-    vector<Support> secondary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, {}, true, {}, false, ref_trav_idx);    
+    vector<Support> secondary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, {}, {}, true, {}, {}, ref_trav_idx);    
     vector<int> skips = {best_allele};
     for (int i = 0; i < secondary_exclusive_supports.size(); ++i) {
         double bias = get_bias(traversal_sizes, i, best_allele, ref_trav_idx);
@@ -139,7 +139,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> RatioSupportSnarlCaller::ge
         }
     }
     // get the supports of each traversal in light of best
-    vector<Support> secondary_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, {}, false, {}, false, ref_trav_idx);
+    vector<Support> secondary_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, {}, {}, false, {}, {}, ref_trav_idx);
     int second_best_allele = get_best_support(secondary_supports, {skips});
 
     // get the supports of each traversal in light of second best
@@ -148,7 +148,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> RatioSupportSnarlCaller::ge
     int third_best_allele = -1;
     if (second_best_allele != -1) {
         // prune out traversals whose exclusive support relative to second best doesn't pass cut
-        vector<Support> tertiary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {second_best_allele}, {}, true, {}, false, ref_trav_idx);
+        vector<Support> tertiary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {second_best_allele}, {}, {}, true, {}, {}, ref_trav_idx);
         skips.push_back(best_allele);
         skips.push_back(second_best_allele);
         for (int i = 0; i < tertiary_exclusive_supports.size(); ++i) {
@@ -157,7 +157,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> RatioSupportSnarlCaller::ge
                 skips.push_back(i);
             }
         }
-        tertiary_supports = support_finder.get_traversal_set_support(traversals, {second_best_allele}, {}, false, {}, false, ref_trav_idx);
+        tertiary_supports = support_finder.get_traversal_set_support(traversals, {second_best_allele}, {}, {}, false, {}, {}, ref_trav_idx);
         third_best_allele = get_best_support(tertiary_supports, skips);
     }
 
@@ -483,7 +483,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
     vector<int> traversal_sizes = support_finder.get_traversal_sizes(traversals);
 
     // get the supports of each traversal independently
-    vector<Support> supports = support_finder.get_traversal_set_support(traversals, {}, {}, false, {}, false, ref_trav_idx);
+    vector<Support> supports = support_finder.get_traversal_set_support(traversals, {}, {}, {}, false, {}, {}, ref_trav_idx);
 
     // sort the traversals by support
     vector<int> ranked_traversals = rank_by_support(supports);
@@ -518,7 +518,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
         
             // we prune out traversals whose exclusive support (structure that is not shared with best traversal)
             // doesn't meet a certain cutoff
-            vector<Support> secondary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, top_traversals, true, {}, false, ref_trav_idx);
+            vector<Support> secondary_exclusive_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, {}, top_traversals, true, {}, {}, ref_trav_idx);
             for (int j = 0; j < secondary_exclusive_supports.size(); ++j) {
                 if (j != best_allele &&
                     support_val(secondary_exclusive_supports[j]) < min_total_support_for_call &&
@@ -528,7 +528,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
             }
 
             // get the supports of each traversal in light of best
-            vector<Support> secondary_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, top_traversals, false, {}, false, ref_trav_idx);
+            vector<Support> secondary_supports = support_finder.get_traversal_set_support(traversals, {best_allele}, {}, top_traversals, false, {}, {}, ref_trav_idx);
             vector<int> ranked_secondary_traversals = rank_by_support(secondary_supports);
 
             // add the homozygous genotype for our best allele
