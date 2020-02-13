@@ -48,6 +48,21 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
         return minimizers[a].agglomeration_start < minimizers[b].agglomeration_start;
     });
 
+    // Have a priority queue for tracking the agglomerations that a base is currently overlapping.
+    // Prioritize earliest-ending best, and then latest-starting best.
+    // This is less, and greater priority is at the front of the queue (better).
+    // TODO: do we really need to care about the start here?
+    auto agglomeration_priority = [&](const size_t& a, const size_t& b) {
+        // Returns true if a is worse (ends later, or ends at the same place and starts earlier).
+        auto& ma = minimizers[a];
+        auto& mb = minimizers[b];
+        auto a_end = ma.agglomeration_start + ma.agglomeration_length;
+        auto b_end = mb.agglomeration_start + mb.agglomeration_length;
+        return (a_end > b_end) || (a_end == b_end && ma.agglomeration_start < mb.agglomeration_start);
+    };
+    // We maintain our own heap so we can iterate over it.
+    vector<size_t> active_agglomerations;
+
     // A window in flight is a pair of start position, inclusive end position
     struct window_t {
         size_t first;
@@ -56,11 +71,11 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 
     // Have a priority queue of window starts and ends, prioritized earliest-ending best, and then latest-starting best.
     // This is less, and greater priority is at the front of the queue (better).
-    auto priority = [&](const window_t& a, const window_t& b) {
+    auto window_priority = [&](const window_t& a, const window_t& b) {
         // Returns true if a is worse (ends later, or ends at the same place and starts earlier).
         return (a.last > b.last) || (a.last == b.last && a.first < b.first);
     };
-    priority_queue<window_t, vector<window_t>, decltype(priority)> active_windows(priority);
+    priority_queue<window_t, vector<window_t>, decltype(window_priority)> active_windows(window_priority);
     
     // Have a cursor for which agglomeration should come in next.
     auto next_agglomeration = broken.begin();
@@ -81,6 +96,41 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 #ifdef debug
         cerr << "At base " << i << endl;
 #endif
+
+        // Bring in new agglomerations and windows that start at this base.
+        while (next_agglomeration != broken.end() && minimizers[*next_agglomeration].agglomeration_start == i) {
+            // While the next agglomeration starts here
+
+            // Record it
+            active_agglomerations.push_back(*next_agglomeration);
+            std::push_heap(active_agglomerations.begin(), active_agglomerations.end(), agglomeration_priority);
+
+            // Look it up
+            auto& minimizer = minimizers[*next_agglomeration];
+            
+            // Determine its window size from its index.
+            auto& source_index = *minimizer_indexes[minimizer.origin];
+            size_t window_size = source_index.k() + source_index.w() - 1;
+            
+#ifdef debug
+            cerr << "\tBegin agglomeration of " << (minimizer.agglomeration_length - window_size + 1)
+                << " windows of " << window_size << " bp each" << endl;
+#endif
+
+            for (size_t start = minimizer.agglomeration_start;
+                start + window_size - 1 < minimizer.agglomeration_start + minimizer.agglomeration_length;
+                start++) {
+                // Add all the agglomeration's windows to the queue, looping over their start bases in the read.
+                window_t add = {start, start + window_size - 1};
+#ifdef debug
+                cerr << "\t\t" << add.first << " - " << add.last << endl;
+#endif
+                active_windows.push(add);
+            }
+            
+            // And advance the cursor
+            ++next_agglomeration;
+        }
         
         // We have the start and end of the latest-starting window ending before here (may be none)
         
@@ -92,18 +142,72 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
             // that hasn't ended yet, or a new agglomeration starts here.
             
 #ifdef debug
-            cerr << "\tBase is acceptable (" << sequence[i] << ", " << active_windows.size() << " active windows"
-                << ((next_agglomeration != broken.end() && minimizers[*next_agglomeration].agglomeration_start == i) ? ", new starting" : "") 
-                << ")" << endl;
+            cerr << "\tBase is acceptable (" << sequence[i] << ", " << active_agglomerations.size() << " active agglomerations, "
+                << active_windows.size() << " active windows)" << endl;
 #endif
             
+            // Score mutating the base itself, thus causing all the windows it touches to be wrong.
+            // TODO: account for windows with multiple hits not having to be explained at full cost here.
+            // We start with the cost to mutate the base.
+            double base_cost = quality_bytes[i];
+
+#ifdef debug
+            cerr << "\t\tBase base quality: " << base_cost << endl;
+#endif
+
+            for (const size_t& active_index : active_agglomerations) {
+                // Then, we look at each agglomeration the base overlaps
+
+                // Find the minimizer whose agglomeration we are looking at
+                auto& active = minimizers[active_index];
+
+                // Find its index
+                auto& index = *minimizer_indexes[active.origin];
+
+                if (i >= active.value.offset &&
+                    i < active.value.offset + index.k()) {
+                    // If the base falls in the minimizer, we don't do anything. Just mutating the base is enough to create this wrong minimizer.
+                    continue;
+                }
+
+                // If the base falls outside the minimizer, it participates in
+                // some number of other possible minimizers in the
+                // agglomeration. Compute that, accounting for edge effects.
+                size_t possible_minimizers = min(index.k(), min(i - active.agglomeration_start + 1, (active.agglomeration_start + active.agglomeration_length) - i));
+
+                // Then for each of those possible minimizers, we need P(would have beaten the current minimizer).
+                // We approximate this as constant across the possible minimizers.
+                // And since we want to OR together beating, we actually AND together not-beating and then not it.
+                // So we track the probability of not beating.
+                double each_not_beat = 1.0 - active.value.hash / (double) numeric_limits<decltype(active.value.hash)>::max();
+                // And then we AND
+                double all_not_beat = pow(each_not_beat, possible_minimizers);
+                // And then we invert and convert to phred 
+                double any_beat_phred = prob_to_phred(1.0 - all_not_beat);
+
+#ifdef debug
+                cerr << "\t\tBase flanks minimizer " << active_index << " (" << active.value.offset
+                    << "-" << (active.value.offset + index.k()) << ") and has " << possible_minimizers
+                    << " chances to have beaten it at P=" << (1.0 - each_not_beat) << " each; cost to have beaten with any is Phred " << any_beat_phred << endl;
+#endif
+
+                // Then we AND (sum) the Phred of that in, as an additional cost to mutating this base and kitting all the windows it covers.
+                // This makes low-quality bases outside of minimizers produce fewer low MAPQ caps, and accounts for the robustness of minimizers to some errors.
+                base_cost += any_beat_phred;
+
+            }
+                
+            // Now we know the cost of mutating this base, so we need to
+            // compute the total cost of a solution through here, mutating this
+            // base.
+
             // Look at the start of that latest-starting window ending before here.
             
             if (latest_starting_ending_before.first == numeric_limits<size_t>::max()) {
                 // If there is no such window, this is the first base hit, so
                 // record the cost of hitting it.
                 
-                costs[i] = quality_bytes[i];
+                costs[i] = base_cost;
                 
 #ifdef debug
                 cerr << "\tFirst base hit, costs " << costs[i] << endl;
@@ -120,7 +224,7 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
                 double min_prev_cost = *latest_starting_ending_before_winner;
                     
                 // Add the cost of hitting this base
-                costs[i] = min_prev_cost + quality_bytes[i];
+                costs[i] = min_prev_cost + base_cost;
                 
 #ifdef debug
                 cerr << "\tComes from prev base at " << (latest_starting_ending_before_winner - costs.begin()) << ", costs " << costs[i] << endl;
@@ -133,40 +237,23 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
             // Nothing to do!
         }
         
-        // Now we compute the start of the latest-starting window ending here or before (and update the active windows).
+        // Now we compute the start of the latest-starting window ending here or before, and deactivate agglomerations/windows.
         
-        while (next_agglomeration != broken.end() && minimizers[*next_agglomeration].agglomeration_start == i) {
-            // While the next agglomeration starts here
-            
-            // Look it up
-            auto& minimizer = minimizers[*next_agglomeration];
-            
-            // Determine its window size from its index.
-            auto& source_index = *minimizer_indexes[minimizer.origin];
-            size_t window_size = source_index.k() + source_index.w() - 1;
-            
+        while (!active_agglomerations.empty() &&
+            minimizers[active_agglomerations.front()].agglomeration_start + minimizers[active_agglomerations.front()].agglomeration_length - 1 == i) {
+            // Look at the queue to see if an agglomeration ends here.
+
 #ifdef debug
-            cerr << "\tBegin agglomeration of " << (minimizer.agglomeration_length - window_size + 1)
-                << " windows of " << window_size << " bp each" << endl;
+            cerr << "\tEnd agglomeration " << active_agglomerations.front() << endl;
 #endif
             
-            for (size_t start = minimizer.agglomeration_start;
-                start + window_size - 1 < minimizer.agglomeration_start + minimizer.agglomeration_length;
-                start++) {
-                // Add all the agglomeration's windows to the queue, looping over their start bases in the read.
-                window_t add = {start, start + window_size - 1};
-#ifdef debug
-                cerr << "\t\t" << add.first << " - " << add.last << endl;
-#endif
-                active_windows.push(add);
-            }
-            
-            // And advance the cursor
-            ++next_agglomeration;
+            std::pop_heap(active_agglomerations.begin(), active_agglomerations.end(), agglomeration_priority);
+            active_agglomerations.pop_back();
         }
 
         while (!active_windows.empty() && active_windows.top().last == i) {
-            // The look at the queue to see if a window ends here. This is second so that we can handle 1-base windows.
+            // The look at the queue to see if a window ends here. This is
+            // after windows are added so that we can handle 1-base windows.
             
 #ifdef debug
             cerr << "\tEnd window " << active_windows.top().first << " - " << active_windows.top().last << endl;

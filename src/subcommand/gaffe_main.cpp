@@ -311,7 +311,7 @@ void help_gaffe(char** argv) {
     << "  -e, --max-extensions INT      extend up to INT clusters [48]" << endl
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
     << "  -s, --cluster-score INT       only extend clusters if they are within INT of the best score [50]" << endl
-    << "  -S, --pad-cluster-score INT   only extend clusters if they are within INT of the best score [50]" << endl
+    << "  -S, --pad-cluster-score INT   also extend clusters within INT of above threshold to get a second-best cluster [0]" << endl
     << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within FLOAT of the best read coverage [0.4]" << endl
     << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [1]" << endl
     << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
@@ -365,7 +365,7 @@ int main_gaffe(int argc, char** argv) {
     //Throw away cluster with scores that are this amount below the best
     Range<double> cluster_score = 50;
     //Unless they are the second best and within this amount beyond that
-    Range<double> pad_cluster_score = 20;
+    Range<double> pad_cluster_score = 0;
     //Throw away clusters with coverage this amount below the best 
     Range<double> cluster_coverage = 0.4;
     //Throw away extension sets with scores that are this amount below the best
