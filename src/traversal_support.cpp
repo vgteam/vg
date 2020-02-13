@@ -5,7 +5,7 @@
 
 namespace vg {
 
-TraversalSupportFinder::TraversalSupportFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager) :
+TraversalSupportFinder::TraversalSupportFinder(const HandleGraph& graph, SnarlManager& snarl_manager) :
     graph(graph),
     snarl_manager(snarl_manager) {
 }
@@ -210,6 +210,10 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
             } else if (share_count.first > 0.) {
                 // our counts are supports, so we need to normalize by the support
                 // scale factor is the support of the traversal over the total support of the node
+#ifdef debug
+                cerr << " doing a scale factor of " << support_val(shared_support[trav_idx]) << " / " <<  share_count.first
+                << " where the min in is " << support_val(min_support) << endl;
+#endif
                 scale_factor = support_val(shared_support[trav_idx]) / share_count.first;
             }
         }
@@ -230,11 +234,15 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
             scaled_support_min *= scale_factor;
             scaled_support_avg *= scale_factor;
 
-            tot_supports_min[trav_idx] += scaled_support_min;
+            tot_supports_min[trav_idx] += scaled_support_min * length;
             tot_supports_avg[trav_idx] += scaled_support_avg * length;
             tot_sizes[trav_idx] += length;
             min_supports_min[trav_idx] = support_min(min_supports_min[trav_idx], scaled_support_min);
-            min_supports_avg[trav_idx] = support_min(min_supports_avg[trav_idx], scaled_support_avg * length);
+            min_supports_avg[trav_idx] = support_min(min_supports_avg[trav_idx], scaled_support_avg);
+#ifdef debug
+            cerr << "updating min support to " << pb2json(min_supports_min[trav_idx]) << endl;
+            cerr << "updating min avg support to " << pb2json(min_supports_avg[trav_idx]) << endl;
+#endif
         }
     };
 
@@ -243,6 +251,9 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
         if (!tgt_travs.empty() && !tgt_travs.count(trav_idx)) {
             continue;
         }
+#ifdef debug
+        cerr << "Doing Trav " << trav_idx << endl;
+#endif
         const SnarlTraversal& trav = traversals[trav_idx];
         for (int visit_idx = 0; visit_idx < trav.visit_size(); ++visit_idx) {
             const Visit& visit = trav.visit(visit_idx);
@@ -360,7 +371,7 @@ void TraversalSupportFinder::set_support_switch_threshold(size_t trav_thresh, si
 }
 
 PackedTraversalSupportFinder::PackedTraversalSupportFinder(const Packer& packer, SnarlManager& snarl_manager) :
-    TraversalSupportFinder(*dynamic_cast<const PathHandleGraph*>(packer.get_graph()), snarl_manager),
+    TraversalSupportFinder(*dynamic_cast<const HandleGraph*>(packer.get_graph()), snarl_manager),
     packer(packer) {
 }
 

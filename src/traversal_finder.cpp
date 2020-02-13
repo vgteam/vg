@@ -3307,7 +3307,7 @@ pair<step_handle_t, bool> VCFTraversalFinder::step_in_path(handle_t handle, path
 }
 
 
-FlowTraversalFinder::FlowTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager,
+FlowTraversalFinder::FlowTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
                                          size_t K,
                                          function<double(handle_t)> node_weight_callback,
                                          function<double(edge_t)> edge_weight_callback) :

@@ -23,7 +23,7 @@ using namespace std;
  */ 
 class TraversalSupportFinder {
 public:
-    TraversalSupportFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager);
+    TraversalSupportFinder(const HandleGraph& graph, SnarlManager& snarl_manager);
     virtual ~TraversalSupportFinder();
 
     /// Support of an edge
@@ -96,7 +96,7 @@ protected:
     /// its position supports.
     size_t average_node_support_switch_threshold = 50;
 
-    const PathHandleGraph& graph;
+    const HandleGraph& graph;
 
     SnarlManager& snarl_manager;
 

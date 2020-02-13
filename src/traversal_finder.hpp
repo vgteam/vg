@@ -573,7 +573,7 @@ protected:
 class FlowTraversalFinder : public TraversalFinder {
     
 protected:
-    const PathHandleGraph& graph;
+    const HandleGraph& graph;
     
     SnarlManager& snarl_manager;
 
@@ -587,7 +587,7 @@ protected:
 public:
     
     // if path_names not empty, only those paths will be considered
-    FlowTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager,
+    FlowTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
                         size_t K,
                         function<double(handle_t)> node_weight_callback,
                         function<double(edge_t)> edge_weight_callback);

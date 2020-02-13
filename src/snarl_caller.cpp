@@ -739,7 +739,7 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     double exp_depth = depth_info.first;
     assert(!isnan(exp_depth));
     // variance/std-err can be nan when binsize < 2.  We just clamp it to 0
-    double depth_err = depth_info.second ? !isnan(depth_info.second) : 0.;
+    double depth_err = !isnan(depth_info.second) ? depth_info.second  : 0.;
 
     double total_likelihood = 0.;
     double ref_likelihood = 1.;
