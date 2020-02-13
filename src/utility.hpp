@@ -118,6 +118,12 @@ inline double prob_to_logprob(double prob) {
 inline double logprob_to_prob(double logprob) {
     return exp(logprob);
 }
+
+// NOT a lob probability
+inline double not_logprob(double logprob) {
+    return prob_to_logprob(1.0 - logprob_to_prob(logprob));
+}
+
 // Add two probabilities (expressed as logprobs) together and return the result
 // as a logprob.
 inline double logprob_add(double logprob1, double logprob2) {
