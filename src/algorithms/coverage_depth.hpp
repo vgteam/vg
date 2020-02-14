@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <tuple>
 #include "handle.hpp"
+#include "statistics.hpp"
 #include "packer.hpp"
 
 namespace vg {

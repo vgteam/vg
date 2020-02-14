@@ -1,21 +1,251 @@
-#ifndef VG_DISTRIBUTIONS_HPP_INCLUDED
-#define VG_DISTRIBUTIONS_HPP_INCLUDED
+#ifndef VG_STATISTICS_HPP_INCLUDED
+#define VG_STATISTICS_HPP_INCLUDED
 
-// distributions.hpp: contains functions for probability distributions.
-// Functions from here are used to estimate likelihoods in genotyping. We also
-// have some portable reimplementations of C++ distributions from <random>
-// because the system-provided ones differ in behavior between STL
-// implementations and compilers.
+/**
+ * \file statistics.hpp
+ *
+ * Defines a range of statistical functions
+ *
+ */
 
-
-#include <map>
 #include <cmath>
+#include <algorithm>
 
 #include "utility.hpp"
 
 namespace vg {
 
 using namespace std;
+ 
+double median(std::vector<int> &v);
+// Online mean-variance computation with wellfords algorithm (pass 0's to 1st 3 params to start)
+void wellford_update(size_t& count, double& mean, double& M2, double new_val);
+pair<double, double> wellford_mean_var(size_t count, double mean, double M2, bool sample_variance = false);
+
+
+template<typename T>
+double stdev(const T& v) {
+    double sum = std::accumulate(v.begin(), v.end(), 0.0);
+    double mean = sum / v.size();
+    std::vector<double> diff(v.size());
+    std::transform(v.begin(), v.end(), diff.begin(), [mean](double x) { return x - mean; });
+    double sq_sum = std::inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
+    return std::sqrt(sq_sum / v.size());
+}
+
+
+// Φ is the normal cumulative distribution function
+// https://en.wikipedia.org/wiki/Cumulative_distribution_function
+double phi(double x1, double x2);
+
+/// Inverse CDF of a standard normal distribution. Must have 0 < quantile < 1.
+double normal_inverse_cdf(double quantile);
+
+/*
+ * Return the log of the sum of two log-transformed values without taking them
+ * out of log space.
+ */
+inline double add_log(double log_x, double log_y) {
+    return log_x > log_y ? log_x + log(1.0 + exp(log_y - log_x)) : log_y + log(1.0 + exp(log_x - log_y));
+}
+
+/*
+ * Return the log of the difference of two log-transformed values without taking
+ * them out of log space.
+ */
+inline double subtract_log(double log_x, double log_y) {
+    return log_x + log(1.0 - exp(log_y - log_x));
+}
+
+/**
+ * Convert a number ln to the same number log 10.
+ */
+inline double ln_to_log10(double ln) {
+    return ln / log(10);
+}
+
+/**
+ * Convert a number log 10 to the same number ln.
+ */
+inline double log10_to_ln(double l10) {
+    return l10 * log(10);
+}
+
+// Convert a probability to a natural log probability.
+inline double prob_to_logprob(double prob) {
+    return log(prob);
+}
+// Convert natural log probability to a probability
+inline double logprob_to_prob(double logprob) {
+    return exp(logprob);
+}
+// Add two probabilities (expressed as logprobs) together and return the result
+// as a logprob.
+inline double logprob_add(double logprob1, double logprob2) {
+    // Pull out the larger one to avoid underflows
+    double pulled_out = max(logprob1, logprob2);
+    return pulled_out + prob_to_logprob(logprob_to_prob(logprob1 - pulled_out) + logprob_to_prob(logprob2 - pulled_out));
+}
+// Invert a logprob, and get the probability of its opposite.
+inline double logprob_invert(double logprob) {
+    return prob_to_logprob(1.0 - logprob_to_prob(logprob));
+}
+
+// Convert integer Phred quality score to probability of wrongness.
+inline double phred_to_prob(int phred) {
+    return pow(10, -((double)phred) / 10);
+}
+
+// Convert probability of wrongness to integer Phred quality score.
+inline double prob_to_phred(double prob) {
+    return -10.0 * log10(prob);
+}
+
+// Convert a Phred quality score directly to a natural log probability of wrongness.
+inline double phred_to_logprob(int phred) {
+    return (-((double)phred) / 10) / log10(exp(1.0));
+}
+
+// Convert a natural log probability of wrongness directly to a Phred quality score.
+inline double logprob_to_phred(double logprob ) {
+    return -10.0 * logprob * log10(exp(1.0));
+}
+
+// Take the geometric mean of two logprobs
+inline double logprob_geometric_mean(double lnprob1, double lnprob2) {
+    return log(sqrt(exp(lnprob1 + lnprob2)));
+}
+
+// Same thing in phred
+inline double phred_geometric_mean(double phred1, double phred2) {
+    return prob_to_phred(sqrt(phred_to_prob(phred1 + phred2)));
+}
+
+// normal pdf, from http://stackoverflow.com/a/10848293/238609
+template <typename T>
+T normal_pdf(T x, T m, T s)
+{
+    static const T inv_sqrt_2pi = 0.3989422804014327;
+    T a = (x - m) / s;
+    
+    return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
+}
+
+
+/**
+ * Compute the sum of the values in a collection, where the values are log
+ * probabilities and the result is the log of the total probability. Items must
+ * be convertible to/from doubles for math.
+ */
+template<typename Collection>
+typename Collection::value_type logprob_sum(const Collection& collection) {
+    
+    // Set up an alias
+    using Item = typename Collection::value_type;
+    
+    // Pull out the minimum value
+    auto min_iterator = min_element(begin(collection), end(collection));
+    
+    if(min_iterator == end(collection)) {
+        // Nothing there, p = 0
+        return Item(prob_to_logprob(0));
+    }
+    
+    auto check_iterator = begin(collection);
+    ++check_iterator;
+    if(check_iterator == end(collection)) {
+        // We only have a single element anyway. We don't want to subtract it
+        // out because we'll get 0s.
+        return *min_iterator;
+    }
+    
+    // Pull this much out of every logprob.
+    Item pulled_out = *min_iterator;
+    
+    if(logprob_to_prob(pulled_out) == 0) {
+        // Can't divide by 0!
+        // TODO: fix this in selection
+        pulled_out = prob_to_logprob(1);
+    }
+    
+    Item total(0);
+    for(auto& to_add : collection) {
+        // Sum up all the scaled probabilities.
+        total += logprob_to_prob(to_add - pulled_out);
+    }
+    
+    // Re-log and re-scale
+    return pulled_out + prob_to_logprob(total);
+}
+
+
+double slope(const std::vector<double>& x, const std::vector<double>& y);
+double fit_zipf(const vector<double>& y);
+
+/// Returns the MLE rate parameter for the distribution of (shape) iid exponential RVs
+double fit_fixed_shape_max_exponential(const vector<double>& x, double shape, double tolerance = 1e-8);
+
+/// Returns the MLE estimate for the number of iid exponential RVs the data are maxima of
+double fit_fixed_rate_max_exponential(const vector<double>& x, double rate, double tolerance = 1e-8);
+
+/// Returns the MLE rate and shape parameters of a max exponential
+pair<double, double> fit_max_exponential(const vector<double>& x, double tolerance = 1e-8);
+
+// TODO: I'm eliminating this algorithm because it is approx non-identifiable for large values of shape
+///// Returns the MLE rate, shape, and location parameters  of an offset max exponential
+//tuple<double, double, double> fit_offset_max_exponential(const vector<double>& x, double tolerance = 1e-8);
+
+/// Return the CDF of a max exponential with the given parameters
+inline double max_exponential_cdf(double x, double rate, double shape, double location = 0.0) {
+    return x > location ? pow(1.0 - exp(-(x - location) * rate), shape) : 0.0;
+}
+
+/// The log likelihood of a max exponential with the given parameters on the given data
+double max_exponential_log_likelihood(const vector<double>& x, double rate, double shape,
+                                      double location = 0.0);
+
+/// Returns an estimate of the rate and shape parameters of a Weibull distribution
+pair<double, double> fit_weibull(const vector<double>& x);
+
+/// Returns an estimate of the rate, shape, and location (minimum value) of a 3-parameter Weibull distribution
+tuple<double, double, double> fit_offset_weibull(const vector<double>& x,
+                                                 double tolerance = 1e-8);
+
+/// Return the CDF of a max exponential with the given parameters
+inline double weibull_cdf(double x, double scale, double shape, double location = 0.0) {
+    return x > location ? 1.0 - exp(-pow((x - location) / scale, shape)) : 0.0;
+}
+
+/// Returns the log likelihood of some data generated by a Weibull distribution
+double weibull_log_likelihood(const vector<double>& x, double scale, double shape,
+                              double location = 0.0);
+
+/// Returns a local maximum of a function within an interval
+double golden_section_search(const function<double(double)>& f, double x_min, double x_max,
+                             double tolerance = 1e-8);
+
+/// A shitty set of linear algebra functions
+
+vector<vector<double>> transpose(const vector<vector<double>>& A);
+
+vector<vector<double>> matrix_multiply(const vector<vector<double>>& A,
+                                       const vector<vector<double>>& B);
+
+vector<double> matrix_multiply(const vector<vector<double>>& A,
+                               const vector<double>& b);
+
+vector<vector<double>> matrix_invert(const vector<vector<double>>& A);
+
+
+/// Returns the coefficients of a regression (does not automatically compute constant)
+vector<double> regress(const vector<vector<double>>& X, vector<double>& y);
+
+/*
+ *********************************
+ * Code ported over from FreeBayes
+ *********************************
+ */
+
 
 // We use this slightly nonstandard type for our math. We wrap it so it's easy
 // to change later.
@@ -25,14 +255,14 @@ using real_t = long double;
  * Calculate the natural log of the gamma function of the given argument.
  */
 inline real_t gamma_ln(real_t x) {
-
-    real_t cofactors[] = {76.18009173, 
+    
+    real_t cofactors[] = {76.18009173,
         -86.50532033,
         24.01409822,
         -1.231739516,
         0.120858003E-2,
-        -0.536382E-5};    
-
+        -0.536382E-5};
+    
     real_t x1 = x - 1.0;
     real_t tmp = x1 + 5.5;
     tmp -= (x1 + 0.5) * log(tmp);
@@ -42,7 +272,7 @@ inline real_t gamma_ln(real_t x) {
         ser += cofactors[j]/x1;
     }
     real_t y =  (-1.0 * tmp + log(2.50662827465 * ser));
-
+    
     return y;
 }
 
@@ -156,8 +386,8 @@ real_t binomial_cmf_ln(ProbIn success_logprob, size_t trials, size_t successes) 
     for(size_t considered_successes = 0; considered_successes <= successes; considered_successes++) {
         // For every number of successes up to this one, add in the probability.
         case_logprobs.push_back(choose_ln(trials, considered_successes) +
-            success_logprob * considered_successes +
-            logprob_invert(success_logprob) * (trials - considered_successes));
+                                success_logprob * considered_successes +
+                                logprob_invert(success_logprob) * (trials - considered_successes));
     }
     
     // Sum up all those per-case probabilities
@@ -194,7 +424,7 @@ bool advance_split(Iter start, Iter end) {
 #ifdef debug
         cerr << "Trying to advance split with " << *start << " items in first category" << endl;
 #endif
-    
+        
         // Try advancing what comes after us.
         auto next = start;
         ++next;
@@ -245,7 +475,7 @@ bool advance_split(Iter start, Iter end) {
         cerr << "Could not advance or reset child split" << endl;
 #endif
         
-
+        
         return false;
     }
 }
@@ -387,14 +617,14 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
     
     while (!stack.empty()) {
         // Emit the current state
-
+        
 #ifdef debug
         cerr << "Category counts:" << endl;
         for (auto& count : category_counts) {
             cerr << count << endl;
         }
 #endif
-
+        
         auto case_logprob = multinomial_sampling_prob_ln(probs, category_counts);
         
 #ifdef debug
@@ -421,11 +651,11 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
                 // We finally found something to advance, so stop ascending the stack.
                 break;
             } else {
-    
+                
 #ifdef debug
                 cerr << "Could not advanced class at stack depth " << stack.size() - 1 << endl;
 #endif
-            
+                
                 // Pop off the back of the stack.
                 stack.pop_back();
                 
@@ -446,7 +676,7 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
                     entry = 0;
                 }
                 it->second.front() = obs.at(it->first);
-            
+                
                 // Populate the stack with the next class
                 stack.push_back(it);
                 
@@ -478,21 +708,21 @@ template<typename T = double>
 class uniform_real_distribution {
 public:
     typedef T result_type;
-
+    
     uniform_real_distribution(T _a = 0.0, T _b = 1.0) : m_a(_a), m_b(_b) {
         // Nothing to do!
     }
-
+    
     void reset() {
         // Also nothing to do!
     }
-
+    
     template<class Generator>
     T operator()(Generator &_g) {
-        double dScale = (m_b - m_a) / ((T)(_g.max() - _g.min()) + (T)1); 
+        double dScale = (m_b - m_a) / ((T)(_g.max() - _g.min()) + (T)1);
         return (_g() - _g.min()) * dScale  + m_a;
     }
-
+    
     T a() const {
         return m_a;
     }
@@ -500,7 +730,7 @@ public:
     T b() const {
         return m_b;
     }
-
+    
 protected:
     T m_a;
     T m_b;
@@ -510,15 +740,15 @@ template<typename T = double>
 class normal_distribution {
 public:
     typedef T result_type;
-
+    
     normal_distribution(T _mean = 0.0, T _stddev = 1.0) : m_mean(_mean), m_stddev(_stddev) {
         // Nothing to do!
     }
-
+    
     void reset() {
         m_distU1.reset();
     }
-
+    
     template<class Generator>
     T operator()(Generator &_g) {
         // Use Box-Muller algorithm
@@ -528,14 +758,14 @@ public:
         double r = sqrt(-2.0 * log(u1));
         return m_mean + m_stddev * r * sin(2.0 * pi * u2);
     }
-
+    
     T mean() const {
         return m_mean;
     }
     T stddev() const {
         return m_stddev;
     }
-
+    
 protected:
     T m_mean;
     T m_stddev;
@@ -549,7 +779,7 @@ class WideningPRNG {
 public:
     
     using result_type = OutType;
-
+    
     WideningPRNG(PRNG& to_widen) : base(to_widen) {
         // Nothing to do
     }
@@ -596,9 +826,9 @@ public:
             used_bit = used_bit >> 1;
             used_bits--;
         }
-
+        
         assert(used_bits > 0);
-
+        
         OutType generated = 0;
         int generated_bits = 0;
         
@@ -632,17 +862,17 @@ template<typename T = int>
 class uniform_int_distribution {
 public:
     typedef T result_type;
-
+    
     uniform_int_distribution(T _a = 0, T _b = numeric_limits<T>::max()) : m_a(_a), m_b(_b) {
         // Make sure inclusive bounds are valid
         assert(_b >= _a);
     }
-
+    
     void reset() {
         // Also nothing to do!
     }
-
-
+    
+    
     template<class Generator>
     T operator()(Generator &_g) {
         
@@ -658,35 +888,35 @@ public:
         // Since they are so big and inclusive we can't always hold their real sizes, so hold size-1
         WorkType source_range_size_minus_1 = (WorkType) _g.max() - (WorkType) _g.min();
         WorkType dest_range_size_minus_1 = (WorkType) m_b - (WorkType) m_a;
-    
+        
         if (source_range_size_minus_1 >= dest_range_size_minus_1) {
-            // The generator's result is going to be wide enough
-            return generate_from_wide_generator(_g);
+        // The generator's result is going to be wide enough
+        return generate_from_wide_generator(_g);
         } else {
-            // The hard way is generating a bigger range from a smaller range.
-            // Wrap the generator in something to widen it to our work type
-            // and recurse.
-            WideningPRNG<Generator, WorkType> widened(_g);
-            
-            // Generate with that, which had better be wide enough
-            return generate_from_wide_generator(widened);
+        // The hard way is generating a bigger range from a smaller range.
+        // Wrap the generator in something to widen it to our work type
+        // and recurse.
+        WideningPRNG<Generator, WorkType> widened(_g);
+        
+        // Generate with that, which had better be wide enough
+        return generate_from_wide_generator(widened);
         }
-    }
-
-    T a() const {
+        }
+        
+        T a() const {
         return m_a;
-    }
-    
-    T b() const {
+        }
+        
+        T b() const {
         return m_b;
-    }
-
-protected:
-    
-    /// Generate a result when we know the generator will produce a result on a
-    /// range as big as or bigger than ours.
-    template<class Generator>
-    T generate_from_wide_generator(Generator &_g) {
+        }
+        
+    protected:
+        
+        /// Generate a result when we know the generator will produce a result on a
+        /// range as big as or bigger than ours.
+        template<class Generator>
+        T generate_from_wide_generator(Generator &_g) {
         // Jordan's strategy: discard anything above the highest multiple of your range, then mod down to your range.
         
 #ifdef debug
@@ -706,8 +936,8 @@ protected:
         assert(source_range_size_minus_1 >= dest_range_size_minus_1);
         
         if (dest_range_size_minus_1 == source_range_size_minus_1) {
-            // Ranges are the same size. No real work to do.
-            return (WorkType) _g() - (WorkType) _g.min() + (WorkType) m_a;
+        // Ranges are the same size. No real work to do.
+        return (WorkType) _g() - (WorkType) _g.min() + (WorkType) m_a;
         }
         
         // Otherwise the ranges differ in size. Which means the dest range must
@@ -721,8 +951,8 @@ protected:
         remainder = (remainder + 1) % dest_range_size;
         
         if (remainder == 0) {
-            // We perfectly tiled the source range
-            return ((WorkType) _g() - (WorkType) _g.min()) % dest_range_size + (WorkType) m_a;
+        // We perfectly tiled the source range
+        return ((WorkType) _g() - (WorkType) _g.min()) % dest_range_size + (WorkType) m_a;
         }
         
         // Otherwise there are some values we need to reject
@@ -730,110 +960,93 @@ protected:
         // Sample a value until we get one that isn't too close to the top of the range.
         WorkType sampled;
         do {
-            sampled = (WorkType) _g();
+        sampled = (WorkType) _g();
         } while (_g.max() - sampled < remainder);
         
         // Convert to destination range.
         return (sampled - (WorkType) _g.min()) % dest_range_size + m_a;
-    }
-
-
-    T m_a;
-    T m_b;
-};
-
-/// We provide a partial discrete_distribution implementation that is just the parts we need
-template<typename T = int>
-class discrete_distribution {
-public:
-    typedef T result_type;
-    typedef double param_type;
-
-    template<class InputIt>
-    discrete_distribution(InputIt first, InputIt last) : m_weights{first, last} {
+        }
+        
+        
+        T m_a;
+        T m_b;
+        };
+        
+        /// We provide a partial discrete_distribution implementation that is just the parts we need
+        template<typename T = int>
+        class discrete_distribution {
+    public:
+        typedef T result_type;
+        typedef double param_type;
+        
+        template<class InputIt>
+        discrete_distribution(InputIt first, InputIt last) : m_weights{first, last} {
         // We can't use an empty weights vector
         assert(!m_weights.empty());
         // Compute partial sums
         std::partial_sum(m_weights.begin(), m_weights.end(), std::back_inserter(m_sums));
-    }
-
-    discrete_distribution(initializer_list<double> weights = {1}) : discrete_distribution(weights.begin(), weights.end()) {
+        }
+        
+        discrete_distribution(initializer_list<double> weights = {1}) : discrete_distribution(weights.begin(), weights.end()) {
         // Nothing to do
-    }
-    
-    void reset() {
+        }
+        
+        void reset() {
         // Also nothing to do!
-    }
-
-    template<class Generator>
-    T operator()(Generator &_g) {
+        }
+        
+        template<class Generator>
+        T operator()(Generator &_g) {
         
         // Set up to generate a double from 0 to max weight
         vg::uniform_real_distribution<double> backing_dist(0, m_sums.back());
         // Do it and find which cumumative sum is greater than it
         auto winning_iterator = std::lower_bound(m_sums.begin(), m_sums.end(), backing_dist(_g));
-
+        
         // Find its category number and return that.
         return winning_iterator - m_sums.begin();
         
-    }
-
-protected:
-    // If we ever want to implement the params stuff we need the weights stored.
-    vector<double> m_weights;
-    vector<double> m_sums;
-
-};
-
-// ewen's allele sampling distribution.  for use in genotype prior (as in freebayes)
-// gives Pr(a1, ...,an;theta) where ai is the number of sampled haplotypes (out of n) that
-// have i different alleles at a given locus. theta is the population mutation rate. 
-// ex: for a single diploid genotype, a={2,0} = heterozygous: 2 alleles occur once.
-//                                    a={0,1} = homozygous: 1 allele occurs twice.
-//
-// https://en.wikipedia.org/wiki/Ewens%27s_sampling_formula
-// https://github.com/ekg/freebayes/blob/master/src/Ewens.cpp#L17
-inline real_t ewens_af_prob_ln(const vector<int>& a, real_t theta) {
-
-    // first term (wrt formula as stated on wikipedia)
-    // n! / (theta * (theta + 1) * ... (theta + n - 1))
-    real_t term1_num_ln = factorial_ln(a.size());
-    real_t term1_denom_ln = 0.;
-    for (int i = 0; i < a.size(); ++i) {
+        }
+        
+    protected:
+        // If we ever want to implement the params stuff we need the weights stored.
+        vector<double> m_weights;
+        vector<double> m_sums;
+        
+        };
+        
+        // ewen's allele sampling distribution.  for use in genotype prior (as in freebayes)
+        // gives Pr(a1, ...,an;theta) where ai is the number of sampled haplotypes (out of n) that
+        // have i different alleles at a given locus. theta is the population mutation rate.
+        // ex: for a single diploid genotype, a={2,0} = heterozygous: 2 alleles occur once.
+        //                                    a={0,1} = homozygous: 1 allele occurs twice.
+        //
+        // https://en.wikipedia.org/wiki/Ewens%27s_sampling_formula
+        // https://github.com/ekg/freebayes/blob/master/src/Ewens.cpp#L17
+        inline real_t ewens_af_prob_ln(const vector<int>& a, real_t theta) {
+        
+        // first term (wrt formula as stated on wikipedia)
+        // n! / (theta * (theta + 1) * ... (theta + n - 1))
+        real_t term1_num_ln = factorial_ln(a.size());
+        real_t term1_denom_ln = 0.;
+        for (int i = 0; i < a.size(); ++i) {
         term1_denom_ln += log(theta + i);
-    }
-    real_t term1_ln = term1_num_ln - term1_denom_ln;
-
-    // second term
-    // prod [ (theta^aj) / (j^aj * aj!) 
-    real_t term2_ln = 0.;
-    for (int j = 0; j < a.size(); ++j) {
+        }
+        real_t term1_ln = term1_num_ln - term1_denom_ln;
+        
+        // second term
+        // prod [ (theta^aj) / (j^aj * aj!)
+        real_t term2_ln = 0.;
+        for (int j = 0; j < a.size(); ++j) {
         real_t num = log(pow(theta, a[j]));
         real_t denom = log(pow(1. + j, a[j]) + factorial_ln(a[j]));
         term2_ln += num - denom;
-    }
-
-    return term1_ln + term2_ln;
-}
+        }
+        
+        return term1_ln + term2_ln;
+        }
 
 
 }
 
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

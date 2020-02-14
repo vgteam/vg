@@ -15,6 +15,7 @@
 #include "Fasta.h"
 #include "path.hpp"
 #include "utility.hpp"
+#include "statistics.hpp"
 #include "banded_global_aligner.hpp"
 #include "xdrop_aligner.hpp"
 #include "handle.hpp"

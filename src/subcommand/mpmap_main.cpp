@@ -179,8 +179,9 @@ int main_mpmap(int argc, char** argv) {
     bool same_strand = false;
     bool auto_calibrate_mismapping_detection = true;
     double max_mapping_p_value = 0.00001;
-    size_t num_calibration_simulations = 250;
-    size_t calibration_read_length = 150;
+    size_t num_calibration_simulations = 500;
+    vector<size_t> calibration_read_lengths{50, 75, 100, 150, 250, 450, 750};
+    bool use_weibull_calibration = false;
     size_t order_length_repeat_hit_max = 3000;
     size_t sub_mem_count_thinning = 4;
     size_t sub_mem_thinning_burn_in = 16;
@@ -988,6 +989,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.mapping_quality_method = mapq_method;
     multipath_mapper.max_mapping_quality = max_mapq;
     multipath_mapper.report_group_mapq = report_group_mapq;
+    multipath_mapper.use_weibull_calibration = use_weibull_calibration;
     // Use population MAPQs when we have the right option combination to make that sensible.
     multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr && population_max_paths > 0);
     multipath_mapper.population_max_paths = population_max_paths;
@@ -1031,13 +1033,7 @@ int main_mpmap(int argc, char** argv) {
     
     // if directed to, auto calibrate the mismapping detection to the graph
     if (auto_calibrate_mismapping_detection) {
-        // drop the maximum number of mappings to compute down to 1 temporarily so this doesn't take forever
-        size_t stored_max_mappings = multipath_mapper.max_alt_mappings;
-        multipath_mapper.max_alt_mappings = 1;
-        
-        multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_length);
-        
-        multipath_mapper.max_alt_mappings = stored_max_mappings;
+        multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_lengths);
     }
     
     // Count our threads 

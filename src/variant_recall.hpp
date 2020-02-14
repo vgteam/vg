@@ -25,7 +25,7 @@
 #include "srpe.hpp"
 #include "path_index.hpp"
 #include "index.hpp"
-#include "distributions.hpp"
+#include "statistics.hpp"
 
 namespace vg {
 

@@ -542,7 +542,7 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "converted multipath alignment is" << endl;
         cerr << pb2json(rescue_multipath_aln) << endl;
-        cerr << "rescued alignment has effective match length " << pseudo_length(rescue_multipath_aln) / 3 << ", which gives p-value " << random_match_p_value(pseudo_length(rescue_multipath_aln) / 3, rescue_multipath_aln.sequence().size()) << endl;
+        cerr << "rescued alignment has effective match length " << pseudo_length(rescue_multipath_aln) << ", which gives p-value " << random_match_p_value(pseudo_length(rescue_multipath_aln), rescue_multipath_aln.sequence().size()) << endl;
 #endif
 
         
@@ -553,7 +553,7 @@ namespace vg {
             return false;
         }
         
-        auto p_val = random_match_p_value(pseudo_length(rescue_multipath_aln) / 3, rescue_multipath_aln.sequence().size());
+        auto p_val = random_match_p_value(pseudo_length(rescue_multipath_aln), rescue_multipath_aln.sequence().size());
         
         if (p_val >= max_mapping_p_value * 0.1) {
 #ifdef debug_multipath_mapper
@@ -580,10 +580,10 @@ namespace vg {
     bool MultipathMapper::likely_mismapping(const MultipathAlignment& multipath_aln) {
     
         // empirically, we get better results by scaling the pseudo-length down, I have no good explanation for this probabilistically
-        auto p_val = random_match_p_value(pseudo_length(multipath_aln) / 3, multipath_aln.sequence().size());
+        auto p_val = random_match_p_value(pseudo_length(multipath_aln), multipath_aln.sequence().size());
     
 #ifdef debug_multipath_mapper
-        cerr << "effective match length of read " << multipath_aln.name() << " is " << pseudo_length(multipath_aln) / 3 << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << p_val << endl;
+        cerr << "effective match length of read " << multipath_aln.name() << " is " << pseudo_length(multipath_aln) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << p_val << endl;
 #endif
         
         return p_val > max_mapping_p_value;
@@ -629,7 +629,18 @@ namespace vg {
             return iter->second;
         }
         else {
-            double p_value = 1.0 - pow(1.0 - exp(-(match_length * pseudo_length_multiplier)), total_seq_length * read_length);
+            double p_value;
+            if (use_weibull_calibration) {
+                double scale = exp(weibull_scale_intercept + weibull_scale_slope * log(read_length));
+                double shape = exp(weibull_shape_intercept + weibull_shape_slope * log(read_length));
+                double offset = exp(weibull_offset_intercept + weibull_offset_slope * log(read_length));
+                p_value = 1.0 - weibull_cdf(match_length, scale, shape, offset);
+            }
+            else {
+                double rate = max_exponential_rate_intercept + max_exponential_rate_slope * read_length;
+                double shape = exp(max_exponential_shape_intercept + max_exponential_shape_slope * read_length);
+                p_value = 1.0 - max_exponential_cdf(match_length, rate, shape);
+            }
             if (p_value_memo.size() < max_p_value_memo_size) {
                 p_value_memo[make_pair(match_length, read_length)] = p_value;
             }
@@ -638,99 +649,111 @@ namespace vg {
     }
     
     
-    void MultipathMapper::calibrate_mismapping_detection(size_t num_simulations, size_t simulated_read_length) {
+    void MultipathMapper::calibrate_mismapping_detection(size_t num_simulations, const vector<size_t>& simulated_read_lengths) {
         // we don't want to do base quality adjusted alignments for this stage since we are just simulating random sequences
         // with no base qualities
         bool reset_quality_adjustments = adjust_alignments_for_base_quality;
         adjust_alignments_for_base_quality = false;
         
-        // compute the pseudo length of a bunch of randomly generated sequences
-        vector<double> lengths(num_simulations, 0.0);
-        double length_sum = 0.0;
-        double max_length = numeric_limits<double>::min();
-#pragma omp parallel for
-        for (size_t i = 0; i < num_simulations; i++) {
-            
-            Alignment alignment;
-            alignment.set_sequence(pseudo_random_sequence(simulated_read_length, i));
-            vector<MultipathAlignment> multipath_alns;
-            multipath_map(alignment, multipath_alns);
-            
-            if (!multipath_alns.empty()) {
-                lengths[i] = pseudo_length(multipath_alns.front());
-#pragma omp critical
-                {
-                    length_sum += lengths[i];
-                    max_length = max(lengths[i], max_length);
-                }
-            }
-        }
+        // and we expect small MEMs, so don't filter them out
+        int reset_min_mem_length = min_mem_length;
+        size_t reset_min_clustering_mem_length = min_clustering_mem_length;
+        min_mem_length = 1;
+        min_clustering_mem_length = 1;
+        
+        // and these reads are slow to map, but we only need primaries
+        size_t reset_max_alt_mappings = max_alt_mappings;
+        max_alt_mappings = 1;
         
         // reset the memo of p-values (which we are calibrating) for any updates using the default parameter during the null mappings
         p_value_memo.clear();
         
-        // model the lengths as the maximum of genome_size * read_length exponential variables, which gives density function:
-        //
-        //   GLS exp(-Sx) (1 - exp(-Sx))^(GL - 1)
-        //
-        // where:
-        //   G = genome size
-        //   L = read length
-        //   S = scale parameter (which we optimize below)
+        // the logarithms of the MLE estimators at each read length
+        vector<double> log_mle_weibull_scales;
+        vector<double> log_mle_weibull_shapes;
+        vector<double> log_mle_weibull_offsets;
+        vector<double> mle_max_exponential_rates;
+        vector<double> log_mle_max_exponential_shapes;
         
-        
-        // compute the log of the 1st and 2nd derivatives for the log likelihood (split up by positive and negative summands)
-        // we have to do it this wonky way because the exponentiated numbers get very large and cause overflow otherwise
-        
-        double log_deriv_neg_part = log(length_sum);
-        
-        function<double(double)> log_deriv_pos_part = [&](double scale) {
-            double accumulator = numeric_limits<double>::lowest();
-            for (size_t i = 0; i < lengths.size(); i++) {
-                double length = lengths[i];
-                accumulator = add_log(accumulator, log(length) - scale * length - log(1.0 - exp(-scale * length)));
+        for (const size_t simulated_read_length : simulated_read_lengths) {
+            // compute the pseudo length of a bunch of randomly generated sequences
+            vector<double> pseudo_lengths(num_simulations, 0.0);
+#pragma omp parallel for
+            for (size_t i = 0; i < num_simulations; i++) {
+                
+                Alignment alignment;
+                alignment.set_sequence(pseudo_random_sequence(simulated_read_length, i));
+                vector<MultipathAlignment> multipath_alns;
+                multipath_map(alignment, multipath_alns);
+                
+                if (!multipath_alns.empty()) {
+                    pseudo_lengths[i] = pseudo_length(multipath_alns.front());
+                }
             }
-            accumulator += log(total_seq_length * simulated_read_length - 1.0);
-            return add_log(accumulator, log(num_simulations / scale));
-        };
-        
-        function<double(double)> log_deriv2_neg_part = [&](double scale) {
-            double accumulator = numeric_limits<double>::lowest();
-            for (size_t i = 0; i < lengths.size(); i++) {
-                double length = lengths[i];
-                accumulator = add_log(accumulator, 2.0 * log(length) - scale * length - 2.0 * log(1.0 - exp(-scale * length)));
-            }
-            accumulator += log(total_seq_length * simulated_read_length - 1.0);
-            return add_log(accumulator, log(num_simulations / (scale * scale)));
-        };
-        
-        // use Newton's method to find the MLE
-        double tolerance = 1e-10;
-        double scale = 1.0 / max_length;
-        double prev_scale = scale * (1.0 + 10.0 * tolerance);
-        while (abs(prev_scale / scale - 1.0) > tolerance) {
-            prev_scale = scale;
-            double log_d2 = log_deriv2_neg_part(scale);
-            double log_d_pos = log_deriv_pos_part(scale);
-            double log_d_neg = log_deriv_neg_part;
-            // determine if the value of the 1st deriv is positive or negative, and compute the
-            // whole ratio to the 2nd deriv from the positive and negative parts accordingly
-            if (log_d_pos > log_d_neg) {
-                scale += exp(subtract_log(log_d_pos, log_d_neg) - log_d2);
-            }
-            else {
-                scale -= exp(subtract_log(log_d_neg, log_d_pos) - log_d2);
-            }
+            
+            // alternatively model lengths with a weibull distribution that has an offset
+            auto weibull_params = fit_offset_weibull(pseudo_lengths);
+            log_mle_weibull_scales.push_back(log(get<0>(weibull_params)));
+            log_mle_weibull_shapes.push_back(log(get<1>(weibull_params)));
+            log_mle_weibull_offsets.push_back(log(get<2>(weibull_params)));
+            
+            auto max_exp_params = fit_max_exponential(pseudo_lengths);
+            mle_max_exponential_rates.push_back(max_exp_params.first);
+            log_mle_max_exponential_shapes.push_back(log(max_exp_params.second));
+                        
+#ifdef debug_report_startup_training
+            cerr << "trained parameters for length " << simulated_read_length << ": " << endl;
+            cerr << "\tweibull scale: " << get<0>(weibull_params) << endl;
+            cerr << "\tweibull shape: " << get<1>(weibull_params) << endl;
+            cerr << "\tweibull offset: " << get<2>(weibull_params) << endl;
+            cerr << "\tmax exp rate: " << max_exp_params.first << endl;
+            cerr << "\tmax exp shape: " << max_exp_params.second << endl;
+#endif
         }
         
+        // make a design matrix for a log regression and a linear regression
+        vector<vector<double>> X(simulated_read_lengths.size());
+        vector<vector<double>> X_log(simulated_read_lengths.size());
+        for (size_t i = 0; i < X.size(); ++i) {
+            X[i].resize(2, 1.0);
+            X_log[i].resize(2, 1.0);
+            X[i][1] = simulated_read_lengths[i];
+            X_log[i][1] = log(simulated_read_lengths[i]);
+        }
+        
+        auto weibull_scale_coefs = regress(X, log_mle_weibull_scales);
+        auto weibull_shape_coefs = regress(X, log_mle_weibull_shapes);
+        auto weibull_offset_coefs = regress(X, log_mle_weibull_offsets);
+        
+        weibull_scale_intercept = weibull_scale_coefs[0];
+        weibull_scale_slope = weibull_scale_coefs[1];
+        weibull_shape_intercept = weibull_shape_coefs[0];
+        weibull_shape_slope = weibull_shape_coefs[1];
+        weibull_offset_intercept = weibull_offset_coefs[0];
+        weibull_offset_slope = weibull_offset_coefs[1];
+        
+        auto max_exp_rate_coefs = regress(X, mle_max_exponential_rates);
+        auto max_exp_shape_coefs = regress(X, log_mle_max_exponential_shapes);
+        
+        max_exponential_rate_intercept = max_exp_rate_coefs[0];
+        max_exponential_rate_slope = max_exp_rate_coefs[1];
+        max_exponential_shape_intercept = max_exp_shape_coefs[0];
+        max_exponential_shape_slope = max_exp_shape_coefs[1];
+        
 #ifdef debug_report_startup_training
-        cerr << "trained scale: " << scale << endl;
+        cerr << "final regression parameters:" << endl;
+        cerr << "\tweibull scale = exp(" << weibull_scale_intercept << " + " << weibull_scale_slope << " * log L)" << endl;
+        cerr << "\tweibull shape = exp(" << weibull_shape_intercept << " + " << weibull_shape_slope << " * log L)" << endl;
+        cerr << "\tweibull offset = exp(" << weibull_offset_intercept << " + " << weibull_offset_slope << " * log L)" << endl;
+        cerr << "\tmax exp rate = " << max_exponential_rate_intercept << " + " << max_exponential_rate_slope << " * L" << endl;
+        cerr << "\tmax exp shape = exp(" << max_exponential_shape_intercept << " + " << max_exponential_shape_slope << " * L)" << endl;
 #endif
         
-        // set the multipler to the maximimum likelihood
-        pseudo_length_multiplier = scale;
-        
+        // reset mapping parameters to their original values
         adjust_alignments_for_base_quality = reset_quality_adjustments;
+        min_clustering_mem_length = reset_min_clustering_mem_length;
+        min_mem_length = reset_min_mem_length;
+        max_alt_mappings = reset_max_alt_mappings;
     }
     
     int64_t MultipathMapper::distance_between(const MultipathAlignment& multipath_aln_1,

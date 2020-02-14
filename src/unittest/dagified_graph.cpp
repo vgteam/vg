@@ -1,6 +1,6 @@
-/// \file dagify.cpp
+/// \file dagified_graph.cpp
 ///  
-/// unit tests for the handle based dagify algorithm
+/// unit tests for the overlay based dagify algorithm
 ///
 
 #include <iostream>
