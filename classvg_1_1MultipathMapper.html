@@ -113,8 +113,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a8e925d7b7659957dad091e28debf8e2b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac0a6f15f0273faa48ff52a59a08855e1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ac0a6f15f0273faa48ff52a59a08855e1">set_automatic_min_clustering_length</a> (double random_mem_probability=0.5)</td></tr>
 <tr class="separator:ac0a6f15f0273faa48ff52a59a08855e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aeedf2b5ed6093154c18ef1c24911e40f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aeedf2b5ed6093154c18ef1c24911e40f">calibrate_mismapping_detection</a> (size_t num_simulations=1000, size_t simulated_read_length=150)</td></tr>
-<tr class="separator:aeedf2b5ed6093154c18ef1c24911e40f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa4307bce23fe2a909f96273dbca7b126"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aa4307bce23fe2a909f96273dbca7b126">calibrate_mismapping_detection</a> (size_t num_simulations, const vector&lt; size_t &gt; &amp;simulated_read_lengths)</td></tr>
+<tr class="separator:aa4307bce23fe2a909f96273dbca7b126"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a373038067171533375512e963f28fa65"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a373038067171533375512e963f28fa65">init_band_padding_memo</a> ()</td></tr>
 <tr class="memdesc:a373038067171533375512e963f28fa65"><td class="mdescLeft">&#160;</td><td class="mdescRight">Should be called once after construction, or any time the band padding multiplier is changed.  <a href="#a373038067171533375512e963f28fa65">More...</a><br /></td></tr>
 <tr class="separator:a373038067171533375512e963f28fa65"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -196,8 +196,28 @@ Public Attributes</h2></td></tr>
 <tr class="separator:ada39acac8f403bf92632024be4e448e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a93b608c38afcfea23224165ebb614845"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a93b608c38afcfea23224165ebb614845">band_padding_memo_size</a> = 500</td></tr>
 <tr class="separator:a93b608c38afcfea23224165ebb614845"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8c463a9a1350cd7220abd8575d9e7bd3"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a8c463a9a1350cd7220abd8575d9e7bd3">pseudo_length_multiplier</a> = 1.65</td></tr>
-<tr class="separator:a8c463a9a1350cd7220abd8575d9e7bd3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab7d4f6c0038299d70ac8238527f95d86"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ab7d4f6c0038299d70ac8238527f95d86">use_weibull_calibration</a> = false</td></tr>
+<tr class="separator:ab7d4f6c0038299d70ac8238527f95d86"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3b9f8d9eb806a7dd7e05a0b1c4851bc8"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a3b9f8d9eb806a7dd7e05a0b1c4851bc8">max_exponential_rate_intercept</a> = 0.7612</td></tr>
+<tr class="separator:a3b9f8d9eb806a7dd7e05a0b1c4851bc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0c2252c568582797db9b65756694eaff"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a0c2252c568582797db9b65756694eaff">max_exponential_rate_slope</a> = 0.0001496</td></tr>
+<tr class="separator:a0c2252c568582797db9b65756694eaff"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2e7f7551674fa412abd1333c0baf6672"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a2e7f7551674fa412abd1333c0baf6672">max_exponential_shape_intercept</a> = 12.37</td></tr>
+<tr class="separator:a2e7f7551674fa412abd1333c0baf6672"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8ea8f5c8ad1906ccf0b878a6821a16e2"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a8ea8f5c8ad1906ccf0b878a6821a16e2">max_exponential_shape_slope</a> = 0.007191</td></tr>
+<tr class="separator:a8ea8f5c8ad1906ccf0b878a6821a16e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac3152a5b289e8992230f9afb68a9369c"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ac3152a5b289e8992230f9afb68a9369c">weibull_scale_intercept</a> = 1.05</td></tr>
+<tr class="separator:ac3152a5b289e8992230f9afb68a9369c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a81bda853f6e8be9e8082b306f169493c"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a81bda853f6e8be9e8082b306f169493c">weibull_scale_slope</a> = 0.0601</td></tr>
+<tr class="separator:a81bda853f6e8be9e8082b306f169493c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af36fe6a4730b4d339d5eaaacaa48bfcf"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#af36fe6a4730b4d339d5eaaacaa48bfcf">weibull_shape_intercept</a> = -0.176</td></tr>
+<tr class="separator:af36fe6a4730b4d339d5eaaacaa48bfcf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af3853e3340804394776f9df62db56cb1"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#af3853e3340804394776f9df62db56cb1">weibull_shape_slope</a> = 0.199</td></tr>
+<tr class="separator:af3853e3340804394776f9df62db56cb1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a676c8c17f6d7091cac5a05eb117d2ccd"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a676c8c17f6d7091cac5a05eb117d2ccd">weibull_offset_intercept</a> = 2.342</td></tr>
+<tr class="separator:a676c8c17f6d7091cac5a05eb117d2ccd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1b6407f041ae470a5e02c098b6643839"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a1b6407f041ae470a5e02c098b6643839">weibull_offset_slope</a> = 0.07168</td></tr>
+<tr class="separator:a1b6407f041ae470a5e02c098b6643839"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa7656b2372ae8450e48a9db512ce309d"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aa7656b2372ae8450e48a9db512ce309d">max_mapping_p_value</a> = 0.00001</td></tr>
 <tr class="separator:aa7656b2372ae8450e48a9db512ce309d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a87223306ba0d983104e48d4ded4e685d"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a87223306ba0d983104e48d4ded4e685d">max_alt_mappings</a> = 1</td></tr>
@@ -1059,8 +1079,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="aeedf2b5ed6093154c18ef1c24911e40f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aeedf2b5ed6093154c18ef1c24911e40f">&#9670;&nbsp;</a></span>calibrate_mismapping_detection()</h2>
+<a id="aa4307bce23fe2a909f96273dbca7b126"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa4307bce23fe2a909f96273dbca7b126">&#9670;&nbsp;</a></span>calibrate_mismapping_detection()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1069,13 +1089,13 @@ Additional Inherited Members</h2></td></tr>
           <td class="memname">void vg::MultipathMapper::calibrate_mismapping_detection </td>
           <td>(</td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>num_simulations</em> = <code>1000</code>, </td>
+          <td class="paramname"><em>num_simulations</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>simulated_read_length</em> = <code>150</code>&#160;</td>
+          <td class="paramtype">const vector&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>simulated_read_lengths</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -2573,6 +2593,62 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a3b9f8d9eb806a7dd7e05a0b1c4851bc8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3b9f8d9eb806a7dd7e05a0b1c4851bc8">&#9670;&nbsp;</a></span>max_exponential_rate_intercept</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MultipathMapper::max_exponential_rate_intercept = 0.7612</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a0c2252c568582797db9b65756694eaff"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0c2252c568582797db9b65756694eaff">&#9670;&nbsp;</a></span>max_exponential_rate_slope</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MultipathMapper::max_exponential_rate_slope = 0.0001496</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a2e7f7551674fa412abd1333c0baf6672"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2e7f7551674fa412abd1333c0baf6672">&#9670;&nbsp;</a></span>max_exponential_shape_intercept</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MultipathMapper::max_exponential_shape_intercept = 12.37</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a8ea8f5c8ad1906ccf0b878a6821a16e2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8ea8f5c8ad1906ccf0b878a6821a16e2">&#9670;&nbsp;</a></span>max_exponential_shape_slope</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MultipathMapper::max_exponential_shape_slope = 0.007191</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="aa7656b2372ae8450e48a9db512ce309d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aa7656b2372ae8450e48a9db512ce309d">&#9670;&nbsp;</a></span>max_mapping_p_value</h2>
 
@@ -2841,20 +2917,6 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a8c463a9a1350cd7220abd8575d9e7bd3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8c463a9a1350cd7220abd8575d9e7bd3">&#9670;&nbsp;</a></span>pseudo_length_multiplier</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">double vg::MultipathMapper::pseudo_length_multiplier = 1.65</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a26993f76e9bbe5c48e0b436cc9c3fda8"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a26993f76e9bbe5c48e0b436cc9c3fda8">&#9670;&nbsp;</a></span>recombination_penalty</h2>
 
@@ -3105,6 +3167,104 @@ Additional Inherited Members</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">bool vg::MultipathMapper::use_tvs_clusterer = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ab7d4f6c0038299d70ac8238527f95d86"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab7d4f6c0038299d70ac8238527f95d86">&#9670;&nbsp;</a></span>use_weibull_calibration</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MultipathMapper::use_weibull_calibration = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a676c8c17f6d7091cac5a05eb117d2ccd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a676c8c17f6d7091cac5a05eb117d2ccd">&#9670;&nbsp;</a></span>weibull_offset_intercept</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MultipathMapper::weibull_offset_intercept = 2.342</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1b6407f041ae470a5e02c098b6643839"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1b6407f041ae470a5e02c098b6643839">&#9670;&nbsp;</a></span>weibull_offset_slope</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MultipathMapper::weibull_offset_slope = 0.07168</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac3152a5b289e8992230f9afb68a9369c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac3152a5b289e8992230f9afb68a9369c">&#9670;&nbsp;</a></span>weibull_scale_intercept</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MultipathMapper::weibull_scale_intercept = 1.05</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a81bda853f6e8be9e8082b306f169493c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a81bda853f6e8be9e8082b306f169493c">&#9670;&nbsp;</a></span>weibull_scale_slope</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MultipathMapper::weibull_scale_slope = 0.0601</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="af36fe6a4730b4d339d5eaaacaa48bfcf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af36fe6a4730b4d339d5eaaacaa48bfcf">&#9670;&nbsp;</a></span>weibull_shape_intercept</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MultipathMapper::weibull_shape_intercept = -0.176</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="af3853e3340804394776f9df62db56cb1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af3853e3340804394776f9df62db56cb1">&#9670;&nbsp;</a></span>weibull_shape_slope</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MultipathMapper::weibull_shape_slope = 0.199</td>
         </tr>
       </table>
 </div><div class="memdoc">

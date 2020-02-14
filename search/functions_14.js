@@ -70,6 +70,7 @@ var searchData=
   ['translate_5fnodes',['translate_nodes',['../namespacevg.html#a98dcd16f2a4eae4c223a374dd2ab2da4',1,'vg']]],
   ['translate_5foriented_5fnode_5fids',['translate_oriented_node_ids',['../namespacevg.html#a2b0ba7a1d0cf7630b79d03ba0ab65c53',1,'vg::translate_oriented_node_ids(Path &amp;path, const unordered_map&lt; id_t, pair&lt; id_t, bool &gt;&gt; &amp;translator)'],['../namespacevg.html#acb86c984b743e10c6ddaa57612ca3991',1,'vg::translate_oriented_node_ids(Path &amp;path, const function&lt; pair&lt; id_t, bool &gt;(id_t)&gt; &amp;translator)']]],
   ['translator',['Translator',['../classvg_1_1Translator.html#ac23acdcea38566f2e68005eca4afff73',1,'vg::Translator::Translator(void)'],['../classvg_1_1Translator.html#aeab811097e483365bbd273efc4c4445e',1,'vg::Translator::Translator(istream &amp;in)'],['../classvg_1_1Translator.html#a99602b3868ae6f8f1efc6bf7adcde6f6',1,'vg::Translator::Translator(const vector&lt; Translation &gt; &amp;trans)']]],
+  ['transpose',['transpose',['../namespacevg.html#a1409ac23ce33abd463dcd46093079023',1,'vg']]],
   ['trav_5fsequence',['trav_sequence',['../classvg_1_1VG.html#a57296ecbcfce10f95b86233e10c35d7d',1,'vg::VG']]],
   ['traversal_5fentry_5fto_5fstring',['traversal_entry_to_string',['../classvg_1_1Index.html#a7854f4dc7725be6ab73e04f9a95365ff',1,'vg::Index']]],
   ['traversal_5fto_5fstring',['traversal_to_string',['../namespacevg.html#a94385b32246fc81a0a44ea1b47d994ee',1,'vg']]],

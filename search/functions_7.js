@@ -244,6 +244,7 @@ var searchData=
   ['gfa_5fto_5fgraph',['gfa_to_graph',['../namespacevg.html#acd1d1f2f3c885ddf15f941b869c3030c',1,'vg']]],
   ['gffreader',['GFFReader',['../classvg_1_1GFFReader.html#a886d9cf2d287f8d0f6c87b206c26d893',1,'vg::GFFReader']]],
   ['gffrecord',['GFFRecord',['../structvg_1_1GFFRecord.html#a8fc2a234093eccb6ed958325887e0f08',1,'vg::GFFRecord']]],
+  ['golden_5fsection_5fsearch',['golden_section_search',['../namespacevg.html#a314ff925fad534d112e4531617e408fa',1,'vg']]],
   ['graph_5fcigar',['graph_cigar',['../classvg_1_1GSSWAligner.html#aa00d5de382ccbd9e9c0c46bbfa38aab1',1,'vg::GSSWAligner']]],
   ['graph_5fentry_5fto_5fstring',['graph_entry_to_string',['../classvg_1_1Index.html#a6ab0b0b94f6b7d10ff344982414e7b76',1,'vg::Index']]],
   ['graph_5fkey_5ftype',['graph_key_type',['../classvg_1_1Index.html#a0383b3f571eea1b2189fa3b49b324878',1,'vg::Index']]],

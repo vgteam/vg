@@ -88,7 +88,6 @@ var searchData=
   ['distance_5fmeasurer',['distance_measurer',['../classvg_1_1OrientedDistanceClusterer.html#a73c5578cbd124a60d54b49474937b78b',1,'vg::OrientedDistanceClusterer']]],
   ['distanceheuristic',['DistanceHeuristic',['../classvg_1_1DistanceHeuristic.html',1,'vg']]],
   ['distances',['distances',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a40fc927b0c7ebe7e523950c97cac5ce0',1,'vg::MinimumDistanceIndex::SnarlIndex']]],
-  ['distributions_2ehpp',['distributions.hpp',['../distributions_8hpp.html',1,'']]],
   ['disttocommonancestor',['distToCommonAncestor',['../classvg_1_1MinimumDistanceIndex.html#a5f38e6b389aaff2852502502cf9d4115',1,'vg::MinimumDistanceIndex']]],
   ['disttoends',['distToEnds',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a6842540f8a03448c812eece00c6af0bc',1,'vg::MinimumDistanceIndex::SnarlIndex']]],
   ['divergence',['divergence',['../namespacevg.html#ad3b0a534daaa4c4eb7204b139fbbe3b7',1,'vg']]],

@@ -27,6 +27,8 @@ var searchData=
   ['srpe_5fmain_2ecpp',['srpe_main.cpp',['../srpe__main_8cpp.html',1,'']]],
   ['ssw_5faligner_2ecpp',['ssw_aligner.cpp',['../ssw__aligner_8cpp.html',1,'']]],
   ['ssw_5faligner_2ehpp',['ssw_aligner.hpp',['../ssw__aligner_8hpp.html',1,'']]],
+  ['statistics_2ecpp',['statistics.cpp',['../statistics_8cpp.html',1,'']]],
+  ['statistics_2ehpp',['statistics.hpp',['../statistics_8hpp.html',1,'']]],
   ['stats_5fmain_2ecpp',['stats_main.cpp',['../stats__main_8cpp.html',1,'']]],
   ['stream_2ecpp',['stream.cpp',['../stream_8cpp.html',1,'']]],
   ['stream_2ehpp',['stream.hpp',['../stream_8hpp.html',1,'']]],

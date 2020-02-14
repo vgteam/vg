@@ -7,6 +7,8 @@ var searchData=
   ['want_5fbreakpoint',['want_breakpoint',['../classvg_1_1io_1_1StreamMultiplexer.html#ac0698f3b6387ce47f4e9d5b2929d6cf4',1,'vg::io::StreamMultiplexer']]],
   ['watchdog',['Watchdog',['../classvg_1_1Watchdog.html#a87e679ecbb8461ae6a26a1958216629b',1,'vg::Watchdog::Watchdog(size_t thread_count, const duration &amp;timeout)'],['../classvg_1_1Watchdog.html#a2934cc5c1fc3b7d0ab20343e6bde1a56',1,'vg::Watchdog::Watchdog(const Watchdog &amp;other)=delete'],['../classvg_1_1Watchdog.html#a73aa9888b0017ed46053c75c085f2748',1,'vg::Watchdog::Watchdog(Watchdog &amp;&amp;other)=delete']]],
   ['watcher_5floop',['watcher_loop',['../classvg_1_1Watchdog.html#ad2e2c831258c42fdba7f2d0fa8625cc9',1,'vg::Watchdog']]],
+  ['weibull_5fcdf',['weibull_cdf',['../namespacevg.html#a100efe5dfc5bfe434b53416f93d2a0e1',1,'vg']]],
+  ['weibull_5flog_5flikelihood',['weibull_log_likelihood',['../namespacevg.html#ad93405cf370e6d92396691fc3320be1c',1,'vg']]],
   ['wellford_5fmean_5fvar',['wellford_mean_var',['../namespacevg.html#a4b96cd801bc780d426db346f80ab2172',1,'vg']]],
   ['wellford_5fupdate',['wellford_update',['../namespacevg.html#a614c672ed69c280b699a278ce0f34ade',1,'vg']]],
   ['what',['what',['../classvg_1_1NoAlignmentInBandException.html#a006dddb79b9d1c6035c2466c35dbcacf',1,'vg::NoAlignmentInBandException::what()'],['../classvg_1_1indexOpenException.html#a333df86cfbb0c05dadd25081e69ac210',1,'vg::indexOpenException::what()'],['../classvg_1_1keyNotFoundException.html#ac67561e57be6703921105f1b46a81ccf',1,'vg::keyNotFoundException::what()'],['../classj2pb__error.html#a4ac3313fff0e2721ca9480b61ebe6a8b',1,'j2pb_error::what()']]],

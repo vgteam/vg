@@ -163,7 +163,7 @@ var searchData=
   ['startfile',['StartFile',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#aaf788a0a0553f9cc0c531fecb941f228',1,'vg::io::BlockedGzipOutputStream']]],
   ['starting_5fposition',['starting_position',['../structvg_1_1GaplessExtension.html#a52c9ed37c11404fd22f0d81e80f68aee',1,'vg::GaplessExtension']]],
   ['stddev',['stddev',['../classvg_1_1normal__distribution.html#aaf593ce22610d686f290face7b5db895',1,'vg::normal_distribution']]],
-  ['stdev',['stdev',['../classvg_1_1FragmentLengthDistribution.html#a4ac96d4bfc924fd50cebe27a229526ec',1,'vg::FragmentLengthDistribution::stdev()'],['../namespacevg.html#a0bdb2cdf1d9318f4bce86132244a874d',1,'vg::stdev(const std::vector&lt; double &gt; &amp;v)'],['../namespacevg.html#a11df8bd14dab3c0cfb7ecfa377a362f5',1,'vg::stdev(const T &amp;v)']]],
+  ['stdev',['stdev',['../classvg_1_1FragmentLengthDistribution.html#a4ac96d4bfc924fd50cebe27a229526ec',1,'vg::FragmentLengthDistribution::stdev()'],['../namespacevg.html#a11df8bd14dab3c0cfb7ecfa377a362f5',1,'vg::stdev()']]],
   ['step_5fin_5fpath',['step_in_path',['../classvg_1_1VCFTraversalFinder.html#aefa5cf40bc0244f81e52ae2bdb4904d0',1,'vg::VCFTraversalFinder']]],
   ['steps_5fof_5fhandle',['steps_of_handle',['../classvg_1_1MemoizingGraph.html#ab96deef5a4149f287541058c256a1115',1,'vg::MemoizingGraph::steps_of_handle()'],['../classhandlegraph_1_1PathHandleGraph.html#a015b050f33861cbc8e2a0efaaf771a30',1,'handlegraph::PathHandleGraph::steps_of_handle()']]],
   ['stop',['stop',['../classvg_1_1Funnel.html#adbe0233346c63f1693fa865eca0083b2',1,'vg::Funnel']]],
