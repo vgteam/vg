@@ -377,10 +377,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     used_minimizer_hit_counts.reserve(minimizers.size());
     vector<size_t> unused_minimizer_hit_counts;
     unused_minimizer_hit_counts.reserve(minimizers.size());
-    // And flag whether each minimizer in the read was located or not.
-    // TODO: should we count minimizers with no hits? We do right now because
-    // we need them to be created in the read when coming from a cluster that
-    // doesn't have them.
+    // And flag whether each minimizer in the read was located or not, for MAPQ capping.
+    // We ignore minimizers with no hits (count them as not located), because
+    // they would have to be created in the read no matter where we say it came
+    // from, and because adding more of them should lower the MAPQ cap, whereas
+    // locating more of the minimizers that are present and letting them pass
+    // to the enxt stage should raise the cap.
     vector<bool> minimizer_located(minimizers.size(), false);
     // In order to consistently take either all or none of the minimizers in
     // the read with a particular sequence, we track whether we took the
@@ -407,9 +409,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         if (minimizer.hits == 0) {
             // A minimizer with no hits can't go on.
             took_last = false;
-            // But we should treat it as located, because we know it isn't anywhere.
-            // TODO: should we also include it as needing to be covered by errors for MAPQ capping?
-            minimizer_located[i] = true;
+            // We do not treat it as located for MAPQ capping purposes.
             if (track_provenance) {
                 funnel.fail("any-hits", i);
             }
