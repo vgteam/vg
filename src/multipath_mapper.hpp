@@ -24,6 +24,7 @@
 #include "annotation.hpp"
 #include "path_component_index.hpp"
 #include "memoizing_graph.hpp"
+#include "statistics.hpp"
 
 #include "identity_overlay.hpp"
 #include "reverse_graph.hpp"
@@ -94,7 +95,7 @@ namespace vg {
         
         /// Map random sequences against the graph to calibrate a parameterized distribution that detects
         /// when mappings are likely to have occurred by chance
-        void calibrate_mismapping_detection(size_t num_simulations = 1000, size_t simulated_read_length = 150);
+        void calibrate_mismapping_detection(size_t num_simulations, const vector<size_t>& simulated_read_lengths);
         
         /// Should be called once after construction, or any time the band padding multiplier is changed
         void init_band_padding_memo();
@@ -115,7 +116,17 @@ namespace vg {
         size_t min_clustering_mem_length = 0;
         size_t max_p_value_memo_size = 500;
         size_t band_padding_memo_size = 500;
-        double pseudo_length_multiplier = 1.65;
+        bool use_weibull_calibration = false;
+        double max_exponential_rate_intercept = 0.7612;
+        double max_exponential_rate_slope = 0.0001496;
+        double max_exponential_shape_intercept = 12.37;
+        double max_exponential_shape_slope = 0.007191;
+        double weibull_scale_intercept = 1.05;
+        double weibull_scale_slope = 0.0601;
+        double weibull_shape_intercept = -0.176;
+        double weibull_shape_slope = 0.199;
+        double weibull_offset_intercept = 2.342;
+        double weibull_offset_slope = 0.07168;
         double max_mapping_p_value = 0.00001;
         size_t max_alt_mappings = 1;
         size_t max_single_end_mappings_for_rescue = 64;

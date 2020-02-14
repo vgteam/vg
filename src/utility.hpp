@@ -54,127 +54,11 @@ bool allATGCN(const string& s);
 string nonATGCNtoN(const string& s);
 // Convert ASCII-encoded DNA to upper case
 string toUppercase(const string& s);
-double median(std::vector<int> &v);
-double stdev(const std::vector<double>& v);
-// Online mean-variance computation with wellfords algorithm (pass 0's to 1st 3 params to start)
-void wellford_update(size_t& count, double& mean, double& M2, double new_val);
-pair<double, double> wellford_mean_var(size_t count, double mean, double M2, bool sample_variance = false);
 
 // write a fasta sqeuence
 void write_fasta_sequence(const std::string& name, const std::string& sequence, ostream& os, size_t width=80);
 
-template<typename T>
-double stdev(const T& v) {
-    double sum = std::accumulate(v.begin(), v.end(), 0.0);
-    double mean = sum / v.size();
-    std::vector<double> diff(v.size());
-    std::transform(v.begin(), v.end(), diff.begin(), [mean](double x) { return x - mean; });
-    double sq_sum = std::inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
-    return std::sqrt(sq_sum / v.size());
-}
 
-// Φ is the normal cumulative distribution function
-// https://en.wikipedia.org/wiki/Cumulative_distribution_function
-double phi(double x1, double x2);
-    
-/// Inverse CDF of a standard normal distribution. Must have 0 < quantile < 1.
-double normal_inverse_cdf(double quantile);
-
-/*
- * Return the log of the sum of two log-transformed values without taking them
- * out of log space.
- */
-inline double add_log(double log_x, double log_y) {
-    return log_x > log_y ? log_x + log(1.0 + exp(log_y - log_x)) : log_y + log(1.0 + exp(log_x - log_y));
-}
-    
-/*
- * Return the log of the difference of two log-transformed values without taking
- * them out of log space.
- */
-inline double subtract_log(double log_x, double log_y) {
-    return log_x + log(1.0 - exp(log_y - log_x));
-}
- 
-/**
- * Convert a number ln to the same number log 10.
- */   
-inline double ln_to_log10(double ln) {
-    return ln / log(10);
-}
-
-/**
- * Convert a number log 10 to the same number ln.
- */   
-inline double log10_to_ln(double l10) {
-    return l10 * log(10);
-}
-    
-// Convert a probability to a natural log probability.
-inline double prob_to_logprob(double prob) {
-    return log(prob);
-}
-// Convert natural log probability to a probability
-inline double logprob_to_prob(double logprob) {
-    return exp(logprob);
-}
-
-// NOT a lob probability
-inline double not_logprob(double logprob) {
-    return prob_to_logprob(1.0 - logprob_to_prob(logprob));
-}
-
-// Add two probabilities (expressed as logprobs) together and return the result
-// as a logprob.
-inline double logprob_add(double logprob1, double logprob2) {
-    // Pull out the larger one to avoid underflows
-    double pulled_out = max(logprob1, logprob2);
-    return pulled_out + prob_to_logprob(logprob_to_prob(logprob1 - pulled_out) + logprob_to_prob(logprob2 - pulled_out));
-}
-// Invert a logprob, and get the probability of its opposite.
-inline double logprob_invert(double logprob) {
-    return prob_to_logprob(1.0 - logprob_to_prob(logprob));
-}
-
-// Convert integer Phred quality score to probability of wrongness.
-inline double phred_to_prob(int phred) {
-    return pow(10, -((double)phred) / 10);
-}
-
-// Convert probability of wrongness to integer Phred quality score.
-inline double prob_to_phred(double prob) {
-    return -10.0 * log10(prob);
-}
-
-// Convert a Phred quality score directly to a natural log probability of wrongness.
-inline double phred_to_logprob(int phred) {
-    return (-((double)phred) / 10) / log10(exp(1.0));
-}
-
-// Convert a natural log probability of wrongness directly to a Phred quality score.
-inline double logprob_to_phred(double logprob ) {
-    return -10.0 * logprob * log10(exp(1.0));
-}
-
-// Take the geometric mean of two logprobs
-inline double logprob_geometric_mean(double lnprob1, double lnprob2) {
-    return log(sqrt(exp(lnprob1 + lnprob2)));
-}
-
-// Same thing in phred
-inline double phred_geometric_mean(double phred1, double phred2) {
-    return prob_to_phred(sqrt(phred_to_prob(phred1 + phred2)));
-}
-
-// normal pdf, from http://stackoverflow.com/a/10848293
-template <typename T>
-T normal_pdf(T x, T m, T s)
-{
-    static const T inv_sqrt_2pi = 0.3989422804014327;
-    T a = (x - m) / s;
-
-    return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
-}
 
 template<typename T, typename V>
 set<T> map_keys_to_set(const map<T, V>& m) {
@@ -229,51 +113,6 @@ typename Collection::value_type sum(const Collection& collection) {
 
 }
 
-/**
- * Compute the sum of the values in a collection, where the values are log
- * probabilities and the result is the log of the total probability. Items must
- * be convertible to/from doubles for math.
- */
-template<typename Collection>
-typename Collection::value_type logprob_sum(const Collection& collection) {
-
-    // Set up an alias
-    using Item = typename Collection::value_type;
-
-    // Pull out the minimum value
-    auto min_iterator = min_element(begin(collection), end(collection));
-
-    if(min_iterator == end(collection)) {
-        // Nothing there, p = 0
-        return Item(prob_to_logprob(0));
-    }
-
-    auto check_iterator = begin(collection);
-    ++check_iterator;
-    if(check_iterator == end(collection)) {
-        // We only have a single element anyway. We don't want to subtract it
-        // out because we'll get 0s.
-        return *min_iterator;
-    }
-
-    // Pull this much out of every logprob.
-    Item pulled_out = *min_iterator;
-
-    if(logprob_to_prob(pulled_out) == 0) {
-        // Can't divide by 0!
-        // TODO: fix this in selection
-        pulled_out = prob_to_logprob(1);
-    }
-
-    Item total(0);
-    for(auto& to_add : collection) {
-        // Sum up all the scaled probabilities.
-        total += logprob_to_prob(to_add - pulled_out);
-    }
-
-    // Re-log and re-scale
-    return pulled_out + prob_to_logprob(total);
-}
 
 /**
  * Temporary files. Create with create() and remove with remove(). All
@@ -434,9 +273,6 @@ private:
 };
     
 size_t integer_power(size_t x, size_t power);
-
-double slope(const std::vector<double>& x, const std::vector<double>& y);
-double fit_zipf(const vector<double>& y);
 
 /// Computes base^exponent in log(exponent) time
 size_t integer_power(uint64_t base, uint64_t exponent);
