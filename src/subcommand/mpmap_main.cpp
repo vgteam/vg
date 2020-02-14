@@ -181,7 +181,7 @@ int main_mpmap(int argc, char** argv) {
     double max_mapping_p_value = 0.00001;
     size_t num_calibration_simulations = 500;
     vector<size_t> calibration_read_lengths{50, 75, 100, 150, 250, 450, 750};
-    bool use_weibull_calibration = true;
+    bool use_weibull_calibration = false;
     size_t order_length_repeat_hit_max = 3000;
     size_t sub_mem_count_thinning = 4;
     size_t sub_mem_thinning_burn_in = 16;
