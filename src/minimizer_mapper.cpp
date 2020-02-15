@@ -1102,16 +1102,16 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     }
     
     // Minimizers for both reads, sorted by score in descending order.
-    std::pair<std::vector<Minimizer>, std::vector<Minimizer>> minimizers_by_read;
-    minimizers_by_read.first = this->find_minimizers(aln1.sequence(), funnels[0]);
-    minimizers_by_read.second = this->find_minimizers(aln2.sequence(), funnels[1]);
+    std::vector<std::vector<Minimizer>> minimizers_by_read(2);
+    minimizers_by_read[0] = this->find_minimizers(aln1.sequence(), funnels[0]);
+    minimizers_by_read[1] = this->find_minimizers(aln2.sequence(), funnels[1]);
 
     // Seeds and their source minimizers for both reads, stored in separate vectors.
     std::vector<std::vector<pos_t>> seeds_by_read(2);
     std::pair<std::vector<size_t>, std::vector<size_t>> seed_to_source_by_read;
     std::pair<std::vector<bool>, std::vector<bool>> minimizer_located_by_read;
-    std::tie(seeds_by_read[0], seed_to_source_by_read.first, minimizer_located_by_read.first) = this->find_seeds(minimizers_by_read.first, aln1, funnels[0]);
-    std::tie(seeds_by_read[1], seed_to_source_by_read.second, minimizer_located_by_read.second) = this->find_seeds(minimizers_by_read.second, aln2, funnels[1]);
+    std::tie(seeds_by_read[0], seed_to_source_by_read.first, minimizer_located_by_read.first) = this->find_seeds(minimizers_by_read[0], aln1, funnels[0]);
+    std::tie(seeds_by_read[1], seed_to_source_by_read.second, minimizer_located_by_read.second) = this->find_seeds(minimizers_by_read[1], aln2, funnels[1]);
 
     if (track_provenance) {
         // Begin the clustering stage
@@ -1187,7 +1187,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         Alignment& aln = read_num == 0 ? aln1 : aln2;
         vector<size_t>& seed_to_source = read_num == 0 ? seed_to_source_by_read.first : seed_to_source_by_read.second;
         vector<pair<vector<size_t>, size_t>>& clusters = all_clusters[read_num];
-        std::vector<Minimizer>& minimizers = read_num == 0 ? minimizers_by_read.first : minimizers_by_read.second;
+        std::vector<Minimizer>& minimizers = minimizers_by_read[read_num];
         vector<pos_t>& seeds = seeds_by_read[read_num];
         vector<double>& best_cluster_score = read_num == 0 ? cluster_score_by_fragment.first : cluster_score_by_fragment.second;
         vector<double>& best_cluster_coverage = read_num == 0 ? cluster_coverage_by_fragment.first : cluster_coverage_by_fragment.second;
@@ -1249,7 +1249,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         Alignment& aln = read_num == 0 ? aln1 : aln2;
         vector<size_t>& seed_to_source = read_num == 0 ? seed_to_source_by_read.first : seed_to_source_by_read.second;
         vector<pair<vector<size_t>, size_t>>& clusters = all_clusters[read_num];
-        std::vector<Minimizer>& minimizers = read_num == 0 ? minimizers_by_read.first : minimizers_by_read.second;
+        std::vector<Minimizer>& minimizers = minimizers_by_read[read_num];
         vector<pos_t>& seeds = seeds_by_read[read_num];
         vector<double>& cluster_score = read_num == 0 ? cluster_scores.first : cluster_scores.second;
         vector<double>& read_coverage_by_cluster = read_num == 0 ? cluster_coverages.first : cluster_coverages.second;
@@ -2069,13 +2069,18 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             auto& aln = read_num == 0 ? aln1 : aln2;
 
             // Find the MAPQ to cap
-            auto& mapq = read_num == 0 ? mapq_group_1 : mapq_group_2;
+            auto& mapq = read_num == 0 ? mapq_group1 : mapq_group2;
     
             // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
             double mapq_locate_cap;
             double mapq_extended_cap;
             double mapq_non_extended_cap;
-            std::tie(mapq_locate_cap, mapq_extended_cap, mapq_non_extended_cap) = compute_mapq_caps(aln, minimizers_by_read[read_num], minimizer_located_by_read[read_num], present_in_cluster_by_read[read_num], unextended_clusters_by_read[read_num], present_in_any_extended_cluster_by_read[read_num]);
+            std::tie(mapq_locate_cap, mapq_extended_cap, mapq_non_extended_cap) = compute_mapq_caps(aln,
+                minimizers_by_read[read_num],
+                minimizer_located_by_read[read_num],
+                present_in_cluster_by_read[read_num],
+                unextended_clusters_by_read[read_num],
+                present_in_any_extended_cluster_by_read[read_num]);
 
             auto& to_annotate = (read_num == 0 ? mappings.first : mappings.second).front();
 
