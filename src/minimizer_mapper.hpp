@@ -192,19 +192,6 @@ protected:
 
     FragmentLengthDistribution fragment_length_distr;
 
-    struct Minimizer {
-        typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
-        size_t hits;
-        const typename gbwtgraph::DefaultMinimizerIndex::code_type* occs;
-        size_t origin; // From minimizer_indexes[origin].
-        double score;  // 1 + ln(hard_hit_cap) - ln(hits).
-
-        // Sort the minimizers in descending order by score.
-        bool operator< (const Minimizer& another) const {
-            return (this->score > another.score);
-        }
-    };
-
     /**
      * Find the minimizers in the sequence using all minimizer indexes and
      * return them sorted in descending order by score.
@@ -212,18 +199,28 @@ protected:
     std::vector<Minimizer> find_minimizers(const std::string& sequence, Funnel& funnel) const;
 
     /**
-     * Find seeds for all minimizers passing the filters. Return the seeds in
-     * one vector and the source minimizers in another vector.
+     * Find seeds for all minimizers passing the filters. Return the seeds, the
+     * corresponding source minimizers, and a bit vector over all minimizers
+     * flagging the ones that were located.
      */
-    std::pair<std::vector<pos_t>, std::vector<size_t>> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+    std::tuple<std::vector<pos_t>, std::vector<size_t>, std::vector<bool>> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
 
     /**
-     * Return cluster score and read coverage. Score is the sum of the scores
-     * of distinct minimizers in the cluster, while read coverage is the fraction
+     * Return cluster score and read coverage, and a vector of flags for the
+     * minimizers present in the cluster. Score is the sum of the scores of
+     * distinct minimizers in the cluster, while read coverage is the fraction
      * of the read covered by seeds in the cluster.
      * TODO JS: Score all clusters at once; calculate fragment scores afterwards.
      */
-    std::pair<double, double> score_cluster(const std::vector<size_t>& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<size_t>& seed_to_source, size_t seq_length, Funnel& funnel) const;
+    std::tuple<double, double, std::vector<bool>> score_cluster(const std::vector<size_t>& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<size_t>& seed_to_source, size_t seq_length, Funnel& funnel) const;
+
+    /**
+     * Compute MAPQ caps based on all located minimizers, all minimizers present in extended clusters, and all minimizers not present in extended clusters.
+     * Needs access to the input alignment for sequence and quality information.
+     */
+    std::tuple<double, double, double> compute_mapq_caps(const Alignment& aln, const std::vector<Minimizer>& minimizers,
+                                                         const std::vector<bool>& minimizer_located, const std::vector<std::vector<bool>>& present_in_cluster,
+                                                         const std::vector<size_t>& unextended_clusters, const std::vector<bool>& present_in_any_extended_cluster);
 
     /**
      * Compute a bound on the Phred score probability of having created the
