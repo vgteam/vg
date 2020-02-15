@@ -489,15 +489,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     vector<size_t> unextended_clusters;
     unextended_clusters.reserve(clusters.size());
     
-    // When a cluster is rejected for extension, call this to record it for MAPQ capping.
-    auto cluster_not_extended = [&](size_t cluster_num) {
-        // Since we didn't take this cluster, we need to cap the MAPQ with
-        // the probability that the read came from it.
-        
-        // Remember that it is not extended.
-        unextended_clusters.push_back(cluster_num);
-    };
-    
     //Process clusters sorted by both score and read coverage
     process_until_threshold(clusters, read_coverage_by_cluster,
         [&](size_t a, size_t b) {
@@ -524,7 +515,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 }
                 
                 // Record MAPQ implications of not extending this cluster.
-                cluster_not_extended(cluster_num);
+                unextended_clusters.push_back(cluster_num);
                 return false;
             }
             
@@ -555,7 +546,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 // TODO: shouldn't we fail something for the funnel here?
                 
                 // Record MAPQ implications of not extending this cluster.
-                cluster_not_extended(cluster_num);
+                unextended_clusters.push_back(cluster_num);
                 return false;
             }
             
@@ -628,7 +619,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             }
             
             // Record MAPQ implications of not extending this cluster.
-            cluster_not_extended(cluster_num);
+            unextended_clusters.push_back(cluster_num);
             
         }, [&](size_t cluster_num) {
             // This cluster is not sufficiently good.
@@ -644,7 +635,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             curr_coverage = 0;
             
             // Record MAPQ implications of not extending this cluster.
-            cluster_not_extended(cluster_num);
+            unextended_clusters.push_back(cluster_num);
         });
         
     for (size_t i = 0 ; i < curr_kept ; i++ ) {
@@ -918,7 +909,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         mapq = min(mapq,round(prob_to_phred(probability_mapping_lost.front())));
     }
 
-    // Compute caps on MAPQ. TODO: don't need to pass as much stuff along.
+    // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
     double mapq_locate_cap;
     double mapq_extended_cap;
     double mapq_non_extended_cap;
@@ -1180,7 +1171,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     pair<vector<double>, vector<double>> cluster_scores;
     pair<vector<double>, vector<double>>  cluster_coverages;
     // Flags for whether each cluster contains each minimizer
-    pair<vector<vector<bool>>, vector<vector<bool>>> presences_in_clusters;
+    vector<vector<vector<bool>>> present_in_cluster_by_read(2);
 
 
     //Keep track of the best cluster score and coverage per end for each fragment cluster
@@ -1204,7 +1195,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         // Cluster score is the sum of minimizer scores.
         vector<double>& cluster_score = read_num == 0 ? cluster_scores.first : cluster_scores.second;
         vector<double>& read_coverage_by_cluster = read_num == 0 ? cluster_coverages.first : cluster_coverages.second;
-        vector<vector<bool>>& present_in_cluster = read_num == 0 ? presences_in_clusters.first : presences_in_clusters.second;
+        vector<vector<bool>>& present_in_cluster = present_in_cluster_by_read[read_num];
 
         for (size_t i = 0; i < clusters.size(); i++) {
             // Deterimine cluster score and read coverage.
@@ -1245,6 +1236,13 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         }
     }
 
+    // We track unextended clusters.
+    vector<vector<size_t>> unextended_clusters_by_read(2);
+    // To compute the windows present in any extended cluster, we need to get
+    // all the minimizers in any extended cluster.
+    vector<vector<bool>> present_in_any_extended_cluster_by_read(2);
+    
+
     //Now that we've scored each of the clusters, extend and align them
     for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
 
@@ -1283,6 +1281,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         //size_t curr_score = 0;
         //size_t curr_kept = 0;
         //size_t curr_count = 0;
+
+        unextended_clusters_by_read[read_num].reserve(clusters.size());
+        present_in_any_extended_cluster_by_read[read_num] = std::vector<bool>(minimizers.size(), false);
         
         //Process clusters sorted by both score and read coverage
         process_until_threshold(clusters, read_coverage_by_cluster,
@@ -1325,6 +1326,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         if (track_provenance) {
                             funnels[read_num].fail("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
                         }
+                        unextended_clusters_by_read[read_num].push_back(cluster_num);
                         return false;
                     }
                     if (cluster_score_threshold != 0 && cluster_score[cluster_num] < cluster_score_cutoff) {
@@ -1334,6 +1336,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                             funnels[read_num].pass("max-extensions", cluster_num);
                             funnels[read_num].fail("cluster-score", cluster_num, cluster_score[cluster_num]);
                         }
+                        unextended_clusters_by_read[read_num].push_back(cluster_num);
                         return false;
                     }
                     if (track_provenance) {
@@ -1364,6 +1367,18 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     // Extend seed hits in the cluster into one or more gapless extensions
                     cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())), 
                                                     clusters[cluster_num].second);
+
+            
+                    for (size_t i = 0; i < minimizers.size(); i++) {
+                        // Since the cluster was extended, OR in its minimizers with
+                        // those in all the other extended clusters
+                        present_in_any_extended_cluster_by_read[read_num][i] = (present_in_any_extended_cluster_by_read[read_num][i] || present_in_cluster_by_read[read_num][cluster_num][i]);
+#ifdef debug
+                        if (present_in_cluster_by_read[read_num][cluster_num][i]) {
+                            cerr << "Read " << read_num << " minimizer " << i << " is present in extended cluster " << cluster_num << endl;
+                        }
+#endif
+                    }
                     
                     if (track_provenance) {
                         // Record with the funnel that the previous group became a group of this size.
@@ -1382,6 +1397,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         funnels[read_num].pass("cluster-score", cluster_num, cluster_score[cluster_num]);
                         funnels[read_num].fail("paired-clusters", cluster_num);
                     }
+                    unextended_clusters_by_read[read_num].push_back(cluster_num);
                     return false;
                 }
                 
@@ -1391,9 +1407,11 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     funnels[read_num].pass("cluster-coverage", cluster_num, read_coverage_by_cluster[cluster_num]);
                     funnels[read_num].fail("max-extensions", cluster_num);
                 }
+                unextended_clusters_by_read[read_num].push_back(cluster_num);
             }, [&](size_t cluster_num) {
                 // This cluster is not sufficiently good.
                 // TODO: I don't think it should ever get here unless we limit the scores of the fragment clusters we look at
+                unextended_clusters_by_read[read_num].push_back(cluster_num);
             });
             
         
@@ -2042,9 +2060,37 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             min(mapq, get_regular_aligner()->maximum_mapping_quality_exact(scores_group_1, &winning_index) / 2);
         double mapq_group2 = scores_group_2.size() <= 1 ? mapq : 
             min(mapq, get_regular_aligner()->maximum_mapping_quality_exact(scores_group_2, &winning_index) / 2);
+
+
+        for (auto read_num : {0, 1}) {
+            // For each fragment
+
+            // Find the source read
+            auto& aln = read_num == 0 ? aln1 : aln2;
+
+            // Find the MAPQ to cap
+            auto& mapq = read_num == 0 ? mapq_group_1 : mapq_group_2;
+    
+            // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
+            double mapq_locate_cap;
+            double mapq_extended_cap;
+            double mapq_non_extended_cap;
+            std::tie(mapq_locate_cap, mapq_extended_cap, mapq_non_extended_cap) = compute_mapq_caps(aln, minimizers_by_read[read_num], minimizer_located_by_read[read_num], present_in_cluster_by_read[read_num], unextended_clusters_by_read[read_num], present_in_any_extended_cluster_by_read[read_num]);
+
+            auto& to_annotate = (read_num == 0 ? mappings.first : mappings.second).front();
+
+            // Remember the uncapped MAPQ and the caps
+            set_annotation(to_annotate, "mapq_uncapped", mapq);
+            set_annotation(to_annotate, "mapq_locate_cap", mapq_locate_cap);
+            set_annotation(to_annotate, "mapq_extended_cap", mapq_extended_cap);
+            set_annotation(mto_annotate, "mapq_non_extended_cap", mapq_non_extended_cap);
+
+            // Apply the caps
+            mapq = min(min(mapq, mapq_locate_cap), min(mapq_extended_cap, mapq_non_extended_cap));
+        }
         
 #ifdef debug
-        cerr << "MAPQ is " << mapq << ", group MAPQ scores are " << mapq_group1 << " and " << mapq_group2 << endl;
+        cerr << "MAPQ is " << mapq << ", capped group MAPQ scores are " << mapq_group1 << " and " << mapq_group2 << endl;
 #endif
 
         mappings.first.front().set_mapping_quality(max(min(mapq_group1, 60.0), 0.0)) ;
