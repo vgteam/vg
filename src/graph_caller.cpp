@@ -22,6 +22,10 @@ void GraphCaller::call_top_level_snarls(bool recurse_on_fail) {
 
     // Run the snarl caller on a snarl, and queue up the children if it fails
     auto process_snarl = [&](const Snarl* snarl) {
+
+#ifdef debug
+        cerr << "GraphCaller running call_snarl on " << pb2json(*snarl) << endl;
+#endif
         bool was_called = call_snarl(*snarl);
         if (!was_called && recurse_on_fail) {
             const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
@@ -338,7 +342,7 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
     if (!graph.has_node(snarl.start().node_id()) || !graph.has_node(snarl.end().node_id())) {
         return false;
     }
-    
+
     // get our traversals out of the finder
     vector<pair<SnarlTraversal, vector<int>>> alleles;
     vector<vcflib::Variant*> variants;
@@ -950,22 +954,38 @@ bool FlowCaller::call_snarl(const Snarl& snarl) {
     // find the reference traversal and coordinates using the path position graph interface
     tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, ref_path_name);
 
+    step_handle_t cur_step = get<3>(ref_interval);
+    step_handle_t last_step = get<4>(ref_interval);
+    if (get<2>(ref_interval)) {
+        std::swap(cur_step, last_step);
+    }
+    bool start_backwards = snarl.start().backward() != graph.get_is_reverse(graph.get_handle_of_step(cur_step));
+    
     SnarlTraversal ref_trav;
-    for (step_handle_t cur = get<3>(ref_interval);;) {
-        handle_t cur_handle = graph.get_handle_of_step(cur);
+    while (true) {
+        handle_t cur_handle = graph.get_handle_of_step(cur_step);
         Visit* visit = ref_trav.add_visit();
         visit->set_node_id(graph.get_id(cur_handle));
-        visit->set_backward(graph.get_is_reverse(cur_handle));
-        if (cur == get<4>(ref_interval)) {
+        visit->set_backward(start_backwards ? !graph.get_is_reverse(cur_handle) : graph.get_is_reverse(cur_handle));
+        if (graph.get_id(cur_handle) == snarl.end().node_id()) {
             break;
         } else if (get<2>(ref_interval) == true) {
-            cur = graph.get_previous_step(cur);
+            if (!graph.has_previous_step(cur_step)) {
+                cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(snarl) << endl;
+                return false;
+            }
+            cur_step = graph.get_previous_step(cur_step);
         } else {
-            cur = graph.get_next_step(cur);
+            if (!graph.has_next_step(cur_step)) {
+                cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(snarl) << endl;
+                return false;
+            }
+            cur_step = graph.get_next_step(cur_step);
         }
         // todo: we can compute flow at the same time
     }
-
+    assert(ref_trav.visit(0) == snarl.start() && ref_trav.visit(ref_trav.visit_size() - 1) == snarl.end());
+    
     // find the reference traversal in the list of results from the traversal finder
     int ref_trav_idx = -1;
     for (int i = 0; i < weighted_travs.first.size() && ref_trav_idx < 0; ++i) {
