@@ -64,6 +64,7 @@ public:
     /// exclusive_count_travs: these traversals get subtracted from supports in the target traversals
     /// exclusive_count_support: used with above, to determine amount of support to subtract
     /// ref_trav_idx:    index of reference traversal if known
+    /// max_trav_size:   optional input of max trav size.  useful when longest traversral is outside target set
     virtual vector<Support> get_traversal_set_support(const vector<SnarlTraversal>& traversals,
                                                       const vector<int>& shared_travs,
                                                       const vector<Support>& shared_support,
@@ -71,7 +72,8 @@ public:
                                                       bool exclusive_only,
                                                       const vector<int>& exclusive_count_travs,
                                                       const vector<Support>& exclusive_count_support,
-                                                      int ref_trav_idx = -1) const;
+                                                      int ref_trav_idx = -1,
+                                                      int* max_trav_size = nullptr) const;
     
     /// Get the total length of all nodes in the traversal
     virtual vector<int> get_traversal_sizes(const vector<SnarlTraversal>& traversals) const;

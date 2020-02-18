@@ -70,18 +70,19 @@ vector<Support> TraversalSupportFinder::get_traversal_genotype_support(const vec
     set<int> tgt_trav_set(genotype.begin(), genotype.end());
     vector<int> tgt_travs(tgt_trav_set.begin(), tgt_trav_set.end());
     vector<int> other_travs(other_trav_subset.begin(), other_trav_subset.end());
+    int max_trav_size = 0;
     
     // compute independent support of allele in the genotype
     // todo:  pass this in instead of recomputing.  as there's no reason to compute this more than once
-    vector<Support> ind_allele_support = get_traversal_set_support(traversals, {}, {}, tgt_trav_set, false, {}, {}, ref_trav_idx);
+    vector<Support> ind_allele_support = get_traversal_set_support(traversals, {}, {}, tgt_trav_set, false, {}, {}, ref_trav_idx, &max_trav_size);
     
     // get the support of just the alleles in the genotype, but splitting support of nodes/edges they share
     // the split is weighted by the total support of the alleles compute above. for node N and genotype A,B:
     // so support(node N in allele A) = support(node N) * support(allele A) / (support(allele A + allele B))
-    vector<Support> allele_support = get_traversal_set_support(traversals, genotype, ind_allele_support, tgt_trav_set, false, {}, {}, ref_trav_idx);
+    vector<Support> allele_support = get_traversal_set_support(traversals, genotype, ind_allele_support, tgt_trav_set, false, {}, {}, ref_trav_idx, &max_trav_size);
     
     // get the support of everythin else, subtracting genotype supports, and splitting mutual supports
-    vector<Support> other_support = get_traversal_set_support(traversals, other_travs, {}, other_trav_subset, false, genotype, allele_support, ref_trav_idx);
+    vector<Support> other_support = get_traversal_set_support(traversals, other_travs, {}, other_trav_subset, false, genotype, allele_support, ref_trav_idx, &max_trav_size);
 
     // combine the above two vectors
     for (int allele : tgt_travs) {
@@ -97,7 +98,8 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
                                                                   bool exclusive_only,
                                                                   const vector<int>& exclusive_count_travs,
                                                                   const vector<Support>& exclusive_count_support,
-                                                                  int ref_trav_idx) const {
+                                                                  int ref_trav_idx,
+                                                                  int* max_trav_size) const {
 
     // exclusive_count_support corresponds to traversals
     assert(exclusive_count_support.empty() || exclusive_count_support.size() == traversals.size());
@@ -188,15 +190,18 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
     vector<Support> tot_supports_avg(traversals.size()); // weighted by lengths, using avg node support
     vector<int> tot_sizes(traversals.size(), 0); // to compute average from to_supports;
     vector<int> tot_sizes_all(traversals.size(), 0); // as above, but includes excluded lengths
-    int max_trav_size = 0; // size of longest traversal
-
+    int max_trav_size_internal = 0; // size of longest traversal
+    if (max_trav_size == nullptr) {
+        max_trav_size = &max_trav_size_internal;
+    }
+    
     bool count_end_nodes = false; // toggle to include snarl ends
 
     auto update_support = [&] (int trav_idx, const Support& min_support,
                                const Support& avg_support, int length, pair<double, double> share_count) {
         // keep track of overall size of longest traversal
         tot_sizes_all[trav_idx] += length;
-        max_trav_size = std::max(tot_sizes_all[trav_idx], max_trav_size);
+        *max_trav_size = std::max(tot_sizes_all[trav_idx], *max_trav_size);
 
         // apply the scaling
         double scale_factor = 1.;
@@ -304,8 +309,8 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
         }
     }
 
-    bool use_avg_trav_support = max_trav_size >= average_traversal_support_switch_threshold;
-    bool use_avg_node_support = max_trav_size >= average_node_support_switch_threshold;
+    bool use_avg_trav_support = *max_trav_size >= average_traversal_support_switch_threshold;
+    bool use_avg_node_support = *max_trav_size >= average_node_support_switch_threshold;
 
     if (use_avg_trav_support) {
         vector<Support>& tot_supports = use_avg_node_support ? tot_supports_avg : tot_supports_min;
