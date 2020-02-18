@@ -238,14 +238,14 @@ vg augment x.vg aln.gam -i -S > aug_with_paths.vg
 
 The following examples show how to generate a VCF with vg using read support.  They depend on output from the Mapping and Augmentation examples above.  Small variants and SVs can be called using the same approach.  Currently, it is more accuracte for SVs.  
 
-Call only variants that are present in the graph:
+Call only variants that are present in the graph (use `-g`):
 
 ```sh
 # Compute the read support from the gam (ignoring mapping and base qualitiy < 5)
 vg pack -x x.xg -g aln.gam -Q 5 -o aln.pack
 
-# Generate a VCF from the support
-vg call x.xg -k aln.pack > graph_calls.vcf
+# Generate a VCF from the support.  
+vg call x.xg -k aln.pack -g > graph_calls.vcf
 ```
 
 In order to also consider *novel* variants from the reads, use the augmented graph and gam (as created in the previous example using `vg augment -A`):
@@ -257,7 +257,7 @@ vg index aug.vg -x aug.xg
 # Compute the read support from the augmented gam (with ignoring qualitiy < 5)
 vg pack -x aug.xg -g aug.gam -Q 5 -o aln_aug.pack
 
-# Generate a VCF from the support
+# Generate a VCF from the support (do not use -g)
 vg call aug.xg -k aln_aug.pack > calls.vcf
 ```
 
@@ -273,7 +273,7 @@ vg index xa.vg -x xa.xg -L
 # Compute the support (we could also reuse aln.pack from above)
 vg pack -x xa.xg -g aln.gam -o aln.pack
 
-# Genotype the VCF
+# Genotype the VCF (use -v)
 vg call xa.xg -k aln.pack -v small/x.vcf.gz > genotypes.vcf
 ```
 
