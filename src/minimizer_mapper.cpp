@@ -2070,6 +2070,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
             // Find the MAPQ to cap
             auto& mapq = read_num == 0 ? mapq_group1 : mapq_group2;
+
+            // And the minimizer-located bit flag vector
+            auto& minimizer_located = read_num == 0 ? minimizer_located_by_read.first : minimizer_located_by_read.second;
     
             // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
             double mapq_locate_cap;
@@ -2077,7 +2080,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             double mapq_non_extended_cap;
             std::tie(mapq_locate_cap, mapq_extended_cap, mapq_non_extended_cap) = compute_mapq_caps(aln,
                 minimizers_by_read[read_num],
-                minimizer_located_by_read[read_num],
+                minimizer_located,
                 present_in_cluster_by_read[read_num],
                 unextended_clusters_by_read[read_num],
                 present_in_any_extended_cluster_by_read[read_num]);
@@ -2088,7 +2091,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             set_annotation(to_annotate, "mapq_uncapped", mapq);
             set_annotation(to_annotate, "mapq_locate_cap", mapq_locate_cap);
             set_annotation(to_annotate, "mapq_extended_cap", mapq_extended_cap);
-            set_annotation(mto_annotate, "mapq_non_extended_cap", mapq_non_extended_cap);
+            set_annotation(to_annotate, "mapq_non_extended_cap", mapq_non_extended_cap);
 
             // Apply the caps
             mapq = min(min(mapq, mapq_locate_cap), min(mapq_extended_cap, mapq_non_extended_cap));
