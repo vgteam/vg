@@ -132,16 +132,21 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
     vector<pair<double, vector<handle_t>>> best_paths;
     best_paths.reserve(K);
 
+    // Eugene Lawler's optimization: keep track of spur nodes in the previous best path
+    // to not bother looking at the same prefix again
+    vector<size_t> best_spurs;
+
     // get the widest path from dijkstra
     best_paths.push_back(widest_dijkstra(g, source, sink, node_weight_callback,
                                          edge_weight_callback, [](handle_t) {return false;},
                                          [](edge_t) {return false;}));
+    best_spurs.push_back(0);
     
-    // working path set, mapped to score
+    // working path set, mapped to spur index (plus 1 -- ie next spot we want to look when finding new spurs)
     // todo: make more efficient
-    set<vector<handle_t>> B;
+    map<vector<handle_t>, size_t> B;
     // used to pull out the biggest element in B
-    multimap<double, set<vector<handle_t>>::iterator> score_to_B;
+    multimap<double, map<vector<handle_t>, size_t>::iterator> score_to_B;
     
     // start scanning for our k-1 next-widest paths
     for (size_t k = 1; k < K; ++k) {
@@ -150,7 +155,7 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
         // up to that spur node, then a new path to the sink. (i is the index of the spur node in
         // the previous (k - 1) path
         vector<handle_t>& prev_path = best_paths[k - 1].second;
-        for (size_t i = 0; i < prev_path.size() - 1; ++i) {
+        for (size_t i = best_spurs[k - 1]; i < prev_path.size() - 1; ++i) {
             
             handle_t spur_node = prev_path[i];
             // root path = prev_path[0 : i]
@@ -213,7 +218,7 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
                 // insert the path into our sorted set
                 total_path.second.insert(total_path.second.end(), spur_path_v.second.begin(), spur_path_v.second.end());
                 total_path.first = min(total_width, spur_path_v.first);
-                pair<set<vector<handle_t>>::iterator, bool> ins = B.insert(total_path.second);
+                pair<map<vector<handle_t>, size_t>::iterator, bool> ins = B.insert(make_pair(total_path.second, i + 1));
                 if (ins.second == true) {
                     score_to_B.insert(make_pair(total_path.first, ins.first));
                 } // todo: is there any reason we'd need to update the score of an existing entry in B?
@@ -225,10 +230,11 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
         }
 
         assert(score_to_B.size() == B.size());
-        multimap<double, set<vector<handle_t>>::iterator>::iterator best_B_it = std::prev(score_to_B.end());
+        multimap<double, map<vector<handle_t>, size_t>::iterator>::iterator best_B_it = std::prev(score_to_B.end());
         
         // the best path gets put into our output list
-        best_paths.push_back(make_pair(best_B_it->first, *best_B_it->second));
+        best_paths.push_back(make_pair(best_B_it->first, best_B_it->second->first));
+        best_spurs.push_back(best_B_it->second->second);
         B.erase(best_B_it->second);
         score_to_B.erase(best_B_it);
 
