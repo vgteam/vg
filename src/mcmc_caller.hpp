@@ -29,7 +29,7 @@ namespace vg{
         const vector<size_t>& ref_path_lengths = {};
         ostream& out_stream; 
         const SnarlTraversal trav;
-    
+        
 
         MCMCCaller(const PathPositionHandleGraph* path_position_handle_graph,
                     PhasedGenome& genome,
@@ -51,7 +51,7 @@ namespace vg{
         virtual string vcf_header(const PathPositionHandleGraph& graph, const vector<string>& ref_paths,
                                 const vector<size_t>& contig_length_overrides) const ;
     
-    protected:   
+    protected:  
         /// path position handle graph
         const PathPositionHandleGraph* path_position_handle_graph;
 

@@ -1,38 +1,42 @@
+
+WORKDIR ?= .
+
+# Directory for Toil's temporary files
+TOIL_JS="$(WORKDIR)/my-jobstore"
+
+# All output will be written here
+TOIL_OS="$(WORKDIR)/my-output"
+
 FASTA = CHR21.fa
 TBI = 1kg_hg19-CHR21.vcf.gz.tbi
 VCF = 1kg_hg19-CHR21.vcf.gz
-BASENAME = chr21
+BASENAME = CHR21
 READS= 7050000
-PRUNED = pruned
 
-all: $(BASENAME)_paths.vg 
 
-$(BASENAME).vg: $(FASTA) $(VCF) $(TBI)
-	./bin/vg construct -m 1000 -a -r $(FASTA) -v $(VCF) > $(BASENAME).vg
+all: $(TOIL_OS)/$(BASENAME)_paths.vg
 
-$(BASENAME).xg: $(VCF) $(BASENAME).vg
-	./bin/vg  index -x $(BASENAME).xg -v $(VCF) --gbwt-name $(BASENAME).gbwt -k 16 $(BASENAME).vg 
+$(TOIL_OS)/$(BASENAME).vg: $(FASTA) $(VCF) $(TBI)
+	toil-vg construct $(TOIL_JS) $(TOIL_OS) --container None --pangenome --gcsa_opts '-k 16' --gbwt_prune --vcf_phasing $(VCF) --fasta_regions --max_node_size 1000 --alt_paths --fasta $(FASTA) --all_index --vcf $(VCF) --out_name $(BASENAME)
 
-$(BASENAME).gbwt: $(BASENAME).xg
+$(TOIL_OS)/$(BASENAME).xg:     $(TOIL_OS)/$(BASENAME).vg
+$(TOIL_OS)/$(BASENAME).gbwt :  $(TOIL_OS)/$(BASENAME).xg
+$(TOIL_OS)/$(BASENAME).gcsa:   $(TOIL_OS)/$(BASENAME).gbwt
+$(TOIL_OS)/$(BASENAME).snarls: $(TOIL_OS)/$(BASENAME).vg
 
-$(PRUNED).vg: $(BASENAME).gbwt $(BASENAME).vg
-	./bin/vg prune -g $(BASENAME).gbwt $(BASENAME).vg > $(PRUNED).vg
+$(TOIL_OS)/$(BASENAME).gam: $(TOIL_OS)/$(BASENAME).xg
+	toil-vg sim --gam --sim_opts '--sub-rate 0.1 --indel-rate 0.1 --read-length 100' --container None --out_name $(BASENAME) $(TOIL_JS) $(TOIL_OS)/$(BASENAME).xg 1000 $(TOIL_OS)
+	
 
-$(BASENAME).gcsa: $(PRUNED).vg
-	./bin/vg  index -g $(BASENAME).gcsa $(PRUNED).vg
+$(TOIL_OS)/$(BASENAME).mgam: $(TOIL_OS)/$(BASENAME).xg $(TOIL_OS)/$(BASENAME).gcsa $(TOIL_OS)/$(BASENAME).gam 
+	vg mpmap -A -x $(TOIL_OS)/$(BASENAME).xg -g $(TOIL_OS)/$(BASENAME).gcsa -t 1 -G $(TOIL_OS)/$(BASENAME).gam > $(TOIL_OS)/$(BASENAME).mgam
+	
+    
+$(TOIL_OS)/$(BASENAME)_paths.vg: $(TOIL_OS)/$(BASENAME).mgam $(TOIL_OS)/$(BASENAME).snarls $(TOIL_OS)/$(BASENAME).vg
+	vg mcmc --vcf-out $(TOIL_OS)/$(BASENAME).vcf $(TOIL_OS)/$(BASENAME).mgam $(TOIL_OS)/$(BASENAME).vg $(TOIL_OS)/$(BASENAME).snarls > $(TOIL_OS)/$(BASENAME)_paths.vg
 
-$(BASENAME).gam: $(BASENAME).xg
-	./bin/vg sim -l 100 -n $(READS) -e 0.1 -i 0.1 -a -x $(BASENAME).xg > $(BASENAME).gam
-
-$(BASENAME).snarls: $(BASENAME).vg
-	./bin/vg snarls $(BASENAME).vg > $(BASENAME).snarls
-
-$(BASENAME).mgam: $(BASENAME).gcsa $(BASENAME).xg $(BASENAME).gam 
-	./bin/vg mpmap -A -x $(BASENAME).xg -g $(BASENAME).gcsa -t 1 -G $(BASENAME).gam > $(BASENAME).mgam
-
-$(BASENAME)_paths.vg: $(BASENAME).mgam $(BASENAME).snarls $(BASENAME).vg
-	./bin/vg mcmc $(BASENAME).mgam $(BASENAME).vg $(BASENAME).snarls > $(BASENAME)_paths.vg
-
+clean: 
+	rm -r $(TOIL_OS) 
 
 CHR21.fa:
     wget https://vg-data.s3.amazonaws.com/bakeoff/CHR21.fa
@@ -42,4 +46,3 @@ CHR21.fa:
 
 1kg_hg19-CHR21.vcf.gz.tbi:
     wget https://vg-data.s3.amazonaws.com/bakeoff/1kg_hg19-CHR21.vcf.gz.tbi
-

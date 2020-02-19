@@ -12,15 +12,14 @@
 #include "subcommand.hpp"
 #include <vg/io/vpkg.hpp>
 #include "../mcmc_genotyper.hpp"
-
 #include "../vg.hpp"
 #include "../multipath_alignment.hpp"
 #include "../mcmc_caller.hpp"
 #include "../graph_caller.hpp"
 #include <vg/io/stream.hpp>
 #include <bdsg/overlay_helper.hpp>
-
-
+#include <fstream> 
+#include <iostream>
 
 using namespace std;
 using namespace vg;
@@ -37,7 +36,8 @@ void help_mcmc(char** argv) {
     << "  -s, --sample NAME                 sample name [default=SAMPLE]" << endl
     << "  -p  --ref-path NAME               reference path to call on (multipile allowed.  defaults to all paths)"<< endl
     << "  -o, --ref-offset N                offset in reference path (multiple allowed, 1 per path)" << endl
-    << "  -l, --ref-length N                override length of reference in the contig field of output VCF" << endl;
+    << "  -l, --ref-length N                override length of reference in the contig field of output VCF" << endl
+    << "  -v, --vcf-out FILE                write VCF output to this file" << endl;
 }
 
 int main_mcmc(int argc, char** argv) {
@@ -45,6 +45,7 @@ int main_mcmc(int argc, char** argv) {
     vector<string> ref_paths;
     vector<size_t> ref_path_offsets;
     vector<size_t> ref_path_lengths;
+    string vcf_out;
 
     if (argc < 5) {
         help_mcmc(argv);
@@ -56,6 +57,7 @@ int main_mcmc(int argc, char** argv) {
     int seed = 1;
     string sample_name = "SAMPLE";
     
+
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -68,11 +70,12 @@ int main_mcmc(int argc, char** argv) {
             {"ref-path", required_argument, 0, 'p'},
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'}, 
+            {"vcf-out", required_argument, 0, 'v'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hi:s:p:o:l:r:",
+        c = getopt_long (argc, argv, "hi:s:p:o:l:r:v:",
                          long_options, &option_index);
 
 
@@ -85,7 +88,6 @@ int main_mcmc(int argc, char** argv) {
             case 'i':
                 n_iterations = parse<int>(optarg);
                 break;
-
             case 'r':
                 seed = parse<int>(optarg);
                 break;
@@ -100,7 +102,10 @@ int main_mcmc(int argc, char** argv) {
                 break; 
             case 's':
                 sample_name = optarg;
-                break;                   
+                break;  
+            case 'v':
+                vcf_out = optarg;
+                break;
             case 'h':
             case '?':
             default:
@@ -113,13 +118,10 @@ int main_mcmc(int argc, char** argv) {
     string multipath_file =  get_input_file_name(optind, argc, argv);
     string graph_file =  get_input_file_name(optind, argc, argv);
     string snarls_file =  get_input_file_name(optind, argc, argv);
-    cerr << "file name is : " <<graph_file << endl;
-    
-
    
     unique_ptr<SnarlManager> snarls = (vg::io::VPKG::load_one<SnarlManager>(snarls_file));
 
-    // // creaate a PathHandleGraph 
+    // // create a PathHandleGraph 
     unique_ptr<VG> vg_graph;
     bdsg::PathPositionOverlayHelper overlay_helper;
     vg_graph = vg::io::VPKG::load_one<VG>(graph_file);
@@ -162,6 +164,11 @@ int main_mcmc(int argc, char** argv) {
    
     }
     
+    // Check if VCF output file is specified 
+    ofstream vcf_file_out;
+    if(!vcf_out.empty()){
+        vcf_file_out.open(vcf_out, ios::out);
+    }
     
       /*
     *########################################################################################
@@ -191,21 +198,20 @@ int main_mcmc(int argc, char** argv) {
     *########################################################################################
     **/
     
-    
-    //MCMCCaller mcmc_caller(*dynamic_cast<PathPositionHandleGraph*>(graph.get()), *genome, snarl_manager, sample_name, ref_paths, ref_path_offsets, ref_path_lengths, cout);
+    // Create MCMC_Caller object
     MCMCCaller mcmc_caller(graph, *genome, *snarls, sample_name, ref_paths, ref_path_offsets, ref_path_lengths, cout);
 
+    // Write header to ofstream  
+    vcf_file_out << mcmc_caller.vcf_header(*graph, ref_paths, ref_path_lengths);
     
-    //print header to std out
-    // cout << mcmc_caller.vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
-    cerr << mcmc_caller.vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
-
-    
-    // current implimentation is writing vcf record after each variant processed
+    //current implimentation is writing vcf record after each variant processed
     mcmc_caller.call_top_level_snarls();
 
-    mcmc_caller.write_variants(cerr);
+    // mcmc_caller.write_variants(cerr);
+    mcmc_caller.write_variants(vcf_file_out);
     
+    //close the vcf file
+    vcf_file_out.close();
    
     return 0;
 }
