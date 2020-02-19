@@ -24,7 +24,7 @@ CactusSnarlFinder::CactusSnarlFinder(const PathHandleGraph& graph, const string&
 
 SnarlManager CactusSnarlFinder::find_snarls_impl(bool known_single_component, bool finish_index) {
     
-    if (graph->get_node_count() == 0) {
+    if (graph->get_node_count() <= 1) {
         // No snarls here!
         return SnarlManager();
     }
