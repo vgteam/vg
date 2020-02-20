@@ -2061,15 +2061,14 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         double mapq_group2 = scores_group_2.size() <= 1 ? mapq : 
             min(mapq, get_regular_aligner()->maximum_mapping_quality_exact(scores_group_2, &winning_index) / 2);
 
-
+    
+        // Compute one MAPQ cap across all the fragments
+        double mapq_cap = -std::numeric_limits<float>::infinity();
         for (auto read_num : {0, 1}) {
             // For each fragment
 
             // Find the source read
             auto& aln = read_num == 0 ? aln1 : aln2;
-
-            // Find the MAPQ to cap
-            auto& mapq = read_num == 0 ? mapq_group1 : mapq_group2;
 
             // And the minimizer-located bit flag vector
             auto& minimizer_located = read_num == 0 ? minimizer_located_by_read.first : minimizer_located_by_read.second;
@@ -2085,16 +2084,33 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 unextended_clusters_by_read[read_num],
                 present_in_any_extended_cluster_by_read[read_num]);
 
+            // Remember the caps
             auto& to_annotate = (read_num == 0 ? mappings.first : mappings.second).front();
-
-            // Remember the uncapped MAPQ and the caps
-            set_annotation(to_annotate, "mapq_uncapped", mapq);
             set_annotation(to_annotate, "mapq_locate_cap", mapq_locate_cap);
             set_annotation(to_annotate, "mapq_extended_cap", mapq_extended_cap);
             set_annotation(to_annotate, "mapq_non_extended_cap", mapq_non_extended_cap);
 
-            // Apply the caps
-            mapq = min(min(mapq, mapq_locate_cap), min(mapq_extended_cap, mapq_non_extended_cap));
+            // Compute the cap. It should be the higher of the caps for the two reads
+            // The individual cap values are either actual numbers or +inf, so the cap can't stay as -inf.
+            mapq_cap = max(mapq_cap, min(mapq_locate_cap, min(mapq_extended_cap, mapq_non_extended_cap)));
+        }
+
+        for (auto read_num : {0, 1}) {
+            // For each fragment
+            // Find the source read
+            auto& aln = read_num == 0 ? aln1 : aln2;
+
+            // Find the MAPQ to cap
+            auto& read_mapq = read_num == 0 ? mapq_group1 : mapq_group2;
+            
+            // Remember the uncapped MAPQ
+            auto& to_annotate = (read_num == 0 ? mappings.first : mappings.second).front();
+            set_annotation(to_annotate, "mapq_uncapped", read_mapq);
+            // And the cap we actually applied (possibly from the pair partner)
+            set_annotation(to_annotate, "mapq_applied_cap", mapq_cap);
+
+            // Apply the cap
+            read_mapq = min(read_mapq, mapq_cap);
         }
         
 #ifdef debug
