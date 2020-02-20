@@ -32,6 +32,8 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     // Nothing to do!
 }
 
+#define NO_UNEXTENDED_CAP
+
 std::tuple<double, double, double> MinimizerMapper::compute_mapq_caps(const Alignment& aln, 
     const std::vector<Minimizer>& minimizers,
     const std::vector<bool>& minimizer_located,
@@ -78,6 +80,8 @@ std::tuple<double, double, double> MinimizerMapper::compute_mapq_caps(const Alig
 #endif
 
     double mapq_non_extended_cap = numeric_limits<double>::infinity();
+
+#ifndef NO_UNEXTENDED_CAP
     for (auto& cluster_num : unextended_clusters) {
         // For each unextended cluster that might have created the read
         
@@ -96,6 +100,7 @@ std::tuple<double, double, double> MinimizerMapper::compute_mapq_caps(const Alig
         mapq_non_extended_cap = std::min(mapq_non_extended_cap,
             window_breaking_quality(minimizers, synthesized_minimizers, aln.sequence(), aln.quality()));
     }
+#endif
 
 
     return std::tie(mapq_locate_cap, mapq_extended_cap, mapq_non_extended_cap);
