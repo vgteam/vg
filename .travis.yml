@@ -26,6 +26,9 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch "deps/gcc$(gcc -dumpversion)"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
   # Travis can't always actually use Homebrew to install our dependencies
+  # And Homebrew can't always bundle unless it is the exact latest version:
+  # See <https://github.com/Homebrew/homebrew-bundle/issues/646>
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update --verbose; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew bundle --verbose; fi
   # Try installing gcc6 twice in case of errors like this:
   # Error: HOMEBREW_LOGS was not exported!
