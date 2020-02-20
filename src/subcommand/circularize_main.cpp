@@ -14,6 +14,7 @@
 
 #include "../utility.hpp"
 #include "../handle.hpp"
+#include "../vg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 
