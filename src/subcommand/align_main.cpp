@@ -207,19 +207,11 @@ int main_align(int argc, char** argv) {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus, vg::default_gc_content, seq.size());
         if(matrix_stream.is_open()) aligner.load_scoring_matrix(matrix_stream);
         
+        // put everything on the forward strand
         StrandSplitGraph split(&(*graph));
-        DagifiedGraph dag(&split, aligner.longest_detectable_gap(seq.size(), seq.size() / 2));
         
-//        dag.for_each_handle([&](const handle_t& h) {
-//            cerr << dag.get_id(h) << " " << dag.get_sequence(h) << endl;
-//            cerr << "(" << split.get_id(dag.get_underlying_handle(h)) << " " << split.get_is_reverse(dag.get_underlying_handle(h)) << ")" << endl;
-//            dag.follow_edges(h, false, [&](const handle_t& n) {
-//                cerr << "\t-> " << dag.get_id(n) << " " << dag.get_is_reverse(n) << endl;
-//            });
-//            dag.follow_edges(h, true, [&](const handle_t& n) {
-//                cerr << "\t" << dag.get_id(n) << " " << dag.get_is_reverse(n) << " <-" << endl;
-//            });
-//        });
+        // dagify it as far as we might ever want
+        DagifiedGraph dag(&split, seq.size() + aligner.longest_detectable_gap(seq.size(), seq.size() / 2));
         
         alignment.set_sequence(seq);
         if (pinned_alignment) {
@@ -231,7 +223,8 @@ int main_align(int argc, char** argv) {
         else {
             aligner.align(alignment, dag, true, debug);
         }
-                
+        
+        // translate back from the overlays
         translate_oriented_node_ids(*alignment.mutable_path(), [&](vg::id_t node_id) {
             handle_t under = split.get_underlying_handle(dag.get_underlying_handle(dag.get_handle(node_id)));
             return make_pair(graph->get_id(under), graph->get_is_reverse(under));
