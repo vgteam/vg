@@ -121,16 +121,11 @@ int main_circularize(int argc, char** argv){
         paths_to_circularize.push_back(path);
     }
 
-    unique_ptr<MutablePathMutableHandleGraph> graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-        graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(in);
-    });
     // TODO: if we settle on a uniform serialzation method that covers the VG class, the code is ready to be switched
-    VG* vg_graph = dynamic_cast<VG*>(&(*graph));
-    if (vg_graph == nullptr) {
-        cerr << "error: circularize currently only implemented for VG graph implementation" << endl;
-        return 1;
-    }
+    VG* graph;
+    get_input_file(optind, argc, argv, [&](istream& in) {
+        graph = new VG(in);
+    });
 
     // Check if paths are in graph:
     for (const string& p : paths_to_circularize){
@@ -156,7 +151,7 @@ int main_circularize(int argc, char** argv){
         }
     }
     
-    vg_graph->serialize(cout);
+    graph->serialize_to_ostream(cout);
 //    SerializableHandleGraph* to_serialize = dynamic_cast<SerializableHandleGraph*>(&(*graph));
 //    if (!to_serialize) {
 //        cerr << "error: graph format is not serializable!" << endl;
