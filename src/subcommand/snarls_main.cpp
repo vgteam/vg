@@ -173,24 +173,6 @@ int main_snarl(int argc, char** argv) {
     get_input_file(optind, argc, argv, [&](istream& in) {
         graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
     });
-
-    // This is hopefully temporary, pending PathBasedTraversalFinder support for other HandleGraphs.
-    // But for now some operations need an internal vg::VG.
-    VG* vg_graph = dynamic_cast<VG*>(graph.get());
-    
-    // Call this to populate the vg_graph if it isn't populated.
-    auto ensure_vg = [&]() -> vg::VG* {
-        if (vg_graph == nullptr) {
-            // Copy instead.
-            vg_graph = new vg::VG();
-            convert_path_handle_graph(graph.get(), vg_graph);
-            // Give the unique_ptr ownership and delete the graph we loaded.
-            graph.reset(vg_graph);
-            // Make sure the paths are all synced up
-            vg_graph->paths.to_graph(vg_graph->graph);
-        }
-        return vg_graph;
-    };
     
     // The only implemented snarl finder:
     unique_ptr<SnarlFinder> snarl_finder(new CactusSnarlFinder(*graph));
@@ -225,7 +207,7 @@ int main_snarl(int argc, char** argv) {
     vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
     if (fill_path_names){
         // This finder needs a vg::VG
-        trav_finder.reset(new PathBasedTraversalFinder(*ensure_vg(), snarl_manager));
+        trav_finder.reset(new PathBasedTraversalFinder(*graph, snarl_manager));
         for (const Snarl* snarl : snarl_roots ){
             if (filter_trivial_snarls) {
                 auto contents = snarl_manager.shallow_contents(snarl, *graph, false);

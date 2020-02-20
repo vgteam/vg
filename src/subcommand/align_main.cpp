@@ -14,8 +14,12 @@
 #include "subcommand.hpp"
 
 #include "../utility.hpp"
-#include "../vg.hpp"
-#include "../convert_handle.hpp"
+#include "../handle.hpp"
+#include "../path.hpp"
+#include "../split_strand_graph.hpp"
+#include "../dagified_graph.hpp"
+#include "../ssw_aligner.hpp"
+#include "../aligner.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 
@@ -181,20 +185,6 @@ int main_align(int argc, char** argv) {
             graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
         });
     }
-    
-    // Look at the graph as a vg if possible
-    VG* vg_graph = dynamic_cast<vg::VG*>(graph.get());
-    
-    if (vg_graph == nullptr) {
-        // Copy instead. Should be fine because we only ever want to run this on small graphs anyway.
-        // TODO: Replace VG::align with non-vg-specific alignment algorithm!
-        // TODO: This converts from VG protobuf and then back to it when loading a Protobuf graph!
-        vg_graph = new vg::VG();
-        convert_path_handle_graph(graph.get(), vg_graph);
-        
-        // Give the unique_ptr ownership and delete the graph we loaded.
-        graph.reset(vg_graph);
-    }
 
     ifstream matrix_stream;
     if (!matrix_file_name.empty()) {
@@ -216,8 +206,36 @@ int main_align(int argc, char** argv) {
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus, vg::default_gc_content, seq.size());
         if(matrix_stream.is_open()) aligner.load_scoring_matrix(matrix_stream);
-        alignment = vg_graph->align(seq, &aligner, true, false, 0, pinned_alignment, pin_left,
-                                    banded_global, 0, 0, 0, 0, debug);
+        
+        StrandSplitGraph split(&(*graph));
+        DagifiedGraph dag(&split, aligner.longest_detectable_gap(seq.size(), seq.size() / 2));
+        
+//        dag.for_each_handle([&](const handle_t& h) {
+//            cerr << dag.get_id(h) << " " << dag.get_sequence(h) << endl;
+//            cerr << "(" << split.get_id(dag.get_underlying_handle(h)) << " " << split.get_is_reverse(dag.get_underlying_handle(h)) << ")" << endl;
+//            dag.follow_edges(h, false, [&](const handle_t& n) {
+//                cerr << "\t-> " << dag.get_id(n) << " " << dag.get_is_reverse(n) << endl;
+//            });
+//            dag.follow_edges(h, true, [&](const handle_t& n) {
+//                cerr << "\t" << dag.get_id(n) << " " << dag.get_is_reverse(n) << " <-" << endl;
+//            });
+//        });
+        
+        alignment.set_sequence(seq);
+        if (pinned_alignment) {
+            aligner.align_pinned(alignment, dag, pin_left);
+        }
+        else if (banded_global) {
+            aligner.align_global_banded(alignment, dag, 1, true);
+        }
+        else {
+            aligner.align(alignment, dag, true, debug);
+        }
+                
+        translate_oriented_node_ids(*alignment.mutable_path(), [&](vg::id_t node_id) {
+            handle_t under = split.get_underlying_handle(dag.get_underlying_handle(dag.get_handle(node_id)));
+            return make_pair(graph->get_id(under), graph->get_is_reverse(under));
+        });
     }
 
     if (!seq_name.empty()) {
