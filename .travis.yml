@@ -29,7 +29,11 @@ before_install:
   # And Homebrew can't always bundle unless it is the exact latest version:
   # See <https://github.com/Homebrew/homebrew-bundle/issues/646>
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update --verbose; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew bundle --verbose; fi
+  # Allow the bundle command to fail because if anything it tries to install (like Python) 
+  # provides a binary that can replace something that already exists, it will treat the
+  # inability to link it as an error and fail the command. You can --force a link step, but
+  # I don't see a way to tell it to not replace things that exist and also not fail.
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew bundle --verbose || true; fi
   # Try installing gcc6 twice in case of errors like this:
   # Error: HOMEBREW_LOGS was not exported!
   # Please don't worry, you likely hit a bug auto-updating from an old version.
