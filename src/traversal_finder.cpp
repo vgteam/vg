@@ -10,7 +10,7 @@ namespace vg {
 
 using namespace std;
 
-PathBasedTraversalFinder::PathBasedTraversalFinder(vg::VG& g, SnarlManager& sm) : graph(g), snarlmanager(sm){
+PathBasedTraversalFinder::PathBasedTraversalFinder(const PathHandleGraph& g, SnarlManager& sm) : graph(g), snarlmanager(sm){
 }
 
 vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& site){
@@ -35,20 +35,23 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
     regex front ("(_alt_)(.*)");
     regex alt_str ("(_alt_)");
     regex back ("(_[0-9]*)");
-    auto& gpaths = graph.paths._paths;
     set<string> gpath_names;
-    for (auto x : gpaths){
-        gpath_names.insert(x.first);
-    }
+    graph.for_each_path_handle([&](const path_handle_t& path_handle) {
+        gpath_names.insert(graph.get_path_name(path_handle));
+    });
+    
     map<string, set<string> > basename_to_pathnames;
     map<string, bool> path_processed;
 
 
     // Collect our paths which cross our snarl's nodes.
     for (id_t node_id : contents.first){
-        Node* node = graph.get_node(node_id);
+        handle_t node = graph.get_handle(node_id);
         //cerr << "Processing node " << id << endl;
-        set<string> p_of_n = graph.paths.of_node(node->id());
+        set<string> p_of_n;
+        graph.for_each_step_on_handle(node, [&](const step_handle_t& step) {
+            p_of_n.insert(graph.get_path_name(graph.get_path_handle_of_step(step)));
+        });
 
         for (auto pn : p_of_n){
             if (!std::regex_match(pn, front)){
@@ -99,10 +102,9 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
                 // Add the start node to the traversal
                 *fresh_trav.add_visit() = site.start();
                 // Fill in our traversal
-                auto& ms = gpaths[a];
-                for (auto m : ms){
-                    int64_t n_id = m.node_id();
-                    bool backward = m.is_reverse();
+                for (auto h : graph.scan_path(graph.get_path_handle(a))) {
+                    int64_t n_id = graph.get_id(h);
+                    bool backward = graph.get_is_reverse(h);
                     Visit* v = fresh_trav.add_visit();
                     v->set_node_id(n_id);
                     v->set_backward(backward);
