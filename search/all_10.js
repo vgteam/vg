@@ -134,7 +134,7 @@ var searchData=
   ['path_5fto_5fstring',['path_to_string',['../namespacevg.html#afbe0993e79f4ef7bb4b37456b0b08402',1,'vg']]],
   ['path_5ftrav_5ffinder',['path_trav_finder',['../classvg_1_1Deconstructor.html#a73c6c008333acfbb0ffd6fde2360518c',1,'vg::Deconstructor']]],
   ['path_5ftype',['path_type',['../classvg_1_1PhaseUnfolder.html#a402b0f84990279594bfbb1cd71ffd8e5',1,'vg::PhaseUnfolder']]],
-  ['pathbasedtraversalfinder',['PathBasedTraversalFinder',['../classvg_1_1PathBasedTraversalFinder.html',1,'vg::PathBasedTraversalFinder'],['../classvg_1_1PathBasedTraversalFinder.html#a2da7d3caa439d39a316de13892fb7a50',1,'vg::PathBasedTraversalFinder::PathBasedTraversalFinder()']]],
+  ['pathbasedtraversalfinder',['PathBasedTraversalFinder',['../classvg_1_1PathBasedTraversalFinder.html',1,'vg::PathBasedTraversalFinder'],['../classvg_1_1PathBasedTraversalFinder.html#ae9824d8e0620854391925d43c7200da6',1,'vg::PathBasedTraversalFinder::PathBasedTraversalFinder()']]],
   ['pathbranch',['PathBranch',['../structvg_1_1PathBranch.html',1,'vg']]],
   ['pathchunker',['PathChunker',['../classvg_1_1PathChunker.html',1,'vg::PathChunker'],['../classvg_1_1PathChunker.html#a5b31a6a4f865a99818f69be54b7f9e40',1,'vg::PathChunker::PathChunker()']]],
   ['pathcomponentindex',['PathComponentIndex',['../classvg_1_1PathComponentIndex.html',1,'vg::PathComponentIndex'],['../classvg_1_1PathComponentIndex.html#aa8aa8ec6a8bc50004db3e07d081d1942',1,'vg::PathComponentIndex::PathComponentIndex(const PathHandleGraph *graph)'],['../classvg_1_1PathComponentIndex.html#a9b093ea34524c9e95cd10375dd000c87',1,'vg::PathComponentIndex::PathComponentIndex()']]],

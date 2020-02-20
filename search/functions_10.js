@@ -77,7 +77,7 @@ var searchData=
   ['path_5fto_5finput_5fhaplotype',['path_to_input_haplotype',['../structhaplo_1_1linear__haplo__structure.html#acf88c54b278bcacae66383f2668970b2',1,'haplo::linear_haplo_structure']]],
   ['path_5fto_5flength',['path_to_length',['../namespacevg.html#a48108a0abc0fdfc187437d174f88e590',1,'vg']]],
   ['path_5fto_5fstring',['path_to_string',['../namespacevg.html#afbe0993e79f4ef7bb4b37456b0b08402',1,'vg']]],
-  ['pathbasedtraversalfinder',['PathBasedTraversalFinder',['../classvg_1_1PathBasedTraversalFinder.html#a2da7d3caa439d39a316de13892fb7a50',1,'vg::PathBasedTraversalFinder']]],
+  ['pathbasedtraversalfinder',['PathBasedTraversalFinder',['../classvg_1_1PathBasedTraversalFinder.html#ae9824d8e0620854391925d43c7200da6',1,'vg::PathBasedTraversalFinder']]],
   ['pathchunker',['PathChunker',['../classvg_1_1PathChunker.html#a5b31a6a4f865a99818f69be54b7f9e40',1,'vg::PathChunker']]],
   ['pathcomponentindex',['PathComponentIndex',['../classvg_1_1PathComponentIndex.html#aa8aa8ec6a8bc50004db3e07d081d1942',1,'vg::PathComponentIndex::PathComponentIndex(const PathHandleGraph *graph)'],['../classvg_1_1PathComponentIndex.html#a9b093ea34524c9e95cd10375dd000c87',1,'vg::PathComponentIndex::PathComponentIndex()']]],
   ['pathforeachsocket',['PathForEachSocket',['../classhandlegraph_1_1PathForEachSocket.html#a1ae98a885a8b37c66d522c3a282c5fd5',1,'handlegraph::PathForEachSocket::PathForEachSocket()=delete'],['../classhandlegraph_1_1PathForEachSocket.html#adea5ed0aea8a5167d7c09a731b9ab65e',1,'handlegraph::PathForEachSocket::PathForEachSocket(const PathHandleGraph *graph, const path_handle_t &amp;path)']]],
