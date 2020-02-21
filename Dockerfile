@@ -46,15 +46,13 @@ FROM build AS test
 
 RUN echo test > /stage.txt
 
-# The test need BWA
-COPY --from=quay.io/ucsc_cgl/bwa:0.7.15--a17c6544342330f6ea7a23a37d23273ab1c52d21 /usr/local/bin/bwa /usr/local/bin/bwa
-
-# The tests need some extra packages.
+# The tests also need some other extra packages.
 # TODO: Which of these can we remove?
 # No clean necessary since we aren't shipping this
 RUN apt-get -qq -y update && \
     apt-get -qq -y upgrade && \
     apt-get -qq -y install \
+    bwa \
     pigz \
     dstat \
     pv \
