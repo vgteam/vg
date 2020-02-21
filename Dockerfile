@@ -6,18 +6,12 @@ RUN echo base > /stage.txt
 
 WORKDIR /vg
 
-RUN ls -lah /vg || echo "No vg directory exists yet"
-
 FROM base AS build
 
 RUN echo build > /stage.txt
 
-RUN ls -lah /vg || echo "No vg directory exists yet"
-
 # Copy vg build tree into place
 COPY . /vg
-
-RUN ls -lah /vg || echo "No vg directory exists yet"
 
 # Install the base packages needed to let vg install packages.
 # Make sure this runs after vg sources are imported so vg will always have an
@@ -75,15 +69,9 @@ FROM base AS run
 
 RUN echo run > /stage.txt
 
-RUN ls -lah /vg || echo "No vg directory exists yet"
-
 COPY --from=build /vg/bin/vg /vg/bin/
 
-RUN ls -lah /vg || echo "No vg directory exists yet"
-
 COPY --from=build /vg/scripts/* /vg/scripts/
-
-RUN ls -lah /vg || echo "No vg directory exists yet"
 
 # Install packages which toil-vg needs to be available inside the image, for pipes
 # TODO: which of these can be removed?
