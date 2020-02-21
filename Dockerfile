@@ -13,10 +13,6 @@ RUN echo build > /stage.txt
 # Copy vg build tree into place
 COPY . /vg
 
-# If we're trying to build from a non-recursively-cloned repo, go get the
-# submodules.
-RUN bash -c "[[ -e deps/sdsl-lite/CMakeLists.txt ]] || git submodule update --init --recursive"
-
 # Install the base packages needed to let vg install packages.
 # Make sure this runs after vg sources are imported so vg will always have an
 # up to date package index to get its dependencies.
@@ -28,7 +24,12 @@ RUN apt-get -qq -y update && \
     apt-get -qq -y upgrade && \
     apt-get -qq -y install \
     make \
-    sudo
+    sudo \
+    git
+
+# If we're trying to build from a non-recursively-cloned repo, go get the
+# submodules.
+RUN bash -c "[[ -e deps/sdsl-lite/CMakeLists.txt ]] || git submodule update --init --recursive"
 
 # To increase portability of the docker image, set the target CPU architecture to
 # Nehalem (2008) rather than auto-detecting the build machine's CPU.
