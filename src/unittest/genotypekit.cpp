@@ -215,8 +215,8 @@ TEST_CASE("CactusSnarlFinder safely rejects a single node graph", "[genotype]") 
   // Make a CactusSnarlFinder
   SnarlFinder* finder = new CactusSnarlFinder(graph);
     
-  SECTION("CactusSnarlFinder throws instead of crashing") {
-    REQUIRE_THROWS(finder->find_snarls());
+  SECTION("CactusSnarlFinder returns empty snarl manager instead of throwing or crashing") {
+    REQUIRE(finder->find_snarls().num_snarls() == 0);
   }
     
 }

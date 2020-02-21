@@ -35,17 +35,17 @@ public:
     /// If a read has one of the features in this set as annotations, the read
     /// is filtered out.
     unordered_set<string> excluded_features;
-    double min_secondary = 0.;
-    double min_primary = 0.;
+    double min_secondary = numeric_limits<double>::lowest();
+    double min_primary = numeric_limits<double>::lowest();
     /// Should we rescore each alignment with default parameters and no e.g.
     /// haplotype info?
     bool rescore = false;
     bool frac_score = false;
     bool sub_score = false;
-    int max_overhang = 99999;
-    int min_end_matches = 0;
+    int max_overhang = numeric_limits<int>::max() / 2;
+    int min_end_matches = numeric_limits<int>::min() / 2;
     bool verbose = false;
-    double min_mapq = 0.;
+    double min_mapq = numeric_limits<double>::lowest();
     int repeat_size = 0;
     /// Should we drop split reads that follow edges not in the graph?
     bool drop_split = false;
@@ -78,9 +78,9 @@ public:
     bool filter_on_all = false;
     
     // minimum base quality as PHRED score
-    int min_base_quality = 0;
+    int min_base_quality = numeric_limits<int>::min() / 2;
     // minimum fraction of bases in reads that must have quality at least <min_base_quality>
-    double min_base_quality_fraction = 0.0;
+    double min_base_quality_fraction = numeric_limits<double>::lowest();
                      
     // Keep some basic counts for when verbose mode is enabled
     struct Counts {
