@@ -13,6 +13,10 @@ RUN echo build > /stage.txt
 # Copy vg build tree into place
 COPY . /vg
 
+# If we're trying to build from a non-recursively-cloned repo, go get the
+# submodules.
+RUN [[ -e deps/libhandlegraph ]] || git submodule update --init --recursive
+
 # Install the base packages needed to let vg install packages.
 # Make sure this runs after vg sources are imported so vg will always have an
 # up to date package index to get its dependencies.
