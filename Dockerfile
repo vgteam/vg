@@ -15,7 +15,7 @@ COPY . /vg
 
 # If we're trying to build from a non-recursively-cloned repo, go get the
 # submodules.
-RUN [[ -e deps/libhandlegraph ]] || git submodule update --init --recursive
+RUN bash -c "[[ -e deps/libhandlegraph ]] || git submodule update --init --recursive"
 
 # Install the base packages needed to let vg install packages.
 # Make sure this runs after vg sources are imported so vg will always have an
