@@ -2,7 +2,7 @@
 
 # giraffe-wrangler.sh: Run and profile vg gaffe and analyze the results.
 
-set -e
+set -ex
 
 usage() {
     # Print usage to stderr
@@ -180,7 +180,11 @@ if [[ ! -z "${REAL_FASTQ}" ]] ; then
     # Now do the real reads
 
     # Count them
-    REAL_READ_COUNT="$(cat "${REAL_FASTQ}" | wc -l)"
+    if [[ "${REAL_FASTQ}" == *.gz ]] ; then
+        REAL_READ_COUNT="$(zcat "${REAL_FASTQ}" | wc -l)"
+    else
+        REAL_READ_COUNT="$(cat "${REAL_FASTQ}" | wc -l)"
+    fi
     ((REAL_READ_COUNT /= 4))
 
     # Get RPS for Giraffe
