@@ -159,7 +159,7 @@ int main_mpmap(int argc, char** argv) {
     bool use_min_dist_clusterer = false;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
-    MappingQualityMethod mapq_method = Adaptive;
+    MappingQualityMethod mapq_method = Exact;
     bool report_group_mapq = false;
     double band_padding_multiplier = 1.0;
     int max_dist_error = 12;
