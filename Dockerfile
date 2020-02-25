@@ -37,7 +37,8 @@ RUN apt-get -qq -y update && \
 # This has no AVX1, AVX2, or PCLMUL, but it does have SSE4.2.
 # UCSC has a Nehalem machine that we want to support.
 RUN sed -i s/march=native/march=nehalem/ deps/sdsl-lite/CMakeLists.txt
-RUN make get-deps && . ./source_me.sh && env && make include/vg_git_version.hpp && CXXFLAGS=" -march=nehalem " make -j$(nproc) && make static && strip bin/vg
+# Do the build. Trim down the resulting binary but make sure to include enough debug info for profiling.
+RUN make get-deps && . ./source_me.sh && env && make include/vg_git_version.hpp && CXXFLAGS=" -march=nehalem " make -j$(nproc) && make static && strip -d bin/vg
 
 ENV PATH /vg/bin:$PATH
 
@@ -84,6 +85,8 @@ COPY --from=build /vg/bin/vg /vg/bin/
 RUN ls -lah /vg || echo "No vg directory exists yet"
 
 COPY --from=build /vg/scripts/* /vg/scripts/
+# Make sure we have the flame graph scripts so we can do self-profiling
+COPY deps/FlameGraph /vg/deps/FlameGraph
 
 RUN ls -lah /vg || echo "No vg directory exists yet"
 
