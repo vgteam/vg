@@ -8,6 +8,10 @@ WORKDIR /vg
 
 RUN ls -lah /vg || echo "No vg directory exists yet"
 
+# Prevent dpkg from trying to ask any questions, ever
+ENV DEBIAN_FRONTEND noninteractive
+ENV DEBCONF_NONINTERACTIVE_SEEN true
+
 FROM base AS build
 
 RUN echo build > /stage.txt
