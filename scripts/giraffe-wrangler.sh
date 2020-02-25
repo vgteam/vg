@@ -24,6 +24,7 @@ usage() {
     printf "Options:\n"
     printf "  -s DEST Save alignments and other internal files to DEST (directory or S3 url)\n"
     printf "  -t N    Use N threads\n"
+    printf "  -i      Map reads as paired\n"
     printf "\n"
     exit 1
 }
@@ -35,13 +36,19 @@ OUTPUT_DEST=""
 # Should fit on a NUMA node
 THREAD_COUNT=24
 
-while getopts ":s:t:" o; do
+# Define if we should pair reads
+PAIR_READS=0
+
+while getopts ":s:t:i" o; do
     case "${o}" in
         s)
             OUTPUT_DEST="${OPTARG}"
             ;;
         t)
             THREAD_COUNT="${OPTARG}"
+            ;;
+        i)
+            PAIR_READS=1
             ;;
         ?)
             usage
@@ -113,7 +120,22 @@ echo "${SIM_GAM}"
 echo "${REAL_FASTQ}"
 
 # Define the Giraffe parameters
-GIRAFFE_OPTS=(-i)
+GIRAFFE_OPTS=()
+
+# And the map parameters
+MAP_OPTS=()
+
+# And the bwa mem parameters
+BWA_OPTS=()
+
+if [[ "${PAIR_READS}" == 1 ]] ; then
+    # Turn on paired mapping
+    GIRAFFE_OPTS+=(-i)
+    MAP_OPTS+=(-i)
+    BWA_OPTS+=(-p)
+fi
+
+
 
 # Define a work directory
 # TODO: this requires GNU mptemp
@@ -157,7 +179,7 @@ if [[ ! -z "${SIM_GAM}" ]] ; then
     ${NUMA_PREFIX} vg gaffe --track-correctness -x "${XG_INDEX}" "${GIRAFFE_GRAPH[@]}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -G "${SIM_GAM}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/mapped.gam"
 
     # And map to compare with them
-    ${NUMA_PREFIX} vg map -x "${XG_INDEX}" -g "${GCSA_INDEX}" -G "${SIM_GAM}" -t "${THREAD_COUNT}" >"${WORK}/mapped-map.gam"
+    ${NUMA_PREFIX} vg map -x "${XG_INDEX}" -g "${GCSA_INDEX}" -G "${SIM_GAM}" -t "${THREAD_COUNT}" "${MAP_OPTS[@]}" >"${WORK}/mapped-map.gam"
 
     # Annotate and compare against truth
     vg annotate -p -x "${XG_INDEX}" -a "${WORK}/mapped.gam" >"${WORK}/annotated.gam"
@@ -195,7 +217,7 @@ if [[ ! -z "${REAL_FASTQ}" ]] ; then
     if [[ ! -z "${FASTA}" ]] ; then
         # Get RPS for bwa-mem
 
-        ${NUMA_PREFIX} bwa mem -t "${THREAD_COUNT}" "${FASTA}" "${REAL_FASTQ}" >"${WORK}/mapped.bam" 2>"${WORK}/bwa-log.txt"
+        ${NUMA_PREFIX} bwa mem -t "${THREAD_COUNT}" "${FASTA}" "${REAL_FASTQ}" "${BWA_OPTS[@]}" >"${WORK}/mapped.bam" 2>"${WORK}/bwa-log.txt"
 
         # Now we get all the batch times from BWA and use those to compute RPS values.
         # This is optimistic but hopefully consistent.
@@ -206,7 +228,7 @@ if [[ ! -z "${REAL_FASTQ}" ]] ; then
     fi
 
     # Align the real reads with map, ignoring speed
-    ${NUMA_PREFIX} vg map -x "${XG_INDEX}" -g "${GCSA_INDEX}" -f "${REAL_FASTQ}" -t "${THREAD_COUNT}" >"${WORK}/real-map.gam"
+    ${NUMA_PREFIX} vg map -x "${XG_INDEX}" -g "${GCSA_INDEX}" -f "${REAL_FASTQ}" -t "${THREAD_COUNT}" "${MAP_OPTS[@]}" >"${WORK}/real-map.gam"
 
     # Compute stats for giraffe and map on real reads
     echo "Real read stats:" >"${WORK}/real-stats.txt"
