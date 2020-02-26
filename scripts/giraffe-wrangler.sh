@@ -2,7 +2,7 @@
 
 # giraffe-wrangler.sh: Run and profile vg gaffe and analyze the results.
 
-set -ex
+set -e
 
 usage() {
     # Print usage to stderr
