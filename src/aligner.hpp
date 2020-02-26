@@ -90,16 +90,21 @@ namespace vg {
     public:
         /// Given a nonempty vector of nonnegative scaled alignment scores,
         /// compute the mapping quality of the maximal score in the vector.
-        /// Sets max_idx_out to the index of that score in the vector. May
-        /// modify the input vector.
-        static double maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out); 
+        /// Sets max_idx_out to the index of that score in the vector.
+        /// Optionally includes a vector of implicit counts >= 1 for the scores, but
+        /// the mapping quality is always calculated as if it multiplicity is 1.
+        static double maximum_mapping_quality_exact(const vector<double>& scaled_scores, size_t* max_idx_out,
+                                                    const vector<double>* multiplicities = nullptr);
         /// Given a nonempty vector of nonnegative scaled alignment scores,
         /// approximate the mapping quality of the maximal score in the vector.
-        /// Sets max_idx_out to the index of that score in the vector. May
-        /// modify the input vector.
-        static double maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out);
+        /// Sets max_idx_out to the index of that score in the vector.
+        /// Optionally includes a vector of implicit counts >= 1 for the scores, but
+        /// the mapping quality is always calculated as if it multiplicity is 1.
+        static double maximum_mapping_quality_approx(const vector<double>& scaled_scores, size_t* max_idx_out,
+                                                     const vector<double>* multiplicities = nullptr);
     protected:
-        double group_mapping_quality_exact(vector<double>& scaled_scores, vector<size_t>& group) const;
+        double group_mapping_quality_exact(const vector<double>& scaled_scores, const vector<size_t>& group,
+                                           const vector<double>* multiplicities = nullptr) const;
         double estimate_next_best_score(int length, double min_diffs) const;
         
         // must be called before querying mapping_quality
@@ -215,11 +220,17 @@ namespace vg {
                                             double maybe_mq_threshold,
                                             double identity_weight) const;
         
-        /// Computes mapping quality for the optimal score in a vector of scores
-        int32_t compute_mapping_quality(vector<double>& scores, bool fast_approximation) const;
+        /// Computes mapping quality for the optimal score in a vector of scores.
+        /// Optionally includes a vector of implicit counts >= 1 for the scores, but
+        /// the mapping quality is always calculated as if it multiplicity is 1.
+        int32_t compute_mapping_quality(const vector<double>& scores, bool fast_approximation,
+                                        const vector<double>* multiplicities = nullptr) const;
         
-        /// Computes mapping quality for a group of scores in a vector of scores (group given by indexes)
-        int32_t compute_group_mapping_quality(vector<double>& scores, vector<size_t>& group) const;
+        /// Computes mapping quality for a group of scores in a vector of scores (group given by indexes).
+        /// Optionally includes a vector of implicit counts >= 1 for the score, but the mapping quality is always
+        /// calculated as if each member of the group has multiplicity is 1.
+        int32_t compute_group_mapping_quality(const vector<double>& scores, const vector<size_t>& group,
+                                              const vector<double>* multiplicities = nullptr) const;
         
         /// Returns the  difference between an optimal and second-best alignment scores that would
         /// result in this mapping quality using the fast mapping quality approximation
