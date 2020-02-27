@@ -928,9 +928,8 @@ namespace vg {
         pair_multiplicities.resize(multipath_aln_pairs_out.size(), 1.0);
         
         // calculate the estimated multiplicity of a pair found from each of the two ends
-        double estimated_multiplicity_from_1 = num_rescuable_alns_1 > 0 ? double(num_to_rescue_1) / num_rescuable_alns_1 : 1.0;
-        double estimated_multiplicity_from_2 = num_rescuable_alns_2 > 0 ? double(num_to_rescue_2) / num_rescuable_alns_2 : 1.0;
-        
+        double estimated_multiplicity_from_1 = num_to_rescue_1 > 0 ? double(num_rescuable_alns_1) / num_to_rescue_1 : 1.0;
+        double estimated_multiplicity_from_2 = num_to_rescue_2 > 0 ? double(num_rescuable_alns_2) / num_to_rescue_2 : 1.0;
         
         // actually doe the rescues and record which ones succeeded
         vector<MultipathAlignment> rescue_multipath_alns_1(num_to_rescue_2), rescue_multipath_alns_2(num_to_rescue_1);
