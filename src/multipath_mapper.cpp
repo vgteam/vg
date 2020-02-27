@@ -933,7 +933,7 @@ namespace vg {
         
         
         // actually doe the rescues and record which ones succeeded
-        vector<MultipathAlignment> rescue_multipath_alns_1(num_to_rescue_1), rescue_multipath_alns_2(num_to_rescue_2);
+        vector<MultipathAlignment> rescue_multipath_alns_1(num_to_rescue_2), rescue_multipath_alns_2(num_to_rescue_1);
         unordered_set<size_t> rescued_from_1, rescued_from_2;
         
         for (size_t i = 0; i < num_to_rescue_1; i++) {
