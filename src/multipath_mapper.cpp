@@ -3884,7 +3884,11 @@ namespace vg {
             if (include_population_component && all_multipaths_pop_consistent) {
                 cerr << ", pop adjusted aligns: " << chosen_align_score[i].first << " " << chosen_align_score[i].second << ", population: " << chosen_population_score[i].first << " " << chosen_population_score[i].second;
             }
-            cerr << ", combined: " << scores[i] << endl;
+            cerr << ", combined: " << scores[i];
+            if (multiplicities) {
+                cerr << ", multiplicity: " << multiplicities->at(i);
+            }
+            cerr << endl;
         }
 #endif
         
