@@ -32,8 +32,6 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     // Nothing to do!
 }
 
-#define NO_UNEXTENDED_CAP
-
 std::tuple<double, double, double> MinimizerMapper::compute_mapq_caps(const Alignment& aln, 
     const std::vector<Minimizer>& minimizers,
     const std::vector<bool>& minimizer_located,
