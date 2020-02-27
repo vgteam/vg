@@ -948,8 +948,9 @@ int main_gaffe(int argc, char** argv) {
         // Set up counters per-thread for total reads mapped
         vector<size_t> reads_mapped_by_thread(thread_count, 0);
         
-        // Have a place to log start time
-        std::chrono::time_point<std::chrono::system_clock> start;
+        // For timing, we may run one thread first and then switch to all threads. So track both start times.
+        std::chrono::time_point<std::chrono::system_clock> first_thread_start;
+        std::chrono::time_point<std::chrono::system_clock> all_threads_start;
         
         {
             // Set up output to an emitter that will handle serialization
@@ -964,7 +965,7 @@ int main_gaffe(int argc, char** argv) {
 #endif
 
             // Start timing overall mapping time now that indexes are loaded.
-            start = std::chrono::system_clock::now();
+            first_thread_start = std::chrono::system_clock::now();
 
             if (interleaved || !fastq_filename_2.empty()) {
                 //Map paired end from either one gam or fastq file or two fastq files
@@ -975,9 +976,19 @@ int main_gaffe(int argc, char** argv) {
                 // during distribution estimation
                 vector<pair<Alignment, Alignment>> ambiguous_pair_buffer;
                 
+                // Track whether the distribution was ready, so we can detect when it becomes ready and capture the all-threads start time.
+                bool distribution_was_ready = false;
+
                 // Define how to know if the paired end distribution is ready
                 auto distribution_is_ready = [&]() {
-                    return minimizer_mapper.fragment_distr_is_finalized();
+                    bool is_ready = minimizer_mapper.fragment_distr_is_finalized();
+                    if (is_ready && !distribution_was_ready) {
+                        // It has become ready now.
+                        distribution_was_ready = true;
+                        // Remember when now is.
+                        all_threads_start = std::chrono::system_clock::now();
+                    }
+                    return is_ready;
                 };
                 
                 // Define how to align and output a read pair, in a thread.
@@ -1024,6 +1035,9 @@ int main_gaffe(int argc, char** argv) {
                 }
             } else {
                 // Map single-ended
+
+                // All the threads start at once.
+                all_threads_start = first_thread_start;
             
                 // Define how to align and output a read, in a thread.
                 auto map_read = [&](Alignment& aln) {
@@ -1051,7 +1065,8 @@ int main_gaffe(int argc, char** argv) {
         
         // Now mapping is done
         std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
-        std::chrono::duration<double> elapsed_seconds = end-start;
+        std::chrono::duration<double> all_threads_seconds = end - all_threads_start;
+        std::chrono::duration<double> first_thread_additional_seconds = all_threads_start - first_thread_start;
         
         // How many reads did we map?
         size_t total_reads_mapped = 0;
@@ -1059,14 +1074,15 @@ int main_gaffe(int argc, char** argv) {
             total_reads_mapped += reads_mapped;
         }
         
-        // Compute speed
-        double reads_per_second_per_thread = ((total_reads_mapped / elapsed_seconds.count()) / thread_count);
+        // Compute speed (as reads per thread-second)
+        double reads_per_second_per_thread = total_reads_mapped / (all_threads_seconds.count() * thread_count + first_thread_additional_seconds.count());
         
         if (progress) {
             // Log to standard error
             cerr << "Mapped " << total_reads_mapped << " reads across "
                 << thread_count << " threads in "
-                << elapsed_seconds.count() << " seconds." << endl;
+                << all_threads_seconds.count() << " seconds with " 
+                << first_thread_additional_seconds.count() << " additional single-threaded seconds." << endl;
             
             cerr << "Mapping speed: " << reads_per_second_per_thread
                 << " reads per second per thread" << endl;
