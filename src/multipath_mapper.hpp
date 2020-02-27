@@ -234,7 +234,8 @@ namespace vg {
                                                  vector<clustergraph_t>& cluster_graphs2,
                                                  bool block_rescue_from_1, bool block_rescue_from_2,
                                                  vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                                 vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances);
+                                                 vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances_out,
+                                                 vector<double>& pair_multiplicities_out);
         
         /// Use the rescue routine on strong suboptimal clusters to see if we can find a good secondary.
         /// Produces topologically sorted MultipathAlignments.
@@ -261,7 +262,8 @@ namespace vg {
         void merge_rescued_mappings(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                     vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                     vector<pair<MultipathAlignment, MultipathAlignment>>& rescued_multipath_aln_pairs,
-                                    vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs) const;
+                                    vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs,
+                                    vector<double>& rescued_multiplicities) const;
         
         /// Use the oriented distance clusterer or the TVS clusterer to cluster MEMs depending on parameters.
         /// If using oriented distance cluster, must alo provide an oriented distance measurer.
@@ -321,7 +323,9 @@ namespace vg {
         void strip_full_length_bonuses(MultipathAlignment& multipath_aln) const;
         
         /// Compute a mapping quality from a list of scores, using the selected method.
-        int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method) const;
+        /// Optionally considers non-present duplicates of the scores encoded as multiplicities
+        int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method,
+                                                        const vector<double>* multiplicities = nullptr) const;
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
         /// Optionally also sorts a vector of indexes to keep track of the cluster-of-origin
@@ -335,9 +339,11 @@ namespace vg {
         /// OrientedDistanceClusterer::cluster_pairs function (modified cluster_pairs vector)
         /// Allows multipath alignments where the best single path alignment is leaving the read unmapped.
         /// MultipathAlignments MUST be topologically sorted.
+        /// Optionally considers non-present duplicates of the scores encoded as multiplicities 
         void sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
                                               vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
-                                              vector<pair<size_t, size_t>>* duplicate_pairs_out = nullptr) const;
+                                              vector<pair<size_t, size_t>>* duplicate_pairs_out = nullptr,
+                                              vector<double>* pair_multiplicities = nullptr) const;
 
         /// Estimates the probability that the correct cluster was not chosen as a cluster to rescue from and caps the
         /// mapping quality to the minimum of the current mapping quality and this probability (in Phred scale)
