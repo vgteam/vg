@@ -134,7 +134,7 @@ namespace vg {
         size_t plausible_rescue_cluster_coverage_diff = 5;
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
-        double mapq_scaling_factor = 1.0;
+        double mapq_scaling_factor = 2.0 / 3.0;
         bool report_group_mapq = false;
         // There must be a ScoreProvider provided, and a positive population_max_paths, if this is true
         bool use_population_mapqs = false;
@@ -339,7 +339,7 @@ namespace vg {
         /// OrientedDistanceClusterer::cluster_pairs function (modified cluster_pairs vector)
         /// Allows multipath alignments where the best single path alignment is leaving the read unmapped.
         /// MultipathAlignments MUST be topologically sorted.
-        /// Optionally considers non-present duplicates of the scores encoded as multiplicities 
+        /// Optionally considers non-present duplicates of the scores encoded as multiplicities
         void sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
                                               vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                               vector<pair<size_t, size_t>>* duplicate_pairs_out = nullptr,
