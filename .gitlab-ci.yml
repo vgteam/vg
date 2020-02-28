@@ -17,6 +17,7 @@ before_script:
   - cat /etc/hosts
   - startdocker || true
   - docker info
+  - mkdir -p ~/.aws && cp "$GITLAB_SECRET_FILE_AWS_CREDENTIALS" ~/.aws/credentials
 
 after_script:
   - stopdocker || true

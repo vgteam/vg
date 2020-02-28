@@ -13,10 +13,6 @@ RUN echo build > /stage.txt
 # Copy vg build tree into place
 COPY . /vg
 
-# If we're trying to build from a non-recursively-cloned repo, go get the
-# submodules.
-RUN bash -c "[[ -e deps/libhandlegraph ]] || git submodule update --init --recursive"
-
 # Install the base packages needed to let vg install packages.
 # Make sure this runs after vg sources are imported so vg will always have an
 # up to date package index to get its dependencies.
@@ -28,14 +24,19 @@ RUN apt-get -qq -y update && \
     apt-get -qq -y upgrade && \
     apt-get -qq -y install \
     make \
-    sudo
+    sudo \
+    git
+
+# If we're trying to build from a non-recursively-cloned repo, go get the
+# submodules.
+RUN bash -c "[[ -e deps/sdsl-lite/CMakeLists.txt ]] || git submodule update --init --recursive"
 
 # To increase portability of the docker image, set the target CPU architecture to
 # Nehalem (2008) rather than auto-detecting the build machine's CPU.
 # This has no AVX1, AVX2, or PCLMUL, but it does have SSE4.2.
 # UCSC has a Nehalem machine that we want to support.
 RUN sed -i s/march=native/march=nehalem/ deps/sdsl-lite/CMakeLists.txt
-RUN make get-deps && . ./source_me.sh && env && make include/vg_git_version.hpp && CXXFLAGS=" -march=nehalem " make -j$(nproc) && make static && strip bin/vg
+RUN make get-deps && . ./source_me.sh && env && make include/vg_git_version.hpp && CXXFLAGS=" -march=nehalem " make -j8 && make static && strip bin/vg
 
 ENV PATH /vg/bin:$PATH
 
