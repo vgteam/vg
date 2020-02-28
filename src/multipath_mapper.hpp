@@ -134,7 +134,7 @@ namespace vg {
         size_t plausible_rescue_cluster_coverage_diff = 5;
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
-        double mapq_scaling_factor = 2.0 / 3.0;
+        double mapq_scaling_factor = 1.0;
         bool report_group_mapq = false;
         // There must be a ScoreProvider provided, and a positive population_max_paths, if this is true
         bool use_population_mapqs = false;
