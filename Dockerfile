@@ -6,18 +6,16 @@ RUN echo base > /stage.txt
 
 WORKDIR /vg
 
-RUN ls -lah /vg || echo "No vg directory exists yet"
-
 FROM base AS build
 
 RUN echo build > /stage.txt
 
-RUN ls -lah /vg || echo "No vg directory exists yet"
-
 # Copy vg build tree into place
 COPY . /vg
 
-RUN ls -lah /vg || echo "No vg directory exists yet"
+# If we're trying to build from a non-recursively-cloned repo, go get the
+# submodules.
+RUN bash -c "[[ -e deps/libhandlegraph ]] || git submodule update --init --recursive"
 
 # Install the base packages needed to let vg install packages.
 # Make sure this runs after vg sources are imported so vg will always have an
@@ -46,15 +44,13 @@ FROM build AS test
 
 RUN echo test > /stage.txt
 
-# The test need BWA
-COPY --from=quay.io/ucsc_cgl/bwa:0.7.15--a17c6544342330f6ea7a23a37d23273ab1c52d21 /usr/local/bin/bwa /usr/local/bin/bwa
-
-# The tests need some extra packages.
+# The tests also need some other extra packages.
 # TODO: Which of these can we remove?
 # No clean necessary since we aren't shipping this
 RUN apt-get -qq -y update && \
     apt-get -qq -y upgrade && \
     apt-get -qq -y install \
+    bwa \
     pigz \
     dstat \
     pv \
@@ -77,15 +73,9 @@ FROM base AS run
 
 RUN echo run > /stage.txt
 
-RUN ls -lah /vg || echo "No vg directory exists yet"
-
 COPY --from=build /vg/bin/vg /vg/bin/
 
-RUN ls -lah /vg || echo "No vg directory exists yet"
-
 COPY --from=build /vg/scripts/* /vg/scripts/
-
-RUN ls -lah /vg || echo "No vg directory exists yet"
 
 # Install packages which toil-vg needs to be available inside the image, for pipes
 # TODO: which of these can be removed?
