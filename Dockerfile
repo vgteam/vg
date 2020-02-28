@@ -36,7 +36,7 @@ RUN bash -c "[[ -e deps/sdsl-lite/CMakeLists.txt ]] || git submodule update --in
 # This has no AVX1, AVX2, or PCLMUL, but it does have SSE4.2.
 # UCSC has a Nehalem machine that we want to support.
 RUN sed -i s/march=native/march=nehalem/ deps/sdsl-lite/CMakeLists.txt
-RUN make get-deps && . ./source_me.sh && env && make include/vg_git_version.hpp && CXXFLAGS=" -march=nehalem " make -j$(nproc) && make static && strip bin/vg
+RUN make get-deps && . ./source_me.sh && env && make include/vg_git_version.hpp && CXXFLAGS=" -march=nehalem " make -j8 && make static && strip bin/vg
 
 ENV PATH /vg/bin:$PATH
 
