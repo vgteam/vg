@@ -903,6 +903,12 @@ Functions</h2></td></tr>
 <tr class="memitem:a51e6a112ff1115272420d46ca4316f63"><td class="memTemplParams" colspan="2">template&lt;&gt; </td></tr>
 <tr class="memitem:a51e6a112ff1115272420d46ca4316f63"><td class="memTemplItemLeft" align="right" valign="top">google::protobuf::Value&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a51e6a112ff1115272420d46ca4316f63">value_cast&lt; string &gt;</a> (const string &amp;wrap)</td></tr>
 <tr class="separator:a51e6a112ff1115272420d46ca4316f63"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2a12578ee636d9d929a9c1205e7c8525"><td class="memTemplParams" colspan="2">template&lt;&gt; </td></tr>
+<tr class="memitem:a2a12578ee636d9d929a9c1205e7c8525"><td class="memTemplItemLeft" align="right" valign="top">google::protobuf::Value&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2a12578ee636d9d929a9c1205e7c8525">value_cast&lt; size_t &gt;</a> (const size_t &amp;wrap)</td></tr>
+<tr class="separator:a2a12578ee636d9d929a9c1205e7c8525"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad1ca627c13de536f96efbc08934edb62"><td class="memTemplParams" colspan="2">template&lt;&gt; </td></tr>
+<tr class="memitem:ad1ca627c13de536f96efbc08934edb62"><td class="memTemplItemLeft" align="right" valign="top">google::protobuf::Value&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad1ca627c13de536f96efbc08934edb62">value_cast&lt; int &gt;</a> (const int &amp;wrap)</td></tr>
+<tr class="separator:ad1ca627c13de536f96efbc08934edb62"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a12109d27c9801031e32a408e75af2bd1"><td class="memTemplParams" colspan="2">template&lt;typename Container &gt; </td></tr>
 <tr class="memitem:a12109d27c9801031e32a408e75af2bd1"><td class="memTemplItemLeft" align="right" valign="top">Container&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a12109d27c9801031e32a408e75af2bd1">value_cast</a> (const google::protobuf::Value &amp;value)</td></tr>
 <tr class="memdesc:a12109d27c9801031e32a408e75af2bd1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Cast a Protobuf generic Value to any type.  <a href="#a12109d27c9801031e32a408e75af2bd1">More...</a><br /></td></tr>
@@ -1769,6 +1775,9 @@ Functions</h2></td></tr>
 <tr class="separator:a57f111dda471f40192704110bae04a0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af051490e6e94b4c476695610472cdf5b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af051490e6e94b4c476695610472cdf5b">is_number</a> (const std::string &amp;s)</td></tr>
 <tr class="separator:af051490e6e94b4c476695610472cdf5b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a92c923774a6526b7bfc7f06ae4ae7a18"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a92c923774a6526b7bfc7f06ae4ae7a18">isATGC</a> (const char &amp;b)</td></tr>
+<tr class="memdesc:a92c923774a6526b7bfc7f06ae4ae7a18"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return true if a character is an uppercase A, C, G, or T, and false otherwise.  <a href="#a92c923774a6526b7bfc7f06ae4ae7a18">More...</a><br /></td></tr>
+<tr class="separator:a92c923774a6526b7bfc7f06ae4ae7a18"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7a1786f1e7e453c4b76b319ba101782d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7a1786f1e7e453c4b76b319ba101782d">allATGC</a> (const string &amp;s)</td></tr>
 <tr class="separator:a7a1786f1e7e453c4b76b319ba101782d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae24bea33b666a03a0065a10a60d64e9d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae24bea33b666a03a0065a10a60d64e9d">allATGCN</a> (const string &amp;s)</td></tr>
@@ -9054,6 +9063,26 @@ template&lt;class Element &gt; </div>
 </div><div class="memdoc">
 
 <p>Return true if a pos_t is on the reverse strand of its node. </p>
+
+</div>
+</div>
+<a id="a92c923774a6526b7bfc7f06ae4ae7a18"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a92c923774a6526b7bfc7f06ae4ae7a18">&#9670;&nbsp;</a></span>isATGC()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::isATGC </td>
+          <td>(</td>
+          <td class="paramtype">const char &amp;&#160;</td>
+          <td class="paramname"><em>b</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Return true if a character is an uppercase A, C, G, or T, and false otherwise. </p>
 
 </div>
 </div>
@@ -17834,6 +17863,62 @@ template&lt;&gt; </div>
           <td class="memname">google::protobuf::Value <a class="el" href="namespacevg.html#a76fc86953f8c080621c080cd35bc9ae0">vg::value_cast</a>&lt; double &gt; </td>
           <td>(</td>
           <td class="paramtype">const double &amp;&#160;</td>
+          <td class="paramname"><em>wrap</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ad1ca627c13de536f96efbc08934edb62"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad1ca627c13de536f96efbc08934edb62">&#9670;&nbsp;</a></span>value_cast< int >()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;&gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">google::protobuf::Value <a class="el" href="namespacevg.html#a76fc86953f8c080621c080cd35bc9ae0">vg::value_cast</a>&lt; int &gt; </td>
+          <td>(</td>
+          <td class="paramtype">const int &amp;&#160;</td>
+          <td class="paramname"><em>wrap</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a2a12578ee636d9d929a9c1205e7c8525"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2a12578ee636d9d929a9c1205e7c8525">&#9670;&nbsp;</a></span>value_cast< size_t >()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;&gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">google::protobuf::Value <a class="el" href="namespacevg.html#a76fc86953f8c080621c080cd35bc9ae0">vg::value_cast</a>&lt; size_t &gt; </td>
+          <td>(</td>
+          <td class="paramtype">const size_t &amp;&#160;</td>
           <td class="paramname"><em>wrap</em></td><td>)</td>
           <td></td>
         </tr>

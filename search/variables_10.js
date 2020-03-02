@@ -4,6 +4,7 @@ var searchData=
   ['pack_5fnames',['pack_names',['../classvg_1_1Viz.html#abb3fd61d416351930f2e7399e6f6001b',1,'vg::Viz']]],
   ['packer',['packer',['../classvg_1_1PackedTraversalSupportFinder.html#ac48b605c781739b3920b8c36fdb6fcf8',1,'vg::PackedTraversalSupportFinder']]],
   ['packs',['packs',['../classvg_1_1Viz.html#a350ea478ececb5f19170b16cf1539726',1,'vg::Viz']]],
+  ['pad_5fcluster_5fscore_5fthreshold',['pad_cluster_score_threshold',['../classvg_1_1MinimizerMapper.html#a70b206dc58a148a69657303ff292199f',1,'vg::MinimizerMapper']]],
   ['pair_5frescue_5fhang_5fthreshold',['pair_rescue_hang_threshold',['../classvg_1_1Mapper.html#a92e1f4de4e6ce576e09005713d1c1cd1',1,'vg::Mapper']]],
   ['pair_5frescue_5fretry_5fthreshold',['pair_rescue_retry_threshold',['../classvg_1_1Mapper.html#a36ed72fe5d33907a75992011ff9ae244',1,'vg::Mapper']]],
   ['paired_5fread_5fname',['paired_read_name',['../structvg_1_1MultipathAlignment.html#a0664790bf6bd37af413697cddff370fb',1,'vg::MultipathAlignment']]],
