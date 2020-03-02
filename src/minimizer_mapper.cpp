@@ -32,9 +32,7 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     // Nothing to do!
 }
 
-#define NO_UNEXTENDED_CAP
-
-std::tuple<double, double, double> MinimizerMapper::compute_mapq_caps(const Alignment& aln, 
+std::tuple<double, double> MinimizerMapper::compute_mapq_caps(const Alignment& aln, 
     const std::vector<Minimizer>& minimizers,
     const std::vector<bool>& minimizer_located,
     const std::vector<std::vector<bool>>& present_in_cluster,
@@ -79,31 +77,7 @@ std::tuple<double, double, double> MinimizerMapper::compute_mapq_caps(const Alig
     cerr << "Cap based on read's minimizers not in non-extended clusters all being wrong (and the read actually having come from the non-extended clusters)..." << endl;
 #endif
 
-    double mapq_non_extended_cap = numeric_limits<double>::infinity();
-
-#ifndef NO_UNEXTENDED_CAP
-    for (auto& cluster_num : unextended_clusters) {
-        // For each unextended cluster that might have created the read
-        
-        // Collect the minimizers not in it but in the read
-        vector<size_t> synthesized_minimizers;
-        synthesized_minimizers.reserve(minimizers.size());
-        for (size_t i = 0; i < minimizers.size(); i++) {
-            if (!present_in_cluster[cluster_num][i] && minimizer_located[i]) {
-                synthesized_minimizers.push_back(i);
-            }
-        }
-        
-        // Cap MAPQ with MAPQ for creating all these minimizers.
-        // TODO: only run the capping once if we can figure out the easiest-to-create set of minimizers in advance.
-        // TODO: Find the set of minimizers *only* in unextended clusters and use that as the set we have to create.
-        mapq_non_extended_cap = std::min(mapq_non_extended_cap,
-            window_breaking_quality(minimizers, synthesized_minimizers, aln.sequence(), aln.quality()));
-    }
-#endif
-
-
-    return std::tie(mapq_locate_cap, mapq_extended_cap, mapq_non_extended_cap);
+    return std::tie(mapq_locate_cap, mapq_extended_cap);
 }
 
 double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
@@ -917,17 +891,15 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
     double mapq_locate_cap;
     double mapq_extended_cap;
-    double mapq_non_extended_cap;
-    std::tie(mapq_locate_cap, mapq_extended_cap, mapq_non_extended_cap) = compute_mapq_caps(aln, minimizers, minimizer_located, present_in_cluster, unextended_clusters, present_in_any_extended_cluster);
+    std::tie(mapq_locate_cap, mapq_extended_cap) = compute_mapq_caps(aln, minimizers, minimizer_located, present_in_cluster, unextended_clusters, present_in_any_extended_cluster);
 
     // Remember the uncapped MAPQ and the caps
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
     set_annotation(mappings.front(), "mapq_locate_cap", mapq_locate_cap);
     set_annotation(mappings.front(), "mapq_extended_cap", mapq_extended_cap);
-    set_annotation(mappings.front(), "mapq_non_extended_cap", mapq_non_extended_cap);
 
     // Apply the caps
-    mapq = min(min(mapq, mapq_locate_cap), min(mapq_extended_cap, mapq_non_extended_cap));
+    mapq = min(mapq, min(mapq_locate_cap, mapq_extended_cap));
 
 #ifdef debug
     cerr << "MAPQ is " << mapq << endl;
@@ -2081,8 +2053,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
             double mapq_locate_cap;
             double mapq_extended_cap;
-            double mapq_non_extended_cap;
-            std::tie(mapq_locate_cap, mapq_extended_cap, mapq_non_extended_cap) = compute_mapq_caps(aln,
+            std::tie(mapq_locate_cap, mapq_extended_cap) = compute_mapq_caps(aln,
                 minimizers_by_read[read_num],
                 minimizer_located,
                 present_in_cluster_by_read[read_num],
@@ -2093,11 +2064,10 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             auto& to_annotate = (read_num == 0 ? mappings.first : mappings.second).front();
             set_annotation(to_annotate, "mapq_locate_cap", mapq_locate_cap);
             set_annotation(to_annotate, "mapq_extended_cap", mapq_extended_cap);
-            set_annotation(to_annotate, "mapq_non_extended_cap", mapq_non_extended_cap);
 
             // Compute the cap. It should be the higher of the caps for the two reads
             // The individual cap values are either actual numbers or +inf, so the cap can't stay as -inf.
-            mapq_cap = max(mapq_cap, min(mapq_locate_cap, min(mapq_extended_cap, mapq_non_extended_cap)));
+            mapq_cap = max(mapq_cap, min(mapq_locate_cap, mapq_extended_cap));
         }
 
         for (auto read_num : {0, 1}) {
