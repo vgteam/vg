@@ -52,7 +52,7 @@ LOAD_JUNIT=""
 # Should we analyze the junit test report and post our own HTML report?
 CREATE_REPORT=1
 # What S3 URL does test output go to?
-OUTPUT_DESTINATION="s3://vg-data/vg_ci"
+OUTPUT_DESTINATION="s3://vg-k8s/ci/vg"
 # What bucket owner account ID should be granted full control of uploaded objects?
 OUTPUT_OWNER="b1cf5e10ba0aeeb00e5ec70b3532826f22a979ae96c886d3081d0bdc1f51f67e"
 
