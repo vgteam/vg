@@ -47,6 +47,8 @@ std::vector<std::string> split_delims(const std::string &s, const std::string& d
 const std::string sha1sum(const std::string& data);
 const std::string sha1head(const std::string& data, size_t head);
 
+/// Return true if a character is an uppercase A, C, G, or T, and false otherwise.
+bool isATGC(const char& b);
 bool allATGC(const string& s);
 bool allATGCN(const string& s);
 string nonATGCNtoN(const string& s);

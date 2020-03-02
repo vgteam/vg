@@ -142,6 +142,19 @@ inline google::protobuf::Value value_cast<string>(const string& wrap) {
     return to_return;
 }
 
+// Helpers for dumping integral types to double.
+// May lose precision for large numbers.
+
+template<>
+inline google::protobuf::Value value_cast<size_t>(const size_t& wrap) {
+    return value_cast<double>((double) wrap);
+}
+
+template<>
+inline google::protobuf::Value value_cast<int>(const int& wrap) {
+    return value_cast<double>((double) wrap);
+}
+
 // We also have implementations for vectors and other push_back-able containers.
 
 template<typename Container>
