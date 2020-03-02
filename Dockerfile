@@ -7,6 +7,7 @@ RUN echo base > /stage.txt
 WORKDIR /vg
 
 FROM base AS build
+ARG THREADS=8
 
 RUN echo build > /stage.txt
 
@@ -36,12 +37,13 @@ RUN bash -c "[[ -e deps/sdsl-lite/CMakeLists.txt ]] || git submodule update --in
 # This has no AVX1, AVX2, or PCLMUL, but it does have SSE4.2.
 # UCSC has a Nehalem machine that we want to support.
 RUN sed -i s/march=native/march=nehalem/ deps/sdsl-lite/CMakeLists.txt
-RUN make get-deps && . ./source_me.sh && env && make include/vg_git_version.hpp && CXXFLAGS=" -march=nehalem " make -j8 && make static && strip bin/vg
+RUN make get-deps && . ./source_me.sh && env && make include/vg_git_version.hpp && CXXFLAGS=" -march=nehalem " make -j ${THREADS} && make static && strip bin/vg
 
 ENV PATH /vg/bin:$PATH
 
 ############################################################################################
 FROM build AS test
+ARG THREADS=8
 
 RUN echo test > /stage.txt
 
@@ -65,6 +67,8 @@ RUN apt-get -qq -y update && \
 
 # Fail if any non-portable instructions were used
 RUN /bin/bash -e -c 'if objdump -d /vg/bin/vg | grep vperm2i128 ; then exit 1 ; else exit 0 ; fi'
+# Set the default number of threads to the number we are supposed to use.
+ENV OMP_NUM_THREADS ${THREADS}
 # Run tests in the middle so the final container that gets tagged is the run container.
 RUN make test
 
