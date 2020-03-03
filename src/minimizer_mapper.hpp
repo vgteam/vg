@@ -215,18 +215,15 @@ protected:
     std::tuple<double, double, std::vector<bool>> score_cluster(const std::vector<size_t>& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<size_t>& seed_to_source, size_t seq_length, Funnel& funnel) const;
 
     /**
-     * Compute MAPQ caps based on all located minimizers, all minimizers
-     * present in extended clusters, and all minimizers not present in extended
-     * clusters.
+     * Compute MAPQ caps based on all minimizers present in extended clusters.
      *
      * Needs access to the input alignment for sequence and quality
      * information.
      *
-     * Returns a "locate" cap and an "extended" cap.
+     * Returns only an "extended" cap at the moment.
      */
-    std::tuple<double, double> compute_mapq_caps(const Alignment& aln, const std::vector<Minimizer>& minimizers,
-                                                 const std::vector<bool>& minimizer_located, const std::vector<std::vector<bool>>& present_in_cluster,
-                                                 const std::vector<size_t>& unextended_clusters, const std::vector<bool>& present_in_any_extended_cluster);
+    std::tuple<double> compute_mapq_caps(const Alignment& aln, const std::vector<Minimizer>& minimizers,
+                                         const std::vector<bool>& present_in_any_extended_cluster);
 
     /**
      * Compute a bound on the Phred score probability of having created the

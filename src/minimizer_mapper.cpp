@@ -32,29 +32,10 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     // Nothing to do!
 }
 
-std::tuple<double, double> MinimizerMapper::compute_mapq_caps(const Alignment& aln, 
+std::tuple<double> MinimizerMapper::compute_mapq_caps(const Alignment& aln, 
     const std::vector<Minimizer>& minimizers,
-    const std::vector<bool>& minimizer_located,
-    const std::vector<std::vector<bool>>& present_in_cluster,
-    const std::vector<size_t>& unextended_clusters,
     const std::vector<bool>& present_in_any_extended_cluster) {
 
-// We want to have a MAPQ cap based on minimum error bases it would take to
-    // have created all our windows we located in the read we have.
-#ifdef debug
-    cerr << "Cap based on located minimizers all being faked by errors..." << endl;
-#endif
-
-    // Convert our flag vector to a list of the minimizers actually located
-    vector<size_t> located_minimizers;
-    located_minimizers.reserve(minimizers.size());
-    for (size_t i = 0; i < minimizers.size(); i++) {
-        if (minimizer_located[i]) {
-            located_minimizers.push_back(i);
-        }
-    }
-    double mapq_locate_cap = window_breaking_quality(minimizers, located_minimizers, aln.sequence(), aln.quality());
-    
     // We need to cap MAPQ based on the likelihood of generating all the windows in the extended clusters by chance, too.
 #ifdef debug
     cerr << "Cap based on extended clusters' minimizers all being faked by errors..." << endl;
@@ -77,7 +58,7 @@ std::tuple<double, double> MinimizerMapper::compute_mapq_caps(const Alignment& a
     cerr << "Cap based on read's minimizers not in non-extended clusters all being wrong (and the read actually having come from the non-extended clusters)..." << endl;
 #endif
 
-    return std::tie(mapq_locate_cap, mapq_extended_cap);
+    return std::tie(mapq_extended_cap);
 }
 
 double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
@@ -889,17 +870,15 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     }
 
     // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
-    double mapq_locate_cap;
     double mapq_extended_cap;
-    std::tie(mapq_locate_cap, mapq_extended_cap) = compute_mapq_caps(aln, minimizers, minimizer_located, present_in_cluster, unextended_clusters, present_in_any_extended_cluster);
+    std::tie(mapq_extended_cap) = compute_mapq_caps(aln, minimizers, present_in_any_extended_cluster);
 
     // Remember the uncapped MAPQ and the caps
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
-    set_annotation(mappings.front(), "mapq_locate_cap", mapq_locate_cap);
     set_annotation(mappings.front(), "mapq_extended_cap", mapq_extended_cap);
 
     // Apply the caps
-    mapq = min(mapq, min(mapq_locate_cap, mapq_extended_cap));
+    mapq = min(mapq, mapq_extended_cap);
 
 #ifdef debug
     cerr << "MAPQ is " << mapq << endl;
@@ -2051,23 +2030,18 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             auto& minimizer_located = read_num == 0 ? minimizer_located_by_read.first : minimizer_located_by_read.second;
     
             // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
-            double mapq_locate_cap;
             double mapq_extended_cap;
-            std::tie(mapq_locate_cap, mapq_extended_cap) = compute_mapq_caps(aln,
+            std::tie(mapq_extended_cap) = compute_mapq_caps(aln,
                 minimizers_by_read[read_num],
-                minimizer_located,
-                present_in_cluster_by_read[read_num],
-                unextended_clusters_by_read[read_num],
                 present_in_any_extended_cluster_by_read[read_num]);
 
             // Remember the caps
             auto& to_annotate = (read_num == 0 ? mappings.first : mappings.second).front();
-            set_annotation(to_annotate, "mapq_locate_cap", mapq_locate_cap);
             set_annotation(to_annotate, "mapq_extended_cap", mapq_extended_cap);
 
             // Compute the cap. It should be the higher of the caps for the two reads
             // The individual cap values are either actual numbers or +inf, so the cap can't stay as -inf.
-            mapq_cap = max(mapq_cap, min(mapq_locate_cap, mapq_extended_cap));
+            mapq_cap = max(mapq_cap, mapq_extended_cap);
         }
 
         for (auto read_num : {0, 1}) {
