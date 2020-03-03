@@ -6,6 +6,10 @@ RUN echo base > /stage.txt
 
 WORKDIR /vg
 
+# Prevent dpkg from trying to ask any questions, ever
+ENV DEBIAN_FRONTEND noninteractive
+ENV DEBCONF_NONINTERACTIVE_SEEN true
+
 FROM base AS build
 
 RUN echo build > /stage.txt
@@ -77,8 +81,11 @@ RUN echo run > /stage.txt
 COPY --from=build /vg/bin/vg /vg/bin/
 
 COPY --from=build /vg/scripts/* /vg/scripts/
+# Make sure we have the flame graph scripts so we can do self-profiling
+COPY deps/FlameGraph /vg/deps/FlameGraph
 
-# Install packages which toil-vg needs to be available inside the image, for pipes
+# Install packages which toil-vg needs to be available inside the image, for
+# pipes and profiling, and good usability on Kubernetes.
 # TODO: which of these can be removed?
 # Make sure to clean so we don't ship old apt package indexes in our Docker.
 RUN ls -lah /vg && \
@@ -95,6 +102,20 @@ RUN ls -lah /vg && \
     tabix \
     parallel \
     fontconfig-config \
+    awscli \
+    binutils \
+    libssl1.0.0 \
+    libpython2.7 \
+    libperl-dev \
+    libelf1 \
+    libdw1 \
+    libslang2 \
+    libnuma1 \
+    numactl \
+    bc \
+    linux-tools-common \
+    linux-tools-generic \
+    perl \
     && apt-get -qq -y clean
 
 
