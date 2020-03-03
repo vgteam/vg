@@ -8,7 +8,6 @@
 
 # Keep going on errors; we make sure to return the right status code.
 set +e
-set -x
 
 # Should we build and run locally, or should we use Docker?
 LOCAL_BUILD=0
