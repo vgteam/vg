@@ -183,8 +183,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a0c6edb7097eaaf72ee65338364ef9b42"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af1e72295ab4f23184fb611b8bde0bfdd"><td class="memItemLeft" align="right" valign="top">std::tuple&lt; double, double, std::vector&lt; bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af1e72295ab4f23184fb611b8bde0bfdd">score_cluster</a> (const std::vector&lt; size_t &gt; &amp;cluster, size_t i, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; size_t &gt; &amp;seed_to_source, size_t seq_length, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
 <tr class="separator:af1e72295ab4f23184fb611b8bde0bfdd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a58d16475fa444235e4f97609837805c4"><td class="memItemLeft" align="right" valign="top">std::tuple&lt; double, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a58d16475fa444235e4f97609837805c4">compute_mapq_caps</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; bool &gt; &amp;minimizer_located, const std::vector&lt; std::vector&lt; bool &gt;&gt; &amp;present_in_cluster, const std::vector&lt; size_t &gt; &amp;unextended_clusters, const std::vector&lt; bool &gt; &amp;present_in_any_extended_cluster)</td></tr>
-<tr class="separator:a58d16475fa444235e4f97609837805c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac9e09014840d0d74afe3b00e4ccfa898"><td class="memItemLeft" align="right" valign="top">std::tuple&lt; double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ac9e09014840d0d74afe3b00e4ccfa898">compute_mapq_caps</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; bool &gt; &amp;present_in_any_extended_cluster)</td></tr>
+<tr class="separator:ac9e09014840d0d74afe3b00e4ccfa898"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa19502481af491af1d623da3ed16a766"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aa19502481af491af1d623da3ed16a766">window_breaking_quality</a> (const vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, vector&lt; size_t &gt; &amp;broken, const string &amp;sequence, const string &amp;quality_bytes) const</td></tr>
 <tr class="separator:aa19502481af491af1d623da3ed16a766"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6e3ec6685f98622b35391ae0d8bac180"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6e3ec6685f98622b35391ae0d8bac180">find_optimal_tail_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;best, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;second_best) const</td></tr>
@@ -351,8 +351,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a58d16475fa444235e4f97609837805c4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a58d16475fa444235e4f97609837805c4">&#9670;&nbsp;</a></span>compute_mapq_caps()</h2>
+<a id="ac9e09014840d0d74afe3b00e4ccfa898"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac9e09014840d0d74afe3b00e4ccfa898">&#9670;&nbsp;</a></span>compute_mapq_caps()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -361,7 +361,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">std::tuple&lt; double, double &gt; vg::MinimizerMapper::compute_mapq_caps </td>
+          <td class="memname">std::tuple&lt; double &gt; vg::MinimizerMapper::compute_mapq_caps </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>aln</em>, </td>
@@ -371,24 +371,6 @@ Protected Attributes</h2></td></tr>
           <td></td>
           <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>minimizers</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; bool &gt; &amp;&#160;</td>
-          <td class="paramname"><em>minimizer_located</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; std::vector&lt; bool &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>present_in_cluster</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; size_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>unextended_clusters</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -408,9 +390,9 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Compute MAPQ caps based on all located minimizers, all minimizers present in extended clusters, and all minimizers not present in extended clusters.</p>
+<p>Compute MAPQ caps based on all minimizers present in extended clusters.</p>
 <p>Needs access to the input alignment for sequence and quality information.</p>
-<p>Returns a "locate" cap and an "extended" cap. </p>
+<p>Returns only an "extended" cap at the moment. </p>
 
 </div>
 </div>
