@@ -8,6 +8,7 @@
 
 # Keep going on errors; we make sure to return the right status code.
 set +e
+set -x
 
 # Should we build and run locally, or should we use Docker?
 LOCAL_BUILD=0
@@ -52,9 +53,9 @@ LOAD_JUNIT=""
 # Should we analyze the junit test report and post our own HTML report?
 CREATE_REPORT=1
 # What S3 URL does test output go to?
-OUTPUT_DESTINATION="s3://vg-k8s/ci/vg"
+OUTPUT_DESTINATION="s3://vg-data/vg_ci"
 # What bucket owner account ID if any should be granted full control of uploaded objects?
-OUTPUT_OWNER=""
+OUTPUT_OWNER="b1cf5e10ba0aeeb00e5ec70b3532826f22a979ae96c886d3081d0bdc1f51f67e"
 
 usage() {
     # Print usage to stderr
@@ -490,6 +491,7 @@ then
     vgci/mine-logs.py test-report.xml "${LOAD_WORK_DIR}/" report-html/ summary.md
     if [ "$?" -ne 0 ]
     then
+        echo "Log mining fail"
         REPORT_FAIL=1
     fi
 
@@ -502,6 +504,7 @@ then
         vgci/post-report report-html summary.md
         if [ "$?" -ne 0 ]
         then
+            echo "Report posting fail"
             REPORT_FAIL=1
         fi
         
@@ -521,6 +524,7 @@ then
             "${VG_VERSION}_output.tar.gz" "${OUTPUT_DESTINATION}/vgci_output_archives/" "${GRANT_ARGS[@]}"
         if [ "$?" -ne 0 ]
         then
+            echo "Archive upload fail"
             REPORT_FAIL=1
         fi
 
@@ -532,6 +536,7 @@ then
                 "${LOAD_WORK_DIR}/" "${OUTPUT_DESTINATION}/vgci_regression_baseline" "${GRANT_ARGS[@]}"
             if [ "$?" -ne 0 ]
             then
+                echo "Baseline upload fail"
                 REPORT_FAIL=1
             fi
         
@@ -541,6 +546,7 @@ then
                 "vg_version_${VG_VERSION}.txt" "${OUTPUT_DESTINATION}/vgci_regression_baseline/" "${GRANT_ARGS[@]}"
             if [ "$?" -ne 0 ]
             then
+                echo "Version upload fail"
                 REPORT_FAIL=1
             fi
         fi
@@ -583,15 +589,18 @@ fi
 # Decide an exit status: use the first failing stage
 if [ "${BUILD_FAIL}" != "0" ]
 then
+    echo "Build phase has failed"
     exit "${BUILD_FAIL}"
 fi
 
 if [ "${TEST_FAIL}" != "0" ]
 then
+    echo "Test phase has failed"
     exit "${TEST_FAIL}"
 fi
 
 if [ "${REPORT_FAIL}" != "0" ]
 then
+    echo "Report phase has failed"
     exit "${REPORT_FAIL}"
 fi
