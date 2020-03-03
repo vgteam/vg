@@ -109,6 +109,12 @@ public:
     //If a cluster's score is smaller than the best score of any cluster by more than
     //this much, then don't extend it
     double cluster_score_threshold = 50;
+    
+    //If the second best cluster's score is no more than this many points below
+    //the cutoff set by cluster_score_threshold, snap that cutoff down to the
+    //second best cluster's score, to avoid throwing away promising
+    //secondaries.
+    double pad_cluster_score_threshold = 20;
 
     //If the read coverage of a cluster is less than the best coverage of any cluster
     //by more than this much, don't extend it
@@ -151,6 +157,25 @@ public:
      */
     int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
 protected:
+
+    /**
+     * We define our own type for minimizers, to use during mapping and to apss around between our internal functions.
+     */
+    struct Minimizer {
+        typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
+        size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
+        size_t agglomeration_length; // What is the regioin of consecutive windows this minimizer instance is minimal in?
+        size_t hits; // How many hits does the minimizer have?
+        const typename gbwtgraph::DefaultMinimizerIndex::code_type* occs;
+        size_t origin; // This minimizer came from minimizer_indexes[origin].
+        double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
+
+        // Sort the minimizers in descending order by score.
+        bool operator< (const Minimizer& another) const {
+            return (this->score > another.score);
+        }
+    };
+
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const std::vector<std::unique_ptr<gbwtgraph::DefaultMinimizerIndex>>& minimizer_indexes;
@@ -167,19 +192,6 @@ protected:
 
     FragmentLengthDistribution fragment_length_distr;
 
-    struct Minimizer {
-        typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
-        size_t hits;
-        const typename gbwtgraph::DefaultMinimizerIndex::code_type* occs;
-        size_t origin; // From minimizer_indexes[origin].
-        double score;  // 1 + ln(hard_hit_cap) - ln(hits).
-
-        // Sort the minimizers in descending order by score.
-        bool operator< (const Minimizer& another) const {
-            return (this->score > another.score);
-        }
-    };
-
     /**
      * Find the minimizers in the sequence using all minimizer indexes and
      * return them sorted in descending order by score.
@@ -187,19 +199,57 @@ protected:
     std::vector<Minimizer> find_minimizers(const std::string& sequence, Funnel& funnel) const;
 
     /**
-     * Find seeds for all minimizers passing the filters. Return the seeds in
-     * one vector and the source minimizers in another vector.
+     * Find seeds for all minimizers passing the filters. Return the seeds, the
+     * corresponding source minimizers, and a bit vector over all minimizers
+     * flagging the ones that were located.
      */
-    std::pair<std::vector<pos_t>, std::vector<size_t>> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+    std::tuple<std::vector<pos_t>, std::vector<size_t>, std::vector<bool>> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
 
     /**
-     * Return cluster score and read coverage. Score is the sum of the scores
-     * of distinct minimizers in the cluster, while read coverage is the fraction
+     * Return cluster score and read coverage, and a vector of flags for the
+     * minimizers present in the cluster. Score is the sum of the scores of
+     * distinct minimizers in the cluster, while read coverage is the fraction
      * of the read covered by seeds in the cluster.
      * TODO JS: Score all clusters at once; calculate fragment scores afterwards.
      */
-    std::pair<double, double> score_cluster(const std::vector<size_t>& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<size_t>& seed_to_source, size_t seq_length, Funnel& funnel) const;
+    std::tuple<double, double, std::vector<bool>> score_cluster(const std::vector<size_t>& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<size_t>& seed_to_source, size_t seq_length, Funnel& funnel) const;
 
+    /**
+     * Compute MAPQ caps based on all located minimizers, all minimizers
+     * present in extended clusters, and all minimizers not present in extended
+     * clusters.
+     *
+     * Needs access to the input alignment for sequence and quality
+     * information.
+     *
+     * Returns a "locate" cap and an "extended" cap.
+     */
+    std::tuple<double, double> compute_mapq_caps(const Alignment& aln, const std::vector<Minimizer>& minimizers,
+                                                 const std::vector<bool>& minimizer_located, const std::vector<std::vector<bool>>& present_in_cluster,
+                                                 const std::vector<size_t>& unextended_clusters, const std::vector<bool>& present_in_any_extended_cluster);
+
+    /**
+     * Compute a bound on the Phred score probability of having created the
+     * agglomerations of the specified minimizers by base errors from the given
+     * sequence, which was sequenced with the given qualities.
+     *
+     * No limit is imposed if broken is empty.
+     *
+     * Takes the collection of all minimizers found, and a vector of the
+     * indices of minimizers we are interested in the agglomerations of. May
+     * modify the order of that index vector.
+     *
+     * Also takes the sequence of the read (to avoid Ns) and the quality string
+     * (interpreted as a byte array).
+     *
+     * Currently computes a lower-score-bound, upper-probability-bound,
+     * suitable for use as a mapping quality cap, by assuming the
+     * easiest-to-disrupt possible layout of the windows, and the lowest
+     * possible qualities for the disrupting bases.
+     */
+    double window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
+        const string& sequence, const string& quality_bytes) const;
+    
     /**
      * Score the given group of gapless extensions. Determines the best score
      * that can be obtained by chaining extensions together, using the given

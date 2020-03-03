@@ -6,6 +6,10 @@ RUN echo base > /stage.txt
 
 WORKDIR /vg
 
+# Prevent dpkg from trying to ask any questions, ever
+ENV DEBIAN_FRONTEND noninteractive
+ENV DEBCONF_NONINTERACTIVE_SEEN true
+
 FROM base AS build
 ARG THREADS=8
 
@@ -37,7 +41,8 @@ RUN bash -c "[[ -e deps/sdsl-lite/CMakeLists.txt ]] || git submodule update --in
 # This has no AVX1, AVX2, or PCLMUL, but it does have SSE4.2.
 # UCSC has a Nehalem machine that we want to support.
 RUN sed -i s/march=native/march=nehalem/ deps/sdsl-lite/CMakeLists.txt
-RUN make get-deps && . ./source_me.sh && env && make include/vg_git_version.hpp && CXXFLAGS=" -march=nehalem " make -j ${THREADS} && make static && strip bin/vg
+# Do the build. Trim down the resulting binary but make sure to include enough debug info for profiling.
+RUN make get-deps && . ./source_me.sh && env && make include/vg_git_version.hpp && CXXFLAGS=" -march=nehalem " make -j ${THREADS} && make static && strip -d bin/vg
 
 ENV PATH /vg/bin:$PATH
 
@@ -81,8 +86,11 @@ RUN echo run > /stage.txt
 COPY --from=build /vg/bin/vg /vg/bin/
 
 COPY --from=build /vg/scripts/* /vg/scripts/
+# Make sure we have the flame graph scripts so we can do self-profiling
+COPY deps/FlameGraph /vg/deps/FlameGraph
 
-# Install packages which toil-vg needs to be available inside the image, for pipes
+# Install packages which toil-vg needs to be available inside the image, for
+# pipes and profiling, and good usability on Kubernetes.
 # TODO: which of these can be removed?
 # Make sure to clean so we don't ship old apt package indexes in our Docker.
 RUN ls -lah /vg && \
@@ -99,6 +107,20 @@ RUN ls -lah /vg && \
     tabix \
     parallel \
     fontconfig-config \
+    awscli \
+    binutils \
+    libssl1.0.0 \
+    libpython2.7 \
+    libperl-dev \
+    libelf1 \
+    libdw1 \
+    libslang2 \
+    libnuma1 \
+    numactl \
+    bc \
+    linux-tools-common \
+    linux-tools-generic \
+    perl \
     && apt-get -qq -y clean
 
 

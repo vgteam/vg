@@ -198,6 +198,10 @@ bool is_number(const std::string& s) {
                         [](char c) { return !std::isdigit(c); }) == s.end();
 }
 
+bool isATGC(const char& b) {
+    return (b == 'A' || b == 'T' || b == 'G' || b == 'C');
+}
+
 bool allATGC(const string& s) {
     for (string::const_iterator c = s.begin(); c != s.end(); ++c) {
         char b = *c;

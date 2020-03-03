@@ -224,6 +224,17 @@ namespace vg {
         }
         swap(reference_sequence, uppercase_sequence);
 
+        if (!allATGCN(reference_sequence)) {
+            // We don't know what to do with gaps or IUPAC ambiguity codes, and
+            // we want to catch complete garbage.
+            #pragma omp critical (cerr)
+            {
+                cerr << "error:[vg::Constructor] non-ATGCN characters found in " 
+                    << reference_path_name << "." << endl;
+                exit(1);
+            }
+        }
+
         // Construct a chunk for this sequence with these variants.
         ConstructedChunk to_return;
 
@@ -513,6 +524,16 @@ namespace vg {
                             swap(alt, upper_case_alt);
                             reindex = true;
                         }
+                        if (!allATGCN(alt)) {
+                            // We don't know what to do with gaps or IUPAC ambiguity codes, and
+                            // we want to catch complete garbage.
+                            #pragma omp critical (cerr)
+                            {
+                                cerr << "error:[vg::Constructor] non-ATGCN characters found in " 
+                                    << "variant:\n" << *variant << endl;
+                                exit(1);
+                            }
+                        }
                     }
                     for (auto& allele : variant->alleles) {
                         allele = toUppercase(allele);
@@ -530,7 +551,7 @@ namespace vg {
                     auto expected_ref = reference_sequence.substr(variant->zeroBasedPosition() - chunk_offset, variant->ref.size());
                     if(variant->ref != expected_ref) {
                     // TODO: report error to caller somehow
-                    #pragma omp critical (cerr)
+                        #pragma omp critical (cerr)
                         cerr << "error:[vg::Constructor] Variant/reference sequence mismatch: " << variant->ref
                             << " vs pos: " << variant->position << ": " << expected_ref << "; do your VCF and FASTA coordinates match?"<< endl
                             << "Variant: " << *variant << endl;
