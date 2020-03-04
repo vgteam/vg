@@ -360,35 +360,40 @@ int32_t GSSWAligner::score_gap(size_t gap_length) const {
     return gap_length ? -gap_open - (gap_length - 1) * gap_extension : 0;
 }
 
-double GSSWAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out) {
-    
-    // if necessary, assume a null alignment of 0.0 for comparison since this is local
-    bool padded = false;
-    if (scaled_scores.size() == 1) {
-        scaled_scores.push_back(0.0);
-        padded = true;
-    }
+double GSSWAligner::maximum_mapping_quality_exact(const vector<double>& scaled_scores, size_t* max_idx_out,
+                                                  const vector<double>* multiplicities) {
     
     // work in log transformed values to avoid risk of overflow
     double log_sum_exp = numeric_limits<double>::lowest();
     double max_score = numeric_limits<double>::lowest();
+    
     // go in reverse order because this has fewer numerical problems when the scores are sorted (as usual)
     for (int64_t i = scaled_scores.size() - 1; i >= 0; i--) {
-        log_sum_exp = add_log(log_sum_exp, scaled_scores[i]);
-        if (scaled_scores[i] >= max_score) {
+        // get the value of one copy of the score and check if it's the max
+        double score = scaled_scores.at(i);
+        if (score >= max_score) {
             // Since we are going in reverse order, make sure to break ties in favor of the earlier item.
             *max_idx_out = i;
-            max_score = scaled_scores[i];
+            max_score = score;
         }
+        
+        // add all copies of the score
+        if (multiplicities && multiplicities->at(i) > 1.0) {
+            score += log(multiplicities->at(i));
+        }
+        
+        // accumulate the sum of all score
+        log_sum_exp = add_log(log_sum_exp, score);
     }
     
-    if (padded && *max_idx_out == 1) {
-        // Force us not to try to return the injected 0 as the winner.
-        // TODO: doesn't this mean the score is negative?
-        cerr << "warning:[GSSWAligner::maximum_mapping_quality_exact]: Max score of " << max_score
-            << " is the padding score; changing to " << scaled_scores[0] << endl;
-        max_score = scaled_scores[0];
-        *max_idx_out = 0;
+    // if necessary, assume a null alignment of 0.0 for comparison since this is local
+    if (scaled_scores.size() == 1) {
+        if (multiplicities && multiplicities->at(0) <= 1.0) {
+            log_sum_exp = add_log(log_sum_exp, 0.0);
+        }
+        else if (!multiplicities) {
+            log_sum_exp = add_log(log_sum_exp, 0.0);
+        }
     }
     
     double direct_mapq = -quality_scale_factor * subtract_log(0.0, max_score - log_sum_exp);
@@ -430,64 +435,66 @@ double GSSWAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
 //    return mapping_qualities;
 //}
 
-double GSSWAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out) {
-    
-    // if necessary, assume a null alignment of 0.0 for comparison since this is local
-    bool padded = false;
-    if (scaled_scores.size() == 1) {
-        scaled_scores.push_back(0.0);
-        padded = true;
-    }
-   
+double GSSWAligner::maximum_mapping_quality_approx(const vector<double>& scaled_scores, size_t* max_idx_out,
+                                                   const vector<double>* multiplicities) {
     assert(!scaled_scores.empty());
-    double max_score = scaled_scores[0];
+    
+    // determine the maximum score and the count of the next highest score
+    double max_score = scaled_scores.at(0);
     size_t max_idx = 0;
     
-    double next_score = std::numeric_limits<double>::lowest();
-    int32_t next_count = 0;
+    // we start with the possibility of a null score of 0.0
+    double next_score = 0.0;
+    double next_count = 1.0;
+    
+    if (multiplicities) {
+        if (multiplicities->at(0) > 1.0) {
+            // there are extra copies of this one, so we'll init with those
+            next_score = max_score;
+            next_count = multiplicities->at(0) - 1.0;
+        }
+    }
     
     for (int32_t i = 1; i < scaled_scores.size(); ++i) {
-        double score = scaled_scores[i];
+        double score = scaled_scores.at(i);
         if (score > max_score) {
-            if (next_score == max_score) {
-                next_count++;
+            if (multiplicities && multiplicities->at(i) > 1.0) {
+                // there are extra counts of the new highest score due to multiplicity
+                next_score = score;
+                next_count = multiplicities->at(i) - 1.0;
+            }
+            else if (next_score == max_score) {
+                // the next highest was the same score as the old max, so we can
+                // add its count back in
+                next_count += 1.0;
             }
             else {
+                // the old max score is now the second highest
                 next_score = max_score;
-                next_count = 1;
+                next_count = multiplicities ? multiplicities->at(max_idx) : 1.0;
             }
             max_score = score;
             max_idx = i;
         }
         else if (score > next_score) {
+            // the new score is the second highest
             next_score = score;
-            next_count = 1;
+            next_count = multiplicities ? multiplicities->at(i) : 1.0;
         }
         else if (score == next_score) {
-            next_count++;
+            // the new score ties the second highest, so we combine their counts
+            next_count += multiplicities ? multiplicities->at(i) : 1.0;
         }
     }
    
-    if (padded && max_idx == 1) {
-        // Force us not to try to return the injected 0 as the winner.
-        // TODO: doesn't this mean the score is negative?
-        cerr << "warning:[GSSWAligner::maximum_mapping_quality_approx]: Max score of " << max_score
-            << " is the padding score; changing to " << scaled_scores[0] << endl;
-        max_score = scaled_scores[0];
-        max_idx = 0;
-    }
-   
+    // record the index of the highest score
     *max_idx_out = max_idx;
 
-    return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0)));
+    return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1.0 ? log(next_count) : 0.0)));
 }
 
-double GSSWAligner::group_mapping_quality_exact(vector<double>& scaled_scores, vector<size_t>& group) const {
-    
-    // if necessary, assume a null alignment of 0.0 for comparison since this is local
-    if (scaled_scores.size() == 1) {
-        scaled_scores.push_back(0.0);
-    }
+double GSSWAligner::group_mapping_quality_exact(const vector<double>& scaled_scores, const vector<size_t>& group,
+                                                const vector<double>* multiplicities) const {
     
     // work in log transformed values to avoid risk of overflow
     double total_log_sum_exp = numeric_limits<double>::lowest();
@@ -496,14 +503,47 @@ double GSSWAligner::group_mapping_quality_exact(vector<double>& scaled_scores, v
     // go in reverse order because this has fewer numerical problems when the scores are sorted (as usual)
     int64_t group_idx = group.size() - 1;
     for (int64_t i = scaled_scores.size() - 1; i >= 0; i--) {
-        total_log_sum_exp = add_log(total_log_sum_exp, scaled_scores[i]);
+        
+        // the score of one alignment
+        double score = scaled_scores.at(i);
+        
+        // the score all the multiples of this score combined
+        double multiple_score = score;
+        if (multiplicities && multiplicities->at(i) > 1.0) {
+            multiple_score += log(multiplicities->at(i));
+        }
+        
+        total_log_sum_exp = add_log(total_log_sum_exp, multiple_score);
+        
         if (group_idx >= 0 ? i == group[group_idx] : false) {
+            // this is the next index in the group
             group_idx--;
+            if (multiplicities && multiplicities->at(i) > 1.0) {
+                // there's some remaining multiples of this score that don't get added into the group
+                 non_group_log_sum_exp = add_log(non_group_log_sum_exp,
+                                                 score + log(multiplicities->at(i) - 1.0));
+            }
         }
         else {
-            non_group_log_sum_exp = add_log(non_group_log_sum_exp, scaled_scores[i]);
+            // this index is not part of the group
+            non_group_log_sum_exp = add_log(non_group_log_sum_exp, multiple_score);
         }
     }
+    
+    if (scaled_scores.size() == 1) {
+        if (multiplicities && multiplicities->at(0) <= 1.0) {
+            // assume a null alignment of 0.0 for comparison since this is local
+            non_group_log_sum_exp = add_log(non_group_log_sum_exp, 0.0);
+            total_log_sum_exp = add_log(total_log_sum_exp, 0.0);
+        }
+        else if (!multiplicities) {
+            //TODO: repetitive, do I need to be this careful to not deref a null?
+            // assume a null alignment of 0.0 for comparison since this is local
+            non_group_log_sum_exp = add_log(non_group_log_sum_exp, 0.0);
+            total_log_sum_exp = add_log(total_log_sum_exp, 0.0);
+        }
+    }
+    
     double direct_mapq = quality_scale_factor * (total_log_sum_exp - non_group_log_sum_exp);
     return (std::isinf(direct_mapq) || direct_mapq > numeric_limits<int32_t>::max()) ?
            (double) numeric_limits<int32_t>::max() : direct_mapq;
@@ -576,29 +616,37 @@ void GSSWAligner::compute_mapping_quality(vector<Alignment>& alignments,
     }
 }
 
-int32_t GSSWAligner::compute_mapping_quality(vector<double>& scores, bool fast_approximation) const {
+int32_t GSSWAligner::compute_mapping_quality(const vector<double>& scores, bool fast_approximation,
+                                             const vector<double>* multiplicities) const {
     
-    vector<double> scaled_scores(scores.size(), 0.0);
+    vector<double> scaled_scores(scores.size());
     for (size_t i = 0; i < scores.size(); i++) {
         scaled_scores[i] = log_base * scores[i];
     }
     size_t idx;
-    return (int32_t) (fast_approximation ? maximum_mapping_quality_approx(scaled_scores, &idx)
-                                         : maximum_mapping_quality_exact(scaled_scores, &idx));
+    return (int32_t) (fast_approximation ? maximum_mapping_quality_approx(scaled_scores, &idx, multiplicities)
+                                         : maximum_mapping_quality_exact(scaled_scores, &idx, multiplicities));
 }
 
-int32_t GSSWAligner::compute_group_mapping_quality(vector<double>& scores, vector<size_t>& group) const {
+int32_t GSSWAligner::compute_group_mapping_quality(const vector<double>& scores, const vector<size_t>& group,
+                                                   const vector<double>* multiplicities) const {
+    
+    // make a non-const local version in case we need to sort it
+    vector<size_t> non_const_group;
+    const vector<size_t>* grp_ptr = &group;
     
     // ensure that group is in sorted order as following function expects
     if (!is_sorted(group.begin(), group.end())) {
-        sort(group.begin(), group.end());
+        non_const_group = group;
+        sort(non_const_group.begin(), non_const_group.end());
+        grp_ptr = &non_const_group;
     }
     
     vector<double> scaled_scores(scores.size(), 0.0);
     for (size_t i = 0; i < scores.size(); i++) {
         scaled_scores[i] = log_base * scores[i];
     }
-    return group_mapping_quality_exact(scaled_scores, group);
+    return group_mapping_quality_exact(scaled_scores, *grp_ptr, multiplicities);
 }
 
 void GSSWAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
