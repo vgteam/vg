@@ -34,7 +34,6 @@ var searchData=
   ['defray_5fcount',['defray_count',['../classvg_1_1ReadFilter.html#ac7397dca610aa815fd6a1abac7d67b5c',1,'vg::ReadFilter']]],
   ['defray_5flength',['defray_length',['../classvg_1_1ReadFilter.html#a0d85ffe55c3074f0b5f9664465fec883',1,'vg::ReadFilter']]],
   ['del',['DEL',['../xdrop__aligner_8cpp.html#a06fc87d81c62e9abb8790b6e5713c55ba11563127ec3be864b514a1784c5d37a6',1,'xdrop_aligner.cpp']]],
-  ['delay_5fpopulation_5fscoring',['delay_population_scoring',['../classvg_1_1MultipathMapper.html#a0435e272fb95a07554afacfaf9bd34c5',1,'vg::MultipathMapper']]],
   ['deletable_5fhandle_5fgraph_2ehpp',['deletable_handle_graph.hpp',['../deletable__handle__graph_8hpp.html',1,'']]],
   ['deletablehandlegraph',['DeletableHandleGraph',['../classhandlegraph_1_1DeletableHandleGraph.html',1,'handlegraph::DeletableHandleGraph'],['../namespacevg.html#aa6df851edf21daea75fc6dc1dd81a78f',1,'vg::DeletableHandleGraph()']]],
   ['delete_5fhaplotype',['delete_haplotype',['../classvg_1_1GenomeState.html#a3abfa8020eb5f6f6229e7b59924dad30',1,'vg::GenomeState']]],

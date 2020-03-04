@@ -253,7 +253,7 @@ var searchData=
   ['graphcaller',['GraphCaller',['../classvg_1_1GraphCaller.html#a74c8ec3f036cf1da2ba1a10ece5bb1a0',1,'vg::GraphCaller']]],
   ['graphsynchronizer',['GraphSynchronizer',['../classvg_1_1GraphSynchronizer.html#addf1e96558546d4f5e708827b9eb4d67',1,'vg::GraphSynchronizer']]],
   ['groom_5fcomponents',['groom_components',['../classvg_1_1FlowSort.html#a0a20d1ac910e44e69531d0d71b9fe01d',1,'vg::FlowSort']]],
-  ['group_5fmapping_5fquality_5fexact',['group_mapping_quality_exact',['../classvg_1_1GSSWAligner.html#afdfdf6342fe7420e48eaa2c7e3687551',1,'vg::GSSWAligner']]],
+  ['group_5fmapping_5fquality_5fexact',['group_mapping_quality_exact',['../classvg_1_1GSSWAligner.html#ab28b533e37bb8cfa19c2e080a7e88bd2',1,'vg::GSSWAligner']]],
   ['growth',['Growth',['../structvg_1_1FlowSort_1_1Growth.html#aa156ae24695e73aee936d00a7ef70d22',1,'vg::FlowSort::Growth']]],
   ['gssw_5fmapping_5fto_5falignment',['gssw_mapping_to_alignment',['../classvg_1_1GSSWAligner.html#acea6a5f1c28c51f6a61fe2733f74cb32',1,'vg::GSSWAligner']]],
   ['gsswaligner',['GSSWAligner',['../classvg_1_1GSSWAligner.html#a02c1c427118eb1a8244274d852684c79',1,'vg::GSSWAligner']]]
