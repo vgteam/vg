@@ -56,6 +56,9 @@ int main(int argc, char *argv[]) {
 
     // Set up stack trace support from crash.hpp
     enable_crash_handling();
+
+    // Determine a sensible default number of threads and apply it.
+    choose_good_thread_count();
     
     // Tell the IO library about libvg types.
     // TODO: Make a more generic libvg startup function?

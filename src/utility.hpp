@@ -37,6 +37,10 @@ double get_fraction_of_ns(const string& seq);
 /// Return the number of threads that OMP will produce for a parallel section.
 /// TODO: Assumes that this is the same for every parallel section.
 int get_thread_count(void);
+/// Decide on and apply a sensible OMP thread count. Pay attention to
+/// OMP_NUM_THREADS if set, the "hardware concurrency", and container limit
+/// information that may be available in /proc.
+void choose_good_thread_count();
 string wrap_text(const string& str, size_t width);
 bool is_number(const string& s);
 
