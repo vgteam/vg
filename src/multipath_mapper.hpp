@@ -322,7 +322,8 @@ namespace vg {
         void strip_full_length_bonuses(MultipathAlignment& multipath_aln) const;
         
         /// Compute a mapping quality from a list of scores, using the selected method.
-        int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method) const;
+        int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method,
+                                                        bool have_qualities) const;
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
         /// Optionally also sorts a vector of indexes to keep track of the cluster-of-origin
