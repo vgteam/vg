@@ -1763,6 +1763,8 @@ Functions</h2></td></tr>
 <tr class="separator:af8f8da6eb179ba0199fc2fdfe676fde7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ade988dd38efaa705be15ba17500fe219"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ade988dd38efaa705be15ba17500fe219">get_thread_count</a> (void)</td></tr>
 <tr class="separator:ade988dd38efaa705be15ba17500fe219"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acfe23dc452245bf901fee2ed698afe7d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acfe23dc452245bf901fee2ed698afe7d">choose_good_thread_count</a> ()</td></tr>
+<tr class="separator:acfe23dc452245bf901fee2ed698afe7d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1940ed8d1740511870d3617aa967559a"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt; &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1940ed8d1740511870d3617aa967559a">split_delims</a> (const std::string &amp;s, const std::string &amp;delims, std::vector&lt; std::string &gt; &amp;elems)</td></tr>
 <tr class="separator:a1940ed8d1740511870d3617aa967559a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a261e76d1959c22119b567e59bf4c23ae"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a261e76d1959c22119b567e59bf4c23ae">split_delims</a> (const std::string &amp;s, const std::string &amp;delims)</td></tr>
@@ -4432,6 +4434,24 @@ template&lt;typename ProbIn &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="acfe23dc452245bf901fee2ed698afe7d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acfe23dc452245bf901fee2ed698afe7d">&#9670;&nbsp;</a></span>choose_good_thread_count()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::choose_good_thread_count </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Decide on and apply a sensible OMP thread count. Pay attention to OMP_NUM_THREADS if set, the "hardware concurrency", and container limit information that may be available in /proc. </p>
 
 </div>
 </div>

@@ -75,6 +75,7 @@ var searchData=
   ['childnodetype',['ChildNodeType',['../classvg_1_1SnarlSeedClusterer.html#a835e4f3125a877f2baebd11886750225',1,'vg::SnarlSeedClusterer']]],
   ['children',['children',['../structvg_1_1SnarlManager_1_1SnarlRecord.html#a0bfacb041ef897faedba2cf2585c9fb0',1,'vg::SnarlManager::SnarlRecord::children()'],['../structvg_1_1BitStringTree_1_1TreeNode.html#aec0e7ef56323148869869a0b02560aa5',1,'vg::BitStringTree::TreeNode::children()'],['../classvg_1_1TreeSubgraph.html#a77f31b395c329f4c42d585208e8f9683',1,'vg::TreeSubgraph::children()'],['../structvg_1_1TreeNode.html#a5a5645da982fa8a9acb280ef031960d2',1,'vg::TreeNode::children()']]],
   ['children_5fof',['children_of',['../classvg_1_1SnarlManager.html#abeae275f106a85cca72817c02fd132b2',1,'vg::SnarlManager']]],
+  ['choose_5fgood_5fthread_5fcount',['choose_good_thread_count',['../namespacevg.html#acfe23dc452245bf901fee2ed698afe7d',1,'vg']]],
   ['choose_5fln',['choose_ln',['../namespacevg.html#abf777e701e331bb422d91135a13408d2',1,'vg']]],
   ['choose_5ftraversal',['choose_traversal',['../classvg_1_1Deconstructor.html#a1c3d9bfac17e3943d59ba3aac648c5de',1,'vg::Deconstructor']]],
   ['chrom',['chrom',['../structvg_1_1Transcript.html#ad79bd4743b079f2de3156970344ba689',1,'vg::Transcript']]],

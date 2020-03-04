@@ -47,6 +47,7 @@ var searchData=
   ['check_5fout',['check_out',['../classvg_1_1Watchdog.html#abef59fb95cd3cb40a103d6e73e4c8031',1,'vg::Watchdog']]],
   ['check_5fprotobuf_5ftag',['check_protobuf_tag',['../classvg_1_1io_1_1Registry.html#a0600b489129e1f4090172fccb7863f2b',1,'vg::io::Registry']]],
   ['children_5fof',['children_of',['../classvg_1_1SnarlManager.html#abeae275f106a85cca72817c02fd132b2',1,'vg::SnarlManager']]],
+  ['choose_5fgood_5fthread_5fcount',['choose_good_thread_count',['../namespacevg.html#acfe23dc452245bf901fee2ed698afe7d',1,'vg']]],
   ['choose_5fln',['choose_ln',['../namespacevg.html#abf777e701e331bb422d91135a13408d2',1,'vg']]],
   ['choose_5ftraversal',['choose_traversal',['../classvg_1_1Deconstructor.html#a1c3d9bfac17e3943d59ba3aac648c5de',1,'vg::Deconstructor']]],
   ['cigar_5fagainst_5fpath',['cigar_against_path',['../namespacevg.html#a43ac2d1903fa51a20a2366a865f5f0a4',1,'vg']]],
