@@ -37,6 +37,10 @@ double get_fraction_of_ns(const string& seq);
 /// Return the number of threads that OMP will produce for a parallel section.
 /// TODO: Assumes that this is the same for every parallel section.
 int get_thread_count(void);
+/// Decide on and apply a sensible OMP thread count. Pay attention to
+/// OMP_NUM_THREADS if set, the "hardware concurrency", and container limit
+/// information that may be available in /proc.
+void choose_good_thread_count();
 string wrap_text(const string& str, size_t width);
 bool is_number(const string& s);
 
@@ -47,6 +51,8 @@ std::vector<std::string> split_delims(const std::string &s, const std::string& d
 const std::string sha1sum(const std::string& data);
 const std::string sha1head(const std::string& data, size_t head);
 
+/// Return true if a character is an uppercase A, C, G, or T, and false otherwise.
+bool isATGC(const char& b);
 bool allATGC(const string& s);
 bool allATGCN(const string& s);
 string nonATGCNtoN(const string& s);

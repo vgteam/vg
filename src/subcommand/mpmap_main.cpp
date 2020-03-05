@@ -80,7 +80,6 @@ void help_mpmap(char** argv) {
     << "  -w, --approx-exp FLOAT        let the approximate likelihood miscalculate likelihood ratios by this power [10.0]" << endl
     << "  --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
     << "  --always-check-population     always try to population-score reads, even if there is only a single mapping" << endl
-    << "  --delay-population            do not apply population scoring at intermediate stages of the mapping algorithm" << endl
     << "  --force-haplotype-count INT   assume that INT haplotypes ought to run through each fixed part of the graph, if nonzero [0]" << endl
     << "  -C, --drop-subgraph FLOAT     drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
     << "  -U, --prune-exp FLOAT         prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
@@ -109,7 +108,6 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_SCORE_MATRIX 1000
     #define OPT_RECOMBINATION_PENALTY 1001
     #define OPT_ALWAYS_CHECK_POPULATION 1002
-    #define OPT_DELAY_POPULATION_SCORING 1003
     #define OPT_FORCE_HAPLOTYPE_COUNT 1004
     #define OPT_SUPPRESS_TAIL_ANCHORS 1005
     #define OPT_TOP_TRACEBACKS 1006
@@ -159,7 +157,7 @@ int main_mpmap(int argc, char** argv) {
     bool use_min_dist_clusterer = false;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
-    MappingQualityMethod mapq_method = Adaptive;
+    MappingQualityMethod mapq_method = Exact;
     bool report_group_mapq = false;
     double band_padding_multiplier = 1.0;
     int max_dist_error = 12;
@@ -168,7 +166,6 @@ int main_mpmap(int argc, char** argv) {
     double likelihood_approx_exp = 10.0;
     double recombination_penalty = 20.7;
     bool always_check_population = false;
-    bool delay_population_scoring = false;
     size_t force_haplotype_count = 0;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
@@ -252,7 +249,6 @@ int main_mpmap(int argc, char** argv) {
             {"approx-exp", required_argument, 0, 'w'},
             {"recombination-penalty", required_argument, 0, OPT_RECOMBINATION_PENALTY},
             {"always-check-population", no_argument, 0, OPT_ALWAYS_CHECK_POPULATION},
-            {"delay-population", no_argument, 0, OPT_DELAY_POPULATION_SCORING},
             {"force-haplotype-count", required_argument, 0, OPT_FORCE_HAPLOTYPE_COUNT},
             {"min-dist-cluster", no_argument, 0, OPT_MIN_DIST_CLUSTER},
             {"drop-subgraph", required_argument, 0, 'C'},
@@ -483,10 +479,6 @@ int main_mpmap(int argc, char** argv) {
                 always_check_population = true;
                 break;
                 
-            case OPT_DELAY_POPULATION_SCORING:
-                delay_population_scoring = true;
-                break;
-                
             case OPT_FORCE_HAPLOTYPE_COUNT:
                 force_haplotype_count = parse<size_t>(optarg);
                 break;
@@ -654,10 +646,6 @@ int main_mpmap(int argc, char** argv) {
     if (always_check_population && gbwt_name.empty() && sublinearLS_name.empty()) {
         cerr << "error:[vg mpmap] Cannot --always-check-population if no population database (-H or --linear-index) is provided." << endl;
         exit(1);
-    }
-    
-    if (delay_population_scoring && gbwt_name.empty() && sublinearLS_name.empty()) {
-        cerr << "warning:[vg mpmap] Cannot --delay-population scoring if no population database (-H or --linear-index) is provided. Ignoring option." << endl;
     }
     
     if (force_haplotype_count != 0 && gbwt_name.empty() && sublinearLS_name.empty()) {
@@ -997,7 +985,6 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.top_tracebacks = top_tracebacks;
     multipath_mapper.recombination_penalty = recombination_penalty;
     multipath_mapper.always_check_population = always_check_population;
-    multipath_mapper.delay_population_scoring = delay_population_scoring;
     multipath_mapper.force_haplotype_count = force_haplotype_count;
     
     // set pruning and clustering parameters

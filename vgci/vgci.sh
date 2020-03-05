@@ -53,7 +53,7 @@ LOAD_JUNIT=""
 CREATE_REPORT=1
 # What S3 URL does test output go to?
 OUTPUT_DESTINATION="s3://vg-data/vg_ci"
-# What bucket owner account ID should be granted full control of uploaded objects?
+# What bucket owner account ID if any should be granted full control of uploaded objects?
 OUTPUT_OWNER="b1cf5e10ba0aeeb00e5ec70b3532826f22a979ae96c886d3081d0bdc1f51f67e"
 
 usage() {
@@ -145,18 +145,33 @@ then
     >&2 echo "WARNING: No AWS credentials at ~/.aws/credentials; test data may not be able to be downloaded!"
 fi
 
-PLATFORM=`uname -s`
-if [ $PLATFORM == "Darwin" ]
+if [ -e /sys/fs/cgroup/cpu/cpu.cfs_quota_us ] && [ -e /sys/fs/cgroup/cpu/cpu.cfs_period_us ]
 then
-    NUM_CORES=`sysctl -n hw.ncpu`
-else
-    NUM_CORES=`cat /proc/cpuinfo | grep "^processor" | wc -l`
+    # If confined to a container, use the container's CPU limit (if >= 1)
+    NUM_CORES=$(("$(cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us)" / "$(cat /sys/fs/cgroup/cpu/cpu.cfs_period_us)"))
+fi
+
+if [ "${NUM_CORES}" == "0" ]
+then
+    PLATFORM=`uname -s`
+    if [ $PLATFORM == "Darwin" ]
+    then
+        NUM_CORES=`sysctl -n hw.ncpu`
+    else
+        NUM_CORES=`cat /proc/cpuinfo | grep "^processor" | wc -l`
+    fi
 fi
 
 if [ "${NUM_CORES}" == "0" ]
 then
     echo "could not determine NUM_CORES, using 2"
 	NUM_CORES=2
+fi
+
+# Add these arguments to grant ownership of uploads
+GRANT_ARGS=()
+if [[ ! -z "${OUTPUT_OWNER}" ]] ; then
+    GRANT_ARGS=(--grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}")
 fi
 
 # We have 3 phases: build, test, and report.
@@ -413,9 +428,9 @@ then
         # Upload the results of this test in particular, as soon as it is done, instead of waiting for the final report job to do it.
         tar czf "test_output.tar.gz" "${SAVE_WORK_DIR}/" test-report.xml
         DEST_URL="${OUTPUT_DESTINATION}/vgci_output_archives/${VG_VERSION}/${CI_PIPELINE_ID}/${CI_JOB_ID}/test_output.tar.gz"
-        aws s3 cp --only-show-errors \
-            "test_output.tar.gz" "${DEST_URL}" \
-            --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
+	aws s3 cp --only-show-errors \
+            "test_output.tar.gz" "${DEST_URL}" "${GRANT_ARGS[@]}"
+            
         
         echo "Test(s) failed. Output is available at ${DEST_URL}"
     fi
@@ -484,6 +499,7 @@ then
     vgci/mine-logs.py test-report.xml "${LOAD_WORK_DIR}/" report-html/ summary.md
     if [ "$?" -ne 0 ]
     then
+        echo "Log mining fail"
         REPORT_FAIL=1
     fi
 
@@ -496,6 +512,7 @@ then
         vgci/post-report report-html summary.md
         if [ "$?" -ne 0 ]
         then
+            echo "Report posting fail"
             REPORT_FAIL=1
         fi
         
@@ -512,10 +529,10 @@ then
         # we publish the results to the archive
         tar czf "${VG_VERSION}_output.tar.gz" "${LOAD_WORK_DIR}/" test-report.xml vgci/vgci.py vgci/vgci.sh vgci_cfg.tsv
         aws s3 cp --only-show-errors \
-            "${VG_VERSION}_output.tar.gz" "${OUTPUT_DESTINATION}/vgci_output_archives/" \
-            --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
+            "${VG_VERSION}_output.tar.gz" "${OUTPUT_DESTINATION}/vgci_output_archives/" "${GRANT_ARGS[@]}"
         if [ "$?" -ne 0 ]
         then
+            echo "Archive upload fail"
             REPORT_FAIL=1
         fi
 
@@ -524,20 +541,20 @@ then
         then
             echo "Updating baseline"
             aws s3 sync --only-show-errors --delete \
-                "${LOAD_WORK_DIR}/" "${OUTPUT_DESTINATION}/vgci_regression_baseline" \
-                --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
+                "${LOAD_WORK_DIR}/" "${OUTPUT_DESTINATION}/vgci_regression_baseline" "${GRANT_ARGS[@]}"
             if [ "$?" -ne 0 ]
             then
+                echo "Baseline upload fail"
                 REPORT_FAIL=1
             fi
         
             printf "${VG_VERSION}\n" > "vg_version_${VG_VERSION}.txt"
             printf "${CI_COMMIT_TITLE}" >> "vg_version_${VG_VERSION}.txt"
             aws s3 cp --only-show-errors \
-                "vg_version_${VG_VERSION}.txt" "${OUTPUT_DESTINATION}/vgci_regression_baseline/" \
-                --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
+                "vg_version_${VG_VERSION}.txt" "${OUTPUT_DESTINATION}/vgci_regression_baseline/" "${GRANT_ARGS[@]}"
             if [ "$?" -ne 0 ]
             then
+                echo "Version upload fail"
                 REPORT_FAIL=1
             fi
         fi
@@ -580,15 +597,18 @@ fi
 # Decide an exit status: use the first failing stage
 if [ "${BUILD_FAIL}" != "0" ]
 then
+    echo "Build phase has failed"
     exit "${BUILD_FAIL}"
 fi
 
 if [ "${TEST_FAIL}" != "0" ]
 then
+    echo "Test phase has failed"
     exit "${TEST_FAIL}"
 fi
 
 if [ "${REPORT_FAIL}" != "0" ]
 then
+    echo "Report phase has failed"
     exit "${REPORT_FAIL}"
 fi
