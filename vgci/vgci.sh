@@ -145,12 +145,21 @@ then
     >&2 echo "WARNING: No AWS credentials at ~/.aws/credentials; test data may not be able to be downloaded!"
 fi
 
-PLATFORM=`uname -s`
-if [ $PLATFORM == "Darwin" ]
+if [ -e /sys/fs/cgroup/cpu/cpu.cfs_quota_us ] && [ -e /sys/fs/cgroup/cpu/cpu.cfs_period_us ]
 then
-    NUM_CORES=`sysctl -n hw.ncpu`
-else
-    NUM_CORES=`cat /proc/cpuinfo | grep "^processor" | wc -l`
+    # If confined to a container, use the container's CPU limit (if >= 1)
+    NUM_CORES=$(("$(cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us)" / "$(cat /sys/fs/cgroup/cpu/cpu.cfs_period_us)"))
+fi
+
+if [ "${NUM_CORES}" == "0" ]
+then
+    PLATFORM=`uname -s`
+    if [ $PLATFORM == "Darwin" ]
+    then
+        NUM_CORES=`sysctl -n hw.ncpu`
+    else
+        NUM_CORES=`cat /proc/cpuinfo | grep "^processor" | wc -l`
+    fi
 fi
 
 if [ "${NUM_CORES}" == "0" ]
