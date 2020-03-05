@@ -149,7 +149,7 @@ class VGCITest(TestCase):
 
             try:
                 connection = urllib.request.urlopen(url)
-                return str(connection.read())
+                return connection.read().decode('utf-8')
             except urllib.error.HTTPError as e:
                 if e.code == 404 or e.code == 403:
                     # Baseline file doesn't yet exist. Give an empty string.
@@ -190,9 +190,8 @@ class VGCITest(TestCase):
         
         log.info('Download {}...\n'.format(src))
         
-        with open(tgt, 'w') as f:
-            # Download the file from the URL
-            # DON'T use an encoding here; the file may be binary
+        with open(tgt, 'wb') as f:
+            # Download the file from the URL, in binary mode.
             connection = urllib.request.urlopen(src)
             shutil.copyfileobj(connection, f)
 
