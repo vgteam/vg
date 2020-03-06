@@ -12,6 +12,7 @@
 
 #include "../vg.hpp"
 #include "../index.hpp"
+#include "../index_manager.hpp"
 #include "xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
@@ -114,10 +115,7 @@ int main_index(int argc, char** argv) {
 
     // GBWT
     bool warn_on_missing_variants = true;
-    size_t found_missing_variants = 0; // Track the number of variants in the phasing VCF that aren't found in the graph
-    size_t max_missing_variant_warnings = 10; // Only report up to this many of them
     bool index_haplotypes = false, index_paths = false, index_gam = false;
-    bool parse_only = false;
     vector<string> gam_file_names;
     bool phase_homozygous = true, force_phasing = false, discard_overlaps = false;
     size_t samples_in_batch = 200;
@@ -263,7 +261,6 @@ int main_index(int argc, char** argv) {
             warn_on_missing_variants = false;
             break;
         case 'e':
-            parse_only = true;
             parse_name = optarg;
             break;
         case 'T':
@@ -453,12 +450,12 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    if (parse_only && (!index_haplotypes || index_paths || index_gam)) {
+    if (!parse_name.empty() && (!index_haplotypes || index_paths || index_gam)) {
         cerr << "error: [vg index] --parse-only works with --vcf-phasing only" << endl;
         return 1;
     }
 
-    if ((index_haplotypes || index_paths || index_gam) && !(build_gbwt || parse_only || write_threads)) {
+    if ((index_haplotypes || index_paths || index_gam) && !(build_gbwt || !parse_name.empty() || write_threads)) {
         cerr << "error: [vg index] no output format specified for the threads" << endl;
         return 1;
     }
@@ -677,8 +674,26 @@ int main_index(int argc, char** argv) {
             }
         }
 
-        // Generate haplotypes
+        // Generate haplotypes from VCF input
         if (index_haplotypes) {
+
+            // Make the gadget that will find the paths in the VCF.
+            HaplotypeIndexer indexer;
+            // Fill in its parameters.
+            // TODO: fill these directly from the command line.
+            indexer.show_progress = show_progress;
+            indexer.warn_on_missing_variants = warn_on_missing_variants;
+            indexer.path_to_vcf = path_to_vcf;
+            indexer.rename_variants = rename_variants;
+            indexer.batch_file_prefix = parse_name;
+            indexer.index_paths = index_paths;
+            indexer.phase_homozygous = phase_homozygous;
+            indexer.force_phasing = force_phasing;
+            indexer.discard_overlaps = discard_overlaps;
+            indexer.samples_in_batch = samples_in_batch;
+            indexer.sample_range = sample_range;
+            indexer.regions = regions;
+            
             size_t total_variants_processed = 0;
             vcflib::VariantCallFile variant_file;
             variant_file.parseSamples = false; // vcflib parsing is very slow if there are many samples.
@@ -689,37 +704,7 @@ int main_index(int argc, char** argv) {
             } else if (show_progress) {
                 cerr << "Opened variant file " << vcf_name << endl;
             }
-            std::mt19937 rng(0xDEADBEEF);
-            std::uniform_int_distribution<std::mt19937::result_type> random_bit(0, 1);
-
-            // How many samples are there?
-            size_t num_samples = variant_file.sampleNames.size();
-            if (num_samples == 0) {
-                cerr << "error: [vg index] the variant file does not contain phasings" << endl;
-                return 1;
-            }
-
-            // Determine the samples we want to index.
-            sample_range.second = std::min(sample_range.second, num_samples);
-            sample_names.insert(sample_names.end(),
-                                variant_file.sampleNames.begin() + sample_range.first,
-                                variant_file.sampleNames.begin() + sample_range.second);
-            haplotype_count += 2 * (sample_range.second - sample_range.first);  // Assuming a diploid genome
-            if (show_progress) {
-                cerr << "Haplotype generation parameters:" << endl;
-                cerr << "- Samples " << sample_range.first << " to " << (sample_range.second - 1) << endl;
-                cerr << "- Batch size " << samples_in_batch << endl;
-                if (phase_homozygous) {
-                    cerr << "- Phase homozygous genotypes" << endl;
-                }
-                if (force_phasing) {
-                    cerr << "- Force phasing" << endl;
-                }
-                if (discard_overlaps) {
-                    cerr << "- Discard overlaps" << endl;
-                }
-            }
-
+            
             // Process each VCF contig corresponding to an XG path.
             vector<path_handle_t> path_handles;
             // 1st pass: scan for all non-alt paths (they are handled separately)
@@ -729,250 +714,68 @@ int main_index(int argc, char** argv) {
                     }
                 });
             size_t max_path_rank = path_handles.size();
-            for (size_t path_rank = 1; path_rank <= max_path_rank; path_rank++) {
-                string path_name = xg_index->get_path_name(path_handles[path_rank - 1]);
-                if (Paths::is_alt(path_name)) {
-                    continue;
-                }
-                string vcf_contig_name = path_to_vcf.count(path_name) ? path_to_vcf[path_name] : path_name;
-                if (show_progress) {
-                    cerr << "Processing path " << path_name << " as VCF contig " << vcf_contig_name << endl;
-                }
-                string parse_file = parse_name + '_' + vcf_contig_name;
 
-                // Structures to parse the VCF file into.
-                gbwt::VariantPaths variants(xg_index->get_step_count(xg_index->get_path_handle(path_name)));
-                variants.setSampleNames(sample_names);
-                variants.setContigName(path_name);
-                std::vector<gbwt::PhasingInformation> phasings;
+            // Track all the skipped samples
+            unordered_set<gbwt::size_type> skipped_sample_numbers;
 
-                // Add the reference to VariantPaths.
-                for (handle_t handle : xg_index->scan_path(path_handles[path_rank - 1])) {
-                    variants.appendToReference(gbwt::Node::encode(xg_index->get_id(handle), xg_index->get_is_reverse(handle)));
-                }
-                variants.indexReference();
-
-                // Create a PhasingInformation for each batch.
-                for (size_t batch_start = sample_range.first; batch_start < sample_range.second; batch_start += samples_in_batch) {
-                    if (parse_only) {
-                        // Use a permanent file.
-                        phasings.emplace_back(parse_file, batch_start, std::min(samples_in_batch, sample_range.second - batch_start));
-                        variants.addFile(phasings.back().name(), phasings.back().offset(), phasings.back().size());
-                    } else {
-                        // Use a temporary file.
-                        phasings.emplace_back(batch_start, std::min(samples_in_batch, sample_range.second - batch_start));
-                    }
-                }
-
-                // Set the VCF region or process the entire contig.
-                if (regions.count(vcf_contig_name)) {
-                    auto region = regions[vcf_contig_name];
-                    if (show_progress) {
-                        cerr << "- Setting region " << region.first << " to " << region.second << endl;
-                    }
-                    variant_file.setRegion(vcf_contig_name, region.first, region.second);
-                } else {
-                    variant_file.setRegion(vcf_contig_name);
-                }
+            size_t parsed_hapolotypes = indexer.parse_vcf(xg_index, alt_paths, path_handles, variant_file, sample_names,
+                [&](size_t contig, const gbwt::VariantPaths& variants, gbwt::PhasingInformation& phasings_batch) {
                 
-                if (rename_variants && show_progress) {
-                    cerr << "- Moving variants from " << vcf_contig_name << " to " << path_name << endl;
-                }
-
-                // Parse the variants and the phasings.
-                vcflib::Variant var(variant_file);
-                size_t variants_processed = 0;
-                std::vector<bool> was_diploid(sample_range.second, true); // Was the sample diploid at the previous site?
-                while (variant_file.is_open() && variant_file.getNextVariant(var) && var.sequenceName == vcf_contig_name) {
-                    // Skip variants with non-DNA sequence, as they are not included in the graph.
-                    bool isDNA = allATGC(var.ref);
-                    for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
-                        if (!allATGC(*a)) isDNA = false;
-                    }
-                    if (!isDNA) {
-                        continue;
-                    }
+                // For each (modifiable) batch of phasing info for a contig (in serial)
+                if (parse_name.empty()) {
+                    // We aren't dumping to a file; we are building a GBWT.
                     
-                    if (rename_variants) {
-                        // We need to move the variant over to the contig name
-                        // used in the graph, in order to get the right id for
-                        // it in the graph.
-                        var.sequenceName = path_name;
-                    }
-
-                    // Determine the reference nodes for the current variant and create a variant site.
-                    // If the variant is not an insertion, there should be a path for the ref allele.
-                    
-                    std::string var_name = make_variant_id(var);
-                    std::string ref_path_name = "_alt_" + var_name + "_0";
-                    auto ref_path_iter = alt_paths.find(ref_path_name);
-                    gbwt::vector_type ref_path;
-                    size_t ref_pos = variants.invalid_position();
-                    if (ref_path_iter != alt_paths.end() && ref_path_iter->second.mapping_size() != 0) {
-                        ref_path = path_to_gbwt(ref_path_iter->second);
-                        ref_pos = variants.firstOccurrence(ref_path.front());
-                        if (ref_pos == variants.invalid_position()) {
-                            cerr << "warning: [vg index] invalid ref path for " << var_name << " at "
-                                 << var.sequenceName << ":" << var.position << endl;
-                            continue;
-                        }
-                    } else {
-                        // Try using alt paths instead.
-                        bool found = false;
-                        for (size_t alt_index = 1; alt_index < var.alleles.size(); alt_index++) {
-                            std::string alt_path_name = "_alt_" + var_name + "_" + to_string(alt_index);
-                            size_t candidate_pos = 0;
-                            bool candidate_found = false;
-                            auto alt_path_iter = alt_paths.find(alt_path_name);
-                            if (alt_path_iter != alt_paths.end()) {
-                                gbwt::vector_type pred_nodes = path_predecessors(*xg_index, alt_path_iter->second);
-                                for (auto node : pred_nodes) {
-                                    size_t pred_pos = variants.firstOccurrence(node);
-                                    if (pred_pos != variants.invalid_position()) {
-#ifdef debug
-                                        cerr << "Found predecessor node " << gbwt::Node::id(node) << " " << gbwt::Node::is_reverse(node)
-                                             << " occurring at valid pos " << pred_pos << endl;
-#endif
-                                        candidate_pos = std::max(candidate_pos, pred_pos + 1);
-                                        candidate_found = true;
-                                        found = true;
-                                    }
-                                }
-                                // For each alternate allele, find the rightmost reference node among
-                                // its predecessors. If multiple alleles have candidates for the
-                                // reference position, choose the leftmost one.
-                                if (candidate_found) {
-                                    ref_pos = std::min(ref_pos, candidate_pos);
-                                }
-                            }
-                        }
-                        if (!found) {
-                            // This variant from the VCF is just not in the graph
-
-                            found_missing_variants++;
-
-                            if (warn_on_missing_variants) {
-                                if (found_missing_variants <= max_missing_variant_warnings) {
-                                    // The user might not know it. Warn them in case they mixed up their VCFs.
-                                    cerr << "warning: [vg index] alt and ref paths for " << var_name
-                                         << " at " << var.sequenceName << ":" << var.position
-                                         << " missing/empty! Was the variant skipped during construction?" << endl;
-                                    if (found_missing_variants == max_missing_variant_warnings) {
-                                        cerr << "warning: [vg index] suppressing further missing variant warnings" << endl;
-                                    }
-                                }
-                            }
-
-                            // Skip this variant and move on to the next as if it never appeared.
-                            continue;
-                        }
-                    }
-                    variants.addSite(ref_pos, ref_pos + ref_path.size());
-
-                    // Add alternate alleles to the site.
-                    for (size_t alt_index = 1; alt_index < var.alleles.size(); alt_index++) {
-                        std::string alt_path_name = "_alt_" + var_name + "_" + to_string(alt_index);
-                        auto alt_path_iter = alt_paths.find(alt_path_name);
-                        if (alt_path_iter != alt_paths.end()) {
-                            variants.addAllele(path_to_gbwt(alt_path_iter->second));
+                    // So we need to generte haplotypes from the parsed VCF.
+                    gbwt::generateHaplotypes(variants, phasings_batch, [&](gbwt::size_type sample) -> bool {
+                        // Decide if we should process this sample or not.
+                        if (excluded_samples.find(variant_file.sampleNames[sample]) == excluded_samples.end()) {
+                            return true;
                         } else {
-                            variants.addAllele(ref_path);
+                            // This sample is to be excluded. Remember that we
+                            // saw it, so we can properly count haplotypes
+                            // actually done.
+                            skipped_sample_numbers.insert(sample);
+                            return false;
                         }
-                    }
-
-                    // Store the phasings in PhasingInformation structures.
-                    std::vector<std::string> genotypes = parseGenotypes(var.originalLine, num_samples);
-                    for (size_t batch = 0; batch < phasings.size(); batch++) {
-                        std::vector<gbwt::Phasing> current_phasings;
-                        for (size_t sample = phasings[batch].offset(); sample < phasings[batch].limit(); sample++) {
-                            current_phasings.emplace_back(genotypes[sample], was_diploid[sample], phase_homozygous);
-                            was_diploid[sample] = current_phasings.back().diploid;
-                            if(force_phasing) {
-                                current_phasings.back().forcePhased([&]() {
-                                        return random_bit(rng);
-                                    });
-                            }
-                        }
-                        phasings[batch].append(current_phasings);
-                    }
-                    variants_processed++;
-                } // End of variants.
-                if (show_progress) {
-                    cerr << "- Parsed " << variants_processed << " variants" << endl;
-                    size_t phasing_bytes = 0;
-                    for (size_t batch = 0; batch < phasings.size(); batch++) {
-                        phasing_bytes += phasings[batch].bytes();
-                    }
-                    cerr << "- Phasing information: " << gbwt::inMegabytes(phasing_bytes) << " MB" << endl;
-                }
-
-                // Save memory:
-                // - Delete the alt paths if we no longer need them.
-                // - Delete the XG index if we no longer need it.
-                // - Close the phasings files.
-                if (path_rank == max_path_rank) {
-                    alt_paths.clear();
-                    if (xg_name.empty()) {
-                        delete xg_index;
-                        xg_index = nullptr;
+                    }, [&](const gbwt::Haplotype& haplotype) {
+                        // Store each haplotype in the GBWT
+                        store_thread(haplotype.path);
+                        store_thread_name(haplotype.sample + true_sample_offset - sample_range.first,
+                                          contig,
+                                          haplotype.phase,
+                                          haplotype.count);
+                    }, [&](gbwt::size_type, gbwt::size_type) -> bool {
+                        // For each overlap, discard it if our global flag is set.
+                        return discard_overlaps;
+                    });
+                    
+                    if (show_progress) {
+                        cerr << "- Processed samples " << phasings_batch.offset() << " to " << (phasings_batch.offset() + phasings_batch.size() - 1) << endl;
                     }
                 }
-                for (size_t batch = 0; batch < phasings.size(); batch++) {
-                    phasings[batch].close();
-                }
+            });
 
-                // Save the VCF parse or generate the haplotypes.
-                if (parse_only) {
-                    if (!sdsl::store_to_file(variants, parse_file)) {
-                        cerr << "error: [vg index] cannot write parse file " << parse_file << endl;
-                        return 1;
-                    }
-                } else {
-                    for (size_t batch = 0; batch < phasings.size(); batch++) {
-                        gbwt::generateHaplotypes(variants, phasings[batch],
-                                                 [&](gbwt::size_type sample) -> bool {
-                                                     return (excluded_samples.find(variant_file.sampleNames[sample]) == excluded_samples.end());
-                                                 },
-                                                 [&](const gbwt::Haplotype& haplotype) {
-                                                     store_thread(haplotype.path);
-                                                     store_thread_name(haplotype.sample + true_sample_offset - sample_range.first,
-                                                                       path_rank - 1,
-                                                                       haplotype.phase,
-                                                                       haplotype.count);
-                                                 },
-                                                 [&](gbwt::size_type, gbwt::size_type) -> bool {
-                                                     return discard_overlaps;
-                                                 });
-                        if (show_progress) {
-                            cerr << "- Processed samples " << phasings[batch].offset() << " to " << (phasings[batch].offset() + phasings[batch].size() - 1) << endl;
-                        }
-                    }
-                } // End of haplotype generation for the current contig.
-            
-                // Record the number of variants we saw on this contig
-                total_variants_processed += variants_processed;
-            
-            } // End of contigs.
-            
-        if (warn_on_missing_variants && found_missing_variants > 0) {
-            cerr << "warning: [vg index] Found " << found_missing_variants << "/" << total_variants_processed
-                 << " variants in phasing VCF but not in graph! Do your graph and VCF match?" << endl;
-        }
-    } // End of haplotypes.
-        
-    // Write the threads to disk.
-    alt_paths.clear();
-    if (!parse_only) {
-        if (build_gbwt) {
-            gbwt_builder->finish();
-            gbwt_builder->index.metadata.setSamples(sample_names);
-            gbwt_builder->index.metadata.setHaplotypes(haplotype_count);
-            gbwt_builder->index.metadata.setContigs(contig_names);
-            if (show_progress) {
-                cerr << "GBWT metadata: "; gbwt::operator<<(cerr, gbwt_builder->index.metadata); cerr << endl;
-                cerr << "Saving GBWT to disk..." << endl;
-            }
+            // Assume all the skipped samples were diploid and back them out of the number of haplotypes.
+            parsed_hapolotypes -= skipped_sample_numbers.size() * 2;
+
+            // And add into thew total haplotype count, together with other sources
+            haplotype_count += parsed_hapolotypes;
                 
+        } // End of haplotypes.
+            
+        // Write the threads to disk.
+        alt_paths.clear();
+        if (parse_name.empty()) {
+            if (build_gbwt) {
+                gbwt_builder->finish();
+                gbwt_builder->index.metadata.setSamples(sample_names);
+                gbwt_builder->index.metadata.setHaplotypes(haplotype_count);
+                gbwt_builder->index.metadata.setContigs(contig_names);
+                if (show_progress) {
+                    cerr << "GBWT metadata: "; gbwt::operator<<(cerr, gbwt_builder->index.metadata); cerr << endl;
+                    cerr << "Saving GBWT to disk..." << endl;
+                }
+                    
                 // Save encapsulated in a VPKG
                 vg::io::VPKG::save(gbwt_builder->index, gbwt_name);
                 

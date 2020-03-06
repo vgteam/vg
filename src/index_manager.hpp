@@ -91,6 +91,8 @@ public:
      *
      * Calls the callback with the contig number, each contig's
      * gbwt::VariantPaths, for each gbwt::PhasingInformation batch of samples.
+     * The gbwt::PhasingInformation is not const because the GBWT library needs
+     * to modify it in order to generate haplotypes from it efficiently.
      *
      * Doesn't create threads for embedded graph paths itself.
      *
@@ -98,7 +100,7 @@ public:
      * need to be adjusted if any samples' haplotypes are filtered out later.
      * This function ignores any sample filters and processes the entire VCF.
      */
-    size_t parse_vcf(const PathHandleGraph* graph, map<string, Path>& alt_paths, const vector<path_handle_t>& contigs, vcflib::VariantCallFile& variant_file, std::vector<std::string>& sample_names, const function<void(size_t, const gbwt::VariantPaths&, const gbwt::PhasingInformation&)>& handle_contig_haplotype_batch);
+    size_t parse_vcf(const PathHandleGraph* graph, map<string, Path>& alt_paths, const vector<path_handle_t>& contigs, vcflib::VariantCallFile& variant_file, std::vector<std::string>& sample_names, const function<void(size_t, const gbwt::VariantPaths&, gbwt::PhasingInformation&)>& handle_contig_haplotype_batch);
     
     /**
      * Generate a GBWT index.

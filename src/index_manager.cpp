@@ -19,7 +19,7 @@ using namespace std;
 namespace vg {
 
 
-size_t HaplotypeIndexer::parse_vcf(const PathHandleGraph* graph, map<string, Path>& alt_paths, const vector<path_handle_t>& contigs, vcflib::VariantCallFile& variant_file, std::vector<std::string>& sample_names, const function<void(size_t, const gbwt::VariantPaths&, const gbwt::PhasingInformation&)>& handle_contig_haplotype_batch) {
+size_t HaplotypeIndexer::parse_vcf(const PathHandleGraph* graph, map<string, Path>& alt_paths, const vector<path_handle_t>& contigs, vcflib::VariantCallFile& variant_file, std::vector<std::string>& sample_names, const function<void(size_t, const gbwt::VariantPaths&, gbwt::PhasingInformation&)>& handle_contig_haplotype_batch) {
 
     // Use the same temp directory as VG.
     gbwt::TempFile::setDirectory(temp_file::get_dir());
