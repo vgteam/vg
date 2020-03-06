@@ -325,7 +325,6 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             std::numeric_limits<int32_t>::min(), false, false,
             false, false, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()
         };
-        bool best_match_is_full_length = false;
 
         // Match the initial node and add it to the queue, unless we already have
         // two at least as good full-length alignments.
@@ -346,12 +345,10 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             if (match.read_interval.first == 0) {
                 match.left_full = true;
                 match.left_maximal = true;
-                match.score += this->aligner->full_length_bonus;
             }
             if (match.read_interval.second >= sequence.length()) {
                 match.right_full = true;
                 match.right_maximal = true;
-                match.score += this->aligner->full_length_bonus;
             }
             set_score(match, this->aligner);
             extensions.push(std::move(match));
@@ -365,15 +362,16 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             if (curr.internal_score >= full_length_mismatches) {
                 continue;
             }
+
             // Always allow at least max_mismatches / 2 mismatches in the current flank.
             uint32_t mismatch_limit = std::max(
                 static_cast<uint32_t>(max_mismatches + 1),
                 static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
             mismatch_limit = std::min(mismatch_limit, full_length_mismatches);
-            bool found_extension = false;
 
             // Case 1: Extend to the right.
             if (!curr.right_maximal) {
+                bool found_extension = false;
                 this->graph->follow_paths(cache, curr.state, false, [&](const gbwt::BidirectionalState& next_state) -> bool {
                     handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(next_state.forward.node);
                     GaplessExtension next {
@@ -406,12 +404,14 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                 if (!found_extension) {
                     curr.right_maximal = true;
                     curr.old_score = curr.internal_score;
-                    extensions.push(std::move(curr));
+                } else {
+                    continue;
                 }
             }
 
             // Case 2: Extend to the left.
-            else if (!curr.left_maximal) {
+            if (!curr.left_maximal) {
+                bool found_extension = false;
                 this->graph->follow_paths(cache, curr.state, true, [&](const gbwt::BidirectionalState& next_state) -> bool {
                     handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(gbwt::Node::reverse(next_state.backward.node));
                     size_t node_length = this->graph->get_length(handle);
@@ -432,10 +432,10 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                     if (next.read_interval.first == 0) {
                         next.left_full = true;
                         next.left_maximal = true;
-                        next.old_score = next.internal_score;
+                        // No need to set old_score.
                     } else if (next.offset > 0) {
                         next.left_maximal = true;
-                        next.old_score = next.internal_score;
+                        // No need to set old_score.
                     }
                     set_score(next, this->aligner);
                     extensions.push(std::move(next));
@@ -444,24 +444,22 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                 });
                 if (!found_extension) {
                     curr.left_maximal = true;
-                    curr.old_score = curr.internal_score;
-                    extensions.push(std::move(curr));
+                    // old_score did not change.
+                } else {
+                    continue;
                 }
             }
 
             // Case 3: Maximal extension with a better score than the best extension so far.
-            else if (best_match < curr) {
+            if (best_match < curr) {
                 best_match = std::move(curr);
-                if (best_match.full() && best_match.internal_score <= max_mismatches) {
-                    best_match_is_full_length = true;
-                }
             }
         }
 
         // Handle the best match. If we have a full-length alignment, check if it is among
         // the best two we have found so far. Otherwise add the partial extension to the
         // result, if we do not have full-length alignments.
-        if (best_match_is_full_length) {
+        if (best_match.full() && best_match.internal_score <= max_mismatches) {
             full_length_found = true;
             if (best_alignment.empty() || best_match.internal_score < best_alignment.internal_score) {
                 second_best_alignment = std::move(best_alignment);
