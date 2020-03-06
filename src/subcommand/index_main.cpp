@@ -108,24 +108,16 @@ int main_index(int argc, char** argv) {
     vector<string> dbg_names;
 
     // Files we should write.
-    string xg_name, gbwt_name, parse_name, threads_name, gcsa_name, rocksdb_name, dist_name, snarl_name;
+    string xg_name, gbwt_name, threads_name, gcsa_name, rocksdb_name, dist_name, snarl_name;
 
     // General
     bool show_progress = false;
 
     // GBWT
-    bool warn_on_missing_variants = true;
-    bool index_haplotypes = false, index_paths = false, index_gam = false;
+    HaplotypeIndexer haplotype_indexer;
+    
+    bool index_haplotypes = false, index_gam = false;
     vector<string> gam_file_names;
-    bool phase_homozygous = true, force_phasing = false, discard_overlaps = false;
-    size_t samples_in_batch = 200;
-    size_t gbwt_buffer_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION; // Millions of nodes.
-    size_t id_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
-    std::pair<size_t, size_t> sample_range(0, ~(size_t)0); // The semiopen range of samples to process.
-    map<string, string> path_to_vcf; // Path name conversion from --rename.
-    bool rename_variants = false;
-    map<string, pair<size_t, size_t>> regions; // Region restrictions for contigs, in VCF name space, as 0-based exclusive-end ranges.
-    unordered_set<string> excluded_samples; // Excluded sample names from --exclude.
 
     // GCSA
     gcsa::size_type kmer_size = gcsa::Key::MAX_LENGTH;
@@ -258,13 +250,13 @@ int main_index(int argc, char** argv) {
             vcf_name = optarg;
             break;
         case 'W':
-            warn_on_missing_variants = false;
+            haplotype_indexer.warn_on_missing_variants = false;
             break;
         case 'e':
-            parse_name = optarg;
+            haplotype_indexer.batch_file_prefix = optarg;
             break;
         case 'T':
-            index_paths = true;
+            haplotype_indexer.index_paths = true;
             build_xg = true;
             break;
         case 'M':
@@ -281,22 +273,22 @@ int main_index(int argc, char** argv) {
             threads_name = optarg;
             break;
         case 'z':
-            phase_homozygous = false;
+            haplotype_indexer.phase_homozygous = false;
             break;
         case 'P':
-            force_phasing = true;
+            haplotype_indexer.force_phasing = true;
             break;
         case 'o':
-            discard_overlaps = true;
+            haplotype_indexer.discard_overlaps = true;
             break;
         case 'B':
-            samples_in_batch = std::max(parse<size_t>(optarg), 1ul);
+            haplotype_indexer.samples_in_batch = std::max(parse<size_t>(optarg), 1ul);
             break;
         case 'u':
-            gbwt_buffer_size = std::max(parse<size_t>(optarg), 1ul);
+            haplotype_indexer.gbwt_buffer_size = std::max(parse<size_t>(optarg), 1ul);
             break;
         case 'n':
-            id_interval = parse<size_t>(optarg);
+            haplotype_indexer.id_interval = parse<size_t>(optarg);
             break;
         case 'R':
             {
@@ -307,8 +299,8 @@ int main_index(int argc, char** argv) {
                     cerr << "error: [vg index] could not parse range " << temp << endl;
                     exit(1);
                 }
-                sample_range.first = parse<size_t>(temp.substr(0, found));
-                sample_range.second = parse<size_t>(temp.substr(found + 2)) + 1;
+                haplotype_indexer.sample_range.first = parse<size_t>(temp.substr(0, found));
+                haplotype_indexer.sample_range.second = parse<size_t>(temp.substr(found + 2)) + 1;
             }
             break;
         case 'r':
@@ -324,11 +316,11 @@ int main_index(int argc, char** argv) {
                 string vcf_contig = key_value.substr(0, found);
                 string graph_contig = key_value.substr(found + 1);
                 // Add the name mapping
-                path_to_vcf[graph_contig] = vcf_contig;
+                haplotype_indexer.path_to_vcf[graph_contig] = vcf_contig;
             }
             break;
         case OPT_RENAME_VARIANTS:
-            rename_variants = true;
+            haplotype_indexer.rename_variants = true;
             break;
         case 'I':
             {
@@ -343,11 +335,11 @@ int main_index(int argc, char** argv) {
                 }
                 
                 // Make sure to correct the coordinates to 0-based exclusive-end, from 1-based inclusive-end
-                regions[parsed.seq] = make_pair((size_t) (parsed.start - 1), (size_t) parsed.end);
+                haplotype_indexer.regions[parsed.seq] = make_pair((size_t) (parsed.start - 1), (size_t) parsed.end);
             }
             break;
         case 'E':
-            excluded_samples.insert(optarg);
+            haplotype_indexer.excluded_samples.insert(optarg);
             break;
 
         // GCSA
@@ -439,13 +431,13 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
-    if (xg_name.empty() && gbwt_name.empty() && parse_name.empty() && threads_name.empty() &&
+    if (xg_name.empty() && gbwt_name.empty() && haplotype_indexer.batch_file_prefix.empty() && threads_name.empty() &&
         gcsa_name.empty() && rocksdb_name.empty() && !build_gai_index && !build_vgi_index && dist_name.empty()) {
         cerr << "error: [vg index] index type not specified" << endl;
         return 1;
     }
 
-    if ((build_gbwt || write_threads) && !(index_haplotypes || index_paths || index_gam)) {
+    if ((build_gbwt || write_threads) && !(index_haplotypes || haplotype_indexer.index_paths || index_gam)) {
         cerr << "error: [vg index] cannot build GBWT without threads" << endl;
         return 1;
     }
@@ -455,17 +447,17 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    if (!parse_name.empty() && (!index_haplotypes || index_paths || index_gam)) {
+    if (!haplotype_indexer.batch_file_prefix.empty() && (!index_haplotypes || haplotype_indexer.index_paths || index_gam)) {
         cerr << "error: [vg index] --parse-only works with --vcf-phasing only" << endl;
         return 1;
     }
 
-    if ((index_haplotypes || index_paths || index_gam) && !(build_gbwt || !parse_name.empty() || write_threads)) {
+    if ((index_haplotypes || haplotype_indexer.index_paths || index_gam) && !(build_gbwt || !haplotype_indexer.batch_file_prefix.empty() || write_threads)) {
         cerr << "error: [vg index] no output format specified for the threads" << endl;
         return 1;
     }
 
-    if (index_gam && (index_haplotypes || index_paths)) {
+    if (index_gam && (index_haplotypes || haplotype_indexer.index_paths)) {
         cerr << "error: [vg index] GAM threads are incompatible with haplotype/path threads" << endl;
         return 1;
     }
@@ -542,29 +534,12 @@ int main_index(int argc, char** argv) {
     
 
     // Generate threads
-    if (index_haplotypes || index_paths || index_gam) {
+    if (index_haplotypes || haplotype_indexer.index_paths || index_gam) {
     
-        // Make the gadget that will find the paths in the VCF.
-        HaplotypeIndexer indexer;
-        // Fill in its parameters.
-        // TODO: fill these directly from the command line.
-        indexer.show_progress = show_progress;
-        indexer.warn_on_missing_variants = warn_on_missing_variants;
-        indexer.path_to_vcf = path_to_vcf;
-        indexer.rename_variants = rename_variants;
-        indexer.batch_file_prefix = parse_name;
-        indexer.index_paths = index_paths;
-        indexer.phase_homozygous = phase_homozygous;
-        indexer.force_phasing = force_phasing;
-        indexer.discard_overlaps = discard_overlaps;
-        indexer.samples_in_batch = samples_in_batch;
-        indexer.gbwt_buffer_size = gbwt_buffer_size;
-        indexer.id_interval = id_interval;
-        indexer.sample_range = sample_range;
-        indexer.regions = regions;
-        indexer.excluded_samples = excluded_samples;
+        // Set progress flag
+        haplotype_indexer.show_progress = show_progress;
     
-        if (!parse_name.empty()) {
+        if (!haplotype_indexer.batch_file_prefix.empty()) {
             // Only generate parse files for the VCF. Don't do anything else.
             
             vcflib::VariantCallFile variant_file;
@@ -591,7 +566,7 @@ int main_index(int argc, char** argv) {
 
             // Run VCF parsing but do nothing with the generated phasing batches.
             // This will write all the parse files for us.
-            indexer.parse_vcf(xg_index, alt_paths, path_handles, variant_file, sample_names,
+            haplotype_indexer.parse_vcf(xg_index, alt_paths, path_handles, variant_file, sample_names,
                 [&](size_t contig, const gbwt::VariantPaths& variants, gbwt::PhasingInformation& phasings_batch) {});
                 
         } else if (write_threads) {
@@ -600,8 +575,8 @@ int main_index(int argc, char** argv) {
             // File to write out haplotypes to.
             gbwt::text_buffer_type binary_file;
             
-            indexer.generate_threads(xg_index, alt_paths,
-                index_paths, vcf_name, gam_file_names, [&](size_t id_width) {
+            haplotype_indexer.generate_threads(xg_index, alt_paths,
+                haplotype_indexer.index_paths, vcf_name, gam_file_names, [&](size_t id_width) {
                 
                 // We got the ID width
                 if (show_progress) { cerr << "Writing the threads to " << threads_name << endl; }
@@ -616,7 +591,7 @@ int main_index(int argc, char** argv) {
         } else {
             // Do actual GBWT indexing.
             
-            unique_ptr<gbwt::DynamicGBWT> gbwt = indexer.build_gbwt(xg_index, alt_paths, index_paths, vcf_name, gam_file_names);
+            unique_ptr<gbwt::DynamicGBWT> gbwt = haplotype_indexer.build_gbwt(xg_index, alt_paths, haplotype_indexer.index_paths, vcf_name, gam_file_names);
             
             if (show_progress) {
                 cerr << "Saving GBWT to disk..." << endl;
