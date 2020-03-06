@@ -12,6 +12,7 @@
 #include <map>
 
 #include <gbwt/gbwt.h>
+#include <gbwt/dynamic_gbwt.h>
 #include <gbwt/variants.h>
 #include <gbwtgraph/gbwtgraph.h>
 #include <gbwtgraph/minimizer.h>
@@ -69,6 +70,12 @@ public:
     /// Number of samples to process together in a haplotype batch.
     size_t samples_in_batch = 200;
     
+    /// Size of the GBWT buffer in millions of nodes
+    size_t gbwt_buffer_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION;
+    
+    /// Interval at which to sample for GBWT locate
+    size_t id_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
+    
     /// Range of VCF samples to process (first to past-last).
     pair<size_t, size_t> sample_range = pair<size_t, size_t>(0, numeric_limits<size_t>::max());
     
@@ -78,7 +85,10 @@ public:
     
     /// Excluded VCF sample names, for which threads will not be generated.
     /// Ignored during VCF parsing.
-    unordered_set<string> excluded_samples; 
+    unordered_set<string> excluded_samples;
+    
+    /// Perform initialization of backing libraries
+    HaplotypeIndexer();
 
     /**
      * Parse a VCF file into the types needed for GBWT indexing.
@@ -148,6 +158,31 @@ public:
     tuple<vector<string>, size_t, vector<string>> generate_threads(const PathHandleGraph* graph, map<string, Path>& alt_paths,
         bool index_paths, const string& vcf_filename, const vector<string>& gam_filenames,
         const function<void(size_t)>& bit_width_ready, const function<void(const gbwt::vector_type&, const gbwt::size_type (&)[4])>& each_thread);
+    
+    /**
+     * Build a GBWT from the given haplotype sources.
+     *
+     * graph is the graph to operate on.
+     *
+     * alt_paths is a map of pre-extracted alt paths. If not filled in, alt
+     * paths will be extracted. The map will be cleared when the function
+     * returns.
+     *
+     * index_paths is a flag for whether to include non-alt paths in the graph
+     * as haplotypes in the GBWT.
+     *
+     * If vcf_filename is set, includes haplotypes from the VCF in the GBWT. If
+     * batch_file_prefix is set on the object, also dumps VCF parse
+     * information.
+     *
+     * If gam_filenames is nonempty, includes GAM paths from those files as
+     * haplotypes. In that case, index_paths must be false and vcf_filenames
+     * must be empty.
+     *
+     * Respects excluded_samples and does not produce threads for them.
+     */
+    unique_ptr<gbwt::DynamicGBWT> build_gbwt(const PathHandleGraph* graph, map<string, Path>& alt_paths,
+        bool index_paths, const string& vcf_filename, const vector<string>& gam_filenames);
 };
 
 /**

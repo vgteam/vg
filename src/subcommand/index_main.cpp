@@ -449,6 +449,11 @@ int main_index(int argc, char** argv) {
         cerr << "error: [vg index] cannot build GBWT without threads" << endl;
         return 1;
     }
+    
+    if (build_gbwt && write_threads) {
+        cerr << "error: [vg index] cannot build GBWT and dump threads simultaneously" << endl;
+        return 1;
+    }
 
     if (!parse_name.empty() && (!index_haplotypes || index_paths || index_gam)) {
         cerr << "error: [vg index] --parse-only works with --vcf-phasing only" << endl;
@@ -590,9 +595,6 @@ int main_index(int argc, char** argv) {
         } else {
             // Don't generate parse files, but do actual indexing.
             
-            // Use the same temp directory as VG.
-            gbwt::TempFile::setDirectory(temp_file::get_dir());
-
             // GBWT metadata.
             std::vector<std::string> sample_names, contig_names;
             size_t haplotype_count = 0;

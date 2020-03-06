@@ -18,10 +18,12 @@ using namespace std;
 
 namespace vg {
 
-size_t HaplotypeIndexer::parse_vcf(const PathHandleGraph* graph, map<string, Path>& alt_paths, const vector<path_handle_t>& contigs, vcflib::VariantCallFile& variant_file, std::vector<std::string>& sample_names, const function<void(size_t, const gbwt::VariantPaths&, gbwt::PhasingInformation&)>& handle_contig_haplotype_batch) {
-
-    // Use the same temp directory as VG.
+HaplotypeIndexer::HaplotypeIndexer() {
+    // Use the same temp directory as VG for GBWT temp files.
     gbwt::TempFile::setDirectory(temp_file::get_dir());
+}
+
+size_t HaplotypeIndexer::parse_vcf(const PathHandleGraph* graph, map<string, Path>& alt_paths, const vector<path_handle_t>& contigs, vcflib::VariantCallFile& variant_file, std::vector<std::string>& sample_names, const function<void(size_t, const gbwt::VariantPaths&, gbwt::PhasingInformation&)>& handle_contig_haplotype_batch) {
 
     if (alt_paths.empty()) {
         // Populate alt paths from the graph if not already available.
@@ -289,9 +291,6 @@ tuple<vector<string>, size_t, vector<string>> HaplotypeIndexer::generate_threads
     bool index_paths, const string& vcf_filename, const vector<string>& gam_filenames,
     const function<void(size_t)>& bit_width_ready, const function<void(const gbwt::vector_type&, const gbwt::size_type (&)[4])>& each_thread) {
     
-    // Use the same temp directory as VG.
-    gbwt::TempFile::setDirectory(temp_file::get_dir());
-
     // GBWT metadata.
     std::vector<std::string> sample_names, contig_names;
     size_t haplotype_count = 0;
@@ -466,6 +465,60 @@ tuple<vector<string>, size_t, vector<string>> HaplotypeIndexer::generate_threads
     
     // Return the info needed for GBWT metadata
     return make_tuple(sample_names, haplotype_count, contig_names);
+}
+
+unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandleGraph* graph, map<string, Path>& alt_paths,
+    bool index_paths, const string& vcf_filename, const vector<string>& gam_filenames) {
+    
+    // GBWT metadata.
+    std::vector<std::string> sample_names, contig_names;
+    size_t haplotype_count = 0;
+    
+    // GBWT builder object
+    unique_ptr<gbwt::GBWTBuilder> gbwt_builder;
+    
+    std::tie(sample_names, haplotype_count, contig_names) = this->generate_threads(graph, alt_paths,
+        index_paths, vcf_filename, gam_filenames, [&](size_t id_width) {
+        
+        // Start the GBWT construction.
+        if (show_progress) {
+            cerr << "GBWT parameters: buffer size " << gbwt_buffer_size << ", id interval " << id_interval << endl;
+        }
+        gbwt::Verbosity::set(gbwt::Verbosity::SILENT);  // Make the construction thread silent.
+        gbwt_builder.reset(new gbwt::GBWTBuilder(id_width, gbwt_buffer_size * gbwt::MILLION, id_interval));
+        gbwt_builder->index.addMetadata();
+        
+    }, [&](const gbwt::vector_type& thread, const gbwt::size_type (&thread_name)[4]) {
+        // We got a thread!
+        // Save the thread itself
+        gbwt_builder->insert(thread, true); // Insert in both orientations.
+        // Save thread metadata
+        gbwt_builder->index.metadata.addPath({
+            static_cast<gbwt::PathName::path_name_type>(thread_name[0]),
+            static_cast<gbwt::PathName::path_name_type>(thread_name[1]),
+            static_cast<gbwt::PathName::path_name_type>(thread_name[2]),
+            static_cast<gbwt::PathName::path_name_type>(thread_name[3])
+        });
+    });
+    
+    // Finish up writing
+    gbwt_builder->finish();
+    gbwt_builder->index.metadata.setSamples(sample_names);
+    gbwt_builder->index.metadata.setHaplotypes(haplotype_count);
+    gbwt_builder->index.metadata.setContigs(contig_names);
+    if (show_progress) {
+        cerr << "GBWT metadata: "; gbwt::operator<<(cerr, gbwt_builder->index.metadata); cerr << endl;
+    }
+        
+    // Extract the built index
+    unique_ptr<gbwt::DynamicGBWT> built(new gbwt::DynamicGBWT());
+    gbwt_builder->swapIndex(*built);
+    
+    // Clear the builder
+    gbwt_builder.reset();
+    
+    // Return the finished index
+    return built;
 }
 
 }
