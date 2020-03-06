@@ -165,6 +165,7 @@ namespace vg {
         bool use_min_dist_clusterer = false;
         // length of reversing walks during graph extraction
         size_t reversing_walk_length = 0;
+        bool suppress_p_value_memoization = false;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -325,7 +326,7 @@ namespace vg {
         /// Compute a mapping quality from a list of scores, using the selected method.
         /// Optionally considers non-present duplicates of the scores encoded as multiplicities
         int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method,
-                                                        const vector<double>* multiplicities = nullptr) const;
+                                                        bool have_qualities, const vector<double>* multiplicities = nullptr) const;
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
         /// Optionally also sorts a vector of indexes to keep track of the cluster-of-origin
