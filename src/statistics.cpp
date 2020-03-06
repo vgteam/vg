@@ -178,7 +178,10 @@ double fit_fixed_shape_max_exponential(const vector<double>& x, double shape, do
     function<double(double)> log_deriv_pos_part = [&](double rate) {
         double accumulator = numeric_limits<double>::lowest();
         for (const double& val : x) {
-            accumulator = add_log(accumulator, log(val) - rate * val - log(1.0 - exp(-rate * val)));
+            if (val > 0.0) {
+                // should always be > 0, but just so we don't blow up on some very small graphs
+                accumulator = add_log(accumulator, log(val) - rate * val - log(1.0 - exp(-rate * val)));
+            }
         }
         accumulator += log(shape - 1.0);
         return add_log(accumulator, log(x.size() / rate));
@@ -187,16 +190,24 @@ double fit_fixed_shape_max_exponential(const vector<double>& x, double shape, do
     function<double(double)> log_deriv2_neg_part = [&](double rate) {
         double accumulator = numeric_limits<double>::lowest();
         for (const double& val : x) {
-            accumulator = add_log(accumulator, 2.0 * log(val) - rate * val - 2.0 * log(1.0 - exp(-rate * val)));
+            if (val > 0.0) {
+                // should always be > 0, but just so we don't blow up on some very small graphs
+                accumulator = add_log(accumulator, 2.0 * log(val) - rate * val - 2.0 * log(1.0 - exp(-rate * val)));
+            }
         }
         accumulator += log(shape - 1.0);
         return add_log(accumulator, log(x.size() / (rate * rate)));
     };
     
+    // set a maximum so this doesn't get in an infinite loop even when numerical issues
+    // prevent convergence
+    size_t max_iters = 1000;
+    size_t iter = 0;
+    
     // use Newton's method to find the MLE
     double rate = 1.0 / x_max;
     double prev_rate = rate * (1.0 + 10.0 * tolerance);
-    while (abs(prev_rate / rate - 1.0) > tolerance) {
+    while (abs(prev_rate / rate - 1.0) > tolerance && iter < max_iters) {
         prev_rate = rate;
         double log_d2 = log_deriv2_neg_part(rate);
         double log_d_pos = log_deriv_pos_part(rate);
@@ -209,6 +220,7 @@ double fit_fixed_shape_max_exponential(const vector<double>& x, double shape, do
         else {
             rate -= exp(subtract_log(log_d_neg, log_d_pos) - log_d2);
         }
+        ++iter;
     }
     return rate;
 }
@@ -244,20 +256,26 @@ double fit_fixed_rate_max_exponential(const vector<double>& x, double rate, doub
 pair<double, double> fit_max_exponential(const vector<double>& x,
                                          double tolerance) {
 
-    // alternate maximizing shape and rate until convergence
+    // set a maximum so this doesn't get in an infinite loop even when numerical issues
+    // prevent convergence
+    size_t max_iters = 1000;
+    size_t iter = 0;
     
+    // alternate maximizing shape and rate until convergence
     double shape = 1.0;
     double rate = fit_fixed_shape_max_exponential(x, shape, tolerance / 2.0);
     double prev_shape = shape + 10.0 * tolerance;
     double prev_rate = rate + 10.0 * tolerance;
-    while (abs(prev_rate / rate - 1.0) > tolerance / 2.0
-           || abs(prev_shape / shape - 1.0) > tolerance / 2.0) {
+    while ((abs(prev_rate / rate - 1.0) > tolerance / 2.0
+            || abs(prev_shape / shape - 1.0) > tolerance / 2.0)
+           && iter < max_iters) {
         prev_shape = shape;
         prev_rate = rate;
         
         shape = fit_fixed_rate_max_exponential(x, rate, tolerance / 2.0);
         rate = fit_fixed_shape_max_exponential(x, shape, tolerance / 2.0);
         
+        ++iter;
     }
     
     return pair<double, double>(rate, shape);

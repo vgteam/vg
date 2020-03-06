@@ -684,7 +684,7 @@ namespace vg {
             for (size_t i = 0; i < num_simulations; i++) {
                 
                 Alignment alignment;
-                alignment.set_sequence(pseudo_random_sequence(simulated_read_length, i));
+                alignment.set_sequence(pseudo_random_sequence(simulated_read_length, i * 716293332 + simulated_read_length));
                 vector<MultipathAlignment> multipath_alns;
                 multipath_map(alignment, multipath_alns);
                 
