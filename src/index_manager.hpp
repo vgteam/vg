@@ -11,21 +11,14 @@
 #include <vector>
 #include <map>
 
-#include "handle.hpp"
+#include <gbwt/gbwt.h>
+#include <gbwt/variants.h>
+#include <gbwtgraph/gbwtgraph.h>
+#include <gbwtgraph/minimizer.h>
 
-// Forward declarations to avoid a bunch of includes
-namespace vg {
-    class MinimumDistanceIndex;
-}
-namespace gbwtgraph {
-    class GBWTGraph;
-    class DefaultMinimizerIndex;
-}
-namespace gbwt {
-    class GBWT;
-    class VariantPaths;
-    class PhasingInformation;
-}
+
+#include "handle.hpp"
+#include "min_distance.hpp"
 
 namespace vg {
 
@@ -86,3 +79,5 @@ protected:
 };
 
 }
+
+#endif
