@@ -311,13 +311,13 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                 match.right_maximal = true;
                 match.score += this->aligner->full_length_bonus;
             }
-            extensions.push(match);
+            extensions.push(std::move(match));
         }
 
         // Extend the most promising extensions first, using alignment scores for priority.
         // First make the extension right-maximal and then left-maximal.
         while (!extensions.empty()) {
-            GaplessExtension curr = extensions.top();
+            GaplessExtension curr = std::move(extensions.top());
             extensions.pop();
             if (curr.internal_score >= full_length_mismatches) {
                 continue;
@@ -356,14 +356,14 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                         next.right_maximal = true;
                         next.old_score = next.internal_score;
                     }
-                    extensions.push(next);
+                    extensions.push(std::move(next));
                     found_extension = true;
                     return true;
                 });
                 if (!found_extension) {
                     curr.right_maximal = true;
                     curr.old_score = curr.internal_score;
-                    extensions.push(curr);
+                    extensions.push(std::move(curr));
                 }
             }
 
@@ -395,14 +395,14 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                         next.left_maximal = true;
                         next.old_score = next.internal_score;
                     }
-                    extensions.push(next);
+                    extensions.push(std::move(next));
                     found_extension = true;
                     return true;
                 });
                 if (!found_extension) {
                     curr.left_maximal = true;
                     curr.old_score = curr.internal_score;
-                    extensions.push(curr);
+                    extensions.push(std::move(curr));
                 }
             }
 
