@@ -18,7 +18,6 @@ using namespace std;
 
 namespace vg {
 
-
 size_t HaplotypeIndexer::parse_vcf(const PathHandleGraph* graph, map<string, Path>& alt_paths, const vector<path_handle_t>& contigs, vcflib::VariantCallFile& variant_file, std::vector<std::string>& sample_names, const function<void(size_t, const gbwt::VariantPaths&, gbwt::PhasingInformation&)>& handle_contig_haplotype_batch) {
 
     // Use the same temp directory as VG.
@@ -300,8 +299,12 @@ tuple<vector<string>, size_t, vector<string>> HaplotypeIndexer::generate_threads
 
     // Determine node id width.
     size_t id_width;
-    if (!gam_filenames.empty()) {
-        id_width = gbwt::bit_length(gbwt::Node::encode(graph->max_node_id(), true));
+    if (gam_filenames.empty()) {
+        nid_t max_id = graph->max_node_id();
+        if (show_progress) {
+            cerr << "Maximum node id in graph: " << max_id << endl;
+        }
+        id_width = gbwt::bit_length(gbwt::Node::encode(max_id, true));
     } else { // indexing a GAM
         if (show_progress) {
             cerr << "Finding maximum node id in GAM..." << endl;
