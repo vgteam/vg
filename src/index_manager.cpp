@@ -286,9 +286,183 @@ size_t HaplotypeIndexer::parse_vcf(const PathHandleGraph* graph, map<string, Pat
     return haplotype_count;
 }
 
-unique_ptr<gbwt::GBWT> HaplotypeIndexer::make_gbwt(const PathHandleGraph* graph, bool index_paths, const string& vcf_filename, const vector<string>& gam_filenames) {
-    unique_ptr<gbwt::GBWT> to_return;
-    return to_return;
+tuple<vector<string>, size_t, vector<string>> HaplotypeIndexer::generate_threads(const PathHandleGraph* graph, map<string, Path>& alt_paths,
+    bool index_paths, const string& vcf_filename, const vector<string>& gam_filenames,
+    const function<void(size_t)>& bit_width_ready, const function<void(const gbwt::vector_type&, const gbwt::size_type (&)[4])>& each_thread) {
+    
+    // Use the same temp directory as VG.
+    gbwt::TempFile::setDirectory(temp_file::get_dir());
+
+    // GBWT metadata.
+    std::vector<std::string> sample_names, contig_names;
+    size_t haplotype_count = 0;
+    size_t true_sample_offset = 0; // Id of the first VCF sample.
+
+    // Determine node id width.
+    size_t id_width;
+    if (!gam_filenames.empty()) {
+        id_width = gbwt::bit_length(gbwt::Node::encode(graph->max_node_id(), true));
+    } else { // indexing a GAM
+        if (show_progress) {
+            cerr << "Finding maximum node id in GAM..." << endl;
+        }
+        vg::id_t max_id = 0;
+        size_t alignments_in_gam = 0;
+        function<void(Alignment&)> lambda = [&](Alignment& aln) {
+            gbwt::vector_type buffer;
+            for (auto& m : aln.path().mapping()) {
+                max_id = max(m.position().node_id(), max_id);
+            }
+            alignments_in_gam++;
+        };
+        for (auto& file_name : gam_filenames) {
+            get_input_file(file_name, [&](istream& in) {
+                vg::io::for_each(in, lambda);
+            });
+        }
+        id_width = gbwt::bit_length(gbwt::Node::encode(max_id, true));
+        sample_names.reserve(alignments_in_gam); // We store alignment names as sample names.
+    }
+    
+    if (show_progress) {
+        cerr << "Node id width: " << id_width << endl;
+    }
+    
+    // Announce it to the caller. They will need it to prepare a GBWT.
+    // TODO: Why not always just use the max ID in the graph???
+    bit_width_ready(id_width);
+
+    // Store contig names.
+    if (index_paths || !vcf_filename.empty()) {
+        graph->for_each_path_handle([&](path_handle_t path_handle) {
+                string path_name = graph->get_path_name(path_handle);
+                if (!Paths::is_alt(path_name)) {
+                    contig_names.push_back(path_name);
+                }
+            });
+    }
+    // Convert paths to threads
+    if (index_paths) {
+        if (show_progress) {
+            cerr << "Converting paths to threads..." << endl;
+        }
+        size_t path_rank = 0;
+        graph->for_each_path_handle([&](path_handle_t path_handle) {
+                ++path_rank;
+                if (graph->is_empty(path_handle) || Paths::is_alt(graph->get_path_name(path_handle))) {
+                    return;
+                }
+                gbwt::vector_type buffer;
+                buffer.reserve(graph->get_step_count(path_handle));
+                for (handle_t handle : graph->scan_path(path_handle)) {
+                    buffer.push_back(gbwt::Node::encode(graph->get_id(handle), graph->get_is_reverse(handle)));
+                }
+                each_thread(buffer, {true_sample_offset, path_rank - 1, 0, 0});
+            });
+
+        // GBWT metadata: We assume that the XG index contains the reference paths.
+        sample_names.emplace_back("ref");
+        haplotype_count++;
+        true_sample_offset++;
+    }
+
+    // Index GAM, using alignment names as sample names.
+    if (!gam_filenames.empty()) {
+        if (show_progress) {
+            cerr << "Converting GAM to threads..." << endl;
+        }
+        function<void(Alignment&)> lambda = [&](Alignment& aln) {
+            gbwt::vector_type buffer;
+            for (auto& m : aln.path().mapping()) {
+                buffer.push_back(mapping_to_gbwt(m));
+            }
+            each_thread(buffer, {sample_names.size(), 0, 0, 0});
+            sample_names.emplace_back(aln.name());
+            haplotype_count++;
+            true_sample_offset++;
+        };
+        for (auto& file_name : gam_filenames) {
+            get_input_file(file_name, [&](istream& in) {
+                vg::io::for_each(in, lambda);
+            });
+        }
+    }
+
+    // Generate haplotypes from VCF input
+    if (!vcf_filename.empty()) {
+
+        size_t total_variants_processed = 0;
+        vcflib::VariantCallFile variant_file;
+        variant_file.parseSamples = false; // vcflib parsing is very slow if there are many samples.
+        // TODO: vcflib needs a non-const string to open a file
+        string mutable_filename = vcf_filename;
+        variant_file.open(mutable_filename);
+        if (!variant_file.is_open()) {
+            cerr << "error: [HaplotypeIndexer::generate_threads] could not open " << vcf_filename << endl;
+            throw runtime_error("Could not open " + vcf_filename);
+        } else if (show_progress) {
+            cerr << "Opened variant file " << vcf_filename << endl;
+        }
+        
+        // Process each VCF contig corresponding to an XG path.
+        vector<path_handle_t> path_handles;
+        // 1st pass: scan for all non-alt paths (they are handled separately)
+        graph->for_each_path_handle([&](path_handle_t path_handle) {
+                if (!alt_paths.count(graph->get_path_name(path_handle))) {
+                    path_handles.push_back(path_handle);
+                }
+            });
+        size_t max_path_rank = path_handles.size();
+
+        // Track all the skipped samples
+        unordered_set<gbwt::size_type> skipped_sample_numbers;
+
+        size_t parsed_hapolotypes = this->parse_vcf(graph, alt_paths, path_handles, variant_file, sample_names,
+            [&](size_t contig, const gbwt::VariantPaths& variants, gbwt::PhasingInformation& phasings_batch) {
+            
+            // For each (modifiable) batch of phasing info for a contig (in serial)
+                
+            // We need to generte haplotypes from the parsed VCF.
+            gbwt::generateHaplotypes(variants, phasings_batch, [&](gbwt::size_type sample) -> bool {
+                // Decide if we should process this sample or not.
+                if (excluded_samples.find(variant_file.sampleNames[sample]) == excluded_samples.end()) {
+                    return true;
+                } else {
+                    // This sample is to be excluded. Remember that we
+                    // saw it, so we can properly count haplotypes
+                    // actually done.
+                    skipped_sample_numbers.insert(sample);
+                    return false;
+                }
+            }, [&](const gbwt::Haplotype& haplotype) {
+                // Store each haplotype in the GBWT
+                each_thread(haplotype.path, {haplotype.sample + true_sample_offset - sample_range.first,
+                                             contig,
+                                             haplotype.phase,
+                                             haplotype.count});
+            }, [&](gbwt::size_type, gbwt::size_type) -> bool {
+                // For each overlap, discard it if our global flag is set.
+                return discard_overlaps;
+            });
+            
+            if (show_progress) {
+                cerr << "- Processed samples " << phasings_batch.offset() << " to " << (phasings_batch.offset() + phasings_batch.size() - 1) << endl;
+            }
+        });
+
+        // Assume all the skipped samples were diploid and back them out of the number of haplotypes.
+        parsed_hapolotypes -= skipped_sample_numbers.size() * 2;
+
+        // And add into thew total haplotype count, together with other sources
+        haplotype_count += parsed_hapolotypes;
+            
+    } // End of haplotypes.
+        
+    // Clear out alt_paths since it is no longer needed.
+    alt_paths.clear();
+    
+    // Return the info needed for GBWT metadata
+    return make_tuple(sample_names, haplotype_count, contig_names);
 }
 
 }

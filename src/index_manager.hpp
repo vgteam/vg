@@ -75,6 +75,10 @@ public:
     /// Region restrictions for contigs, in VCF name space, as 0-based
     /// exclusive-end ranges.
     map<string, pair<size_t, size_t>> regions;
+    
+    /// Excluded VCF sample names, for which threads will not be generated.
+    /// Ignored during VCF parsing.
+    unordered_set<string> excluded_samples; 
 
     /**
      * Parse a VCF file into the types needed for GBWT indexing.
@@ -89,23 +93,61 @@ public:
      * using with the results of this function. Sample names from the VCF will
      * be added.
      *
-     * Calls the callback with the contig number, each contig's
+     * Calls the callback serially with the contig number, each contig's
      * gbwt::VariantPaths, for each gbwt::PhasingInformation batch of samples.
      * The gbwt::PhasingInformation is not const because the GBWT library needs
      * to modify it in order to generate haplotypes from it efficiently.
      *
+     * If batch_file_prefix is set on the object, also dumps VCF parse
+     * information.
+     *
      * Doesn't create threads for embedded graph paths itself.
+     *
+     * Ignores excluded_samples.
      *
      * Returns the number of haplotypes created (2 per sample) This number will
      * need to be adjusted if any samples' haplotypes are filtered out later.
      * This function ignores any sample filters and processes the entire VCF.
      */
-    size_t parse_vcf(const PathHandleGraph* graph, map<string, Path>& alt_paths, const vector<path_handle_t>& contigs, vcflib::VariantCallFile& variant_file, std::vector<std::string>& sample_names, const function<void(size_t, const gbwt::VariantPaths&, gbwt::PhasingInformation&)>& handle_contig_haplotype_batch);
+    size_t parse_vcf(const PathHandleGraph* graph, map<string, Path>& alt_paths, const vector<path_handle_t>& contigs,
+        vcflib::VariantCallFile& variant_file, std::vector<std::string>& sample_names,
+        const function<void(size_t, const gbwt::VariantPaths&, gbwt::PhasingInformation&)>& handle_contig_haplotype_batch);
     
     /**
-     * Generate a GBWT index.
+     * Collect haplotype threads and metadata by combining haplotype sources. 
+     *
+     * graph is the graph to operate on.
+     *
+     * alt_paths is a map of pre-extracted alt paths. If not filled in, alt
+     * paths will be extracted. The map will be cleared when the function
+     * returns.
+     *
+     * index_paths is a flag for whether to include non-alt paths in the graph
+     * as haplotypes in the GBWT.
+     *
+     * If vcf_filename is set, includes haplotypes from the VCF in the GBWT. If
+     * batch_file_prefix is set on the object, also dumps VCF parse
+     * information.
+     *
+     * If gam_filenames is nonempty, includes GAM paths from those files as
+     * haplotypes. In that case, index_paths must be false and vcf_filenames
+     * must be empty.
+     *
+     * First, determines the bit width necessary to encode the threads that
+     * will be produced, and announces it to the bit_width_ready callback.
+     *
+     * Then, for each thread in serial (describing a contiguous portion of a
+     * haplotype on a contig), calls each_thread with the thread data itself
+     * and an array of numbers describing the thread name.
+     *
+     * Respects excluded_samples and does not produce threads for them.
+     *
+     * Returns the sample names, the total haplotype count, and the contig
+     * names.
      */
-    static unique_ptr<gbwt::GBWT> make_gbwt(const PathHandleGraph* graph, bool index_paths, const string& vcf_filename, const vector<string>& gam_filenames);
+    tuple<vector<string>, size_t, vector<string>> generate_threads(const PathHandleGraph* graph, map<string, Path>& alt_paths,
+        bool index_paths, const string& vcf_filename, const vector<string>& gam_filenames,
+        const function<void(size_t)>& bit_width_ready, const function<void(const gbwt::vector_type&, const gbwt::size_type (&)[4])>& each_thread);
 };
 
 /**
