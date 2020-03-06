@@ -89,40 +89,6 @@ void help_index(char** argv) {
          << "    -w  --max_dist N       cap beyond which the maximum distance is no longer accurate. If this is not included or is 0, don't build maximum distance index" << endl;
 }
 
-// Convert Path to a GBWT path.
-gbwt::vector_type path_to_gbwt(const Path& path) {
-    gbwt::vector_type result(path.mapping_size());
-    for (size_t i = 0; i < result.size(); i++) {
-        result[i] = mapping_to_gbwt(path.mapping(i));
-    }
-    return result;
-}
-
-// Find all predecessor nodes of the path, ignoring self-loops.
-gbwt::vector_type predecessors(const xg::XG& xg_index, const Path& path) {
-    gbwt::vector_type result;
-    if (path.mapping_size() == 0) {
-        return result;
-    }
-
-    vg::id_t first_node = path.mapping(0).position().node_id();
-    bool is_reverse = path.mapping(0).position().is_reverse();
-    
-#ifdef debug
-    cerr << "Look for predecessors of node " << first_node << " " << is_reverse << " which is first in alt path" << endl;
-#endif
-
-    xg_index.follow_edges(xg_index.get_handle(first_node), !is_reverse, [&] (handle_t next) {
-            if (xg_index.get_id(next) != first_node) {
-                result.push_back(gbwt::Node::encode(xg_index.get_id(next), xg_index.get_is_reverse(next)));
-            }
-        });
-
-    return result;
-}
-
-std::vector<std::string> parseGenotypes(const std::string& vcf_line, size_t num_samples);
-
 int main_index(int argc, char** argv) {
 
     if (argc == 2) {
@@ -859,7 +825,7 @@ int main_index(int argc, char** argv) {
                             bool candidate_found = false;
                             auto alt_path_iter = alt_paths.find(alt_path_name);
                             if (alt_path_iter != alt_paths.end()) {
-                                gbwt::vector_type pred_nodes = predecessors(*xg_index, alt_path_iter->second);
+                                gbwt::vector_type pred_nodes = path_predecessors(*xg_index, alt_path_iter->second);
                                 for (auto node : pred_nodes) {
                                     size_t pred_pos = variants.firstOccurrence(node);
                                     if (pred_pos != variants.invalid_position()) {
@@ -1300,44 +1266,6 @@ int main_index(int argc, char** argv) {
         cerr << "Memory usage: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
     }
     return 0;
-}
-
-std::vector<std::string> parseGenotypes(const std::string& vcf_line, size_t num_samples) {
-    std::vector<std::string> result;
-
-    // The 9th tab-separated field should start with "GT".
-    size_t offset = 0;
-    for (int i = 0; i < 8; i++) {
-        size_t pos = vcf_line.find('\t', offset);
-        if (pos == std::string::npos) {
-            std::cerr << "error: [vg index] VCF line does not contain genotype information" << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-        offset = pos + 1;
-    }
-    if (vcf_line.substr(offset, 2) != "GT") {
-        std::cerr << "error: [vg index] VCF line does not contain genotype information" << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-
-    // Genotype strings are the first colon-separated fields in the 10th+ tab-separated fields.
-    offset = vcf_line.find('\t', offset);
-    while (offset != std::string::npos && offset + 1 < vcf_line.length()) {
-        offset++;
-        size_t pos = vcf_line.find_first_of("\t:", offset);
-        if (pos == std::string::npos) {
-            pos = vcf_line.length();
-        }
-        result.emplace_back(vcf_line.substr(offset, pos - offset));
-        offset = vcf_line.find('\t', offset);
-    }
-
-    if (result.size() != num_samples) {
-        std::cerr << "error: [vg index] expected " << num_samples << " samples, got " << result.size() << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-
-    return result;
 }
 
 // Register subcommand
