@@ -166,6 +166,7 @@ namespace vg {
         bool use_min_dist_clusterer = false;
         // length of reversing walks during graph extraction
         size_t reversing_walk_length = 0;
+        bool suppress_p_value_memoization = false;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;

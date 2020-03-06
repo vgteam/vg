@@ -643,7 +643,7 @@ namespace vg {
                 double shape = exp(max_exponential_shape_intercept + max_exponential_shape_slope * read_length);
                 p_value = 1.0 - max_exponential_cdf(match_length, rate, shape);
             }
-            if (p_value_memo.size() < max_p_value_memo_size) {
+            if (p_value_memo.size() < max_p_value_memo_size && !suppress_p_value_memoization) {
                 p_value_memo[make_pair(match_length, read_length)] = p_value;
             }
             return p_value;
@@ -652,6 +652,10 @@ namespace vg {
     
     
     void MultipathMapper::calibrate_mismapping_detection(size_t num_simulations, const vector<size_t>& simulated_read_lengths) {
+        
+        // we are calibrating the parameters, so we don't want to memoize any p-values using the default values
+        suppress_p_value_memoization = true;
+        
         // we don't want to do base quality adjusted alignments for this stage since we are just simulating random sequences
         // with no base qualities
         bool reset_quality_adjustments = adjust_alignments_for_base_quality;
@@ -756,6 +760,7 @@ namespace vg {
         min_clustering_mem_length = reset_min_clustering_mem_length;
         min_mem_length = reset_min_mem_length;
         max_alt_mappings = reset_max_alt_mappings;
+        suppress_p_value_memoization = false;
     }
     
     int64_t MultipathMapper::distance_between(const MultipathAlignment& multipath_aln_1,
