@@ -558,6 +558,8 @@ int main_index(int argc, char** argv) {
         indexer.force_phasing = force_phasing;
         indexer.discard_overlaps = discard_overlaps;
         indexer.samples_in_batch = samples_in_batch;
+        indexer.gbwt_buffer_size = gbwt_buffer_size;
+        indexer.id_interval = id_interval;
         indexer.sample_range = sample_range;
         indexer.regions = regions;
         indexer.excluded_samples = excluded_samples;
@@ -590,81 +592,39 @@ int main_index(int argc, char** argv) {
             // Run VCF parsing but do nothing with the generated phasing batches.
             // This will write all the parse files for us.
             indexer.parse_vcf(xg_index, alt_paths, path_handles, variant_file, sample_names,
-                [&](size_t contig, const gbwt::VariantPaths& variants, gbwt::PhasingInformation& phasings_batch) {}); 
-            
-        } else {
-            // Don't generate parse files, but do actual indexing.
-            
-            // GBWT metadata.
-            std::vector<std::string> sample_names, contig_names;
-            size_t haplotype_count = 0;
-            
-            // GBWT builder object
-            unique_ptr<gbwt::GBWTBuilder> gbwt_builder;
+                [&](size_t contig, const gbwt::VariantPaths& variants, gbwt::PhasingInformation& phasings_batch) {});
+                
+        } else if (write_threads) {
+            // Dump threads instead of building a GBWT
             
             // File to write out haplotypes to.
             gbwt::text_buffer_type binary_file;
             
-            std::tie(sample_names, haplotype_count, contig_names) = indexer.generate_threads(xg_index, alt_paths,
+            indexer.generate_threads(xg_index, alt_paths,
                 index_paths, vcf_name, gam_file_names, [&](size_t id_width) {
                 
-                // Do we build the GBWT?
-                if (build_gbwt) {
-                    // Start the GBWT construction.
-                    if (show_progress) {
-                        cerr << "GBWT parameters: buffer size " << gbwt_buffer_size << ", id interval " << id_interval << endl;
-                    }
-                    gbwt::Verbosity::set(gbwt::Verbosity::SILENT);  // Make the construction thread silent.
-                    gbwt_builder.reset(new gbwt::GBWTBuilder(id_width, gbwt_buffer_size * gbwt::MILLION, id_interval));
-                    gbwt_builder->index.addMetadata();
-                }
-                
-                // Do we write a threads file?
-                if (write_threads) {
-                    if (show_progress) { cerr << "Writing the threads to " << threads_name << endl; }
-                    binary_file = gbwt::text_buffer_type(threads_name, std::ios::out, gbwt::MEGABYTE, id_width);
-                }
-                    
+                // We got the ID width
+                if (show_progress) { cerr << "Writing the threads to " << threads_name << endl; }
+                binary_file = gbwt::text_buffer_type(threads_name, std::ios::out, gbwt::MEGABYTE, id_width);
             }, [&](const gbwt::vector_type& thread, const gbwt::size_type (&thread_name)[4]) {
                 // We got a thread!
-                if (build_gbwt) {
-                    // Save the thread itself
-                    gbwt_builder->insert(thread, true); // Insert in both orientations.
-                    // Save thread metadata
-                    gbwt_builder->index.metadata.addPath({
-                        static_cast<gbwt::PathName::path_name_type>(thread_name[0]),
-                        static_cast<gbwt::PathName::path_name_type>(thread_name[1]),
-                        static_cast<gbwt::PathName::path_name_type>(thread_name[2]),
-                        static_cast<gbwt::PathName::path_name_type>(thread_name[3])
-                    });
-                }
-                if (write_threads) {
-                    // Dump all the thread visits
-                    for (auto node : thread) { binary_file.push_back(node); }
-                    binary_file.push_back(gbwt::ENDMARKER);
-                }
+                // Dump all the thread visits
+                for (auto node : thread) { binary_file.push_back(node); }
+                binary_file.push_back(gbwt::ENDMARKER);
             });
+            binary_file.close();
+        } else {
+            // Do actual GBWT indexing.
             
-            // Finish up writing
-            if (build_gbwt) {
-                gbwt_builder->finish();
-                gbwt_builder->index.metadata.setSamples(sample_names);
-                gbwt_builder->index.metadata.setHaplotypes(haplotype_count);
-                gbwt_builder->index.metadata.setContigs(contig_names);
-                if (show_progress) {
-                    cerr << "GBWT metadata: "; gbwt::operator<<(cerr, gbwt_builder->index.metadata); cerr << endl;
-                    cerr << "Saving GBWT to disk..." << endl;
-                }
-                    
-                // Save encapsulated in a VPKG
-                vg::io::VPKG::save(gbwt_builder->index, gbwt_name);
+            unique_ptr<gbwt::DynamicGBWT> gbwt = indexer.build_gbwt(xg_index, alt_paths, index_paths, vcf_name, gam_file_names);
+            
+            if (show_progress) {
+                cerr << "Saving GBWT to disk..." << endl;
+            }
                 
-                // Clear the builder
-                gbwt_builder.reset();
-            }
-            if (write_threads) {
-                binary_file.close();
-            }
+            // Save encapsulated in a VPKG
+            vg::io::VPKG::save(*gbwt, gbwt_name);
+                
         }
     } // End of thread indexing.
 
