@@ -328,7 +328,8 @@ double max_exponential_log_likelihood(const vector<double>& x, double rate, doub
     double accumulator_2 = 0.0;
     for (const double& val : x) {
         if (val <= location) {
-            return numeric_limits<double>::lowest();
+            // this should be -inf, but doing this avoids some numerical problems
+            continue;
         }
         accumulator_1 += log(1.0 - exp(-rate * (val - location)));
         accumulator_2 += (val - location);
