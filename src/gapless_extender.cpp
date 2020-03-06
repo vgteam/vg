@@ -1,6 +1,7 @@
 #include "gapless_extender.hpp"
 
 #include <algorithm>
+#include <cstring>
 #include <queue>
 #include <set>
 #include <stack>
@@ -153,12 +154,23 @@ void match_initial(GaplessExtension& match, const std::string& seq, gbwtgraph::G
     size_t node_offset = match.offset;
     size_t left = std::min(seq.length() - match.read_interval.second, target.second - node_offset);
     while (left > 0) {
-        if (seq[match.read_interval.second] != target.first[node_offset]) {
-            match.internal_score++;
+        size_t len = std::min(left, sizeof(std::uint64_t));
+        std::uint64_t a = 0, b = 0;
+        std::memcpy(&a, seq.data() + match.read_interval.second, len);
+        std::memcpy(&b, target.first + node_offset, len);
+        if (a == b) {
+            match.read_interval.second += len;
+            node_offset += len;
+        } else {
+            for (size_t i = 0; i < len; i++) {
+                if (seq[match.read_interval.second] != target.first[node_offset]) {
+                    match.internal_score++;
+                }
+                match.read_interval.second++;
+                node_offset++;
+            }
         }
-        match.read_interval.second++;
-        node_offset++;
-        left--;
+        left -= len;
     }
     match.old_score = match.internal_score;
 }
@@ -170,15 +182,26 @@ size_t match_forward(GaplessExtension& match, const std::string& seq, gbwtgraph:
     size_t node_offset = 0;
     size_t left = std::min(seq.length() - match.read_interval.second, target.second - node_offset);
     while (left > 0) {
-        if (seq[match.read_interval.second] != target.first[node_offset]) {
-            if (match.internal_score + 1 >= mismatch_limit) {
-                return node_offset;
+        size_t len = std::min(left, sizeof(std::uint64_t));
+        std::uint64_t a = 0, b = 0;
+        std::memcpy(&a, seq.data() + match.read_interval.second, len);
+        std::memcpy(&b, target.first + node_offset, len);
+        if (a == b) {
+            match.read_interval.second += len;
+            node_offset += len;
+        } else {
+            for (size_t i = 0; i < len; i++) {
+                if (seq[match.read_interval.second] != target.first[node_offset]) {
+                    if (match.internal_score + 1 >= mismatch_limit) {
+                        return node_offset;
+                    }
+                    match.internal_score++;
+                }
+                match.read_interval.second++;
+                node_offset++;
             }
-            match.internal_score++;
         }
-        match.read_interval.second++;
-        node_offset++;
-        left--;
+        left -= len;
     }
     return node_offset;
 }
@@ -189,15 +212,26 @@ size_t match_forward(GaplessExtension& match, const std::string& seq, gbwtgraph:
 void match_backward(GaplessExtension& match, const std::string& seq, gbwtgraph::GBWTGraph::view_type target, uint32_t mismatch_limit) {
     size_t left = std::min(match.read_interval.first, match.offset);
     while (left > 0) {
-        if (seq[match.read_interval.first - 1] != target.first[match.offset - 1]) {
-            if (match.internal_score + 1 >= mismatch_limit) {
-                return;
+        size_t len = std::min(left, sizeof(std::uint64_t));
+        std::uint64_t a = 0, b = 0;
+        std::memcpy(&a, seq.data() + match.read_interval.first - len, len);
+        std::memcpy(&b, target.first + match.offset - len, len);
+        if (a == b) {
+            match.read_interval.first -= len;
+            match.offset -= len;
+        } else {
+            for (size_t i = 0; i < len; i++) {
+                if (seq[match.read_interval.first - 1] != target.first[match.offset - 1]) {
+                    if (match.internal_score + 1 >= mismatch_limit) {
+                        return;
+                    }
+                    match.internal_score++;
+                }
+                match.read_interval.first--;
+                match.offset--;
             }
-            match.internal_score++;
         }
-        match.read_interval.first--;
-        match.offset--;
-        left--;
+        left -= len;
     }
 }
 
