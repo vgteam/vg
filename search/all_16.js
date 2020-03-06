@@ -49,7 +49,7 @@ var searchData=
   ['verbose',['verbose',['../classvg_1_1NestedTraversalFinder.html#a67980934b7315e90dcd63fa046b465b7',1,'vg::NestedTraversalFinder::verbose()'],['../classvg_1_1ReadFilter.html#a2ad1a1b72ee0b450fe79340451893cfa',1,'vg::ReadFilter::verbose()'],['../classvg_1_1RepresentativeTraversalFinder.html#a6af3519805d1115b006ad8b3bf2d3a3e',1,'vg::RepresentativeTraversalFinder::verbose()']]],
   ['verify_5fpath',['verify_path',['../namespacevg.html#a3ed0a4f26673002b2081832a7602e9bd',1,'vg']]],
   ['verify_5fpaths',['verify_paths',['../classvg_1_1PhaseUnfolder.html#a910deba7dd5b5f9bce7a1da4e53cfeb1',1,'vg::PhaseUnfolder']]],
-  ['version',['Version',['../classvg_1_1Version.html',1,'vg::Version'],['../classvg_1_1Version.html#a06ae288f165de69ddbfdec65c217d222',1,'vg::Version::VERSION()'],['../classvg_1_1Version.html#a05bb9f14c7597bf90a2981db7e59b058',1,'vg::Version::Version()=delete']]],
+  ['version',['Version',['../classvg_1_1Version.html',1,'vg::Version'],['../classvg_1_1Version.html#a05bb9f14c7597bf90a2981db7e59b058',1,'vg::Version::Version()=delete'],['../classvg_1_1Version.html#a06ae288f165de69ddbfdec65c217d222',1,'vg::Version::VERSION()']]],
   ['version_2ecpp',['version.cpp',['../version_8cpp.html',1,'']]],
   ['version_2ehpp',['version.hpp',['../version_8hpp.html',1,'']]],
   ['version_5fmain_2ecpp',['version_main.cpp',['../version__main_8cpp.html',1,'']]],

@@ -100,6 +100,7 @@ var searchData=
   ['support',['support',['../structvg_1_1Locus.html#a42e45ba2fa1310b9fba6774b24cdd447',1,'vg::Locus::support()'],['../structvg_1_1LocationSupport.html#a479f1a778e85f8d3747c0b7c44ad5760',1,'vg::LocationSupport::support()']]],
   ['support_5ffinder',['support_finder',['../classvg_1_1SupportBasedSnarlCaller.html#a2af17a0bf619778576c49627563994dc',1,'vg::SupportBasedSnarlCaller']]],
   ['suppress_5fcluster_5fmerging',['suppress_cluster_merging',['../classvg_1_1MultipathMapper.html#ad25f17a8c485548abf5f63517937067f',1,'vg::MultipathMapper']]],
+  ['suppress_5fp_5fvalue_5fmemoization',['suppress_p_value_memoization',['../classvg_1_1MultipathMapper.html#afd6fee3779079af7a2932c7c29098b2d',1,'vg::MultipathMapper']]],
   ['suppress_5ftail_5fanchors',['suppress_tail_anchors',['../classvg_1_1MultipathMapper.html#ad4c0e1fea285f378ef5c7eb23e9baf89',1,'vg::MultipathMapper']]],
   ['surface',['surface',['../classvg_1_1Viz.html#ad93aa239a30c3b7a017348e22f184b85',1,'vg::Viz']]],
   ['sv_5ftype',['SV_TYPE',['../structvg_1_1BREAKPOINT.html#a52c38d41e036406a3c2e79d9f4bbfc50',1,'vg::BREAKPOINT']]],
