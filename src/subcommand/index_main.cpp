@@ -12,7 +12,7 @@
 
 #include "../vg.hpp"
 #include "../index.hpp"
-#include "../index_manager.hpp"
+#include "../haplotype_indexer.hpp"
 #include "xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
