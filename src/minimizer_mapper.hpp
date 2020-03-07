@@ -192,6 +192,19 @@ protected:
 
     FragmentLengthDistribution fragment_length_distr;
 
+    /// Use this many bits for approximate probabilities.
+    constexpr static size_t PRECISION = 8;
+
+    /**
+     * Assume that we have n <= max_k independent events with probability p each.
+     * Let x be the PRECISION most significant bits of p. Then
+     *
+     *   phred_at_least_one[(n << PRECISION) + x]
+     *
+     * is an approximate phred score of at least one event occurring.
+     */
+    std::vector<double> phred_at_least_one;
+
 //-----------------------------------------------------------------------------
 
     // Stages of mapping.
@@ -231,6 +244,14 @@ protected:
    std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
 
 //-----------------------------------------------------------------------------
+
+   /**
+    * Assume that we have n <= max_k independent random events that occur with
+    * probability p each (p is interpreted as a real number between 0 and 1 and
+    * max_k is the largest k in the minimizer indexes). Return an approximate
+    * probability for at least one event occurring as a phred score.
+    */
+   double phred_for_at_least_one(size_t p, size_t n) const;
 
     /**
      * Compute MAPQ caps based on all minimizers present in extended clusters.

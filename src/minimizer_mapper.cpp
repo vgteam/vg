@@ -20,16 +20,33 @@ namespace vg {
 
 using namespace std;
 
+constexpr size_t MinimizerMapper::PRECISION;
+
 MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     const std::vector<std::unique_ptr<gbwtgraph::DefaultMinimizerIndex>>& minimizer_indexes,
     MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph) :
     path_graph(path_graph), minimizer_indexes(minimizer_indexes),
     distance_index(distance_index), gbwt_graph(graph),
     extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index),
-    fragment_length_distr(1000,1000,0.95){
+    fragment_length_distr(1000,1000,0.95),
+    phred_at_least_one() {
         //TODO: Picked fragment_length_distr params from mpmap
-    
-    // Nothing to do!
+
+    // Initialize phred_at_least_one.
+    size_t max_k = 0, values = static_cast<size_t>(1) << PRECISION;
+    for (size_t i = 0; i < this->minimizer_indexes.size(); i++) {
+        max_k = std::max(max_k, this->minimizer_indexes[i]->k());
+    }
+    this->phred_at_least_one.resize((max_k + 1) * values, 0.0);
+    for (size_t n = 1; n <= max_k; n++) {
+        for (size_t p = 0; p < values; p++) {
+            // Because each p represents a range of probabilities, we choose a value
+            // in the middle for the approximation.
+            double probability = (2 * p + 1) / (2.0 * values);
+            // Phred for at least one out of n.
+            this->phred_at_least_one[(n << PRECISION) + p] = prob_to_phred(1.0 - std::pow(1.0 - probability, n));
+        }
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -1796,6 +1813,11 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
 //-----------------------------------------------------------------------------
 
+double MinimizerMapper::phred_for_at_least_one(size_t p, size_t n) const {
+    p >>= 8 * sizeof(size_t) - PRECISION;
+    return this->phred_at_least_one[(n << PRECISION) + p];
+}
+
 double MinimizerMapper::compute_mapq_caps(const Alignment& aln, 
     const std::vector<Minimizer>& minimizers,
     const sdsl::bit_vector& present_in_any_extended_cluster) {
@@ -1975,11 +1997,7 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
                 // We approximate this as constant across the possible minimizers.
                 // And since we want to OR together beating, we actually AND together not-beating and then not it.
                 // So we track the probability of not beating.
-                double each_not_beat = 1.0 - active.value.hash / (double) numeric_limits<decltype(active.value.hash)>::max();
-                // And then we AND
-                double all_not_beat = pow(each_not_beat, possible_minimizers);
-                // And then we invert and convert to phred 
-                double any_beat_phred = prob_to_phred(1.0 - all_not_beat);
+                double any_beat_phred = this->phred_for_at_least_one(active.value.hash, possible_minimizers);
 
 #ifdef debug
                 cerr << "\t\tBase flanks minimizer " << active_index << " (" << active.value.offset
