@@ -363,15 +363,14 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                 continue;
             }
 
-            // Always allow at least max_mismatches / 2 mismatches in the current flank.
-            uint32_t mismatch_limit = std::max(
-                static_cast<uint32_t>(max_mismatches + 1),
-                static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
-            mismatch_limit = std::min(mismatch_limit, full_length_mismatches);
-
             // Case 1: Extend to the right.
             if (!curr.right_maximal) {
                 bool found_extension = false;
+                // Always allow at least max_mismatches / 2 mismatches in the current flank.
+                uint32_t mismatch_limit = std::max(
+                    static_cast<uint32_t>(max_mismatches + 1),
+                    static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
+                mismatch_limit = std::min(mismatch_limit, full_length_mismatches);
                 this->graph->follow_paths(cache, curr.state, false, [&](const gbwt::BidirectionalState& next_state) -> bool {
                     handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(next_state.forward.node);
                     GaplessExtension next {
@@ -412,6 +411,11 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             // Case 2: Extend to the left.
             if (!curr.left_maximal) {
                 bool found_extension = false;
+                // Always allow at least max_mismatches / 2 mismatches in the current flank.
+                uint32_t mismatch_limit = std::max(
+                    static_cast<uint32_t>(max_mismatches + 1),
+                    static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
+                mismatch_limit = std::min(mismatch_limit, full_length_mismatches);
                 this->graph->follow_paths(cache, curr.state, true, [&](const gbwt::BidirectionalState& next_state) -> bool {
                     handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(gbwt::Node::reverse(next_state.backward.node));
                     size_t node_length = this->graph->get_length(handle);
@@ -444,7 +448,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                 });
                 if (!found_extension) {
                     curr.left_maximal = true;
-                    // old_score did not change.
+                    // No need to set old_score.
                 } else {
                     continue;
                 }
