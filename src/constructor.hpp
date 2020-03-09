@@ -209,6 +209,22 @@ public:
         const vector<string>& insertion_filenames, const function<void(Graph&)>& callback);
         
     /**
+     * Construct a graph using the given FASTA references and VCFlib VCF files.
+     * The VCF files are assumed to be grouped by contig and then sorted by
+     * position within the contig, such that each contig is present in only one
+     * file. If multiple FASTAs are used, each contig must be present in only
+     * one FASTA file. Reference and VCF vectors may not contain nulls.
+     *
+     * insertions contains FASTAs containing serquences for resolving symbolic
+     * insert alleles in the VCFs.
+     *
+     * Builds the graph into the given mutable graph object, which may not be
+     * thread safe.
+     */
+    void construct_graph(const vector<FastaReference*>& references, const vector<vcflib::VariantCallFile*>& variant_files,
+        const vector<FastaReference*>& insertions, MutablePathMutableHandleGraph* destination);
+        
+    /**
      * Construct a graph using the given FASTA references and VCF files on disk.
      * The VCF files are assumed to be grouped by contig and then sorted by
      * position within the contig, such that each contig is present in only one

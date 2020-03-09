@@ -2238,6 +2238,20 @@ namespace vg {
         construct_graph(fasta_pointers, vcf_pointers, ins_pointers, callback);
     }
     
+    void Constructor::construct_graph(const vector<FastaReference*>& references,
+        const vector<vcflib::VariantCallFile*>& variant_files, const vector<FastaReference*>& insertions,
+        MutablePathMutableHandleGraph* destination) {
+        
+        vg::io::load_proto_to_graph(destination, [&](const function<void(Graph&)>& callback) {
+            // Start a load of a stream of Protobuf Graphs, and when we get the
+            // callback to handle them, construct into it.
+            construct_graph(references, variant_files, insertions, callback);
+        });
+        
+        // Now we did the construction and all the Graph chunks have been saved.
+        // TODO: Refactor everything to not go through Graph chunks?
+    }
+    
     void Constructor::construct_graph(const vector<string>& reference_filenames, const vector<string>& variant_filenames,
         const vector<string>& insertion_filenames, MutablePathMutableHandleGraph* destination) {
         
@@ -2249,6 +2263,8 @@ namespace vg {
         
         // Now we did the construction and all the Graph chunks have been saved.
         // TODO: Refactor everything to not go through Graph chunks?
+        
+        // TODO: Deduplicate with the version that takes already-opened files somehow...
     }
 }
 
