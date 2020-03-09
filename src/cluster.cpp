@@ -3370,25 +3370,30 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
     HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
     
     // assumes that MEMs are given in lexicographic order by read interval
-    for (size_t i = 0; i < hit_graph.nodes.size(); i++) {
+    size_t j_begin = 0;
+    for (size_t i = 0; i < hit_graph.nodes.size(); ++i) {
+        
         HitNode& hit_node_1 = hit_graph.nodes[i];
         
-        for (size_t j = i + 1; j < hit_graph.nodes.size(); j++){
+        // start either at the first un-equal position or at the next position
+        j_begin = max(j_begin, i + 1);
+        
+        // skip measuring to any additional hits of the same read interval
+        while (j_begin < hit_graph.nodes.size() &&
+               hit_graph.nodes[j_begin].mem->begin == hit_node_1.mem->begin &&
+               hit_graph.nodes[j_begin].mem->end == hit_node_1.mem->end) {
+            
+            // this node is at the same place in the read, so they can't be colinear
+#ifdef debug_mem_clusterer
+            cerr << "nodes " << i << " (" << hit_node_1.start_pos << ") and " << j_begin << " (" << hit_graph.nodes[j_begin].start_pos << ") are not read colinear" << endl;
+#endif
+            ++j_begin;
+        }
+        
+        for (size_t j = j_begin; j < hit_graph.nodes.size(); ++j){
             
             HitNode& hit_node_2 = hit_graph.nodes[j];
-            
-            if (hit_node_2.mem->begin <= hit_node_1.mem->begin
-                && hit_node_2.mem->end <= hit_node_1.mem->end) {
-                // this node is at the same place or earlier in the read, so they can't be colinear
-                
-#ifdef debug_mem_clusterer
-                cerr << "nodes " << i << " (" << hit_node_1.start_pos << ") and " << j << " (" << hit_node_2.start_pos << ") are not read colinear" << endl;
-#endif
-                continue;
-            }
-            
-
-            
+                        
             // what is the minimum distance between these hits?
             int64_t min_dist = distance_index->minDistance(hit_node_1.start_pos, hit_node_2.start_pos);
             if (min_dist == -1) {
@@ -3416,7 +3421,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
             }
             
             if (min_dist == read_separation
-                && ((hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->begin < hit_node_1.mem->begin)
+                && ((hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->end < hit_node_1.mem->end)
                     || (hit_node_2.mem->begin > hit_node_1.mem->begin && hit_node_2.mem->end <= hit_node_1.mem->end))) {
                 // this has the appearance of being a redundant hit of a sub-MEM, which we don't want to form
                 // a separate cluster
