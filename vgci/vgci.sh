@@ -338,7 +338,7 @@ then
 
     # Upgrade pip so that it can use the wheels for numpy & scipy, so that they
     # don't try to build from source
-    pip install --upgrade pip
+    pip install --upgrade pip setuptools==45.0.0
 
     # Dependencies for running tests.  Need numpy, scipy and sklearn
     # for running toil-vg mapeval, and dateutils and reqests for ./mins_since_last_build.py
