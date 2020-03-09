@@ -164,7 +164,7 @@ public:
 class MEMClusterer {
 public:
     MEMClusterer() = default;
-    ~MEMClusterer() = default;
+    virtual ~MEMClusterer() = default;
     
     /// Each hit contains a pointer to the original MEM and the position of that
     /// particular hit in the graph.

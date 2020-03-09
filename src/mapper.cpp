@@ -593,12 +593,15 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         }
         
         if (mem.match_count > 0) {
-            if (hit_max) {
-                gcsa->locate(mem.range, hit_max, mem.nodes);
-                
-            } else {
-                gcsa->locate(mem.range, mem.nodes);
+            if (!hard_hit_max || mem.match_count < hard_hit_max) {
+                if (hit_max) {
+                    gcsa->locate(mem.range, hit_max, mem.nodes);
+                    
+                } else {
+                    gcsa->locate(mem.range, mem.nodes);
+                }
             }
+            
             // keep track of the initial number of hits we query in case the nodes vector is
             // modified later (e.g. by prefiltering)
             mem.queried_count = mem.nodes.size();

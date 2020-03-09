@@ -34,69 +34,72 @@ void help_mpmap(char** argv) {
     << endl
     << "basic options:" << endl
     << "graph/index:" << endl
-    << "  -x, --xg-name FILE            use this xg index (required)" << endl
-    << "  -g, --gcsa-name FILE          use this GCSA2/LCP index pair (required; both FILE and FILE.lcp)" << endl
-    << "  -H, --gbwt-name FILE          use this GBWT haplotype index for population-based MAPQs" << endl
-    << "  -d, --dist-name FILE          use this snarl distance index for clustering (if given, requires matched snarls from -s)" << endl
-    << "      --linear-index FILE       use this sublinear Li and Stephens index file for population-based MAPQs" << endl
-    << "      --linear-path PATH        use the given path name as the path that the linear index is against" << endl
+    << "  -x, --xg-name FILE            use this XG index of the graph (required)" << endl
+    << "  -g, --gcsa-name FILE          use this GCSA2/LCP index pair for MEMs (required; both FILE and FILE.lcp)" << endl
+    //<< "  -H, --gbwt-name FILE          use this GBWT haplotype index for population-based MAPQs" << endl
+    << "  -d, --dist-name FILE          use this snarl distance index for clustering" << endl
+    //<< "      --linear-index FILE       use this sublinear Li and Stephens index file for population-based MAPQs" << endl
+    //<< "      --linear-path PATH        use the given path name as the path that the linear index is against" << endl
     << "input:" << endl
-    << "  -f, --fastq FILE              input FASTQ (possibly compressed), can be given twice for paired ends (for stdin use -)" << endl
+    << "  -f, --fastq FILE              input FASTQ (possibly gzipped), can be given twice for paired ends (for stdin use -)" << endl
     << "  -G, --gam-input FILE          input GAM (for stdin, use -)" << endl
     << "  -i, --interleaved             FASTQ or GAM contains interleaved paired ends" << endl
-    << "  -N, --sample NAME             add this sample name to output GAMP" << endl
-    << "  -R, --read-group NAME         add this read group to output GAMP" << endl
+    << "  -N, --sample NAME             add this sample name to output" << endl
+    << "  -R, --read-group NAME         add this read group to output" << endl
     << "  -e, --same-strand             read pairs are from the same strand of the DNA molecule" << endl
     << "algorithm:" << endl
-    << "  -S, --single-path-mode        produce single-path alignments (GAM) instead of multipath alignments (GAMP) (ignores -sua)" << endl
+    << "  -S, --single-path-mode        output single-path alignments (GAM) instead of multipath alignments (GAMP) (ignores -saX)" << endl
+    //<< "       --min-dist-cluster        use the minimum distance based clusterer (requires a distance index from -d)" << endl
     << "  -s, --snarls FILE             align to alternate paths in these snarls" << endl
     << "scoring:" << endl
-    << "  -A, --no-qual-adjust          do not perform base quality adjusted alignments (required if input does not have base qualities)" << endl
     << "  -E, --long-read-scoring       set alignment scores to long-read defaults: -q1 -z1 -o1 -y1 -L0 (can be overridden)" << endl
+    << "computational parameters:" << endl
+    << "  -t, --threads INT             number of compute threads to use [all available]" << endl
     << endl
     << "advanced options:" << endl
     << "algorithm:" << endl
-    << "  -v, --tvs-clusterer           use the target value search based clusterer (requies a distance index from -d)" << endl
-    << "      --min-dist-cluster        use the minimum distance based clusterer (requies a distance index from -d)" << endl
-    << "  -X, --snarl-max-cut INT       do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
-    << "  -a, --alt-paths INT           align to (up to) this many alternate paths in between MEMs or in snarls [10]" << endl
-    << "      --suppress-tail-anchors   don't produce extra anchors when aligning to alternate paths in snarls" << endl
+    //<< "  -v, --tvs-clusterer           use the target value search-based clusterer (requires a distance index from -d)" << endl
+    << "  -X, --snarl-max-cut INT       do not align to extra paths in a snarl if there is an exact match this long (0 for no limit) [5]" << endl
+    << "  -a, --alt-paths INT           align to (up to) this many alternate paths in snarls [10]" << endl
+    //<< "      --suppress-tail-anchors   don't produce extra anchors when aligning to alternate paths in snarls" << endl
     << "  -b, --frag-sample INT         look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
-    << "  -I, --frag-mean               mean for fixed fragment length distribution" << endl
-    << "  -D, --frag-stddev             standard deviation for fixed fragment length distribution" << endl
+    << "  -I, --frag-mean FLOAT         mean for a pre-determined fragment length distribution (also requires -D)" << endl
+    << "  -D, --frag-stddev FLOAT       standard deviation for a pre-determined fragment length distribution (also requires -I)" << endl
     << "  -B, --no-calibrate            do not auto-calibrate mismapping dectection" << endl
-    << "  -P, --max-p-val FLOAT         background model p value must be less than this to avoid mismapping detection [0.00001]" << endl
+    //<< "  -P, --max-p-val FLOAT         background model p-value must be less than this to avoid mismapping detection [0.00001]" << endl
     << "  -Q, --mq-max INT              cap mapping quality estimates at this much [60]" << endl
-    << "  --report-group-mapq           add an annotation for the collective mapping quality of all reported alignments" << endl
-    << "  -p, --padding-mult FLOAT      pad dynamic programming bands in inter-MEM alignment FLOAT * sqrt(read length) [1.0]" << endl
+    << "  -U, --report-group-mapq       add an annotation for the collective mapping quality of all reported alignments" << endl
+    //<< "  -p, --padding-mult FLOAT      pad dynamic programming bands in inter-MEM alignment FLOAT * sqrt(read length) [1.0]" << endl
     << "  -u, --map-attempts INT        perform (up to) this many mappings per read (0 for no limit) [24 paired / 64 unpaired]" << endl
-    << "  -O, --max-paths INT           consider (up to) this many paths per alignment for population consistency scoring, 0 to disable [10]" << endl
-    << "      --top-tracebacks          consider paths for each alignment based only on alignment score and not based on haplotypes" << endl
+    //<< "      --max-paths INT           consider (up to) this many paths per alignment for population consistency scoring, 0 to disable [10]" << endl
+    //<< "      --top-tracebacks          consider paths for each alignment based only on alignment score and not based on haplotypes" << endl
     << "  -M, --max-multimaps INT       report (up to) this many mappings per read [1]" << endl
-    << "  -r, --reseed-length INT       reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
-    << "  -W, --reseed-diff FLOAT       require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
-    << "  -K, --clust-length INT        minimum MEM length used in clustering [automatic]" << endl
+    //<< "  -r, --reseed-length INT       reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
+    //<< "  -W, --reseed-diff FLOAT       require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
+    //<< "  -K, --clust-length INT        minimum MEM length used in clustering [automatic]" << endl
     << "  -c, --hit-max INT             use at most this many hits for any MEM (0 for no limit) [1024]" << endl
-    << "  -w, --approx-exp FLOAT        let the approximate likelihood miscalculate likelihood ratios by this power [10.0]" << endl
-    << "  --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
-    << "  --always-check-population     always try to population-score reads, even if there is only a single mapping" << endl
-    << "  --delay-population            do not apply population scoring at intermediate stages of the mapping algorithm" << endl
-    << "  --force-haplotype-count INT   assume that INT haplotypes ought to run through each fixed part of the graph, if nonzero [0]" << endl
-    << "  -C, --drop-subgraph FLOAT     drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
-    << "  -U, --prune-exp FLOAT         prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
+    //<< "  --approx-exp FLOAT            let the approximate likelihood miscalculate likelihood ratios by this power [10.0]" << endl
+    //<< "  --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
+    //<< "  --always-check-population     always try to population-score reads, even if there is only a single mapping" << endl
+    //<< "  --delay-population            do not apply population scoring at intermediate stages of the mapping algorithm" << endl
+    //<< "  --force-haplotype-count INT   assume that INT haplotypes ought to run through each fixed part of the graph, if nonzero [0]" << endl
+    //<< "  -C, --drop-subgraph FLOAT     drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
+    //<< "  --prune-exp FLOAT             prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
     << "scoring:" << endl
+    << "  -A, --no-qual-adjust          do not perform base quality adjusted alignments even when base qualities are available" << endl
     << "  -q, --match INT               use this match score [1]" << endl
     << "  -z, --mismatch INT            use this mismatch penalty [4]" << endl
-    << "  --score-matrix FILE           read a 5x5 integer substitution scoring matrix from a file" << endl
     << "  -o, --gap-open INT            use this gap open penalty [6]" << endl
     << "  -y, --gap-extend INT          use this gap extension penalty [1]" << endl
-    << "  -L, --full-l-bonus INT        add this score to alignments that use the full length of the read [5]" << endl
+    << "  -L, --full-l-bonus INT        add this score to alignments that align each end of the read [5]" << endl
+    << "  -w, --score-matrix FILE       read a 5x5 integer substitution scoring matrix from a file (in the order ACGTN)" << endl
     << "  -m, --remove-bonuses          remove full length alignment bonuses in reported scores" << endl
     << "computational parameters:" << endl
-    << "  -t, --threads INT             number of compute threads to use" << endl
-    << "  -Z, --buffer-size INT         buffer this many alignments together (per compute thread) before outputting to stdout [100]" << endl;
+    << "  -Z, --buffer-size INT         buffer this many alignments together (per compute thread) before outputting to stdout [200]" << endl;
     
 }
+
+
 
 int main_mpmap(int argc, char** argv) {
 
@@ -106,15 +109,15 @@ int main_mpmap(int argc, char** argv) {
     }
 
     // initialize parameters with their default options
-    #define OPT_SCORE_MATRIX 1000
+    #define OPT_PRUNE_EXP 1000
     #define OPT_RECOMBINATION_PENALTY 1001
     #define OPT_ALWAYS_CHECK_POPULATION 1002
-    #define OPT_DELAY_POPULATION_SCORING 1003
     #define OPT_FORCE_HAPLOTYPE_COUNT 1004
     #define OPT_SUPPRESS_TAIL_ANCHORS 1005
     #define OPT_TOP_TRACEBACKS 1006
     #define OPT_MIN_DIST_CLUSTER 1007
-    #define OPT_REPORT_GROUP_MAPQ 1008
+    #define OPT_APPROX_EXP 1008
+    #define OPT_MAX_PATHS 1009
     string matrix_file_name;
     string xg_name;
     string gcsa_name;
@@ -132,7 +135,8 @@ int main_mpmap(int argc, char** argv) {
     int gap_extension_score = default_gap_extension;
     int full_length_bonus = default_full_length_bonus;
     bool interleaved_input = false;
-    int snarl_cut_size = 5;
+    int default_snarl_cut_size = 5;
+    int snarl_cut_size = default_snarl_cut_size;
     int max_branch_trim_length = 5;
     bool suppress_tail_anchors = false;
     int max_paired_end_map_attempts = 24;
@@ -146,7 +150,7 @@ int main_mpmap(int argc, char** argv) {
     // TODO: create an option.
     int localization_max_paths = 5;
     int max_num_mappings = 1;
-    int buffer_size = 100;
+    int buffer_size = 200;
     int hit_max = 1024;
     int min_mem_length = 1;
     int min_clustering_mem_length = 0;
@@ -159,16 +163,16 @@ int main_mpmap(int argc, char** argv) {
     bool use_min_dist_clusterer = false;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
-    MappingQualityMethod mapq_method = Adaptive;
+    MappingQualityMethod mapq_method = Exact;
     bool report_group_mapq = false;
     double band_padding_multiplier = 1.0;
     int max_dist_error = 12;
-    int num_alt_alns = 10;
+    int default_num_alt_alns = 10;
+    int num_alt_alns = default_num_alt_alns;
     double suboptimal_path_exponent = 1.25;
     double likelihood_approx_exp = 10.0;
     double recombination_penalty = 20.7;
     bool always_check_population = false;
-    bool delay_population_scoring = false;
     size_t force_haplotype_count = 0;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
@@ -179,7 +183,7 @@ int main_mpmap(int argc, char** argv) {
     bool same_strand = false;
     bool auto_calibrate_mismapping_detection = true;
     double max_mapping_p_value = 0.00001;
-    size_t num_calibration_simulations = 500;
+    size_t num_calibration_simulations = 100;
     vector<size_t> calibration_read_lengths{50, 75, 100, 150, 250, 450, 750};
     bool use_weibull_calibration = false;
     size_t order_length_repeat_hit_max = 3000;
@@ -239,28 +243,27 @@ int main_mpmap(int argc, char** argv) {
             {"no-calibrate", no_argument, 0, 'B'},
             {"max-p-val", required_argument, 0, 'P'},
             {"mq-max", required_argument, 0, 'Q'},
-            {"report-group-mapq", no_argument, 0, OPT_REPORT_GROUP_MAPQ},
+            {"report-group-mapq", no_argument, 0, 'U'},
             {"padding-mult", required_argument, 0, 'p'},
             {"map-attempts", required_argument, 0, 'u'},
-            {"max-paths", required_argument, 0, 'O'},
+            {"max-paths", required_argument, 0, OPT_MAX_PATHS},
             {"top-tracebacks", no_argument, 0, OPT_TOP_TRACEBACKS},
             {"max-multimaps", required_argument, 0, 'M'},
             {"reseed-length", required_argument, 0, 'r'},
             {"reseed-diff", required_argument, 0, 'W'},
             {"clustlength", required_argument, 0, 'K'},
             {"hit-max", required_argument, 0, 'c'},
-            {"approx-exp", required_argument, 0, 'w'},
+            {"approx-exp", required_argument, 0, OPT_APPROX_EXP},
             {"recombination-penalty", required_argument, 0, OPT_RECOMBINATION_PENALTY},
             {"always-check-population", no_argument, 0, OPT_ALWAYS_CHECK_POPULATION},
-            {"delay-population", no_argument, 0, OPT_DELAY_POPULATION_SCORING},
             {"force-haplotype-count", required_argument, 0, OPT_FORCE_HAPLOTYPE_COUNT},
             {"min-dist-cluster", no_argument, 0, OPT_MIN_DIST_CLUSTER},
             {"drop-subgraph", required_argument, 0, 'C'},
-            {"prune-exp", required_argument, 0, 'U'},
+            {"prune-exp", required_argument, 0, OPT_PRUNE_EXP},
             {"long-read-scoring", no_argument, 0, 'E'},
             {"match", required_argument, 0, 'q'},
             {"mismatch", required_argument, 0, 'z'},
-            {"score-matrix", required_argument, 0, OPT_SCORE_MATRIX},
+            {"score-matrix", required_argument, 0, 'w'},
             {"gap-open", required_argument, 0, 'o'},
             {"gap-extend", required_argument, 0, 'y'},
             {"full-l-bonus", required_argument, 0, 'L'},
@@ -272,7 +275,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:ieSs:vX:u:O:a:b:I:D:BP:Q:p:M:r:W:K:c:w:C:R:Eq:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:ieSs:vX:u:a:b:I:D:BP:Q:Up:M:r:W:K:c:C:R:Eq:z:w:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -311,6 +314,9 @@ int main_mpmap(int argc, char** argv) {
                 if (distance_index_name.empty()) {
                     cerr << "error:[vg mpmap] Must provide distance index file with -d" << endl;
                     exit(1);
+                }
+                if (!use_tvs_clusterer) {
+                    use_min_dist_clusterer = true;
                 }
                 break;
                 
@@ -393,6 +399,7 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'v':
                 use_tvs_clusterer = true;
+                use_min_dist_clusterer = false;
                 break;
                 
             case 'X':
@@ -427,7 +434,7 @@ int main_mpmap(int argc, char** argv) {
                 max_mapq = parse<int>(optarg);
                 break;
                 
-            case OPT_REPORT_GROUP_MAPQ:
+            case 'U':
                 report_group_mapq = true;
                 break;
                 
@@ -443,7 +450,7 @@ int main_mpmap(int argc, char** argv) {
                 }
                 break;
                 
-            case 'O':
+            case OPT_MAX_PATHS:
                 population_max_paths = parse<int>(optarg);
                 break;
                 
@@ -471,7 +478,7 @@ int main_mpmap(int argc, char** argv) {
                 hit_max = parse<int>(optarg);
                 break;
                 
-            case 'w':
+            case OPT_APPROX_EXP:
                 likelihood_approx_exp = parse<double>(optarg);
                 break;
                 
@@ -483,23 +490,20 @@ int main_mpmap(int argc, char** argv) {
                 always_check_population = true;
                 break;
                 
-            case OPT_DELAY_POPULATION_SCORING:
-                delay_population_scoring = true;
-                break;
-                
             case OPT_FORCE_HAPLOTYPE_COUNT:
                 force_haplotype_count = parse<size_t>(optarg);
                 break;
                 
             case OPT_MIN_DIST_CLUSTER:
-                use_min_dist_clusterer = true;
+                // This the default behavior
+                //use_min_dist_clusterer = true;
                 break;
                 
             case 'C':
                 cluster_ratio = parse<double>(optarg);
                 break;
                 
-            case 'U':
+            case OPT_PRUNE_EXP:
                 suboptimal_path_exponent = parse<double>(optarg);
                 break;
                 
@@ -515,7 +519,7 @@ int main_mpmap(int argc, char** argv) {
                 mismatch_score_arg = parse<int>(optarg);
                 break;
                 
-            case OPT_SCORE_MATRIX:
+            case 'w':
                 matrix_file_name = optarg;
                 if (matrix_file_name.empty()) {
                     cerr << "error:[vg mpmap] Must provide matrix file with --matrix-file." << endl;
@@ -569,6 +573,8 @@ int main_mpmap(int argc, char** argv) {
     
     // check for valid parameters
     
+    int hard_hit_max = 10 * hit_max;
+    
     if (std::isnan(frag_length_mean) != std::isnan(frag_length_stddev)) {
         cerr << "error:[vg mpmap] Cannot specify only one of fragment length mean (-I) and standard deviation (-D)." << endl;
         exit(1);
@@ -615,7 +621,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (snarl_cut_size < 0) {
-        cerr << "error:[vg mpmap] Max snarl cut size (-U) set to " << snarl_cut_size << ", must set to a positive integer or 0 for no maximum." << endl;
+        cerr << "error:[vg mpmap] Max snarl cut size (-X) set to " << snarl_cut_size << ", must set to a positive integer or 0 for no maximum." << endl;
         exit(1);
     }
     
@@ -640,24 +646,20 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (population_max_paths < 0) {
-        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) set to " << population_max_paths << ", must set to a nonnegative integer." << endl;
+        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (--max-paths) set to " << population_max_paths << ", must set to a nonnegative integer." << endl;
         exit(1);
     }
     
     if (population_max_paths != 10 && population_max_paths != 0 && gbwt_name.empty() && sublinearLS_name.empty()) {
         // Don't allow anything but the default or the "disabled" setting without an index.
         // TODO: This restriction makes neat auto-generation of command line options for different conditions hard.
-        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) is specified but population database (-H or --linear-index) was not provided." << endl;
+        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (--max-paths) is specified but population database (-H or --linear-index) was not provided." << endl;
         exit(1);
     }
     
     if (always_check_population && gbwt_name.empty() && sublinearLS_name.empty()) {
         cerr << "error:[vg mpmap] Cannot --always-check-population if no population database (-H or --linear-index) is provided." << endl;
         exit(1);
-    }
-    
-    if (delay_population_scoring && gbwt_name.empty() && sublinearLS_name.empty()) {
-        cerr << "warning:[vg mpmap] Cannot --delay-population scoring if no population database (-H or --linear-index) is provided. Ignoring option." << endl;
     }
     
     if (force_haplotype_count != 0 && gbwt_name.empty() && sublinearLS_name.empty()) {
@@ -711,8 +713,13 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    if (hard_hit_max < hit_max) {
+        cerr << "warning:[vg mpmap] MEM hit query limit (-c) set to " << hit_max << ", which is higher than the threshold to ignore a MEM (" << hard_hit_max << ")" << endl;
+        exit(1);
+    }
+    
     if (likelihood_approx_exp < 1.0) {
-        cerr << "error:[vg mpmap] Likelihood approximation exponent (-w) set to " << likelihood_approx_exp << ", must set to at least 1.0." << endl;
+        cerr << "error:[vg mpmap] Likelihood approximation exponent (--approx-exp) set to " << likelihood_approx_exp << ", must set to at least 1.0." << endl;
         exit(1);
     }
     
@@ -737,7 +744,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (suboptimal_path_exponent < 1.0) {
-        cerr << "error:[vg mpmap] Suboptimal path likelihood root (-R) set to " << suboptimal_path_exponent << ", must set to at least 1.0." << endl;
+        cerr << "error:[vg mpmap] Suboptimal path likelihood root (--prune-exp) set to " << suboptimal_path_exponent << ", must set to at least 1.0." << endl;
         exit(1);
     }
     
@@ -788,18 +795,17 @@ int main_mpmap(int argc, char** argv) {
     // adjust parameters that produce irrelevant extra work or bad behavior single path mode
     
     if (single_path_alignment_mode && population_max_paths == 0) {
-        // TODO: I don't like having these constants floating around in two different places, but it's not very risky, just a warning
         if (!snarls_name.empty()) {
-            cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S) without multipath population scoring (-O)." << endl;
+            cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
             // TODO: Not true!
         }
         
-        if (snarl_cut_size != 5) {
-            cerr << "warning:[vg mpmap] Snarl cut limit (-u) is ignored in single path mode (-S) without multipath population scoring (-O)." << endl;
+        if (snarl_cut_size != default_snarl_cut_size) {
+            cerr << "warning:[vg mpmap] Snarl cut limit (-X) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
         }
         
-        if (num_alt_alns != 4) {
-            cerr << "warning:[vg mpmap] Number of alternate alignments (-a) is ignored in single path mode (-S) without multipath population scoring (-O)." << endl;
+        if (num_alt_alns != default_num_alt_alns) {
+            cerr << "warning:[vg mpmap] Number of alternate alignments (-a) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
         }
         
         num_alt_alns = 1;
@@ -964,6 +970,7 @@ int main_mpmap(int argc, char** argv) {
     
     // set mem finding parameters
     multipath_mapper.hit_max = hit_max;
+    multipath_mapper.hard_hit_max = hard_hit_max;
     multipath_mapper.mem_reseed_length = reseed_length;
     multipath_mapper.fast_reseed = true;
     multipath_mapper.fast_reseed_length_diff = reseed_diff;
@@ -997,7 +1004,6 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.top_tracebacks = top_tracebacks;
     multipath_mapper.recombination_penalty = recombination_penalty;
     multipath_mapper.always_check_population = always_check_population;
-    multipath_mapper.delay_population_scoring = delay_population_scoring;
     multipath_mapper.force_haplotype_count = force_haplotype_count;
     
     // set pruning and clustering parameters

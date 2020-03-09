@@ -1,9 +1,13 @@
 #include "utility.hpp"
 
-#include <cstdio>
 #include <set>
 #include <mutex>
 #include <dirent.h>
+#include <thread>
+#include <cstdio>
+#include <cmath>
+#include <fstream>
+#include <iostream>
 
 namespace vg {
 
@@ -97,6 +101,50 @@ int get_thread_count(void) {
         thread_count = omp_get_num_threads();
     }
     return thread_count;
+}
+
+void choose_good_thread_count() {
+    // If we leave this at 0, we won't apply any thread count and leave whatever OMP defaults to.
+    int count = 0;
+
+    if (count == 0) {
+        // First priority: OMP_NUM_THREADS
+        const char* value = getenv("OMP_NUM_THREADS");
+        if (value) {
+            // Read the value. Throws if it isn't a legit number.
+            count = std::stoi(value);
+        }
+    }
+
+    if (count == 0) {
+        // Next priority: /sys/fs/cgroup/cpu/cpu.cfs_quota_us over /sys/fs/cgroup/cpu/cpu.cfs_period_us
+        ifstream quota_file("/sys/fs/cgroup/cpu/cpu.cfs_quota_us");
+        ifstream period_file("/sys/fs/cgroup/cpu/cpu.cfs_period_us");
+
+        if (quota_file && period_file) {
+            // Read the period and quota
+            int64_t quota;
+            quota_file >> quota;
+            int64_t period;
+            period_file >> period;
+
+            if (quota >= 0 && period != 0) {
+                // Compute how many threads we may use.
+                // May come out to 0, in which case it is ignored.
+                count = (int) ceil(quota / (double) period);
+            }
+        }
+    }
+
+    if (count == 0) {
+        // Next priority: hardware concurrency as reported by the STL.
+        // This may itself be 0 if ungettable.
+        count = std::thread::hardware_concurrency();
+    }
+    
+    if (count != 0) {
+        omp_set_num_threads(count);
+    }
 }
 
 std::vector<std::string> &split_delims(const std::string &s, const std::string& delims, std::vector<std::string> &elems) {
