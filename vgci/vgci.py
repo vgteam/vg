@@ -584,7 +584,7 @@ class VGCITest(TestCase):
         for source_path_name in source_path_names:
             opts += '--path {} '.format(source_path_name)
         cmd = 'toil-vg sim {} {} {} {} --gam {} --fastq_out'.format(
-            job_store, ' '.join(sim_xg_paths), reads / 2, out_store, opts)
+            job_store, ' '.join(sim_xg_paths), int(reads / 2), out_store, opts)
         subprocess.check_call(cmd, shell=True)
 
         # then run mapeval

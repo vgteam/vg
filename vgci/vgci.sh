@@ -479,7 +479,7 @@ then
         rm -rf s3am
     fi
     if [ ! -e s3am ]; then
-        virtualenv --never-download s3am && s3am/bin/pip install s3am==2.0
+        virtualenv --python=python3.6 --never-download s3am && s3am/bin/pip install s3am==2.0
     fi
     mkdir -p bin
     # Expose binaries to the PATH
