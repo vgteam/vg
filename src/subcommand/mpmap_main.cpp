@@ -573,6 +573,8 @@ int main_mpmap(int argc, char** argv) {
     
     // check for valid parameters
     
+    int hard_hit_max = 10 * hit_max;
+    
     if (std::isnan(frag_length_mean) != std::isnan(frag_length_stddev)) {
         cerr << "error:[vg mpmap] Cannot specify only one of fragment length mean (-I) and standard deviation (-D)." << endl;
         exit(1);
@@ -708,6 +710,11 @@ int main_mpmap(int argc, char** argv) {
     
     if (hit_max < 0) {
         cerr << "error:[vg mpmap] MEM hit max (-c) set to " << hit_max << ", must set to a positive integer or 0 for no maximum." << endl;
+        exit(1);
+    }
+    
+    if (hard_hit_max < hit_max) {
+        cerr << "warning:[vg mpmap] MEM hit query limit (-c) set to " << hit_max << ", which is higher than the threshold to ignore a MEM (" << hard_hit_max << ")" << endl;
         exit(1);
     }
     
@@ -963,6 +970,7 @@ int main_mpmap(int argc, char** argv) {
     
     // set mem finding parameters
     multipath_mapper.hit_max = hit_max;
+    multipath_mapper.hard_hit_max = hard_hit_max;
     multipath_mapper.mem_reseed_length = reseed_length;
     multipath_mapper.fast_reseed = true;
     multipath_mapper.fast_reseed_length_diff = reseed_diff;
