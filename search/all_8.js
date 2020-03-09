@@ -37,6 +37,7 @@ var searchData=
   ['haplotypes_2ecpp',['haplotypes.cpp',['../haplotypes_8cpp.html',1,'']]],
   ['haplotypes_2ehpp',['haplotypes.hpp',['../haplotypes_8hpp.html',1,'']]],
   ['hard_5fhit_5fcap',['hard_hit_cap',['../classvg_1_1MinimizerMapper.html#aaf577b72776f431ec4dc5faac505322e',1,'vg::MinimizerMapper']]],
+  ['hard_5fhit_5fmax',['hard_hit_max',['../classvg_1_1BaseMapper.html#a4e6260be560a0bf2a10cfb409e611e65',1,'vg::BaseMapper']]],
   ['has_5fargument',['has_argument',['../classvg_1_1OptionInterface.html#a29383428b6a6e40109fb4949286f07f7',1,'vg::OptionInterface::has_argument()'],['../classvg_1_1OptionValueParser.html#af8d6268a6cec527dd0e117aef58cbd63',1,'vg::OptionValueParser::has_argument()'],['../classvg_1_1OptionValueParser_3_01vector_3_01Item_01_4_01_4.html#a104c6803a28a2528b33759ac8ad69175',1,'vg::OptionValueParser&lt; vector&lt; Item &gt; &gt;::has_argument()'],['../classvg_1_1BaseOption.html#a3aa53d25627ae95383edce8f6e001caa',1,'vg::BaseOption::has_argument()'],['../classvg_1_1OptionValueParser.html#ad70110ca63d9af765c7037d070aed0e6',1,'vg::OptionValueParser::has_argument()']]],
   ['has_5fbase_5fgraph',['has_base_graph',['../structvg_1_1AugmentedGraph.html#ae1b8b8c8246ccfe1f2d56250a3361177',1,'vg::AugmentedGraph']]],
   ['has_5fbuffer',['has_buffer',['../classvg_1_1VcfBuffer.html#a13f0fa2e0b50cd133c117bd1f34715c3',1,'vg::VcfBuffer']]],

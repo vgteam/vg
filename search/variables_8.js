@@ -14,6 +14,7 @@ var searchData=
   ['haplotype_5forigin_5fids',['haplotype_origin_ids',['../structvg_1_1TranscriptPath.html#a58ba03efe7c222cf87f864b872eb2fda',1,'vg::TranscriptPath']]],
   ['haplotypes',['haplotypes',['../classvg_1_1SnarlState.html#a98f04166481311709d9a8d3b05b0245e',1,'vg::SnarlState::haplotypes()'],['../classvg_1_1PhasedGenome.html#aa7b2bebc28cc37da09216fca8361c75c',1,'vg::PhasedGenome::haplotypes()']]],
   ['hard_5fhit_5fcap',['hard_hit_cap',['../classvg_1_1MinimizerMapper.html#aaf577b72776f431ec4dc5faac505322e',1,'vg::MinimizerMapper']]],
+  ['hard_5fhit_5fmax',['hard_hit_max',['../classvg_1_1BaseMapper.html#a4e6260be560a0bf2a10cfb409e611e65',1,'vg::BaseMapper']]],
   ['has_5fbuffer',['has_buffer',['../classvg_1_1VcfBuffer.html#a13f0fa2e0b50cd133c117bd1f34715c3',1,'vg::VcfBuffer']]],
   ['has_5fchain',['has_chain',['../classvg_1_1MinimumDistanceIndex.html#af6569c92652e927b14db3b254bd4d1fb',1,'vg::MinimumDistanceIndex']]],
   ['has_5fchain_5fbv',['has_chain_bv',['../classvg_1_1MinimumDistanceIndex.html#a221be5f986629f8f6769e16f21ee237d',1,'vg::MinimumDistanceIndex']]],

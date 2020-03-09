@@ -52,7 +52,7 @@ var searchData=
   ['_7elinear_5fhaplo_5fstructure',['~linear_haplo_structure',['../structhaplo_1_1linear__haplo__structure.html#a11b487a3f7b503ed282cd1cfee5ae2f3',1,'haplo::linear_haplo_structure']]],
   ['_7emapper',['~Mapper',['../classvg_1_1Mapper.html#a285dd133a8540553f671b7eac33f6ca0',1,'vg::Mapper']]],
   ['_7ememchainmodelvertex',['~MEMChainModelVertex',['../classvg_1_1MEMChainModelVertex.html#accc20533b5065e34208355797f373a04',1,'vg::MEMChainModelVertex']]],
-  ['_7ememclusterer',['~MEMClusterer',['../classvg_1_1MEMClusterer.html#aff525a435389183fc9f77e2270951e72',1,'vg::MEMClusterer']]],
+  ['_7ememclusterer',['~MEMClusterer',['../classvg_1_1MEMClusterer.html#a86a3a3ccd7e416a727118f7aa763db18',1,'vg::MEMClusterer']]],
   ['_7ememoizinggraph',['~MemoizingGraph',['../classvg_1_1MemoizingGraph.html#a7b70d3665f07afcce593013fd4d27170',1,'vg::MemoizingGraph']]],
   ['_7emessageemitter',['~MessageEmitter',['../classvg_1_1io_1_1MessageEmitter.html#ae9fa66759101257b58f38ec4f54dabfa',1,'vg::io::MessageEmitter']]],
   ['_7emindistanceclusterer',['~MinDistanceClusterer',['../classvg_1_1MinDistanceClusterer.html#aad8582c4649a2f7b66631dd7c9850304',1,'vg::MinDistanceClusterer']]],
