@@ -267,7 +267,8 @@ public:
     double fast_reseed_length_diff = 0.45; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
     bool adaptive_reseed_diff = true; // use an adaptive length difference algorithm in reseed algorithm
     double adaptive_diff_exponent = 0.065; // exponent that describes limiting behavior of adaptive diff algorithm
-    int hit_max = 0;       // ignore or MEMs with more than this many hits
+    int hit_max = 0;       // only query at most this many hits for a MEM (0 for no limit)
+    int hard_hit_max = 0; // don't query any hits for MEMs with this many occurrences or more (0 for no limit)
     bool use_approx_sub_mem_count = false;
     bool prefilter_redundant_hits = true;
     int max_sub_mem_recursion_depth = 2;
