@@ -71,6 +71,7 @@ $(function() {
 <a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="#pro-static-methods">Static Protected Member Functions</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
+<a href="#pro-static-attribs">Static Protected Attributes</a> &#124;
 <a href="classvg_1_1MinimizerMapper-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::MinimizerMapper Class Reference</div>  </div>
@@ -181,10 +182,16 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:af3e5c53b0250173b6d0eb097cf884986"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0c6edb7097eaaf72ee65338364ef9b42"><td class="memItemLeft" align="right" valign="top">std::tuple&lt; std::vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;, std::vector&lt; size_t &gt;, std::vector&lt; bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0c6edb7097eaaf72ee65338364ef9b42">find_seeds</a> (const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
 <tr class="separator:a0c6edb7097eaaf72ee65338364ef9b42"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af1e72295ab4f23184fb611b8bde0bfdd"><td class="memItemLeft" align="right" valign="top">std::tuple&lt; double, double, std::vector&lt; bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af1e72295ab4f23184fb611b8bde0bfdd">score_cluster</a> (const std::vector&lt; size_t &gt; &amp;cluster, size_t i, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; size_t &gt; &amp;seed_to_source, size_t seq_length, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
-<tr class="separator:af1e72295ab4f23184fb611b8bde0bfdd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac9e09014840d0d74afe3b00e4ccfa898"><td class="memItemLeft" align="right" valign="top">std::tuple&lt; double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ac9e09014840d0d74afe3b00e4ccfa898">compute_mapq_caps</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; bool &gt; &amp;present_in_any_extended_cluster)</td></tr>
-<tr class="separator:ac9e09014840d0d74afe3b00e4ccfa898"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af9f4674eed816808ed33b5b6aa3d8ba4"><td class="memItemLeft" align="right" valign="top">std::tuple&lt; double, double, sdsl::bit_vector &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af9f4674eed816808ed33b5b6aa3d8ba4">score_cluster</a> (const std::vector&lt; size_t &gt; &amp;cluster, size_t i, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; size_t &gt; &amp;seed_to_source, size_t seq_length, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="separator:af9f4674eed816808ed33b5b6aa3d8ba4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af9ff5e0a1b8c7925ccdb8a23d29872ef"><td class="memItemLeft" align="right" valign="top">std::vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af9ff5e0a1b8c7925ccdb8a23d29872ef">score_extensions</a> (const std::vector&lt; std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;&gt; &amp;extensions, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="separator:af9ff5e0a1b8c7925ccdb8a23d29872ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a421cdd65bac59fac39fd3b87cce0f3ae"><td class="memItemLeft" align="right" valign="top">std::vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a421cdd65bac59fac39fd3b87cce0f3ae">score_extensions</a> (const std::vector&lt; std::pair&lt; std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;, size_t &gt;&gt; &amp;extensions, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="separator:a421cdd65bac59fac39fd3b87cce0f3ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0a67380a95608145839617f3a3193a6c"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0a67380a95608145839617f3a3193a6c">phred_for_at_least_one</a> (size_t p, size_t n) const</td></tr>
+<tr class="separator:a0a67380a95608145839617f3a3193a6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2b20fa6da14da0a38f2bdfe21c3f67c9"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2b20fa6da14da0a38f2bdfe21c3f67c9">compute_mapq_caps</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const sdsl::bit_vector &amp;present_in_any_extended_cluster)</td></tr>
+<tr class="separator:a2b20fa6da14da0a38f2bdfe21c3f67c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa19502481af491af1d623da3ed16a766"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aa19502481af491af1d623da3ed16a766">window_breaking_quality</a> (const vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, vector&lt; size_t &gt; &amp;broken, const string &amp;sequence, const string &amp;quality_bytes) const</td></tr>
 <tr class="separator:aa19502481af491af1d623da3ed16a766"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6e3ec6685f98622b35391ae0d8bac180"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6e3ec6685f98622b35391ae0d8bac180">find_optimal_tail_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;best, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;second_best) const</td></tr>
@@ -248,6 +255,14 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:a2420d8771bcc824f7e7d36dbe4531fcf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab019d5888d75bbe36d8eb444d148ac50"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1FragmentLengthDistribution.html">FragmentLengthDistribution</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab019d5888d75bbe36d8eb444d148ac50">fragment_length_distr</a></td></tr>
 <tr class="separator:ab019d5888d75bbe36d8eb444d148ac50"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8101808199bf23e00a6f1a091acf3370"><td class="memItemLeft" align="right" valign="top">std::vector&lt; double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a8101808199bf23e00a6f1a091acf3370">phred_at_least_one</a></td></tr>
+<tr class="separator:a8101808199bf23e00a6f1a091acf3370"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-static-attribs"></a>
+Static Protected Attributes</h2></td></tr>
+<tr class="memitem:a54be3b97a663fcdcafea5553b598add0"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a54be3b97a663fcdcafea5553b598add0">PRECISION</a> = 8</td></tr>
+<tr class="memdesc:a54be3b97a663fcdcafea5553b598add0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use this many bits for approximate probabilities.  <a href="#a54be3b97a663fcdcafea5553b598add0">More...</a><br /></td></tr>
+<tr class="separator:a54be3b97a663fcdcafea5553b598add0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Member Typedef Documentation</h2>
 <a id="af12f40d8ae25f153fba1dc122fda29f0"></a>
@@ -351,8 +366,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ac9e09014840d0d74afe3b00e4ccfa898"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac9e09014840d0d74afe3b00e4ccfa898">&#9670;&nbsp;</a></span>compute_mapq_caps()</h2>
+<a id="a2b20fa6da14da0a38f2bdfe21c3f67c9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2b20fa6da14da0a38f2bdfe21c3f67c9">&#9670;&nbsp;</a></span>compute_mapq_caps()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -361,7 +376,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">std::tuple&lt; double &gt; vg::MinimizerMapper::compute_mapq_caps </td>
+          <td class="memname">double vg::MinimizerMapper::compute_mapq_caps </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>aln</em>, </td>
@@ -375,7 +390,7 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::vector&lt; bool &gt; &amp;&#160;</td>
+          <td class="paramtype">const sdsl::bit_vector &amp;&#160;</td>
           <td class="paramname"><em>present_in_any_extended_cluster</em>&#160;</td>
         </tr>
         <tr>
@@ -1050,6 +1065,43 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a0a67380a95608145839617f3a3193a6c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0a67380a95608145839617f3a3193a6c">&#9670;&nbsp;</a></span>phred_for_at_least_one()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MinimizerMapper::phred_for_at_least_one </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>p</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>n</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Assume that we have n &lt;= max_k independent random events that occur with probability p each (p is interpreted as a real number between 0 and 1 and max_k is the largest k in the minimizer indexes). Return an approximate probability for at least one event occurring as a phred score. </p>
+
+</div>
+</div>
 <a id="a83680e98c2c476a0eb64508e36a5417c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a83680e98c2c476a0eb64508e36a5417c">&#9670;&nbsp;</a></span>process_until_threshold() <span class="overload">[1/3]</span></h2>
 
@@ -1284,8 +1336,8 @@ template&lt;typename Item , typename Score &gt; </div>
 
 </div>
 </div>
-<a id="af1e72295ab4f23184fb611b8bde0bfdd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af1e72295ab4f23184fb611b8bde0bfdd">&#9670;&nbsp;</a></span>score_cluster()</h2>
+<a id="af9f4674eed816808ed33b5b6aa3d8ba4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af9f4674eed816808ed33b5b6aa3d8ba4">&#9670;&nbsp;</a></span>score_cluster()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1294,7 +1346,7 @@ template&lt;typename Item , typename Score &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">std::tuple&lt; double, double, std::vector&lt; bool &gt; &gt; vg::MinimizerMapper::score_cluster </td>
+          <td class="memname">std::tuple&lt; double, double, sdsl::bit_vector &gt; vg::MinimizerMapper::score_cluster </td>
           <td>(</td>
           <td class="paramtype">const std::vector&lt; size_t &gt; &amp;&#160;</td>
           <td class="paramname"><em>cluster</em>, </td>
@@ -1393,6 +1445,92 @@ template&lt;typename Item , typename Score &gt; </div>
 <p>Score the given group of gapless extensions. Determines the best score that can be obtained by chaining extensions together, using the given gap open and gap extend penalties to charge for either overlaps or gaps in coverage of the read.</p>
 <p>Enforces that overlaps cannot result in containment.</p>
 <p>Input extended seeds must be sorted by start position. </p>
+
+</div>
+</div>
+<a id="af9ff5e0a1b8c7925ccdb8a23d29872ef"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af9ff5e0a1b8c7925ccdb8a23d29872ef">&#9670;&nbsp;</a></span>score_extensions() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt; int &gt; vg::MinimizerMapper::score_extensions </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>extensions</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;&#160;</td>
+          <td class="paramname"><em>funnel</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Score the set of extensions for each cluster using <a class="el" href="classvg_1_1MinimizerMapper.html#a2c8ab02743227cb2550fcfd295043253">score_extension_group()</a>. Return the scores in the same order as the extensions. </p>
+
+</div>
+</div>
+<a id="a421cdd65bac59fac39fd3b87cce0f3ae"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a421cdd65bac59fac39fd3b87cce0f3ae">&#9670;&nbsp;</a></span>score_extensions() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt; int &gt; vg::MinimizerMapper::score_extensions </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; std::pair&lt; std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;, size_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>extensions</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;&#160;</td>
+          <td class="paramname"><em>funnel</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Score the set of extensions for each cluster using <a class="el" href="classvg_1_1MinimizerMapper.html#a2c8ab02743227cb2550fcfd295043253">score_extension_group()</a>. Return the scores in the same order as the extensions. </p>
 
 </div>
 </div>
@@ -1855,6 +1993,55 @@ template&lt;typename Item , typename Score &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a8101808199bf23e00a6f1a091acf3370"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8101808199bf23e00a6f1a091acf3370">&#9670;&nbsp;</a></span>phred_at_least_one</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt;double&gt; vg::MinimizerMapper::phred_at_least_one</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Assume that we have n &lt;= max_k independent events with probability p each. Let x be the PRECISION most significant bits of p. Then</p>
+<p>phred_at_least_one[(n &lt;&lt; PRECISION) + x]</p>
+<p>is an approximate phred score of at least one event occurring. </p>
+
+</div>
+</div>
+<a id="a54be3b97a663fcdcafea5553b598add0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a54be3b97a663fcdcafea5553b598add0">&#9670;&nbsp;</a></span>PRECISION</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t vg::MinimizerMapper::PRECISION = 8</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Use this many bits for approximate probabilities. </p>
 
 </div>
 </div>
