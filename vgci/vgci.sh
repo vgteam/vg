@@ -342,7 +342,7 @@ then
 
     # Dependencies for running tests.  Need numpy, scipy and sklearn
     # for running toil-vg mapeval, and dateutils and reqests for ./mins_since_last_build.py
-    pip install numpy
+    pip install numpy==1.17.1
     pip install scipy==1.0.0rc2 --only-binary :all:
     pip install scikit-learn==0.22.1
     pip install dateutils
