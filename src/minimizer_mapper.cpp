@@ -1578,6 +1578,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     //Alignments that don't have a mate
     // <fragment index, alignment_index, true if its the first end> 
     vector<tuple<size_t, size_t, bool>> unpaired_alignments;
+    size_t unpaired_count_1 = 0;
+    size_t unpaired_count_2 = 0;
 
     for (size_t fragment_num = 0 ; fragment_num < alignments.size() ; fragment_num ++ ) {
         //Get pairs of plausible alignments
@@ -1638,6 +1640,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 #endif
             for (size_t i = 0 ; i < fragment_alignments.first.size() ; i++) {
                 unpaired_alignments.emplace_back(fragment_num, i, true);
+                unpaired_count_1++;
 #ifdef debug
                 cerr << "\t" << pb2json(fragment_alignments.first[i]) << endl;
 #endif
@@ -1648,12 +1651,16 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 #endif
             for (size_t i = 0 ; i < fragment_alignments.second.size() ; i++) {
                 unpaired_alignments.emplace_back(fragment_num, i, false);
+                unpaired_count_2++;
 #ifdef debug
                 cerr << "\t" << pb2json(fragment_alignments.second[i]) << endl;
 #endif
             }
         }
     }
+    size_t rescued_count_1 = 0;
+    size_t rescued_count_2 = 0;
+    vector<bool> rescued_from;
 
     if (!unpaired_alignments.empty()) {
         //If we found some clusters that don't belong to a fragment cluster
@@ -1825,6 +1832,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                                 found_first ? alignments.back().second.size() : alignments.back().first.size());
                     found_first ? alignments.back().second.emplace_back(std::move(rescued_aln)) 
                                 : alignments.back().first.emplace_back(std::move(rescued_aln));
+                    found_first ? rescued_count_1++ : rescued_count_2++;
 
                     found_first ? alignment_groups.back().second.emplace_back() : alignment_groups.back().first.emplace_back();
                     pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair = found_first ? 
@@ -1833,6 +1841,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     paired_scores.emplace_back(score);
                     fragment_distances.emplace_back(fragment_dist);
                     better_cluster_count_alignment_pairs.emplace_back(0);
+                    rescued_from.push_back(found_first); 
                     if (track_provenance) {
                         funnels[found_first ? 0 : 1].pass("max-rescue-attempts", j);
                         funnels[found_first ? 0 : 1].project(j);
@@ -1872,6 +1881,14 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         funnels[0].stage("winner");
         funnels[1].stage("winner");
     }
+
+    double estimated_multiplicity_from_1 = unpaired_count_1 > 0 ? (double) unpaired_count_1 / min(rescued_count_1, max_rescue_attempts) : 1.0;
+    double estimated_multiplicity_from_2 = unpaired_count_2 > 0 ? (double) unpaired_count_2 / min(rescued_count_2, max_rescue_attempts) : 1.0;
+    vector<double> paired_multiplicities;
+    for (bool rescued_from_first : rescued_from) {
+        paired_multiplicities.push_back(rescued_from_first ? estimated_multiplicity_from_1 : estimated_multiplicity_from_2);
+    }
+
     // Fill this in with the alignments we will output
     pair<vector<Alignment>, vector<Alignment>> mappings;
     // Grab all the scores in order for MAPQ computation.
@@ -2000,6 +2017,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 #endif
 
         size_t winning_index;
+        const vector<double>* multiplicities = paired_multiplicities.size() == scores.size() ? &paired_multiplicities : nullptr; 
         // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
         // If either of the mappings was duplicated in other pairs, use the group scores to determine mapq
         double mapq = scores[0] == 0 ? 0 : 
