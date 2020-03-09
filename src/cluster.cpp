@@ -3370,8 +3370,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
     HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
     
     // assumes that MEMs are given in lexicographic order by read interval
-    size_t j_begin = 0;
-    for (size_t i = 0; i < hit_graph.nodes.size(); ++i) {
+    for (size_t i = 0, j_begin = 1; i < hit_graph.nodes.size(); ++i) {
         
         HitNode& hit_node_1 = hit_graph.nodes[i];
         
@@ -3420,9 +3419,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
                 continue;
             }
             
-            if (min_dist == read_separation
-                && ((hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->end < hit_node_1.mem->end)
-                    || (hit_node_2.mem->begin > hit_node_1.mem->begin && hit_node_2.mem->end <= hit_node_1.mem->end))) {
+            if (min_dist == read_separation && hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->end <= hit_node_1.mem->end) {
                 // this has the appearance of being a redundant hit of a sub-MEM, which we don't want to form
                 // a separate cluster
                 
