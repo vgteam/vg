@@ -192,6 +192,23 @@ protected:
 
     FragmentLengthDistribution fragment_length_distr;
 
+    /// Use this many bits for approximate probabilities.
+    constexpr static size_t PRECISION = 8;
+
+    /**
+     * Assume that we have n <= max_k independent events with probability p each.
+     * Let x be the PRECISION most significant bits of p. Then
+     *
+     *   phred_at_least_one[(n << PRECISION) + x]
+     *
+     * is an approximate phred score of at least one event occurring.
+     */
+    std::vector<double> phred_at_least_one;
+
+//-----------------------------------------------------------------------------
+
+    // Stages of mapping.
+
     /**
      * Find the minimizers in the sequence using all minimizer indexes and
      * return them sorted in descending order by score.
@@ -212,7 +229,29 @@ protected:
      * of the read covered by seeds in the cluster.
      * TODO JS: Score all clusters at once; calculate fragment scores afterwards.
      */
-    std::tuple<double, double, std::vector<bool>> score_cluster(const std::vector<size_t>& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<size_t>& seed_to_source, size_t seq_length, Funnel& funnel) const;
+    std::tuple<double, double, sdsl::bit_vector> score_cluster(const std::vector<size_t>& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<size_t>& seed_to_source, size_t seq_length, Funnel& funnel) const;
+
+   /**
+    * Score the set of extensions for each cluster using score_extension_group().
+    * Return the scores in the same order as the extensions.
+    */
+   std::vector<int> score_extensions(const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const;
+
+   /**
+    * Score the set of extensions for each cluster using score_extension_group().
+    * Return the scores in the same order as the extensions.
+    */
+   std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
+
+//-----------------------------------------------------------------------------
+
+   /**
+    * Assume that we have n <= max_k independent random events that occur with
+    * probability p each (p is interpreted as a real number between 0 and 1 and
+    * max_k is the largest k in the minimizer indexes). Return an approximate
+    * probability for at least one event occurring as a phred score.
+    */
+   double phred_for_at_least_one(size_t p, size_t n) const;
 
     /**
      * Compute MAPQ caps based on all minimizers present in extended clusters.
@@ -222,8 +261,8 @@ protected:
      *
      * Returns only an "extended" cap at the moment.
      */
-    std::tuple<double> compute_mapq_caps(const Alignment& aln, const std::vector<Minimizer>& minimizers,
-                                         const std::vector<bool>& present_in_any_extended_cluster);
+    double compute_mapq_caps(const Alignment& aln, const std::vector<Minimizer>& minimizers,
+                             const sdsl::bit_vector& present_in_any_extended_cluster);
 
     /**
      * Compute a bound on the Phred score probability of having created the
