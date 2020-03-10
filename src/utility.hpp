@@ -429,6 +429,9 @@ string get_output_file_name(int& optind, int argc, char** argv);
 /// only until the callback returns.
 void get_input_file(const string& file_name, function<void(istream&)> callback);
 
+/// Split off the extension from a filename and return both parts. 
+pair<string, string> split_ext(const string& filename);
+
 /// Parse a command-line argument string. Exits with an error if the string
 /// does not contain exactly an item fo the appropriate type.
 template<typename Result>

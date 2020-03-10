@@ -480,6 +480,23 @@ void get_input_file(const string& file_name, function<void(istream&)> callback) 
     
 }
 
+pair<string, string> split_ext(const string& filename) {
+    pair<string, string> parts;
+
+    size_t dot = filename.rfind('.');
+    
+    if (dot == string::npos) {
+        // Put it all in the first part
+        parts.first = filename;
+    } else {
+        // Split on either side of the dot.
+        parts.first = filename.substr(0, dot);
+        parts.second = filename.substr(dot + 1);
+    }
+    
+    return parts;
+}
+
     
 void create_ref_allele(vcflib::Variant& variant, const std::string& allele) {
     // Set the ref allele
