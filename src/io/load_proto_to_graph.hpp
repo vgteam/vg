@@ -3,7 +3,8 @@
 
 /**
  * \file load_proto_to_graph.hpp
- * Read VPKG-packaged VG Protobuf into any MutablePathMutableHandleGraph.
+ * Read VG Protobuf into any MutablePathMutableHandleGraph.
+ * Also useful for converting streams of Protobuf Graph objects into a MutablePathMutableHandleGraph.
  */
 
 #include "../handle.hpp"
@@ -23,7 +24,18 @@ using namespace vg;
  *
  * Paths need to be cached until the end for ranks to be respected.
  */
-void load_proto_to_graph(const vg::io::message_sender_function_t& for_each_message, vg::MutablePathMutableHandleGraph* destination);
+void load_proto_to_graph(vg::MutablePathMutableHandleGraph* destination, const vg::io::message_sender_function_t& for_each_message);
+
+/**
+ * Call the given function with a callback which it can call with a series of
+ * Protobuf Graph objects, possibly in multiple threads. The Protobuf Graph
+ * objects may have dangling edges.
+ *
+ * Resolves all the dangling edges and writes all the graph data into the given
+ * MutablePathMutableHandleGraph, with the destination graph being protected
+ * from concurrent modification.
+ */
+void load_proto_to_graph(vg::MutablePathMutableHandleGraph* destination, const function<void(const function<void(Graph&)>&)>& chunk_sender);
 
 }
 

@@ -14,6 +14,8 @@
 
 namespace vg {
 
+std::vector<std::string> parseGenotypes(const std::string& vcf_line, size_t num_samples);
+
 //------------------------------------------------------------------------------
 
 /// Convert gbwt::node_type to handle_t.
@@ -45,6 +47,39 @@ inline gbwt::node_type mapping_to_gbwt(const Mapping& mapping) {
 inline gbwt::node_type xg_path_to_gbwt(const xg::XGPath& path, size_t i) {
     return gbwt::Node::encode(path.node(i), path.is_reverse(i));
 }
+
+/// Convert Path to a GBWT path.
+inline gbwt::vector_type path_to_gbwt(const Path& path) {
+    gbwt::vector_type result(path.mapping_size());
+    for (size_t i = 0; i < result.size(); i++) {
+        result[i] = mapping_to_gbwt(path.mapping(i));
+    }
+    return result;
+}
+
+// Find all predecessor nodes of the path, ignoring self-loops.
+inline gbwt::vector_type path_predecessors(const HandleGraph& graph, const Path& path) {
+    gbwt::vector_type result;
+    if (path.mapping_size() == 0) {
+        return result;
+    }
+
+    vg::id_t first_node = path.mapping(0).position().node_id();
+    bool is_reverse = path.mapping(0).position().is_reverse();
+    
+#ifdef debug
+    cerr << "Look for predecessors of node " << first_node << " " << is_reverse << " which is first in alt path" << endl;
+#endif
+
+    graph.follow_edges(graph.get_handle(first_node), !is_reverse, [&] (handle_t next) {
+            if (graph.get_id(next) != first_node) {
+                result.push_back(gbwt::Node::encode(graph.get_id(next), graph.get_is_reverse(next)));
+            }
+        });
+
+    return result;
+}
+
 
 /// Get a string representation of a thread name stored in GBWT metadata.
 std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i);

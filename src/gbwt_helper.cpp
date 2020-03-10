@@ -7,6 +7,44 @@ using namespace xg;
 
 namespace vg {
 
+std::vector<std::string> parseGenotypes(const std::string& vcf_line, size_t num_samples) {
+    std::vector<std::string> result;
+
+    // The 9th tab-separated field should start with "GT".
+    size_t offset = 0;
+    for (int i = 0; i < 8; i++) {
+        size_t pos = vcf_line.find('\t', offset);
+        if (pos == std::string::npos) {
+            std::cerr << "error: [vg index] VCF line does not contain genotype information" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        offset = pos + 1;
+    }
+    if (vcf_line.substr(offset, 2) != "GT") {
+        std::cerr << "error: [vg index] VCF line does not contain genotype information" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    // Genotype strings are the first colon-separated fields in the 10th+ tab-separated fields.
+    offset = vcf_line.find('\t', offset);
+    while (offset != std::string::npos && offset + 1 < vcf_line.length()) {
+        offset++;
+        size_t pos = vcf_line.find_first_of("\t:", offset);
+        if (pos == std::string::npos) {
+            pos = vcf_line.length();
+        }
+        result.emplace_back(vcf_line.substr(offset, pos - offset));
+        offset = vcf_line.find('\t', offset);
+    }
+
+    if (result.size() != num_samples) {
+        std::cerr << "error: [vg index] expected " << num_samples << " samples, got " << result.size() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    return result;
+}
+
 //------------------------------------------------------------------------------
 
 std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i) {
