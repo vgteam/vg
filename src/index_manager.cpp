@@ -22,6 +22,42 @@ using namespace std;
 
 namespace vg {
 
+void IndexManager::set_minimizer_override(const string& filename) {
+    minimizer_override = filename;
+}
+
+void IndexManager::set_gbwtgraph_override(const string& filename) {
+    gbwtgraph_override = filename;
+}
+
+void IndexManager::set_gbwt_override(const string& filename) {
+    gbwt_override = filename;
+}
+
+void IndexManager::set_distance_override(const string& filename) {
+    distance_override = filename;
+}
+
+shared_ptr<gbwtgraph::DefaultMinimizerIndex> IndexManager::get_minimizer() {
+    ensure_minimizer();
+    return minimizer;
+}
+
+shared_ptr<gbwtgraph::GBWTGraph> IndexManager::get_gbwtgraph() {
+    ensure_gbwtgraph();
+    return gbwtgraph.first;
+}
+
+shared_ptr<gbwt::GBWT> IndexManager::get_gbwt() {
+    ensure_gbwt();
+    return gbwt;
+}
+
+shared_ptr<vg::MinimumDistanceIndex> IndexManager::get_distance() {
+    ensure_distance();
+    return distance;
+}
+
 IndexManager::IndexManager(const string& fasta_filename, const string& vcf_filename) : fasta_filename(fasta_filename), vcf_filename(vcf_filename) {
     // Work out the basename from the FASTA name, which may be .fa or .fa.gz
     pair<string, string> parts = split_ext(fasta_filename);
@@ -38,18 +74,23 @@ string IndexManager::get_filename(const string& extension) const {
 }
 
 template<typename IndexHolderType>
-void IndexManager::ensure(IndexHolderType& member, const string& extension, const function<void(istream&)>& load, const function<void(ostream&)>& make_and_save) {
+void IndexManager::ensure(IndexHolderType& member, const string& filename_override, const string& extension,
+    const function<void(istream&)>& load, const function<void(ostream&)>& make_and_save) {
     if (member) {
         // Already made
         return;
     }
 
     // Work out where to load from/save to
-    string filename = get_filename("extension");
+    string filename = get_filename(extension);
     
-    ifstream in(filename);
+    // Load from the normal filename, or the override if set
+    ifstream in(filename_override.empty() ? filename : filename_override);
     if (in) {
         // Load the item
+        if (show_progress) {
+            cerr << "Loading " << extension << "..." << endl;
+        }
         load(in);
     } else {
         // Make the item and save it
@@ -60,12 +101,15 @@ void IndexManager::ensure(IndexHolderType& member, const string& extension, cons
             throw runtime_error("Cound not write to " + filename);
         }
         
+        if (show_progress) {
+            cerr << "Building " << extension << "..." << endl;
+        }
         make_and_save(out);
     }
 }
 
 void IndexManager::ensure_graph() {
-    ensure(graph, "vg", [&](istream& in) {
+    ensure(graph, graph_override, "vg", [&](istream& in) {
         // Load the graph
         auto loaded = vg::io::VPKG::load_one<handlegraph::PathHandleGraph>(in);
         // Make it owned by the shared_ptr
@@ -94,7 +138,7 @@ void IndexManager::ensure_graph() {
 }
 
 void IndexManager::ensure_snarls() {
-    ensure(snarls, "snarls", [&](istream& in) {
+    ensure(snarls, snarls_override,  "snarls", [&](istream& in) {
         // Load from the file
         snarls = make_shared<SnarlManager>(in);
     }, [&](ostream& out) {
@@ -115,7 +159,7 @@ void IndexManager::ensure_snarls() {
 }
 
 void IndexManager::ensure_distance() {
-    ensure(distance, "dist", [&](istream& in) {
+    ensure(distance, distance_override, "dist", [&](istream& in) {
         // Load distance index from the file
         auto loaded = vg::io::VPKG::load_one<MinimumDistanceIndex>(in);
         distance.reset(loaded.release());
@@ -134,7 +178,7 @@ void IndexManager::ensure_distance() {
 }
 
 void IndexManager::ensure_gbwt() {
-    ensure(gbwt, "gbwt", [&](istream& in) {
+    ensure(gbwt, gbwt_override, "gbwt", [&](istream& in) {
         // Load GBWT from the file
         auto loaded = vg::io::VPKG::load_one<gbwt::GBWT>(in);
         gbwt.reset(loaded.release());
@@ -160,7 +204,7 @@ void IndexManager::ensure_gbwt() {
 }
 
 void IndexManager::ensure_gbwtgraph() {
-    ensure(gbwtgraph.first, "gg", [&](istream& in) {
+    ensure(gbwtgraph.first, gbwtgraph_override, "gg", [&](istream& in) {
         // Make sure GBWT is ready
         ensure_gbwt();
 
@@ -185,7 +229,7 @@ void IndexManager::ensure_gbwtgraph() {
 }
 
 void IndexManager::ensure_minimizer() {
-    ensure(minimizer, "min", [&](istream& in) {
+    ensure(minimizer, minimizer_override, "min", [&](istream& in) {
         // Load minimizer index from the file
         auto loaded = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(in);
         minimizer.reset(loaded.release());

@@ -44,6 +44,28 @@ public:
      * The fasta must be .fa or .fa.gz
      */
     IndexManager(const string& fasta_filename, const string& vcf_filename = "");
+
+    // Functions to set a source filename override, and get an index, for each index type.
+
+    /// Override the file to load the minimizer index from
+    void set_minimizer_override(const string& filename);
+    /// Get the minimizer index
+    shared_ptr<gbwtgraph::DefaultMinimizerIndex> get_minimizer();
+
+    /// Override the file to load the gbwtgraph index from
+    void set_gbwtgraph_override(const string& filename);
+    /// Get the gbwtgraph index
+    shared_ptr<gbwtgraph::GBWTGraph> get_gbwtgraph();
+
+    /// Override the file to load the gbwt index from
+    void set_gbwt_override(const string& filename);
+    /// Get the gbwt index
+    shared_ptr<gbwt::GBWT> get_gbwt();
+
+    /// Override the file to load the distance index from
+    void set_distance_override(const string& filename);
+    /// Get the gbwt index
+    shared_ptr<vg::MinimumDistanceIndex> get_distance();
     
     /**
      * Get the indexes that are used for mapping. If not available, they will be generated.
@@ -63,6 +85,14 @@ protected:
     string vcf_filename;
     // And the basename of the FASTA, which is where we expect to find our indexes.
     string basename;
+
+    // Override filenames for loading all the indexes from
+    string minimizer_override;
+    string gbwtgraph_override;
+    string gbwt_override;
+    string distance_override;
+    string snarls_override;
+    string graph_override;
 
     // Store the final mapping indexes
     shared_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer;
@@ -98,7 +128,8 @@ protected:
     /// We have a template to help us stamp out these ensure functions.
     /// We define it in the CPP since only we ever use it.
     template<typename IndexHolderType>
-    void ensure(IndexHolderType& member, const string& extension, const function<void(istream&)>& load, const function<void(ostream&)>& make_and_save);
+    void ensure(IndexHolderType& member, const string& filename_override, const string& extension,
+        const function<void(istream&)>& load, const function<void(ostream&)>& make_and_save);
 
 
     

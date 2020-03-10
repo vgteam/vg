@@ -339,8 +339,8 @@ int main_gaffe(int argc, char** argv) {
     
 
     // initialize parameters with their default options
-    string xg_name;
     string graph_name;
+    string gbwtgraph_name;
     string gbwt_name;
     vector<string> minimizer_names;
     string distance_name;
@@ -458,16 +458,16 @@ int main_gaffe(int argc, char** argv) {
         switch (c)
         {
             case 'x':
-                xg_name = optarg;
-                if (xg_name.empty()) {
-                    cerr << "error:[vg gaffe] Must provide XG file with -x." << endl;
+                graph_name = optarg;
+                if (graph_name.empty()) {
+                    cerr << "error:[vg gaffe] Must provide graph file with -x." << endl;
                     exit(1);
                 }
                 break;
 
             case 'g':
-                graph_name = optarg;
-                if (graph_name.empty()) {
+                gbwtgraph_name = optarg;
+                if (gbwtgraph_name.empty()) {
                     cerr << "error:[vg gaffe] Must provide GBGTGraph file with -g." << endl;
                     exit(1);
                 }
@@ -717,13 +717,13 @@ int main_gaffe(int argc, char** argv) {
     }
     
     
-    if (xg_name.empty() && graph_name.empty()) {
-        cerr << "error:[vg gaffe] Mapping requires an XG index (-x) or a GBWTGraph (-g)" << endl;
+    if (graph_name.empty() && gbwtgraph_name.empty()) {
+        cerr << "error:[vg gaffe] Mapping requires an graph (-x) or a GBWTGraph (-g)" << endl;
         exit(1);
     }
     
-    if (track_correctness && xg_name.empty()) {
-        cerr << "error:[vg gaffe] Tracking correctness requires and XG index (-x)" << endl;
+    if (track_correctness && graph_name.empty()) {
+        cerr << "error:[vg gaffe] Tracking correctness requires a graph (-x)" << endl;
         exit(1);
     }
     
@@ -753,15 +753,15 @@ int main_gaffe(int argc, char** argv) {
     }
     
     // create in-memory objects
-    if (progress && !xg_name.empty()) {
-        cerr << "Loading XG index " << xg_name << endl;
+    if (progress && !graph_name.empty()) {
+        cerr << "Loading graph " << graph_name << endl;
     }
-    PathPositionHandleGraph* xg_index = nullptr;
+    PathPositionHandleGraph* handle_graph = nullptr;
     unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::PathPositionOverlayHelper overlay_helper;
-    if (!xg_name.empty()) {
-        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
-        xg_index = overlay_helper.apply(path_handle_graph.get());
+    if (!graph_name.empty()) {
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_name);
+        handle_graph = overlay_helper.apply(path_handle_graph.get());
     }
 
     if (progress) {
@@ -784,16 +784,16 @@ int main_gaffe(int argc, char** argv) {
     
     // Build or load the GBWTGraph.
     unique_ptr<gbwtgraph::GBWTGraph> gbwt_graph = nullptr;
-    if (graph_name.empty()) {
+    if (gbwtgraph_name.empty()) {
         if (progress) {
             cerr << "Building GBWTGraph" << endl;
         }
-        gbwt_graph.reset(new gbwtgraph::GBWTGraph(*gbwt_index, *xg_index));
+        gbwt_graph.reset(new gbwtgraph::GBWTGraph(*gbwt_index, *handle_graph));
     } else {
         if (progress) {
-            cerr << "Loading GBWTGraph " << graph_name << endl;
+            cerr << "Loading GBWTGraph " << gbwtgraph_name << endl;
         }
-        gbwt_graph = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(graph_name);
+        gbwt_graph = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(gbwtgraph_name);
         gbwt_graph->set_gbwt(*gbwt_index);
     }
 
@@ -801,7 +801,7 @@ int main_gaffe(int argc, char** argv) {
     if (progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(*gbwt_graph, minimizer_indexes, *distance_index, xg_index);
+    MinimizerMapper minimizer_mapper(*gbwt_graph, minimizer_indexes, *distance_index, handle_graph);
     
     std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
     std::chrono::duration<double> init_seconds = init - launch;
