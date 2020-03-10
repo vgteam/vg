@@ -43,7 +43,14 @@ public:
      *
      * The fasta must be .fa or .fa.gz
      */
-    IndexManager(const string& fasta_filename, const string& vcf_filename = "");
+    IndexManager(const string& fasta_filename = "", const string& vcf_filename = "");
+
+    /// Set the FASTA filename (and thus the basename for looking for other indexes.
+    void set_fasta_filename(const string& filename);
+
+    /// Set the VCF filename
+    void set_vcf_filename(const string& filename);
+
 
     // Functions to set a source filename override, and get an index, for each index type.
 
@@ -66,6 +73,16 @@ public:
     void set_distance_override(const string& filename);
     /// Get the gbwt index
     shared_ptr<vg::MinimumDistanceIndex> get_distance();
+
+    /// Override the file to load the snarls from
+    void set_snarls_override(const string& filename);
+    /// Get the snarls
+    shared_ptr<vg::SnarlManager> get_snarls();
+
+    /// Override the file to load the graph from
+    void set_graph_override(const string& filename);
+    /// Get the graph
+    shared_ptr<PathHandleGraph> get_graph();
     
     /**
      * Get the indexes that are used for mapping. If not available, they will be generated.

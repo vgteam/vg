@@ -22,6 +22,28 @@ using namespace std;
 
 namespace vg {
 
+IndexManager::IndexManager(const string& fasta_filename, const string& vcf_filename) {
+    set_fasta_filename(fasta_filename);
+    set_vcf_filename(vcf_filename);
+}
+
+void IndexManager::set_fasta_filename(const string& filename) {
+    fasta_filename = filename;
+    if (!fasta_filename.empty()) {
+        // Work out the basename from the FASTA name, which may be .fa or .fa.gz
+        pair<string, string> parts = split_ext(fasta_filename);
+        if (parts.second == "gz") {
+            // Split off whatever it was before the .gz
+            parts = split_ext(parts.first);
+        }
+        basename = parts.first;
+    }
+}
+
+void IndexManager::set_vcf_filename(const string& filename) {
+    vcf_filename = filename;
+}
+
 void IndexManager::set_minimizer_override(const string& filename) {
     minimizer_override = filename;
 }
@@ -36,6 +58,14 @@ void IndexManager::set_gbwt_override(const string& filename) {
 
 void IndexManager::set_distance_override(const string& filename) {
     distance_override = filename;
+}
+
+void IndexManager::set_snarls_override(const string& filename) {
+    snarls_override = filename;
+}
+
+void IndexManager::set_graph_override(const string& filename) {
+    graph_override = filename;
 }
 
 shared_ptr<gbwtgraph::DefaultMinimizerIndex> IndexManager::get_minimizer() {
@@ -58,14 +88,14 @@ shared_ptr<vg::MinimumDistanceIndex> IndexManager::get_distance() {
     return distance;
 }
 
-IndexManager::IndexManager(const string& fasta_filename, const string& vcf_filename) : fasta_filename(fasta_filename), vcf_filename(vcf_filename) {
-    // Work out the basename from the FASTA name, which may be .fa or .fa.gz
-    pair<string, string> parts = split_ext(fasta_filename);
-    if (parts.second == "gz") {
-        // Split off whatever it was before the .gz
-        parts = split_ext(parts.first);
-    }
-    basename = parts.first;
+shared_ptr<vg::SnarlManager> IndexManager::get_snarls() {
+    ensure_snarls();
+    return snarls;
+}
+
+shared_ptr<PathHandleGraph> IndexManager::get_graph() {
+    ensure_graph();
+    return graph;
 }
 
 string IndexManager::get_filename(const string& extension) const {
@@ -116,6 +146,8 @@ void IndexManager::ensure_graph() {
         graph.reset(loaded.release());
     }, [&](ostream& out) {
         // Make the graph from the FASTA and VCF
+
+        assert(!fasta_filename.empty());
         
         // Make a graph and give ownership of it to the shared_ptr
         bdsg::HashGraph* mutable_graph = new bdsg::HashGraph();
@@ -128,7 +160,11 @@ void IndexManager::ensure_graph() {
         // Construct the graph.
         // TODO: We can't send a temporary vector to a constt reference for some reason.
         vector<string> fasta_filenames{fasta_filename};
-        vector<string> vcf_filenames{vcf_filename};
+        vector<string> vcf_filenames{};
+        if (!vcf_filename.empty()) {
+            // We actually have variants
+            vcf_filenames.push_back(vcf_filename);
+        }
         vector<string> insertion_filenames{};
         constructor.construct_graph(fasta_filenames, vcf_filenames, insertion_filenames, mutable_graph);
         
