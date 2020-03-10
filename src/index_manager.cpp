@@ -113,13 +113,15 @@ void IndexManager::ensure(IndexHolderType& member, const string& filename_overri
 
     // Work out where to load from/save to
     string filename = get_filename(extension);
-    
+
     // Load from the normal filename, or the override if set
-    ifstream in(filename_override.empty() ? filename : filename_override);
+    string input_filename = filename_override.empty() ? filename : filename_override;
+    
+    ifstream in(input_filename);
     if (in) {
         // Load the item
         if (show_progress) {
-            cerr << "Loading " << extension << "..." << endl;
+            cerr << "Loading " << extension << " from " << input_filename << endl;
         }
         load(in);
     } else {
@@ -132,7 +134,7 @@ void IndexManager::ensure(IndexHolderType& member, const string& filename_overri
         }
         
         if (show_progress) {
-            cerr << "Building " << extension << "..." << endl;
+            cerr << "Building " << extension << " to " << filename << endl;
         }
         make_and_save(out);
     }
