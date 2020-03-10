@@ -18,6 +18,7 @@
 #include "handle.hpp"
 #include "min_distance.hpp"
 #include "snarls.hpp"
+#include "progressive.hpp"
 
 namespace vg {
 
@@ -34,7 +35,7 @@ using namespace std;
  * that the corresponding index is populated, either from disk if available, or
  * from the indexes it depends on, first calling the ensure method for each.
  */
-class IndexManager {
+class IndexManager : public Progressive {
 public:
     /*
      * Make a new IndexManager with the given FASTA providing the basename, and
@@ -49,6 +50,11 @@ public:
      */
     tuple<gbwtgraph::GBWTGraph*, gbwt::GBWT*, gbwtgraph::DefaultMinimizerIndex*, vg::MinimumDistanceIndex*> get_mapping_indexes();
 
+    /// Minimizer kmer length to use when minimizer indexing
+    size_t minimizer_k = 29;
+    /// Minimizer window size to use when minimizer indexing
+    size_t minimizer_w = 11;
+
 protected:
 
     // Save the input FASTA filename
@@ -61,8 +67,8 @@ protected:
     // Store the final mapping indexes
     shared_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer;
     // GBWTGraph needs to keep a reference to the used GBWT alive, so it is stored in a different type.
-    pair<shared_ptr<gbwtgraph::GBWTGraph>, shared_ptr<gbwt::GBWT>> gbwtgraph;
-    shared_ptr<gbwt::GBWT> gbwt;
+    pair<shared_ptr<gbwtgraph::GBWTGraph>, shared_ptr<gbwt::DynamicGBWT>> gbwtgraph;
+    shared_ptr<gbwt::DynamicGBWT> gbwt;
     shared_ptr<vg::MinimumDistanceIndex> distance;
     
     // And then the intermediate types: snarls and base non-GBWT graph

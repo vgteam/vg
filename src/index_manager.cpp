@@ -9,10 +9,12 @@
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include <bdsg/hash_graph.hpp>
+#include <gbwtgraph/index.h> 
 
 #include "index_manager.hpp"
 #include "utility.hpp"
 #include "constructor.hpp"
+#include "haplotype_indexer.hpp"
 #include "io/save_handle_graph.hpp"
 
 
@@ -109,6 +111,94 @@ void IndexManager::ensure_snarls() {
         
         // Save the snarls
         snarls->serialize(out);
+    });
+}
+
+void IndexManager::ensure_distance() {
+    ensure(distance, "dist", [&](istream& in) {
+        // Load distance index from the file
+        auto loaded = vg::io::VPKG::load_one<MinimumDistanceIndex>(in);
+        distance.reset(loaded.release());
+    }, [&](ostream& out) {
+        // Make and save
+
+        ensure_graph();
+        ensure_snarls();
+
+        // Make it
+        distance = make_shared<MinimumDistanceIndex>(graph.get(), snarls.get());
+        
+        // Save it
+        vg::io::VPKG::save(*distance, out);
+    });
+}
+
+void IndexManager::ensure_gbwt() {
+    ensure(gbwt, "gbwt", [&](istream& in) {
+        // Load GBWT from the file
+        auto loaded = vg::io::VPKG::load_one<gbwt::DynamicGBWT>(in);
+        gbwt.reset(loaded.release());
+    }, [&](ostream& out) {
+        // Make and save
+
+        ensure_graph();
+        assert(!vcf_filename.empty());
+
+        HaplotypeIndexer indexer;
+        indexer.show_progress = show_progress;
+
+        // Make it
+        map<string, Path> alt_paths;
+        vector<string> insertion_filenames;
+        auto built = indexer.build_gbwt(graph.get(), alt_paths, false, vcf_filename, insertion_filenames);
+        gbwt.reset(built.release());
+
+        // Save it
+        vg::io::VPKG::save(*gbwt, out);
+    });
+}
+
+void IndexManager::ensure_gbwtgraph() {
+    ensure(gbwtgraph.first, "gg", [&](istream& in) {
+        // Make sure GBWT is ready
+        ensure_gbwt();
+
+        // Load GBWTGraph from the file
+        auto loaded = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(in);
+        loaded->set_gbwt(*gbwt);
+        gbwtgraph.first.reset(loaded.release());
+        gbwtgraph.second = gbwt;
+    }, [&](ostream& out) {
+        // Make and save
+
+        ensure_graph();
+        ensure_gbwt();
+
+        // Make it
+        gbwtgraph.first.reset(new gbwtgraph::GBWTGraph(*gbwt, *graph));
+        gbwtgraph.second = gbwt;
+
+        // Save it
+        vg::io::VPKG::save(*gbwtgraph.first, out);
+    });
+}
+
+void IndexManager::ensure_minimizer() {
+    ensure(minimizer, "min", [&](istream& in) {
+        // Load minimizer index from the file
+        auto loaded = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(in);
+        minimizer.reset(loaded.release());
+    }, [&](ostream& out) {
+        // Make and save
+
+        ensure_gbwtgraph();
+
+        // Make it
+        minimizer.reset(new gbwtgraph::DefaultMinimizerIndex(minimizer_k, minimizer_w));
+        gbwtgraph::index_haplotypes(*gbwtgraph.first, *minimizer);
+
+        // Save it
+        vg::io::VPKG::save(*minimizer, out);
     });
 }
 
