@@ -2,6 +2,7 @@ var searchData=
 [
   ['id',['id',['../structvg_1_1Node.html#af886497fd0ba196f651b5d8f9678b52d',1,'vg::Node']]],
   ['id_5fin_5fparent',['id_in_parent',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a232c3e634d3d2991605883f478942fae',1,'vg::MinimumDistanceIndex::SnarlIndex::id_in_parent()'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#aed44ab3c3147ec9eec0c37a8b0ead39c',1,'vg::MinimumDistanceIndex::ChainIndex::id_in_parent()']]],
+  ['id_5finterval',['id_interval',['../classvg_1_1HaplotypeIndexer.html#af71885cc768549e78097e76e77e90ea8',1,'vg::HaplotypeIndexer']]],
   ['id_5frank_5fmap',['id_rank_map',['../classvg_1_1Viz.html#a5caef0a1bce287d9a5012d36fc1de043',1,'vg::Viz']]],
   ['id_5fto_5fedge_5findices',['id_to_edge_indices',['../structvg_1_1IndexedVG_1_1CacheEntry.html#a75ad6266609d35ec42e64abb2a29c7c8',1,'vg::IndexedVG::CacheEntry']]],
   ['id_5fto_5findex',['id_to_index',['../classvg_1_1XdropAligner.html#a5f85612e0c2b4ce232f8459ab106da74',1,'vg::XdropAligner']]],
@@ -26,6 +27,7 @@ var searchData=
   ['index',['index',['../structhaplo_1_1linear__haplo__structure.html#a79e51544898895192d319f95e95cf2f1',1,'haplo::linear_haplo_structure::index()'],['../classhaplo_1_1GBWTScoreProvider.html#ae24f0ba2be7fdc64cb0d0a33123e41ad',1,'haplo::GBWTScoreProvider::index()'],['../classhaplo_1_1LinearScoreProvider.html#a1ceb289752fb8e83c13e52e82bea393b',1,'haplo::LinearScoreProvider::index()'],['../classvg_1_1IndexedVG.html#a4f618ecb46d596aa053450a4de13e990',1,'vg::IndexedVG::index()']]],
   ['index_5fedges',['index_edges',['../classvg_1_1XdropAligner.html#ad9d341e5789910c47a7cfd32ae355de4',1,'vg::XdropAligner']]],
   ['index_5fedges_5fhead',['index_edges_head',['../classvg_1_1XdropAligner.html#a1c2e62b98c5a0dce8b82722891267a17',1,'vg::XdropAligner']]],
+  ['index_5fpaths',['index_paths',['../classvg_1_1HaplotypeIndexer.html#ad9505a82880c8d30cd41bc83c4a9d76b',1,'vg::HaplotypeIndexer']]],
   ['indexes',['indexes',['../classvg_1_1GraphSynchronizer.html#a1127fed39b1d4775bf03ada4f87b23b4',1,'vg::GraphSynchronizer']]],
   ['inner_5fvalue',['inner_value',['../structhaplo_1_1haplo__DP__rectangle.html#a68817623682eb451f4a5a42a8ae8ef8a',1,'haplo::haplo_DP_rectangle']]],
   ['input',['input',['../structvg_1_1io_1_1hFILE__cppstream.html#a301bcdddd00f4d40033b4ca94691f9a6',1,'vg::io::hFILE_cppstream']]],

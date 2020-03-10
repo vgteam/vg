@@ -7,6 +7,7 @@ var searchData=
   ['haplo_5fdp_5fcolumn',['haplo_DP_column',['../structhaplo_1_1haplo__DP__column.html',1,'haplo']]],
   ['haplo_5fdp_5frectangle',['haplo_DP_rectangle',['../structhaplo_1_1haplo__DP__rectangle.html',1,'haplo']]],
   ['haplotype',['Haplotype',['../classvg_1_1PhasedGenome_1_1Haplotype.html',1,'vg::PhasedGenome']]],
+  ['haplotypeindexer',['HaplotypeIndexer',['../classvg_1_1HaplotypeIndexer.html',1,'vg']]],
   ['haplotypenode',['HaplotypeNode',['../structvg_1_1PhasedGenome_1_1HaplotypeNode.html',1,'vg::PhasedGenome']]],
   ['hash_3c_20const_20vg_3a_3asnarl_20_3e',['hash&lt; const vg::Snarl &gt;',['../structstd_1_1hash_3_01const_01vg_1_1Snarl_01_4.html',1,'std']]],
   ['hash_3c_20handlegraph_3a_3ahandle_5ft_20_3e',['hash&lt; handlegraph::handle_t &gt;',['../structstd_1_1hash_3_01handlegraph_1_1handle__t_01_4.html',1,'std']]],

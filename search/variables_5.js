@@ -43,6 +43,7 @@ var searchData=
   ['exclude_5funaligned',['exclude_unaligned',['../classvg_1_1BaseMapper.html#ac71be220eec4224b249a6536db70bbe5',1,'vg::BaseMapper']]],
   ['excluded_5ffeatures',['excluded_features',['../classvg_1_1ReadFilter.html#acacb1ca6d956c7cab4e2f6c93db0ceb2',1,'vg::ReadFilter']]],
   ['excluded_5frefpos_5fcontigs',['excluded_refpos_contigs',['../classvg_1_1ReadFilter.html#a3b80df71a29a718b34af1becfe821026',1,'vg::ReadFilter']]],
+  ['excluded_5fsamples',['excluded_samples',['../classvg_1_1HaplotypeIndexer.html#aead849ac7d6dc12063c666a0222e3bef',1,'vg::HaplotypeIndexer']]],
   ['exon_5fborder_5fnodes',['exon_border_nodes',['../structvg_1_1Transcript.html#a67368318a461eb29e73ac8a2aae5fcac',1,'vg::Transcript']]],
   ['exons',['exons',['../structvg_1_1Transcript.html#ad2b25d65d35571935300b296eac6bf2c',1,'vg::Transcript']]],
   ['exp_5frho',['exp_rho',['../structhaplo_1_1haploMath_1_1RRMemo.html#a7979b3ef938f0a887ea1b5511d33e9f6',1,'haplo::haploMath::RRMemo']]],

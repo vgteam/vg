@@ -17,6 +17,7 @@ var searchData=
   ['wang_5fhash_5f64',['wang_hash_64',['../namespacevg.html#a38d35bca25e8a6d5fe10f603cb9048c3',1,'vg']]],
   ['want_5fbreakpoint',['want_breakpoint',['../classvg_1_1io_1_1StreamMultiplexer.html#ac0698f3b6387ce47f4e9d5b2929d6cf4',1,'vg::io::StreamMultiplexer']]],
   ['warn_5fon_5flowercase',['warn_on_lowercase',['../classvg_1_1Constructor.html#a9da8d803e6e0c0be942ca2ecc35e9267',1,'vg::Constructor']]],
+  ['warn_5fon_5fmissing_5fvariants',['warn_on_missing_variants',['../classvg_1_1HaplotypeIndexer.html#afb3592792a7d781cb6e88fe7949b7bfe',1,'vg::HaplotypeIndexer']]],
   ['warn_5fon_5fscore_5ffail',['warn_on_score_fail',['../namespacehaplo.html#ab22b0954ba9062360178078ce504f1c2',1,'haplo']]],
   ['warned_5fabout_5frewrites',['warned_about_rewrites',['../classvg_1_1VG.html#a8f0519dc706937b8b593f803f3d8eac4',1,'vg::VG']]],
   ['warned_5falt',['warned_alt',['../classvg_1_1Constructor.html#a796834180783ae5bcd634f737191df9d',1,'vg::Constructor']]],

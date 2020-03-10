@@ -39,6 +39,7 @@ var searchData=
   ['brute_5fforce_5falt_5ftraversals',['brute_force_alt_traversals',['../classvg_1_1VCFTraversalFinder.html#ab27f747fe785a8536cd1f944a5876774',1,'vg::VCFTraversalFinder']]],
   ['build_5fedge_5findexes',['build_edge_indexes',['../classvg_1_1VG.html#a3fb2cb59474393ac822847033f185d17',1,'vg::VG']]],
   ['build_5fedge_5findexes_5fno_5finit_5fsize',['build_edge_indexes_no_init_size',['../classvg_1_1VG.html#af63d4a22a3baa5b21623128b81a14872',1,'vg::VG']]],
+  ['build_5fgbwt',['build_gbwt',['../classvg_1_1HaplotypeIndexer.html#a06c6bf1f4df2c3ad724e36df4fe4029f',1,'vg::HaplotypeIndexer']]],
   ['build_5fgcsa_5flcp',['build_gcsa_lcp',['../namespacevg.html#a34b89433618346e971606020965b10ed',1,'vg']]],
   ['build_5fid_5findex_5ftable',['build_id_index_table',['../classvg_1_1XdropAligner.html#a178bf539a4ba417825383caa88a3f5c2',1,'vg::XdropAligner']]],
   ['build_5findex_5fedge_5ftable',['build_index_edge_table',['../classvg_1_1XdropAligner.html#ab8e119c900c4b48b61f175fd9295cdba',1,'vg::XdropAligner']]],

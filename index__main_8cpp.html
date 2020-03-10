@@ -79,6 +79,7 @@ $(function() {
 <code>#include &quot;<a class="el" href="subcommand_8hpp.html">subcommand.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="vg_8hpp.html">../vg.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="index_8hpp.html">../index.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="haplotype__indexer_8hpp.html">../haplotype_indexer.hpp</a>&quot;</code><br />
 <code>#include &quot;xg.hpp&quot;</code><br />
 <code>#include &lt;<a class="el" href="stream_8hpp.html">vg/io/stream.hpp</a>&gt;</code><br />
 <code>#include &lt;<a class="el" href="vpkg_8hpp.html">vg/io/vpkg.hpp</a>&gt;</code><br />
@@ -105,12 +106,6 @@ Macros</h2></td></tr>
 Functions</h2></td></tr>
 <tr class="memitem:a24afe767ac485cebbc2f2b47ef515274"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="index__main_8cpp.html#a24afe767ac485cebbc2f2b47ef515274">help_index</a> (char **argv)</td></tr>
 <tr class="separator:a24afe767ac485cebbc2f2b47ef515274"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a661d968ecd47c2c0cc02f40a5df3fae0"><td class="memItemLeft" align="right" valign="top">gbwt::vector_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="index__main_8cpp.html#a661d968ecd47c2c0cc02f40a5df3fae0">path_to_gbwt</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
-<tr class="separator:a661d968ecd47c2c0cc02f40a5df3fae0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a83d1e4448840ef3b8804115c3e46f3f1"><td class="memItemLeft" align="right" valign="top">gbwt::vector_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="index__main_8cpp.html#a83d1e4448840ef3b8804115c3e46f3f1">predecessors</a> (const xg::XG &amp;xg_index, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
-<tr class="separator:a83d1e4448840ef3b8804115c3e46f3f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adfa226264fc6c6fecc8f127e8617b991"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="index__main_8cpp.html#adfa226264fc6c6fecc8f127e8617b991">parseGenotypes</a> (const std::string &amp;vcf_line, size_t num_samples)</td></tr>
-<tr class="separator:adfa226264fc6c6fecc8f127e8617b991"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7a9da678374c285546cdf243a185b15e"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="index__main_8cpp.html#a7a9da678374c285546cdf243a185b15e">main_index</a> (int argc, char **argv)</td></tr>
 <tr class="separator:a7a9da678374c285546cdf243a185b15e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
@@ -179,80 +174,6 @@ Functions</h2></td></tr>
           <td></td>
           <td class="paramtype">char **&#160;</td>
           <td class="paramname"><em>argv</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="adfa226264fc6c6fecc8f127e8617b991"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#adfa226264fc6c6fecc8f127e8617b991">&#9670;&nbsp;</a></span>parseGenotypes()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::vector&lt; std::string &gt; parseGenotypes </td>
-          <td>(</td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>vcf_line</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>num_samples</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a661d968ecd47c2c0cc02f40a5df3fae0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a661d968ecd47c2c0cc02f40a5df3fae0">&#9670;&nbsp;</a></span>path_to_gbwt()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">gbwt::vector_type path_to_gbwt </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td>
-          <td class="paramname"><em>path</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a83d1e4448840ef3b8804115c3e46f3f1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a83d1e4448840ef3b8804115c3e46f3f1">&#9670;&nbsp;</a></span>predecessors()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">gbwt::vector_type predecessors </td>
-          <td>(</td>
-          <td class="paramtype">const xg::XG &amp;&#160;</td>
-          <td class="paramname"><em>xg_index</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td>
-          <td class="paramname"><em>path</em>&#160;</td>
         </tr>
         <tr>
           <td></td>

@@ -5,6 +5,8 @@ var searchData=
   ['handle_5fgraph_2ehpp',['handle_graph.hpp',['../handle__graph_8hpp.html',1,'']]],
   ['haplotype_5fextracter_2ecpp',['haplotype_extracter.cpp',['../haplotype__extracter_8cpp.html',1,'']]],
   ['haplotype_5fextracter_2ehpp',['haplotype_extracter.hpp',['../haplotype__extracter_8hpp.html',1,'']]],
+  ['haplotype_5findexer_2ecpp',['haplotype_indexer.cpp',['../haplotype__indexer_8cpp.html',1,'']]],
+  ['haplotype_5findexer_2ehpp',['haplotype_indexer.hpp',['../haplotype__indexer_8hpp.html',1,'']]],
   ['haplotypes_2ecpp',['haplotypes.cpp',['../haplotypes_8cpp.html',1,'']]],
   ['haplotypes_2ehpp',['haplotypes.hpp',['../haplotypes_8hpp.html',1,'']]],
   ['hash_5fmap_2ehpp',['hash_map.hpp',['../hash__map_8hpp.html',1,'']]],
