@@ -3963,8 +3963,11 @@ namespace vg {
                         else if (removed_so_far > 0) {
                             // move these items into their new position
                             multipath_aln_pairs[i - removed_so_far] = move(multipath_aln_pairs[i]);
-                            scores[i - removed_so_far] = move(scores[i]);
+                            scores[i - removed_so_far] = scores[i];
                             cluster_pairs[i - removed_so_far] = move(cluster_pairs[i]);
+                            if (multiplicities) {
+                                (*multiplicities)[i - removed_so_far] = (*multiplicities)[i];
+                            }
                         }
                     }
                     
@@ -3972,6 +3975,9 @@ namespace vg {
                     multipath_aln_pairs.resize(multipath_aln_pairs.size() - to_remove.size());
                     scores.resize(scores.size() - to_remove.size());
                     cluster_pairs.resize(cluster_pairs.size() - to_remove.size());
+                    if (multiplicities) {
+                        multiplicities->resize(multiplicities->size() - to_remove.size());
+                    }
                     
                     // update the indexes of the marked single-end duplicates
                     for (size_t i = 0, removed_so_far = 0; i < duplicates_1.size(); i++) {
