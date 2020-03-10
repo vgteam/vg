@@ -2018,6 +2018,7 @@ namespace vg {
                         cerr << "found a duplicate" << endl;
 #endif
                         duplicate = true;
+                        // TODO: should i take the max of the multiplicities, or let it stay at 1?
                         break;
                     }
                 }
