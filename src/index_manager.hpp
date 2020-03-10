@@ -67,8 +67,8 @@ protected:
     // Store the final mapping indexes
     shared_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer;
     // GBWTGraph needs to keep a reference to the used GBWT alive, so it is stored in a different type.
-    pair<shared_ptr<gbwtgraph::GBWTGraph>, shared_ptr<gbwt::DynamicGBWT>> gbwtgraph;
-    shared_ptr<gbwt::DynamicGBWT> gbwt;
+    pair<shared_ptr<gbwtgraph::GBWTGraph>, shared_ptr<gbwt::GBWT>> gbwtgraph;
+    shared_ptr<gbwt::GBWT> gbwt;
     shared_ptr<vg::MinimumDistanceIndex> distance;
     
     // And then the intermediate types: snarls and base non-GBWT graph

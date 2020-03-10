@@ -136,7 +136,7 @@ void IndexManager::ensure_distance() {
 void IndexManager::ensure_gbwt() {
     ensure(gbwt, "gbwt", [&](istream& in) {
         // Load GBWT from the file
-        auto loaded = vg::io::VPKG::load_one<gbwt::DynamicGBWT>(in);
+        auto loaded = vg::io::VPKG::load_one<gbwt::GBWT>(in);
         gbwt.reset(loaded.release());
     }, [&](ostream& out) {
         // Make and save
@@ -147,11 +147,12 @@ void IndexManager::ensure_gbwt() {
         HaplotypeIndexer indexer;
         indexer.show_progress = show_progress;
 
-        // Make it
+        // Make it, making sure to convert to non-dynamic GBWT
         map<string, Path> alt_paths;
         vector<string> insertion_filenames;
         auto built = indexer.build_gbwt(graph.get(), alt_paths, false, vcf_filename, insertion_filenames);
-        gbwt.reset(built.release());
+        gbwt = make_shared<gbwt::GBWT>(*built);
+        built.reset();
 
         // Save it
         vg::io::VPKG::save(*gbwt, out);
