@@ -88,11 +88,20 @@ protected:
     
     /// Load the minimizer index, or make it from the GBWTGraph and the GBWT and save it to disk.
     void ensure_minimizer();
+
+    /// We have a template to help us stamp out these ensure functions.
+    /// We define it in the CPP since only we ever use it.
+    template<typename IndexHolderType>
+    void ensure(IndexHolderType& member, const string& extension, const function<void(istream&)>& load, const function<void(ostream&)>& make_and_save);
+
+
     
     /// Get the filename for the index file having the given extension.
     /// Extension should not include the dot.
     /// May or may not exist yet.
     string get_filename(const string& extension) const;
+
+    
     
 };
 

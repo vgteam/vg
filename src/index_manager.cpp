@@ -35,30 +35,41 @@ string IndexManager::get_filename(const string& extension) const {
     return basename + "." + extension;
 }
 
-void IndexManager::ensure_graph() {
-    
-    if (graph) {
+template<typename IndexHolderType>
+void IndexManager::ensure(IndexHolderType& member, const string& extension, const function<void(istream&)>& load, const function<void(ostream&)>& make_and_save) {
+    if (member) {
         // Already made
         return;
     }
 
     // Work out where to load from/save to
-    string graph_filename = get_filename("vg");
+    string filename = get_filename("extension");
     
-    ifstream in(graph_filename);
+    ifstream in(filename);
     if (in) {
+        // Load the item
+        load(in);
+    } else {
+        // Make the item and save it
+        
+        // Make sure we will be able to save
+        ofstream out(filename);
+        if (!out) {
+            throw runtime_error("Cound not write to " + filename);
+        }
+        
+        make_and_save(out);
+    }
+}
+
+void IndexManager::ensure_graph() {
+    ensure(graph, "vg", [&](istream& in) {
         // Load the graph
         auto loaded = vg::io::VPKG::load_one<handlegraph::PathHandleGraph>(in);
         // Make it owned by the shared_ptr
         graph.reset(loaded.release());
-    } else {
+    }, [&](ostream& out) {
         // Make the graph from the FASTA and VCF
-        
-        // Make sure we will be able to save the graph
-        ofstream out(graph_filename);
-        if (!out) {
-            throw runtime_error("Cound not save graph to " + graph_filename);
-        }
         
         // Make a graph and give ownership of it to the shared_ptr
         bdsg::HashGraph* mutable_graph = new bdsg::HashGraph();
@@ -77,7 +88,28 @@ void IndexManager::ensure_graph() {
         
         // Save the graph
         vg::io::save_handle_graph(graph.get(), out);
-    }
+    });
+}
+
+void IndexManager::ensure_snarls() {
+    ensure(snarls, "snarls", [&](istream& in) {
+        // Load from the file
+        snarls = make_shared<SnarlManager>(in);
+    }, [&](ostream& out) {
+        // Make the snarls and save them
+
+        ensure_graph();
+
+        // Make a snarl finder
+        auto finder = make_unique<CactusSnarlFinder>(*graph);
+        // Find the snarls and save them
+        snarls = make_shared<SnarlManager>(std::move(finder->find_snarls_parallel()));
+        // Delete the the snarl finder
+        finder.reset();
+        
+        // Save the snarls
+        snarls->serialize(out);
+    });
 }
 
 }
