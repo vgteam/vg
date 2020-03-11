@@ -537,18 +537,17 @@ ReadFilter::Counts ReadFilter::filter_alignment(Alignment& aln) {
                     found = true;
                     break;
                 }
-                    
-                if (center_match < name_prefixes[center].size() && center_match < aln.name().size()) {
-                    // There's a character that differs
-                    if (name_prefixes[center][center_match] < aln.name()[center_match]) {
-                        // The match, if it exists, must be after us.
-                        left_bound = center;
-                        left_match = center_match;
-                    } else {
-                        // The match, if it exists, must be before us
-                        right_bound = center;
-                        right_match = center_match;
-                    }
+                
+                if (center_match == aln.name().size() ||
+                    name_prefixes[center][center_match] > aln.name()[center_match]) {
+                    // The match, if it exists, must be before us
+                    right_bound = center;
+                    right_match = center_match;
+                }
+                else {
+                    // The match, if it exists, must be after us.
+                    left_bound = center;
+                    left_match = center_match;
                 }
             }
         }

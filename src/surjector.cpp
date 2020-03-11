@@ -519,6 +519,10 @@ using namespace std;
                                (deletion_length > 1 ? (deletion_length - 1) * get_aligner()->gap_extension : 0));
             }
             section_edge_scores[i] = edge_score;
+            
+#ifdef debug_spliced_surject
+            cerr << "edge has score " << edge_score << endl;
+#endif
         }
         
         // now we find use dynamic programming to find the best alignment across chunks
@@ -530,7 +534,7 @@ using namespace std;
         for (size_t i = 0; i < sections.size(); ++i) {
             score_dp[i] = sections[i].score();
         }
-        if (!allow_negative_scores) {
+        if (allow_negative_scores) {
             // remove the initialization if it's not a source so we don't allow subpath local alignments
             for (size_t i = 0; i < constriction_targets.size(); ++i) {
                 score_dp[constriction_comps[constriction_targets[i]]] = numeric_limits<int32_t>::min();
@@ -545,6 +549,11 @@ using namespace std;
             is_sink[from] = false;
             
             int32_t extended_score = score_dp[from] + section_edge_scores[i] + sections[to].score();
+            
+#ifdef debug_spliced_surject
+            cerr << "extending from component " << from << " (DP score " << score_dp[from] << ") with score of " << extended_score << " to " << to << " (DP score " << score_dp[to] << ")" << endl;
+#endif
+            
             if (extended_score > score_dp[to]) {
                 score_dp[to] = extended_score;
                 backpointer[to] = from;
@@ -569,6 +578,9 @@ using namespace std;
         
 #ifdef debug_spliced_surject
         cerr << "combining " << traceback.size() << " sections into surjected alignment" << endl;
+        for (int64_t i = traceback.size() - 1; i >= 0; --i) {
+            cerr << "\t" << traceback[i] << endl;
+        }
 #endif
         
         // make an alignment to build out the path in
