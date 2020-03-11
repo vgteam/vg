@@ -14,7 +14,7 @@
 #include <algorithm>
 #include <cmath>
 
-#define debug
+//#define debug
 
 namespace vg {
 

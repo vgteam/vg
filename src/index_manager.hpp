@@ -79,16 +79,12 @@ public:
     /// Get the snarls
     shared_ptr<vg::SnarlManager> get_snarls();
 
-    /// Override the file to load the graph from
+    /// Override the file to load the graph from.
+    /// Also sets index basename to be based on this graph file.
     void set_graph_override(const string& filename);
     /// Get the graph
     shared_ptr<PathHandleGraph> get_graph();
     
-    /**
-     * Get the indexes that are used for mapping. If not available, they will be generated.
-     */
-    tuple<gbwtgraph::GBWTGraph*, gbwt::GBWT*, gbwtgraph::DefaultMinimizerIndex*, vg::MinimumDistanceIndex*> get_mapping_indexes();
-
     /// Minimizer kmer length to use when minimizer indexing
     size_t minimizer_k = 29;
     /// Minimizer window size to use when minimizer indexing
@@ -144,6 +140,8 @@ protected:
 
     /// We have a template to help us stamp out these ensure functions.
     /// We define it in the CPP since only we ever use it.
+    /// Note that the ostream to make_and_save is only open if there is a
+    /// basename and a file to write to.
     template<typename IndexHolderType>
     void ensure(IndexHolderType& member, const string& filename_override, const string& extension,
         const function<void(istream&)>& load, const function<void(ostream&)>& make_and_save);
@@ -153,6 +151,7 @@ protected:
     /// Get the filename for the index file having the given extension.
     /// Extension should not include the dot.
     /// May or may not exist yet.
+    /// Returns "" if there is no basename.
     string get_filename(const string& extension) const;
 
     

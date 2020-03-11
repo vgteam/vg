@@ -16,4 +16,4 @@ vg minimizer -k 29 -w 11 -g x.gbwt -i x.min x.xg
 vg gaffe -x x.xg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped.gam
 is "${?}" "0" "a read can be mapped with all indexes specified without crashing"
 
-rm -f x.vg x.xg x.gbwt x.snarls x.min x.dist mapped.gam
+rm -f x.vg x.xg x.gbwt x.snarls x.min x.dist x.gg mapped.gam

@@ -66,6 +66,16 @@ void IndexManager::set_snarls_override(const string& filename) {
 
 void IndexManager::set_graph_override(const string& filename) {
     graph_override = filename;
+    
+    if (!graph_override.empty()) {
+        // Graph basename should be used instead
+        // TODO: keep it if someone comes along and sets the FASTA afterward.
+        pair<string, string> parts = split_ext(fasta_filename);
+        if (!parts.first.empty()) {
+            // We aren't working with ".xg" or something.
+            basename = parts.first;
+        }
+    }
 }
 
 shared_ptr<gbwtgraph::DefaultMinimizerIndex> IndexManager::get_minimizer() {
@@ -99,7 +109,10 @@ shared_ptr<PathHandleGraph> IndexManager::get_graph() {
 }
 
 string IndexManager::get_filename(const string& extension) const {
-    // Assume the indexes are all next to the FASTA, with the FASTA extension borken off and this one added on.
+    // Assume the indexes are all arranged as basename.ext
+    if (basename.empty()) {
+        return ""; 
+    }
     return basename + "." + extension;
 }
 
@@ -111,12 +124,18 @@ void IndexManager::ensure(IndexHolderType& member, const string& filename_overri
         return;
     }
 
-    // Work out where to load from/save to
-    string filename = get_filename(extension);
 
-    // Load from the normal filename, or the override if set
-    string input_filename = filename_override.empty() ? filename : filename_override;
-    
+    // Work out where to try to load from
+    string input_filename;
+
+    if (!filename_override.empty()) {
+        // Just use the override
+        input_filename = filename_override;
+    } else {
+        // Try to get it based on a basename.
+        input_filename = get_filename(extension);
+    }
+
     ifstream in(input_filename);
     if (in) {
         // Load the item
@@ -126,15 +145,24 @@ void IndexManager::ensure(IndexHolderType& member, const string& filename_overri
         load(in);
     } else {
         // Make the item and save it
-        
-        // Make sure we will be able to save
-        ofstream out(filename);
-        if (!out) {
-            throw runtime_error("Cound not write to " + filename);
+
+        ofstream out;
+
+        string output_filename = get_filename(extension);
+        if (!output_filename.empty()) {
+            // User expects us to write
+            out.open(output_filename);
+            if (!out) {
+                throw runtime_error("Cound not write to " + output_filename);
+            }
         }
         
         if (show_progress) {
-            cerr << "Building " << extension << " to " << filename << endl;
+            cerr << "Building " << extension;
+            if (out) {
+                cerr << " to " << output_filename;
+            }
+            cerr << endl;
         }
         make_and_save(out);
     }
@@ -170,8 +198,10 @@ void IndexManager::ensure_graph() {
         vector<string> insertion_filenames{};
         constructor.construct_graph(fasta_filenames, vcf_filenames, insertion_filenames, mutable_graph);
         
-        // Save the graph
-        vg::io::save_handle_graph(graph.get(), out);
+        if (out) {
+            // Save the graph
+            vg::io::save_handle_graph(graph.get(), out);
+        }
     });
 }
 
@@ -191,8 +221,10 @@ void IndexManager::ensure_snarls() {
         // Delete the the snarl finder
         finder.reset();
         
-        // Save the snarls
-        snarls->serialize(out);
+        if (out) {
+            // Save the snarls
+            snarls->serialize(out);
+        }
     });
 }
 
@@ -210,8 +242,10 @@ void IndexManager::ensure_distance() {
         // Make it
         distance = make_shared<MinimumDistanceIndex>(graph.get(), snarls.get());
         
-        // Save it
-        vg::io::VPKG::save(*distance, out);
+        if (out) {
+            // Save it
+            vg::io::VPKG::save(*distance, out);
+        }
     });
 }
 
@@ -236,8 +270,10 @@ void IndexManager::ensure_gbwt() {
         gbwt = make_shared<gbwt::GBWT>(*built);
         built.reset();
 
-        // Save it
-        vg::io::VPKG::save(*gbwt, out);
+        if (out) {
+            // Save it
+            vg::io::VPKG::save(*gbwt, out);
+        }
     });
 }
 
@@ -261,8 +297,10 @@ void IndexManager::ensure_gbwtgraph() {
         gbwtgraph.first.reset(new gbwtgraph::GBWTGraph(*gbwt, *graph));
         gbwtgraph.second = gbwt;
 
-        // Save it
-        vg::io::VPKG::save(*gbwtgraph.first, out);
+        if (out) {
+            // Save it
+            vg::io::VPKG::save(*gbwtgraph.first, out);
+        }
     });
 }
 
@@ -280,8 +318,10 @@ void IndexManager::ensure_minimizer() {
         minimizer.reset(new gbwtgraph::DefaultMinimizerIndex(minimizer_k, minimizer_w));
         gbwtgraph::index_haplotypes(*gbwtgraph.first, *minimizer);
 
-        // Save it
-        vg::io::VPKG::save(*minimizer, out);
+        if (out) {
+            // Save it
+            vg::io::VPKG::save(*minimizer, out);
+        }
     });
 }
 
