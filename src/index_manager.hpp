@@ -45,7 +45,7 @@ public:
      */
     IndexManager(const string& fasta_filename = "", const string& vcf_filename = "");
 
-    /// Set the FASTA filename (and thus the basename for looking for other indexes.
+    /// Set the FASTA filename (and thus the basename for looking for other indexes, if not already set).
     void set_fasta_filename(const string& filename);
 
     /// Set the VCF filename

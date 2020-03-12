@@ -29,7 +29,7 @@ IndexManager::IndexManager(const string& fasta_filename, const string& vcf_filen
 
 void IndexManager::set_fasta_filename(const string& filename) {
     fasta_filename = filename;
-    if (!fasta_filename.empty()) {
+    if (!fasta_filename.empty() && basename.empty()) {
         // Work out the basename from the FASTA name, which may be .fa or .fa.gz
         pair<string, string> parts = split_ext(fasta_filename);
         if (parts.second == "gz") {

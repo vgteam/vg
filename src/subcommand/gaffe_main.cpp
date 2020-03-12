@@ -719,6 +719,22 @@ int main_gaffe(int argc, char** argv) {
     }
 
     // TODO: check for indexes we won't be able to build but we will need.
+    
+    if (have_input_file(optind, argc, argv)) {
+        // Must be the FASTA
+        indexes.set_fasta_filename(get_input_file_name(optind, argc, argv));
+        
+        if (have_input_file(optind, argc, argv)) {
+            // Next one must be VCF
+            indexes.set_vcf_filename(get_input_file_name(optind, argc, argv));
+        }
+    }
+    
+    if (have_input_file(optind, argc, argv)) {
+        // TODO: work out how to interpret additional files as reads.
+        cerr << "error:[vg gaffe] Extraneous input file: " << get_input_file_name(optind, argc, argv) << endl;
+        exit(1);
+    }
    
     if (interleaved && !fastq_filename_2.empty()) {
         cerr << "error:[vg gaffe] Cannot designate both interleaved paired ends (-i) and separate paired end file (-f)." << endl;
