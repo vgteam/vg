@@ -720,6 +720,41 @@ int main_gaffe(int argc, char** argv) {
 
     // TODO: check for indexes we won't be able to build but we will need.
     
+    if (!indexes.can_get_graph() && !indexes.can_get_gbwtgraph()) {
+        cerr << "error:[vg gaffe] Mapping requires a normal graph (-x) or a GBWTGraph (-g)" << endl;
+        exit(1);
+    }
+    
+    if (track_correctness && !indexes.can_get_graph()) {
+        cerr << "error:[vg gaffe] Tracking correctness requires a normal graph (-x)" << endl;
+        exit(1);
+    }
+    
+    if (!indexes.can_get_gbwt()) {
+        cerr << "error:[vg gaffe] Mapping requires a GBWT index (-H)" << endl;
+        exit(1);
+    }
+    
+    if (!indexes.can_get_minimizer()) {
+        cerr << "error:[vg gaffe] Mapping requires a minimizer index (-m)" << endl;
+        exit(1);
+    }
+    
+    if (!indexes.can_get_distance()) {
+        cerr << "error:[vg gaffe] Mapping requires a distance index (-d)" << endl;
+        exit(1);
+    }
+    
+    if (interleaved && !fastq_filename_2.empty()) {
+        cerr << "error:[vg gaffe] Cannot designate both interleaved paired ends (-i) and separate paired end file (-f)." << endl;
+        exit(1);
+    }
+
+    if (!fastq_filename_1.empty() && !gam_filename.empty()) {
+        cerr << "error:[vg gaffe] Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << endl;
+        exit(1);
+    }
+    
     if (have_input_file(optind, argc, argv)) {
         // Must be the FASTA
         indexes.set_fasta_filename(get_input_file_name(optind, argc, argv));
@@ -733,16 +768,6 @@ int main_gaffe(int argc, char** argv) {
     if (have_input_file(optind, argc, argv)) {
         // TODO: work out how to interpret additional files as reads.
         cerr << "error:[vg gaffe] Extraneous input file: " << get_input_file_name(optind, argc, argv) << endl;
-        exit(1);
-    }
-   
-    if (interleaved && !fastq_filename_2.empty()) {
-        cerr << "error:[vg gaffe] Cannot designate both interleaved paired ends (-i) and separate paired end file (-f)." << endl;
-        exit(1);
-    }
-
-    if (!fastq_filename_1.empty() && !gam_filename.empty()) {
-        cerr << "error:[vg gaffe] Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << endl;
         exit(1);
     }
 

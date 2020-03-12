@@ -181,6 +181,36 @@ void IndexManager::ensure(IndexHolderType& member, const string& filename_overri
     }
 }
 
+template<typename IndexHolderType>
+bool IndexManager::can_get(IndexHolderType& member, const string& filename_override, const string& extension,
+    const function<bool(void)>& poll_dependencies) const {
+    
+    if (member) {
+        // Already made
+        return true;
+    }
+    // Work out where to try to load from
+    string input_filename;
+
+    if (!filename_override.empty()) {
+        // Just use the override
+        input_filename = filename_override;
+    } else {
+        // Try to get it based on a basename.
+        input_filename = get_filename(extension);
+    }
+    
+    if (file_exists(input_filename)) {
+        // We can just load it
+        return true;
+    } else {
+        // Poll dependencies to see if we can make it.
+        // TODO: this will not memoize the recursion and may open files as many
+        // times as they are used in the workflow.
+        return poll_dependencies();
+    }
+}
+
 void IndexManager::ensure_graph() {
     ensure(graph, graph_override, "vg", [&](istream& in) {
         // Load the graph
@@ -218,6 +248,15 @@ void IndexManager::ensure_graph() {
     });
 }
 
+bool IndexManager::can_get_graph() const {
+    return can_get(graph, graph_override, "vg", [&]() {
+        // We can make the vg if we have a FASTA that exists, and either no VCF
+        // or a VCF that exists with an index that exists.
+        return (!fasta_filename.empty() && file_exists(fasta_filename) && 
+            (vcf_filename.empty() || (file_exists(vcf_filename) && file_exists(vcf_filename + ".tbi"))));
+    });
+}
+
 void IndexManager::ensure_snarls() {
     ensure(snarls, snarls_override,  "snarls", [&](istream& in) {
         // Load from the file
@@ -241,6 +280,12 @@ void IndexManager::ensure_snarls() {
     });
 }
 
+bool IndexManager::can_get_snarls() const {
+    return can_get(snarls, snarls_override, "snarls", [&]() {
+        return can_get_graph();
+    });
+}
+
 void IndexManager::ensure_distance() {
     ensure(distance, distance_override, "dist", [&](istream& in) {
         // Load distance index from the file
@@ -259,6 +304,12 @@ void IndexManager::ensure_distance() {
             // Save it
             vg::io::VPKG::save(*distance, out);
         }
+    });
+}
+
+bool IndexManager::can_get_distance() const {
+    return can_get(distance, distance_override, "dist", [&]() {
+        return can_get_graph() && can_get_snarls();
     });
 }
 
@@ -290,6 +341,13 @@ void IndexManager::ensure_gbwt() {
     });
 }
 
+bool IndexManager::can_get_gbwt() const {
+    return can_get(gbwt, gbwt_override, "gbwt", [&]() {
+        // We need the graph and an indexed VCF.
+        return can_get_graph() && !vcf_filename.empty() && file_exists(vcf_filename) && file_exists(vcf_filename + ".tbi");
+    });
+}
+
 void IndexManager::ensure_gbwtgraph() {
     ensure(gbwtgraph.first, gbwtgraph_override, "gg", [&](istream& in) {
         // Make sure GBWT is ready
@@ -317,6 +375,12 @@ void IndexManager::ensure_gbwtgraph() {
     });
 }
 
+bool IndexManager::can_get_gbwtgraph() const {
+    return can_get(gbwtgraph.first, gbwtgraph_override, "gg", [&]() {
+        return can_get_graph() && can_get_gbwt();
+    });
+}
+
 void IndexManager::ensure_minimizer() {
     ensure(minimizer, minimizer_override, "min", [&](istream& in) {
         // Load minimizer index from the file
@@ -335,6 +399,12 @@ void IndexManager::ensure_minimizer() {
             // Save it
             vg::io::VPKG::save(*minimizer, out);
         }
+    });
+}
+
+bool IndexManager::can_get_minimizer() const {
+    return can_get(minimizer, minimizer_override, "min", [&]() {
+        return can_get_gbwtgraph();
     });
 }
 
