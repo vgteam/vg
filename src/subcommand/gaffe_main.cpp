@@ -803,13 +803,19 @@ int main_gaffe(int argc, char** argv) {
 
     // create in-memory objects
     
-
-    // Load the base graph
-    auto graph = indexes.get_graph();
-    // And make sure it has path position support.
-    // Overlay is owned by the overlay_helper, if one is needed.
+    // If we are tracking correctness, we will fill this in with a graph for
+    // getting offsets along ref paths.
+    PathPositionHandleGraph* positional_graph = nullptr;
+    // One of these will actually own it
     bdsg::PathPositionOverlayHelper overlay_helper;
-    PathPositionHandleGraph* positional_graph = overlay_helper.apply(graph.get());
+    shared_ptr<PathHandleGraph> graph;
+    if (track_correctness) {
+        // Load the base graph
+        graph = indexes.get_graph();
+        // And make sure it has path position support.
+        // Overlay is owned by the overlay_helper, if one is needed.
+        positional_graph = overlay_helper.apply(graph.get());
+    }
 
     vector<unique_ptr<gbwtgraph::DefaultMinimizerIndex>> minimizer_index_owner;
     shared_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index_ref;

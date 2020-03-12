@@ -119,7 +119,7 @@ string IndexManager::get_filename(const string& extension) const {
 
 template<typename IndexHolderType>
 void IndexManager::ensure(IndexHolderType& member, const string& filename_override, const string& extension,
-    const function<void(istream&)>& load, const function<void(ostream&)>& make_and_save) {
+    const function<void(ifstream&)>& load, const function<void(ofstream&)>& make_and_save) {
     if (member) {
         // Already made
         return;
@@ -143,7 +143,14 @@ void IndexManager::ensure(IndexHolderType& member, const string& filename_overri
         if (show_progress) {
             cerr << "Loading " << extension << " from " << input_filename << endl;
         }
-        load(in);
+        try {
+            load(in);
+        } catch(const std::exception &e) {
+            // Don't trigger the crash handler just because the user gave us a garbage file.
+            cerr << "error:[vg::IndexManager] Failed to load " << extension << " from " << input_filename << ". Check the file." << endl;
+            cerr << "error:[vg::IndexManager] The specific problem with the file was: " << e.what() << endl;
+            exit(1);
+        }
     } else {
         // Make the item and save it
 
@@ -156,14 +163,18 @@ void IndexManager::ensure(IndexHolderType& member, const string& filename_overri
         if (!output_filename.empty()) {
             // User expects us to write
             out.open(temp_filename);
-            if (!out) {
+            if (!out.is_open()) {
                 throw runtime_error("Cound not write to " + temp_filename);
             }
         }
         
+        // If we have no filename, we shouldn't be trying to write.
+        // Just if(out) can fire anyway, but is_open() should do the test we want.
+        assert(!(output_filename.empty() && out.is_open()));
+        
         if (show_progress) {
             cerr << "Building " << extension;
-            if (out) {
+            if (out.is_open()) {
                 cerr << " to " << output_filename;
             }
             cerr << endl;
@@ -218,19 +229,19 @@ bool IndexManager::can_get(IndexHolderType& member, const string& filename_overr
         // TODO: this will not memoize the recursion and may open files as many
         // times as they are used in the workflow.
         if (show_progress) {
-            cerr << "Checking dependencies..." << endl;
+            cerr << "Needs to be built. Checking dependencies..." << endl;
         }
         return poll_dependencies();
     }
 }
 
 void IndexManager::ensure_graph() {
-    ensure(graph, graph_override, "vg", [&](istream& in) {
+    ensure(graph, graph_override, "vg", [&](ifstream& in) {
         // Load the graph
         auto loaded = vg::io::VPKG::load_one<handlegraph::PathHandleGraph>(in);
         // Make it owned by the shared_ptr
         graph.reset(loaded.release());
-    }, [&](ostream& out) {
+    }, [&](ofstream& out) {
         // Make the graph from the FASTA and VCF
 
         assert(!fasta_filename.empty());
@@ -254,7 +265,7 @@ void IndexManager::ensure_graph() {
         vector<string> insertion_filenames{};
         constructor.construct_graph(fasta_filenames, vcf_filenames, insertion_filenames, mutable_graph);
         
-        if (out) {
+        if (out.is_open()) {
             // Save the graph
             vg::io::save_handle_graph(graph.get(), out);
         }
@@ -290,10 +301,10 @@ bool IndexManager::can_get_graph() const {
 }
 
 void IndexManager::ensure_snarls() {
-    ensure(snarls, snarls_override,  "snarls", [&](istream& in) {
+    ensure(snarls, snarls_override,  "snarls", [&](ifstream& in) {
         // Load from the file
         snarls = make_shared<SnarlManager>(in);
-    }, [&](ostream& out) {
+    }, [&](ofstream& out) {
         // Make the snarls and save them
 
         ensure_graph();
@@ -305,7 +316,7 @@ void IndexManager::ensure_snarls() {
         // Delete the the snarl finder
         finder.reset();
         
-        if (out) {
+        if (out.is_open()) {
             // Save the snarls
             snarls->serialize(out);
         }
@@ -323,11 +334,11 @@ bool IndexManager::can_get_snarls() const {
 }
 
 void IndexManager::ensure_distance() {
-    ensure(distance, distance_override, "dist", [&](istream& in) {
+    ensure(distance, distance_override, "dist", [&](ifstream& in) {
         // Load distance index from the file
         auto loaded = vg::io::VPKG::load_one<MinimumDistanceIndex>(in);
         distance.reset(loaded.release());
-    }, [&](ostream& out) {
+    }, [&](ofstream& out) {
         // Make and save
 
         ensure_graph();
@@ -336,7 +347,7 @@ void IndexManager::ensure_distance() {
         // Make it
         distance = make_shared<MinimumDistanceIndex>(graph.get(), snarls.get());
         
-        if (out) {
+        if (out.is_open()) {
             // Save it
             vg::io::VPKG::save(*distance, out);
         }
@@ -358,11 +369,11 @@ bool IndexManager::can_get_distance() const {
 }
 
 void IndexManager::ensure_gbwt() {
-    ensure(gbwt, gbwt_override, "gbwt", [&](istream& in) {
+    ensure(gbwt, gbwt_override, "gbwt", [&](ifstream& in) {
         // Load GBWT from the file
         auto loaded = vg::io::VPKG::load_one<gbwt::GBWT>(in);
         gbwt.reset(loaded.release());
-    }, [&](ostream& out) {
+    }, [&](ofstream& out) {
         // Make and save
 
         ensure_graph();
@@ -378,7 +389,7 @@ void IndexManager::ensure_gbwt() {
         gbwt = make_shared<gbwt::GBWT>(*built);
         built.reset();
 
-        if (out) {
+        if (out.is_open()) {
             // Save it
             vg::io::VPKG::save(*gbwt, out);
         }
@@ -410,7 +421,7 @@ bool IndexManager::can_get_gbwt() const {
 }
 
 void IndexManager::ensure_gbwtgraph() {
-    ensure(gbwtgraph.first, gbwtgraph_override, "gg", [&](istream& in) {
+    ensure(gbwtgraph.first, gbwtgraph_override, "gg", [&](ifstream& in) {
         // Make sure GBWT is ready
         ensure_gbwt();
 
@@ -419,7 +430,7 @@ void IndexManager::ensure_gbwtgraph() {
         loaded->set_gbwt(*gbwt);
         gbwtgraph.first.reset(loaded.release());
         gbwtgraph.second = gbwt;
-    }, [&](ostream& out) {
+    }, [&](ofstream& out) {
         // Make and save
 
         ensure_graph();
@@ -429,7 +440,7 @@ void IndexManager::ensure_gbwtgraph() {
         gbwtgraph.first.reset(new gbwtgraph::GBWTGraph(*gbwt, *graph));
         gbwtgraph.second = gbwt;
 
-        if (out) {
+        if (out.is_open()) {
             // Save it
             vg::io::VPKG::save(*gbwtgraph.first, out);
         }
@@ -451,11 +462,11 @@ bool IndexManager::can_get_gbwtgraph() const {
 }
 
 void IndexManager::ensure_minimizer() {
-    ensure(minimizer, minimizer_override, "min", [&](istream& in) {
+    ensure(minimizer, minimizer_override, "min", [&](ifstream& in) {
         // Load minimizer index from the file
         auto loaded = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(in);
         minimizer.reset(loaded.release());
-    }, [&](ostream& out) {
+    }, [&](ofstream& out) {
         // Make and save
 
         ensure_gbwtgraph();
@@ -464,7 +475,7 @@ void IndexManager::ensure_minimizer() {
         minimizer.reset(new gbwtgraph::DefaultMinimizerIndex(minimizer_k, minimizer_w));
         gbwtgraph::index_haplotypes(*gbwtgraph.first, *minimizer);
 
-        if (out) {
+        if (out.is_open()) {
             // Save it
             vg::io::VPKG::save(*minimizer, out);
         }

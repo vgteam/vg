@@ -47,6 +47,10 @@ using namespace std;
  * 6. A public method "can_get_foo()" which returns true if it thinks get_foo()
  *    will be successful, and false (and prints a warning) if e.g. necessary
  *    files are missing.
+ *
+ * Note that the IndexManager may exit the process, instead of throwing an
+ * exception, if something goes wrong during a "get_foo()" method, so you
+ * should check "can_get_foo()" first.
  */
 class IndexManager : public Progressive {
 public:
@@ -170,7 +174,7 @@ protected:
     /// basename and a file to write to.
     template<typename IndexHolderType>
     void ensure(IndexHolderType& member, const string& filename_override, const string& extension,
-        const function<void(istream&)>& load, const function<void(ostream&)>& make_and_save);
+        const function<void(ifstream&)>& load, const function<void(ofstream&)>& make_and_save);
         
     
     /// We have a template for helping write the can_get functions. Defined in
