@@ -45,7 +45,8 @@ using namespace std;
  * 4. A public method "set_foo_override()" to set the override filename.
  * 5. A public method "get_foo()" to fill it in (via "ensure_foo()") and return it.
  * 6. A public method "can_get_foo()" which returns true if it thinks get_foo()
- *    will be successful, and false if e.g. necessary files are missing.
+ *    will be successful, and false (and prints a warning) if e.g. necessary
+ *    files are missing.
  */
 class IndexManager : public Progressive {
 public:

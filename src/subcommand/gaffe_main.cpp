@@ -718,9 +718,49 @@ int main_gaffe(int argc, char** argv) {
         }
     }
 
-    // TODO: check for indexes we won't be able to build but we will need.
+   
+    // Propagate progress
+    indexes.show_progress = show_progress;
     
-    if (!indexes.can_get_graph() && !indexes.can_get_gbwtgraph()) {
+    // Get positional arguments before validating user intent
+    if (have_input_file(optind, argc, argv)) {
+        // Must be the FASTA, but check.
+        
+        string fasta_filename = get_input_file_name(optind, argc, argv);
+        
+        auto fasta_parts = split_ext(fasta_filename);
+        if (fasta_parts.second == "gz") {
+            fasta_parts = split_ext(fasta_parts.first);
+        }
+        if (fasta_parts.second != "fa" && fasta_parts.second != "fasta" && fasta_parts.second != "fna") {
+            cerr << "error:[vg gaffe] FASTA file " << fasta_filename << " is not named like a FASTA" << endl;
+            exit(1);
+        }
+        
+        indexes.set_fasta_filename(fasta_filename);
+        
+        if (have_input_file(optind, argc, argv)) {
+            // Next one must be VCF, but check.
+            // TODO: Unify with FASTA check?
+            // TODO: Move over to the index manager?
+            
+            string vcf_filename = get_input_file_name(optind, argc, argv);
+            
+            auto vcf_parts = split_ext(vcf_filename);
+            if (vcf_parts.second == "gz") {
+                vcf_parts = split_ext(vcf_parts.first);
+            }
+            if (vcf_parts.second != "vcf") {
+                cerr << "error:[vg gaffe] VCF file " << vcf_filename << " is not named like a VCF" << endl;
+                exit(1);
+            }
+            
+            indexes.set_vcf_filename(vcf_filename);
+        }
+    }
+   
+    // Now all the arguments are parsed, so see if they make sense
+    if (!indexes.can_get_gbwtgraph() && !indexes.can_get_graph()) {
         cerr << "error:[vg gaffe] Mapping requires a normal graph (-x) or a GBWTGraph (-g)" << endl;
         exit(1);
     }
@@ -756,24 +796,11 @@ int main_gaffe(int argc, char** argv) {
     }
     
     if (have_input_file(optind, argc, argv)) {
-        // Must be the FASTA
-        indexes.set_fasta_filename(get_input_file_name(optind, argc, argv));
-        
-        if (have_input_file(optind, argc, argv)) {
-            // Next one must be VCF
-            indexes.set_vcf_filename(get_input_file_name(optind, argc, argv));
-        }
-    }
-    
-    if (have_input_file(optind, argc, argv)) {
         // TODO: work out how to interpret additional files as reads.
         cerr << "error:[vg gaffe] Extraneous input file: " << get_input_file_name(optind, argc, argv) << endl;
         exit(1);
     }
 
-    // Propagate progress
-    indexes.show_progress = show_progress;
-    
     // create in-memory objects
     
 

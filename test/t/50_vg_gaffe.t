@@ -32,7 +32,6 @@ vg view -aj mapped2.gam >mapped2.json
 
 # Make sure at least one file converted successfully
 SIZE="$(wc -c mapped2.json | cut -f1 -d' ')"
-echo "Size: ${SIZE}"
 EMPTY=0
 if [ "${SIZE}" == "0" ] ; then
     EMPTY=1

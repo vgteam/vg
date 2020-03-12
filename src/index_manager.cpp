@@ -185,8 +185,15 @@ template<typename IndexHolderType>
 bool IndexManager::can_get(IndexHolderType& member, const string& filename_override, const string& extension,
     const function<bool(void)>& poll_dependencies) const {
     
+    if (show_progress) {
+        cerr << "Checking for availability of " << extension << " index: ";
+    }
+    
     if (member) {
         // Already made
+        if (show_progress) {
+            cerr << "Already loaded" << endl;
+        }
         return true;
     }
     // Work out where to try to load from
@@ -202,11 +209,17 @@ bool IndexManager::can_get(IndexHolderType& member, const string& filename_overr
     
     if (file_exists(input_filename)) {
         // We can just load it
+        if (show_progress) {
+            cerr << "Loadable from " << input_filename << endl;
+        }
         return true;
     } else {
         // Poll dependencies to see if we can make it.
         // TODO: this will not memoize the recursion and may open files as many
         // times as they are used in the workflow.
+        if (show_progress) {
+            cerr << "Checking dependencies..." << endl;
+        }
         return poll_dependencies();
     }
 }
@@ -252,8 +265,27 @@ bool IndexManager::can_get_graph() const {
     return can_get(graph, graph_override, "vg", [&]() {
         // We can make the vg if we have a FASTA that exists, and either no VCF
         // or a VCF that exists with an index that exists.
-        return (!fasta_filename.empty() && file_exists(fasta_filename) && 
-            (vcf_filename.empty() || (file_exists(vcf_filename) && file_exists(vcf_filename + ".tbi"))));
+        
+        if (fasta_filename.empty()) {
+            cerr << "warning:[vg::IndexManager] Graph cannot be built because no FASTA file is specified" << endl;
+            return false;
+        }
+        if (!file_exists(fasta_filename)) {
+            cerr << "warning:[vg::IndexManager] Graph cannot be built because FASTA file " << fasta_filename << " can't be read" << endl;
+            return false;
+        }
+        if (!vcf_filename.empty()) {
+            if (!file_exists(vcf_filename)) {
+                cerr << "warning:[vg::IndexManager] Graph cannot be built because VCF file " << vcf_filename << " can't be read" << endl;
+                return false;
+            }
+            string vcf_index_filename = vcf_filename + ".tbi";
+            if (!file_exists(vcf_index_filename)) {
+                cerr << "warning:[vg::IndexManager] Graph cannot be built because VCF index file " << vcf_index_filename << " can't be read" << endl;
+                return false;
+            }
+        }
+        return true;
     });
 }
 
@@ -282,7 +314,11 @@ void IndexManager::ensure_snarls() {
 
 bool IndexManager::can_get_snarls() const {
     return can_get(snarls, snarls_override, "snarls", [&]() {
-        return can_get_graph();
+        if (!can_get_graph()) {
+            cerr << "warning:[vg::IndexManager] Snarls cannot be built because graph is unavailable" << endl;
+            return false;
+        }
+        return true;
     });
 }
 
@@ -309,7 +345,15 @@ void IndexManager::ensure_distance() {
 
 bool IndexManager::can_get_distance() const {
     return can_get(distance, distance_override, "dist", [&]() {
-        return can_get_graph() && can_get_snarls();
+        if (!can_get_graph()) {
+            cerr << "warning:[vg::IndexManager] Distance index cannot be built because graph is unavailable" << endl;
+            return false;
+        }
+        if (!can_get_snarls()) {
+            cerr << "warning:[vg::IndexManager] Distance index cannot be built because snarls are unavailable" << endl;
+            return false;
+        }
+        return true;
     });
 }
 
@@ -344,7 +388,24 @@ void IndexManager::ensure_gbwt() {
 bool IndexManager::can_get_gbwt() const {
     return can_get(gbwt, gbwt_override, "gbwt", [&]() {
         // We need the graph and an indexed VCF.
-        return can_get_graph() && !vcf_filename.empty() && file_exists(vcf_filename) && file_exists(vcf_filename + ".tbi");
+        if (!can_get_graph()) {
+            cerr << "warning:[vg::IndexManager] GBWT cannot be built because graph is unavailable" << endl;
+            return false;
+        }
+        if (vcf_filename.empty()) {
+            cerr << "warning:[vg::IndexManager] GBWT cannot be built because no VCF file is specified" << endl;
+            return false;
+        }
+        if (!file_exists(vcf_filename)) {
+            cerr << "warning:[vg::IndexManager] GBWT cannot be built because VCF file " << vcf_filename << " can't be read" << endl;
+            return false;
+        }
+        string vcf_index_filename = vcf_filename + ".tbi";
+        if (!file_exists(vcf_index_filename)) {
+            cerr << "warning:[vg::IndexManager] GBWT cannot be built because VCF index file " << vcf_index_filename << " can't be read" << endl;
+            return false;
+        }
+        return true;
     });
 }
 
@@ -377,7 +438,15 @@ void IndexManager::ensure_gbwtgraph() {
 
 bool IndexManager::can_get_gbwtgraph() const {
     return can_get(gbwtgraph.first, gbwtgraph_override, "gg", [&]() {
-        return can_get_graph() && can_get_gbwt();
+         if (!can_get_graph()) {
+            cerr << "warning:[vg::IndexManager] GBWTGraph cannot be built because graph is unavailable" << endl;
+            return false;
+        }
+        if (!can_get_gbwt()) {
+            cerr << "warning:[vg::IndexManager] GBWTGraph cannot be built because GBWT is unavailable" << endl;
+            return false;
+        }
+        return true;
     });
 }
 
@@ -404,7 +473,11 @@ void IndexManager::ensure_minimizer() {
 
 bool IndexManager::can_get_minimizer() const {
     return can_get(minimizer, minimizer_override, "min", [&]() {
-        return can_get_gbwtgraph();
+        if (!can_get_gbwtgraph()) {
+            cerr << "warning:[vg::IndexManager] Minimizer index cannot be built because GBWTGraph is unavailable" << endl;
+            return false;
+        }
+        return true;
     });
 }
 
