@@ -5,6 +5,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <cstdio>
 
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
@@ -149,11 +150,14 @@ void IndexManager::ensure(IndexHolderType& member, const string& filename_overri
         ofstream out;
 
         string output_filename = get_filename(extension);
+        // Don't make the output file until we're done with the build.
+        // Otherwise if we fail we'll think we succeeded.
+        string temp_filename = output_filename + ".part";
         if (!output_filename.empty()) {
             // User expects us to write
-            out.open(output_filename);
+            out.open(temp_filename);
             if (!out) {
-                throw runtime_error("Cound not write to " + output_filename);
+                throw runtime_error("Cound not write to " + temp_filename);
             }
         }
         
@@ -165,6 +169,15 @@ void IndexManager::ensure(IndexHolderType& member, const string& filename_overri
             cerr << endl;
         }
         make_and_save(out);
+        
+        if (!output_filename.empty()) {
+            // We made the file.
+            // Now clobber the real destinatiuon with the temp file.
+            if (rename(temp_filename.c_str(), output_filename.c_str())) {
+                // Rename failed
+                throw runtime_error("Cound not move " + temp_filename + " to " + output_filename);
+            }
+        }
     }
 }
 
