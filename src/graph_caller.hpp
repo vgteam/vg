@@ -238,7 +238,7 @@ public:
                SupportBasedSnarlCaller& snarl_caller,
                SnarlManager& snarl_manager,
                const string& sample_name,
-               size_t max_traverals = 100,
+               size_t max_traverals,
                const vector<string>& ref_paths = {},
                const vector<size_t>& ref_path_offsets = {},
                ostream& out_stream = cout);
