@@ -1832,6 +1832,56 @@ void normalize_alignment(Alignment& alignment) {
     }
 }
 
+bool uses_Us(const Alignment& alignment) {
+    
+    for (char nt : alignment.sequence()) {
+        switch (nt) {
+            case 'U':
+                return true;
+                break;
+                
+            case 'T':
+                return false;
+                break;
+                
+            default:
+                break;
+        }
+    }
+    return false;
+}
+
+void convert_alignment_char(Alignment& alignment, char from, char to) {
+    auto& seq = *alignment.mutable_sequence();
+    for (size_t i = 0; i < seq.size(); ++i) {
+        if (seq[i] == from) {
+            seq[i] = to;
+        }
+    }
+    if (alignment.has_path()) {
+        for (Mapping& mapping : *alignment.mutable_path()->mutable_mapping()) {
+            for (Edit& edit : *mapping.mutable_edit()) {
+                if (!edit.sequence().empty()) {
+                    auto& eseq = *edit.mutable_sequence();
+                    for (size_t i = 0; i < eseq.size(); ++i) {
+                        if (eseq[i] == from) {
+                            eseq[i] = to;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+void convert_Us_to_Ts(Alignment& alignment) {
+    convert_alignment_char(alignment, 'U', 'T');
+}
+
+void convert_Ts_to_Us(Alignment& alignment) {
+    convert_alignment_char(alignment, 'T', 'U');
+}
+
 map<id_t, int> alignment_quality_per_node(const Alignment& aln) {
     map<id_t, int> quals;
     int to_pos = 0; // offset in quals

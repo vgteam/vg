@@ -218,6 +218,17 @@ void translate_nodes(Alignment& a, const unordered_map<id_t, pair<id_t, bool> >&
 // listed. It needs a callback to ask the length of any given node.
 void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_t(int64_t)>& node_length);
 
+/// Returns true if the alignment sequence contains any U's and false if the alignment sequence contains
+/// and T's. In the case that both T's and U's are included, responds according to whichever comes first.
+/// If the sequence contains neither U's nor T's, returns false.
+bool uses_Us(const Alignment& alignment);
+
+/// Replaces any U's in the sequence or the Path with T's
+void convert_Us_to_Ts(Alignment& alignment);
+
+/// Replaces any T's in the sequence or the Path with U's
+void convert_Ts_to_Us(Alignment& alignment);
+
 /// Simplifies the Path in the Alignment. Note that this removes deletions at
 /// the start and end of Mappings, so code that handles simplified Alignments
 /// needs to handle offsets on internal Mappings.

@@ -1254,9 +1254,21 @@ int main_mpmap(int argc, char** argv) {
         if (watchdog) {
             watchdog->check_in(thread_num, alignment.name());
         }
+        
+        bool is_rna = uses_Us(alignment);
+        if (is_rna) {
+            convert_Us_to_Ts(alignment);
+        }
 
         vector<MultipathAlignment> mp_alns;
         multipath_mapper.multipath_map(alignment, mp_alns);
+        
+        if (is_rna) {
+            for (MultipathAlignment& mp_aln : mp_alns) {
+                convert_Ts_to_Us(mp_aln);
+            }
+        }
+        
         if (single_path_alignment_mode) {
             output_single_path_alignments(mp_alns);
         }
@@ -1290,6 +1302,12 @@ int main_mpmap(int argc, char** argv) {
             watchdog->check_in(thread_num, alignment_1.name());
         }
         
+        bool is_rna = (uses_Us(alignment_1) || uses_Us(alignment_2));
+        if (is_rna) {
+            convert_Us_to_Ts(alignment_1);
+            convert_Us_to_Ts(alignment_2);
+        }
+        
         if (!same_strand) {
             // remove the path so we won't try to RC it (the path may not refer to this graph)
             alignment_2.clear_path();
@@ -1298,6 +1316,14 @@ int main_mpmap(int argc, char** argv) {
                 
         vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;
         multipath_mapper.multipath_map_paired(alignment_1, alignment_2, mp_aln_pairs, ambiguous_pair_buffer);
+        
+        if (is_rna) {
+            for (pair<MultipathAlignment, MultipathAlignment>& mp_aln_pair : mp_aln_pairs) {
+                convert_Ts_to_Us(mp_aln_pair.first);
+                convert_Ts_to_Us(mp_aln_pair.second);
+            }
+        }
+        
         if (single_path_alignment_mode) {
             output_single_path_paired_alignments(mp_aln_pairs);
         }
@@ -1330,9 +1356,16 @@ int main_mpmap(int argc, char** argv) {
         if (watchdog) {
             watchdog->check_in(thread_num, alignment_1.name());
         }
+        
+        bool is_rna = (uses_Us(alignment_1) || uses_Us(alignment_2));
+        if (is_rna) {
+            convert_Us_to_Ts(alignment_1);
+            convert_Us_to_Ts(alignment_2);
+        }
 
         if (!same_strand) {
-            // TODO: the output functions undo this transformation, so we have to do it here.
+            // the algorithm expects the read pairs to be on the same strand, so we need to flip read 2
+            // (the output functions will undo the transformation)
         
             // remove the path so we won't try to RC it (the path may not refer to this graph)
             alignment_2.clear_path();
@@ -1343,6 +1376,16 @@ int main_mpmap(int argc, char** argv) {
         vector<MultipathAlignment> mp_alns_1, mp_alns_2;
         multipath_mapper.multipath_map(alignment_1, mp_alns_1);
         multipath_mapper.multipath_map(alignment_2, mp_alns_2);
+        
+        
+        if (is_rna) {
+            for (MultipathAlignment& mp_aln : mp_alns_1) {
+                convert_Ts_to_Us(mp_aln);
+            }
+            for (MultipathAlignment& mp_aln : mp_alns_2) {
+                convert_Ts_to_Us(mp_aln);
+            }
+        }
                
         vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;
         for (size_t i = 0; i < mp_alns_1.size() && i < mp_alns_2.size(); i++) {
