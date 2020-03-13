@@ -1283,7 +1283,7 @@ int main_mpmap(int argc, char** argv) {
 #ifdef record_read_run_times
         clock_t finish = clock();
 #pragma omp critical
-        read_time_file << alignment.name() << "\t" << double(finish - start) / CLOCKS_PER_SEC << endl;
+        read_time_file << alignment.name() << "\t" << alignment.sequence().size() << "\t" << double(finish - start) / CLOCKS_PER_SEC << endl;
 #endif
     };
     
@@ -1338,7 +1338,7 @@ int main_mpmap(int argc, char** argv) {
 #ifdef record_read_run_times
         clock_t finish = clock();
 #pragma omp critical
-        read_time_file << alignment_1.name() << "\t" << alignment_2.name() << "\t" << double(finish - start) / CLOCKS_PER_SEC << endl;
+        read_time_file << alignment_1.name() << "\t" << alignment_2.name() << "\t" << alignment_1.sequence().size() << "\t" << alignment_2.sequence().size() << "\t" << double(finish - start) / CLOCKS_PER_SEC << endl;
 #endif
     };
     
@@ -1409,7 +1409,7 @@ int main_mpmap(int argc, char** argv) {
 #ifdef record_read_run_times
         clock_t finish = clock();
 #pragma omp critical
-        read_time_file << alignment_1.name() << "\t" << alignment_2.name() << "\t" << double(finish - start) / CLOCKS_PER_SEC << endl;
+        read_time_file << alignment_1.name() << "\t" << alignment_2.name() << "\t" << alignment_1.sequence().size() << "\t" << alignment_2.sequence().size() << "\t" << double(finish - start) / CLOCKS_PER_SEC << endl;
 #endif
     };
     
