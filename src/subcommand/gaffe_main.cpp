@@ -288,11 +288,11 @@ void help_gaffe(char** argv) {
     << "Map unpaired reads using minimizers and gapless extension." << endl
     << endl
     << "basic options:" << endl
-    << "  -x, --xg-name FILE            use this xg index or graph (required if -g not specified)" << endl
-    << "  -g, --graph-name FILE         use this GBWTGraph (required if -x not specified)" << endl
-    << "  -H, --gbwt-name FILE          use this GBWT index (required)" << endl
-    << "  -m, --minimizer-name FILE     use this minimizer index (required; may repeat)" << endl
-    << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
+    << "  -x, --xg-name FILE            use this xg index or graph" << endl
+    << "  -g, --graph-name FILE         use this GBWTGraph" << endl
+    << "  -H, --gbwt-name FILE          use this GBWT index" << endl
+    << "  -m, --minimizer-name FILE     use this minimizer index (may repeat)" << endl
+    << "  -d, --dist-name FILE          cluster using this distance index" << endl
     << "  -p, --progress                show progress" << endl
     << "input options:" << endl
     << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE" << endl
