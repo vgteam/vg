@@ -14,6 +14,7 @@ var searchData=
   ['edge_5fsupport_5fcache',['edge_support_cache',['../classvg_1_1CachedPackedTraversalSupportFinder.html#a522597cae1d53338cc7cce4d8f2220af',1,'vg::CachedPackedTraversalSupportFinder']]],
   ['edge_5fsupports',['edge_supports',['../structvg_1_1SupportAugmentedGraph.html#a8ad39feeefa25e87a09571524f0467ef',1,'vg::SupportAugmentedGraph']]],
   ['edge_5fweight',['edge_weight',['../structvg_1_1FlowSort_1_1WeightedGraph.html#a0a343b1685fe587b3ddd3e68a8c1e456',1,'vg::FlowSort::WeightedGraph']]],
+  ['edge_5fweight_5fcallback',['edge_weight_callback',['../classvg_1_1FlowTraversalFinder.html#ab47146aa9a038f781c2931b7bacb76a6',1,'vg::FlowTraversalFinder']]],
   ['edges',['edges',['../classvg_1_1PathNode.html#a6cb73afb96a71fde67792e70c3a6eed1',1,'vg::PathNode']]],
   ['edges_5ffrom',['edges_from',['../classvg_1_1MEMClusterer_1_1HitNode.html#a08f1cb5b86c27e7b763d16bcaeff2555',1,'vg::MEMClusterer::HitNode']]],
   ['edges_5fin_5fnodes',['edges_in_nodes',['../structvg_1_1FlowSort_1_1WeightedGraph.html#a66f3b9dc262d89dfedae8189e8869d9e',1,'vg::FlowSort::WeightedGraph']]],

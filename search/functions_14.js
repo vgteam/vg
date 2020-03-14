@@ -74,7 +74,7 @@ var searchData=
   ['trav_5fsequence',['trav_sequence',['../classvg_1_1VG.html#a57296ecbcfce10f95b86233e10c35d7d',1,'vg::VG']]],
   ['traversal_5fentry_5fto_5fstring',['traversal_entry_to_string',['../classvg_1_1Index.html#a7854f4dc7725be6ab73e04f9a95365ff',1,'vg::Index']]],
   ['traversal_5fto_5fstring',['traversal_to_string',['../namespacevg.html#a94385b32246fc81a0a44ea1b47d994ee',1,'vg']]],
-  ['traversalsupportfinder',['TraversalSupportFinder',['../classvg_1_1TraversalSupportFinder.html#a48adb4cc00a9c84ec716970cb2cb509a',1,'vg::TraversalSupportFinder']]],
+  ['traversalsupportfinder',['TraversalSupportFinder',['../classvg_1_1TraversalSupportFinder.html#ab281113b3cdf2992299a2768ce1be832',1,'vg::TraversalSupportFinder']]],
   ['traverse_5fedge_5fhandle',['traverse_edge_handle',['../classhandlegraph_1_1HandleGraph.html#af167b0664299cfd4eac610f129fa5fee',1,'handlegraph::HandleGraph']]],
   ['traverse_5fin_5forder',['traverse_in_order',['../classvg_1_1BitStringTree.html#a5f825ebeb38c6d1572fa73692810c273',1,'vg::BitStringTree::traverse_in_order()'],['../structvg_1_1BitStringTree_1_1TreeNode.html#aa89c88fbab67819e3f072da4bc82e253',1,'vg::BitStringTree::TreeNode::traverse_in_order()']]],
   ['traverse_5fleft',['traverse_left',['../classvg_1_1Paths.html#a861618af488874863197ad48f17a9ae4',1,'vg::Paths']]],

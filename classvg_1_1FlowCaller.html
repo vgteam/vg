@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: vg::VCFGenotyper Class Reference</title>
+<title>vg: vg::FlowCaller Class Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,27 +59,26 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="namespacevg.html">vg</a></li><li class="navelem"><a class="el" href="classvg_1_1VCFGenotyper.html">VCFGenotyper</a></li>  </ul>
+<li class="navelem"><a class="el" href="namespacevg.html">vg</a></li><li class="navelem"><a class="el" href="classvg_1_1FlowCaller.html">FlowCaller</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
-<a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
-<a href="classvg_1_1VCFGenotyper-members.html">List of all members</a>  </div>
+<a href="classvg_1_1FlowCaller-members.html">List of all members</a>  </div>
   <div class="headertitle">
-<div class="title">vg::VCFGenotyper Class Reference</div>  </div>
+<div class="title">vg::FlowCaller Class Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 
 <p><code>#include &lt;graph_caller.hpp&gt;</code></p>
 <div class="dynheader">
-Inheritance diagram for vg::VCFGenotyper:</div>
+Inheritance diagram for vg::FlowCaller:</div>
 <div class="dyncontent">
  <div class="center">
-  <img src="classvg_1_1VCFGenotyper.png" usemap="#vg::VCFGenotyper_map" alt=""/>
-  <map id="vg::VCFGenotyper_map" name="vg::VCFGenotyper_map">
+  <img src="classvg_1_1FlowCaller.png" usemap="#vg::FlowCaller_map" alt=""/>
+  <map id="vg::FlowCaller_map" name="vg::FlowCaller_map">
 <area href="classvg_1_1GraphCaller.html" alt="vg::GraphCaller" shape="rect" coords="0,0,129,24"/>
 <area href="classvg_1_1VCFOutputCaller.html" alt="vg::VCFOutputCaller" shape="rect" coords="139,0,268,24"/>
 </map>
@@ -87,16 +86,16 @@ Inheritance diagram for vg::VCFGenotyper:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a477075df158ff07f7ff903f5437d9cd0"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFGenotyper.html#a477075df158ff07f7ff903f5437d9cd0">VCFGenotyper</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;<a class="el" href="classvg_1_1VCFGenotyper.html#ab76cadfc9e7398a693e7a0cb656dc37a">graph</a>, <a class="el" href="classvg_1_1SnarlCaller.html">SnarlCaller</a> &amp;<a class="el" href="classvg_1_1GraphCaller.html#a4b8c6f32019db8528bb6835fdce12ddb">snarl_caller</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1GraphCaller.html#a55afa68762956066ccbea2e332342266">snarl_manager</a>, vcflib::VariantCallFile &amp;variant_file, const string &amp;<a class="el" href="classvg_1_1VCFOutputCaller.html#a70e8288543e7facfb79f5211ce33fa7f">sample_name</a>, const vector&lt; string &gt; &amp;ref_paths={}, FastaReference *ref_fasta=nullptr, FastaReference *ins_fasta=nullptr, ostream &amp;<a class="el" href="classvg_1_1GraphCaller.html#a1bb98847383ea9bb20e3e963a3667fa6">out_stream</a>=cout)</td></tr>
-<tr class="separator:a477075df158ff07f7ff903f5437d9cd0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a91aad8f951949331a1753f7e07588381"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFGenotyper.html#a91aad8f951949331a1753f7e07588381">~VCFGenotyper</a> ()</td></tr>
-<tr class="separator:a91aad8f951949331a1753f7e07588381"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1e3a89bae885b463272873e538815151"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFGenotyper.html#a1e3a89bae885b463272873e538815151">call_snarl</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl)</td></tr>
-<tr class="memdesc:a1e3a89bae885b463272873e538815151"><td class="mdescLeft">&#160;</td><td class="mdescRight">Call a given snarl, and print the output to out_stream.  <a href="#a1e3a89bae885b463272873e538815151">More...</a><br /></td></tr>
-<tr class="separator:a1e3a89bae885b463272873e538815151"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8dae0df9c45f88aadca9fcaa8d0e7214"><td class="memItemLeft" align="right" valign="top">virtual string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFGenotyper.html#a8dae0df9c45f88aadca9fcaa8d0e7214">vcf_header</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;<a class="el" href="classvg_1_1VCFGenotyper.html#ab76cadfc9e7398a693e7a0cb656dc37a">graph</a>, const vector&lt; string &gt; &amp;contigs, const vector&lt; size_t &gt; &amp;contig_length_overrides={}) const</td></tr>
-<tr class="memdesc:a8dae0df9c45f88aadca9fcaa8d0e7214"><td class="mdescLeft">&#160;</td><td class="mdescRight">Write the vcf header (version and contigs and basic info)  <a href="#a8dae0df9c45f88aadca9fcaa8d0e7214">More...</a><br /></td></tr>
-<tr class="separator:a8dae0df9c45f88aadca9fcaa8d0e7214"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abe76b933a56a4de10e9db41eed382daa"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowCaller.html#abe76b933a56a4de10e9db41eed382daa">FlowCaller</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;<a class="el" href="classvg_1_1FlowCaller.html#a5193a03f37a60ed6bdf91157bf02c6dc">graph</a>, <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html">SupportBasedSnarlCaller</a> &amp;<a class="el" href="classvg_1_1GraphCaller.html#a4b8c6f32019db8528bb6835fdce12ddb">snarl_caller</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1GraphCaller.html#a55afa68762956066ccbea2e332342266">snarl_manager</a>, const string &amp;<a class="el" href="classvg_1_1VCFOutputCaller.html#a70e8288543e7facfb79f5211ce33fa7f">sample_name</a>, size_t max_traverals, const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1FlowCaller.html#adb1bb384ccb36d214a22cef04919920c">ref_paths</a>={}, const vector&lt; size_t &gt; &amp;ref_path_offsets={}, ostream &amp;<a class="el" href="classvg_1_1GraphCaller.html#a1bb98847383ea9bb20e3e963a3667fa6">out_stream</a>=cout)</td></tr>
+<tr class="separator:abe76b933a56a4de10e9db41eed382daa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6fc652c91844cba402eb9e143883eefa"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowCaller.html#a6fc652c91844cba402eb9e143883eefa">~FlowCaller</a> ()</td></tr>
+<tr class="separator:a6fc652c91844cba402eb9e143883eefa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abe755bb8027b80711002dc229fe3399a"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowCaller.html#abe755bb8027b80711002dc229fe3399a">call_snarl</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl)</td></tr>
+<tr class="memdesc:abe755bb8027b80711002dc229fe3399a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Call a given snarl, and print the output to out_stream.  <a href="#abe755bb8027b80711002dc229fe3399a">More...</a><br /></td></tr>
+<tr class="separator:abe755bb8027b80711002dc229fe3399a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2c4e7365e43593313a30d7d4ea03c4a9"><td class="memItemLeft" align="right" valign="top">virtual string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowCaller.html#a2c4e7365e43593313a30d7d4ea03c4a9">vcf_header</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;<a class="el" href="classvg_1_1FlowCaller.html#a5193a03f37a60ed6bdf91157bf02c6dc">graph</a>, const vector&lt; string &gt; &amp;contigs, const vector&lt; size_t &gt; &amp;contig_length_overrides={}) const</td></tr>
+<tr class="memdesc:a2c4e7365e43593313a30d7d4ea03c4a9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Write the vcf header (version and contigs and basic info)  <a href="#a2c4e7365e43593313a30d7d4ea03c4a9">More...</a><br /></td></tr>
+<tr class="separator:a2c4e7365e43593313a30d7d4ea03c4a9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1GraphCaller"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1GraphCaller')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1GraphCaller.html">vg::GraphCaller</a></td></tr>
 <tr class="memitem:a74c8ec3f036cf1da2ba1a10ece5bb1a0 inherit pub_methods_classvg_1_1GraphCaller"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a74c8ec3f036cf1da2ba1a10ece5bb1a0">GraphCaller</a> (<a class="el" href="classvg_1_1SnarlCaller.html">SnarlCaller</a> &amp;<a class="el" href="classvg_1_1GraphCaller.html#a4b8c6f32019db8528bb6835fdce12ddb">snarl_caller</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1GraphCaller.html#a55afa68762956066ccbea2e332342266">snarl_manager</a>, ostream &amp;<a class="el" href="classvg_1_1GraphCaller.html#a1bb98847383ea9bb20e3e963a3667fa6">out_stream</a>=cout)</td></tr>
 <tr class="separator:a74c8ec3f036cf1da2ba1a10ece5bb1a0 inherit pub_methods_classvg_1_1GraphCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -116,34 +115,22 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:a1f1dca8be7cb9d0c6211aa08b9a1f0c9 inherit pub_methods_classvg_1_1VCFOutputCaller"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sort then write variants in the buffer.  <a href="classvg_1_1VCFOutputCaller.html#a1f1dca8be7cb9d0c6211aa08b9a1f0c9">More...</a><br /></td></tr>
 <tr class="separator:a1f1dca8be7cb9d0c6211aa08b9a1f0c9 inherit pub_methods_classvg_1_1VCFOutputCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
-Protected Member Functions</h2></td></tr>
-<tr class="memitem:a169a36dc40c91f66560b279c0be9d39a"><td class="memItemLeft" align="right" valign="top">tuple&lt; string, size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFGenotyper.html#a169a36dc40c91f66560b279c0be9d39a">get_ref_positions</a> (const vector&lt; vcflib::Variant *&gt; &amp;variants) const</td></tr>
-<tr class="memdesc:a169a36dc40c91f66560b279c0be9d39a"><td class="mdescLeft">&#160;</td><td class="mdescRight">get path positions bounding a set of variants  <a href="#a169a36dc40c91f66560b279c0be9d39a">More...</a><br /></td></tr>
-<tr class="separator:a169a36dc40c91f66560b279c0be9d39a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a28f3c05eb4ffefef243a18dc27562b15"><td class="memItemLeft" align="right" valign="top">virtual unordered_map&lt; string, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFGenotyper.html#a28f3c05eb4ffefef243a18dc27562b15">scan_contig_lengths</a> () const</td></tr>
-<tr class="memdesc:a28f3c05eb4ffefef243a18dc27562b15"><td class="mdescLeft">&#160;</td><td class="mdescRight">munge out the contig lengths from the VCF header  <a href="#a28f3c05eb4ffefef243a18dc27562b15">More...</a><br /></td></tr>
-<tr class="separator:a28f3c05eb4ffefef243a18dc27562b15"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="inherit_header pro_methods_classvg_1_1VCFOutputCaller"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1VCFOutputCaller')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1VCFOutputCaller.html">vg::VCFOutputCaller</a></td></tr>
-<tr class="memitem:a0370591928650175b538bd08461103d8 inherit pro_methods_classvg_1_1VCFOutputCaller"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a0370591928650175b538bd08461103d8">emit_variant</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="classvg_1_1SnarlCaller.html">SnarlCaller</a> &amp;snarl_caller, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;called_traversals, const vector&lt; int &gt; &amp;genotype, int ref_trav_idx, const unique_ptr&lt; <a class="el" href="structvg_1_1SnarlCaller_1_1CallInfo.html">SnarlCaller::CallInfo</a> &gt; &amp;call_info, const string &amp;ref_path_name, int ref_offset) const</td></tr>
-<tr class="memdesc:a0370591928650175b538bd08461103d8 inherit pro_methods_classvg_1_1VCFOutputCaller"><td class="mdescLeft">&#160;</td><td class="mdescRight">print a vcf variant  <a href="classvg_1_1VCFOutputCaller.html#a0370591928650175b538bd08461103d8">More...</a><br /></td></tr>
-<tr class="separator:a0370591928650175b538bd08461103d8 inherit pro_methods_classvg_1_1VCFOutputCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad4c2985e85c4c7db2cc428928f41698c inherit pro_methods_classvg_1_1VCFOutputCaller"><td class="memItemLeft" align="right" valign="top">tuple&lt; size_t, size_t, bool, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#ad4c2985e85c4c7db2cc428928f41698c">get_ref_interval</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const string &amp;ref_path_name) const</td></tr>
-<tr class="separator:ad4c2985e85c4c7db2cc428928f41698c inherit pro_methods_classvg_1_1VCFOutputCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a58f9af628f9a275eb2ab6f31ea69688a inherit pro_methods_classvg_1_1VCFOutputCaller"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a58f9af628f9a275eb2ab6f31ea69688a">flatten_common_allele_ends</a> (vcflib::Variant &amp;variant, bool backward) const</td></tr>
-<tr class="memdesc:a58f9af628f9a275eb2ab6f31ea69688a inherit pro_methods_classvg_1_1VCFOutputCaller"><td class="mdescLeft">&#160;</td><td class="mdescRight">clean up the alleles to not share common prefixes / suffixes  <a href="classvg_1_1VCFOutputCaller.html#a58f9af628f9a275eb2ab6f31ea69688a">More...</a><br /></td></tr>
-<tr class="separator:a58f9af628f9a275eb2ab6f31ea69688a inherit pro_methods_classvg_1_1VCFOutputCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
-<tr class="memitem:ab76cadfc9e7398a693e7a0cb656dc37a"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFGenotyper.html#ab76cadfc9e7398a693e7a0cb656dc37a">graph</a></td></tr>
-<tr class="memdesc:ab76cadfc9e7398a693e7a0cb656dc37a"><td class="mdescLeft">&#160;</td><td class="mdescRight">the graph  <a href="#ab76cadfc9e7398a693e7a0cb656dc37a">More...</a><br /></td></tr>
-<tr class="separator:ab76cadfc9e7398a693e7a0cb656dc37a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3fea7ea6e20998a5de5e95776e7f67bb"><td class="memItemLeft" align="right" valign="top">vcflib::VariantCallFile &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFGenotyper.html#a3fea7ea6e20998a5de5e95776e7f67bb">input_vcf</a></td></tr>
-<tr class="memdesc:a3fea7ea6e20998a5de5e95776e7f67bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">input VCF to genotype, must have been loaded etc elsewhere  <a href="#a3fea7ea6e20998a5de5e95776e7f67bb">More...</a><br /></td></tr>
-<tr class="separator:a3fea7ea6e20998a5de5e95776e7f67bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afa0dd907b77ec7bd5d33f972c06ab131"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1VCFTraversalFinder.html">VCFTraversalFinder</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFGenotyper.html#afa0dd907b77ec7bd5d33f972c06ab131">traversal_finder</a></td></tr>
-<tr class="separator:afa0dd907b77ec7bd5d33f972c06ab131"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5193a03f37a60ed6bdf91157bf02c6dc"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowCaller.html#a5193a03f37a60ed6bdf91157bf02c6dc">graph</a></td></tr>
+<tr class="memdesc:a5193a03f37a60ed6bdf91157bf02c6dc"><td class="mdescLeft">&#160;</td><td class="mdescRight">the graph  <a href="#a5193a03f37a60ed6bdf91157bf02c6dc">More...</a><br /></td></tr>
+<tr class="separator:a5193a03f37a60ed6bdf91157bf02c6dc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7a75ae830ca6ba1df4eb3fd69aaed84f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1FlowTraversalFinder.html">FlowTraversalFinder</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowCaller.html#a7a75ae830ca6ba1df4eb3fd69aaed84f">traversal_finder</a></td></tr>
+<tr class="memdesc:a7a75ae830ca6ba1df4eb3fd69aaed84f"><td class="mdescLeft">&#160;</td><td class="mdescRight">the traversal finder  <a href="#a7a75ae830ca6ba1df4eb3fd69aaed84f">More...</a><br /></td></tr>
+<tr class="separator:a7a75ae830ca6ba1df4eb3fd69aaed84f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adb1bb384ccb36d214a22cef04919920c"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowCaller.html#adb1bb384ccb36d214a22cef04919920c">ref_paths</a></td></tr>
+<tr class="memdesc:adb1bb384ccb36d214a22cef04919920c"><td class="mdescLeft">&#160;</td><td class="mdescRight">keep track of the reference paths  <a href="#adb1bb384ccb36d214a22cef04919920c">More...</a><br /></td></tr>
+<tr class="separator:adb1bb384ccb36d214a22cef04919920c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac85f8948b4a0c6f9bcb66cccf498c372"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowCaller.html#ac85f8948b4a0c6f9bcb66cccf498c372">ref_path_set</a></td></tr>
+<tr class="separator:ac85f8948b4a0c6f9bcb66cccf498c372"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a454f9cba510f7ebf9e8929c53092583a"><td class="memItemLeft" align="right" valign="top">map&lt; string, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowCaller.html#a454f9cba510f7ebf9e8929c53092583a">ref_offsets</a></td></tr>
+<tr class="memdesc:a454f9cba510f7ebf9e8929c53092583a"><td class="mdescLeft">&#160;</td><td class="mdescRight">keep track of offsets in the reference paths  <a href="#a454f9cba510f7ebf9e8929c53092583a">More...</a><br /></td></tr>
+<tr class="separator:a454f9cba510f7ebf9e8929c53092583a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_attribs_classvg_1_1GraphCaller"><td colspan="2" onclick="javascript:toggleInherit('pro_attribs_classvg_1_1GraphCaller')"><img src="closed.png" alt="-"/>&#160;Protected Attributes inherited from <a class="el" href="classvg_1_1GraphCaller.html">vg::GraphCaller</a></td></tr>
 <tr class="memitem:a4b8c6f32019db8528bb6835fdce12ddb inherit pro_attribs_classvg_1_1GraphCaller"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SnarlCaller.html">SnarlCaller</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a4b8c6f32019db8528bb6835fdce12ddb">snarl_caller</a></td></tr>
 <tr class="memdesc:a4b8c6f32019db8528bb6835fdce12ddb inherit pro_attribs_classvg_1_1GraphCaller"><td class="mdescLeft">&#160;</td><td class="mdescRight">Our <a class="el" href="classvg_1_1Genotyper.html">Genotyper</a>.  <a href="classvg_1_1GraphCaller.html#a4b8c6f32019db8528bb6835fdce12ddb">More...</a><br /></td></tr>
@@ -164,26 +151,38 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:a062e34518eddb55df7831c33a6136ca8 inherit pro_attribs_classvg_1_1VCFOutputCaller"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; vcflib::Variant &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a062e34518eddb55df7831c33a6136ca8">output_variants</a></td></tr>
 <tr class="memdesc:a062e34518eddb55df7831c33a6136ca8 inherit pro_attribs_classvg_1_1VCFOutputCaller"><td class="mdescLeft">&#160;</td><td class="mdescRight">output buffers (1/thread) (for sorting)  <a href="classvg_1_1VCFOutputCaller.html#a062e34518eddb55df7831c33a6136ca8">More...</a><br /></td></tr>
 <tr class="separator:a062e34518eddb55df7831c33a6136ca8 inherit pro_attribs_classvg_1_1VCFOutputCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
+Additional Inherited Members</h2></td></tr>
+<tr class="inherit_header pro_methods_classvg_1_1VCFOutputCaller"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1VCFOutputCaller')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1VCFOutputCaller.html">vg::VCFOutputCaller</a></td></tr>
+<tr class="memitem:a0370591928650175b538bd08461103d8 inherit pro_methods_classvg_1_1VCFOutputCaller"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a0370591928650175b538bd08461103d8">emit_variant</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="classvg_1_1SnarlCaller.html">SnarlCaller</a> &amp;snarl_caller, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;called_traversals, const vector&lt; int &gt; &amp;genotype, int ref_trav_idx, const unique_ptr&lt; <a class="el" href="structvg_1_1SnarlCaller_1_1CallInfo.html">SnarlCaller::CallInfo</a> &gt; &amp;call_info, const string &amp;ref_path_name, int ref_offset) const</td></tr>
+<tr class="memdesc:a0370591928650175b538bd08461103d8 inherit pro_methods_classvg_1_1VCFOutputCaller"><td class="mdescLeft">&#160;</td><td class="mdescRight">print a vcf variant  <a href="classvg_1_1VCFOutputCaller.html#a0370591928650175b538bd08461103d8">More...</a><br /></td></tr>
+<tr class="separator:a0370591928650175b538bd08461103d8 inherit pro_methods_classvg_1_1VCFOutputCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad4c2985e85c4c7db2cc428928f41698c inherit pro_methods_classvg_1_1VCFOutputCaller"><td class="memItemLeft" align="right" valign="top">tuple&lt; size_t, size_t, bool, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#ad4c2985e85c4c7db2cc428928f41698c">get_ref_interval</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const string &amp;ref_path_name) const</td></tr>
+<tr class="separator:ad4c2985e85c4c7db2cc428928f41698c inherit pro_methods_classvg_1_1VCFOutputCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a58f9af628f9a275eb2ab6f31ea69688a inherit pro_methods_classvg_1_1VCFOutputCaller"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a58f9af628f9a275eb2ab6f31ea69688a">flatten_common_allele_ends</a> (vcflib::Variant &amp;variant, bool backward) const</td></tr>
+<tr class="memdesc:a58f9af628f9a275eb2ab6f31ea69688a inherit pro_methods_classvg_1_1VCFOutputCaller"><td class="mdescLeft">&#160;</td><td class="mdescRight">clean up the alleles to not share common prefixes / suffixes  <a href="classvg_1_1VCFOutputCaller.html#a58f9af628f9a275eb2ab6f31ea69688a">More...</a><br /></td></tr>
+<tr class="separator:a58f9af628f9a275eb2ab6f31ea69688a inherit pro_methods_classvg_1_1VCFOutputCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p><a class="el" href="classvg_1_1VCFGenotyper.html">VCFGenotyper</a> : <a class="el" href="structvg_1_1Genotype.html" title="Describes a genotype at a particular locus. ">Genotype</a> variants in a given VCF file </p>
+<div class="textblock"><p><a class="el" href="classvg_1_1FlowCaller.html">FlowCaller</a> : Uses the FlowTraversal finder to find best-supported traversals, and calls those. should work on any graph but will not report cyclic traversals. Does not (yet, anyway) support nested calling, so the entire site is processes in one shot. Designed to replace <a class="el" href="classvg_1_1LegacyCaller.html">LegacyCaller</a>, as it should miss fewer obviously good traversals, and is not dependent on old protobuf-based structures. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a477075df158ff07f7ff903f5437d9cd0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a477075df158ff07f7ff903f5437d9cd0">&#9670;&nbsp;</a></span>VCFGenotyper()</h2>
+<a id="abe76b933a56a4de10e9db41eed382daa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abe76b933a56a4de10e9db41eed382daa">&#9670;&nbsp;</a></span>FlowCaller()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vg::VCFGenotyper::VCFGenotyper </td>
+          <td class="memname">vg::FlowCaller::FlowCaller </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1SnarlCaller.html">SnarlCaller</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html">SupportBasedSnarlCaller</a> &amp;&#160;</td>
           <td class="paramname"><em>snarl_caller</em>, </td>
         </tr>
         <tr>
@@ -195,14 +194,14 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vcflib::VariantCallFile &amp;&#160;</td>
-          <td class="paramname"><em>variant_file</em>, </td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>sample_name</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>sample_name</em>, </td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_traverals</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -213,14 +212,8 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">FastaReference *&#160;</td>
-          <td class="paramname"><em>ref_fasta</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">FastaReference *&#160;</td>
-          <td class="paramname"><em>ins_fasta</em> = <code>nullptr</code>, </td>
+          <td class="paramtype">const vector&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>ref_path_offsets</em> = <code>{}</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -238,8 +231,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a91aad8f951949331a1753f7e07588381"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a91aad8f951949331a1753f7e07588381">&#9670;&nbsp;</a></span>~VCFGenotyper()</h2>
+<a id="a6fc652c91844cba402eb9e143883eefa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6fc652c91844cba402eb9e143883eefa">&#9670;&nbsp;</a></span>~FlowCaller()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -248,7 +241,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">vg::VCFGenotyper::~VCFGenotyper </td>
+          <td class="memname">vg::FlowCaller::~FlowCaller </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td></td>
@@ -264,8 +257,8 @@ Protected Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a1e3a89bae885b463272873e538815151"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1e3a89bae885b463272873e538815151">&#9670;&nbsp;</a></span>call_snarl()</h2>
+<a id="abe755bb8027b80711002dc229fe3399a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abe755bb8027b80711002dc229fe3399a">&#9670;&nbsp;</a></span>call_snarl()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -274,7 +267,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::VCFGenotyper::call_snarl </td>
+          <td class="memname">bool vg::FlowCaller::call_snarl </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;&#160;</td>
           <td class="paramname"><em>snarl</em></td><td>)</td>
@@ -294,8 +287,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a169a36dc40c91f66560b279c0be9d39a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a169a36dc40c91f66560b279c0be9d39a">&#9670;&nbsp;</a></span>get_ref_positions()</h2>
+<a id="a2c4e7365e43593313a30d7d4ea03c4a9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2c4e7365e43593313a30d7d4ea03c4a9">&#9670;&nbsp;</a></span>vcf_header()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -304,62 +297,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">tuple&lt; string, size_t, size_t &gt; vg::VCFGenotyper::get_ref_positions </td>
-          <td>(</td>
-          <td class="paramtype">const vector&lt; vcflib::Variant *&gt; &amp;&#160;</td>
-          <td class="paramname"><em>variants</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>get path positions bounding a set of variants </p>
-
-</div>
-</div>
-<a id="a28f3c05eb4ffefef243a18dc27562b15"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a28f3c05eb4ffefef243a18dc27562b15">&#9670;&nbsp;</a></span>scan_contig_lengths()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">unordered_map&lt; string, size_t &gt; vg::VCFGenotyper::scan_contig_lengths </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>munge out the contig lengths from the VCF header </p>
-
-</div>
-</div>
-<a id="a8dae0df9c45f88aadca9fcaa8d0e7214"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8dae0df9c45f88aadca9fcaa8d0e7214">&#9670;&nbsp;</a></span>vcf_header()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">string vg::VCFGenotyper::vcf_header </td>
+          <td class="memname">string vg::FlowCaller::vcf_header </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
@@ -396,8 +334,8 @@ Protected Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="ab76cadfc9e7398a693e7a0cb656dc37a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab76cadfc9e7398a693e7a0cb656dc37a">&#9670;&nbsp;</a></span>graph</h2>
+<a id="a5193a03f37a60ed6bdf91157bf02c6dc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5193a03f37a60ed6bdf91157bf02c6dc">&#9670;&nbsp;</a></span>graph</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -406,7 +344,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a>&amp; vg::VCFGenotyper::graph</td>
+          <td class="memname">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a>&amp; vg::FlowCaller::graph</td>
         </tr>
       </table>
   </td>
@@ -420,8 +358,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a3fea7ea6e20998a5de5e95776e7f67bb"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3fea7ea6e20998a5de5e95776e7f67bb">&#9670;&nbsp;</a></span>input_vcf</h2>
+<a id="a454f9cba510f7ebf9e8929c53092583a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a454f9cba510f7ebf9e8929c53092583a">&#9670;&nbsp;</a></span>ref_offsets</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -430,7 +368,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">vcflib::VariantCallFile&amp; vg::VCFGenotyper::input_vcf</td>
+          <td class="memname">map&lt;string, size_t&gt; vg::FlowCaller::ref_offsets</td>
         </tr>
       </table>
   </td>
@@ -440,12 +378,12 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>input VCF to genotype, must have been loaded etc elsewhere </p>
+<p>keep track of offsets in the reference paths </p>
 
 </div>
 </div>
-<a id="afa0dd907b77ec7bd5d33f972c06ab131"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afa0dd907b77ec7bd5d33f972c06ab131">&#9670;&nbsp;</a></span>traversal_finder</h2>
+<a id="ac85f8948b4a0c6f9bcb66cccf498c372"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac85f8948b4a0c6f9bcb66cccf498c372">&#9670;&nbsp;</a></span>ref_path_set</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -454,7 +392,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classvg_1_1VCFTraversalFinder.html">VCFTraversalFinder</a> vg::VCFGenotyper::traversal_finder</td>
+          <td class="memname">unordered_set&lt;string&gt; vg::FlowCaller::ref_path_set</td>
         </tr>
       </table>
   </td>
@@ -463,7 +401,54 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>traversal finder uses alt paths to map VCF alleles from input_vcf back to traversals in the snarl </p>
+
+</div>
+</div>
+<a id="adb1bb384ccb36d214a22cef04919920c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adb1bb384ccb36d214a22cef04919920c">&#9670;&nbsp;</a></span>ref_paths</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt;string&gt; vg::FlowCaller::ref_paths</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>keep track of the reference paths </p>
+
+</div>
+</div>
+<a id="a7a75ae830ca6ba1df4eb3fd69aaed84f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7a75ae830ca6ba1df4eb3fd69aaed84f">&#9670;&nbsp;</a></span>traversal_finder</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1FlowTraversalFinder.html">FlowTraversalFinder</a>* vg::FlowCaller::traversal_finder</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>the traversal finder </p>
 
 </div>
 </div>

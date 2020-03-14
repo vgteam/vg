@@ -75,6 +75,7 @@ var searchData=
   ['node_5ftraversal',['node_traversal',['../structvg_1_1PhasedGenome_1_1HaplotypeNode.html#a6347ba68d0d1a79fa623928b2d2eadcc',1,'vg::PhasedGenome::HaplotypeNode']]],
   ['node_5ftype',['node_type',['../structvg_1_1SnarlSeedClusterer_1_1NetgraphNode.html#a7359005eabd30a001fbbab49d777d2d1',1,'vg::SnarlSeedClusterer::NetgraphNode']]],
   ['node_5fvector_5foffset',['node_vector_offset',['../classhandlegraph_1_1VectorizableHandleGraph.html#a8666da4a9f55361893544fbb4eff76ce',1,'handlegraph::VectorizableHandleGraph']]],
+  ['node_5fweight_5fcallback',['node_weight_callback',['../classvg_1_1FlowTraversalFinder.html#a345a65197b9a0cd215d616dfcfcd5519',1,'vg::FlowTraversalFinder']]],
   ['nodeclusters',['NodeClusters',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html',1,'vg::SnarlSeedClusterer::NodeClusters'],['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#a4400d627ba9d470e24503cf5239435d6',1,'vg::SnarlSeedClusterer::NodeClusters::NodeClusters()']]],
   ['nodelength',['nodeLength',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#ab296e97698e39ee2338e790e8ddbffff',1,'vg::MinimumDistanceIndex::SnarlIndex::nodeLength()'],['../structhaplo_1_1gbwt__thread__t.html#afcc24f78011916b909ac56b22c8f82c3',1,'haplo::gbwt_thread_t::nodelength()']]],
   ['nodepileup',['NodePileup',['../structvg_1_1NodePileup.html',1,'vg']]],

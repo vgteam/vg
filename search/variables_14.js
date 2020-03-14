@@ -54,7 +54,7 @@ var searchData=
   ['trav_5ffinder',['trav_finder',['../classvg_1_1Deconstructor.html#ab2c8f173c8de2b4ecb6f2af8fbfbbb08',1,'vg::Deconstructor']]],
   ['traversal',['traversal',['../classvg_1_1mapping__t.html#a9ef6e5278c0ac9ce077ea2c8e0902674',1,'vg::mapping_t']]],
   ['traversal_5falg',['traversal_alg',['../classvg_1_1Genotyper.html#a5b040c1636f479b52dbdb641e82f74dd',1,'vg::Genotyper']]],
-  ['traversal_5ffinder',['traversal_finder',['../classvg_1_1VCFGenotyper.html#afa0dd907b77ec7bd5d33f972c06ab131',1,'vg::VCFGenotyper::traversal_finder()'],['../classvg_1_1LegacyCaller.html#ada2c8e9befb0cbe8043779758468664a',1,'vg::LegacyCaller::traversal_finder()'],['../classvg_1_1SmallSnarlSimplifier.html#aaf858ca21b486fe45acbf92a4cbea5ba',1,'vg::SmallSnarlSimplifier::traversal_finder()']]],
+  ['traversal_5ffinder',['traversal_finder',['../classvg_1_1VCFGenotyper.html#afa0dd907b77ec7bd5d33f972c06ab131',1,'vg::VCFGenotyper::traversal_finder()'],['../classvg_1_1LegacyCaller.html#ada2c8e9befb0cbe8043779758468664a',1,'vg::LegacyCaller::traversal_finder()'],['../classvg_1_1FlowCaller.html#a7a75ae830ca6ba1df4eb3fd69aaed84f',1,'vg::FlowCaller::traversal_finder()'],['../classvg_1_1SmallSnarlSimplifier.html#aaf858ca21b486fe45acbf92a4cbea5ba',1,'vg::SmallSnarlSimplifier::traversal_finder()']]],
   ['tree',['tree',['../classvg_1_1TreeSubgraph.html#a91ef2cd31f18ada628b0990faae105a1',1,'vg::TreeSubgraph']]],
   ['tree_5fdepth',['tree_depth',['../classvg_1_1MinimumDistanceIndex.html#a32b89d9850b59f0354be0bfa05774d4b',1,'vg::MinimumDistanceIndex']]],
   ['trim_5findels',['trim_indels',['../classvg_1_1Constructor.html#a130c318e05428ee7973135ac5ea26b50',1,'vg::Constructor']]],
