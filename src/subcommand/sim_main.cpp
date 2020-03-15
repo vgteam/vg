@@ -87,6 +87,7 @@ void help_sim(char** argv) {
          << "    -F, --fastq FILE            match the error profile of NGS reads in FILE, repeat for paired reads (ignores -l,-f)" << endl
          << "    -I, --interleaved           reads in FASTQ (-F) are interleaved read pairs" << endl
          << "    -P, --path PATH             simulate from the given names path (multiple allowed, cannot also give -T)" << endl
+         << "    -A, --any-path              simulate from any path (overrides -P)" << endl
          << "    -T, --tx-expr-file FILE     simulate from an expression profile formatted as RSEM output (cannot also give -P)" << endl
          << "    -H, --haplo-tx-file FILE    transcript origin info table from vg rna -i (required for -T on haplotype transcripts)" << endl
          << "    -l, --read-length N         write reads of length N" << endl
@@ -131,6 +132,7 @@ int main_sim(int argc, char** argv) {
     string fastq_2_name;
     // What path should we sample from? Empty string = the whole graph.
     vector<string> path_names;
+    bool any_path = false;
     // Alternatively, which transcripts with how much expression?
     string rsem_file_name;
     vector<pair<string, double>> transcript_expressions;
@@ -149,6 +151,7 @@ int main_sim(int argc, char** argv) {
             {"fastq", required_argument, 0, 'F'},
             {"interleaved", no_argument, 0, 'I'},
             {"path", required_argument, 0, 'P'},
+            {"any-path", no_argument, 0, 'A'},
             {"tx-expr-file", required_argument, 0, 'T'},
             {"read-length", required_argument, 0, 'l'},
             {"num-reads", required_argument, 0, 'n'},
@@ -167,7 +170,7 @@ int main_sim(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:Nd:F:P:T:H:S:I",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:Nd:F:P:AT:H:S:I",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -200,6 +203,10 @@ int main_sim(int argc, char** argv) {
             
         case 'P':
             path_names.push_back(optarg);
+            break;
+
+        case 'A':
+            any_path = true;
             break;
             
         case 'T':
@@ -310,11 +317,22 @@ int main_sim(int argc, char** argv) {
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
     }
-    
-    for (auto& path_name : path_names) {
-        if (xgidx->has_path(path_name) == false) {
-            cerr << "[vg sim] error: path \""<< path_name << "\" not found in index" << endl;
+
+    if (any_path) {
+        if (xgidx->get_path_count() == 0) {
+            cerr << "[vg sim] error: the graph does not contain paths" << endl;
             return 1;
+        }
+        path_names.clear();
+        xgidx->for_each_path_handle([&](const path_handle_t& handle) {
+            path_names.push_back(xgidx->get_path_name(handle));
+        });
+    } else {
+        for (auto& path_name : path_names) {
+            if (xgidx->has_path(path_name) == false) {
+                cerr << "[vg sim] error: path \""<< path_name << "\" not found in index" << endl;
+                return 1;
+            }
         }
     }
     
