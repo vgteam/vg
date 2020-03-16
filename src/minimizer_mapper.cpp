@@ -2021,7 +2021,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
         // If either of the mappings was duplicated in other pairs, use the group scores to determine mapq
         double mapq = scores[0] == 0 ? 0 : 
-            get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index) / 2;
+            get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index, multiplicities) / 2;
 
         //Cap mapq at 1 / # equivalent or better fragment clusters
         if (better_cluster_count_mappings.size() != 0 && better_cluster_count_mappings.front() > 0) {
