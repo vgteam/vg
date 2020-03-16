@@ -59,6 +59,7 @@ var searchData=
   ['snarl_5ftraversals',['snarl_traversals',['../classvg_1_1Genotyper.html#a7ec1915674299d727c61377e91385974',1,'vg::Genotyper']]],
   ['snarlmanager',['snarlmanager',['../classvg_1_1PathBasedTraversalFinder.html#a905239f50078de78279dd9f0ff82faf3',1,'vg::PathBasedTraversalFinder']]],
   ['snarls',['snarls',['../classvg_1_1IndexManager.html#a682053b988acbacad37b96c56f2ad719',1,'vg::IndexManager::snarls()'],['../classvg_1_1MCMCGenotyper.html#a23913225e8b2d0d4dfbdb713ccf495c3',1,'vg::MCMCGenotyper::snarls()'],['../classvg_1_1SnarlManager.html#ab56cf756bc65189eeb1d4f1f3f6573b6',1,'vg::SnarlManager::snarls()']]],
+  ['snarls_5foverride',['snarls_override',['../classvg_1_1IndexManager.html#a7a2128a58cb3bfcce857ac9d98ccf226',1,'vg::IndexManager']]],
   ['soft_5fclip_5flimit',['soft_clip_limit',['../classvg_1_1Filter.html#abe44432fa541eee27db7789cc9db066b',1,'vg::Filter']]],
   ['soft_5fclipped',['soft_clipped',['../structvg_1_1Alignment.html#a6cb12eae3f4fa017bc98b59a91a5414f',1,'vg::Alignment']]],
   ['softclip_5fthreshold',['softclip_threshold',['../classvg_1_1Mapper.html#a4320fc9bb3cda3bd7b25ebc5b8644d80',1,'vg::Mapper']]],

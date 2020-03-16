@@ -68,7 +68,7 @@ var searchData=
   ['indexed_5fvg_2ehpp',['indexed_vg.hpp',['../indexed__vg_8hpp.html',1,'']]],
   ['indexedvg',['IndexedVG',['../classvg_1_1IndexedVG.html',1,'vg::IndexedVG'],['../classvg_1_1IndexedVG.html#a89030b52047b0e005a5c86b7f9a206f6',1,'vg::IndexedVG::IndexedVG(string graph_filename)'],['../classvg_1_1IndexedVG.html#a0972bd3bf8d93bfa8b41aff828aab070',1,'vg::IndexedVG::IndexedVG(const IndexedVG &amp;other)=delete']]],
   ['indexes',['indexes',['../classvg_1_1GraphSynchronizer.html#a1127fed39b1d4775bf03ada4f87b23b4',1,'vg::GraphSynchronizer']]],
-  ['indexmanager',['IndexManager',['../classvg_1_1IndexManager.html',1,'vg::IndexManager'],['../classvg_1_1IndexManager.html#a5dba83d86b2d101e3c76086812bd2154',1,'vg::IndexManager::IndexManager()']]],
+  ['indexmanager',['IndexManager',['../classvg_1_1IndexManager.html',1,'vg::IndexManager'],['../classvg_1_1IndexManager.html#abcdf958ad4003ed5e1835c9d40553e34',1,'vg::IndexManager::IndexManager()']]],
   ['indexopenexception',['indexOpenException',['../classvg_1_1indexOpenException.html',1,'vg::indexOpenException'],['../classvg_1_1indexOpenException.html#a6f40b99e24b3edb813bb9a8054269e20',1,'vg::indexOpenException::indexOpenException()']]],
   ['init',['init',['../classvg_1_1VG.html#aafd0f191fe33bd4590f15f309d0fd89c',1,'vg::VG::init()'],['../classvg_1_1Viz.html#aad7ceb7896288f2d4444b10cceb946d8',1,'vg::Viz::init()']]],
   ['init_5fband_5fpadding_5fmemo',['init_band_padding_memo',['../classvg_1_1MultipathMapper.html#a373038067171533375512e963f28fa65',1,'vg::MultipathMapper']]],

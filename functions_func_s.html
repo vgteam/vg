@@ -221,6 +221,7 @@ $(function() {
 , <a class="el" href="classvg_1_1MinimumDistanceIndex.html#ab4c310126a430b51399962c9bf596210">vg::MinimumDistanceIndex</a>
 , <a class="el" href="classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#ab74206a82f3a2d178678de06be584e4c">vg::MinimumDistanceIndex::SnarlIndex</a>
 , <a class="el" href="classvg_1_1Packer.html#a833e1fa21ac3f5f5f6a001c5c5ee0f4c">vg::Packer</a>
+, <a class="el" href="classvg_1_1SnarlManager.html#afdcb932a1a891671acbdaaf445aee0b2">vg::SnarlManager</a>
 , <a class="el" href="classvg_1_1VG.html#a0ee4603518e9cd5915a65e65c2d763b2">vg::VG</a>
 </li>
 <li>serialize_members()
@@ -261,14 +262,29 @@ $(function() {
 <li>set_depth()
 : <a class="el" href="classvg_1_1DepthMap.html#a974a4494d4be9d562b12d94c4aac1b13">vg::DepthMap</a>
 </li>
+<li>set_distance_override()
+: <a class="el" href="classvg_1_1IndexManager.html#ae78daa182a4079d914516159fab5196b">vg::IndexManager</a>
+</li>
 <li>set_edge()
 : <a class="el" href="classvg_1_1VG.html#ae1131c1ff0a94ed2ec9ef35cb678801b">vg::VG</a>
+</li>
+<li>set_fasta_filename()
+: <a class="el" href="classvg_1_1IndexManager.html#abb255f1f9c4df9bab9ee4d670460349b">vg::IndexManager</a>
 </li>
 <li>set_filter_matches()
 : <a class="el" href="classvg_1_1Filter.html#ad45e46ca49dca65ee8e3d838d28d71b6">vg::Filter</a>
 </li>
 <li>set_fragment_length_distr_params()
 : <a class="el" href="classvg_1_1PairedEndMapper.html#a09e89f6da87d25f0ad66fb9eb3139a98">vg::PairedEndMapper</a>
+</li>
+<li>set_gbwt_override()
+: <a class="el" href="classvg_1_1IndexManager.html#a1850d1302ef82f90c67a4d5015ec5597">vg::IndexManager</a>
+</li>
+<li>set_gbwtgraph_override()
+: <a class="el" href="classvg_1_1IndexManager.html#a13cc94a56c26c7d763d192fca7d8c44b">vg::IndexManager</a>
+</li>
+<li>set_graph_override()
+: <a class="el" href="classvg_1_1IndexManager.html#a88ea5f3b7adf0128640913ab32f62a08">vg::IndexManager</a>
 </li>
 <li>set_hash_color()
 : <a class="el" href="classvg_1_1Viz.html#ab5559043258bf1e1cd4e3a754342cdde">vg::Viz</a>
@@ -297,6 +313,9 @@ $(function() {
 </li>
 <li>set_min_supports()
 : <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a3afbd8d1bc78b6716c587b93424db8cb">vg::SupportBasedSnarlCaller</a>
+</li>
+<li>set_minimizer_override()
+: <a class="el" href="classvg_1_1IndexManager.html#ad69c4f66f97f3ad35eb72b6f55607b0c">vg::IndexManager</a>
 </li>
 <li>set_my_path_position_graph()
 : <a class="el" href="classvg_1_1Filter.html#a8986008ebcb92629e17da5ed45a23734">vg::Filter</a>
@@ -332,6 +351,9 @@ $(function() {
 <li>set_remove_failing_edits()
 : <a class="el" href="classvg_1_1Filter.html#ab91fdad4a96917a43f1fed85e11a9645">vg::Filter</a>
 </li>
+<li>set_snarls_override()
+: <a class="el" href="classvg_1_1IndexManager.html#aa7979487bd6006b160b25f40b7458d76">vg::IndexManager</a>
+</li>
 <li>set_soft_clip_limit()
 : <a class="el" href="classvg_1_1Filter.html#a8e69a6bc40641a3377dd60f44ec52816">vg::Filter</a>
 </li>
@@ -343,6 +365,9 @@ $(function() {
 </li>
 <li>set_support_switch_threshold()
 : <a class="el" href="classvg_1_1TraversalSupportFinder.html#a53940205edddd5d3bb379b82ede4f74f">vg::TraversalSupportFinder</a>
+</li>
+<li>set_vcf_filename()
+: <a class="el" href="classvg_1_1IndexManager.html#ae622175b80c6ba327c98c48ff265bee1">vg::IndexManager</a>
 </li>
 <li>set_window_length()
 : <a class="el" href="classvg_1_1Filter.html#adb96fca6a301e45c84b010f5461440a9">vg::Filter</a>
@@ -428,13 +453,13 @@ $(function() {
 : <a class="el" href="classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a8ac89d404f2103ec2bd423054bff317f">vg::MinimumDistanceIndex::SnarlIndex</a>
 </li>
 <li>SnarlIndex()
-: <a class="el" href="classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#aacc124286d1779d7ed0068d7de54aa1a">vg::MinimumDistanceIndex::SnarlIndex</a>
+: <a class="el" href="classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#abcc657eeec61bd2fdaf0aeb01e50b741">vg::MinimumDistanceIndex::SnarlIndex</a>
 </li>
 <li>snarlLength()
 : <a class="el" href="classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a51bc8d2b2b499b6fe200c547793a338f">vg::MinimumDistanceIndex::SnarlIndex</a>
 </li>
 <li>SnarlManager()
-: <a class="el" href="classvg_1_1SnarlManager.html#a1037a2341484dc7b54a68cd7207d34b8">vg::SnarlManager</a>
+: <a class="el" href="classvg_1_1SnarlManager.html#a8e61adc170e3d9241a723ca7593883da">vg::SnarlManager</a>
 </li>
 <li>SnarlMinDistance()
 : <a class="el" href="classvg_1_1SnarlMinDistance.html#adc8c303e683b90d923c522790355abad">vg::SnarlMinDistance</a>
@@ -492,7 +517,7 @@ $(function() {
 : <a class="el" href="classvg_1_1BitString.html#af826e3c7bce1aeada3f989b1b7d1bcc5">vg::BitString</a>
 </li>
 <li>split_multicomponent_alignments()
-: <a class="el" href="classvg_1_1MultipathMapper.html#a402e09bb8cda64bd0612e61ba448b7b9">vg::MultipathMapper</a>
+: <a class="el" href="classvg_1_1MultipathMapper.html#af9376532aefb09b0546856d42bc3a1f1">vg::MultipathMapper</a>
 </li>
 <li>split_read_filter()
 : <a class="el" href="classvg_1_1Filter.html#a0bc2a72604a0cb134c1f5bad7889a1bf">vg::Filter</a>
@@ -592,7 +617,7 @@ $(function() {
 : <a class="el" href="classvg_1_1VG.html#ab447b1c70f7c4dc6576bfabc1990c337">vg::VG</a>
 </li>
 <li>Subcommand()
-: <a class="el" href="classvg_1_1subcommand_1_1Subcommand.html#ad5faf589dd98c3ff0c0d1071fcf90090">vg::subcommand::Subcommand</a>
+: <a class="el" href="classvg_1_1subcommand_1_1Subcommand.html#ad2cb9a00761644300914d9ed8439cbe1">vg::subcommand::Subcommand</a>
 </li>
 <li>subgraphInRange()
 : <a class="el" href="classvg_1_1MinimumDistanceIndex.html#a46f43e69697fd5e2547f8de45781ca1e">vg::MinimumDistanceIndex</a>
@@ -644,10 +669,10 @@ $(function() {
 : <a class="el" href="classvg_1_1PhasedGenome.html#a181b4e71f8debc78ceccf476ce36abcd">vg::PhasedGenome</a>
 </li>
 <li>swap_node_id()
-: <a class="el" href="classvg_1_1VG.html#a0f8c9051591df60d405a8dc1006aa6d5">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#aa906c5779ea372eb4dd0d9b8cc224be3">vg::VG</a>
 </li>
 <li>swap_node_ids()
-: <a class="el" href="classvg_1_1Paths.html#aba01c4d1b1d415622634db97f62b1188">vg::Paths</a>
+: <a class="el" href="classvg_1_1Paths.html#a3190f22ab39a9039ec9288e1c065ca9c">vg::Paths</a>
 </li>
 <li>swap_nodes()
 : <a class="el" href="classvg_1_1VG.html#aa402d1cf817f83ca44f72f6112b6a2e3">vg::VG</a>

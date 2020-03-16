@@ -38,6 +38,7 @@ var searchData=
   ['featureset',['FeatureSet',['../classvg_1_1FeatureSet.html',1,'vg']]],
   ['ff',['ff',['../classvg_1_1SRPE.html#a0e30bccfb4cef8cc04d1934a2b658ac1',1,'vg::SRPE']]],
   ['file',['file',['../classvg_1_1VcfBuffer.html#a6d744dafd27fb2fdea09d106b1553a55',1,'vg::VcfBuffer']]],
+  ['file_5fexists',['file_exists',['../namespacevg.html#abebdd1477a436020f3d3f8368d825054',1,'vg']]],
   ['file_5fheader',['file_header',['../classvg_1_1MinimumDistanceIndex.html#a3e515f34b0d941a0f55e15739a3e5014',1,'vg::MinimumDistanceIndex']]],
   ['filenames',['filenames',['../structvg_1_1temp__file_1_1Handler.html#a712176aeac999c1930b246fa02dc0f25',1,'vg::temp_file::Handler::filenames()'],['../classvg_1_1VGset.html#a49cf0bee988a30fb024218dd4f4eed56',1,'vg::VGset::filenames()']]],
   ['fill_5fbuffer',['fill_buffer',['../classvg_1_1VcfBuffer.html#afff803310f8c3bca9788b30ebba8450f',1,'vg::VcfBuffer']]],

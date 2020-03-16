@@ -91,6 +91,7 @@ var searchData=
   ['endianness',['endianness',['../structvg_1_1endianness.html',1,'vg']]],
   ['endianness_2ehpp',['endianness.hpp',['../endianness_8hpp.html',1,'']]],
   ['endpoints',['endpoints',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a2b1f1d67a76ef6de89f8f30bd794f603',1,'vg::GraphSynchronizer::Lock']]],
+  ['ensure',['ensure',['../classvg_1_1IndexManager.html#a71f2f5c594538680af30c599f138a61e',1,'vg::IndexManager']]],
   ['ensure_5fbreakpoints',['ensure_breakpoints',['../namespacevg.html#a35bec7a1758e5eb88a359da78174d8d9',1,'vg']]],
   ['ensure_5fdistance',['ensure_distance',['../classvg_1_1IndexManager.html#a77e26c62d6c3ef1e870ca1d8e28f2193',1,'vg::IndexManager']]],
   ['ensure_5fedit_5ftmpfiles_5fopen',['ensure_edit_tmpfiles_open',['../classvg_1_1Packer.html#a3120b075177c3ca1916d20557b175733',1,'vg::Packer']]],

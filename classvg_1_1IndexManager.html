@@ -65,6 +65,7 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="classvg_1_1IndexManager-members.html">List of all members</a>  </div>
@@ -74,13 +75,104 @@ $(function() {
 <div class="contents">
 
 <p><code>#include &lt;index_manager.hpp&gt;</code></p>
+<div class="dynheader">
+Inheritance diagram for vg::IndexManager:</div>
+<div class="dyncontent">
+ <div class="center">
+  <img src="classvg_1_1IndexManager.png" usemap="#vg::IndexManager_map" alt=""/>
+  <map id="vg::IndexManager_map" name="vg::IndexManager_map">
+<area href="classvg_1_1Progressive.html" alt="vg::Progressive" shape="rect" coords="0,0,113,24"/>
+</map>
+ </div></div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a5dba83d86b2d101e3c76086812bd2154"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a5dba83d86b2d101e3c76086812bd2154">IndexManager</a> (const string &amp;<a class="el" href="classvg_1_1IndexManager.html#a26a9030c5579df31b8a8f469008a0b15">fasta_filename</a>, const string &amp;<a class="el" href="classvg_1_1IndexManager.html#a598d44be21e2341a8df6ee3600a7146a">vcf_filename</a>=&quot;&quot;)</td></tr>
-<tr class="separator:a5dba83d86b2d101e3c76086812bd2154"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a383361a47120f59b6c242e94477ff068"><td class="memItemLeft" align="right" valign="top">tuple&lt; gbwtgraph::GBWTGraph *, gbwt::GBWT *, gbwtgraph::DefaultMinimizerIndex *, <a class="el" href="classvg_1_1MinimumDistanceIndex.html">vg::MinimumDistanceIndex</a> * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a383361a47120f59b6c242e94477ff068">get_mapping_indexes</a> ()</td></tr>
-<tr class="separator:a383361a47120f59b6c242e94477ff068"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abcdf958ad4003ed5e1835c9d40553e34"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#abcdf958ad4003ed5e1835c9d40553e34">IndexManager</a> (const string &amp;<a class="el" href="classvg_1_1IndexManager.html#a26a9030c5579df31b8a8f469008a0b15">fasta_filename</a>=&quot;&quot;, const string &amp;<a class="el" href="classvg_1_1IndexManager.html#a598d44be21e2341a8df6ee3600a7146a">vcf_filename</a>=&quot;&quot;)</td></tr>
+<tr class="separator:abcdf958ad4003ed5e1835c9d40553e34"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abb255f1f9c4df9bab9ee4d670460349b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#abb255f1f9c4df9bab9ee4d670460349b">set_fasta_filename</a> (const string &amp;filename)</td></tr>
+<tr class="memdesc:abb255f1f9c4df9bab9ee4d670460349b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the FASTA filename (and thus the basename for looking for other indexes, if not already set).  <a href="#abb255f1f9c4df9bab9ee4d670460349b">More...</a><br /></td></tr>
+<tr class="separator:abb255f1f9c4df9bab9ee4d670460349b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae622175b80c6ba327c98c48ff265bee1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#ae622175b80c6ba327c98c48ff265bee1">set_vcf_filename</a> (const string &amp;filename)</td></tr>
+<tr class="memdesc:ae622175b80c6ba327c98c48ff265bee1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the VCF filename.  <a href="#ae622175b80c6ba327c98c48ff265bee1">More...</a><br /></td></tr>
+<tr class="separator:ae622175b80c6ba327c98c48ff265bee1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad69c4f66f97f3ad35eb72b6f55607b0c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#ad69c4f66f97f3ad35eb72b6f55607b0c">set_minimizer_override</a> (const string &amp;filename)</td></tr>
+<tr class="memdesc:ad69c4f66f97f3ad35eb72b6f55607b0c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Override the file to load the minimizer index from.  <a href="#ad69c4f66f97f3ad35eb72b6f55607b0c">More...</a><br /></td></tr>
+<tr class="separator:ad69c4f66f97f3ad35eb72b6f55607b0c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3505fbac116d0127f0e3c453c2e3d6e5"><td class="memItemLeft" align="right" valign="top">shared_ptr&lt; gbwtgraph::DefaultMinimizerIndex &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a3505fbac116d0127f0e3c453c2e3d6e5">get_minimizer</a> ()</td></tr>
+<tr class="memdesc:a3505fbac116d0127f0e3c453c2e3d6e5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the minimizer index.  <a href="#a3505fbac116d0127f0e3c453c2e3d6e5">More...</a><br /></td></tr>
+<tr class="separator:a3505fbac116d0127f0e3c453c2e3d6e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3050dda389bc55d4bc4901e1bbf59e92"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a3050dda389bc55d4bc4901e1bbf59e92">can_get_minimizer</a> () const</td></tr>
+<tr class="memdesc:a3050dda389bc55d4bc4901e1bbf59e92"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the minimizer index is available or can be generated/loaded, and false otherwise.  <a href="#a3050dda389bc55d4bc4901e1bbf59e92">More...</a><br /></td></tr>
+<tr class="separator:a3050dda389bc55d4bc4901e1bbf59e92"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a13cc94a56c26c7d763d192fca7d8c44b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a13cc94a56c26c7d763d192fca7d8c44b">set_gbwtgraph_override</a> (const string &amp;filename)</td></tr>
+<tr class="memdesc:a13cc94a56c26c7d763d192fca7d8c44b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Override the file to load the gbwtgraph index from.  <a href="#a13cc94a56c26c7d763d192fca7d8c44b">More...</a><br /></td></tr>
+<tr class="separator:a13cc94a56c26c7d763d192fca7d8c44b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad50ecc45da19a588385a86fc47be86e0"><td class="memItemLeft" align="right" valign="top">shared_ptr&lt; gbwtgraph::GBWTGraph &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#ad50ecc45da19a588385a86fc47be86e0">get_gbwtgraph</a> ()</td></tr>
+<tr class="memdesc:ad50ecc45da19a588385a86fc47be86e0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the gbwtgraph index.  <a href="#ad50ecc45da19a588385a86fc47be86e0">More...</a><br /></td></tr>
+<tr class="separator:ad50ecc45da19a588385a86fc47be86e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4875c1b286d129d33569303e72e103e7"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a4875c1b286d129d33569303e72e103e7">can_get_gbwtgraph</a> () const</td></tr>
+<tr class="memdesc:a4875c1b286d129d33569303e72e103e7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the GBWTGraph is available or can be generated/loaded, and false otherwise.  <a href="#a4875c1b286d129d33569303e72e103e7">More...</a><br /></td></tr>
+<tr class="separator:a4875c1b286d129d33569303e72e103e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1850d1302ef82f90c67a4d5015ec5597"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a1850d1302ef82f90c67a4d5015ec5597">set_gbwt_override</a> (const string &amp;filename)</td></tr>
+<tr class="memdesc:a1850d1302ef82f90c67a4d5015ec5597"><td class="mdescLeft">&#160;</td><td class="mdescRight">Override the file to load the gbwt index from.  <a href="#a1850d1302ef82f90c67a4d5015ec5597">More...</a><br /></td></tr>
+<tr class="separator:a1850d1302ef82f90c67a4d5015ec5597"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5555db9091fd12868a1cb3282d6c3382"><td class="memItemLeft" align="right" valign="top">shared_ptr&lt; gbwt::GBWT &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a5555db9091fd12868a1cb3282d6c3382">get_gbwt</a> ()</td></tr>
+<tr class="memdesc:a5555db9091fd12868a1cb3282d6c3382"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the gbwt index.  <a href="#a5555db9091fd12868a1cb3282d6c3382">More...</a><br /></td></tr>
+<tr class="separator:a5555db9091fd12868a1cb3282d6c3382"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adfbb2cb009045257f3a9fd24c20c8d06"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#adfbb2cb009045257f3a9fd24c20c8d06">can_get_gbwt</a> () const</td></tr>
+<tr class="memdesc:adfbb2cb009045257f3a9fd24c20c8d06"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the GBWT is available or can be generated/loaded, and false otherwise.  <a href="#adfbb2cb009045257f3a9fd24c20c8d06">More...</a><br /></td></tr>
+<tr class="separator:adfbb2cb009045257f3a9fd24c20c8d06"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae78daa182a4079d914516159fab5196b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#ae78daa182a4079d914516159fab5196b">set_distance_override</a> (const string &amp;filename)</td></tr>
+<tr class="memdesc:ae78daa182a4079d914516159fab5196b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Override the file to load the distance index from.  <a href="#ae78daa182a4079d914516159fab5196b">More...</a><br /></td></tr>
+<tr class="separator:ae78daa182a4079d914516159fab5196b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a29a7edb443b3d155fc2922276bea1d31"><td class="memItemLeft" align="right" valign="top">shared_ptr&lt; <a class="el" href="classvg_1_1MinimumDistanceIndex.html">vg::MinimumDistanceIndex</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a29a7edb443b3d155fc2922276bea1d31">get_distance</a> ()</td></tr>
+<tr class="memdesc:a29a7edb443b3d155fc2922276bea1d31"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the gbwt index.  <a href="#a29a7edb443b3d155fc2922276bea1d31">More...</a><br /></td></tr>
+<tr class="separator:a29a7edb443b3d155fc2922276bea1d31"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af9e7909bfd9b5ca37d9c7627e39ecb9d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#af9e7909bfd9b5ca37d9c7627e39ecb9d">can_get_distance</a> () const</td></tr>
+<tr class="memdesc:af9e7909bfd9b5ca37d9c7627e39ecb9d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the distance index is available or can be generated/loaded, and false otherwise.  <a href="#af9e7909bfd9b5ca37d9c7627e39ecb9d">More...</a><br /></td></tr>
+<tr class="separator:af9e7909bfd9b5ca37d9c7627e39ecb9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa7979487bd6006b160b25f40b7458d76"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#aa7979487bd6006b160b25f40b7458d76">set_snarls_override</a> (const string &amp;filename)</td></tr>
+<tr class="memdesc:aa7979487bd6006b160b25f40b7458d76"><td class="mdescLeft">&#160;</td><td class="mdescRight">Override the file to load the snarls from.  <a href="#aa7979487bd6006b160b25f40b7458d76">More...</a><br /></td></tr>
+<tr class="separator:aa7979487bd6006b160b25f40b7458d76"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6afcfbb43d1d12f42ccfc325d4fdb096"><td class="memItemLeft" align="right" valign="top">shared_ptr&lt; <a class="el" href="classvg_1_1SnarlManager.html">vg::SnarlManager</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a6afcfbb43d1d12f42ccfc325d4fdb096">get_snarls</a> ()</td></tr>
+<tr class="memdesc:a6afcfbb43d1d12f42ccfc325d4fdb096"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the snarls.  <a href="#a6afcfbb43d1d12f42ccfc325d4fdb096">More...</a><br /></td></tr>
+<tr class="separator:a6afcfbb43d1d12f42ccfc325d4fdb096"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7af1af7d13b9801e62cd47ab189d25d6"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a7af1af7d13b9801e62cd47ab189d25d6">can_get_snarls</a> () const</td></tr>
+<tr class="memdesc:a7af1af7d13b9801e62cd47ab189d25d6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the snarls are available or can be generated/loaded, and false otherwise.  <a href="#a7af1af7d13b9801e62cd47ab189d25d6">More...</a><br /></td></tr>
+<tr class="separator:a7af1af7d13b9801e62cd47ab189d25d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a88ea5f3b7adf0128640913ab32f62a08"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a88ea5f3b7adf0128640913ab32f62a08">set_graph_override</a> (const string &amp;filename)</td></tr>
+<tr class="separator:a88ea5f3b7adf0128640913ab32f62a08"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a353d6dccdeee7326be07197585a06468"><td class="memItemLeft" align="right" valign="top">shared_ptr&lt; <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a353d6dccdeee7326be07197585a06468">get_graph</a> ()</td></tr>
+<tr class="memdesc:a353d6dccdeee7326be07197585a06468"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the graph.  <a href="#a353d6dccdeee7326be07197585a06468">More...</a><br /></td></tr>
+<tr class="separator:a353d6dccdeee7326be07197585a06468"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeebe6ab0ffc0ec16c441fef0dfddb2fe"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#aeebe6ab0ffc0ec16c441fef0dfddb2fe">can_get_graph</a> () const</td></tr>
+<tr class="memdesc:aeebe6ab0ffc0ec16c441fef0dfddb2fe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the graph is available or can be generated/loaded, and false otherwise.  <a href="#aeebe6ab0ffc0ec16c441fef0dfddb2fe">More...</a><br /></td></tr>
+<tr class="separator:aeebe6ab0ffc0ec16c441fef0dfddb2fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_methods_classvg_1_1Progressive"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1Progressive')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1Progressive.html">vg::Progressive</a></td></tr>
+<tr class="memitem:a4eb5050eb36ed519cbfa398748ef183b inherit pub_methods_classvg_1_1Progressive"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Progressive.html#a4eb5050eb36ed519cbfa398748ef183b">preload_progress</a> (const string &amp;message)</td></tr>
+<tr class="separator:a4eb5050eb36ed519cbfa398748ef183b inherit pub_methods_classvg_1_1Progressive"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1cce3f715516ed2bbb4ce3a312b01e02 inherit pub_methods_classvg_1_1Progressive"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Progressive.html#a1cce3f715516ed2bbb4ce3a312b01e02">create_progress</a> (const string &amp;message, long count)</td></tr>
+<tr class="separator:a1cce3f715516ed2bbb4ce3a312b01e02 inherit pub_methods_classvg_1_1Progressive"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a75d4e92a36a277be5bc0cee5d01f5ca1 inherit pub_methods_classvg_1_1Progressive"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Progressive.html#a75d4e92a36a277be5bc0cee5d01f5ca1">create_progress</a> (long count)</td></tr>
+<tr class="separator:a75d4e92a36a277be5bc0cee5d01f5ca1 inherit pub_methods_classvg_1_1Progressive"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0d64e6aa69bc094c163f4827602a302c inherit pub_methods_classvg_1_1Progressive"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Progressive.html#a0d64e6aa69bc094c163f4827602a302c">update_progress</a> (long i)</td></tr>
+<tr class="separator:a0d64e6aa69bc094c163f4827602a302c inherit pub_methods_classvg_1_1Progressive"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab1de11917caf25974a02e2f5c3946280 inherit pub_methods_classvg_1_1Progressive"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Progressive.html#ab1de11917caf25974a02e2f5c3946280">increment_progress</a> ()</td></tr>
+<tr class="separator:ab1de11917caf25974a02e2f5c3946280 inherit pub_methods_classvg_1_1Progressive"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaab8c6ae92870077bb59f86a15c8d18f inherit pub_methods_classvg_1_1Progressive"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Progressive.html#aaab8c6ae92870077bb59f86a15c8d18f">destroy_progress</a> (void)</td></tr>
+<tr class="separator:aaab8c6ae92870077bb59f86a15c8d18f inherit pub_methods_classvg_1_1Progressive"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
+Public Attributes</h2></td></tr>
+<tr class="memitem:a7f356e6f2b280089be855b372b02ca3d"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a7f356e6f2b280089be855b372b02ca3d">minimizer_k</a> = 29</td></tr>
+<tr class="memdesc:a7f356e6f2b280089be855b372b02ca3d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Minimizer kmer length to use when minimizer indexing.  <a href="#a7f356e6f2b280089be855b372b02ca3d">More...</a><br /></td></tr>
+<tr class="separator:a7f356e6f2b280089be855b372b02ca3d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae64e71525c3a556937ae87fe18829c86"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#ae64e71525c3a556937ae87fe18829c86">minimizer_w</a> = 11</td></tr>
+<tr class="memdesc:ae64e71525c3a556937ae87fe18829c86"><td class="mdescLeft">&#160;</td><td class="mdescRight">Minimizer window size to use when minimizer indexing.  <a href="#ae64e71525c3a556937ae87fe18829c86">More...</a><br /></td></tr>
+<tr class="separator:ae64e71525c3a556937ae87fe18829c86"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_attribs_classvg_1_1Progressive"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classvg_1_1Progressive')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classvg_1_1Progressive.html">vg::Progressive</a></td></tr>
+<tr class="memitem:a6653625f496832c4cb8711185d5e04cb inherit pub_attribs_classvg_1_1Progressive"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Progressive.html#a6653625f496832c4cb8711185d5e04cb">show_progress</a> = false</td></tr>
+<tr class="separator:a6653625f496832c4cb8711185d5e04cb inherit pub_attribs_classvg_1_1Progressive"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
@@ -102,6 +194,12 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:ac6a1f2fd813e7834a7f40e3aa63f677f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#ac6a1f2fd813e7834a7f40e3aa63f677f">ensure_minimizer</a> ()</td></tr>
 <tr class="memdesc:ac6a1f2fd813e7834a7f40e3aa63f677f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load the minimizer index, or make it from the GBWTGraph and the GBWT and save it to disk.  <a href="#ac6a1f2fd813e7834a7f40e3aa63f677f">More...</a><br /></td></tr>
 <tr class="separator:ac6a1f2fd813e7834a7f40e3aa63f677f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a71f2f5c594538680af30c599f138a61e"><td class="memTemplParams" colspan="2">template&lt;typename IndexHolderType &gt; </td></tr>
+<tr class="memitem:a71f2f5c594538680af30c599f138a61e"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a71f2f5c594538680af30c599f138a61e">ensure</a> (IndexHolderType &amp;member, const string &amp;filename_override, const string &amp;extension, const function&lt; void(ifstream &amp;)&gt; &amp;load, const function&lt; void(ofstream &amp;)&gt; &amp;make_and_save)</td></tr>
+<tr class="separator:a71f2f5c594538680af30c599f138a61e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a879079635418ec294a6d1b8b8c863d13"><td class="memTemplParams" colspan="2">template&lt;typename IndexHolderType &gt; </td></tr>
+<tr class="memitem:a879079635418ec294a6d1b8b8c863d13"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a879079635418ec294a6d1b8b8c863d13">can_get</a> (IndexHolderType &amp;member, const string &amp;filename_override, const string &amp;extension, const function&lt; bool(void)&gt; &amp;poll_dependencies) const</td></tr>
+<tr class="separator:a879079635418ec294a6d1b8b8c863d13"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afe5b08418872289a9c5e6de96edee867"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#afe5b08418872289a9c5e6de96edee867">get_filename</a> (const string &amp;extension) const</td></tr>
 <tr class="separator:afe5b08418872289a9c5e6de96edee867"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -113,6 +211,18 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:a598d44be21e2341a8df6ee3600a7146a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a69467b778012582760c2090e8c7e5e06"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a69467b778012582760c2090e8c7e5e06">basename</a></td></tr>
 <tr class="separator:a69467b778012582760c2090e8c7e5e06"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2470de3a46478125009a3bd72340f226"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a2470de3a46478125009a3bd72340f226">minimizer_override</a></td></tr>
+<tr class="separator:a2470de3a46478125009a3bd72340f226"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a784af075004780227f9132c396382b34"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a784af075004780227f9132c396382b34">gbwtgraph_override</a></td></tr>
+<tr class="separator:a784af075004780227f9132c396382b34"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a714748578e663ccb942ea069125d30d5"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a714748578e663ccb942ea069125d30d5">gbwt_override</a></td></tr>
+<tr class="separator:a714748578e663ccb942ea069125d30d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a51f6d27447a45538132c4cf868914a1d"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a51f6d27447a45538132c4cf868914a1d">distance_override</a></td></tr>
+<tr class="separator:a51f6d27447a45538132c4cf868914a1d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7a2128a58cb3bfcce857ac9d98ccf226"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a7a2128a58cb3bfcce857ac9d98ccf226">snarls_override</a></td></tr>
+<tr class="separator:a7a2128a58cb3bfcce857ac9d98ccf226"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a07715d2f53dddaa91e3b7d4fc983a800"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a07715d2f53dddaa91e3b7d4fc983a800">graph_override</a></td></tr>
+<tr class="separator:a07715d2f53dddaa91e3b7d4fc983a800"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a02eb3d0c9f855bac8fe0126fed70368f"><td class="memItemLeft" align="right" valign="top">shared_ptr&lt; gbwtgraph::DefaultMinimizerIndex &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a02eb3d0c9f855bac8fe0126fed70368f">minimizer</a></td></tr>
 <tr class="separator:a02eb3d0c9f855bac8fe0126fed70368f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2ec86353280dd653e3d1f043d374808e"><td class="memItemLeft" align="right" valign="top">pair&lt; shared_ptr&lt; gbwtgraph::GBWTGraph &gt;, shared_ptr&lt; gbwt::GBWT &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexManager.html#a2ec86353280dd653e3d1f043d374808e">gbwtgraph</a></td></tr>
@@ -129,10 +239,20 @@ Protected Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Represents a set of indexes (including the actual graph) organized around a base name. The base name is the name of the indexed FASTA file.</p>
 <p>We have an internal collection of shared_ptrs, one for each final or intermediate index.</p>
-<p>We also have a bunch of internal ensure_whatever() methods that make sure that the corresponding index is populated, either from disk if available, or from the indexes it depends on, first calling the ensure method for each. </p>
+<p>We also have a bunch of internal ensure_whatever() methods that make sure that the corresponding index is populated, either from disk if available, or from the indexes it depends on, first calling the ensure method for each.</p>
+<p>For each index type (foo), we need:</p>
+<ol type="1">
+<li>A protected member "foo" which is a shared_ptr to the index.</li>
+<li>A protected member "foo_override" which is a filename to load the index from, to override the basename-based logic.</li>
+<li>A protected method "ensure_foo()" which uses "ensure()" to load or create the index.</li>
+<li>A public method "set_foo_override()" to set the override filename.</li>
+<li>A public method "get_foo()" to fill it in (via "ensure_foo()") and return it.</li>
+<li>A public method "can_get_foo()" which returns true if it thinks get_foo() will be successful, and false (and prints a warning) if e.g. necessary files are missing.</li>
+</ol>
+<p>Note that the <a class="el" href="classvg_1_1IndexManager.html">IndexManager</a> may exit the process, instead of throwing an exception, if something goes wrong during a "get_foo()" method, so you should check "can_get_foo()" first. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a5dba83d86b2d101e3c76086812bd2154"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5dba83d86b2d101e3c76086812bd2154">&#9670;&nbsp;</a></span>IndexManager()</h2>
+<a id="abcdf958ad4003ed5e1835c9d40553e34"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abcdf958ad4003ed5e1835c9d40553e34">&#9670;&nbsp;</a></span>IndexManager()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -141,7 +261,7 @@ Protected Attributes</h2></td></tr>
           <td class="memname">vg::IndexManager::IndexManager </td>
           <td>(</td>
           <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>fasta_filename</em>, </td>
+          <td class="paramname"><em>fasta_filename</em> = <code>&quot;&quot;</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -160,6 +280,228 @@ Protected Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a879079635418ec294a6d1b8b8c863d13"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a879079635418ec294a6d1b8b8c863d13">&#9670;&nbsp;</a></span>can_get()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename IndexHolderType &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::IndexManager::can_get </td>
+          <td>(</td>
+          <td class="paramtype">IndexHolderType &amp;&#160;</td>
+          <td class="paramname"><em>member</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename_override</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>extension</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; bool(void)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>poll_dependencies</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>We have a template for helping write the can_get functions. Defined in the CPP since only we use it. </p>
+
+</div>
+</div>
+<a id="af9e7909bfd9b5ca37d9c7627e39ecb9d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af9e7909bfd9b5ca37d9c7627e39ecb9d">&#9670;&nbsp;</a></span>can_get_distance()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::IndexManager::can_get_distance </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns true if the distance index is available or can be generated/loaded, and false otherwise. </p>
+
+</div>
+</div>
+<a id="adfbb2cb009045257f3a9fd24c20c8d06"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adfbb2cb009045257f3a9fd24c20c8d06">&#9670;&nbsp;</a></span>can_get_gbwt()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::IndexManager::can_get_gbwt </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns true if the GBWT is available or can be generated/loaded, and false otherwise. </p>
+
+</div>
+</div>
+<a id="a4875c1b286d129d33569303e72e103e7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4875c1b286d129d33569303e72e103e7">&#9670;&nbsp;</a></span>can_get_gbwtgraph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::IndexManager::can_get_gbwtgraph </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns true if the GBWTGraph is available or can be generated/loaded, and false otherwise. </p>
+
+</div>
+</div>
+<a id="aeebe6ab0ffc0ec16c441fef0dfddb2fe"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aeebe6ab0ffc0ec16c441fef0dfddb2fe">&#9670;&nbsp;</a></span>can_get_graph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::IndexManager::can_get_graph </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns true if the graph is available or can be generated/loaded, and false otherwise. </p>
+
+</div>
+</div>
+<a id="a3050dda389bc55d4bc4901e1bbf59e92"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3050dda389bc55d4bc4901e1bbf59e92">&#9670;&nbsp;</a></span>can_get_minimizer()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::IndexManager::can_get_minimizer </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns true if the minimizer index is available or can be generated/loaded, and false otherwise. </p>
+
+</div>
+</div>
+<a id="a7af1af7d13b9801e62cd47ab189d25d6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7af1af7d13b9801e62cd47ab189d25d6">&#9670;&nbsp;</a></span>can_get_snarls()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::IndexManager::can_get_snarls </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns true if the snarls are available or can be generated/loaded, and false otherwise. </p>
+
+</div>
+</div>
+<a id="a71f2f5c594538680af30c599f138a61e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a71f2f5c594538680af30c599f138a61e">&#9670;&nbsp;</a></span>ensure()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename IndexHolderType &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::IndexManager::ensure </td>
+          <td>(</td>
+          <td class="paramtype">IndexHolderType &amp;&#160;</td>
+          <td class="paramname"><em>member</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename_override</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>extension</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(ifstream &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>load</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(ofstream &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>make_and_save</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>We have a template to help us stamp out these ensure functions. We define it in the CPP since only we ever use it. Note that the ostream to make_and_save is only open if there is a basename and a file to write to. </p>
+
+</div>
+</div>
 <a id="a77e26c62d6c3ef1e870ca1d8e28f2193"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a77e26c62d6c3ef1e870ca1d8e28f2193">&#9670;&nbsp;</a></span>ensure_distance()</h2>
 
@@ -322,6 +664,25 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a29a7edb443b3d155fc2922276bea1d31"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a29a7edb443b3d155fc2922276bea1d31">&#9670;&nbsp;</a></span>get_distance()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">shared_ptr&lt; <a class="el" href="classvg_1_1MinimumDistanceIndex.html">vg::MinimumDistanceIndex</a> &gt; vg::IndexManager::get_distance </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the gbwt index. </p>
+
+</div>
+</div>
 <a id="afe5b08418872289a9c5e6de96edee867"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#afe5b08418872289a9c5e6de96edee867">&#9670;&nbsp;</a></span>get_filename()</h2>
 
@@ -345,25 +706,261 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Get the filename for the index file having the given extension. Extension should not include the dot. May or may not exist yet. </p>
+<p>Get the filename for the index file having the given extension. Extension should not include the dot. May or may not exist yet. Returns "" if there is no basename. </p>
 
 </div>
 </div>
-<a id="a383361a47120f59b6c242e94477ff068"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a383361a47120f59b6c242e94477ff068">&#9670;&nbsp;</a></span>get_mapping_indexes()</h2>
+<a id="a5555db9091fd12868a1cb3282d6c3382"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5555db9091fd12868a1cb3282d6c3382">&#9670;&nbsp;</a></span>get_gbwt()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">tuple&lt;gbwtgraph::GBWTGraph*, gbwt::GBWT*, gbwtgraph::DefaultMinimizerIndex*, <a class="el" href="classvg_1_1MinimumDistanceIndex.html">vg::MinimumDistanceIndex</a>*&gt; vg::IndexManager::get_mapping_indexes </td>
+          <td class="memname">shared_ptr&lt; gbwt::GBWT &gt; vg::IndexManager::get_gbwt </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Get the indexes that are used for mapping. If not available, they will be generated. </p>
+
+<p>Get the gbwt index. </p>
+
+</div>
+</div>
+<a id="ad50ecc45da19a588385a86fc47be86e0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad50ecc45da19a588385a86fc47be86e0">&#9670;&nbsp;</a></span>get_gbwtgraph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">shared_ptr&lt; gbwtgraph::GBWTGraph &gt; vg::IndexManager::get_gbwtgraph </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the gbwtgraph index. </p>
+
+</div>
+</div>
+<a id="a353d6dccdeee7326be07197585a06468"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a353d6dccdeee7326be07197585a06468">&#9670;&nbsp;</a></span>get_graph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">shared_ptr&lt; <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &gt; vg::IndexManager::get_graph </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the graph. </p>
+
+</div>
+</div>
+<a id="a3505fbac116d0127f0e3c453c2e3d6e5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3505fbac116d0127f0e3c453c2e3d6e5">&#9670;&nbsp;</a></span>get_minimizer()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">shared_ptr&lt; gbwtgraph::DefaultMinimizerIndex &gt; vg::IndexManager::get_minimizer </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the minimizer index. </p>
+
+</div>
+</div>
+<a id="a6afcfbb43d1d12f42ccfc325d4fdb096"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6afcfbb43d1d12f42ccfc325d4fdb096">&#9670;&nbsp;</a></span>get_snarls()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">shared_ptr&lt; <a class="el" href="classvg_1_1SnarlManager.html">vg::SnarlManager</a> &gt; vg::IndexManager::get_snarls </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the snarls. </p>
+
+</div>
+</div>
+<a id="ae78daa182a4079d914516159fab5196b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae78daa182a4079d914516159fab5196b">&#9670;&nbsp;</a></span>set_distance_override()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::IndexManager::set_distance_override </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Override the file to load the distance index from. </p>
+
+</div>
+</div>
+<a id="abb255f1f9c4df9bab9ee4d670460349b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abb255f1f9c4df9bab9ee4d670460349b">&#9670;&nbsp;</a></span>set_fasta_filename()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::IndexManager::set_fasta_filename </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Set the FASTA filename (and thus the basename for looking for other indexes, if not already set). </p>
+
+</div>
+</div>
+<a id="a1850d1302ef82f90c67a4d5015ec5597"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1850d1302ef82f90c67a4d5015ec5597">&#9670;&nbsp;</a></span>set_gbwt_override()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::IndexManager::set_gbwt_override </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Override the file to load the gbwt index from. </p>
+
+</div>
+</div>
+<a id="a13cc94a56c26c7d763d192fca7d8c44b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a13cc94a56c26c7d763d192fca7d8c44b">&#9670;&nbsp;</a></span>set_gbwtgraph_override()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::IndexManager::set_gbwtgraph_override </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Override the file to load the gbwtgraph index from. </p>
+
+</div>
+</div>
+<a id="a88ea5f3b7adf0128640913ab32f62a08"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a88ea5f3b7adf0128640913ab32f62a08">&#9670;&nbsp;</a></span>set_graph_override()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::IndexManager::set_graph_override </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Override the file to load the graph from. Also sets index basename to be based on this graph file. </p>
+
+</div>
+</div>
+<a id="ad69c4f66f97f3ad35eb72b6f55607b0c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad69c4f66f97f3ad35eb72b6f55607b0c">&#9670;&nbsp;</a></span>set_minimizer_override()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::IndexManager::set_minimizer_override </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Override the file to load the minimizer index from. </p>
+
+</div>
+</div>
+<a id="aa7979487bd6006b160b25f40b7458d76"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa7979487bd6006b160b25f40b7458d76">&#9670;&nbsp;</a></span>set_snarls_override()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::IndexManager::set_snarls_override </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Override the file to load the snarls from. </p>
+
+</div>
+</div>
+<a id="ae622175b80c6ba327c98c48ff265bee1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae622175b80c6ba327c98c48ff265bee1">&#9670;&nbsp;</a></span>set_vcf_filename()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::IndexManager::set_vcf_filename </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Set the VCF filename. </p>
 
 </div>
 </div>
@@ -401,6 +998,28 @@ Protected Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">shared_ptr&lt;<a class="el" href="classvg_1_1MinimumDistanceIndex.html">vg::MinimumDistanceIndex</a>&gt; vg::IndexManager::distance</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a51f6d27447a45538132c4cf868914a1d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a51f6d27447a45538132c4cf868914a1d">&#9670;&nbsp;</a></span>distance_override</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::IndexManager::distance_override</td>
         </tr>
       </table>
   </td>
@@ -456,6 +1075,28 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a714748578e663ccb942ea069125d30d5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a714748578e663ccb942ea069125d30d5">&#9670;&nbsp;</a></span>gbwt_override</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::IndexManager::gbwt_override</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a2ec86353280dd653e3d1f043d374808e"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a2ec86353280dd653e3d1f043d374808e">&#9670;&nbsp;</a></span>gbwtgraph</h2>
 
@@ -467,6 +1108,28 @@ Protected Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">pair&lt;shared_ptr&lt;gbwtgraph::GBWTGraph&gt;, shared_ptr&lt;gbwt::GBWT&gt; &gt; vg::IndexManager::gbwtgraph</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a784af075004780227f9132c396382b34"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a784af075004780227f9132c396382b34">&#9670;&nbsp;</a></span>gbwtgraph_override</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::IndexManager::gbwtgraph_override</td>
         </tr>
       </table>
   </td>
@@ -500,6 +1163,28 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a07715d2f53dddaa91e3b7d4fc983a800"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a07715d2f53dddaa91e3b7d4fc983a800">&#9670;&nbsp;</a></span>graph_override</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::IndexManager::graph_override</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a02eb3d0c9f855bac8fe0126fed70368f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a02eb3d0c9f855bac8fe0126fed70368f">&#9670;&nbsp;</a></span>minimizer</h2>
 
@@ -522,6 +1207,60 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a7f356e6f2b280089be855b372b02ca3d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7f356e6f2b280089be855b372b02ca3d">&#9670;&nbsp;</a></span>minimizer_k</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::IndexManager::minimizer_k = 29</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Minimizer kmer length to use when minimizer indexing. </p>
+
+</div>
+</div>
+<a id="a2470de3a46478125009a3bd72340f226"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2470de3a46478125009a3bd72340f226">&#9670;&nbsp;</a></span>minimizer_override</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::IndexManager::minimizer_override</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ae64e71525c3a556937ae87fe18829c86"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae64e71525c3a556937ae87fe18829c86">&#9670;&nbsp;</a></span>minimizer_w</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::IndexManager::minimizer_w = 11</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Minimizer window size to use when minimizer indexing. </p>
+
+</div>
+</div>
 <a id="a682053b988acbacad37b96c56f2ad719"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a682053b988acbacad37b96c56f2ad719">&#9670;&nbsp;</a></span>snarls</h2>
 
@@ -533,6 +1272,28 @@ Protected Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">shared_ptr&lt;<a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a>&gt; vg::IndexManager::snarls</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a7a2128a58cb3bfcce857ac9d98ccf226"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7a2128a58cb3bfcce857ac9d98ccf226">&#9670;&nbsp;</a></span>snarls_override</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::IndexManager::snarls_override</td>
         </tr>
       </table>
   </td>

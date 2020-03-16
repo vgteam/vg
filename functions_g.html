@@ -88,11 +88,17 @@ $(function() {
 <li>gbwt_index
 : <a class="el" href="classvg_1_1PhaseUnfolder.html#abe0ad79b8b65bea2a4f871913c83ee65">vg::PhaseUnfolder</a>
 </li>
+<li>gbwt_override
+: <a class="el" href="classvg_1_1IndexManager.html#a714748578e663ccb942ea069125d30d5">vg::IndexManager</a>
+</li>
 <li>gbwt_thread_t()
 : <a class="el" href="structhaplo_1_1gbwt__thread__t.html#a5b148ae0a27b81b4b4af07f200a1255b">haplo::gbwt_thread_t</a>
 </li>
 <li>gbwtgraph
 : <a class="el" href="classvg_1_1IndexManager.html#a2ec86353280dd653e3d1f043d374808e">vg::IndexManager</a>
+</li>
+<li>gbwtgraph_override
+: <a class="el" href="classvg_1_1IndexManager.html#a784af075004780227f9132c396382b34">vg::IndexManager</a>
 </li>
 <li>GBWTScoreProvider()
 : <a class="el" href="classhaplo_1_1GBWTScoreProvider.html#abf8bd05e480afa9a2ac2832a13f5b181">haplo::GBWTScoreProvider&lt; GBWTType &gt;</a>
@@ -290,6 +296,9 @@ $(function() {
 , <a class="el" href="classvg_1_1OptionInterface.html#aa53deb39285f0045257083eb38d703cd">vg::OptionInterface</a>
 , <a class="el" href="classvg_1_1subcommand_1_1Subcommand.html#aca3e8621a4002b48b733211c3adc52b5">vg::subcommand::Subcommand</a>
 </li>
+<li>get_distance()
+: <a class="el" href="classvg_1_1IndexManager.html#a29a7edb443b3d155fc2922276bea1d31">vg::IndexManager</a>
+</li>
 <li>get_edge()
 : <a class="el" href="classvg_1_1Index.html#a718f5b5c557c69fbd33e08da1f07eb29">vg::Index</a>
 , <a class="el" href="classvg_1_1VG.html#a8668ddc84b9abe4fe9cb5acb3efd877b">vg::VG</a>
@@ -334,6 +343,12 @@ $(function() {
 <li>get_filename()
 : <a class="el" href="classvg_1_1IndexManager.html#afe5b08418872289a9c5e6de96edee867">vg::IndexManager</a>
 </li>
+<li>get_gbwt()
+: <a class="el" href="classvg_1_1IndexManager.html#a5555db9091fd12868a1cb3282d6c3382">vg::IndexManager</a>
+</li>
+<li>get_gbwtgraph()
+: <a class="el" href="classvg_1_1IndexManager.html#ad50ecc45da19a588385a86fc47be86e0">vg::IndexManager</a>
+</li>
 <li>get_genotype_log_likelihood()
 : <a class="el" href="classvg_1_1Genotyper.html#a9071cdf5ae591b478feaac025b069772">vg::Genotyper</a>
 </li>
@@ -344,7 +359,8 @@ $(function() {
 : <a class="el" href="classvg_1_1Deconstructor.html#a6f0e3ee502daf41a1e591b2033552efc">vg::Deconstructor</a>
 </li>
 <li>get_graph()
-: <a class="el" href="classvg_1_1Packer.html#a19b5aa3c38b65c9e35e2ab7604bdbec4">vg::Packer</a>
+: <a class="el" href="classvg_1_1IndexManager.html#a353d6dccdeee7326be07197585a06468">vg::IndexManager</a>
+, <a class="el" href="classvg_1_1Packer.html#a19b5aa3c38b65c9e35e2ab7604bdbec4">vg::Packer</a>
 </li>
 <li>get_handle()
 : <a class="el" href="classhandlegraph_1_1HandleGraph.html#a6dd9d70931835f5c75518b23a780b744">handlegraph::HandleGraph</a>
@@ -488,9 +504,6 @@ $(function() {
 <li>get_mapping()
 : <a class="el" href="classvg_1_1PhaseUnfolder.html#aae984d6ac43200dc82e6ef3066e01f15">vg::PhaseUnfolder</a>
 </li>
-<li>get_mapping_indexes()
-: <a class="el" href="classvg_1_1IndexManager.html#a383361a47120f59b6c242e94477ff068">vg::IndexManager</a>
-</li>
 <li>get_mappings()
 : <a class="el" href="classvg_1_1Index.html#af857cafb69d6f37c49b912dd8549d31f">vg::Index</a>
 </li>
@@ -510,6 +523,9 @@ $(function() {
 </li>
 <li>get_min_total_support_for_call()
 : <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#ac7e36771ace6cf84d9f4f732cdbc692f">vg::SupportBasedSnarlCaller</a>
+</li>
+<li>get_minimizer()
+: <a class="el" href="classvg_1_1IndexManager.html#a3505fbac116d0127f0e3c453c2e3d6e5">vg::IndexManager</a>
 </li>
 <li>get_mutable()
 : <a class="el" href="structvg_1_1Annotation.html#a065db30c6b14ca2938254d603777e5c8">vg::Annotation&lt; T, Enabled &gt;</a>
@@ -578,7 +594,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Mapper.html#a99717b5d61b6db599c177b8bafcb6dd8">vg::Mapper</a>
 </li>
 <li>get_node_mapping()
-: <a class="el" href="classvg_1_1Paths.html#a6314d7f8036a65b31d4dfac643bc3598">vg::Paths</a>
+: <a class="el" href="classvg_1_1Paths.html#a7fa795ccee1427d6cac6e44fafe41e1e">vg::Paths</a>
 </li>
 <li>get_node_mapping_by_path_name()
 : <a class="el" href="classvg_1_1Paths.html#a9c9cf2b7f26c788195812e2b8170a6ce">vg::Paths</a>
@@ -797,6 +813,9 @@ $(function() {
 <li>get_snarl_traversals()
 : <a class="el" href="classvg_1_1Genotyper.html#a10a35579c6f6c5a23c946af8fd914af3">vg::Genotyper</a>
 </li>
+<li>get_snarls()
+: <a class="el" href="classvg_1_1IndexManager.html#a6afcfbb43d1d12f42ccfc325d4fdb096">vg::IndexManager</a>
+</li>
 <li>get_SNP_ref_position()
 : <a class="el" href="structhaplo_1_1linear__haplo__structure.html#a312a7a7a748cc4acd3c4b75717db1fe6">haplo::linear_haplo_structure</a>
 </li>
@@ -830,8 +849,8 @@ $(function() {
 : <a class="el" href="classvg_1_1PhaseUnfolder.html#a97128de268b43c9ccf9dd117829adedf">vg::PhaseUnfolder</a>
 </li>
 <li>get_support()
-: <a class="el" href="structvg_1_1AugmentedGraph.html#ad239a8516427304ef304e944f7d20c00">vg::AugmentedGraph</a>
-, <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a0ffa85683b46b7f8d6b64da42ba19fbb">vg::SupportAugmentedGraph</a>
+: <a class="el" href="structvg_1_1AugmentedGraph.html#a87c6ed55516068757be3b1ad54a6cfd0">vg::AugmentedGraph</a>
+, <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a4c86be41ce8680c5473080c704ddcc10">vg::SupportAugmentedGraph</a>
 </li>
 <li>get_support_finder()
 : <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a5687496a072d3df38436a585e53151a6">vg::SupportBasedSnarlCaller</a>
@@ -996,6 +1015,9 @@ $(function() {
 </li>
 <li>graph_mixed_distance_estimate()
 : <a class="el" href="classvg_1_1Mapper.html#a67fb2b4bc540b81be063075ce5593569">vg::Mapper</a>
+</li>
+<li>graph_override
+: <a class="el" href="classvg_1_1IndexManager.html#a07715d2f53dddaa91e3b7d4fc983a800">vg::IndexManager</a>
 </li>
 <li>GraphCaller()
 : <a class="el" href="classvg_1_1GraphCaller.html#a74c8ec3f036cf1da2ba1a10ece5bb1a0">vg::GraphCaller</a>

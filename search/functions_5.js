@@ -50,6 +50,7 @@ var searchData=
   ['end_5fbackward',['end_backward',['../namespacevg.html#acab8d2ef076a0e866c7849aace290124',1,'vg']]],
   ['end_5fdegree',['end_degree',['../classvg_1_1VG.html#af3cf82dca43799a03d93b199133f1d4b',1,'vg::VG']]],
   ['endfile',['EndFile',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#aa6cf204591880e126bacc2d01799f3e6',1,'vg::io::BlockedGzipOutputStream']]],
+  ['ensure',['ensure',['../classvg_1_1IndexManager.html#a71f2f5c594538680af30c599f138a61e',1,'vg::IndexManager']]],
   ['ensure_5fbreakpoints',['ensure_breakpoints',['../namespacevg.html#a35bec7a1758e5eb88a359da78174d8d9',1,'vg']]],
   ['ensure_5fdistance',['ensure_distance',['../classvg_1_1IndexManager.html#a77e26c62d6c3ef1e870ca1d8e28f2193',1,'vg::IndexManager']]],
   ['ensure_5fedit_5ftmpfiles_5fopen',['ensure_edit_tmpfiles_open',['../classvg_1_1Packer.html#a3120b075177c3ca1916d20557b175733',1,'vg::Packer']]],

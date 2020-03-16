@@ -18,6 +18,7 @@ var searchData=
   ['fdistream',['fdistream',['../classvg_1_1io_1_1fdistream.html#acdb9ac3f7b60bb31c8a4d1ff307688f4',1,'vg::io::fdistream']]],
   ['fdostream',['fdostream',['../classvg_1_1io_1_1fdostream.html#a8549f4b673b255a447cad6a06c587ec7',1,'vg::io::fdostream']]],
   ['fdoutbuf',['fdoutbuf',['../classvg_1_1io_1_1fdoutbuf.html#a4761de2464fb50257c74d5e6e5a13fad',1,'vg::io::fdoutbuf']]],
+  ['file_5fexists',['file_exists',['../namespacevg.html#abebdd1477a436020f3d3f8368d825054',1,'vg']]],
   ['fill_5fbuffer',['fill_buffer',['../classvg_1_1VcfBuffer.html#afff803310f8c3bca9788b30ebba8450f',1,'vg::VcfBuffer']]],
   ['fill_5fdepth',['fill_depth',['../classvg_1_1DepthMap.html#a46253215a059652f640b4d32852c676e',1,'vg::DepthMap']]],
   ['fill_5fmatrix',['fill_matrix',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a54be0f91b1460bbd03e87e6da6be6e32',1,'vg::BandedGlobalAligner::BAMatrix']]],
