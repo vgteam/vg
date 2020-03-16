@@ -23,7 +23,7 @@ using namespace std;
 constexpr size_t MinimizerMapper::PRECISION;
 
 MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-    const std::vector<std::unique_ptr<gbwtgraph::DefaultMinimizerIndex>>& minimizer_indexes,
+    const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes,
     MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph) :
     path_graph(path_graph), minimizer_indexes(minimizer_indexes),
     distance_index(distance_index), gbwt_graph(graph),
@@ -972,8 +972,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         // Insert the (graph position, read offset) pair.
                         seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].value.offset));
 #ifdef debug
-                        cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
-                            << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer.hits << ")" << endl;
+                        cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].value.offset << " = " << seeds[seed_index]
+                            << " from minimizer " << seed_to_source[seed_index] << endl;
 #endif
                     }
                     
@@ -2002,7 +2002,7 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 #ifdef debug
                 cerr << "\t\tBase flanks minimizer " << active_index << " (" << active.value.offset
                     << "-" << (active.value.offset + index.k()) << ") and has " << possible_minimizers
-                    << " chances to have beaten it at P=" << (1.0 - each_not_beat) << " each; cost to have beaten with any is Phred " << any_beat_phred << endl;
+                    << " chances to have beaten it; cost to have beaten with any is Phred " << any_beat_phred << endl;
 #endif
 
                 // Then we AND (sum) the Phred of that in, as an additional cost to mutating this base and kitting all the windows it covers.
