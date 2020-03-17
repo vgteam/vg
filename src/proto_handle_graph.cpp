@@ -32,7 +32,7 @@ using namespace handlegraph;
                            get_handle(edge.to(), edge.to_end()));
     }
     
-    bool ProtoHandleGraph::has_node(id_t node_id) const {
+    bool ProtoHandleGraph::has_node(nid_t node_id) const {
         bool found = false;
         for (size_t i = 0; i < graph->node_size() && !found; i++) {
             found = graph->node(i).id() == node_id;
@@ -40,7 +40,7 @@ using namespace handlegraph;
         return found;
     }
     
-    handle_t ProtoHandleGraph::get_handle(const id_t& node_id, bool is_reverse) const {
+    handle_t ProtoHandleGraph::get_handle(const nid_t& node_id, bool is_reverse) const {
         for (size_t i = 0; i < graph->node_size(); i++) {
             if (graph->node(i).id() == node_id) {
                 return handlegraph::number_bool_packing::pack(i, is_reverse);
@@ -51,7 +51,7 @@ using namespace handlegraph;
         return as_handle(-1);
     }
     
-    id_t ProtoHandleGraph::get_id(const handle_t& handle) const {
+    nid_t ProtoHandleGraph::get_id(const handle_t& handle) const {
         return graph->node(handlegraph::number_bool_packing::unpack_number(handle)).id();
     }
     
@@ -113,18 +113,18 @@ using namespace handlegraph;
         return graph->node_size();
     }
     
-    id_t ProtoHandleGraph::min_node_id() const {
-        id_t min_id = numeric_limits<id_t>::max();
+    nid_t ProtoHandleGraph::min_node_id() const {
+        nid_t min_id = numeric_limits<nid_t>::max();
         for (size_t i = 0; i < graph->node_size(); i++) {
-            min_id = min(min_id, graph->node(i).id());
+            min_id = min(min_id, (nid_t) graph->node(i).id());
         }
         return min_id;
     }
     
-    id_t ProtoHandleGraph::max_node_id() const {
-        id_t max_id = numeric_limits<id_t>::min();
+    nid_t ProtoHandleGraph::max_node_id() const {
+        nid_t max_id = numeric_limits<nid_t>::min();
         for (size_t i = 0; i < graph->node_size(); i++) {
-            max_id = max(max_id, graph->node(i).id());
+            max_id = max(max_id, (nid_t) graph->node(i).id());
         }
         return max_id;
     }
@@ -133,7 +133,7 @@ using namespace handlegraph;
                                          bool parallel) const {
         
         // we need to be able to map IDs to indexes to make handles efficiently
-        unordered_map<id_t, size_t> node_idx;
+        unordered_map<nid_t, size_t> node_idx;
         node_idx.reserve(graph->node_size());
         for (size_t i = 0; i < graph->node_size(); i++) {
             node_idx[graph->node(i).id()] = i;

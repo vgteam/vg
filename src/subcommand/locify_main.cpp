@@ -177,7 +177,7 @@ int main_locify(int argc, char** argv){
                 locus_to_pos[l.name()].insert(pos.first);
             }
         }
-        // void for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda);
+        // void for_alignment_in_range(nid_t id1, nid_t id2, std::function<void(const Alignment&)> lambda);
         std::function<void(const Alignment&)> fill_alns = [&](const Alignment& a){
             // TODO reverse complementing alleles ?
             // overlap is stranded
@@ -346,7 +346,7 @@ int main_locify(int argc, char** argv){
         if (forwardize) {
             if (aln.second.path().mapping_size() && aln.second.path().mapping(0).position().is_reverse()) {
                 output_buf.push_back(reverse_complement_alignment(aln.second,
-                                                                  [&xgidx](int64_t id) { return xgidx->get_length(xgidx->get_handle(id)); }));
+                                                                  [&xgidx](nid_t id) { return xgidx->get_length(xgidx->get_handle(id)); }));
             } else {
                 output_buf.push_back(aln.second);
             }

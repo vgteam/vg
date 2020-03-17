@@ -313,7 +313,7 @@ tuple<vector<string>, size_t, vector<string>> HaplotypeIndexer::generate_threads
         function<void(Alignment&)> lambda = [&](Alignment& aln) {
             gbwt::vector_type buffer;
             for (auto& m : aln.path().mapping()) {
-                max_id = max(m.position().node_id(), max_id);
+                max_id = max((nid_t) m.position().node_id(), max_id);
             }
             alignments_in_gam++;
         };

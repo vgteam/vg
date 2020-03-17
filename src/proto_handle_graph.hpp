@@ -49,13 +49,13 @@ using namespace std;
         //////////////////////////
         
         /// Method to check if a node exists by ID
-        virtual bool has_node(id_t node_id) const;
+        virtual bool has_node(nid_t node_id) const;
         
         /// Look up the handle for the node with the given ID in the given orientation
-        virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
+        virtual handle_t get_handle(const nid_t& node_id, bool is_reverse = false) const;
         
         /// Get the ID from a handle
-        virtual id_t get_id(const handle_t& handle) const;
+        virtual nid_t get_id(const handle_t& handle) const;
         
         /// Get the orientation of a handle
         virtual bool get_is_reverse(const handle_t& handle) const;
@@ -87,11 +87,11 @@ using namespace std;
         
         /// Return the smallest ID in the graph, or some smaller number if the
         /// smallest ID is unavailable. Return value is unspecified if the graph is empty.
-        virtual id_t min_node_id() const;
+        virtual nid_t min_node_id() const;
         
         /// Return the largest ID in the graph, or some larger number if the
         /// largest ID is unavailable. Return value is unspecified if the graph is empty.
-        virtual id_t max_node_id() const;
+        virtual nid_t max_node_id() const;
         
         /// Loop over all edges in their canonical orientation (as returned by edge_handle) and
         /// execute an iteratee on each one. Can stop early by returning false from the iteratee.

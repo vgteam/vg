@@ -359,7 +359,7 @@ int main_find(int argc, char** argv) {
         string line;
         while (getline(nli, line)){
             for (auto& idstr : split_delims(line, " \t")) {
-                node_ids.push_back(parse<int64_t>(idstr.c_str()));
+                node_ids.push_back(parse<nid_t>(idstr.c_str()));
             }
         }
         nli.close();
@@ -629,10 +629,10 @@ int main_find(int argc, char** argv) {
                 if (path_dag) {
                     // find the start and end node of this
                     // and fill things in
-                    int64_t id_start = std::numeric_limits<int64_t>::max();
-                    int64_t id_end = 1;
+                    nid_t id_start = std::numeric_limits<nid_t>::max();
+                    nid_t id_end = 1;
                     graph.for_each_handle([&](handle_t handle) {
-                            int64_t id = graph.get_id(handle);
+                            nid_t id = graph.get_id(handle);
                             id_start = std::min(id_start, id);
                             id_end = std::max(id_end, id);
                         });
@@ -710,7 +710,7 @@ int main_find(int argc, char** argv) {
         }
         if (!range.empty()) {
             VG graph;
-            int64_t id_start=0, id_end=0;
+            nid_t id_start=0, id_end=0;
             vector<string> parts = split_delims(range, ":");
             if (parts.size() == 1) {
                 cerr << "[vg find] error, format of range must be \"N:M\" where start id is N and end id is M, got " << range << endl;
@@ -723,8 +723,8 @@ int main_find(int argc, char** argv) {
             } else {
                 // treat id_end as length instead.
                 size_t length = 0;
-                int64_t found_id_end = id_start;
-                for (int64_t cur_id = id_start; length < id_end; ++cur_id) {
+                nid_t found_id_end = id_start;
+                for (nid_t cur_id = id_start; length < id_end; ++cur_id) {
                     if (!xindex->has_node(cur_id)) {
                         break;
                     }
@@ -837,7 +837,7 @@ int main_find(int argc, char** argv) {
         if (!node_ids.empty() && !path_name.empty()) {
             int64_t path_id = vindex->get_path_id(path_name);
             for (auto node_id : node_ids) {
-                list<pair<int64_t, bool>> path_prev, path_next;
+                list<pair<nid_t, bool>> path_prev, path_next;
                 int64_t prev_pos=0, next_pos=0;
                 bool prev_backward, next_backward;
                 if (vindex->get_node_path_relative_position(node_id, false, path_id,
@@ -857,7 +857,7 @@ int main_find(int argc, char** argv) {
         }
         if (!range.empty()) {
             VG graph;
-            int64_t id_start=0, id_end=0;
+            nid_t id_start=0, id_end=0;
             vector<string> parts = split_delims(range, ":");
             if (parts.size() == 1) {
                 cerr << "[vg find] error, format of range must be \"N:M\" where start id is N and end id is M, got " << range << endl;
@@ -942,7 +942,7 @@ int main_find(int argc, char** argv) {
             }
         } else if (kmer_table) {
             for (auto& kmer : kmers) {
-                map<string, vector<pair<int64_t, int32_t> > > positions;
+                map<string, vector<pair<nid_t, int32_t> > > positions;
                 vindex->get_kmer_positions(kmer, positions);
                 for (auto& k : positions) {
                     for (auto& p : k.second) {
