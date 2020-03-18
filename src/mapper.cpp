@@ -4,6 +4,7 @@
 #include "annotation.hpp"
 
 //#define debug_mapper
+//#define debug_strip_match
 
 namespace vg {
 
@@ -1108,6 +1109,15 @@ vector<MaximalExactMatch> BaseMapper::find_stripped_matches(string::const_iterat
         throw runtime_error("error:[vg::Mapper] target match count must be positive, set to " + to_string(target_count));
     }
     
+#ifdef debug_strip_match
+    cerr << "starting stripped match algorithm" << endl;
+    cerr << "\tstrip length:" << strip_length << endl;
+    cerr << "\tmax match length:" << max_match_length << endl;
+    cerr << "\ttarget count:" << target_count << endl;
+    cerr << "\tsequence:" << string(seq_begin, seq_end) << endl;
+    
+#endif
+    
     // init the return value
     vector<MaximalExactMatch> matches;
     
@@ -1116,6 +1126,10 @@ vector<MaximalExactMatch> BaseMapper::find_stripped_matches(string::const_iterat
         int64_t seq_len = seq_end - seq_begin;
         int64_t num_strips = (seq_len - 1) / strip_length + 1;
         for (int64_t strip_num = 0; strip_num < num_strips; ++strip_num) {
+            
+#ifdef debug_strip_match
+            cerr << "strip number " << strip_num << " of " << num_strips << endl;
+#endif
             
             // the end of other strip match we will find
             auto strip_end = seq_end - strip_num * strip_length;
@@ -1169,8 +1183,17 @@ vector<MaximalExactMatch> BaseMapper::find_stripped_matches(string::const_iterat
                 }
             }
             
+#ifdef debug_strip_match
+            cerr << "adding match of sequence " << string(cursor + 1, strip_end) << " and " << gcsa->count(range) << " hits" << endl;
+#endif
+            
             matches.emplace_back(cursor + 1, strip_end, range, gcsa->count(range));
             matches.back().primary = true;
+            
+            if (cursor < seq_begin) {
+                // all further hits will be contained in ones we've already seen
+                break;
+            }
         }
     }
     
