@@ -51,11 +51,20 @@ namespace vg {
         cerr << "multipath mapping read " << pb2json(alignment) << endl;
         cerr << "querying MEMs..." << endl;
 #endif
-    
-        // query MEMs using GCSA2
-        double dummy1; double dummy2;
-        vector<MaximalExactMatch> mems = find_mems_deep(alignment.sequence().begin(), alignment.sequence().end(), dummy1, dummy2,
-                                                        0, min_mem_length, mem_reseed_length, false, true, true, false);
+        
+        vector<MaximalExactMatch> mems;
+        if (use_stripped_match_alg) {
+            mems = find_stripped_matches(alignment.sequence().begin(), alignment.sequence().end(),
+                                         stripped_match_alg_strip_length, stripped_match_alg_max_length,
+                                         stripped_match_alg_target_count);
+        }
+        else {
+            // query MEMs using GCSA2
+            double dummy1; double dummy2;
+            mems = find_mems_deep(alignment.sequence().begin(), alignment.sequence().end(), dummy1, dummy2,
+                                  0, min_mem_length, mem_reseed_length, false, true, true, false);
+        }
+        
         
 #ifdef debug_multipath_mapper
         cerr << "obtained MEMs:" << endl;
@@ -1389,13 +1398,26 @@ namespace vg {
         }
         
         // the fragment length distribution has been estimated, so we can do full-fledged paired mode
-    
-        // query MEMs using GCSA2
-        double dummy1, dummy2;
-        vector<MaximalExactMatch> mems1 = find_mems_deep(alignment1.sequence().begin(), alignment1.sequence().end(), dummy1, dummy2,
-                                                         0, min_mem_length, mem_reseed_length, false, true, true, false);
-        vector<MaximalExactMatch> mems2 = find_mems_deep(alignment2.sequence().begin(), alignment2.sequence().end(), dummy1, dummy2,
-                                                         0, min_mem_length, mem_reseed_length, false, true, true, false);
+        vector<MaximalExactMatch> mems1, mems2;
+        if (use_stripped_match_alg) {
+            // query matches along strips of the read
+            mems1 = find_stripped_matches(alignment1.sequence().begin(), alignment1.sequence().end(),
+                                          stripped_match_alg_strip_length, stripped_match_alg_max_length,
+                                          stripped_match_alg_target_count);
+            mems2 = find_stripped_matches(alignment2.sequence().begin(), alignment2.sequence().end(),
+                                          stripped_match_alg_strip_length, stripped_match_alg_max_length,
+                                          stripped_match_alg_target_count);
+        }
+        else {
+            // query MEMs
+            double dummy1, dummy2;
+            mems1 = find_mems_deep(alignment1.sequence().begin(), alignment1.sequence().end(), dummy1, dummy2,
+                                   0, min_mem_length, mem_reseed_length, false, true, true, false);
+            mems2 = find_mems_deep(alignment2.sequence().begin(), alignment2.sequence().end(), dummy1, dummy2,
+                                   0, min_mem_length, mem_reseed_length, false, true, true, false);
+        }
+        
+        
         
 #ifdef debug_multipath_mapper
         cerr << "obtained read1 MEMs:" << endl;

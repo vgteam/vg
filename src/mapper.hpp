@@ -248,7 +248,7 @@ public:
                           string::const_iterator seq_end,
                           size_t strip_length,
                           size_t max_match_length,
-                          size_t target_count)
+                          size_t target_count);
     
     /// identifies tracts of order-length MEMs that were unfilled because their hit count was above the max
     /// and fills one MEM in the tract (the one with the smallest hit count), assumes MEMs are lexicographically

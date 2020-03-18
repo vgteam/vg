@@ -1111,57 +1111,86 @@ vector<MaximalExactMatch> BaseMapper::find_stripped_matches(string::const_iterat
     // init the return value
     vector<MaximalExactMatch> matches;
     
-    if (seq_end == seq_begin) {
-        // handle the empty string as a special case so we can ignore it in the rest of the algorithm
-        return matches;
-    }
-    
-    int64_t seq_len = seq_end - seq_begin;
-    int64_t num_strips = (seq_len - 1) / strip_length + 1;
-    for (int64_t strip_num = 0; strip_num < num_strips; ++strip_num) {
-        
-        auto strip_end = seq_end - strip_num * strip_length;
-        auto cursor = strip_end - 1;
-        auto range = gcsa::range_type(0, gcsa->size() - 1);
-        
-        while (cursor >= seq_begin &&
-               (max_match_length && strip_end - cursor <= max_match_length)) {
+    if (seq_end != seq_begin) {
+        // we are not in the empty string
+        int64_t seq_len = seq_end - seq_begin;
+        int64_t num_strips = (seq_len - 1) / strip_length + 1;
+        for (int64_t strip_num = 0; strip_num < num_strips; ++strip_num) {
             
-            if (*cursor = 'N') {
-                // N matches are uninformative, so we don't want to match them
-                break;
+            // the end of other strip match we will find
+            auto strip_end = seq_end - strip_num * strip_length;
+            // empty string starts matching entire index
+            auto range = gcsa::range_type(0, gcsa->size() - 1);
+            // a pointer to the next char we will match to
+            auto cursor = strip_end - 1;
+            
+            while (cursor >= seq_begin &&
+                   (max_match_length && strip_end - cursor <= max_match_length)) {
+                
+                if (*cursor == 'N') {
+                    // N matches are uninformative, so we don't want to match them
+                    break;
+                }
+                
+                // match one more char
+                auto next_range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
+                
+                if (gcsa::Range::empty(next_range)) {
+                    // we've gone too far, there are no more hits
+                    break;
+                }
+                
+                // the match was successful, advance to the range and move the cursor
+                range = next_range;
+                --cursor;
+                
+                if (target_count && gcsa::Range::length(next_range) <= target_count) {
+                    // the (approximate) count is below the specified limit, so
+                    // we've found reasonably unique sequence, stop looking for more
+                    break;
+                }
             }
             
-            auto next_range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
-            
-            if (gcsa::Range::empty(next_range)) {
-                // we've gone too far, there are no more hits
-                break;
-            }
-            
-            range = next_range;
-            --cursor;
-            
-            if (gcsa::Range::length(next_range) <= target_count) {
-                // the (approximate) count is below the specified limit, so
-                // we've found reasonably unique sequence
-                break;
-            }
-        }
-        
-        if (!matches.empty()) {
-            if (matches.back().begin <= cursor + 1 &&
-                matches.back().end >= strip_end) {
-                // this match is entirely contained within the larger match
-                // of the previous strip, so it's not likely to give us any
-                // new information
+            if (cursor + 1 == strip_end) {
+                // edge case where one char mismatches the entire index, don't bother
+                // with this
                 continue;
             }
+            
+            if (!matches.empty()) {
+                if (matches.back().begin <= cursor + 1 &&
+                    matches.back().end >= strip_end) {
+                    // this match is entirely contained within the larger match
+                    // of the previous strip, so it's not likely to give us any
+                    // new information
+                    continue;
+                }
+            }
+            
+            matches.emplace_back(cursor + 1, strip_end, range, gcsa->count(range));
+            matches.back().primary = true;
         }
-        
-        matches.emplace_back(cursor + 1, strip_end, range, gcsa->count(range));
-        matches.back().primary = true;
     }
+    
+    
+    for (MaximalExactMatch& match : matches) {
+        // figure out how many occurrences there are
+        match.match_count = gcsa->count(match.range);
+        if (!hard_hit_max || match.match_count < hard_hit_max) {
+            // the total number of hits is low enough that we think it's at least
+            // potentially worth querying hits
+            if (hit_max) {
+                // we may want to subsample
+                gcsa->locate(match.range, hit_max, match.nodes);
+                
+            } else {
+                // we won't
+                gcsa->locate(match.range, match.nodes);
+            }
+        }
+    }
+    
+    return matches;
 }
 
 void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,

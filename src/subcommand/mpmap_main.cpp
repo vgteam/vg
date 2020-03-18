@@ -154,6 +154,10 @@ int main_mpmap(int argc, char** argv) {
     int hit_max = 1024;
     int min_mem_length = 1;
     int min_clustering_mem_length = 0;
+    bool use_stripped_match_alg = false;
+    int stripped_match_alg_strip_length = 16;
+    int stripped_match_alg_max_length = 0; // no maximum yet
+    int stripped_match_alg_target_count = 5;
     int reseed_length = 28;
     double reseed_diff = 0.45;
     double reseed_exp = 0.065;
@@ -715,6 +719,25 @@ int main_mpmap(int argc, char** argv) {
     
     if (hard_hit_max < hit_max) {
         cerr << "warning:[vg mpmap] MEM hit query limit (-c) set to " << hit_max << ", which is higher than the threshold to ignore a MEM (" << hard_hit_max << ")" << endl;
+    }
+    
+    if (min_mem_length < 0) {
+        cerr << "error:[vg mpmap] minimum MEM length set to " << min_mem_length << ", must set to a positive integer or 0 for no maximum." << endl;
+        exit(1);
+    }
+    
+    if (stripped_match_alg_strip_length <= 0) {
+        cerr << "error:[vg mpmap] match strip length set to " << stripped_match_alg_strip_length << ", must set to a positive integer or 0 for no maximum." << endl;
+        exit(1);
+    }
+    
+    if (stripped_match_alg_max_length < 0) {
+        cerr << "error:[vg mpmap] maximum seed match length set to " << stripped_match_alg_max_length << ", must set to a positive integer or 0 for no maximum." << endl;
+        exit(1);
+    }
+    
+    if (stripped_match_alg_target_count < 0) {
+        cerr << "error:[vg mpmap] target seed count set to " << stripped_match_alg_target_count << ", must set to a positive integer or 0 for no maximum." << endl;
         exit(1);
     }
     
@@ -978,6 +1001,10 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.sub_mem_thinning_burn_in = sub_mem_thinning_burn_in;
     multipath_mapper.order_length_repeat_hit_max = order_length_repeat_hit_max;
     multipath_mapper.min_mem_length = min_mem_length;
+    multipath_mapper.stripped_match_alg_strip_length = stripped_match_alg_strip_length;
+    multipath_mapper.stripped_match_alg_max_length = stripped_match_alg_max_length;
+    multipath_mapper.stripped_match_alg_target_count = stripped_match_alg_target_count;
+    multipath_mapper.use_stripped_match_alg = use_stripped_match_alg;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
     multipath_mapper.use_approx_sub_mem_count = false;
