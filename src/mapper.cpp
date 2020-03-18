@@ -1163,6 +1163,8 @@ vector<MaximalExactMatch> BaseMapper::find_stripped_matches(string::const_iterat
                     // this match is entirely contained within the larger match
                     // of the previous strip, so it's not likely to give us any
                     // new information
+                    // also, filtering this helps us maintain reverse lexicographic
+                    // order
                     continue;
                 }
             }
@@ -1172,6 +1174,8 @@ vector<MaximalExactMatch> BaseMapper::find_stripped_matches(string::const_iterat
         }
     }
     
+    // matches are queried in reverse lexicographic order, flip them around
+    reverse(matches.begin(), matches.end());
     
     for (MaximalExactMatch& match : matches) {
         // figure out how many occurrences there are
@@ -1184,11 +1188,13 @@ vector<MaximalExactMatch> BaseMapper::find_stripped_matches(string::const_iterat
                 gcsa->locate(match.range, hit_max, match.nodes);
                 
             } else {
-                // we won't
+                // we won't subsample down to a prespecified maximum
                 gcsa->locate(match.range, match.nodes);
             }
         }
+        match.queried_count = match.nodes.size();
     }
+    
     
     return matches;
 }
