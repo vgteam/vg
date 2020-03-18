@@ -1149,6 +1149,10 @@ vector<MaximalExactMatch> BaseMapper::find_stripped_matches(string::const_iterat
                 // match one more char
                 auto next_range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
                 
+#ifdef debug_strip_match
+                cerr << "\tgot next range which is length " << gcsa::Range::length(next_range) << " and " << ((gcsa::Range::empty(next_range) ? "" : "not ") << "empty" << endl;
+#endif
+                
                 if (gcsa::Range::empty(next_range)) {
                     // we've gone too far, there are no more hits
                     break;

@@ -158,8 +158,8 @@ public:
 };
 
 /*
- * A base class to hold some shared methods and data types between the TVS and
- * oriented distance clusterers.
+ * A base class to hold some shared methods and data types between the TVS,
+ * oriented distance, and minimum distance clusterers.
  */
 class MEMClusterer {
 public:
@@ -204,6 +204,7 @@ public:
                                                                       int64_t max_deviation) = 0;
     
 protected:
+    
     class HitNode;
     class HitEdge;
     class HitGraph;
@@ -462,7 +463,7 @@ public:
     //static size_t SUCCESSFUL_SPLIT_ATTEMPT_COUNTER;
     //static size_t POST_SPLIT_CLUSTER_COUNTER;
     
-private:
+protected:
 
     /**
      * Given a certain number of items, and a callback to get each item's
@@ -611,7 +612,7 @@ public:
     /// path within the tolerance of the target value, returns an empty vector.
     vector<handle_t> tv_path(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance);
     
-private:
+protected:
     
     vector<handle_t> tv_phase2(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance, hash_map<pair<id_t, bool>,int64_t> node_to_target_shorter, hash_map<pair<id_t, bool>, int64_t> node_to_target_longer, pair<int64_t, pair<pair<id_t, bool>,int64_t>> best_lng, pair<int64_t, pair<pair<id_t, bool>, int64_t>> next_best, hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>> node_to_path);
     
@@ -638,7 +639,7 @@ public:
                                                               int64_t optimal_separation,
                                                               int64_t max_deviation);
     
-private:
+protected:
     
     /// Concrete implementation of virtual method from MEMClusterer
     HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
@@ -646,11 +647,14 @@ private:
     
     TargetValueSearch tvs;
 };
-    
+
+/*
+ * A MEM clusterer based on finding the minimum distance between all pairs of seeds or clusters
+ */
 class MinDistanceClusterer : public MEMClusterer {
 public:
     MinDistanceClusterer(MinimumDistanceIndex* distance_index);
-    ~MinDistanceClusterer() = default;
+    virtual ~MinDistanceClusterer() = default;
     
     /// Concrete implementation of virtual method from MEMClusterer
     vector<pair<pair<size_t, size_t>, int64_t>> pair_clusters(const Alignment& alignment_1,
@@ -662,16 +666,35 @@ public:
                                                               int64_t optimal_separation,
                                                               int64_t max_deviation);
     
-private:
+protected:
     
     /// Concrete implementation of virtual method from MEMClusterer
-    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
+    virtual HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
                             size_t min_mem_length);
     
     const HandleGraph* handle_graph;
     MinimumDistanceIndex* distance_index;
 };
+
+/*
+ * A version of the MinDistanceClusterer that greedily agglomerates seeds into connected components
+ * based on minimum distance, iterating over pairs in a sensible order
+ */
+class GreedyMinDistanceClusterer : public MinDistanceClusterer {
+public:
+    GreedyMinDistanceClusterer(MinimumDistanceIndex* distance_index);
+    ~GreedyMinDistanceClusterer() = default;
     
+protected:
+    
+    /// Concrete implementation of virtual method from MEMClusterer, overides the inherited one from MinDistanceClusterer
+    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
+                            size_t min_mem_length);
+    
+    /// How more bases would we search forward to find the next seed before we think
+    /// it's worth searching 1 base backward?
+    const int64_t forward_multiplier = 5;
+};
 
 /// get the handles that a mem covers
 vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const HandleGraph& graph, const vg::MaximalExactMatch& mem);

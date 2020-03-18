@@ -3444,6 +3444,18 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
     
     return hit_graph;
 }
+
+GreedyMinDistanceClusterer::GreedyMinDistanceClusterer(MinimumDistanceIndex* distance_index) : MinDistanceClusterer(distance_index) {
+    // nothing else to do
+}
+
+MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
+                                                                  const GSSWAligner* aligner, size_t min_mem_length) {
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
+    throw runtime_error("not yet implemented");
+    return hit_graph;
+}
+
     
 // collect node starts to build out graph
 vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const HandleGraph& graph, const vg::MaximalExactMatch& mem) {
