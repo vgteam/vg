@@ -1094,6 +1094,76 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
     reverse(sub_mems_out.begin(), sub_mems_out.end());
 }
 
+vector<MaximalExactMatch> BaseMapper::find_stripped_matches(string::const_iterator seq_begin,
+                                                            string::const_iterator seq_end,
+                                                            size_t strip_length, size_t max_match_length,
+                                                            size_t target_count) {
+    if (!gcsa) {
+        throw runtime_error("error:[vg::Mapper] a GCSA2 index is required to query matches");
+    }
+    if (strip_length <= 0) {
+        throw runtime_error("error:[vg::Mapper] strip match length must be positive, set to " + to_string(strip_length));
+    }
+    if (target_count <= 0) {
+        throw runtime_error("error:[vg::Mapper] target match count must be positive, set to " + to_string(target_count));
+    }
+    
+    // init the return value
+    vector<MaximalExactMatch> matches;
+    
+    if (seq_end == seq_begin) {
+        // handle the empty string as a special case so we can ignore it in the rest of the algorithm
+        return matches;
+    }
+    
+    int64_t seq_len = seq_end - seq_begin;
+    int64_t num_strips = (seq_len - 1) / strip_length + 1;
+    for (int64_t strip_num = 0; strip_num < num_strips; ++strip_num) {
+        
+        auto strip_end = seq_end - strip_num * strip_length;
+        auto cursor = strip_end - 1;
+        auto range = gcsa::range_type(0, gcsa->size() - 1);
+        
+        while (cursor >= seq_begin &&
+               (max_match_length && strip_end - cursor <= max_match_length)) {
+            
+            if (*cursor = 'N') {
+                // N matches are uninformative, so we don't want to match them
+                break;
+            }
+            
+            auto next_range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
+            
+            if (gcsa::Range::empty(next_range)) {
+                // we've gone too far, there are no more hits
+                break;
+            }
+            
+            range = next_range;
+            --cursor;
+            
+            if (gcsa::Range::length(next_range) <= target_count) {
+                // the (approximate) count is below the specified limit, so
+                // we've found reasonably unique sequence
+                break;
+            }
+        }
+        
+        if (!matches.empty()) {
+            if (matches.back().begin <= cursor + 1 &&
+                matches.back().end >= strip_end) {
+                // this match is entirely contained within the larger match
+                // of the previous strip, so it's not likely to give us any
+                // new information
+                continue;
+            }
+        }
+        
+        matches.emplace_back(cursor + 1, strip_end, range, gcsa->count(range));
+        matches.back().primary = true;
+    }
+}
+
 void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,
                                               vector<pair<int, vector<size_t>>>& sub_mem_containment_graph) {
 
