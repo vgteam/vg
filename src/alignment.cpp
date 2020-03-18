@@ -125,7 +125,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
         } else {
             throw runtime_error("Found unexpected delimiter " + name.substr(0,1) + " in fastq/fasta input");
         }
-        name = name.substr(1, name.find(' ') - 1); // trim off leading @ and things after the first whitespace
+        name = name.substr(1, name.find(' ')); // trim off leading @ and things after the first whitespace
         // keep trailing /1 /2
         alignment.set_name(name);
     } else { return false; }
