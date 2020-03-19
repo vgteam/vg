@@ -3524,6 +3524,8 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
                                    estimate_edge_score(hit_node_1.mem, hit_node_2.mem, graph_dist, aligner),
                                    graph_dist);
                 
+                // TODO: should i have a stricter criterion to fully block a connection?
+                
                 // we won't look for any more connections involving this end of these two
                 blocked[comparison.first].second = true;
                 blocked[comparison.second].first = true;

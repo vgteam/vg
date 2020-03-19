@@ -514,6 +514,7 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_GREEDY_MIN_DIST:
                 greedy_min_dist = true;
+                break;
                 
             case 'C':
                 cluster_ratio = parse<double>(optarg);
