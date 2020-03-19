@@ -5,7 +5,7 @@
 
 #include "cluster.hpp"
 
-//#define debug_mem_clusterer
+#define debug_mem_clusterer
 
 using namespace std;
 using namespace structures;
@@ -3478,6 +3478,12 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
         auto comparison = next_comparisons.back();
         next_comparisons.pop_back();
         
+#ifdef debug_mem_clusterer
+        cerr << "greedy cluster comparing:" << endl;
+        cerr << "\t" << comparison.first << ": " << hit_graph.nodes[comparison.first].start_pos << " " << hit_graph.nodes[comparison.first].mem->sequence() << endl;
+        cerr << "\t" << comparison.first << ": " << hit_graph.nodes[comparison.second].start_pos << " " << hit_graph.nodes[comparison.second].mem->sequence() << endl;
+#endif
+        
         if (blocked[comparison.first].second) {
             // we've already greedily accumulated out of this match, so we don't
             // need to look for more connections from it
@@ -3505,6 +3511,10 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
                     min_dist = -rev_min_dist;
                 }
             }
+            
+#ifdef debug_mem_clusterer
+            cerr << "read dist: " << read_dist << ", found graph dist? " << finite_distance << ", graph dist: " << min_dist << endl;
+#endif
             
             // TODO: i'm ignoring sub-matches here because it's intended to be used with the stripped
             // algorithm. that might come back to haunt me later
