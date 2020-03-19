@@ -5,7 +5,7 @@
 
 #include "cluster.hpp"
 
-#define debug_mem_clusterer
+//#define debug_mem_clusterer
 
 using namespace std;
 using namespace structures;
@@ -3363,15 +3363,8 @@ MEMClusterer::HitGraph MinDistanceClusterer::make_hit_graph(const Alignment& ali
             // what is the minimum distance between these hits?
             int64_t min_dist = distance_index->minDistance(hit_node_1.start_pos, hit_node_2.start_pos);
             if (min_dist == -1) {
-                int64_t rev_min_dist = distance_index->minDistance(hit_node_2.start_pos, hit_node_1.start_pos);
-                if (rev_min_dist == -1) {
-                    // these are not reachable, don't make an edge
-                    continue;
-                }
-                else {
-                    // this is reachable by traversing backwards, give it negative distance
-                    min_dist = -rev_min_dist;
-                }
+                // these are not reachable, don't make an edge
+                continue;
             }
             
             // how far apart do we expect them to be based on the read?
@@ -3481,7 +3474,7 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
 #ifdef debug_mem_clusterer
         cerr << "greedy cluster comparing:" << endl;
         cerr << "\t" << comparison.first << ": " << hit_graph.nodes[comparison.first].start_pos << " " << hit_graph.nodes[comparison.first].mem->sequence() << endl;
-        cerr << "\t" << comparison.first << ": " << hit_graph.nodes[comparison.second].start_pos << " " << hit_graph.nodes[comparison.second].mem->sequence() << endl;
+        cerr << "\t" << comparison.second << ": " << hit_graph.nodes[comparison.second].start_pos << " " << hit_graph.nodes[comparison.second].mem->sequence() << endl;
 #endif
         
         if (blocked[comparison.first].second) {
@@ -3498,48 +3491,44 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
         if (!blocked[comparison.second].first) {
             
             // what is the minimum distance between these hits?
-            bool finite_distance = true;
             int64_t min_dist = distance_index->minDistance(hit_node_1.start_pos, hit_node_2.start_pos);
-            if (min_dist == -1) {
-                int64_t rev_min_dist = distance_index->minDistance(hit_node_2.start_pos, hit_node_1.start_pos);
-                if (rev_min_dist == -1) {
-                    // these are not reachable, don't make an edge
-                    finite_distance = false;
-                }
-                else {
-                    // this is reachable by traversing backwards, give it negative distance
-                    min_dist = -rev_min_dist;
-                }
-            }
             
 #ifdef debug_mem_clusterer
-            cerr << "read dist: " << read_dist << ", found graph dist? " << finite_distance << ", graph dist: " << min_dist << endl;
+            cerr << "read dist: " << read_dist << ", min dist: " << min_dist << ", graph dist: " << min_dist - (hit_node_1.mem->end - hit_node_1.mem->begin) << endl;
 #endif
             
             // TODO: i'm ignoring sub-matches here because it's intended to be used with the stripped
             // algorithm. that might come back to haunt me later
             
-            // how long of an insert/deletion could we detect based on the scoring parameters?
-            int64_t longest_gap = min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
-                                      aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin));
-            
-            // is it possible that an alignment containing both could be detected with local alignment?
-            if (finite_distance && abs(read_dist - min_dist) < longest_gap) {
-                // there's a path within in the limit
+            if (min_dist >= 0) {
+                // we were able to measure a distance
+                
+                // how long of an insert/deletion could we detect based on the scoring parameters?
+                int64_t longest_gap = min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
+                                          aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin));
                 
                 // the distance from the end of the first hit to the beginning of the next
                 int64_t graph_dist = min_dist - (hit_node_1.mem->end - hit_node_1.mem->begin);
                 
-                // add the corresponding edge
-                hit_graph.add_edge(comparison.first, comparison.second,
-                                   estimate_edge_score(hit_node_1.mem, hit_node_2.mem, graph_dist, aligner),
-                                   graph_dist);
-                
-                // TODO: should i have a stricter criterion to fully block a connection?
-                
-                // we won't look for any more connections involving this end of these two
-                blocked[comparison.first].second = true;
-                blocked[comparison.second].first = true;
+                // is it possible that an alignment containing both could be detected with local alignment?
+                if (abs(read_dist - graph_dist) < longest_gap) {
+                    // there's a path within in the limit
+                    
+#ifdef debug_mem_clusterer
+                    cerr << "found hit edge" << endl;
+#endif
+                    
+                    // add the corresponding edge
+                    hit_graph.add_edge(comparison.first, comparison.second,
+                                       estimate_edge_score(hit_node_1.mem, hit_node_2.mem, graph_dist, aligner),
+                                       graph_dist);
+                    
+                    // TODO: should i have a stricter criterion to fully block a connection?
+                    
+                    // we won't look for any more connections involving this end of these two
+                    blocked[comparison.first].second = true;
+                    blocked[comparison.second].first = true;
+                }
             }
         }
         
