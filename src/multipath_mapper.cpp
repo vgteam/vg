@@ -176,23 +176,28 @@ namespace vg {
     vector<MultipathMapper::memcluster_t> MultipathMapper::get_clusters(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
                                                                         OrientedDistanceMeasurer* distance_measurer) const {
         
-        vector<MultipathMapper::memcluster_t> return_val;
-        auto aligner = get_aligner(!alignment.quality().empty());
+        // choose a clusterer
+        MEMClusterer* clusterer = nullptr;
         if (use_tvs_clusterer) {
-            TVSClusterer clusterer(xindex, distance_index);
-            return_val = clusterer.clusters(alignment, mems, aligner, min_clustering_mem_length, max_mapping_quality,
-                                            log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+            clusterer = new TVSClusterer(xindex, distance_index);
+        }
+        else if (use_min_dist_clusterer && !greedy_min_dist) {
+            clusterer = new MinDistanceClusterer(distance_index);
         }
         else if (use_min_dist_clusterer) {
-            MinDistanceClusterer clusterer(distance_index);
-            return_val = clusterer.clusters(alignment, mems, aligner, min_clustering_mem_length, max_mapping_quality,
-                                            log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+            clusterer = new GreedyMinDistanceClusterer(distance_index);
         }
         else {
-            OrientedDistanceClusterer clusterer(*distance_measurer, max_expected_dist_approx_error);
-            return_val = clusterer.clusters(alignment, mems, aligner, min_clustering_mem_length, max_mapping_quality,
-                                            log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+            clusterer = new OrientedDistanceClusterer(*distance_measurer, max_expected_dist_approx_error);
         }
+        
+        // generate clusters
+        vector<MultipathMapper::memcluster_t> return_val = clusterer->clusters(alignment, mems,
+                                                                               get_aligner(!alignment.quality().empty()),
+                                                                               min_clustering_mem_length, max_mapping_quality,
+                                                                               log_likelihood_approx_factor,
+                                                                               min_median_mem_coverage_for_split);
+        delete clusterer;
         return return_val;
     }
     

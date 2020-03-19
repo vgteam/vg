@@ -245,19 +245,6 @@ public:
     
     vector<HitNode> nodes;
     
-    /// Execute a lambda on each pair of indexes of nodes (i, j), where i < j. Pairs
-    /// are produced in lexicographic order.
-    void for_each_hit_pair(const function<void(pair<size_t, size_t>)>& lambda);
-    
-    /// Execute a lambda on each pair of indexes of nodes (i, j), where 1) i < j, and
-    /// 2) i and j are not in the same connected component. The edges (and hence the
-    /// the connected components) are allowed to change as a side effect of lambda.
-    /// Pairs are produced in increasing order of the absolute distance on the read
-    /// of the end of node i's MEM and the beginning of node j's MEM. Hit graph must
-    /// have been constructed to track components to filter out pairs that are in the
-    /// same component.
-    void for_each_hit_pair_greedy(const function<void(pair<size_t, size_t>)>& lambda);
-    
 private:
     
     /// Identify weakly connected components in the graph

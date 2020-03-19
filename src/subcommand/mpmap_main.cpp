@@ -119,6 +119,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_MIN_DIST_CLUSTER 1007
     #define OPT_APPROX_EXP 1008
     #define OPT_MAX_PATHS 1009
+    #define OPT_GREEDY_MIN_DIST 1010
     string matrix_file_name;
     string xg_name;
     string gcsa_name;
@@ -156,9 +157,9 @@ int main_mpmap(int argc, char** argv) {
     int min_mem_length = 1;
     int min_clustering_mem_length = 0;
     bool use_stripped_match_alg = false;
-    int stripped_match_alg_strip_length = 16;
+    int stripped_match_alg_strip_length = 10;
     int stripped_match_alg_max_length = 0; // no maximum yet
-    int stripped_match_alg_target_count = 5;
+    int stripped_match_alg_target_count = 10;
     int reseed_length = 28;
     double reseed_diff = 0.45;
     double reseed_exp = 0.065;
@@ -166,6 +167,7 @@ int main_mpmap(int argc, char** argv) {
     double cluster_ratio = 0.2;
     bool use_tvs_clusterer = false;
     bool use_min_dist_clusterer = false;
+    bool greedy_min_dist = false;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Exact;
@@ -264,6 +266,7 @@ int main_mpmap(int argc, char** argv) {
             {"always-check-population", no_argument, 0, OPT_ALWAYS_CHECK_POPULATION},
             {"force-haplotype-count", required_argument, 0, OPT_FORCE_HAPLOTYPE_COUNT},
             {"min-dist-cluster", no_argument, 0, OPT_MIN_DIST_CLUSTER},
+            {"greedy-min-dist", no_argument, 0, OPT_GREEDY_MIN_DIST},
             {"drop-subgraph", required_argument, 0, 'C'},
             {"prune-exp", required_argument, 0, OPT_PRUNE_EXP},
             {"long-read-scoring", no_argument, 0, 'E'},
@@ -508,6 +511,9 @@ int main_mpmap(int argc, char** argv) {
                 // This the default behavior
                 //use_min_dist_clusterer = true;
                 break;
+                
+            case OPT_GREEDY_MIN_DIST:
+                greedy_min_dist = true;
                 
             case 'C':
                 cluster_ratio = parse<double>(optarg);
@@ -770,6 +776,10 @@ int main_mpmap(int argc, char** argv) {
     if (use_min_dist_clusterer && use_tvs_clusterer) {
         cerr << "error:[vg mpmap] Cannot perform both minimum distance clustering (--min-dist-cluster) and target value clustering (-v)." << endl;
         exit(1);
+    }
+    
+    if (greedy_min_dist && !use_min_dist_clusterer) {
+        cerr << "warning:[vg mpmap] greedy minimum distance clustering (--greedy-min-dist) is ignored if not using minimum distance clustering (--min-dist-cluster)" << endl;
     }
     
     if (suboptimal_path_exponent < 1.0) {
@@ -1042,6 +1052,7 @@ int main_mpmap(int argc, char** argv) {
     // set pruning and clustering parameters
     multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;
     multipath_mapper.use_min_dist_clusterer = use_min_dist_clusterer;
+    multipath_mapper.greedy_min_dist = greedy_min_dist;
     multipath_mapper.max_expected_dist_approx_error = max_dist_error;
     multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
     multipath_mapper.log_likelihood_approx_factor = likelihood_approx_exp;

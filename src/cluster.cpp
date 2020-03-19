@@ -520,39 +520,6 @@ void MEMClusterer::HitGraph::add_edge(size_t from, size_t to, int32_t weight, in
     }
 }
     
-void MEMClusterer::HitGraph::for_each_hit_pair(const function<void(pair<size_t, size_t>)>& lambda) {
-    for (size_t i = 0; i < nodes.size(); ++i) {
-        for (size_t j = i + 1; j < nodes.size(); ++j) {
-            lambda(make_pair(i, j));
-        }
-    }
-}
-
-void MEMClusterer::HitGraph::for_each_hit_pair_greedy(const function<void(pair<size_t, size_t>)>& lambda) {
-    
-    // make a vector of all pairs
-    vector<pair<size_t, size_t>> node_pairs(nodes.size() * (nodes.size() - 1) / 2);
-    size_t k = 0;
-    for (size_t i = 0; i < nodes.size(); ++i) {
-        for (size_t j = i + 1; j < nodes.size(); ++j, ++k) {
-            node_pairs[k] = make_pair(i, j);
-        }
-    }
-    
-    // sort it in increasing order by inter-MEM distance
-    sort(node_pairs.begin(), node_pairs.end(), [&](const pair<size_t, size_t>& node_pair_1,
-                                                   const pair<size_t, size_t>& node_pair_2) {
-        return (abs(nodes[node_pair_1.first].mem->end - nodes[node_pair_1.second].mem->begin)
-                < abs(nodes[node_pair_2.first].mem->end - nodes[node_pair_2.second].mem->begin));
-    });
-    
-    for (const pair<size_t, size_t>& node_pair : node_pairs) {
-        if (components.find_group(node_pair.first) != components.find_group(node_pair.second)) {
-            lambda(node_pair);
-        }
-    }
-}
-    
 void MEMClusterer::HitGraph::connected_components(vector<vector<size_t>>& components_out) const {
     
     components_out.clear();
@@ -3492,12 +3459,12 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
     auto priority_cmp = [&](const pair<size_t, size_t>& a, const pair<size_t, size_t>& b) {
         int64_t a_dist = hit_graph.nodes[a.second].mem->begin - hit_graph.nodes[a.first].mem->end;
         int64_t b_dist = hit_graph.nodes[b.second].mem->begin - hit_graph.nodes[b.first].mem->end;
-        return ((a_dist < 0 ? -a_dist : forward_multiplier * a_dist)
-                > (b_dist < 0 ? -b_dist : forward_multiplier * b_dist));
+        return ((a_dist < 0 ? -a_dist * forward_multiplier : a_dist)
+                > (b_dist < 0 ? -b_dist * forward_multiplier : b_dist));
     };
     
     // establish the initial heap ordering
-    make_heap(next_comparisons.begin(), next_comparisons.end());
+    make_heap(next_comparisons.begin(), next_comparisons.end(), priority_cmp);
     
     // we will block off seeds as they become incorporated into clusters
     // pairs indicate whether a node is blocked for edges (into, out of) it
@@ -3506,7 +3473,7 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
     // iterate through the comparisons
     while (!next_comparisons.empty())  {
         
-        pop_heap(next_comparisons.begin(), next_comparisons.end());
+        pop_heap(next_comparisons.begin(), next_comparisons.end(), priority_cmp);
         auto comparison = next_comparisons.back();
         next_comparisons.pop_back();
         
@@ -3523,25 +3490,67 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
         
         if (!blocked[comparison.second].first) {
             
-            // TODO: check for edge, add it, do blocking
+            // what is the minimum distance between these hits?
+            bool finite_distance = true;
+            int64_t min_dist = distance_index->minDistance(hit_node_1.start_pos, hit_node_2.start_pos);
+            if (min_dist == -1) {
+                int64_t rev_min_dist = distance_index->minDistance(hit_node_2.start_pos, hit_node_1.start_pos);
+                if (rev_min_dist == -1) {
+                    // these are not reachable, don't make an edge
+                    finite_distance = false;
+                }
+                else {
+                    // this is reachable by traversing backwards, give it negative distance
+                    min_dist = -rev_min_dist;
+                }
+            }
             
+            // TODO: i'm ignoring sub-matches here because it's intended to be used with the stripped
+            // algorithm. that might come back to haunt me later
+            
+            // how long of an insert/deletion could we detect based on the scoring parameters?
+            int64_t longest_gap = min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
+                                      aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin));
+            
+            // is it possible that an alignment containing both could be detected with local alignment?
+            if (finite_distance && abs(read_dist - min_dist) < longest_gap) {
+                // there's a path within in the limit
+                
+                // the distance from the end of the first hit to the beginning of the next
+                int64_t graph_dist = min_dist - (hit_node_1.mem->end - hit_node_1.mem->begin);
+                
+                // add the corresponding edge
+                hit_graph.add_edge(comparison.first, comparison.second,
+                                   estimate_edge_score(hit_node_1.mem, hit_node_2.mem, graph_dist, aligner),
+                                   graph_dist);
+                
+                // we won't look for any more connections involving this end of these two
+                blocked[comparison.first].second = true;
+                blocked[comparison.second].first = true;
+            }
         }
         
         if (!blocked[comparison.first].second) {
             // we didn't just block off connections out of this match,
             // so we can queue up the next one
-            if (read_dist < 0 && j > i + 1) {
-                // the next in the backward direction
-                next_comparisons.emplace_back(i, j - 1);
-                push_heap(next_comparisons.begin(), next_comparisons.end());
-            }
-            else if (read_dist >= 0 && j + 1 < hit_graph.nodes.size()) {
+            if (read_dist >= 0 && j + 1 < hit_graph.nodes.size()) {
                 // the next in the forward direction
                 next_comparisons.emplace_back(i, j + 1);
-                push_heap(next_comparisons.begin(), next_comparisons.end());
+                push_heap(next_comparisons.begin(), next_comparisons.end(), priority_cmp);
+            }
+            else if (read_dist < 0 && hit_graph.nodes[j - 1].mem->begin > hit_node_1.mem->begin) {
+                // the next in the backward direction, requiring read colinearity
+                next_comparisons.emplace_back(i, j - 1);
+                push_heap(next_comparisons.begin(), next_comparisons.end(), priority_cmp);
             }
         }
     }
+    
+    // TODO: I need to come up with a sensible early stopping condition
+    // or else this won't help at all -- most seeds are actually incorrect
+    // on nanopore so taking the correct ones out of the picture isn't that
+    // helpful
+    // perhaps a maximum distance on the read?
     
     return hit_graph;
 }
