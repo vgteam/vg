@@ -77,25 +77,20 @@ namespace vg {
         // TODO: use the automatic expected MEM length algorithm to restrict the MEMs used for clustering?
         
         // cluster the MEMs
-        unique_ptr<SnarlOrientedDistanceMeasurer> snarl_measurer(nullptr);
-        unique_ptr<PathOrientedDistanceMeasurer> path_measurer(nullptr);
         MemoizingGraph memoizing_graph(xindex);
-        
-        OrientedDistanceMeasurer* distance_measurer;
+        unique_ptr<OrientedDistanceMeasurer> distance_measurer;
         if (distance_index) {
 #ifdef debug_multipath_mapper
-            cerr << "using a snarl-based distance measurer" << endl;
+            cerr << "using a snarl-based distance measurer (if doing oriented distance clustering)" << endl;
 #endif
-            snarl_measurer = unique_ptr<SnarlOrientedDistanceMeasurer>(new SnarlOrientedDistanceMeasurer(distance_index));
-            distance_measurer = &(*snarl_measurer);
+            distance_measurer = unique_ptr<OrientedDistanceMeasurer>(new SnarlOrientedDistanceMeasurer(distance_index));
         }
         else {
 #ifdef debug_multipath_mapper
-            cerr << "using a path-based distance measurer" << endl;
+            cerr << "using a path-based distance measurer (if doing oriented distance clustering)" << endl;
 #endif
-            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
+            distance_measurer = unique_ptr<OrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
                                                                                                       &path_component_index));
-            distance_measurer = &(*path_measurer);
         }
         
         vector<memcluster_t> clusters = get_clusters(alignment, mems, &(*distance_measurer));
@@ -176,29 +171,29 @@ namespace vg {
     vector<MultipathMapper::memcluster_t> MultipathMapper::get_clusters(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
                                                                         OrientedDistanceMeasurer* distance_measurer) const {
         
+        // note: we don't want to generate the distance measurer in this function because we want
+        // to be able to re-use the memoization if we cluster pairs later
+        
         // choose a clusterer
-        MEMClusterer* clusterer = nullptr;
+        unique_ptr<MEMClusterer> clusterer;
         if (use_tvs_clusterer) {
-            clusterer = new TVSClusterer(xindex, distance_index);
+            clusterer = unique_ptr<MEMClusterer>(new TVSClusterer(xindex, distance_index));
         }
         else if (use_min_dist_clusterer && !greedy_min_dist) {
-            clusterer = new MinDistanceClusterer(distance_index);
+            clusterer = unique_ptr<MEMClusterer>(new MinDistanceClusterer(distance_index));
         }
         else if (use_min_dist_clusterer) {
-            clusterer = new GreedyMinDistanceClusterer(distance_index);
+            clusterer = unique_ptr<MEMClusterer>(new GreedyMinDistanceClusterer(distance_index));
         }
         else {
-            clusterer = new OrientedDistanceClusterer(*distance_measurer, max_expected_dist_approx_error);
+            clusterer = unique_ptr<MEMClusterer>(new OrientedDistanceClusterer(*distance_measurer,
+                                                                               max_expected_dist_approx_error));
         }
         
         // generate clusters
-        vector<MultipathMapper::memcluster_t> return_val = clusterer->clusters(alignment, mems,
-                                                                               get_aligner(!alignment.quality().empty()),
-                                                                               min_clustering_mem_length, max_mapping_quality,
-                                                                               log_likelihood_approx_factor,
-                                                                               min_median_mem_coverage_for_split);
-        delete clusterer;
-        return return_val;
+        return clusterer->clusters(alignment, mems, get_aligner(!alignment.quality().empty()),
+                                   min_clustering_mem_length, max_mapping_quality, log_likelihood_approx_factor,
+                                   min_median_mem_coverage_for_split);;
     }
     
     vector<pair<pair<size_t, size_t>, int64_t>> MultipathMapper::get_cluster_pairs(const Alignment& alignment1,
@@ -241,27 +236,21 @@ namespace vg {
         }
         
         // Compute the pairs of cluster graphs and their approximate distances from each other
+        unique_ptr<MEMClusterer> clusterer;
         if (use_tvs_clusterer) {
-            TVSClusterer clusterer(xindex, distance_index);
-            return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
-                                           alt_anchors_1, alt_anchors_2,
-                                           fragment_length_distr.mean(),
-                                           ceil(10.0 * fragment_length_distr.stdev()));
+            clusterer = unique_ptr<MEMClusterer>(new TVSClusterer(xindex, distance_index));
         }
         else if (use_min_dist_clusterer) {
-            MinDistanceClusterer clusterer(distance_index);
-            return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
-                                           alt_anchors_1, alt_anchors_2,
-                                           fragment_length_distr.mean(),
-                                           ceil(10.0 * fragment_length_distr.stdev()));
+            // greedy and non-greedy algorithms are the same, so don't bother distinguishing
+            clusterer = unique_ptr<MEMClusterer>(new MinDistanceClusterer(distance_index));
         }
         else {
-            OrientedDistanceClusterer clusterer(*distance_measurer);
-            return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
-                                           alt_anchors_1, alt_anchors_2,
-                                           fragment_length_distr.mean(),
-                                           ceil(10.0 * fragment_length_distr.stdev()));
+            clusterer = unique_ptr<MEMClusterer>(new OrientedDistanceClusterer(*distance_measurer));
         }
+        return clusterer->pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
+                                       alt_anchors_1, alt_anchors_2,
+                                       fragment_length_distr.mean(),
+                                       ceil(10.0 * fragment_length_distr.stdev()));
     }
     
     void MultipathMapper::align_to_cluster_graphs(const Alignment& alignment,
@@ -1435,6 +1424,9 @@ namespace vg {
         }
 #endif
         
+        // TODO: this method of identifying a unique mapping is fragile to having a low
+        // count noise MEM. it might be worth fixing this if we ever want to reenable it
+        
         // find the count of the most unique match among the MEMs to assess how repetitive the sequence is
         size_t min_match_count_1 = numeric_limits<int64_t>::max();
         size_t min_match_count_2 = numeric_limits<int64_t>::max();
@@ -1451,25 +1443,20 @@ namespace vg {
         vector<pair<pair<size_t, size_t>, int64_t>> cluster_pairs;
         vector<pair<size_t, size_t>> duplicate_pairs;
         
-        unique_ptr<SnarlOrientedDistanceMeasurer> snarl_measurer(nullptr);
-        unique_ptr<PathOrientedDistanceMeasurer> path_measurer(nullptr);
         MemoizingGraph memoizing_graph(xindex);
-        
-        OrientedDistanceMeasurer* distance_measurer;
+        unique_ptr<OrientedDistanceMeasurer> distance_measurer;
         if (distance_index) {
 #ifdef debug_multipath_mapper
-            cerr << "using a snarl-based distance measurer" << endl;
+            cerr << "using a snarl-based distance measurer (if doing oriented distance clustering)" << endl;
 #endif
-            snarl_measurer = unique_ptr<SnarlOrientedDistanceMeasurer>(new SnarlOrientedDistanceMeasurer(distance_index));
-            distance_measurer = &(*snarl_measurer);
+            distance_measurer = unique_ptr<OrientedDistanceMeasurer>(new SnarlOrientedDistanceMeasurer(distance_index));
         }
         else {
 #ifdef debug_multipath_mapper
-            cerr << "using a path-based distance measurer" << endl;
+            cerr << "using a path-based distance measurer (if doing oriented distance clustering)" << endl;
 #endif
-            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
+            distance_measurer = unique_ptr<OrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
                                                                                                       &path_component_index));
-            distance_measurer = &(*path_measurer);
         }
         
         // do we want to try to only cluster one read end and rescue the other?

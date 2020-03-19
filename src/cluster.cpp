@@ -3427,11 +3427,12 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
     next_comparisons.reserve(2 * hit_graph.nodes.size());
     
     // assumes that MEMs are given in lexicographic order by read interval
-    size_t i = 0, j = 1;
-    while (i < hit_graph.nodes.size()) {
-        // the best seed is immediately abutting the end of this one
-        auto target = hit_graph.nodes[j].mem->end;
+    for (size_t i = 0, j = 1; i < hit_graph.nodes.size(); ++i) {
         
+        // the best seed is immediately abutting the end of this one
+        auto target = hit_graph.nodes[i].mem->end;
+        
+        // start either at the previous target or one past i
         j = max(j, i + 1);
         
         // move forward until we are past the target
@@ -3535,14 +3536,14 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
         if (!blocked[comparison.first].second) {
             // we didn't just block off connections out of this match,
             // so we can queue up the next one
-            if (read_dist >= 0 && j + 1 < hit_graph.nodes.size()) {
+            if (read_dist >= 0 && comparison.second + 1 < hit_graph.nodes.size()) {
                 // the next in the forward direction
-                next_comparisons.emplace_back(i, j + 1);
+                next_comparisons.emplace_back(comparison.first, comparison.second + 1);
                 push_heap(next_comparisons.begin(), next_comparisons.end(), priority_cmp);
             }
-            else if (read_dist < 0 && hit_graph.nodes[j - 1].mem->begin > hit_node_1.mem->begin) {
+            else if (read_dist < 0 && hit_graph.nodes[comparison.second - 1].mem->begin > hit_node_1.mem->begin) {
                 // the next in the backward direction, requiring read colinearity
-                next_comparisons.emplace_back(i, j - 1);
+                next_comparisons.emplace_back(comparison.first, comparison.second - 1);
                 push_heap(next_comparisons.begin(), next_comparisons.end(), priority_cmp);
             }
         }
