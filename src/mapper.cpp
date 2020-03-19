@@ -1139,7 +1139,7 @@ vector<MaximalExactMatch> BaseMapper::find_stripped_matches(string::const_iterat
             auto cursor = strip_end - 1;
             
             while (cursor >= seq_begin &&
-                   (max_match_length && strip_end - cursor <= max_match_length)) {
+                   (!max_match_length || strip_end - cursor <= max_match_length)) {
                 
                 if (*cursor == 'N') {
                     // N matches are uninformative, so we don't want to match them
@@ -1150,7 +1150,7 @@ vector<MaximalExactMatch> BaseMapper::find_stripped_matches(string::const_iterat
                 auto next_range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
                 
 #ifdef debug_strip_match
-                cerr << "\tgot next range which is length " << gcsa::Range::length(next_range) << " and " << ((gcsa::Range::empty(next_range) ? "" : "not ") << "empty" << endl;
+                cerr << "\tgot next range which is length " << gcsa::Range::length(next_range) << " and " << (gcsa::Range::empty(next_range) ? "" : "not ") << "empty" << endl;
 #endif
                 
                 if (gcsa::Range::empty(next_range)) {

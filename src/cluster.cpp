@@ -3360,11 +3360,11 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
     
     return to_return;
 }
-    
-    MEMClusterer::HitGraph MinDistanceClusterer::make_hit_graph(const Alignment& alignment,
-                                                                const vector<MaximalExactMatch>& mems,
-                                                                const GSSWAligner* aligner,
-                                                                size_t min_mem_length) {
+
+MEMClusterer::HitGraph MinDistanceClusterer::make_hit_graph(const Alignment& alignment,
+                                                            const vector<MaximalExactMatch>& mems,
+                                                            const GSSWAligner* aligner,
+                                                            size_t min_mem_length) {
     
     // intialize with nodes
     HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
@@ -3392,7 +3392,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
         for (size_t j = j_begin; j < hit_graph.nodes.size(); ++j){
             
             HitNode& hit_node_2 = hit_graph.nodes[j];
-                        
+            
             // what is the minimum distance between these hits?
             int64_t min_dist = distance_index->minDistance(hit_node_1.start_pos, hit_node_2.start_pos);
             if (min_dist == -1) {
@@ -3451,8 +3451,98 @@ GreedyMinDistanceClusterer::GreedyMinDistanceClusterer(MinimumDistanceIndex* dis
 
 MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
                                                                   const GSSWAligner* aligner, size_t min_mem_length) {
+    
+    // init the hit graph's nodes
     HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
-    throw runtime_error("not yet implemented");
+    
+    // we will initialize this with the next backward and forward comparisons for each hit node
+    vector<pair<int64_t, int64_t>> next_comparisons;
+    next_comparisons.reserve(2 * hit_graph.nodes.size());
+    
+    // assumes that MEMs are given in lexicographic order by read interval
+    size_t i = 0, j = 1;
+    while (i < hit_graph.nodes.size()) {
+        // the best seed is immediately abutting the end of this one
+        auto target = hit_graph.nodes[j].mem->end;
+        
+        j = max(j, i + 1);
+        
+        // move forward until we are past the target
+        while (j < hit_graph.nodes.size() && hit_graph.nodes[j].mem->begin < target) {
+            ++j;
+        }
+        
+        // move backward until another
+        while (j > i + 1 && hit_graph.nodes[j - 1].mem->begin >= target) {
+            --j;
+        }
+        
+        // the next backwards comparison
+        if (j > i + 1) {
+            next_comparisons.emplace_back(i, j - 1);
+        }
+        // the backwards comparison
+        if (j < hit_graph.nodes.size()) {
+            next_comparisons.emplace_back(i, j);
+        }
+    }
+    
+    // the iteration order is starting from small distances first, but also favoring forward
+    // distances by some pre-determined multiplier
+    auto priority_cmp = [&](const pair<size_t, size_t>& a, const pair<size_t, size_t>& b) {
+        int64_t a_dist = hit_graph.nodes[a.second].mem->begin - hit_graph.nodes[a.first].mem->end;
+        int64_t b_dist = hit_graph.nodes[b.second].mem->begin - hit_graph.nodes[b.first].mem->end;
+        return ((a_dist < 0 ? -a_dist : forward_multiplier * a_dist)
+                > (b_dist < 0 ? -b_dist : forward_multiplier * b_dist));
+    };
+    
+    // establish the initial heap ordering
+    make_heap(next_comparisons.begin(), next_comparisons.end());
+    
+    // we will block off seeds as they become incorporated into clusters
+    // pairs indicate whether a node is blocked for edges (into, out of) it
+    vector<pair<bool, bool>> blocked(hit_graph.nodes.size(), pair<bool, bool>(false, false));
+    
+    // iterate through the comparisons
+    while (!next_comparisons.empty())  {
+        
+        pop_heap(next_comparisons.begin(), next_comparisons.end());
+        auto comparison = next_comparisons.back();
+        next_comparisons.pop_back();
+        
+        if (blocked[comparison.first].second) {
+            // we've already greedily accumulated out of this match, so we don't
+            // need to look for more connections from it
+            continue;
+        }
+        
+        auto& hit_node_1 = hit_graph.nodes[comparison.first];
+        auto& hit_node_2 = hit_graph.nodes[comparison.second];
+        
+        int64_t read_dist = hit_node_2.mem->begin - hit_node_1.mem->end;
+        
+        if (!blocked[comparison.second].first) {
+            
+            // TODO: check for edge, add it, do blocking
+            
+        }
+        
+        if (!blocked[comparison.first].second) {
+            // we didn't just block off connections out of this match,
+            // so we can queue up the next one
+            if (read_dist < 0 && j > i + 1) {
+                // the next in the backward direction
+                next_comparisons.emplace_back(i, j - 1);
+                push_heap(next_comparisons.begin(), next_comparisons.end());
+            }
+            else if (read_dist >= 0 && j + 1 < hit_graph.nodes.size()) {
+                // the next in the forward direction
+                next_comparisons.emplace_back(i, j + 1);
+                push_heap(next_comparisons.begin(), next_comparisons.end());
+            }
+        }
+    }
+    
     return hit_graph;
 }
 

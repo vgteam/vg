@@ -694,6 +694,7 @@ protected:
     /// How more bases would we search forward to find the next seed before we think
     /// it's worth searching 1 base backward?
     const int64_t forward_multiplier = 5;
+    
 };
 
 /// get the handles that a mem covers
