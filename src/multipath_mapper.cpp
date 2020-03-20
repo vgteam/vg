@@ -179,11 +179,14 @@ namespace vg {
         if (use_tvs_clusterer) {
             clusterer = unique_ptr<MEMClusterer>(new TVSClusterer(xindex, distance_index));
         }
-        else if (use_min_dist_clusterer && !greedy_min_dist) {
-            clusterer = unique_ptr<MEMClusterer>(new MinDistanceClusterer(distance_index));
+        else if (use_min_dist_clusterer && greedy_min_dist) {
+            clusterer = unique_ptr<MEMClusterer>(new GreedyMinDistanceClusterer(distance_index));
+        }
+        else if (use_min_dist_clusterer && component_min_dist) {
+            clusterer = unique_ptr<MEMClusterer>(new ComponentMinDistanceClusterer(distance_index));
         }
         else if (use_min_dist_clusterer) {
-            clusterer = unique_ptr<MEMClusterer>(new GreedyMinDistanceClusterer(distance_index));
+            clusterer = unique_ptr<MEMClusterer>(new MinDistanceClusterer(distance_index));
         }
         else {
             clusterer = unique_ptr<MEMClusterer>(new OrientedDistanceClusterer(*distance_measurer,

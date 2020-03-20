@@ -120,6 +120,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_APPROX_EXP 1008
     #define OPT_MAX_PATHS 1009
     #define OPT_GREEDY_MIN_DIST 1010
+    #define OPT_COMPONENT_MIN_DIST 1011
     string matrix_file_name;
     string xg_name;
     string gcsa_name;
@@ -168,6 +169,7 @@ int main_mpmap(int argc, char** argv) {
     bool use_tvs_clusterer = false;
     bool use_min_dist_clusterer = false;
     bool greedy_min_dist = false;
+    bool component_min_dist = false;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Exact;
@@ -267,6 +269,7 @@ int main_mpmap(int argc, char** argv) {
             {"force-haplotype-count", required_argument, 0, OPT_FORCE_HAPLOTYPE_COUNT},
             {"min-dist-cluster", no_argument, 0, OPT_MIN_DIST_CLUSTER},
             {"greedy-min-dist", no_argument, 0, OPT_GREEDY_MIN_DIST},
+            {"component-min-dist", no_argument, 0, OPT_COMPONENT_MIN_DIST},
             {"drop-subgraph", required_argument, 0, 'C'},
             {"prune-exp", required_argument, 0, OPT_PRUNE_EXP},
             {"long-read-scoring", no_argument, 0, 'E'},
@@ -514,6 +517,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_GREEDY_MIN_DIST:
                 greedy_min_dist = true;
+                break;
+                
+            case OPT_COMPONENT_MIN_DIST:
+                component_min_dist = true;
                 break;
                 
             case 'C':
@@ -780,7 +787,11 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (greedy_min_dist && !use_min_dist_clusterer) {
-        cerr << "warning:[vg mpmap] greedy minimum distance clustering (--greedy-min-dist) is ignored if not using minimum distance clustering (--min-dist-cluster)" << endl;
+        cerr << "warning:[vg mpmap] greedy minimum distance clustering (--greedy-min-dist) is ignored if not using minimum distance clustering (-d)" << endl;
+    }
+    
+    if (component_min_dist && !use_min_dist_clusterer) {
+        cerr << "warning:[vg mpmap] minimum distance component clustering (--component-min-dist) is ignored if not using minimum distance clustering (-d)" << endl;
     }
     
     if (suboptimal_path_exponent < 1.0) {
@@ -1054,6 +1065,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;
     multipath_mapper.use_min_dist_clusterer = use_min_dist_clusterer;
     multipath_mapper.greedy_min_dist = greedy_min_dist;
+    multipath_mapper.component_min_dist = component_min_dist;
     multipath_mapper.max_expected_dist_approx_error = max_dist_error;
     multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
     multipath_mapper.log_likelihood_approx_factor = likelihood_approx_exp;
