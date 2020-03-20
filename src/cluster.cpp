@@ -3422,8 +3422,8 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
     // assumes that MEMs are given in lexicographic order by read interval
     for (size_t i = 0, j = 1; i < hit_graph.nodes.size(); ++i) {
         
-        // the best seed is immediately abutting the end of this one
-        auto target = hit_graph.nodes[i].mem->end;
+        // where we expect to find the next match on the read
+        auto target = hit_graph.nodes[i].mem->end + expected_separation;
         
         // start either at the previous target or one past i
         j = max(j, i + 1);
@@ -3439,11 +3439,11 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
         }
         
         // the next backwards comparison
-        if (j > i + 1) {
+        if (j > i + 1 && target - hit_graph.nodes[j - 1].mem->begin >= min_separation) {
             next_comparisons.emplace_back(i, j - 1);
         }
         // the backwards comparison
-        if (j < hit_graph.nodes.size()) {
+        if (j < hit_graph.nodes.size() && target - hit_graph.nodes[j].mem->begin <= max_separation) {
             next_comparisons.emplace_back(i, j);
         }
     }
@@ -3451,8 +3451,8 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
     // the iteration order is starting from small distances first, but also favoring forward
     // distances by some pre-determined multiplier
     auto priority_cmp = [&](const pair<size_t, size_t>& a, const pair<size_t, size_t>& b) {
-        int64_t a_dist = hit_graph.nodes[a.second].mem->begin - hit_graph.nodes[a.first].mem->end;
-        int64_t b_dist = hit_graph.nodes[b.second].mem->begin - hit_graph.nodes[b.first].mem->end;
+        int64_t a_dist = (hit_graph.nodes[a.second].mem->begin - hit_graph.nodes[a.first].mem->end) - expected_separation;
+        int64_t b_dist = (hit_graph.nodes[b.second].mem->begin - hit_graph.nodes[b.first].mem->end) - expected_separation;
         return ((a_dist < 0 ? -a_dist * forward_multiplier : a_dist)
                 > (b_dist < 0 ? -b_dist * forward_multiplier : b_dist));
     };
@@ -3523,8 +3523,6 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
                                        estimate_edge_score(hit_node_1.mem, hit_node_2.mem, graph_dist, aligner),
                                        graph_dist);
                     
-                    // TODO: should i have a stricter criterion to fully block a connection?
-                    
                     // we won't look for any more connections involving this end of these two
                     blocked[comparison.first].second = true;
                     blocked[comparison.second].first = true;
@@ -3535,12 +3533,14 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
         if (!blocked[comparison.first].second) {
             // we didn't just block off connections out of this match,
             // so we can queue up the next one
-            if (read_dist >= 0 && comparison.second + 1 < hit_graph.nodes.size()) {
+            if (read_dist >= 0 && comparison.second + 1 < hit_graph.nodes.size() &&
+                hit_graph.nodes[comparison.second + 1].mem->begin - hit_node_1.mem->end <= max_separation) {
                 // the next in the forward direction
                 next_comparisons.emplace_back(comparison.first, comparison.second + 1);
                 push_heap(next_comparisons.begin(), next_comparisons.end(), priority_cmp);
             }
-            else if (read_dist < 0 && hit_graph.nodes[comparison.second - 1].mem->begin > hit_node_1.mem->begin) {
+            else if (read_dist < 0 && hit_graph.nodes[comparison.second - 1].mem->begin > hit_node_1.mem->begin &&
+                     hit_graph.nodes[comparison.second - 1].mem->begin - hit_node_1.mem->end >= min_separation) {
                 // the next in the backward direction, requiring read colinearity
                 next_comparisons.emplace_back(comparison.first, comparison.second - 1);
                 push_heap(next_comparisons.begin(), next_comparisons.end(), priority_cmp);

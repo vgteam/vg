@@ -678,9 +678,19 @@ protected:
     HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
                             size_t min_mem_length);
     
+    
+    /// How far apart do we expect the seeds to be on the read?
+    const int64_t expected_separation = 20;
+    
     /// How more bases would we search forward to find the next seed before we think
     /// it's worth searching 1 base backward?
-    const int64_t forward_multiplier = 10;
+    const int64_t forward_multiplier = 3;
+    
+    /// Minimum distance between two seeds on the read
+    const int64_t min_separation = -10;
+    
+    /// Maximum distance between two seeds on the read
+    const int64_t max_separation = 250;
     
 };
 
