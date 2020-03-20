@@ -10,6 +10,7 @@
 #include "mem.hpp"
 #include "handle.hpp"
 #include "min_distance.hpp"
+#include "seed_clusterer.hpp"
 #include "path_component_index.hpp"
 #include "bdsg/hash_graph.hpp"
 #include "algorithms/subgraph.hpp"
@@ -692,6 +693,32 @@ protected:
     /// Maximum distance between two seeds on the read
     const int64_t max_separation = 250;
     
+};
+
+/*
+ * A version of the MinDistanceClusterer that uses the SeedClusterer to partition reads
+ * into nearby clusters and only measures distances within clusters
+ */
+class ComponentMinDistanceClusterer : public MinDistanceClusterer {
+public:
+    ComponentMinDistanceClusterer(MinimumDistanceIndex* distance_index);
+    ~ComponentMinDistanceClusterer() = default;
+    
+protected:
+    
+    /// Concrete implementation of virtual method from MEMClusterer, overides the inherited one from MinDistanceClusterer
+    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
+                            size_t min_mem_length);
+    
+    
+    /// Minimum distance between two seeds on the read
+    const int64_t min_read_separation = -10;
+    
+    /// Maximum distance between two seeds on the read
+    const int64_t max_read_separation = 750;
+    
+    /// The maximum distance we will look during component finding
+    const int64_t max_graph_separation = 5000;
 };
 
 /// get the handles that a mem covers
