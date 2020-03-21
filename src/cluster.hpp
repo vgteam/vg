@@ -715,10 +715,13 @@ protected:
     const int64_t min_read_separation = -10;
     
     /// Maximum distance between two seeds on the read
-    const int64_t max_read_separation = 750;
+    const int64_t max_read_separation = 2500;
     
     /// The maximum distance we will look during component finding
     const int64_t max_graph_separation = 5000;
+    
+    /// The number of connections from one hit in a component to another that we will consider (0 for no maximum)
+    const int64_t early_stop_number = 2;
 };
 
 /// get the handles that a mem covers
