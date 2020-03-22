@@ -51,7 +51,7 @@ void help_mpmap(char** argv) {
     << "  -R, --read-group NAME         add this read group to output" << endl
     << "  -S, --single-path-mode        output single-path alignments (GAM) instead of multipath alignments (GAMP) (ignores -saX)" << endl
     << "  -p, --suppress-progress       do not report progress to stderr (slightly reduces thread contention)" << endl
-    << "algorithm:" << endl
+    //<< "algorithm:" << endl
     //<< "       --min-dist-cluster        use the minimum distance based clusterer (requires a distance index from -d)" << endl
     << "scoring:" << endl
     << "  -E, --long-read-scoring       set alignment scores to long-read defaults: -q1 -z1 -o1 -y1 -L0 (can be overridden)" << endl
@@ -804,6 +804,11 @@ int main_mpmap(int argc, char** argv) {
         cerr << "warning:[vg mpmap] minimum distance component clustering (--component-min-dist) is ignored if not using minimum distance clustering (-d)" << endl;
     }
     
+    if (greedy_min_dist && component_min_dist) {
+        cerr << "error:[vg mpmap] cannot simultaneously use greedy (--greedy-min-dist) and component (--component-min-dist) clustering" << endl;
+        exit(1);
+    }
+    
     if (suboptimal_path_exponent < 1.0) {
         cerr << "error:[vg mpmap] Suboptimal path likelihood root (--prune-exp) set to " << suboptimal_path_exponent << ", must set to at least 1.0." << endl;
         exit(1);
@@ -978,10 +983,14 @@ int main_mpmap(int argc, char** argv) {
         cerr << "[vg mpmap] loading GCSA2 from " << gcsa_name << endl;
     }
     unique_ptr<gcsa::GCSA> gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
-    if (!suppress_progress) {
-        cerr << "[vg mpmap] loading LCP from " << lcp_name << endl;
+    unique_ptr<gcsa::LCPArray> lcp_array;
+    if (!use_stripped_match_alg) {
+        // The stripped algorithm doesn't use the LCP, but we aren't doing it
+        if (!suppress_progress) {
+            cerr << "[vg mpmap] loading LCP from " << lcp_name << endl;
+        }
+        lcp_array = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     }
-    unique_ptr<gcsa::LCPArray> lcp_array = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     
     // Load optional indexes
     
