@@ -125,3 +125,6 @@
 [submodule "vgteam_bbhash"]
 	path = deps/BBHash
 	url = https://github.com/vgteam/BBHash.git
+[submodule "deps/tinygfa"]
+	path = deps/tinygfa
+	url = https://github.com/edawson/tinygfa
