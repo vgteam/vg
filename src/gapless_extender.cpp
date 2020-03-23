@@ -291,6 +291,30 @@ size_t interval_length(std::pair<size_t, size_t> interval) {
     return interval.second - interval.first;
 }
 
+std::vector<handle_t> get_path(const std::vector<handle_t>& first, handle_t second) {
+    std::vector<handle_t> result;
+    result.reserve(first.size() + 1);
+    result.insert(result.end(), first.begin(), first.end());
+    result.push_back(second);
+    return result;
+}
+
+std::vector<handle_t> get_path(handle_t first, const std::vector<handle_t>& second) {
+    std::vector<handle_t> result;
+    result.reserve(second.size() + 1);
+    result.push_back(first);
+    result.insert(result.end(), second.begin(), second.end());
+    return result;
+}
+
+std::vector<handle_t> get_path(const std::vector<handle_t>& first, gbwt::node_type second) {
+    return get_path(first, gbwtgraph::GBWTGraph::node_to_handle(second));
+}
+
+std::vector<handle_t> get_path(gbwt::node_type reverse_first, const std::vector<handle_t>& second) {
+    return get_path(gbwtgraph::GBWTGraph::node_to_handle(gbwt::Node::reverse(reverse_first)), second);
+}
+
 //------------------------------------------------------------------------------
 
 std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, const std::string& sequence, size_t max_mismatches, bool trim_extensions) const {
@@ -383,9 +407,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                     if (node_offset == 0) { // Did not match anything.
                         return true;
                     }
-                    next.path.reserve(curr.path.size() + 1);
-                    next.path.insert(next.path.end(), curr.path.begin(), curr.path.end());
-                    next.path.push_back(handle);
+                    next.path = get_path(curr.path, handle);
                     // Did the extension become right-maximal?
                     if (next.read_interval.second >= sequence.length()) {
                         next.right_full = true;
@@ -429,9 +451,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                     if (next.offset >= node_length) { // Did not match anything.
                         return true;
                     }
-                    next.path.reserve(curr.path.size() + 1);
-                    next.path.push_back(handle);
-                    next.path.insert(next.path.end(), curr.path.begin(), curr.path.end());
+                    next.path = get_path(handle, curr.path);
                     // Did the extension become left-maximal?
                     if (next.read_interval.first == 0) {
                         next.left_full = true;
@@ -641,6 +661,105 @@ void GaplessExtender::trim(std::vector<GaplessExtension>& extensions, size_t max
         delete cache;
         cache = nullptr;
     }
+}
+
+//------------------------------------------------------------------------------
+
+struct state_hash {
+    size_t operator()(const gbwt::BidirectionalState& state) const {
+        size_t result = wang_hash_64(state.forward.node);
+        result ^= wang_hash_64(state.forward.range.first) + 0x9e3779b9 + (result << 6) + (result >> 2);
+        result ^= wang_hash_64(state.forward.range.second) + 0x9e3779b9 + (result << 6) + (result >> 2);
+        result ^= wang_hash_64(state.backward.node) + 0x9e3779b9 + (result << 6) + (result >> 2);
+        result ^= wang_hash_64(state.backward.range.first) + 0x9e3779b9 + (result << 6) + (result >> 2);
+        result ^= wang_hash_64(state.backward.range.second) + 0x9e3779b9 + (result << 6) + (result >> 2);
+        return result;
+    }
+};
+
+void GaplessExtender::unfold_haplotypes(const SubHandleGraph& subgraph, std::vector<std::vector<handle_t>>& haplotype_paths,  bdsg::HashGraph& unfolded) const {
+
+    // A state and its reverse complement are equivalent.
+    auto get_key = [](gbwt::BidirectionalState state) -> gbwt::BidirectionalState {
+        if ((state.backward.node < state.forward.node) ||
+            (state.backward.node == state.forward.node && state.backward.range < state.forward.range)) {
+            state.flip();
+        }
+        return state;
+    };
+
+    spp::sparse_hash_set<gbwt::BidirectionalState, state_hash> visited;
+    gbwt::CachedGBWT cache = this->graph->get_cache();
+    subgraph.for_each_handle([&](const handle_t& handle) {
+        std::stack<std::pair<gbwt::BidirectionalState, std::vector<handle_t>>> forward, backward;
+        gbwt::BidirectionalState state = this->graph->get_bd_state(cache, handle);
+        std::vector<handle_t> path = { handle };
+        visited.insert(get_key(state));
+        forward.push(std::make_pair(state, path));
+
+        // Extend forward.
+        while (!forward.empty()) {
+            std::tie(state, path) = forward.top();
+            forward.pop();
+            size_t covered_size = 0;
+            this->graph->follow_paths(cache, state, false, [&](const gbwt::BidirectionalState& next) -> bool {
+                if (!subgraph.has_node(gbwt::Node::id(next.forward.node))) {
+                    return true;
+                }
+                covered_size += next.size();
+                gbwt::BidirectionalState key = get_key(next);
+                if (visited.find(key) != visited.end()) {
+                    return true;
+                }
+                visited.insert(key);
+                forward.push(std::make_pair(next, get_path(path, next.forward.node)));
+                return true;
+            });
+            // The current state is right-maximal if some paths in it do not have forward
+            // extensions in the subgraph. If some forward extensions exist, we may end up
+            // generating prefixes of them from this state. However, such situations should
+            // be rare in the subgraphs we are interested in.
+            if (covered_size < state.size()) {
+                backward.push(std::make_pair(state, path));
+            }
+        }
+
+        // Extend backward.
+        while (!backward.empty()) {
+            std::tie(state, path) = backward.top();
+            backward.pop();
+            size_t covered_size = 0;
+            this->graph->follow_paths(cache, state, true, [&](const gbwt::BidirectionalState& prev) -> bool {
+                if (!subgraph.has_node(gbwt::Node::id(prev.backward.node))) {
+                    return true;
+                }
+                covered_size += prev.size();
+                gbwt::BidirectionalState key = get_key(prev);
+                if (visited.find(key) != visited.end()) {
+                    return true;
+                }
+                visited.insert(key);
+                backward.push(std::make_pair(prev, get_path(prev.backward.node, path)));
+                return true;
+            });
+            // Report the path if we did not find any extensions.
+            if (covered_size == 0) {
+                haplotype_paths.push_back(path);
+                size_t result_size = 0;
+                for (handle_t handle : path) {
+                    result_size += this->graph->get_length(handle);
+                }
+                std::string sequence;
+                sequence.reserve(result_size);
+                for (handle_t handle : path) {
+                    gbwtgraph::GBWTGraph::view_type view = this->graph->get_sequence_view(handle);
+                    sequence.insert(sequence.size(), view.first, view.second);
+                }
+                unfolded.create_handle(sequence, 2 * haplotype_paths.size() - 1);
+                unfolded.create_handle(reverse_complement(sequence), 2 * haplotype_paths.size());
+            }
+        }
+    }, false);
 }
 
 //------------------------------------------------------------------------------

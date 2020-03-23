@@ -6,9 +6,11 @@
 #include "../gapless_extender.hpp"
 #include "../gbwt_helper.hpp"
 #include "../json2pb.h"
+#include "../utility.hpp"
 
 #include "catch.hpp"
 
+#include <map>
 #include <vector>
 
 
@@ -216,6 +218,30 @@ void trimmed_extensions(std::vector<GaplessExtension>& extensions, std::vector<G
         REQUIRE(extensions[i].score == correct[i].score);
         REQUIRE(extensions[i].left_full == correct[i].left_full);
         REQUIRE(extensions[i].right_full == correct[i].right_full);
+    }
+}
+
+void check_haplotypes(const GaplessExtender& extender, const std::vector<nid_t>& nodes, const std::map<std::vector<handle_t>, std::string>& correct_haplotypes) {
+    const gbwtgraph::GBWTGraph& graph = *(extender.graph);
+    SubHandleGraph subgraph(extender.graph);
+    for (nid_t node : nodes) {
+        subgraph.add_handle(graph.get_handle(node, false));
+    }
+
+    std::vector<std::vector<handle_t>> haplotype_paths;
+    bdsg::HashGraph unfolded;
+    extender.unfold_haplotypes(subgraph, haplotype_paths, unfolded);
+
+    REQUIRE(haplotype_paths.size() == correct_haplotypes.size());
+    REQUIRE(unfolded.get_node_count() == 2 * correct_haplotypes.size());
+    for (size_t i = 0; i < haplotype_paths.size(); i++) {
+        auto iter = correct_haplotypes.find(haplotype_paths[i]);
+        REQUIRE(iter != correct_haplotypes.end());
+        REQUIRE(iter->first == haplotype_paths[i]);
+        std::string forward = unfolded.get_sequence(unfolded.get_handle(2 * i + 1, false));
+        REQUIRE(forward == iter->second);
+        std::string reverse = reverse_complement(unfolded.get_sequence(unfolded.get_handle(2 * i + 2, false)));
+        REQUIRE(reverse == iter->second);
     }
 }
 
@@ -845,6 +871,79 @@ TEST_CASE("Trimming mismatches", "[gapless_extender]") {
         };
         size_t error_bound = 0;
         trimmed_extensions(extensions, correct, extender, error_bound);
+    }
+}
+
+//------------------------------------------------------------------------------
+
+TEST_CASE("Haplotype unfolding", "[gapless_extender]") {
+
+    // Build an XG index.
+    Graph graph;
+    json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(graph));
+
+    // Build a GBWT with three threads including a duplicate.
+    gbwt::GBWT gbwt_index = build_gbwt_index();
+
+    // Build a GBWT-backed graph.
+    gbwtgraph::GBWTGraph gbwt_graph(gbwt_index, xg_index);
+
+    // And finally wrap it in a GaplessExtender with an Aligner.
+    Aligner aligner;
+    GaplessExtender extender(gbwt_graph, aligner);
+
+    // Normal situation
+    SECTION("normal subgraph") {
+        std::vector<nid_t> nodes {
+            5, 6, 7, 8
+        };
+        std::map<std::vector<handle_t>, std::string> correct_haplotypes {
+            {
+                { gbwt_graph.get_handle(5, false), gbwt_graph.get_handle(6, false), gbwt_graph.get_handle(7, false) },
+                "TAC"
+            },
+            {
+                { gbwt_graph.get_handle(5, false), gbwt_graph.get_handle(6, false), gbwt_graph.get_handle(8, false) },
+                "TAA"
+            }
+        };
+        check_haplotypes(extender, nodes, correct_haplotypes);
+    }
+
+    SECTION("right-maximal extensions") {
+        std::vector<nid_t> nodes {
+            5, 6, 7
+        };
+        std::map<std::vector<handle_t>, std::string> correct_haplotypes {
+            {
+                { gbwt_graph.get_handle(5, false), gbwt_graph.get_handle(6, false) },
+                "TA"
+            },
+            {
+                { gbwt_graph.get_handle(5, false), gbwt_graph.get_handle(6, false), gbwt_graph.get_handle(7, false) },
+                "TAC"
+            }
+        };
+        check_haplotypes(extender, nodes, correct_haplotypes);
+    }
+
+    SECTION("left-maximal extensions") {
+        std::vector<nid_t> nodes {
+            2, 4, 5, 6, 7
+        };
+        std::map<std::vector<handle_t>, std::string> correct_haplotypes {
+            {
+                { gbwt_graph.get_handle(2, false), gbwt_graph.get_handle(4, false), gbwt_graph.get_handle(5, false), gbwt_graph.get_handle(6, false) },
+                "AGGGTA"
+            },
+            {
+                { gbwt_graph.get_handle(4, false), gbwt_graph.get_handle(5, false), gbwt_graph.get_handle(6, false), gbwt_graph.get_handle(7, false) },
+                "GGGTAC"
+            }
+        };
+        check_haplotypes(extender, nodes, correct_haplotypes);
     }
 }
 

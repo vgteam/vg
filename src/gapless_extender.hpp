@@ -9,7 +9,9 @@
 
 #include "aligner.hpp"
 #include "hash_map.hpp"
+#include "subgraph.hpp"
 
+#include <bdsg/hash_graph.hpp>
 #include <gbwtgraph/gbwtgraph.h>
 
 namespace vg {
@@ -166,6 +168,13 @@ public:
      * Note that extend() already calls this by default.
      */
     void trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches = MAX_MISMATCHES, const gbwt::CachedGBWT* cache = nullptr) const;
+
+   /**
+    * Find the distinct local haplotypes in the given subgraph and return the corresponding paths.
+    * For each path haplotype_paths[i], the output graph will contain node 2i + 1 with sequence
+    * corresponding to the path and node 2i + 2 with the reverse complement of the sequence.
+    */
+    void unfold_haplotypes(const SubHandleGraph& subgraph, std::vector<std::vector<handle_t>>& haplotype_paths,  bdsg::HashGraph& unfolded) const;
 
     const gbwtgraph::GBWTGraph* graph;
     const Aligner*   aligner;
