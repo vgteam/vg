@@ -15,5 +15,7 @@
         "string_view": "cpp",
         "streambuf": "cpp",
         "list": "cpp"
-    }
+    },
+    "editor.gotoLocation.multipleDefinitions": "gotoAndPeek",
+    "editor.gotoLocation.multipleTypeDefinitions": "gotoAndPeek"
 }

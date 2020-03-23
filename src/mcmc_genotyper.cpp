@@ -315,6 +315,9 @@ namespace vg {
         genome->add_haplotype(haplotype.begin(), haplotype.end());
         genome->add_haplotype(haplotype.begin(), haplotype.end());
 
+        // genome->print_phased_genome();
+        // cerr <<"this is the reference **********" <<endl;
+
         // index sites
         genome->build_indices();
 

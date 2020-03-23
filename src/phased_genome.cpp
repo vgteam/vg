@@ -260,14 +260,13 @@ namespace vg {
 
         // iterate through the genome and all its haplotypes
         for(int i = 0; i < haplo_num; i++){
-            cerr << "********************************" <<endl;
             cerr << "Haplotype ID is: " << i <<endl;
             // iterate through each node in the haplotype
             for(auto iter = begin(i); iter != end(i); iter++ ){
-                cerr << "node ID is " << (*iter).node->id() <<endl;
-                cerr << "The sequence is: " << (*iter).node->sequence() <<endl;
+                cerr << "node " << (*iter).node->id() << ": " <<(*iter).node->sequence() <<endl;
             }
-            cerr << "********************************" <<endl;
+            cerr<<endl;
+            cerr<<endl;
         }     
 
 

@@ -190,7 +190,7 @@ int main_mcmc(int argc, char** argv) {
     MCMCGenotyper mcmc_genotyper(*snarls, *vg_graph, n_iterations, seed);
     unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(reads, log_base );
     
-
+    // genome->print_phased_genome();
 
     /*
     *########################################################################################
@@ -213,6 +213,9 @@ int main_mcmc(int argc, char** argv) {
     //close the vcf file
     vcf_file_out.close();
    
+    // will output a graph w/ embedded paths
+    vg_graph->serialize_to_ostream(std::cout);
+
     return 0;
 }
 
