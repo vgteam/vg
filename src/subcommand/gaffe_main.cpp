@@ -22,6 +22,7 @@
 #include "../alignment_emitter.hpp"
 #include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
+#include "../index_manager.hpp"
 #include <bdsg/overlay_helper.hpp>
 
 #include <gbwtgraph/minimizer.h>
@@ -283,15 +284,15 @@ inline bool parse(const string& arg, typename enable_if<is_instantiation_of<Resu
 
 void help_gaffe(char** argv) {
     cerr
-    << "usage: " << argv[0] << " gaffe [options] > output.gam" << endl
+    << "usage: " << argv[0] << " gaffe [options] [ref.fa [variants.vcf.gz]] > output.gam" << endl
     << "Map unpaired reads using minimizers and gapless extension." << endl
     << endl
     << "basic options:" << endl
-    << "  -x, --xg-name FILE            use this xg index or graph (required if -g not specified)" << endl
-    << "  -g, --graph-name FILE         use this GBWTGraph (required if -x not specified)" << endl
-    << "  -H, --gbwt-name FILE          use this GBWT index (required)" << endl
-    << "  -m, --minimizer-name FILE     use this minimizer index (required; may repeat)" << endl
-    << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
+    << "  -x, --xg-name FILE            use this xg index or graph" << endl
+    << "  -g, --graph-name FILE         use this GBWTGraph" << endl
+    << "  -H, --gbwt-name FILE          use this GBWT index" << endl
+    << "  -m, --minimizer-name FILE     use this minimizer index (may repeat)" << endl
+    << "  -d, --dist-name FILE          cluster using this distance index" << endl
     << "  -p, --progress                show progress" << endl
     << "input options:" << endl
     << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE" << endl
@@ -339,18 +340,17 @@ int main_gaffe(int argc, char** argv) {
     
 
     // initialize parameters with their default options
-    string xg_name;
-    string graph_name;
-    string gbwt_name;
+    
+    // This holds and manages finding our indexes.
+    IndexManager indexes;
     vector<string> minimizer_names;
-    string distance_name;
     string output_basename;
     string report_name;
     // How close should two hits be to be in the same cluster?
     Range<size_t> distance_limit = 200;
     Range<size_t> hit_cap = 10, hard_hit_cap = 1500;
     Range<double> minimizer_score_fraction = 0.8;
-    bool progress = false;
+    bool show_progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_dp = true;
     // What GAM should we realign?
@@ -458,47 +458,49 @@ int main_gaffe(int argc, char** argv) {
         switch (c)
         {
             case 'x':
-                xg_name = optarg;
-                if (xg_name.empty()) {
-                    cerr << "error:[vg gaffe] Must provide XG file with -x." << endl;
+                if (!optarg || !*optarg) {
+                    cerr << "error:[vg gaffe] Must provide graph file with -x." << endl;
                     exit(1);
                 }
+                indexes.set_graph_override(optarg);
                 break;
 
             case 'g':
-                graph_name = optarg;
-                if (graph_name.empty()) {
+                if (!optarg || !*optarg) {
                     cerr << "error:[vg gaffe] Must provide GBGTGraph file with -g." << endl;
                     exit(1);
                 }
+                indexes.set_gbwtgraph_override(optarg);
                 break;
 
             case 'H':
-                gbwt_name = optarg;
-                if (gbwt_name.empty()) {
+                if (!optarg || !*optarg) {
                     cerr << "error:[vg gaffe] Must provide GBWT file with -H." << endl;
                     exit(1);
                 }
+                indexes.set_gbwt_override(optarg);
                 break;
                 
             case 'm':
-                minimizer_names.emplace_back(optarg);
-                if (minimizer_names.back().empty()) {
+                if (!optarg || !*optarg) {
                     cerr << "error:[vg gaffe] Must provide minimizer file with -m." << endl;
                     exit(1);
                 }
+                indexes.set_minimizer_override(optarg);
+                // In case we have multiple minimizer indexes, save all the names.
+                minimizer_names.emplace_back(optarg);
                 break;
                 
             case 'd':
-                distance_name = optarg;
-                if (distance_name.empty()) {
+                if (!optarg || !*optarg) {
                     cerr << "error:[vg gaffe] Must provide distance index file with -d." << endl;
                     exit(1);
                 }
+                indexes.set_distance_override(optarg);
                 break;
 
             case 'p':
-                progress = true;
+                show_progress = true;
                 break;
                 
             case 'G':
@@ -715,33 +717,74 @@ int main_gaffe(int argc, char** argv) {
                 break;
         }
     }
+
+   
+    // Propagate progress
+    indexes.show_progress = show_progress;
     
-    
-    if (xg_name.empty() && graph_name.empty()) {
-        cerr << "error:[vg gaffe] Mapping requires an XG index (-x) or a GBWTGraph (-g)" << endl;
+    // Get positional arguments before validating user intent
+    if (have_input_file(optind, argc, argv)) {
+        // Must be the FASTA, but check.
+        
+        string fasta_filename = get_input_file_name(optind, argc, argv);
+        
+        auto fasta_parts = split_ext(fasta_filename);
+        if (fasta_parts.second == "gz") {
+            fasta_parts = split_ext(fasta_parts.first);
+        }
+        if (fasta_parts.second != "fa" && fasta_parts.second != "fasta" && fasta_parts.second != "fna") {
+            cerr << "error:[vg gaffe] FASTA file " << fasta_filename << " is not named like a FASTA" << endl;
+            exit(1);
+        }
+        
+        indexes.set_fasta_filename(fasta_filename);
+        
+        if (have_input_file(optind, argc, argv)) {
+            // Next one must be VCF, but check.
+            // TODO: Unify with FASTA check?
+            // TODO: Move over to the index manager?
+            
+            string vcf_filename = get_input_file_name(optind, argc, argv);
+            
+            auto vcf_parts = split_ext(vcf_filename);
+            if (vcf_parts.second == "gz") {
+                vcf_parts = split_ext(vcf_parts.first);
+            }
+            if (vcf_parts.second != "vcf") {
+                cerr << "error:[vg gaffe] VCF file " << vcf_filename << " is not named like a VCF" << endl;
+                exit(1);
+            }
+            
+            indexes.set_vcf_filename(vcf_filename);
+        }
+    }
+   
+    // Now all the arguments are parsed, so see if they make sense
+    if (!indexes.can_get_gbwtgraph() && !indexes.can_get_graph()) {
+        cerr << "error:[vg gaffe] Mapping requires a normal graph (-x) or a GBWTGraph (-g)" << endl;
         exit(1);
     }
     
-    if (track_correctness && xg_name.empty()) {
-        cerr << "error:[vg gaffe] Tracking correctness requires and XG index (-x)" << endl;
+    if (track_correctness && !indexes.can_get_graph()) {
+        cerr << "error:[vg gaffe] Tracking correctness requires a normal graph (-x)" << endl;
         exit(1);
     }
     
-    if (gbwt_name.empty()) {
+    if (!indexes.can_get_gbwt()) {
         cerr << "error:[vg gaffe] Mapping requires a GBWT index (-H)" << endl;
         exit(1);
     }
     
-    if (minimizer_names.empty()) {
+    if (!indexes.can_get_minimizer()) {
         cerr << "error:[vg gaffe] Mapping requires a minimizer index (-m)" << endl;
         exit(1);
     }
     
-    if (distance_name.empty()) {
+    if (!indexes.can_get_distance()) {
         cerr << "error:[vg gaffe] Mapping requires a distance index (-d)" << endl;
         exit(1);
     }
-
+    
     if (interleaved && !fastq_filename_2.empty()) {
         cerr << "error:[vg gaffe] Cannot designate both interleaved paired ends (-i) and separate paired end file (-f)." << endl;
         exit(1);
@@ -752,60 +795,65 @@ int main_gaffe(int argc, char** argv) {
         exit(1);
     }
     
+    if (have_input_file(optind, argc, argv)) {
+        // TODO: work out how to interpret additional files as reads.
+        cerr << "error:[vg gaffe] Extraneous input file: " << get_input_file_name(optind, argc, argv) << endl;
+        exit(1);
+    }
+
     // create in-memory objects
-    if (progress && !xg_name.empty()) {
-        cerr << "Loading XG index " << xg_name << endl;
-    }
-    PathPositionHandleGraph* xg_index = nullptr;
-    unique_ptr<PathHandleGraph> path_handle_graph;
-    bdsg::PathPositionOverlayHelper overlay_helper;
-    if (!xg_name.empty()) {
-        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
-        xg_index = overlay_helper.apply(path_handle_graph.get());
-    }
-
-    if (progress) {
-        cerr << "Loading GBWT index " << gbwt_name << endl;
-    }
-    unique_ptr<gbwt::GBWT> gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
-
-    vector<unique_ptr<gbwtgraph::DefaultMinimizerIndex>> minimizer_indexes;
-    for (const string& minimizer_name : minimizer_names) {
-        if (progress) {
-            cerr << "Loading minimizer index " << minimizer_name << endl;
-        }
-        minimizer_indexes.emplace_back(vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(minimizer_name));
-    }
-
-    if (progress) {
-        cerr << "Loading distance index " << distance_name << endl;
-    }
-    unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     
-    // Build or load the GBWTGraph.
-    unique_ptr<gbwtgraph::GBWTGraph> gbwt_graph = nullptr;
-    if (graph_name.empty()) {
-        if (progress) {
-            cerr << "Building GBWTGraph" << endl;
-        }
-        gbwt_graph.reset(new gbwtgraph::GBWTGraph(*gbwt_index, *xg_index));
-    } else {
-        if (progress) {
-            cerr << "Loading GBWTGraph " << graph_name << endl;
-        }
-        gbwt_graph = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(graph_name);
-        gbwt_graph->set_gbwt(*gbwt_index);
+    // If we are tracking correctness, we will fill this in with a graph for
+    // getting offsets along ref paths.
+    PathPositionHandleGraph* positional_graph = nullptr;
+    // One of these will actually own it
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    shared_ptr<PathHandleGraph> graph;
+    if (track_correctness) {
+        // Load the base graph
+        graph = indexes.get_graph();
+        // And make sure it has path position support.
+        // Overlay is owned by the overlay_helper, if one is needed.
+        positional_graph = overlay_helper.apply(graph.get());
     }
+
+    vector<unique_ptr<gbwtgraph::DefaultMinimizerIndex>> minimizer_index_owner;
+    shared_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index_ref;
+    vector<gbwtgraph::DefaultMinimizerIndex*> minimizer_indexes;
+    if (minimizer_names.size() > 1) {
+        // Working with multiple minimizer indexes
+        for (const string& minimizer_name : minimizer_names) {
+            if (show_progress) {
+                cerr << "Loading minimizer index " << minimizer_name << endl;
+            }
+            // They need to be owned by this vector
+            minimizer_index_owner.emplace_back(vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(minimizer_name));
+            // But this vector we will use to build the index
+            minimizer_indexes.push_back(minimizer_index_owner.back().get());
+        }
+    } else {
+        // Just one index (or we have to make one).
+        // Store a counted reference to it.
+        minimizer_index_ref = indexes.get_minimizer();
+        // And show a pointer to the mapper
+        minimizer_indexes.push_back(minimizer_index_ref.get());
+    }
+
+    // Grab the GBWTGraph
+    auto gbwt_graph = indexes.get_gbwtgraph();
+
+    // Grab the distance index
+    auto distance_index = indexes.get_distance();
 
     // Set up the mapper
-    if (progress) {
+    if (show_progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(*gbwt_graph, minimizer_indexes, *distance_index, xg_index);
+    MinimizerMapper minimizer_mapper(*gbwt_graph, minimizer_indexes, *distance_index, positional_graph);
     
     std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
     std::chrono::duration<double> init_seconds = init - launch;
-    if (progress) {
+    if (show_progress) {
         cerr << "Loading and initialization: " << init_seconds.count() << " seconds" << endl;
     }
     
@@ -855,85 +903,85 @@ int main_gaffe(int argc, char** argv) {
             output_filename = s.str();
         }
     
-        if (progress) {
+        if (show_progress) {
             cerr << "Mapping reads to \"" << output_filename << "\"..." << endl;
         }
 
-        if (progress && interleaved) {
+        if (show_progress && interleaved) {
             cerr << "--interleaved" << endl;
         }
 
-        if (progress) {
+        if (show_progress) {
             cerr << "--hit-cap " << hit_cap << endl;
         }
         minimizer_mapper.hit_cap = hit_cap;
 
-        if (progress) {
+        if (show_progress) {
             cerr << "--hard-hit-cap " << hard_hit_cap << endl;
         }
         minimizer_mapper.hard_hit_cap = hard_hit_cap;
 
-        if (progress) {
+        if (show_progress) {
             cerr << "--score-fraction " << minimizer_score_fraction << endl;
         }
         minimizer_mapper.minimizer_score_fraction = minimizer_score_fraction;
 
-        if (progress) {
+        if (show_progress) {
             cerr << "--max-extensions " << max_extensions << endl;
         }
         minimizer_mapper.max_extensions = max_extensions;
 
-        if (progress) {
+        if (show_progress) {
             cerr << "--max-alignments " << max_alignments << endl;
         }
         minimizer_mapper.max_alignments = max_alignments;
 
-        if (progress) {
+        if (show_progress) {
             cerr << "--cluster-score " << cluster_score << endl;
         }
         minimizer_mapper.cluster_score_threshold = cluster_score;
         
-        if (progress) {
+        if (show_progress) {
             cerr << "--pad-cluster-score " << pad_cluster_score << endl;
         }
         minimizer_mapper.pad_cluster_score_threshold = pad_cluster_score;
 
-        if (progress) {
+        if (show_progress) {
             cerr << "--cluster-coverage " << cluster_coverage << endl;
         }
         minimizer_mapper.cluster_coverage_threshold = cluster_coverage;
 
-        if (progress) {
+        if (show_progress) {
             cerr << "--extension-score " << extension_score << endl;
         }
         minimizer_mapper.extension_score_threshold = extension_score;
 
-        if (progress) {
+        if (show_progress) {
             cerr << "--extension-set " << extension_set << endl;
         }
         minimizer_mapper.extension_set_score_threshold = extension_set;
 
-        if (progress && !do_dp) {
+        if (show_progress && !do_dp) {
             cerr << "--no-dp " << endl;
         }
         minimizer_mapper.do_dp = do_dp;
 
-        if (progress) {
+        if (show_progress) {
             cerr << "--max-multimaps " << max_multimaps << endl;
         }
         minimizer_mapper.max_multimaps = max_multimaps;
 
-        if (progress) {
+        if (show_progress) {
             cerr << "--distance-limit " << distance_limit << endl;
         }
         minimizer_mapper.distance_limit = distance_limit;
         
-        if (progress && track_provenance) {
+        if (show_progress && track_provenance) {
             cerr << "--track-provenance " << endl;
         }
         minimizer_mapper.track_provenance = track_provenance;
         
-        if (progress && track_correctness) {
+        if (show_progress && track_correctness) {
             cerr << "--track-correctness " << endl;
         }
         minimizer_mapper.track_correctness = track_correctness;
@@ -1077,7 +1125,7 @@ int main_gaffe(int argc, char** argv) {
         // Compute speed (as reads per thread-second)
         double reads_per_second_per_thread = total_reads_mapped / (all_threads_seconds.count() * thread_count + first_thread_additional_seconds.count());
         
-        if (progress) {
+        if (show_progress) {
             // Log to standard error
             cerr << "Mapped " << total_reads_mapped << " reads across "
                 << thread_count << " threads in "
