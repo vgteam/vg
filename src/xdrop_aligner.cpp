@@ -180,7 +180,7 @@ void XdropAligner::build_index_edge_table(OrderedGraph const &graph, uint32_t co
         // For each edge
         
         
-        if (graph.graph.get_is_reverse(handle_pair.first) && graph.graph.get_is_reverse(handle_pair.second)) {
+        if (graph.graph.get_is_reverse(handle_pair.first)) {
             // Flip reverse-reverse to forward-forward orientation
             std::swap<handle_t>(handle_pair.first, handle_pair.second);
             handle_pair.first = graph.graph.flip(handle_pair.first);
@@ -435,6 +435,7 @@ size_t XdropAligner::extend(
 		dz_forefront_s const *incoming_forefronts[n_incoming_edges + 1];
 		for(size_t k = 0; k < n_incoming_edges; k++) {
 			int64_t s = _src_index(p[k]), d = _dst_index(p[k]), r = seed_node_index;
+            // fiddly way to check that s and d are on the same side of r
 			if((s - r) * (d - r) < 0) { continue; }
 
 			dz_forefront_s const *t = forefronts[_src_index(p[k])];
@@ -796,7 +797,7 @@ XdropAligner::align(
 
 	// debug_print(alignment, graph, mems[0], reverse_complemented);
 
-	// compute direction (currently just copied), FIXME: direction (and position) may contradict to the MEMs when the function is called via the unfold -> dagify path
+	// compute direction (currently just copied), FIXME: direction (and position) may contradict the MEMs when the function is called via the unfold -> dagify path
 	bool direction = reverse_complemented;
 
 	// extract query

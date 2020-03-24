@@ -82,12 +82,22 @@ namespace vg {
 	private:
 		// context (contains memory arena and constants) and working buffers
         
+        // TODO: this should be a local object to achieve threadsafety
         /// This is the backing dozeu library problem instance
-		dz_s *dz;
+		dz_s* dz = nullptr;
         
+        // TODO: this should become unnecessary once we make this threadsafe and move
+        // the score out
         // We don't need to remember the whole score matrix, because dz has a
         // copy. But we do need the AA match score to support pinned alignment.
         int8_t aa_match;
+        
+        /// 4 x 4 matrix of match/mismatch scores
+        int8_t* score_matrix = nullptr;
+        /// Amount paid in addition to gap_extend on first base of a gap
+        uint16_t gap_open = 0;
+        /// Amount paid on each base of a gap
+        uint16_t gap_extend = 0;
         
         /// Maps from node ID to the index in our internal subgraph storage at which that node occurs
         // can be lighter? index in lower 32bit and graph_id -> mem_id mapping (inverse of trans mapping)
@@ -97,6 +107,7 @@ namespace vg {
         /// List of edges. Stored as two int32_ts packed together.
         /// TODO: what is the order of packing?
         // (int32_t, int32_t) tuple; FIXME: index_edges and index_edges_head are partly duplicated
+        // TODO: this seems silly, there is no compression over just storing int32_t's natively
 		std::vector< uint64_t > index_edges;
         /// TODO: what is this?
         std::vector< uint64_t > index_edges_head;

@@ -92,14 +92,14 @@ namespace vg {
         /// compute the mapping quality of the maximal score in the vector.
         /// Sets max_idx_out to the index of that score in the vector.
         /// Optionally includes a vector of implicit counts >= 1 for the scores, but
-        /// the mapping quality is always calculated as if it multiplicity is 1.
+        /// the mapping quality is always calculated as if its multiplicity is 1.
         static double maximum_mapping_quality_exact(const vector<double>& scaled_scores, size_t* max_idx_out,
                                                     const vector<double>* multiplicities = nullptr);
         /// Given a nonempty vector of nonnegative scaled alignment scores,
         /// approximate the mapping quality of the maximal score in the vector.
         /// Sets max_idx_out to the index of that score in the vector.
         /// Optionally includes a vector of implicit counts >= 1 for the scores, but
-        /// the mapping quality is always calculated as if it multiplicity is 1.
+        /// the mapping quality is always calculated as if its multiplicity is 1.
         static double maximum_mapping_quality_approx(const vector<double>& scaled_scores, size_t* max_idx_out,
                                                      const vector<double>* multiplicities = nullptr);
     protected:
