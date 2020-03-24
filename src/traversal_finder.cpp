@@ -2,6 +2,7 @@
 #include "genotypekit.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/is_acyclic.hpp"
+#include "algorithms/k_widest_paths.hpp"
 #include "cactus.hpp"
 
 //#define debug
@@ -3304,6 +3305,55 @@ pair<step_handle_t, bool> VCFTraversalFinder::step_in_path(handle_t handle, path
     }
     return make_pair(step_handle_t(), false);
 }
+
+
+FlowTraversalFinder::FlowTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
+                                         size_t K,
+                                         function<double(handle_t)> node_weight_callback,
+                                         function<double(edge_t)> edge_weight_callback) :
+    graph(graph),
+    snarl_manager(snarl_manager),
+    K(K),
+    node_weight_callback(node_weight_callback),
+    edge_weight_callback(edge_weight_callback)  {
+    
+}
+
+void FlowTraversalFinder::setK(size_t k) {
+    K = k;
+}
+
+vector<SnarlTraversal> FlowTraversalFinder::find_traversals(const Snarl& site) {
+    return find_weighted_traversals(site).first;
+}
+
+pair<vector<SnarlTraversal>, vector<double>> FlowTraversalFinder::find_weighted_traversals(const Snarl& site) {
+
+    handle_t start_handle = graph.get_handle(site.start().node_id(), site.start().backward());
+    handle_t end_handle = graph.get_handle(site.end().node_id(), site.end().backward());
+
+    vector<pair<double, vector<handle_t>>> widest_paths = algorithms::yens_k_widest_paths(&graph, start_handle, end_handle, K,
+                                                                                          node_weight_callback,
+                                                                                          edge_weight_callback);
+
+    vector<SnarlTraversal> travs;
+    travs.reserve(widest_paths.size());
+    vector<double> weights;
+    weights.reserve(widest_paths.size());
+
+    for (const auto& wp : widest_paths) {
+        weights.push_back(wp.first);
+        travs.emplace_back();
+        for (const auto& h : wp.second) {
+            Visit* visit = travs.back().add_visit();
+            visit->set_node_id(graph.get_id(h));
+            visit->set_backward(graph.get_is_reverse(h));
+        }
+    }
+
+    return make_pair(travs, weights);
+}        
+
 
 
 }

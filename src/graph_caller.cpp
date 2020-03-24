@@ -1,6 +1,8 @@
 #include "graph_caller.hpp"
 #include "algorithms/expand_context.hpp"
 
+//#define debug
+
 namespace vg {
 
 GraphCaller::GraphCaller(SnarlCaller& snarl_caller,
@@ -20,6 +22,10 @@ void GraphCaller::call_top_level_snarls(bool recurse_on_fail) {
 
     // Run the snarl caller on a snarl, and queue up the children if it fails
     auto process_snarl = [&](const Snarl* snarl) {
+
+#ifdef debug
+        cerr << "GraphCaller running call_snarl on " << pb2json(*snarl) << endl;
+#endif
         bool was_called = call_snarl(*snarl);
         if (!was_called && recurse_on_fail) {
             const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
@@ -98,6 +104,215 @@ void VCFOutputCaller::write_variants(ostream& out_stream) const {
     }
 }
 
+void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
+                                   const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
+                                   const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
+                                   const string& ref_path_name, int ref_offset) const {
+  
+    // convert traversal to string
+    function<string(const SnarlTraversal&)> trav_string = [&](const SnarlTraversal& trav) {
+        string seq;
+        for (int i = 0; i < trav.visit_size(); ++i) {
+            seq += graph.get_sequence(graph.get_handle(trav.visit(i).node_id(), trav.visit(i).backward()));
+        }
+        return seq;
+    };
+
+#ifdef debug
+    cerr << "emitting variant for " << pb2json(snarl) << endl;
+    for (int i = 0; i < called_traversals.size(); ++i) {
+        if (i == ref_trav_idx) {
+            cerr << "*";
+        }
+        cerr << "ct[" << i << "]=" << pb2json(called_traversals[i]) << endl;
+    }
+    for (int i = 0; i < genotype.size(); ++i) {
+        cerr << "gt[" << i << "]=" << genotype[i] << endl;
+    }
+#endif
+
+    vcflib::Variant out_variant;
+
+    vector<SnarlTraversal> site_traversals = {called_traversals[ref_trav_idx]};
+    vector<int> site_genotype;
+    out_variant.ref = trav_string(site_traversals[0]);
+    
+    // deduplicate alleles and compute the site traversals and genotype
+    map<string, int> allele_to_gt;    
+    allele_to_gt[out_variant.ref] = 0;    
+    for (int i = 0; i < genotype.size(); ++i) {
+        if (genotype[i] == ref_trav_idx) {
+            site_genotype.push_back(0);
+        } else {
+            string allele_string = trav_string(called_traversals[genotype[i]]);
+            if (allele_to_gt.count(allele_string)) {
+                site_genotype.push_back(allele_to_gt[allele_string]);
+            } else {
+                site_traversals.push_back(called_traversals[genotype[i]]);
+                site_genotype.push_back(allele_to_gt.size());
+                allele_to_gt[allele_string] = site_genotype.back();
+            }
+        }
+    }
+
+    out_variant.alt.resize(allele_to_gt.size() - 1);
+    out_variant.alleles.resize(allele_to_gt.size());
+    for (auto& allele_gt : allele_to_gt) {
+#ifdef debug
+        cerr << "allele " << allele_gt.first << " -> gt " << allele_gt.second << endl;
+#endif
+        if (allele_gt.second > 0) {
+            out_variant.alt[allele_gt.second - 1] = allele_gt.first;
+        }
+        out_variant.alleles[allele_gt.second] = allele_gt.first;
+    }
+
+    // fill out the rest of the variant
+    out_variant.sequenceName = ref_path_name;
+    // +1 to convert to 1-based VCF
+    out_variant.position = get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_offset + 1; 
+    out_variant.id = std::to_string(snarl.start().node_id()) + "_" + std::to_string(snarl.end().node_id());
+    out_variant.filter = "PASS";
+    out_variant.updateAlleleIndexes();
+
+    // add the genotype
+    out_variant.format.push_back("GT");
+    auto& genotype_vector = out_variant.samples[sample_name]["GT"];
+    
+    stringstream vcf_gt;
+    for (int i = 0; i < site_genotype.size(); ++i) {
+        vcf_gt << site_genotype[i];
+        if (i != site_genotype.size() - 1) {
+            vcf_gt << "/";
+        }
+    }
+    genotype_vector.push_back(vcf_gt.str());
+
+    // clean up the alleles to not have so man common prefixes
+    flatten_common_allele_ends(out_variant, true);
+    flatten_common_allele_ends(out_variant, false);
+#ifdef debug
+    for (int i = 0; i < site_traversals.size(); ++i) {
+        cerr << " site trav[" << i << "]=" << pb2json(site_traversals[i]) << endl;
+    }
+    for (int i = 0; i < site_genotype.size(); ++i) {
+        cerr << " site geno[" << i << "]=" << site_genotype[i] << endl;
+    }
+#endif
+    // add some support info
+    snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info, sample_name, out_variant);
+
+    if (!out_variant.alt.empty()) {
+        add_variant(out_variant);
+    }
+}
+
+tuple<size_t, size_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get_ref_interval(
+    const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name) const {
+    path_handle_t path_handle = graph.get_path_handle(ref_path_name);
+
+    handle_t start_handle = graph.get_handle(snarl.start().node_id(), snarl.start().backward());
+    map<size_t, step_handle_t> start_steps;
+    graph.for_each_step_on_handle(start_handle, [&](step_handle_t step) {
+            if (graph.get_path_handle_of_step(step) == path_handle) {
+                start_steps[graph.get_position_of_step(step)] = step;
+            }
+        });
+
+    handle_t end_handle = graph.get_handle(snarl.end().node_id(), snarl.end().backward());
+    map<size_t, step_handle_t> end_steps;
+    graph.for_each_step_on_handle(end_handle, [&](step_handle_t step) {
+            if (graph.get_path_handle_of_step(step) == path_handle) {
+                end_steps[graph.get_position_of_step(step)] = step;
+            }
+        });
+
+    assert(start_steps.size() > 0 && end_steps.size() > 0);
+    step_handle_t start_step = start_steps.begin()->second;
+    step_handle_t end_step = end_steps.begin()->second;
+    bool scan_backward = graph.get_is_reverse(graph.get_handle_of_step(start_step)) != snarl.start().backward();
+
+    // if we're on a cycle, we keep our start step and find the end step by scanning the path
+    if (start_steps.size() > 1 || end_steps.size() > 1) {
+        bool found_end = false;
+
+        if (scan_backward) {
+            for (step_handle_t cur_step = start_step; graph.has_previous_step(end_step) && !found_end;
+                 cur_step = graph.get_previous_step(cur_step)) {
+                if (graph.get_id(graph.get_handle_of_step(cur_step)) == graph.get_id(end_handle)) {
+                    end_step = cur_step;
+                    found_end = true;
+                }
+            }
+            assert(found_end);
+        } else {
+            for (step_handle_t cur_step = start_step; graph.has_next_step(end_step) && !found_end;
+                 cur_step = graph.get_next_step(cur_step)) {
+                if (graph.get_id(graph.get_handle_of_step(cur_step)) == graph.get_id(end_handle)) {
+                    end_step = cur_step;
+                    found_end = true;
+                }
+            }
+            assert(found_end);
+        }
+    }
+    
+    size_t start_position = start_steps.begin()->first;
+    step_handle_t out_start_step = start_steps.begin()->second;
+    size_t end_position = end_step == end_steps.begin()->second ? end_steps.begin()->first : graph.get_position_of_step(end_step);
+    step_handle_t out_end_step = end_step == end_steps.begin()->second ? end_steps.begin()->second : end_step;
+    bool backward = end_position < start_position;
+
+    if (backward) {
+        return make_tuple(end_position, start_position, backward, out_end_step, out_start_step);
+    } else {
+        return make_tuple(start_position, end_position, backward, out_start_step, out_end_step);
+    }
+}
+
+void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const {
+    if (variant.alt.size() == 0) {
+        return;
+    }
+    size_t min_len = variant.alleles[0].length();
+    for (int i = 1; i < variant.alleles.size(); ++i) {
+        min_len = std::min(min_len, variant.alleles[i].length());
+    }
+    // want to leave at least one in the reference position
+    if (min_len > 0) {
+        --min_len;
+    }
+
+    bool match = true;
+    int shared_prefix_len = 0;
+    for (int i = 0; i < min_len && match; ++i) {
+        char c1 = std::toupper(variant.alleles[0][!backward ? i : variant.alleles[0].length() - 1 - i]);
+        for (int j = 1; j < variant.alleles.size() && match; ++j) {
+            char c2 = std::toupper(variant.alleles[j][!backward ? i : variant.alleles[j].length() - 1 - i]);
+            match = c1 == c2;
+        }
+        if (match) {
+            ++shared_prefix_len;
+        }
+    }
+
+    if (!backward) {
+        variant.position += shared_prefix_len;
+    }
+    for (int i = 0; i < variant.alleles.size(); ++i) {
+        if (!backward) {
+            variant.alleles[i] = variant.alleles[i].substr(shared_prefix_len);
+        } else {
+            variant.alleles[i] = variant.alleles[i].substr(0, variant.alleles[i].length() - shared_prefix_len);
+        }
+        if (i == 0) {
+            variant.ref = variant.alleles[i];
+        } else {
+            variant.alt[i - 1] = variant.alleles[i];
+        }
+    }
+}
+
 VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
                            SnarlCaller& snarl_caller,
                            SnarlManager& snarl_manager,
@@ -127,7 +342,7 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
     if (!graph.has_node(snarl.start().node_id()) || !graph.has_node(snarl.end().node_id())) {
         return false;
     }
-    
+
     // get our traversals out of the finder
     vector<pair<SnarlTraversal, vector<int>>> alleles;
     vector<vcflib::Variant*> variants;
@@ -431,7 +646,7 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         string path_name = find_index(snarl, is_vg ? path_indexes : site_path_indexes).first;
 
         // orient the snarl along the reference path
-        tuple<size_t, size_t, bool> ref_interval = get_ref_interval(snarl, path_name);
+        tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, path_name);
         if (get<2>(ref_interval) == true) {
             snarl_manager.flip(&snarl);
         }
@@ -452,7 +667,7 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
                                                                            path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
             // emit our vcf variant
-            emit_variant(snarl, *rep_trav_finder, called_traversals, genotype, call_info, path_name);
+            emit_variant(graph, snarl_caller, snarl, called_traversals, genotype, 0, call_info, path_name, ref_offsets.find(path_name)->second);
 
             was_called = true;
         }
@@ -611,118 +826,13 @@ LegacyCaller::re_genotype(const Snarl& snarl, TraversalFinder& trav_finder,
             gt_set.insert(in_genotype[i]);
         }
     }
-
+    
     // re-genotype the candidates
     vector<int> rg_genotype;
     unique_ptr<SnarlCaller::CallInfo> rg_call_info;
     std::tie(rg_genotype, rg_call_info) = snarl_caller.genotype(snarl, rg_traversals, 0, ploidy, ref_path_name, ref_interval);
 
-    // convert our output to something that emit_variant() will understand
-    // todo: this is needlessly inefficient and should be streamlined to operate
-    // directly on rg_traversals/rg_genotype once testing done
-    vector<SnarlTraversal> out_traversals;
-    vector<int> out_genotype;
-    
-
-    for (int i = 0; i < rg_genotype.size(); ++i) {
-        out_traversals.push_back(rg_traversals[rg_genotype[i]]);
-        out_genotype.push_back(rg_genotype[i]);
-    }
-
-    return make_tuple(out_traversals, out_genotype, std::move(rg_call_info));
-}
-
-void LegacyCaller::emit_variant(const Snarl& snarl, TraversalFinder& trav_finder, const vector<SnarlTraversal>& called_traversals,
-                                const vector<int>& genotype, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                                const string& ref_path_name) const {
-    
-    // convert traversal to string
-    function<string(const SnarlTraversal&)> trav_string = [&](const SnarlTraversal& trav) {
-        string seq;
-        for (int i = 0; i < trav.visit_size(); ++i) {
-            seq += graph.get_sequence(graph.get_handle(trav.visit(i).node_id(), trav.visit(i).backward()));
-        }
-        return seq;
-    };
-
-    vcflib::Variant out_variant;
-
-    // when calling alt/alt, the reference traversal doesn't end up in called_traversals.
-    // this should get changed, but in the meantime we add it back here (as we need it for
-    // the VCF output)
-    // udpate: the reference traversal will be there when re-genotyping, but we can leave this logic
-    // in case we want to ever add an option to toggle this.
-    vector<SnarlTraversal> site_traversals;
-    vector<int> site_genotype;
-    for (int i = 0; i < genotype.size(); ++i) {
-        if (genotype[i] == 0) {
-            site_traversals.push_back(called_traversals[i]);
-            break;
-        }
-    }
-    if (site_traversals.empty()) {
-        site_traversals.push_back(get_reference_traversal(snarl, trav_finder));
-    }
-    out_variant.ref = trav_string(site_traversals[0]);
-    
-    // deduplicate alleles and compute the site traversals and genotype
-    map<string, int> allele_to_gt;    
-    allele_to_gt[out_variant.ref] = 0;    
-    for (int i = 0; i < genotype.size(); ++i) {
-        if (genotype[i] == 0) {
-            site_genotype.push_back(0);
-        } else {
-            string allele_string = trav_string(called_traversals[i]);
-            if (allele_to_gt.count(allele_string)) {
-                site_genotype.push_back(allele_to_gt[allele_string]);
-            } else {
-                site_traversals.push_back(called_traversals[i]);
-                site_genotype.push_back(allele_to_gt.size());
-                allele_to_gt[allele_string] = site_genotype.back();
-            }
-        }
-    }
-
-    out_variant.alt.resize(allele_to_gt.size() - 1);
-    out_variant.alleles.resize(allele_to_gt.size());
-    for (auto& allele_gt : allele_to_gt) {
-        if (allele_gt.second > 0) {
-            out_variant.alt[allele_gt.second - 1] = allele_gt.first;
-        }
-        out_variant.alleles[allele_gt.second] = allele_gt.first;
-    }
-
-    // fill out the rest of the variant
-    out_variant.sequenceName = ref_path_name;
-    // +1 to convert to 1-based VCF
-    out_variant.position = get<0>(get_ref_interval(snarl, ref_path_name)) + ref_offsets.find(ref_path_name)->second + 1; 
-    out_variant.id = std::to_string(snarl.start().node_id()) + "_" + std::to_string(snarl.end().node_id());
-    out_variant.filter = "PASS";
-    out_variant.updateAlleleIndexes();
-
-    // add the genotype
-    out_variant.format.push_back("GT");
-    auto& genotype_vector = out_variant.samples[sample_name]["GT"];
-    
-    stringstream vcf_gt;
-    for (int i = 0; i < site_genotype.size(); ++i) {
-        vcf_gt << site_genotype[i];
-        if (i != site_genotype.size() - 1) {
-            vcf_gt << "/";
-        }
-    }
-    genotype_vector.push_back(vcf_gt.str());
-
-    // clean up the alleles to not have so man common prefixes
-    flatten_common_allele_ends(out_variant, true);
-    flatten_common_allele_ends(out_variant, false);
-
-    // add some support info
-    snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info, sample_name, out_variant);
-
-    if (!out_variant.alt.empty()) {
-        add_variant(out_variant);
-    }
+    return make_tuple(rg_traversals, rg_genotype, std::move(rg_call_info));
 }
 
 bool LegacyCaller::is_traversable(const Snarl& snarl) {
@@ -752,108 +862,174 @@ pair<string, PathIndex*> LegacyCaller::find_index(const Snarl& snarl, const vect
     return make_pair("", nullptr);
 }
 
-tuple<size_t, size_t, bool> LegacyCaller::get_ref_interval(const Snarl& snarl, const string& ref_path_name) const {
-    path_handle_t path_handle = graph.get_path_handle(ref_path_name);
+FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
+                       SupportBasedSnarlCaller& snarl_caller,
+                       SnarlManager& snarl_manager,
+                       const string& sample_name,
+                       size_t max_traversals,
+                       const vector<string>& ref_paths,
+                       const vector<size_t>& ref_path_offsets,
+                       ostream& out_stream) :
+    GraphCaller(snarl_caller, snarl_manager, out_stream),
+    VCFOutputCaller(sample_name),
+    graph(graph),
+    ref_paths(ref_paths) {
+    
+    for (int i = 0; i < ref_paths.size(); ++i) {
+        ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
+        ref_path_set.insert(ref_paths[i]);
+    }
 
-    handle_t start_handle = graph.get_handle(snarl.start().node_id(), snarl.start().backward());
-    map<size_t, step_handle_t> start_steps;
-    graph.for_each_step_on_handle(start_handle, [&](step_handle_t step) {
-            if (graph.get_path_handle_of_step(step) == path_handle) {
-                start_steps[graph.get_position_of_step(step)] = step;
-            }
-        });
+    // todo: do we ever want to toggle in min-support?
+    function<double(handle_t)> node_support = [&] (handle_t h) {
+        const auto& support_finder = snarl_caller.get_support_finder();
+        return support_finder.support_val(support_finder.get_avg_node_support(graph.get_id(h)));
+    };
 
-    handle_t end_handle = graph.get_handle(snarl.end().node_id(), snarl.end().backward());
-    map<size_t, step_handle_t> end_steps;
-    graph.for_each_step_on_handle(end_handle, [&](step_handle_t step) {
-            if (graph.get_path_handle_of_step(step) == path_handle) {
-                end_steps[graph.get_position_of_step(step)] = step;
-            }
-        });
+    function<double(edge_t)> edge_support = [&] (edge_t e) {
+        const auto& support_finder = snarl_caller.get_support_finder();
+        return support_finder.support_val(support_finder.get_edge_support(e));
+    };
 
-    assert(start_steps.size() > 0 && end_steps.size() > 0);
-    step_handle_t start_step = start_steps.begin()->second;
-    step_handle_t end_step = end_steps.begin()->second;
-    bool scan_backward = graph.get_is_reverse(graph.get_handle_of_step(start_step)) != snarl.start().backward();
+    // create the flow traversal finder
+    traversal_finder = new FlowTraversalFinder(graph, snarl_manager, max_traversals,
+                                               node_support, edge_support);
+}
+   
+FlowCaller::~FlowCaller() {
+    delete traversal_finder;
+}
 
-    // if we're on a cycle, we keep our start step and find the end step by scanning the path
-    if (start_steps.size() > 1 || end_steps.size() > 1) {
-        bool found_end = false;
+bool FlowCaller::call_snarl(const Snarl& snarl) {
 
-        if (scan_backward) {
-            for (step_handle_t cur_step = start_step; graph.has_previous_step(end_step) && !found_end;
-                 cur_step = graph.get_previous_step(cur_step)) {
-                if (graph.get_id(graph.get_handle_of_step(cur_step)) == graph.get_id(end_handle)) {
-                    end_step = cur_step;
-                    found_end = true;
-                }
-            }
-            assert(found_end);
-        } else {
-            for (step_handle_t cur_step = start_step; graph.has_next_step(end_step) && !found_end;
-                 cur_step = graph.get_next_step(cur_step)) {
-                if (graph.get_id(graph.get_handle_of_step(cur_step)) == graph.get_id(end_handle)) {
-                    end_step = cur_step;
-                    found_end = true;
-                }
-            }
-            assert(found_end);
-        }
+    if (snarl.start().node_id() == snarl.end().node_id() ||
+        !graph.has_node(snarl.start().node_id()) || !graph.has_node(snarl.end().node_id())) {
+        // can't call one-node or out-of graph snarls.
+        return false;
     }
     
-    size_t start_position = start_steps.begin()->first;
-    size_t end_position = end_step == end_steps.begin()->second ? end_steps.begin()->first : graph.get_position_of_step(end_step);
-    bool backward = end_position < start_position;
+    handle_t start_handle = graph.get_handle(snarl.start().node_id(), snarl.start().backward());
+    handle_t end_handle = graph.get_handle(snarl.end().node_id(), snarl.end().backward());
 
-    if (backward) {
-        return make_tuple(end_position, start_position, backward);
-    } else {
-        return make_tuple(start_position, end_position, backward);
+    // as we're writing to VCF, we need a reference path through the snarl.  we
+    // look it up directly from the graph, and abort if we can't find one
+    set<string> start_path_names;
+    graph.for_each_step_on_handle(start_handle, [&](step_handle_t step_handle) {
+            string name = graph.get_path_name(graph.get_path_handle_of_step(step_handle));
+            if (!Paths::is_alt(name) && (ref_path_set.empty() || ref_path_set.count(name))) {
+                start_path_names.insert(name);
+            }
+            return true;
+        });
+    
+    set<string> end_path_names;
+    if (!start_path_names.empty()) {
+        graph.for_each_step_on_handle(end_handle, [&](step_handle_t step_handle) {
+                string name = graph.get_path_name(graph.get_path_handle_of_step(step_handle));
+                if (!Paths::is_alt(name) && (ref_path_set.empty() || ref_path_set.count(name))) {                
+                    end_path_names.insert(name);
+                }
+                return true;
+            });
     }
+    
+    // we do the full intersection (instead of more quickly finding the first common path)
+    // so that we always take the lexicographically lowest path, rather than depending
+    // on the order of iteration which could change between implementations / runs.
+    vector<string> common_names;
+    std::set_intersection(start_path_names.begin(), start_path_names.end(),
+                          end_path_names.begin(), end_path_names.end(),
+                          std::back_inserter(common_names));
+
+    if (common_names.empty()) {
+        return false;
+    }
+
+    string& ref_path_name = common_names.front();
+                    
+
+    // find the max flow traversals, along with their flows (todo: use them?)
+    pair<vector<SnarlTraversal>, vector<double>> weighted_travs = traversal_finder->find_weighted_traversals(snarl);
+
+    // find the reference traversal and coordinates using the path position graph interface
+    tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+
+    step_handle_t cur_step = get<3>(ref_interval);
+    step_handle_t last_step = get<4>(ref_interval);
+    if (get<2>(ref_interval)) {
+        std::swap(cur_step, last_step);
+    }
+    bool start_backwards = snarl.start().backward() != graph.get_is_reverse(graph.get_handle_of_step(cur_step));
+    
+    SnarlTraversal ref_trav;
+    while (true) {
+        handle_t cur_handle = graph.get_handle_of_step(cur_step);
+        Visit* visit = ref_trav.add_visit();
+        visit->set_node_id(graph.get_id(cur_handle));
+        visit->set_backward(start_backwards ? !graph.get_is_reverse(cur_handle) : graph.get_is_reverse(cur_handle));
+        if (graph.get_id(cur_handle) == snarl.end().node_id()) {
+            break;
+        } else if (get<2>(ref_interval) == true) {
+            if (!graph.has_previous_step(cur_step)) {
+                cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(snarl) << endl;
+                return false;
+            }
+            cur_step = graph.get_previous_step(cur_step);
+        } else {
+            if (!graph.has_next_step(cur_step)) {
+                cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(snarl) << endl;
+                return false;
+            }
+            cur_step = graph.get_next_step(cur_step);
+        }
+        // todo: we can compute flow at the same time
+    }
+    assert(ref_trav.visit(0) == snarl.start() && ref_trav.visit(ref_trav.visit_size() - 1) == snarl.end());
+    
+    // find the reference traversal in the list of results from the traversal finder
+    int ref_trav_idx = -1;
+    for (int i = 0; i < weighted_travs.first.size() && ref_trav_idx < 0; ++i) {
+        // todo: is there a way to speed this up?
+        if (weighted_travs.first[i] == ref_trav) {
+            ref_trav_idx = i;
+        }
+    }
+
+    if (ref_trav_idx == -1) {
+        ref_trav_idx = weighted_travs.first.size();
+        // we didn't get the reference traversal from the finder, so we add it here
+        weighted_travs.first.push_back(ref_trav);
+        // note: we could calculatte this above if we use it
+        weighted_travs.second.push_back(0.);
+    }
+
+    // use our support caller to choose our genotype
+    vector<int> trav_genotype;
+    unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+    std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, weighted_travs.first, ref_trav_idx, 2, ref_path_name,
+                                                                    make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+
+    assert(trav_genotype.empty() || trav_genotype.size() == 2);
+
+    emit_variant(graph, snarl_caller, snarl, weighted_travs.first, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
+                 ref_offsets[ref_path_name]);
+
+    return trav_genotype.size() == 2;    
 }
 
-void LegacyCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const {
-    if (variant.alt.size() == 0) {
-        return;
-    }
-    size_t min_len = variant.alleles[0].length();
-    for (int i = 1; i < variant.alleles.size(); ++i) {
-        min_len = std::min(min_len, variant.alleles[i].length());
-    }
-    // want to leave at least one in the reference position
-    if (min_len > 0) {
-        --min_len;
-    }
-
-    bool match = true;
-    int shared_prefix_len = 0;
-    for (int i = 0; i < min_len && match; ++i) {
-        char c1 = std::toupper(variant.alleles[0][!backward ? i : variant.alleles[0].length() - 1 - i]);
-        for (int j = 1; j < variant.alleles.size() && match; ++j) {
-            char c2 = std::toupper(variant.alleles[j][!backward ? i : variant.alleles[j].length() - 1 - i]);
-            match = c1 == c2;
-        }
-        if (match) {
-            ++shared_prefix_len;
-        }
-    }
-
-    if (!backward) {
-        variant.position += shared_prefix_len;
-    }
-    for (int i = 0; i < variant.alleles.size(); ++i) {
-        if (!backward) {
-            variant.alleles[i] = variant.alleles[i].substr(shared_prefix_len);
-        } else {
-            variant.alleles[i] = variant.alleles[i].substr(0, variant.alleles[i].length() - shared_prefix_len);
-        }
-        if (i == 0) {
-            variant.ref = variant.alleles[i];
-        } else {
-            variant.alt[i - 1] = variant.alleles[i];
-        }
-    }
+string FlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                              const vector<size_t>& contig_length_overrides) const {
+    string header = VCFOutputCaller::vcf_header(graph, ref_paths, contig_length_overrides);
+    header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
+    snarl_caller.update_vcf_header(header);
+    header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
+    header += "##SAMPLE=<ID=" + sample_name + ">\n";
+    header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name;
+    assert(output_vcf.openForOutput(header));
+    header += "\n";
+    return header;
 }
+
 
 }
 

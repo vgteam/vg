@@ -497,6 +497,13 @@ pair<string, string> split_ext(const string& filename) {
     return parts;
 }
 
+bool file_exists(const string& filename) {
+    // TODO: use C++17 features to actually poll existence.
+    // For now we see if we can open it.
+    ifstream in(filename);
+    return in.is_open();
+}
+
     
 void create_ref_allele(vcflib::Variant& variant, const std::string& allele) {
     // Set the ref allele
