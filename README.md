@@ -61,7 +61,7 @@ On other distros, you will need to perform the equivalent of:
                          
 Note that **Ubuntu 16.04** does not ship a sufficiently new Protobuf; vg requires **Protobuf 3** which will have to be manually installed.
 
-At present, you will need GCC version 4.9 or greater to compile vg. (Check your version with `gcc --version`.)
+At present, you will need GCC version 4.9 or greater, with support for C++14, to compile vg. (Check your version with `gcc --version`.)
 
 Other libraries may be required. Please report any build difficulties.
 
@@ -238,13 +238,13 @@ vg augment x.vg aln.gam -i -S > aug_with_paths.vg
 
 The following examples show how to generate a VCF with vg using read support.  They depend on output from the Mapping and Augmentation examples above.  Small variants and SVs can be called using the same approach.  Currently, it is more accuracte for SVs.  
 
-Call only variants that are present in the graph:
+Call only variants that are present in the graph (use `-g`):
 
 ```sh
 # Compute the read support from the gam (ignoring mapping and base qualitiy < 5)
 vg pack -x x.xg -g aln.gam -Q 5 -o aln.pack
 
-# Generate a VCF from the support
+# Generate a VCF from the support.  
 vg call x.xg -k aln.pack > graph_calls.vcf
 ```
 
@@ -273,7 +273,7 @@ vg index xa.vg -x xa.xg -L
 # Compute the support (we could also reuse aln.pack from above)
 vg pack -x xa.xg -g aln.gam -o aln.pack
 
-# Genotype the VCF
+# Genotype the VCF (use -v)
 vg call xa.xg -k aln.pack -v small/x.vcf.gz > genotypes.vcf
 ```
 

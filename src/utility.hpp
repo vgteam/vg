@@ -432,6 +432,10 @@ void get_input_file(const string& file_name, function<void(istream&)> callback);
 /// Split off the extension from a filename and return both parts. 
 pair<string, string> split_ext(const string& filename);
 
+/// Determine if a file exists.
+/// Only works for files readable by the current user.
+bool file_exists(const string& filename);
+
 /// Parse a command-line argument string. Exits with an error if the string
 /// does not contain exactly an item fo the appropriate type.
 template<typename Result>
