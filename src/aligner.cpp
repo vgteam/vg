@@ -1334,14 +1334,13 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
 }
 
 // X-drop aligner
-void Aligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const
+void Aligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const
 {
     // Make a single-problem aligner, so we don't modify ourselves and are thread-safe.
-    auto xdrop_copy = xdrop;
-    xdrop_copy.align(alignment, g, mems, reverse_complemented);
+    xdrop.align(alignment, g, mems, reverse_complemented);
 }
 
-void Aligner::align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const
+void Aligner::align_xdrop_multi(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const
 {
     throw runtime_error("Aligner::align_xdrop_multi not yet implemented");
 }
@@ -1771,14 +1770,14 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
 }
 
 // X-drop aligner
-void QualAdjAligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const
+void QualAdjAligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const
 {
     // TODO: implement?
     cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
     exit(1);
 }
 
-void QualAdjAligner::align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const
+void QualAdjAligner::align_xdrop_multi(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const
 {
     // TODO: implement?
     cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;

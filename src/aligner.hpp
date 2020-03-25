@@ -166,8 +166,8 @@ namespace vg {
                                                const HandleGraph& g, int32_t max_alt_alns, int32_t band_padding = 0,
                                                bool permissive_banding = true) const = 0;
         // xdrop aligner
-        virtual void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const = 0;
-        virtual void align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const = 0;
+        virtual void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const = 0;
+        virtual void align_xdrop_multi(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const = 0;
         /// Get a fresh XdropAligner instance to align with.
         /// TODO: make XdropAligner thread safe, and make it a thing you can get from GetAligner.
         virtual const XdropAligner& get_xdrop() const = 0;
@@ -371,8 +371,8 @@ namespace vg {
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true) const;
 
         // xdrop aligner
-        void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const;
-        void align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const;
+        void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const;
+        void align_xdrop_multi(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const;
         const XdropAligner& get_xdrop() const;
 
         int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const;
@@ -428,8 +428,8 @@ namespace vg {
                                 
         // TODO: xdrop isn't actually possible with the quality adjusted aligner (yet).
         // xdrop aligner
-        void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const;
-        void align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const;
+        void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const;
+        void align_xdrop_multi(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const;
         const XdropAligner& get_xdrop() const;
 
         void init_mapping_quality(double gc_content);
