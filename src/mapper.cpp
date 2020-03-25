@@ -4,6 +4,7 @@
 #include "annotation.hpp"
 
 //#define debug_mapper
+//#define debug_strip_match
 
 namespace vg {
 
@@ -1092,6 +1093,137 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
     // fast algorithm produces sub-MEMs left-to-right, switch the order so that they remain right-to-left
     // within the layer (as this algorithm expects in recursive calls)
     reverse(sub_mems_out.begin(), sub_mems_out.end());
+}
+
+vector<MaximalExactMatch> BaseMapper::find_stripped_matches(string::const_iterator seq_begin,
+                                                            string::const_iterator seq_end,
+                                                            size_t strip_length, size_t max_match_length,
+                                                            size_t target_count) {
+    if (!gcsa) {
+        throw runtime_error("error:[vg::Mapper] a GCSA2 index is required to query matches");
+    }
+    if (strip_length <= 0) {
+        throw runtime_error("error:[vg::Mapper] strip match length must be positive, set to " + to_string(strip_length));
+    }
+    if (target_count <= 0) {
+        throw runtime_error("error:[vg::Mapper] target match count must be positive, set to " + to_string(target_count));
+    }
+    
+#ifdef debug_strip_match
+    cerr << "starting stripped match algorithm" << endl;
+    cerr << "\tstrip length:" << strip_length << endl;
+    cerr << "\tmax match length:" << max_match_length << endl;
+    cerr << "\ttarget count:" << target_count << endl;
+    cerr << "\tsequence:" << string(seq_begin, seq_end) << endl;
+    
+#endif
+    
+    // init the return value
+    vector<MaximalExactMatch> matches;
+    
+    if (seq_end != seq_begin) {
+        // we are not in the empty string
+        int64_t seq_len = seq_end - seq_begin;
+        int64_t num_strips = (seq_len - 1) / strip_length + 1;
+        for (int64_t strip_num = 0; strip_num < num_strips; ++strip_num) {
+            
+#ifdef debug_strip_match
+            cerr << "strip number " << strip_num << " of " << num_strips << endl;
+#endif
+            
+            // the end of other strip match we will find
+            auto strip_end = seq_end - strip_num * strip_length;
+            // empty string starts matching entire index
+            auto range = gcsa::range_type(0, gcsa->size() - 1);
+            // a pointer to the next char we will match to
+            auto cursor = strip_end - 1;
+            
+            while (cursor >= seq_begin &&
+                   (!max_match_length || strip_end - cursor <= max_match_length)) {
+                
+                if (*cursor == 'N') {
+                    // N matches are uninformative, so we don't want to match them
+                    break;
+                }
+                
+                // match one more char
+                auto next_range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
+                
+#ifdef debug_strip_match
+                cerr << "\tgot next range which is length " << gcsa::Range::length(next_range) << " and " << (gcsa::Range::empty(next_range) ? "" : "not ") << "empty" << endl;
+#endif
+                
+                if (gcsa::Range::empty(next_range)) {
+                    // we've gone too far, there are no more hits
+                    break;
+                }
+                
+                // the match was successful, advance to the range and move the cursor
+                range = next_range;
+                --cursor;
+                
+                if (target_count && gcsa::Range::length(next_range) <= target_count) {
+                    // the (approximate) count is below the specified limit, so
+                    // we've found reasonably unique sequence, stop looking for more
+                    break;
+                }
+            }
+            
+            if (cursor + 1 == strip_end) {
+                // edge case where one char mismatches the entire index, don't bother
+                // with this
+                continue;
+            }
+            
+            if (!matches.empty()) {
+                if (matches.back().begin <= cursor + 1 &&
+                    matches.back().end >= strip_end) {
+                    // this match is entirely contained within the larger match
+                    // of the previous strip, so it's not likely to give us any
+                    // new information
+                    // also, filtering this helps us maintain reverse lexicographic
+                    // order
+                    continue;
+                }
+            }
+            
+#ifdef debug_strip_match
+            cerr << "adding match of sequence " << string(cursor + 1, strip_end) << " and " << gcsa->count(range) << " hits" << endl;
+#endif
+            
+            matches.emplace_back(cursor + 1, strip_end, range, gcsa->count(range));
+            matches.back().primary = true;
+            
+            if (cursor < seq_begin) {
+                // all further hits will be contained in ones we've already seen
+                break;
+            }
+        }
+    }
+    
+    // matches are queried in reverse lexicographic order, flip them around
+    reverse(matches.begin(), matches.end());
+    
+    for (MaximalExactMatch& match : matches) {
+        // figure out how many occurrences there are
+        match.match_count = gcsa->count(match.range);
+        if (!hard_hit_max || match.match_count < hard_hit_max) {
+            // the total number of hits is low enough that we think it's at least
+            // potentially worth querying hits
+            if (hit_max) {
+                // we may want to subsample
+                gcsa->locate(match.range, hit_max, match.nodes);
+                
+            } else {
+                // we won't subsample down to a prespecified maximum
+                gcsa->locate(match.range, match.nodes);
+            }
+        }
+        match.queried_count = match.nodes.size();
+    }
+    
+    
+    return matches;
 }
 
 void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,

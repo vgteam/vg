@@ -243,6 +243,13 @@ public:
                      int min_mem_length = 1,
                      int reseed_length = 0);
     
+    vector<MaximalExactMatch>
+    find_stripped_matches(string::const_iterator seq_begin,
+                          string::const_iterator seq_end,
+                          size_t strip_length,
+                          size_t max_match_length,
+                          size_t target_count);
+    
     /// identifies tracts of order-length MEMs that were unfilled because their hit count was above the max
     /// and fills one MEM in the tract (the one with the smallest hit count), assumes MEMs are lexicographically
     /// ordered by read index

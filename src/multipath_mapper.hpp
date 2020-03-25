@@ -114,6 +114,10 @@ namespace vg {
         size_t num_mapping_attempts = 48;
         double log_likelihood_approx_factor = 1.0;
         size_t min_clustering_mem_length = 0;
+        bool use_stripped_match_alg = false;
+        size_t stripped_match_alg_strip_length = 16;
+        size_t stripped_match_alg_max_length = 0;
+        size_t stripped_match_alg_target_count = 5;
         size_t max_p_value_memo_size = 500;
         size_t band_padding_memo_size = 500;
         bool use_weibull_calibration = false;
@@ -163,6 +167,8 @@ namespace vg {
         bool simplify_topologies = false;
         bool use_tvs_clusterer = false;
         bool use_min_dist_clusterer = false;
+        bool greedy_min_dist = false;
+        bool component_min_dist = false;
         // length of reversing walks during graph extraction
         size_t reversing_walk_length = 0;
         bool suppress_p_value_memoization = false;
