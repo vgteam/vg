@@ -176,6 +176,12 @@ public:
     */
     void unfold_haplotypes(const SubHandleGraph& subgraph, std::vector<std::vector<handle_t>>& haplotype_paths,  bdsg::HashGraph& unfolded) const;
 
+    /**
+     * Transform an alignment to a single node in the unfold_haplotypes() graph to an
+     * alignment to the corresponding path in the original graph.
+     */
+    void transform_alignment(Alignment& aln, const std::vector<std::vector<handle_t>>& haplotype_paths) const;
+
     const gbwtgraph::GBWTGraph* graph;
     const Aligner*   aligner;
 };

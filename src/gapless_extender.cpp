@@ -764,4 +764,97 @@ void GaplessExtender::unfold_haplotypes(const SubHandleGraph& subgraph, std::vec
 
 //------------------------------------------------------------------------------
 
+void GaplessExtender::transform_alignment(Alignment& aln, const std::vector<std::vector<handle_t>>& haplotype_paths) const {
+
+    if (aln.path().mapping_size() != 1) {
+        return;
+    }
+
+    // Find the original path and reverse it if necessary.
+    Mapping& source = *(aln.mutable_path()->mutable_mapping(0));
+    nid_t id = source.position().node_id();
+    std::vector<handle_t> original_path = haplotype_paths[(id - 1) / 2];
+    if ((id & 1) == 0) {
+        std::reverse(original_path.begin(), original_path.end());
+        for (handle_t& handle : original_path) {
+            handle = this->graph->flip(handle);
+        }
+    }
+
+    Path result;
+    size_t source_offset = 0; // In the source node.
+    size_t aln_offset = 0; // In the aligned sequence.
+    size_t node_offset = source.position().offset(); // In the current target node.
+    size_t edit_id = 0; // In the alignment to the source.
+    for (handle_t handle : original_path) {
+
+        // Skip nodes before the alignment.
+        size_t node_length = this->graph->get_length(handle);
+        if (source_offset + node_length <= source.position().offset()) {
+            source_offset += node_length;
+            node_offset -= node_length;
+            continue;
+        }
+
+        // This node is part of the alignment.
+        Mapping& mapping = *(result.add_mapping());
+        mapping.mutable_position()->set_node_id(this->graph->get_id(handle));
+        mapping.mutable_position()->set_offset(node_offset);
+        mapping.mutable_position()->set_is_reverse(this->graph->get_is_reverse(handle));
+
+        // Handle all edits covering the node.
+        while (node_offset < node_length && aln_offset < aln.sequence().length()) {
+            Edit& source_edit = *(source.mutable_edit(edit_id));
+            Edit& target_edit = *(mapping.add_edit());
+            if (source_edit.from_length() == 0) { // Insertion in the read.
+                target_edit.set_to_length(source_edit.to_length());
+                target_edit.set_sequence(source_edit.sequence());
+                aln_offset += source_edit.to_length();
+                edit_id++;
+            } else if (source_edit.to_length() == 0) { // Deletion in the read.
+                size_t deletion_length = std::min(static_cast<size_t>(source_edit.from_length()), node_length - node_offset);
+                target_edit.set_from_length(deletion_length);
+                node_offset += deletion_length;
+                if (deletion_length == source_edit.from_length()) {
+                    edit_id++;
+                } else {
+                    source_edit.set_from_length(source_edit.from_length() - deletion_length);
+                }
+            } else { // Match or mismatch.
+                assert(source_edit.from_length() == source_edit.to_length());
+                size_t match_length = std::min(static_cast<size_t>(source_edit.from_length()), node_length - node_offset);
+                target_edit.set_from_length(match_length);
+                target_edit.set_to_length(match_length);
+                aln_offset += match_length;
+                node_offset += match_length;
+                if (source_edit.sequence().length() > 0) { // Mismatch.
+                    target_edit.set_sequence(source_edit.sequence().substr(0, match_length));
+                }
+                if (match_length == source_edit.from_length()) {
+                    edit_id++;
+                } else {
+                    source_edit.set_from_length(source_edit.from_length() - match_length);
+                    source_edit.set_to_length(source_edit.to_length() - match_length);
+                    if (source_edit.sequence().length() > 0) {
+                        source_edit.set_sequence(source_edit.sequence().substr(match_length));
+                    }
+                }
+            }
+        }
+        source_offset += node_length;
+        node_offset = 0;
+
+        // We are at the end.
+        if (aln_offset >= aln.sequence().length()) {
+            break;
+        }
+    }
+
+    // FIXME tests
+
+    *(aln.mutable_path()) = std::move(result);
+}
+
+//------------------------------------------------------------------------------
+
 } // namespace vg
