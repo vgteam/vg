@@ -132,6 +132,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1CompletedTranscriptPath.html">CompletedTranscriptPath</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ComponentMinDistanceClusterer.html">ComponentMinDistanceClusterer</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Configurable.html">Configurable</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ConfigurableParser.html">ConfigurableParser</a></td></tr>
@@ -216,6 +218,8 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html">GraphCaller</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphSynchronizer.html">GraphSynchronizer</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GreedyMinDistanceClusterer.html">GreedyMinDistanceClusterer</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -820,6 +824,16 @@ Functions</h2></td></tr>
 <tr class="memitem:afa0c54720b2b1007ae540dc70b5b8024"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afa0c54720b2b1007ae540dc70b5b8024">normalize_alignment</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
 <tr class="memdesc:afa0c54720b2b1007ae540dc70b5b8024"><td class="mdescLeft">&#160;</td><td class="mdescRight">Merge adjacent edits of the same type and convert all N matches to mismatches.  <a href="#afa0c54720b2b1007ae540dc70b5b8024">More...</a><br /></td></tr>
 <tr class="separator:afa0c54720b2b1007ae540dc70b5b8024"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acd966c42f332957a1b9317faa3d26407"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acd966c42f332957a1b9317faa3d26407">uses_Us</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
+<tr class="separator:acd966c42f332957a1b9317faa3d26407"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a256962a964ea02f3d4ec54c5c48d72a8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a256962a964ea02f3d4ec54c5c48d72a8">convert_alignment_char</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, char from, char to)</td></tr>
+<tr class="separator:a256962a964ea02f3d4ec54c5c48d72a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abdc8589575aed95e82c0bb70828ab036"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abdc8589575aed95e82c0bb70828ab036">convert_Us_to_Ts</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
+<tr class="memdesc:abdc8589575aed95e82c0bb70828ab036"><td class="mdescLeft">&#160;</td><td class="mdescRight">Replaces any U's in the sequence or the <a class="el" href="structvg_1_1Path.html">Path</a> with T's.  <a href="#abdc8589575aed95e82c0bb70828ab036">More...</a><br /></td></tr>
+<tr class="separator:abdc8589575aed95e82c0bb70828ab036"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:add9a4cf274b29df3caf222d0360805f3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#add9a4cf274b29df3caf222d0360805f3">convert_Ts_to_Us</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
+<tr class="memdesc:add9a4cf274b29df3caf222d0360805f3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Replaces any T's in the sequence or the <a class="el" href="structvg_1_1Path.html">Path</a> with U's.  <a href="#add9a4cf274b29df3caf222d0360805f3">More...</a><br /></td></tr>
+<tr class="separator:add9a4cf274b29df3caf222d0360805f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2a4413a5d745c8fdc6339efdcd13310c"><td class="memItemLeft" align="right" valign="top">map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2a4413a5d745c8fdc6339efdcd13310c">alignment_quality_per_node</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
 <tr class="separator:a2a4413a5d745c8fdc6339efdcd13310c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7848d492a243a93f37b1ac52a541a96a"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7848d492a243a93f37b1ac52a541a96a">middle_signature</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, int len)</td></tr>
@@ -1288,6 +1302,14 @@ Functions</h2></td></tr>
 <tr class="separator:a40132bfddc17b143e18279d1e176652d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afd751a7942664d45206cc1754755a1d9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afd751a7942664d45206cc1754755a1d9">rev_comp_multipath_alignment_in_place</a> (<a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> *multipath_aln, const function&lt; int64_t(int64_t)&gt; &amp;node_length)</td></tr>
 <tr class="separator:afd751a7942664d45206cc1754755a1d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5e8d27a73e98bb6cde283e45d7d4c554"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5e8d27a73e98bb6cde283e45d7d4c554">convert_multipath_alignment_char</a> (<a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln, char from, char to)</td></tr>
+<tr class="separator:a5e8d27a73e98bb6cde283e45d7d4c554"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af62681a564226525c486d8a8d3ef1255"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af62681a564226525c486d8a8d3ef1255">convert_Us_to_Ts</a> (<a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln)</td></tr>
+<tr class="memdesc:af62681a564226525c486d8a8d3ef1255"><td class="mdescLeft">&#160;</td><td class="mdescRight">Replaces all U's in the sequence and the aligned <a class="el" href="classvg_1_1Paths.html">Paths</a> with T's.  <a href="#af62681a564226525c486d8a8d3ef1255">More...</a><br /></td></tr>
+<tr class="separator:af62681a564226525c486d8a8d3ef1255"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeb5192461fbf706f6fd5a193d68f4e90"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aeb5192461fbf706f6fd5a193d68f4e90">convert_Ts_to_Us</a> (<a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln)</td></tr>
+<tr class="memdesc:aeb5192461fbf706f6fd5a193d68f4e90"><td class="mdescLeft">&#160;</td><td class="mdescRight">Replaces all T's in the sequence and the aligned <a class="el" href="classvg_1_1Paths.html">Paths</a> with U's.  <a href="#aeb5192461fbf706f6fd5a193d68f4e90">More...</a><br /></td></tr>
+<tr class="separator:aeb5192461fbf706f6fd5a193d68f4e90"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2d4b02bdea78f086b0e207563d7de800"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2d4b02bdea78f086b0e207563d7de800">to_multipath_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out)</td></tr>
 <tr class="separator:a2d4b02bdea78f086b0e207563d7de800"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a741300a76b92c74a269946d7f859646c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a741300a76b92c74a269946d7f859646c">transfer_read_metadata</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;from, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;to)</td></tr>
@@ -5148,6 +5170,40 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
+<a id="a256962a964ea02f3d4ec54c5c48d72a8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a256962a964ea02f3d4ec54c5c48d72a8">&#9670;&nbsp;</a></span>convert_alignment_char()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::convert_alignment_char </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">char&#160;</td>
+          <td class="paramname"><em>from</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">char&#160;</td>
+          <td class="paramname"><em>to</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a516af361cd83414f278eeea202f155ac"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a516af361cd83414f278eeea202f155ac">&#9670;&nbsp;</a></span>convert_handle_graph()</h2>
 
@@ -5178,6 +5234,40 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
+<a id="a5e8d27a73e98bb6cde283e45d7d4c554"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5e8d27a73e98bb6cde283e45d7d4c554">&#9670;&nbsp;</a></span>convert_multipath_alignment_char()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::convert_multipath_alignment_char </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">char&#160;</td>
+          <td class="paramname"><em>from</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">char&#160;</td>
+          <td class="paramname"><em>to</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="aa6c0fbf6d65818a2bd2092fec9df48fc"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aa6c0fbf6d65818a2bd2092fec9df48fc">&#9670;&nbsp;</a></span>convert_path_handle_graph()</h2>
 
@@ -5205,6 +5295,86 @@ template&lt;typename T &gt; </div>
 </div><div class="memdoc">
 
 <p>Takes in a pointer to a PathHandleGraph and copies it, inclding paths, into an empty MutablePathMutableHandleGraph graph. </p>
+
+</div>
+</div>
+<a id="aeb5192461fbf706f6fd5a193d68f4e90"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aeb5192461fbf706f6fd5a193d68f4e90">&#9670;&nbsp;</a></span>convert_Ts_to_Us() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::convert_Ts_to_Us </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Replaces all T's in the sequence and the aligned <a class="el" href="classvg_1_1Paths.html">Paths</a> with U's. </p>
+
+</div>
+</div>
+<a id="add9a4cf274b29df3caf222d0360805f3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#add9a4cf274b29df3caf222d0360805f3">&#9670;&nbsp;</a></span>convert_Ts_to_Us() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::convert_Ts_to_Us </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Replaces any T's in the sequence or the <a class="el" href="structvg_1_1Path.html">Path</a> with U's. </p>
+
+</div>
+</div>
+<a id="af62681a564226525c486d8a8d3ef1255"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af62681a564226525c486d8a8d3ef1255">&#9670;&nbsp;</a></span>convert_Us_to_Ts() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::convert_Us_to_Ts </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Replaces all U's in the sequence and the aligned <a class="el" href="classvg_1_1Paths.html">Paths</a> with T's. </p>
+
+</div>
+</div>
+<a id="abdc8589575aed95e82c0bb70828ab036"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abdc8589575aed95e82c0bb70828ab036">&#9670;&nbsp;</a></span>convert_Us_to_Ts() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::convert_Us_to_Ts </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Replaces any U's in the sequence or the <a class="el" href="structvg_1_1Path.html">Path</a> with T's. </p>
 
 </div>
 </div>
@@ -17797,6 +17967,25 @@ template&lt;typename Collection &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="acd966c42f332957a1b9317faa3d26407"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acd966c42f332957a1b9317faa3d26407">&#9670;&nbsp;</a></span>uses_Us()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::uses_Us </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Returns true if the alignment sequence contains any U's and false if the alignment sequence contains and T's. In the case that both T's and U's are included, responds according to whichever comes first. If the sequence contains neither U's nor T's, returns false. </p>
 
 </div>
 </div>

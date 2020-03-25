@@ -105,6 +105,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:af64a7b36c1880606372d0849842708b0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4dd3272837211543ba461472833734a9"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a4dd3272837211543ba461472833734a9">find_mems_simple</a> (string::const_iterator seq_begin, string::const_iterator seq_end, int max_mem_length=0, int <a class="el" href="classvg_1_1BaseMapper.html#a6de91c39c73a95b014b1773495985a09">min_mem_length</a>=1, int reseed_length=0)</td></tr>
 <tr class="separator:a4dd3272837211543ba461472833734a9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad0ca6fe6e3a407bd1bff38bb05cbe794"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#ad0ca6fe6e3a407bd1bff38bb05cbe794">find_stripped_matches</a> (string::const_iterator seq_begin, string::const_iterator seq_end, size_t strip_length, size_t max_match_length, size_t target_count)</td></tr>
+<tr class="separator:ad0ca6fe6e3a407bd1bff38bb05cbe794"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa7a71951ec7acdbf2c31ae9318ceb035"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#aa7a71951ec7acdbf2c31ae9318ceb035">rescue_high_count_order_length_mems</a> (vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, size_t max_rescue_hit_count)</td></tr>
 <tr class="separator:aa7a71951ec7acdbf2c31ae9318ceb035"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af4372862ebd4f21da3e9ed105249a5af"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#af4372862ebd4f21da3e9ed105249a5af">precollapse_order_length_runs</a> (string::const_iterator seq_begin, vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems)</td></tr>
@@ -461,6 +463,52 @@ Additional Inherited Members</h2></td></tr>
           <td></td>
           <td class="paramtype">int&#160;</td>
           <td class="paramname"><em>reseed_length</em> = <code>0</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ad0ca6fe6e3a407bd1bff38bb05cbe794"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad0ca6fe6e3a407bd1bff38bb05cbe794">&#9670;&nbsp;</a></span>find_stripped_matches()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; vg::BaseMapper::find_stripped_matches </td>
+          <td>(</td>
+          <td class="paramtype">string::const_iterator&#160;</td>
+          <td class="paramname"><em>seq_begin</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string::const_iterator&#160;</td>
+          <td class="paramname"><em>seq_end</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>strip_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_match_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>target_count</em>&#160;</td>
         </tr>
         <tr>
           <td></td>

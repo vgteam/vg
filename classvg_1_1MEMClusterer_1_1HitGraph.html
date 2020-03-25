@@ -87,10 +87,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a34d7904686d0f953620a404f483c1a6c"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a34d7904686d0f953620a404f483c1a6c">clusters</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, int32_t max_qual_score, int32_t log_likelihood_approx_factor, size_t min_median_mem_coverage_for_split, double suboptimal_edge_pruning_factor)</td></tr>
 <tr class="memdesc:a34d7904686d0f953620a404f483c1a6c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the top scoring connected components.  <a href="#a34d7904686d0f953620a404f483c1a6c">More...</a><br /></td></tr>
 <tr class="separator:a34d7904686d0f953620a404f483c1a6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6879622d8abb7f9841a18e357e8a1812"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a6879622d8abb7f9841a18e357e8a1812">for_each_hit_pair</a> (const function&lt; void(pair&lt; size_t, size_t &gt;)&gt; &amp;lambda)</td></tr>
-<tr class="separator:a6879622d8abb7f9841a18e357e8a1812"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a20347e290954050d64c46770c9cbd08d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a20347e290954050d64c46770c9cbd08d">for_each_hit_pair_greedy</a> (const function&lt; void(pair&lt; size_t, size_t &gt;)&gt; &amp;lambda)</td></tr>
-<tr class="separator:a20347e290954050d64c46770c9cbd08d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -337,44 +333,6 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Identify weakly connected components in the graph. </p>
-
-</div>
-</div>
-<a id="a6879622d8abb7f9841a18e357e8a1812"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6879622d8abb7f9841a18e357e8a1812">&#9670;&nbsp;</a></span>for_each_hit_pair()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::MEMClusterer::HitGraph::for_each_hit_pair </td>
-          <td>(</td>
-          <td class="paramtype">const function&lt; void(pair&lt; size_t, size_t &gt;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>lambda</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Execute a lambda on each pair of indexes of nodes (i, j), where i &lt; j. Pairs are produced in lexicographic order. </p>
-
-</div>
-</div>
-<a id="a20347e290954050d64c46770c9cbd08d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a20347e290954050d64c46770c9cbd08d">&#9670;&nbsp;</a></span>for_each_hit_pair_greedy()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::MEMClusterer::HitGraph::for_each_hit_pair_greedy </td>
-          <td>(</td>
-          <td class="paramtype">const function&lt; void(pair&lt; size_t, size_t &gt;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>lambda</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Execute a lambda on each pair of indexes of nodes (i, j), where 1) i &lt; j, and 2) i and j are not in the same connected component. The edges (and hence the the connected components) are allowed to change as a side effect of lambda. Pairs are produced in increasing order of the absolute distance on the read of the end of node i's MEM and the beginning of node j's MEM. Hit graph must have been constructed to track components to filter out pairs that are in the same component. </p>
 
 </div>
 </div>

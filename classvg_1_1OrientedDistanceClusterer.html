@@ -65,8 +65,8 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
-<a href="#pri-methods">Private Member Functions</a> &#124;
-<a href="#pri-attribs">Private Attributes</a> &#124;
+<a href="#pro-methods">Protected Member Functions</a> &#124;
+<a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="classvg_1_1OrientedDistanceClusterer-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::OrientedDistanceClusterer Class Reference</div>  </div>
@@ -100,8 +100,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a33c57c2613769a60e3d54b10c41f4aa8 inherit pub_methods_classvg_1_1MEMClusterer"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a33c57c2613769a60e3d54b10c41f4aa8">clusters</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *<a class="el" href="classvg_1_1Aligner.html">Aligner</a>, size_t min_mem_length=1, int32_t max_qual_score=60, int32_t log_likelihood_approx_factor=0, size_t min_median_mem_coverage_for_split=0, double suboptimal_edge_pruning_factor=.75)</td></tr>
 <tr class="separator:a33c57c2613769a60e3d54b10c41f4aa8 inherit pub_methods_classvg_1_1MEMClusterer"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
-Private Member Functions</h2></td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
 <tr class="memitem:a736cd908b11ed3a000698291c541bbc0"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a736cd908b11ed3a000698291c541bbc0">get_on_strand_distance_tree</a> (size_t num_items, const function&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>(size_t)&gt; &amp;get_position, const function&lt; int64_t(size_t)&gt; &amp;<a class="el" href="namespacevg.html#afa72453fe1fe56a27ea403b9d96cb197">get_offset</a>)</td></tr>
 <tr class="separator:a736cd908b11ed3a000698291c541bbc0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acb079f0634a19d2d8185a3e338443819"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1OrientedDistanceClusterer.html#acb079f0634a19d2d8185a3e338443819">extend_dist_tree_by_permutations</a> (const function&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>(size_t)&gt; &amp;get_position, const function&lt; int64_t(size_t)&gt; &amp;<a class="el" href="namespacevg.html#afa72453fe1fe56a27ea403b9d96cb197">get_offset</a>, size_t num_items, int64_t max_failed_distance_probes, size_t decrement_frequency, unordered_map&lt; pair&lt; size_t, size_t &gt;, int64_t &gt; &amp;recorded_finite_dists, map&lt; pair&lt; size_t, size_t &gt;, size_t &gt; &amp;num_infinite_dists, UnionFind &amp;component_union_find, size_t &amp;num_possible_merges_remaining)</td></tr>
@@ -117,9 +117,14 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:a7bcda4e626cbd4dd7fda99f952a3ef72"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html">HitGraph</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a7bcda4e626cbd4dd7fda99f952a3ef72">make_hit_graph</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t min_mem_length)</td></tr>
 <tr class="memdesc:a7bcda4e626cbd4dd7fda99f952a3ef72"><td class="mdescLeft">&#160;</td><td class="mdescRight">Concrete implementation of virtual method from <a class="el" href="classvg_1_1MEMClusterer.html">MEMClusterer</a>.  <a href="#a7bcda4e626cbd4dd7fda99f952a3ef72">More...</a><br /></td></tr>
 <tr class="separator:a7bcda4e626cbd4dd7fda99f952a3ef72"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pro_methods_classvg_1_1MEMClusterer"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1MEMClusterer')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1MEMClusterer.html">vg::MEMClusterer</a></td></tr>
+<tr class="memitem:a941476ae17420e703a8ef743232643ab inherit pro_methods_classvg_1_1MEMClusterer"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a941476ae17420e703a8ef743232643ab">estimate_edge_score</a> (const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *mem_1, const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *mem_2, int64_t graph_dist, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner) const</td></tr>
+<tr class="separator:a941476ae17420e703a8ef743232643ab inherit pro_methods_classvg_1_1MEMClusterer"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae99c87e944c8c1056abb8efc7da5786e inherit pro_methods_classvg_1_1MEMClusterer"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#ae99c87e944c8c1056abb8efc7da5786e">deduplicate_cluster_pairs</a> (vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, int64_t optimal_separation)</td></tr>
+<tr class="separator:ae99c87e944c8c1056abb8efc7da5786e inherit pro_methods_classvg_1_1MEMClusterer"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
-Private Attributes</h2></td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
+Protected Attributes</h2></td></tr>
 <tr class="memitem:a73c5578cbd124a60d54b49474937b78b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1OrientedDistanceMeasurer.html">OrientedDistanceMeasurer</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a73c5578cbd124a60d54b49474937b78b">distance_measurer</a></td></tr>
 <tr class="separator:a73c5578cbd124a60d54b49474937b78b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a74174c834516a6b4116ff6b9972ae10c"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a74174c834516a6b4116ff6b9972ae10c">max_expected_dist_approx_error</a></td></tr>
@@ -135,11 +140,6 @@ Additional Inherited Members</h2></td></tr>
 <tr class="memitem:a3c8d3cab3de27ed08403fb300ea6dd6d inherit pub_types_classvg_1_1MEMClusterer"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> = vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a679c48e684ac52020fb363aa946037c7">hit_t</a> &gt;</td></tr>
 <tr class="memdesc:a3c8d3cab3de27ed08403fb300ea6dd6d inherit pub_types_classvg_1_1MEMClusterer"><td class="mdescLeft">&#160;</td><td class="mdescRight">Each cluster is a vector of hits.  <a href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">More...</a><br /></td></tr>
 <tr class="separator:a3c8d3cab3de27ed08403fb300ea6dd6d inherit pub_types_classvg_1_1MEMClusterer"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="inherit_header pro_methods_classvg_1_1MEMClusterer"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1MEMClusterer')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1MEMClusterer.html">vg::MEMClusterer</a></td></tr>
-<tr class="memitem:a941476ae17420e703a8ef743232643ab inherit pro_methods_classvg_1_1MEMClusterer"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a941476ae17420e703a8ef743232643ab">estimate_edge_score</a> (const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *mem_1, const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *mem_2, int64_t graph_dist, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner) const</td></tr>
-<tr class="separator:a941476ae17420e703a8ef743232643ab inherit pro_methods_classvg_1_1MEMClusterer"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae99c87e944c8c1056abb8efc7da5786e inherit pro_methods_classvg_1_1MEMClusterer"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#ae99c87e944c8c1056abb8efc7da5786e">deduplicate_cluster_pairs</a> (vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, int64_t optimal_separation)</td></tr>
-<tr class="separator:ae99c87e944c8c1056abb8efc7da5786e inherit pro_methods_classvg_1_1MEMClusterer"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a0bab84127f018db9467240db290113b4"></a>
@@ -202,7 +202,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -257,7 +257,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -318,7 +318,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -397,7 +397,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -434,7 +434,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -479,7 +479,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -530,7 +530,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span><span class="mlabel">virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -633,7 +633,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -655,7 +655,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -677,7 +677,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">

@@ -65,8 +65,8 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
-<a href="#pri-methods">Private Member Functions</a> &#124;
-<a href="#pri-attribs">Private Attributes</a> &#124;
+<a href="#pro-methods">Protected Member Functions</a> &#124;
+<a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="classvg_1_1TVSClusterer-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::TVSClusterer Class Reference</div>  </div>
@@ -101,14 +101,19 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a33c57c2613769a60e3d54b10c41f4aa8 inherit pub_methods_classvg_1_1MEMClusterer"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a33c57c2613769a60e3d54b10c41f4aa8">clusters</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *<a class="el" href="classvg_1_1Aligner.html">Aligner</a>, size_t min_mem_length=1, int32_t max_qual_score=60, int32_t log_likelihood_approx_factor=0, size_t min_median_mem_coverage_for_split=0, double suboptimal_edge_pruning_factor=.75)</td></tr>
 <tr class="separator:a33c57c2613769a60e3d54b10c41f4aa8 inherit pub_methods_classvg_1_1MEMClusterer"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
-Private Member Functions</h2></td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
 <tr class="memitem:aabdbd5086c66e1f0193c870532e82789"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html">HitGraph</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TVSClusterer.html#aabdbd5086c66e1f0193c870532e82789">make_hit_graph</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t min_mem_length)</td></tr>
 <tr class="memdesc:aabdbd5086c66e1f0193c870532e82789"><td class="mdescLeft">&#160;</td><td class="mdescRight">Concrete implementation of virtual method from <a class="el" href="classvg_1_1MEMClusterer.html">MEMClusterer</a>.  <a href="#aabdbd5086c66e1f0193c870532e82789">More...</a><br /></td></tr>
 <tr class="separator:aabdbd5086c66e1f0193c870532e82789"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pro_methods_classvg_1_1MEMClusterer"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1MEMClusterer')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1MEMClusterer.html">vg::MEMClusterer</a></td></tr>
+<tr class="memitem:a941476ae17420e703a8ef743232643ab inherit pro_methods_classvg_1_1MEMClusterer"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a941476ae17420e703a8ef743232643ab">estimate_edge_score</a> (const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *mem_1, const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *mem_2, int64_t graph_dist, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner) const</td></tr>
+<tr class="separator:a941476ae17420e703a8ef743232643ab inherit pro_methods_classvg_1_1MEMClusterer"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae99c87e944c8c1056abb8efc7da5786e inherit pro_methods_classvg_1_1MEMClusterer"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#ae99c87e944c8c1056abb8efc7da5786e">deduplicate_cluster_pairs</a> (vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, int64_t optimal_separation)</td></tr>
+<tr class="separator:ae99c87e944c8c1056abb8efc7da5786e inherit pro_methods_classvg_1_1MEMClusterer"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
-Private Attributes</h2></td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
+Protected Attributes</h2></td></tr>
 <tr class="memitem:ad59ad1a2a88d40a980a7b7fb2cc18a0d"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1TargetValueSearch.html">TargetValueSearch</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TVSClusterer.html#ad59ad1a2a88d40a980a7b7fb2cc18a0d">tvs</a></td></tr>
 <tr class="separator:ad59ad1a2a88d40a980a7b7fb2cc18a0d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -120,11 +125,6 @@ Additional Inherited Members</h2></td></tr>
 <tr class="memitem:a3c8d3cab3de27ed08403fb300ea6dd6d inherit pub_types_classvg_1_1MEMClusterer"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> = vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a679c48e684ac52020fb363aa946037c7">hit_t</a> &gt;</td></tr>
 <tr class="memdesc:a3c8d3cab3de27ed08403fb300ea6dd6d inherit pub_types_classvg_1_1MEMClusterer"><td class="mdescLeft">&#160;</td><td class="mdescRight">Each cluster is a vector of hits.  <a href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">More...</a><br /></td></tr>
 <tr class="separator:a3c8d3cab3de27ed08403fb300ea6dd6d inherit pub_types_classvg_1_1MEMClusterer"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="inherit_header pro_methods_classvg_1_1MEMClusterer"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1MEMClusterer')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1MEMClusterer.html">vg::MEMClusterer</a></td></tr>
-<tr class="memitem:a941476ae17420e703a8ef743232643ab inherit pro_methods_classvg_1_1MEMClusterer"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a941476ae17420e703a8ef743232643ab">estimate_edge_score</a> (const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *mem_1, const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *mem_2, int64_t graph_dist, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner) const</td></tr>
-<tr class="separator:a941476ae17420e703a8ef743232643ab inherit pro_methods_classvg_1_1MEMClusterer"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae99c87e944c8c1056abb8efc7da5786e inherit pro_methods_classvg_1_1MEMClusterer"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#ae99c87e944c8c1056abb8efc7da5786e">deduplicate_cluster_pairs</a> (vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, int64_t optimal_separation)</td></tr>
-<tr class="separator:ae99c87e944c8c1056abb8efc7da5786e inherit pro_methods_classvg_1_1MEMClusterer"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a3e61d65108763fd70bacb7d680c5de3f"></a>
@@ -222,7 +222,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span><span class="mlabel">virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -325,7 +325,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">

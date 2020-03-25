@@ -9,6 +9,7 @@ var searchData=
   ['chainiterator',['ChainIterator',['../structvg_1_1ChainIterator.html',1,'vg']]],
   ['colors',['Colors',['../classvg_1_1Colors.html',1,'vg']]],
   ['completedtranscriptpath',['CompletedTranscriptPath',['../structvg_1_1CompletedTranscriptPath.html',1,'vg']]],
+  ['componentmindistanceclusterer',['ComponentMinDistanceClusterer',['../classvg_1_1ComponentMinDistanceClusterer.html',1,'vg']]],
   ['configurable',['Configurable',['../classvg_1_1Configurable.html',1,'vg']]],
   ['configurableparser',['ConfigurableParser',['../classvg_1_1ConfigurableParser.html',1,'vg']]],
   ['consistencycalculator',['ConsistencyCalculator',['../classvg_1_1ConsistencyCalculator.html',1,'vg']]],

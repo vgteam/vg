@@ -134,6 +134,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:af64a7b36c1880606372d0849842708b0 inherit pub_methods_classvg_1_1BaseMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4dd3272837211543ba461472833734a9 inherit pub_methods_classvg_1_1BaseMapper"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a4dd3272837211543ba461472833734a9">find_mems_simple</a> (string::const_iterator seq_begin, string::const_iterator seq_end, int max_mem_length=0, int <a class="el" href="classvg_1_1BaseMapper.html#a6de91c39c73a95b014b1773495985a09">min_mem_length</a>=1, int reseed_length=0)</td></tr>
 <tr class="separator:a4dd3272837211543ba461472833734a9 inherit pub_methods_classvg_1_1BaseMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad0ca6fe6e3a407bd1bff38bb05cbe794 inherit pub_methods_classvg_1_1BaseMapper"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#ad0ca6fe6e3a407bd1bff38bb05cbe794">find_stripped_matches</a> (string::const_iterator seq_begin, string::const_iterator seq_end, size_t strip_length, size_t max_match_length, size_t target_count)</td></tr>
+<tr class="separator:ad0ca6fe6e3a407bd1bff38bb05cbe794 inherit pub_methods_classvg_1_1BaseMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa7a71951ec7acdbf2c31ae9318ceb035 inherit pub_methods_classvg_1_1BaseMapper"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#aa7a71951ec7acdbf2c31ae9318ceb035">rescue_high_count_order_length_mems</a> (vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, size_t max_rescue_hit_count)</td></tr>
 <tr class="separator:aa7a71951ec7acdbf2c31ae9318ceb035 inherit pub_methods_classvg_1_1BaseMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af4372862ebd4f21da3e9ed105249a5af inherit pub_methods_classvg_1_1BaseMapper"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#af4372862ebd4f21da3e9ed105249a5af">precollapse_order_length_runs</a> (string::const_iterator seq_begin, vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems)</td></tr>
@@ -192,6 +194,14 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a28e3e0b047b5d3c195431982f76084c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac656fb3b81d4cf6d06fb077551b54b7f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ac656fb3b81d4cf6d06fb077551b54b7f">min_clustering_mem_length</a> = 0</td></tr>
 <tr class="separator:ac656fb3b81d4cf6d06fb077551b54b7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac9ea306291983b4c10ff1ec97b6d1adc"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ac9ea306291983b4c10ff1ec97b6d1adc">use_stripped_match_alg</a> = false</td></tr>
+<tr class="separator:ac9ea306291983b4c10ff1ec97b6d1adc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a892c094e2a5b4dcce87b47a0ee27bff8"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a892c094e2a5b4dcce87b47a0ee27bff8">stripped_match_alg_strip_length</a> = 16</td></tr>
+<tr class="separator:a892c094e2a5b4dcce87b47a0ee27bff8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aee2a7d30863137faeb2b9925c195262d"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aee2a7d30863137faeb2b9925c195262d">stripped_match_alg_max_length</a> = 0</td></tr>
+<tr class="separator:aee2a7d30863137faeb2b9925c195262d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3a8af36f7fbbe431ea804f83e75a684d"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a3a8af36f7fbbe431ea804f83e75a684d">stripped_match_alg_target_count</a> = 5</td></tr>
+<tr class="separator:a3a8af36f7fbbe431ea804f83e75a684d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ada39acac8f403bf92632024be4e448e1"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ada39acac8f403bf92632024be4e448e1">max_p_value_memo_size</a> = 500</td></tr>
 <tr class="separator:ada39acac8f403bf92632024be4e448e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a93b608c38afcfea23224165ebb614845"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a93b608c38afcfea23224165ebb614845">band_padding_memo_size</a> = 500</td></tr>
@@ -272,6 +282,10 @@ Public Attributes</h2></td></tr>
 <tr class="separator:afaa33d747ce1393304aa96bc5245a4f8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aed5898444e134f0fb95ae527d215e88f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aed5898444e134f0fb95ae527d215e88f">use_min_dist_clusterer</a> = false</td></tr>
 <tr class="separator:aed5898444e134f0fb95ae527d215e88f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a97d02064d377122ed8cef9e53340ba90"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a97d02064d377122ed8cef9e53340ba90">greedy_min_dist</a> = false</td></tr>
+<tr class="separator:a97d02064d377122ed8cef9e53340ba90"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0e4207de854cc470b9bd734b459e1b9c"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a0e4207de854cc470b9bd734b459e1b9c">component_min_dist</a> = false</td></tr>
+<tr class="separator:a0e4207de854cc470b9bd734b459e1b9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af87eaae1274e33230fffe9dca05dbbec"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#af87eaae1274e33230fffe9dca05dbbec">reversing_walk_length</a> = 0</td></tr>
 <tr class="separator:af87eaae1274e33230fffe9dca05dbbec"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afd6fee3779079af7a2932c7c29098b2d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#afd6fee3779079af7a2932c7c29098b2d">suppress_p_value_memoization</a> = false</td></tr>
@@ -2483,6 +2497,20 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a0e4207de854cc470b9bd734b459e1b9c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0e4207de854cc470b9bd734b459e1b9c">&#9670;&nbsp;</a></span>component_min_dist</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MultipathMapper::component_min_dist = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="abf0b02bf9912b86d3292c13a72c7d6d1"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#abf0b02bf9912b86d3292c13a72c7d6d1">&#9670;&nbsp;</a></span>distance_index</h2>
 
@@ -2527,6 +2555,20 @@ Additional Inherited Members</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">size_t vg::MultipathMapper::force_haplotype_count = 0</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a97d02064d377122ed8cef9e53340ba90"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a97d02064d377122ed8cef9e53340ba90">&#9670;&nbsp;</a></span>greedy_min_dist</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MultipathMapper::greedy_min_dist = false</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -3099,6 +3141,48 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="aee2a7d30863137faeb2b9925c195262d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aee2a7d30863137faeb2b9925c195262d">&#9670;&nbsp;</a></span>stripped_match_alg_max_length</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MultipathMapper::stripped_match_alg_max_length = 0</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a892c094e2a5b4dcce87b47a0ee27bff8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a892c094e2a5b4dcce87b47a0ee27bff8">&#9670;&nbsp;</a></span>stripped_match_alg_strip_length</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MultipathMapper::stripped_match_alg_strip_length = 16</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a3a8af36f7fbbe431ea804f83e75a684d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3a8af36f7fbbe431ea804f83e75a684d">&#9670;&nbsp;</a></span>stripped_match_alg_target_count</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MultipathMapper::stripped_match_alg_target_count = 5</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="ad25f17a8c485548abf5f63517937067f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ad25f17a8c485548abf5f63517937067f">&#9670;&nbsp;</a></span>suppress_cluster_merging</h2>
 
@@ -3177,6 +3261,20 @@ Additional Inherited Members</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">bool vg::MultipathMapper::use_population_mapqs = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac9ea306291983b4c10ff1ec97b6d1adc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac9ea306291983b4c10ff1ec97b6d1adc">&#9670;&nbsp;</a></span>use_stripped_match_alg</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MultipathMapper::use_stripped_match_alg = false</td>
         </tr>
       </table>
 </div><div class="memdoc">

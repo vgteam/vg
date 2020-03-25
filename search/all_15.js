@@ -54,10 +54,12 @@ var searchData=
   ['use_5fmin_5fdist_5fclusterer',['use_min_dist_clusterer',['../classvg_1_1MultipathMapper.html#aed5898444e134f0fb95ae527d215e88f',1,'vg::MultipathMapper']]],
   ['use_5fpopulation_5fmapqs',['use_population_mapqs',['../classvg_1_1MultipathMapper.html#aaaecbb0881e444042662a72907442fc1',1,'vg::MultipathMapper']]],
   ['use_5freference_5fpaths',['use_reference_paths',['../classvg_1_1Transcriptome.html#a37911193a8091c07833776946f9994ad',1,'vg::Transcriptome']]],
+  ['use_5fstripped_5fmatch_5falg',['use_stripped_match_alg',['../classvg_1_1MultipathMapper.html#ac9ea306291983b4c10ff1ec97b6d1adc',1,'vg::MultipathMapper']]],
   ['use_5ftvs_5fclusterer',['use_tvs_clusterer',['../classvg_1_1MultipathMapper.html#afaa33d747ce1393304aa96bc5245a4f8',1,'vg::MultipathMapper']]],
   ['use_5fweibull_5fcalibration',['use_weibull_calibration',['../classvg_1_1MultipathMapper.html#ab7d4f6c0038299d70ac8238527f95d86',1,'vg::MultipathMapper']]],
   ['used',['used',['../classvg_1_1PinchToVGTranslator.html#a4ba24f45298b6e67662245b22d0bef3f',1,'vg::PinchToVGTranslator']]],
   ['used_5fbins_5fof_5frange',['used_bins_of_range',['../classvg_1_1StreamIndexBase.html#a94777b19236dfb74d66ba8c484bf663f',1,'vg::StreamIndexBase']]],
+  ['uses_5fus',['uses_Us',['../namespacevg.html#acd966c42f332957a1b9317faa3d26407',1,'vg']]],
   ['util_2ehpp',['util.hpp',['../util_8hpp.html',1,'']]],
   ['utility_2ecpp',['utility.cpp',['../utility_8cpp.html',1,'']]],
   ['utility_2ehpp',['utility.hpp',['../utility_8hpp.html',1,'']]]
