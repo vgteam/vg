@@ -688,62 +688,60 @@ void GaplessExtender::unfold_haplotypes(const SubHandleGraph& subgraph, std::vec
         return state;
     };
 
-    spp::sparse_hash_set<gbwt::BidirectionalState, state_hash> visited;
+    // Find the nodes where paths start/end or enter/exit the subgraph. Extend these states
+    // to the other direction. Checking for starts/enters would be enough if we are sure
+    // that there are no weird orientation flips.
     gbwt::CachedGBWT cache = this->graph->get_cache();
+    std::stack<std::pair<gbwt::BidirectionalState, std::vector<handle_t>>> states;
     subgraph.for_each_handle([&](const handle_t& handle) {
-        std::stack<std::pair<gbwt::BidirectionalState, std::vector<handle_t>>> forward, backward;
         gbwt::BidirectionalState state = this->graph->get_bd_state(cache, handle);
-        std::vector<handle_t> path = { handle };
-        visited.insert(get_key(state));
-        forward.push(std::make_pair(state, path));
-
-        // Extend forward.
-        while (!forward.empty()) {
-            std::tie(state, path) = forward.top();
-            forward.pop();
-            size_t covered_size = 0;
-            this->graph->follow_paths(cache, state, false, [&](const gbwt::BidirectionalState& next) -> bool {
-                if (!subgraph.has_node(gbwt::Node::id(next.forward.node))) {
-                    return true;
-                }
-                covered_size += next.size();
-                gbwt::BidirectionalState key = get_key(next);
-                if (visited.find(key) != visited.end()) {
-                    return true;
-                }
-                visited.insert(key);
-                forward.push(std::make_pair(next, get_path(path, next.forward.node)));
-                return true;
-            });
-            // The current state is right-maximal if some paths in it do not have forward
-            // extensions in the subgraph. If some forward extensions exist, we may end up
-            // generating prefixes of them from this state. However, such situations should
-            // be rare in the subgraphs we are interested in.
-            if (covered_size < state.size()) {
-                backward.push(std::make_pair(state, path));
+        size_t forward_covered = 0, backward_covered = 0;
+        this->graph->follow_paths(cache, state, false, [&](const gbwt::BidirectionalState& next) -> bool {
+            if (subgraph.has_node(gbwt::Node::id(next.forward.node))) {
+                forward_covered += next.size();
             }
+            return true;
+        });
+        this->graph->follow_paths(cache, state, true, [&](const gbwt::BidirectionalState& prev) -> bool {
+            if (subgraph.has_node(gbwt::Node::id(prev.backward.node))) {
+                backward_covered += prev.size();
+            }
+            return true;
+        });
+        if (backward_covered < state.size()) {
+            std::vector<handle_t> path = { handle };
+            states.push(std::make_pair(state, path)); // Left-maximal.
         }
+        if (forward_covered < state.size()) {
+            std::vector<handle_t> path = { this->graph->flip(handle) };
+            state.flip();
+            states.push(std::make_pair(state, path)); // Right-maximal.
+        }
+    }, false);
 
-        // Extend backward.
-        while (!backward.empty()) {
-            std::tie(state, path) = backward.top();
-            backward.pop();
-            size_t covered_size = 0;
-            this->graph->follow_paths(cache, state, true, [&](const gbwt::BidirectionalState& prev) -> bool {
-                if (!subgraph.has_node(gbwt::Node::id(prev.backward.node))) {
-                    return true;
-                }
-                covered_size += prev.size();
-                gbwt::BidirectionalState key = get_key(prev);
-                if (visited.find(key) != visited.end()) {
-                    return true;
-                }
-                visited.insert(key);
-                backward.push(std::make_pair(prev, get_path(prev.backward.node, path)));
+    // Extend the states as far forward as possible within the subgraph. Because we usually find
+    // each haplotype twice, we store the set of states we have reported so far.
+    spp::sparse_hash_set<gbwt::BidirectionalState, state_hash> reported;
+    while (!states.empty()) {
+        gbwt::BidirectionalState state;
+        std::vector<handle_t> path;
+        std::tie(state, path) = states.top();
+        states.pop();
+        bool found_extension = false;
+        size_t covered_size = 0;
+        this->graph->follow_paths(cache, state, false, [&](const gbwt::BidirectionalState& next) -> bool {
+            if (!subgraph.has_node(gbwt::Node::id(next.forward.node))) {
                 return true;
-            });
-            // Report the path if we did not find any extensions.
-            if (covered_size == 0) {
+            }
+            found_extension = true;
+            states.push(std::make_pair(next, get_path(path, next.forward.node)));
+            return true;
+        });
+        // Report the path if we did not find any extensions.
+        if (!found_extension) {
+            gbwt::BidirectionalState key = get_key(state);
+            if (reported.find(key) == reported.end()) {
+                reported.insert(key);
                 haplotype_paths.push_back(path);
                 size_t result_size = 0;
                 for (handle_t handle : path) {
@@ -759,7 +757,7 @@ void GaplessExtender::unfold_haplotypes(const SubHandleGraph& subgraph, std::vec
                 unfolded.create_handle(reverse_complement(sequence), 2 * haplotype_paths.size());
             }
         }
-    }, false);
+    }
 }
 
 //------------------------------------------------------------------------------

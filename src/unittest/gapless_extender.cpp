@@ -275,16 +275,36 @@ void check_haplotypes(const GaplessExtender& extender, const std::vector<nid_t>&
     bdsg::HashGraph unfolded;
     extender.unfold_haplotypes(subgraph, haplotype_paths, unfolded);
 
+    // We assume that the correct paths are in canonical orientation (smaller than the reverse).
+    std::vector<bool> flipped(haplotype_paths.size(), false);
+    for (size_t i = 0; i < haplotype_paths.size(); i++) {
+        std::vector<handle_t> reverse = haplotype_paths[i];
+        std::reverse(reverse.begin(), reverse.end());
+        for (handle_t& handle : reverse) {
+            handle = extender.graph->flip(handle);
+        }
+        if (reverse < haplotype_paths[i]) {
+            haplotype_paths[i] = reverse;
+            flipped[i] = true;
+        }
+    }
+
     REQUIRE(haplotype_paths.size() == correct_haplotypes.size());
     REQUIRE(unfolded.get_node_count() == 2 * correct_haplotypes.size());
     for (size_t i = 0; i < haplotype_paths.size(); i++) {
         auto iter = correct_haplotypes.find(haplotype_paths[i]);
         REQUIRE(iter != correct_haplotypes.end());
-        REQUIRE(iter->first == haplotype_paths[i]);
         std::string forward = unfolded.get_sequence(unfolded.get_handle(2 * i + 1, false));
-        REQUIRE(forward == iter->second);
-        std::string reverse = reverse_complement(unfolded.get_sequence(unfolded.get_handle(2 * i + 2, false)));
-        REQUIRE(reverse == iter->second);
+        std::string reverse = unfolded.get_sequence(unfolded.get_handle(2 * i + 2, false));
+        if (flipped[i]) {
+            forward = reverse_complement(forward);
+            REQUIRE(forward == iter->second);
+            REQUIRE(reverse == iter->second);
+        } else {
+            REQUIRE(forward == iter->second);
+            reverse = reverse_complement(reverse);
+            REQUIRE(reverse == iter->second);
+        }
     }
 }
 
