@@ -58,7 +58,8 @@ namespace vg {
                      int8_t _gap_extension,
                      int32_t _full_length_bonus,
                      uint32_t _max_gap_length);
-        XdropAligner(int8_t const *_score_matrix,
+        // Expects a 4 x 4 score matrix
+        XdropAligner(const int8_t* _score_matrix,
                      int8_t _gap_open,
                      int8_t _gap_extension,
                      int32_t _full_length_bonus,
@@ -149,18 +150,6 @@ namespace vg {
             unordered_map<handle_t, size_t> index_of;
         };
         
-		// context (contains memory arena and constants) and working buffers
-        
-        // TODO: this should be a local object to achieve threadsafety
-        /// This is the backing dozeu library problem instance
-//		dz_s* dz = nullptr;
-        
-        // TODO: this should become unnecessary once we make this threadsafe and move
-        // the score out
-        // We don't need to remember the whole score matrix, because dz has a
-        // copy. But we do need the AA match score to support pinned alignment.
-        int8_t aa_match = 0;
-        
         /// 4 x 4 matrix of match/mismatch scores
         int8_t* score_matrix = nullptr;
         /// Amount paid in addition to gap_extend on first base of a gap
@@ -170,39 +159,6 @@ namespace vg {
         
         int32_t full_length_bonus = 0;
         uint32_t max_gap_length = 0;
-        
-        /// List of edges. Stored as two int32_ts packed together.
-        /// TODO: what is the order of packing?
-        // (int32_t, int32_t) tuple; FIXME: index_edges and index_edges_head are partly duplicated
-        // TODO: this seems silly, there is no compression over just storing int32_t's natively
-//		std::vector< uint64_t > index_edges;
-        /// TODO: what is this?
-//        std::vector< uint64_t > index_edges_head;
-        
-        /// Stores all of the currently outstanding dozeu library forefronts.
-//		std::vector< struct dz_forefront_s const * > forefronts;
-
-        
-        /// Lookup table for forward- and reverse-sorting comparators, interpreting unsigned arguments as signed.
-        /// Use [0] for forward and [1] for reverse (FIXME: can we embed them in the vtable?)
-		std::function<bool (uint64_t const &, uint64_t const &)> const compare[2] = {
-			[](uint64_t const &x, uint64_t const &y) -> bool { return((int64_t)x < (int64_t)y); },
-			[](uint64_t const &x, uint64_t const &y) -> bool { return((int64_t)x > (int64_t)y); }
-		};
-        
-        /// Lookup table for functions to compose packed edge uint64_t values from the from and to indexes.
-        /// Use [0] to put to in the high bits and [1] to put from in the high bits.
-        /// TODO: When would you use either?
-		std::function<uint64_t (uint64_t const &, uint64_t const &)> const edge[2] = {
-			[](uint64_t const &from, uint64_t const &to) -> uint64_t { return((to<<32) | from); },
-			[](uint64_t const &from, uint64_t const &to) -> uint64_t { return((from<<32) | to); }
-		};
-                
-        /// Fill in index_edges and index_edges_head. Needs to know the index
-        /// of the "seed node" in our graph's list of nodes, and the direction
-        /// of the pass we are setting up for (false = right to left, true = left to right) 
-        void build_index_edge_table(const OrderedGraph& graph, uint32_t const seed_node_index, bool left_to_right,
-                                    vector<uint64_t>& index_edges, vector<uint64_t>& index_edges_head) const;
 
 		// position handling -> (node_index, ref_offset, query_offset): graph_pos_s
 		// MaximalExactMatch const &select_root_seed(vector<MaximalExactMatch> const &mems);
@@ -220,7 +176,7 @@ namespace vg {
         /// match is found.
         graph_pos_s calculate_max_position(const OrderedGraph& graph, const graph_pos_s& seed_pos,
                                            size_t max_node_index, bool direction,
-                                           dz_s* dz, vector<const dz_forefront_s*>& forefronts) const;
+                                           dz_s* dz, const vector<const dz_forefront_s*>& forefronts) const;
 	
         /// If no seeds are provided as alignment input, we need to compute our own starting anchor position. This function does that.
         /// Takes the topologically-sorted graph, the query sequence, and the direction.
@@ -228,8 +184,7 @@ namespace vg {
         ///
         /// This replaces calculate_seed_position for the case where we have no MEMs.
         graph_pos_s scan_seed_position(const OrderedGraph& graph, const string& query_seq, bool direction,
-                                       const vector<uint64_t>& index_edges, dz_s* dz,
-                                       vector<const dz_forefront_s*>& forefronts) const;
+                                       dz_s* dz, vector<const dz_forefront_s*>& forefronts) const;
 
         /// Append an edit at the end of the current mapping array.
         /// Returns the length passed in.
@@ -258,8 +213,7 @@ namespace vg {
         ///
         /// Note that if no non-empty local alignment is found, it may not be
         /// safe to call dz_calc_max_qpos on the associated forefront!
-		size_t extend(const OrderedGraph& graph, vector<uint64_t>::const_iterator begin,
-                      vector<uint64_t>::const_iterator end, const dz_query_s* packed_query,
+		size_t extend(const OrderedGraph& graph, const dz_query_s* packed_query,
                       size_t seed_node_index, uint64_t seed_offset, bool right_to_left,
                       dz_s* dz, vector<const dz_forefront_s*>& forefronts) const;
        
@@ -275,7 +229,7 @@ namespace vg {
          */
         void calculate_and_save_alignment(Alignment &alignment, const OrderedGraph& graph,
                                           const graph_pos_s& head_pos, size_t tail_node_index, bool left_to_right,
-                                          dz_s* dz, vector<const dz_forefront_s*>& forefronts) const;
+                                          dz_s* dz, const vector<const dz_forefront_s*>& forefronts) const;
 
 		// void debug_print(Alignment const &alignment, OrderedGraph const &graph, MaximalExactMatch const &seed, bool reverse_complemented);
 		// bench_t bench;
@@ -285,8 +239,7 @@ namespace vg {
         /// set, goes left to right and traces back the other way. If it is
         /// unset, goes right to left and traces back the other way.
         void align_downward(Alignment &alignment, const OrderedGraph& graph, const graph_pos_s& head_pos,
-                            bool left_to_right, const vector<uint64_t>& index_edges, dz_s* dz,
-                            vector<const dz_forefront_s*>& forefronts) const;
+                            bool left_to_right, dz_s* dz, vector<const dz_forefront_s*>& forefronts) const;
 
         
 	public:
