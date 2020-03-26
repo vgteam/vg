@@ -496,7 +496,7 @@ then
     # Generate a report in two files: HTML full output, and a Markdown summary.
     # Takes as input the test result XML and the work directory with the
     # test output files.
-    vgci/mine-logs.py test-report.xml "${LOAD_WORK_DIR}/" report-html/ summary.md
+    python3 vgci/mine-logs.py test-report.xml "${LOAD_WORK_DIR}/" report-html/ summary.md
     if [ "$?" -ne 0 ]
     then
         echo "Log mining fail"

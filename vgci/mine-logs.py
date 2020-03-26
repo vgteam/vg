@@ -1,10 +1,10 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 Mine the CI test log XML and the test output files and generate a report
 of how good VG is at various tasks.
 """
-from __future__ import unicode_literals
+
 import logging
 import subprocess
 import tempfile
@@ -188,30 +188,30 @@ def parse_testcase_xml(testcase):
     # depending on if the parser thinks we have UTF-8 or ASCII data in a field.
     
     tc = dict()
-    tc['name'] = unicode(testcase.get('name'))
+    tc['name'] = str(testcase.get('name'))
     tc['time'] = int(float(testcase.get('time', 0)))
 
     if testcase.find('system-out') is not None:
-        tc['stdout'] = unicode(testcase.find('system-out').text)
+        tc['stdout'] = str(testcase.find('system-out').text)
     else:
         tc['stdout'] = None
 
     if testcase.find('system-err') is not None:
-        tc['stderr'] = unicode(testcase.find('system-err').text)
+        tc['stderr'] = str(testcase.find('system-err').text)
     else:
         tc['stderr'] = None
 
     if testcase.find('skipped') is not None:
         tc['skipped'] = True
-        tc['skip-msg'] = unicode(testcase.find('skipped').text)
+        tc['skip-msg'] = str(testcase.find('skipped').text)
     else:
         tc['skipped'] = False
         tc['skip-msg'] = None
 
     failure = testcase.find('failure')
     if failure is not None:
-        tc['fail-txt'] = unicode(failure.text)
-        tc['fail-msg'] = unicode(failure.get('message'))
+        tc['fail-txt'] = str(failure.text)
+        tc['fail-msg'] = str(failure.get('message'))
         tc['failed'] = True
     else:
         tc['fail-txt'] = None
