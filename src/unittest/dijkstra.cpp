@@ -8,7 +8,7 @@
 #include "../algorithms/dijkstra.hpp"
 #include "../handle.hpp"
 #include "../json2pb.h"
-#include "../proto_handle_graph.hpp"
+#include "../vg.hpp"
 #include "catch.hpp"
 
 #include <vg/vg.pb.h>
@@ -101,7 +101,7 @@ TEST_CASE("Dijkstra search works on a particular problem graph", "[dijkstra][alg
     json2pb(g, graph_json);
     
     // Wrap the graph in a HandleGraph
-    ProtoHandleGraph graph(&g);
+    VG graph(g);
     
     // Decide where to start
     handle_t start = graph.get_handle(2454536, true);

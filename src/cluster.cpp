@@ -3606,6 +3606,8 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
                 --j_begin;
             }
             
+            int64_t connections_made = 0;
+            
             for (size_t j = j_begin;
                  j < component.size() && hit_graph.nodes[component[j]].mem->begin - from <= max_read_separation; ++j) {
                 
@@ -3637,6 +3639,13 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
                         hit_graph.add_edge(component[i], component[j],
                                            estimate_edge_score(hit_node_1.mem, hit_node_2.mem, graph_dist, aligner),
                                            graph_dist);
+                        
+                        // check if we've made enough connnections to stop early (usually the very next
+                        // match along the read is the true "next" match in the cluster)
+                        ++connections_made;
+                        if (early_stop_number && connections_made >= early_stop_number) {
+                            break;
+                        }
                     }
                 }
             }

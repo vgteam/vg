@@ -8,7 +8,6 @@
 #include "../algorithms/k_widest_paths.hpp"
 #include "../handle.hpp"
 #include "../json2pb.h"
-#include "../proto_handle_graph.hpp"
 #include "catch.hpp"
 
 #include <vg/vg.pb.h>

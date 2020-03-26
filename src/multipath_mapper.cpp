@@ -420,6 +420,11 @@ namespace vg {
 #endif
             
             ambiguous_pair_buffer.emplace_back(alignment1, alignment2);
+            
+            if (ambiguous_pair_buffer.size() + fragment_length_distr.curr_sample_size()
+                == fragment_length_distr.max_sample_size() * fragment_length_warning_factor) {
+                cerr << "warning:[vg mpmap] Mapped " << ambiguous_pair_buffer.size() + fragment_length_distr.curr_sample_size() << " read pairs as unpaired reads to learn fragment length distribution, but only obtained " << fragment_length_distr.curr_sample_size() << " unambiguous, consistently mapped pairs. Often this indicates data issues, such as reads that are pre-sorted with unmappable reads at the front, or reads that are not actually paired." << endl;
+            }
         }
         
         
