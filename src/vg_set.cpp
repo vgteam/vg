@@ -58,8 +58,6 @@ id_t VGset::max_node_id(void) {
 
 int64_t VGset::merge_id_space(void) {
     int64_t max_node_id = 0;
-    // TODO: for now, only vg::VG actually implements increment_node_ids,
-    // despite it being in the interface.
     auto lambda = [&max_node_id](MutableHandleGraph* g) {
         int64_t delta = max_node_id - g->min_node_id();
         if (delta >= 0) {
