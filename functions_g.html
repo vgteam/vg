@@ -65,6 +65,9 @@ $(function() {
 <li>g_graph
 : <a class="el" href="classvg_1_1DepthMap.html#a17628f974b6305523966b75167896dcb">vg::DepthMap</a>
 </li>
+<li>gap_extend
+: <a class="el" href="classvg_1_1XdropAligner.html#a4106821ab23b6b6248277a4efae0d99a">vg::XdropAligner</a>
+</li>
 <li>gap_extension
 : <a class="el" href="classvg_1_1GSSWAligner.html#afd2379af50d751eee892a10529d64ffb">vg::GSSWAligner</a>
 , <a class="el" href="classvg_1_1SSWAligner.html#a2248e3e561aab8d3b1036d51850b3c2f">vg::SSWAligner</a>
@@ -72,6 +75,7 @@ $(function() {
 <li>gap_open
 : <a class="el" href="classvg_1_1GSSWAligner.html#aa5c0a63b73ad2ff8ec8f05062c768c22">vg::GSSWAligner</a>
 , <a class="el" href="classvg_1_1SSWAligner.html#a15398a23880418599e81370d485fec0f">vg::SSWAligner</a>
+, <a class="el" href="classvg_1_1XdropAligner.html#a24c9d02835db5d40ddbfecf169798cfe">vg::XdropAligner</a>
 </li>
 <li>GaplessExtender()
 : <a class="el" href="classvg_1_1GaplessExtender.html#a497cc4e85c6433a3e41f04895703f271">vg::GaplessExtender</a>
@@ -92,7 +96,7 @@ $(function() {
 : <a class="el" href="classvg_1_1IndexManager.html#a714748578e663ccb942ea069125d30d5">vg::IndexManager</a>
 </li>
 <li>gbwt_thread_t()
-: <a class="el" href="structhaplo_1_1gbwt__thread__t.html#a5b148ae0a27b81b4b4af07f200a1255b">haplo::gbwt_thread_t</a>
+: <a class="el" href="structhaplo_1_1gbwt__thread__t.html#aa52a0e84c11044abd6ce20969629e3a9">haplo::gbwt_thread_t</a>
 </li>
 <li>gbwtgraph
 : <a class="el" href="classvg_1_1IndexManager.html#a2ec86353280dd653e3d1f043d374808e">vg::IndexManager</a>
@@ -303,9 +307,6 @@ $(function() {
 : <a class="el" href="classvg_1_1Index.html#a718f5b5c557c69fbd33e08da1f07eb29">vg::Index</a>
 , <a class="el" href="classvg_1_1VG.html#a8668ddc84b9abe4fe9cb5acb3efd877b">vg::VG</a>
 </li>
-<li>get_edge_by_index()
-: <a class="el" href="classvg_1_1ProtoHandleGraph.html#af462572f219b5dbb7caca30345eee065">vg::ProtoHandleGraph</a>
-</li>
 <li>get_edge_count()
 : <a class="el" href="classhandlegraph_1_1HandleGraph.html#a20ff62014d7f0f0c01ada8a3d40a278d">handlegraph::HandleGraph</a>
 , <a class="el" href="classvg_1_1VG.html#ad4577be9213932c313efd3d016b88a31">vg::VG</a>
@@ -373,7 +374,6 @@ $(function() {
 , <a class="el" href="classvg_1_1NetGraph.html#a639a1a278626238fe98568320590c64f">vg::NetGraph</a>
 , <a class="el" href="classvg_1_1NullMaskingGraph.html#aea8062f2a253f0397a91005b3924475e">vg::NullMaskingGraph</a>
 , <a class="el" href="classvg_1_1PathSubgraph.html#a9d2fc4747e6c86125ba149c90041abcd">vg::PathSubgraph</a>
-, <a class="el" href="classvg_1_1ProtoHandleGraph.html#ad55e07a25ef48dc0ad07e7d919b8f3a7">vg::ProtoHandleGraph</a>
 , <a class="el" href="classvg_1_1ReverseGraph.html#a34a79e8c3f5d5f029d5a1427ca10cfbd">vg::ReverseGraph</a>
 , <a class="el" href="classvg_1_1SourceSinkOverlay.html#a7cc144d829750cfb85341d42bd4f7e4a">vg::SourceSinkOverlay</a>
 , <a class="el" href="classvg_1_1StrandSplitGraph.html#a97db8ec5efb4280bfe358b0859e96659">vg::StrandSplitGraph</a>
@@ -381,9 +381,6 @@ $(function() {
 , <a class="el" href="classvg_1_1SubHandleGraph.html#a4cf66400a93dee8a1e49fcc88ab24eb5">vg::SubHandleGraph</a>
 , <a class="el" href="classvg_1_1TreeSubgraph.html#ab7b56b78b8750cc6453180e7e531d925">vg::TreeSubgraph</a>
 , <a class="el" href="classvg_1_1VG.html#af83bdec47d874904a144bdaf78a40018">vg::VG</a>
-</li>
-<li>get_handle_by_index()
-: <a class="el" href="classvg_1_1ProtoHandleGraph.html#a43becccb5bf4dc3d48b80a3bf89fb5f1">vg::ProtoHandleGraph</a>
 </li>
 <li>get_handle_from_inward_backing_handle()
 : <a class="el" href="classvg_1_1NetGraph.html#a62b87ba5400e8c6d3f6335fc2198cc38">vg::NetGraph</a>
@@ -417,7 +414,6 @@ $(function() {
 , <a class="el" href="classvg_1_1NetGraph.html#a9964476cfff61404eeb9d65cc182aa4a">vg::NetGraph</a>
 , <a class="el" href="classvg_1_1NullMaskingGraph.html#a541f81de46db62d5e8f37e3cfc51f08e">vg::NullMaskingGraph</a>
 , <a class="el" href="classvg_1_1PathSubgraph.html#a47ff1fe374dccd07542ed1523327553e">vg::PathSubgraph</a>
-, <a class="el" href="classvg_1_1ProtoHandleGraph.html#a86c93043a0580ed9d5fa9f8ae3647df3">vg::ProtoHandleGraph</a>
 , <a class="el" href="classvg_1_1ReverseGraph.html#aef09dbb8dd08735bdd123b2a9d0066e0">vg::ReverseGraph</a>
 , <a class="el" href="classvg_1_1SourceSinkOverlay.html#a9c10b6562749e62bc1038ef23e8b9b28">vg::SourceSinkOverlay</a>
 , <a class="el" href="classvg_1_1StrandSplitGraph.html#a07bd24e1ed6a14843ddb87108a11c7f8">vg::StrandSplitGraph</a>
@@ -448,7 +444,6 @@ $(function() {
 , <a class="el" href="classvg_1_1NetGraph.html#a4581f8ffa5738a409e9e856f15c48a99">vg::NetGraph</a>
 , <a class="el" href="classvg_1_1NullMaskingGraph.html#ab99a483165208a4aabc1e2275f126a18">vg::NullMaskingGraph</a>
 , <a class="el" href="classvg_1_1PathSubgraph.html#a5305f2276ec4eecae4a59a4892cb63ab">vg::PathSubgraph</a>
-, <a class="el" href="classvg_1_1ProtoHandleGraph.html#ae93795bd50fdf777ac83acd5bae9844c">vg::ProtoHandleGraph</a>
 , <a class="el" href="classvg_1_1ReverseGraph.html#aaa65f6a0677677af70608a0294ec36f5">vg::ReverseGraph</a>
 , <a class="el" href="classvg_1_1SourceSinkOverlay.html#a274359d605130e8efec7c14791d5044b">vg::SourceSinkOverlay</a>
 , <a class="el" href="classvg_1_1StrandSplitGraph.html#a2882b925a09ba0ee35cdf8bdac0c4605">vg::StrandSplitGraph</a>
@@ -479,7 +474,6 @@ $(function() {
 , <a class="el" href="classvg_1_1NetGraph.html#a8170045aa0032b33628858c0717cc74a">vg::NetGraph</a>
 , <a class="el" href="classvg_1_1NullMaskingGraph.html#a2144c791b97d05bf625a50442649def2">vg::NullMaskingGraph</a>
 , <a class="el" href="classvg_1_1PathSubgraph.html#a777f23f7156addc72dd508d08f069cc7">vg::PathSubgraph</a>
-, <a class="el" href="classvg_1_1ProtoHandleGraph.html#aca36d711a257ba0190925b2af53daf97">vg::ProtoHandleGraph</a>
 , <a class="el" href="classvg_1_1ReverseGraph.html#a54f7adad266466143efaa59270432d8f">vg::ReverseGraph</a>
 , <a class="el" href="classvg_1_1SourceSinkOverlay.html#a03f1de876e4731012b5e7168556d5236">vg::SourceSinkOverlay</a>
 , <a class="el" href="classvg_1_1StrandSplitGraph.html#a46c7611ab9f71f86e3192a34406860b4">vg::StrandSplitGraph</a>
@@ -575,7 +569,6 @@ $(function() {
 , <a class="el" href="classvg_1_1NetGraph.html#a49f4b9958557920e8b81c3f6b6c62de2">vg::NetGraph</a>
 , <a class="el" href="classvg_1_1NullMaskingGraph.html#a7a7eeb58c5787789e6b8ae8a9e58101b">vg::NullMaskingGraph</a>
 , <a class="el" href="classvg_1_1PathSubgraph.html#a52f431143ff624475a16629fa46898f0">vg::PathSubgraph</a>
-, <a class="el" href="classvg_1_1ProtoHandleGraph.html#af1e0cfa8cf501152f166b228d59e3e5b">vg::ProtoHandleGraph</a>
 , <a class="el" href="classvg_1_1ReverseGraph.html#a075661952d5a567b1e09ad9a5624c5a7">vg::ReverseGraph</a>
 , <a class="el" href="classvg_1_1SourceSinkOverlay.html#ac49954276cde4384262f3501f4ed70ce">vg::SourceSinkOverlay</a>
 , <a class="el" href="classvg_1_1StrandSplitGraph.html#a2a4f01cb39da9b46431a7ea3b46f540f">vg::StrandSplitGraph</a>
@@ -594,7 +587,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Mapper.html#a99717b5d61b6db599c177b8bafcb6dd8">vg::Mapper</a>
 </li>
 <li>get_node_mapping()
-: <a class="el" href="classvg_1_1Paths.html#a7fa795ccee1427d6cac6e44fafe41e1e">vg::Paths</a>
+: <a class="el" href="classvg_1_1Paths.html#a6314d7f8036a65b31d4dfac643bc3598">vg::Paths</a>
 </li>
 <li>get_node_mapping_by_path_name()
 : <a class="el" href="classvg_1_1Paths.html#a9c9cf2b7f26c788195812e2b8170a6ce">vg::Paths</a>
@@ -781,7 +774,6 @@ $(function() {
 , <a class="el" href="classvg_1_1NetGraph.html#a4278d3e414d6e5b8e8055d7bdf87c7ac">vg::NetGraph</a>
 , <a class="el" href="classvg_1_1NullMaskingGraph.html#a7a92b5f2747dca58d2fe63368e1294d4">vg::NullMaskingGraph</a>
 , <a class="el" href="classvg_1_1PathSubgraph.html#a1549c36d974dfc4e8bcc54e0e9950646">vg::PathSubgraph</a>
-, <a class="el" href="classvg_1_1ProtoHandleGraph.html#a34e740944a746276123c4ca24226e09c">vg::ProtoHandleGraph</a>
 , <a class="el" href="classvg_1_1ReverseGraph.html#ad815813ebd0d2b33515473bc974c53ad">vg::ReverseGraph</a>
 , <a class="el" href="classvg_1_1SourceSinkOverlay.html#a4a3eb7401c1b90b33d97672f50a17d39">vg::SourceSinkOverlay</a>
 , <a class="el" href="classvg_1_1StrandSplitGraph.html#a878c4be6f6ad6652d3b33f2691bbb570">vg::StrandSplitGraph</a>
@@ -850,7 +842,7 @@ $(function() {
 </li>
 <li>get_support()
 : <a class="el" href="structvg_1_1AugmentedGraph.html#a87c6ed55516068757be3b1ad54a6cfd0">vg::AugmentedGraph</a>
-, <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a4c86be41ce8680c5473080c704ddcc10">vg::SupportAugmentedGraph</a>
+, <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a0ffa85683b46b7f8d6b64da42ba19fbb">vg::SupportAugmentedGraph</a>
 </li>
 <li>get_support_finder()
 : <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a5687496a072d3df38436a585e53151a6">vg::SupportBasedSnarlCaller</a>
@@ -915,9 +907,9 @@ $(function() {
 : <a class="el" href="classvg_1_1Version.html#aa6e698d728ebd5e3318511dfde778eaf">vg::Version</a>
 </li>
 <li>get_xdrop()
-: <a class="el" href="classvg_1_1Aligner.html#a884cba01739660b4ff77b9439372c9bb">vg::Aligner</a>
-, <a class="el" href="classvg_1_1GSSWAligner.html#a8978cdfb547b2d946501ee2fd36d8664">vg::GSSWAligner</a>
-, <a class="el" href="classvg_1_1QualAdjAligner.html#ab202c5b309edc47fb7586ff34015f73b">vg::QualAdjAligner</a>
+: <a class="el" href="classvg_1_1Aligner.html#a57837100d60db1d578998e2ce548a7df">vg::Aligner</a>
+, <a class="el" href="classvg_1_1GSSWAligner.html#ab51740f54afba75018d62e880a4c90d5">vg::GSSWAligner</a>
+, <a class="el" href="classvg_1_1QualAdjAligner.html#aef28fc39c5128de79e446302c5fd5284">vg::QualAdjAligner</a>
 </li>
 <li>getChainAssignment()
 : <a class="el" href="classvg_1_1MinimumDistanceIndex.html#aeede4c889f5306d5006a906ab3151078">vg::MinimumDistanceIndex</a>
@@ -983,7 +975,6 @@ $(function() {
 , <a class="el" href="classvg_1_1PathOrientedDistanceMeasurer.html#a528e7742b43628c6c93c6542810ffdfd">vg::PathOrientedDistanceMeasurer</a>
 , <a class="el" href="classvg_1_1PathRestrictedTraversalFinder.html#aef70365b3b1ee2afb3ac622748923a90">vg::PathRestrictedTraversalFinder</a>
 , <a class="el" href="classvg_1_1PathTraversalFinder.html#a7ae6d1d377192e4fab7a9074b83bddbd">vg::PathTraversalFinder</a>
-, <a class="el" href="classvg_1_1ProtoHandleGraph.html#aeb55e5afccc48a91f62e21230fee6b12">vg::ProtoHandleGraph</a>
 , <a class="el" href="classvg_1_1RareVariantSimplifier.html#ace754988b74595f36762993abead625f">vg::RareVariantSimplifier</a>
 , <a class="el" href="classvg_1_1ReadFilter.html#a7fc3a9a61f57bb5a8c9857fe43a032f5">vg::ReadFilter</a>
 , <a class="el" href="classvg_1_1RegionExpander.html#af23424b8d8c2f809311afb6b3dceca08">vg::RegionExpander</a>
@@ -1002,7 +993,7 @@ $(function() {
 , <a class="el" href="classvg_1_1VCFTraversalFinder.html#ac8e35bbc2e0c34475f13f8d6989fa5b6">vg::VCFTraversalFinder</a>
 , <a class="el" href="classvg_1_1VG.html#a4772c77ed932bfed4d21e247918381a4">vg::VG</a>
 , <a class="el" href="structvg_1_1VG_1_1Plan.html#a06f927768c287c88f81d9761d61da231">vg::VG::Plan</a>
-, <a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html#a8c44528510dc12372803478a787fccbf">vg::XdropAligner::OrderedGraph</a>
+, <a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html#ade56417c0f4c22e4c793cc59527c3877">vg::XdropAligner::OrderedGraph</a>
 </li>
 <li>graph_cigar()
 : <a class="el" href="classvg_1_1GSSWAligner.html#aa00d5de382ccbd9e9c0c46bbfa38aab1">vg::GSSWAligner</a>

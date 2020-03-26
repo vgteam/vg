@@ -5,8 +5,6 @@ var searchData=
   ['_5fconvert',['_CONVERT',['../json2pb_8cpp.html#ad4c2ff64d43af01294cacd1499ebb846',1,'json2pb.cpp']]],
   ['_5fconvert_5fas_5fstring',['_CONVERT_AS_STRING',['../json2pb_8cpp.html#a8ef0803c85fc6aa51de9d0a69c0c8e6d',1,'json2pb.cpp']]],
   ['_5fconvert_5fwith_5fstring',['_CONVERT_WITH_STRING',['../json2pb_8cpp.html#ac7232ca2969a15d4ca8850c03de8ee86',1,'json2pb.cpp']]],
-  ['_5fdst_5findex',['_dst_index',['../xdrop__aligner_8cpp.html#a3b1cab5606b4ed839a9779d48b9faf3f',1,'xdrop_aligner.cpp']]],
-  ['_5fedge',['_edge',['../xdrop__aligner_8cpp.html#a936ec1377e99e656d140a659ebf77ff8',1,'xdrop_aligner.cpp']]],
   ['_5ferror',['_error',['../classj2pb__error.html#a6c1faa9c2a04cb41166771a03f8fe757',1,'j2pb_error']]],
   ['_5fflush_5fop',['_flush_op',['../xdrop__aligner_8cpp.html#a3592941015e5430b738db9e882e0305d',1,'xdrop_aligner.cpp']]],
   ['_5ffor_5feach_5fkmer',['_for_each_kmer',['../classvg_1_1VG.html#aaf5016c5e5d28db6db32aa7626440238',1,'vg::VG']]],
@@ -17,7 +15,6 @@ var searchData=
   ['_5fset_5for_5fadd',['_SET_OR_ADD',['../json2pb_8cpp.html#a7a898a2b4507c746088e2b09e94e4c56',1,'json2pb.cpp']]],
   ['_5fsplice_5fgraph',['_splice_graph',['../classvg_1_1Transcriptome.html#a7071af495337c1f8e128e3e5dd8042db',1,'vg::Transcriptome']]],
   ['_5fsplice_5fgraph_5fnode_5fupdated',['_splice_graph_node_updated',['../classvg_1_1Transcriptome.html#a171230d85aa7f8e7fdbcb8c0b4a4e9df',1,'vg::Transcriptome']]],
-  ['_5fsrc_5findex',['_src_index',['../xdrop__aligner_8cpp.html#aebd5c1bc54d1732930033dcdf9977bd9',1,'xdrop_aligner.cpp']]],
   ['_5ftranscript_5fpaths',['_transcript_paths',['../classvg_1_1Transcriptome.html#a8c232c3a1a730b3abc0771f0d45cb341',1,'vg::Transcriptome']]],
   ['_5fxopen_5fsource',['_XOPEN_SOURCE',['../crash_8cpp.html#a78c99ffd76a7bb3c8c74db76207e9ab4',1,'crash.cpp']]]
 ];

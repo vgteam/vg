@@ -35,7 +35,6 @@ var searchData=
   ['colors',['colors',['../classvg_1_1Colors.html#a20b7cf0022c8e1340b82176e5715cd2f',1,'vg::Colors']]],
   ['column_5ffamily_5foptions',['column_family_options',['../classvg_1_1Index.html#a3b65ef8aecfa71ad34ecbe832a47e82e',1,'vg::Index']]],
   ['column_5fof',['column_of',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#af6f26344b2eec01c2f3847dfbbad5b3d',1,'vg::NGSSimulator::MarkovDistribution']]],
-  ['compare',['compare',['../classvg_1_1XdropAligner.html#a5090116005c979770c34703c71c02beb',1,'vg::XdropAligner']]],
   ['compiler',['COMPILER',['../classvg_1_1Version.html#a20177da26bdbb15b48bae0c20b02b273',1,'vg::Version']]],
   ['complement',['complement',['../classvg_1_1ReverseGraph.html#af2508e0ccbc9186701840c7630b7c505',1,'vg::ReverseGraph::complement()'],['../structvg_1_1ChainIterator.html#a6699e092f944e1c311b4bbdf2e2cbe38',1,'vg::ChainIterator::complement()']]],
   ['complement_5ffilter',['complement_filter',['../classvg_1_1ReadFilter.html#a7a22a82c55e23fca581060934d03935e',1,'vg::ReadFilter']]],

@@ -27,7 +27,6 @@ var searchData=
   ['force_5fhaplotype_5fcount',['force_haplotype_count',['../classvg_1_1MultipathMapper.html#a4c89cc1e5c4696682c6bc9282de4b034',1,'vg::MultipathMapper']]],
   ['force_5fphasing',['force_phasing',['../classvg_1_1HaplotypeIndexer.html#acb44a055288c0a9debed5662e461959e',1,'vg::HaplotypeIndexer']]],
   ['force_5funequal',['force_unequal',['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html#ac1dcdb35b0b8fc51f2aee4abea3ce242',1,'handlegraph::PathForEachSocket::iterator']]],
-  ['forefronts',['forefronts',['../classvg_1_1XdropAligner.html#ae3a4b6a0f8a31895f99ec6e59c2b732c',1,'vg::XdropAligner']]],
   ['forks',['forks',['../structvg_1_1walk__t.html#a24c17fa18ae88290cebb26c0e61a86d1',1,'vg::walk_t']]],
   ['format',['format',['../classvg_1_1HTSAlignmentEmitter.html#a061053f7bdf3bf4e70483fad7d659761',1,'vg::HTSAlignmentEmitter']]],
   ['forward',['forward',['../classvg_1_1GFAToPinchTranslator.html#aa2bde3e3f2d943225f23715afa4a2f6e',1,'vg::GFAToPinchTranslator::forward()'],['../structvg_1_1Support.html#afe50d5886e57f3ff8594bddb90dfc8fa',1,'vg::Support::forward()']]],
@@ -46,6 +45,7 @@ var searchData=
   ['fragment_5flength_5fcache_5fsize',['fragment_length_cache_size',['../classvg_1_1FragmentLengthStatistics.html#a8616a97cafb7618fed2b27c08e91afee',1,'vg::FragmentLengthStatistics']]],
   ['fragment_5flength_5fdistr',['fragment_length_distr',['../classvg_1_1PairedEndMapper.html#a9d232033ef120e15c47d13fab2750bc1',1,'vg::PairedEndMapper::fragment_length_distr()'],['../classvg_1_1MinimizerMapper.html#ab019d5888d75bbe36d8eb444d148ac50',1,'vg::MinimizerMapper::fragment_length_distr()']]],
   ['fragment_5flength_5fdistribution',['fragment_length_distribution',['../structvg_1_1Alignment.html#ab13fb82c1707e0c6934d5c5ffd4c3ffa',1,'vg::Alignment']]],
+  ['fragment_5flength_5fwarning_5ffactor',['fragment_length_warning_factor',['../classvg_1_1MultipathMapper.html#af0e2a57df540a8eafefc7eec55908b24',1,'vg::MultipathMapper']]],
   ['fragment_5flengths',['fragment_lengths',['../classvg_1_1FragmentLengthStatistics.html#a7640ef7754d2b2b92fc65744e9b25eda',1,'vg::FragmentLengthStatistics']]],
   ['fragment_5fmax',['fragment_max',['../classvg_1_1FragmentLengthStatistics.html#a79552864430d5905bc58a388dbc423ef',1,'vg::FragmentLengthStatistics']]],
   ['fragment_5fmodel_5fupdate_5finterval',['fragment_model_update_interval',['../classvg_1_1FragmentLengthStatistics.html#a37b3e1be0011fae099dd9aef7653c2b6',1,'vg::FragmentLengthStatistics']]],
@@ -60,7 +60,7 @@ var searchData=
   ['from_5flength',['from_length',['../structvg_1_1Edit.html#ae9694807752cc5cd06519f498cfba06c',1,'vg::Edit']]],
   ['from_5fnode_5fid',['from_node_id',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html#a2084bf098f9ffe829a0de4ca12ae0f3e',1,'vg::BandedGlobalAligner::AltTracebackStack::Deflection']]],
   ['from_5fstart',['from_start',['../structvg_1_1Edge.html#aadc916440008619a27cdd0c388e8ba86',1,'vg::Edge']]],
-  ['full_5flength_5fbonus',['full_length_bonus',['../classvg_1_1GSSWAligner.html#a24ee1a1d5b84c90c7fc77a4b7d8660bd',1,'vg::GSSWAligner']]],
+  ['full_5flength_5fbonus',['full_length_bonus',['../classvg_1_1GSSWAligner.html#a24ee1a1d5b84c90c7fc77a4b7d8660bd',1,'vg::GSSWAligner::full_length_bonus()'],['../classvg_1_1XdropAligner.html#a5a33499c77eb31aec0f4445546556766',1,'vg::XdropAligner::full_length_bonus()']]],
   ['fulltrace',['fullTrace',['../namespacevg.html#abd1798abb6fcee86ab5b0539fb764eb2',1,'vg']]],
   ['funnel_5fname',['funnel_name',['../classvg_1_1Funnel.html#aae00e188df16e84d5ecdb12e6ce5d51e',1,'vg::Funnel']]]
 ];

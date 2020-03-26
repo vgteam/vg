@@ -64,56 +64,106 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="structvg_1_1XdropAligner_1_1OrderedGraph-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::XdropAligner::OrderedGraph Struct Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-
-<p><code>#include &lt;xdrop_aligner.hpp&gt;</code></p>
 <table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
+Public Member Functions</h2></td></tr>
+<tr class="memitem:a30c3112c0bb68ca2658cfc11c282ba2a"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html#a30c3112c0bb68ca2658cfc11c282ba2a">OrderedGraph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html#ade56417c0f4c22e4c793cc59527c3877">graph</a>, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;<a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html#a36b6f2c7476970b58f4b1a8f461eba79">order</a>)</td></tr>
+<tr class="separator:a30c3112c0bb68ca2658cfc11c282ba2a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:a8c44528510dc12372803478a787fccbf"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> const  &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html#a8c44528510dc12372803478a787fccbf">graph</a></td></tr>
-<tr class="separator:a8c44528510dc12372803478a787fccbf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae3e0b7cb7f5f2cf84acb02557d7863de"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; const  &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html#ae3e0b7cb7f5f2cf84acb02557d7863de">order</a></td></tr>
-<tr class="separator:ae3e0b7cb7f5f2cf84acb02557d7863de"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ade56417c0f4c22e4c793cc59527c3877"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html#ade56417c0f4c22e4c793cc59527c3877">graph</a></td></tr>
+<tr class="separator:ade56417c0f4c22e4c793cc59527c3877"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a36b6f2c7476970b58f4b1a8f461eba79"><td class="memItemLeft" align="right" valign="top">const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html#a36b6f2c7476970b58f4b1a8f461eba79">order</a></td></tr>
+<tr class="separator:a36b6f2c7476970b58f4b1a8f461eba79"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a176984bff4ac788cbf9fab2fc2559537"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html#a176984bff4ac788cbf9fab2fc2559537">index_of</a></td></tr>
+<tr class="separator:a176984bff4ac788cbf9fab2fc2559537"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Represents a HandleGraph with a defined (topological) order calculated for it.</p>
 <p>Meant to be used with aggregate initialization ({wrapper, order}). </p>
-</div><h2 class="groupheader">Member Data Documentation</h2>
-<a id="a8c44528510dc12372803478a787fccbf"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8c44528510dc12372803478a787fccbf">&#9670;&nbsp;</a></span>graph</h2>
+</div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a id="a30c3112c0bb68ca2658cfc11c282ba2a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a30c3112c0bb68ca2658cfc11c282ba2a">&#9670;&nbsp;</a></span>OrderedGraph()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> const&amp; vg::XdropAligner::OrderedGraph::graph</td>
+          <td class="memname">XdropAligner::OrderedGraph::OrderedGraph </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>order</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="ae3e0b7cb7f5f2cf84acb02557d7863de"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae3e0b7cb7f5f2cf84acb02557d7863de">&#9670;&nbsp;</a></span>order</h2>
+<h2 class="groupheader">Member Data Documentation</h2>
+<a id="ade56417c0f4c22e4c793cc59527c3877"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ade56417c0f4c22e4c793cc59527c3877">&#9670;&nbsp;</a></span>graph</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt;<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&gt; const&amp; vg::XdropAligner::OrderedGraph::order</td>
+          <td class="memname">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>&amp; vg::XdropAligner::OrderedGraph::graph</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<hr/>The documentation for this struct was generated from the following file:<ul>
+<a id="a176984bff4ac788cbf9fab2fc2559537"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a176984bff4ac788cbf9fab2fc2559537">&#9670;&nbsp;</a></span>index_of</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_map&lt;<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t&gt; vg::XdropAligner::OrderedGraph::index_of</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a36b6f2c7476970b58f4b1a8f461eba79"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a36b6f2c7476970b58f4b1a8f461eba79">&#9670;&nbsp;</a></span>order</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const vector&lt;<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&gt;&amp; vg::XdropAligner::OrderedGraph::order</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<hr/>The documentation for this struct was generated from the following files:<ul>
 <li>src/<a class="el" href="xdrop__aligner_8hpp.html">xdrop_aligner.hpp</a></li>
+<li>src/<a class="el" href="xdrop__aligner_8cpp.html">xdrop_aligner.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

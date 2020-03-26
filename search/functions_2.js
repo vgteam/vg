@@ -41,8 +41,6 @@ var searchData=
   ['build_5fedge_5findexes_5fno_5finit_5fsize',['build_edge_indexes_no_init_size',['../classvg_1_1VG.html#af63d4a22a3baa5b21623128b81a14872',1,'vg::VG']]],
   ['build_5fgbwt',['build_gbwt',['../classvg_1_1HaplotypeIndexer.html#a06c6bf1f4df2c3ad724e36df4fe4029f',1,'vg::HaplotypeIndexer']]],
   ['build_5fgcsa_5flcp',['build_gcsa_lcp',['../namespacevg.html#a34b89433618346e971606020965b10ed',1,'vg']]],
-  ['build_5fid_5findex_5ftable',['build_id_index_table',['../classvg_1_1XdropAligner.html#a178bf539a4ba417825383caa88a3f5c2',1,'vg::XdropAligner']]],
-  ['build_5findex_5fedge_5ftable',['build_index_edge_table',['../classvg_1_1XdropAligner.html#ab8e119c900c4b48b61f175fd9295cdba',1,'vg::XdropAligner']]],
   ['build_5findexes',['build_indexes',['../classvg_1_1SnarlManager.html#a962ce88320136f82a1f5f58a036698c2',1,'vg::SnarlManager::build_indexes()'],['../classvg_1_1VG.html#a7f71911fe2c652dc11aec0a0d705b1e4',1,'vg::VG::build_indexes()']]],
   ['build_5findexes_5fno_5finit_5fsize',['build_indexes_no_init_size',['../classvg_1_1VG.html#aa78095fb5d27e182c5cc4d5c10d3da39',1,'vg::VG']]],
   ['build_5findices',['build_indices',['../classvg_1_1PhasedGenome.html#a72e27ed72d346717ce196d5b2081365b',1,'vg::PhasedGenome']]],

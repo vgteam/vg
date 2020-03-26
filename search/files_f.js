@@ -25,8 +25,6 @@ var searchData=
   ['preflight_2ehpp',['preflight.hpp',['../preflight_8hpp.html',1,'']]],
   ['progressive_2ecpp',['progressive.cpp',['../progressive_8cpp.html',1,'']]],
   ['progressive_2ehpp',['progressive.hpp',['../progressive_8hpp.html',1,'']]],
-  ['proto_5fhandle_5fgraph_2ecpp',['proto_handle_graph.cpp',['../proto__handle__graph_8cpp.html',1,'']]],
-  ['proto_5fhandle_5fgraph_2ehpp',['proto_handle_graph.hpp',['../proto__handle__graph_8hpp.html',1,'']]],
   ['protobuf_5femitter_2ehpp',['protobuf_emitter.hpp',['../protobuf__emitter_8hpp.html',1,'']]],
   ['protobuf_5fiterator_2ehpp',['protobuf_iterator.hpp',['../protobuf__iterator_8hpp.html',1,'']]],
   ['prune_2ecpp',['prune.cpp',['../prune_8cpp.html',1,'']]],

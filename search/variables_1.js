@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['aa_5fmatch',['aa_match',['../classvg_1_1XdropAligner.html#a7b2ced8e428210e6cd9964a309486255',1,'vg::XdropAligner']]],
   ['access_5fmutex',['access_mutex',['../structvg_1_1Watchdog_1_1thread__state__t.html#adcceae4d1421b6f28cf9bcf395f523cb',1,'vg::Watchdog::thread_state_t']]],
   ['adaptive_5fdiff_5fexponent',['adaptive_diff_exponent',['../classvg_1_1BaseMapper.html#a653e029302e4442dbabd06a70ec4bbec',1,'vg::BaseMapper']]],
   ['adaptive_5freseed_5fdiff',['adaptive_reseed_diff',['../classvg_1_1BaseMapper.html#acf7556c347ea7596624700482dc58c8c',1,'vg::BaseMapper']]],

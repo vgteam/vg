@@ -2,6 +2,7 @@ var searchData=
 [
   ['opt_5falways_5fcheck_5fpopulation',['OPT_ALWAYS_CHECK_POPULATION',['../mpmap__main_8cpp.html#a65c6fa4dc0d10a1eaa52a46cf7492f6f',1,'mpmap_main.cpp']]],
   ['opt_5fapprox_5fexp',['OPT_APPROX_EXP',['../mpmap__main_8cpp.html#a2a31a7f2f254185a590fb21601013459',1,'mpmap_main.cpp']]],
+  ['opt_5fband_5fpadding_5fmultiplier',['OPT_BAND_PADDING_MULTIPLIER',['../mpmap__main_8cpp.html#a4e93612c9dd1d066ba7787a13c39d793',1,'mpmap_main.cpp']]],
   ['opt_5fbuild_5fvgi_5findex',['OPT_BUILD_VGI_INDEX',['../index__main_8cpp.html#afb8482664ef525883ed18ceb46cdc029',1,'index_main.cpp']]],
   ['opt_5fcomponent_5fmin_5fdist',['OPT_COMPONENT_MIN_DIST',['../mpmap__main_8cpp.html#a9536ee962e85c03f847a9618b7f4e380',1,'mpmap_main.cpp']]],
   ['opt_5fexclude_5funaligned',['OPT_EXCLUDE_UNALIGNED',['../map__main_8cpp.html#a548f717dd20a48c17c3db507a0c3c53d',1,'map_main.cpp']]],

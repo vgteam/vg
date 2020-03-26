@@ -123,12 +123,15 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:a6c48555f1245310c614265e3d9d69c42"><td class="memItemLeft" align="right" valign="top">const int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ComponentMinDistanceClusterer.html#a6c48555f1245310c614265e3d9d69c42">min_read_separation</a> = -10</td></tr>
 <tr class="memdesc:a6c48555f1245310c614265e3d9d69c42"><td class="mdescLeft">&#160;</td><td class="mdescRight">Minimum distance between two seeds on the read.  <a href="#a6c48555f1245310c614265e3d9d69c42">More...</a><br /></td></tr>
 <tr class="separator:a6c48555f1245310c614265e3d9d69c42"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abe9e6acfcc998bca80f9a6f81553dfef"><td class="memItemLeft" align="right" valign="top">const int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ComponentMinDistanceClusterer.html#abe9e6acfcc998bca80f9a6f81553dfef">max_read_separation</a> = 750</td></tr>
+<tr class="memitem:abe9e6acfcc998bca80f9a6f81553dfef"><td class="memItemLeft" align="right" valign="top">const int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ComponentMinDistanceClusterer.html#abe9e6acfcc998bca80f9a6f81553dfef">max_read_separation</a> = 2500</td></tr>
 <tr class="memdesc:abe9e6acfcc998bca80f9a6f81553dfef"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maximum distance between two seeds on the read.  <a href="#abe9e6acfcc998bca80f9a6f81553dfef">More...</a><br /></td></tr>
 <tr class="separator:abe9e6acfcc998bca80f9a6f81553dfef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afd445769d44f684670eb09a33243574a"><td class="memItemLeft" align="right" valign="top">const int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ComponentMinDistanceClusterer.html#afd445769d44f684670eb09a33243574a">max_graph_separation</a> = 5000</td></tr>
 <tr class="memdesc:afd445769d44f684670eb09a33243574a"><td class="mdescLeft">&#160;</td><td class="mdescRight">The maximum distance we will look during component finding.  <a href="#afd445769d44f684670eb09a33243574a">More...</a><br /></td></tr>
 <tr class="separator:afd445769d44f684670eb09a33243574a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9fe2885de251320cc9c1deeffa8372ec"><td class="memItemLeft" align="right" valign="top">const int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ComponentMinDistanceClusterer.html#a9fe2885de251320cc9c1deeffa8372ec">early_stop_number</a> = 2</td></tr>
+<tr class="memdesc:a9fe2885de251320cc9c1deeffa8372ec"><td class="mdescLeft">&#160;</td><td class="mdescRight">The number of connections from one hit in a component to another that we will consider (0 for no maximum)  <a href="#a9fe2885de251320cc9c1deeffa8372ec">More...</a><br /></td></tr>
+<tr class="separator:a9fe2885de251320cc9c1deeffa8372ec"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_attribs_classvg_1_1MinDistanceClusterer"><td colspan="2" onclick="javascript:toggleInherit('pro_attribs_classvg_1_1MinDistanceClusterer')"><img src="closed.png" alt="-"/>&#160;Protected Attributes inherited from <a class="el" href="classvg_1_1MinDistanceClusterer.html">vg::MinDistanceClusterer</a></td></tr>
 <tr class="memitem:a6bc0aa3fb6df2824a2fe88f941312f09 inherit pro_attribs_classvg_1_1MinDistanceClusterer"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinDistanceClusterer.html#a6bc0aa3fb6df2824a2fe88f941312f09">handle_graph</a></td></tr>
 <tr class="separator:a6bc0aa3fb6df2824a2fe88f941312f09 inherit pro_attribs_classvg_1_1MinDistanceClusterer"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -242,6 +245,30 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a id="a9fe2885de251320cc9c1deeffa8372ec"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9fe2885de251320cc9c1deeffa8372ec">&#9670;&nbsp;</a></span>early_stop_number</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int64_t vg::ComponentMinDistanceClusterer::early_stop_number = 2</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>The number of connections from one hit in a component to another that we will consider (0 for no maximum) </p>
+
+</div>
+</div>
 <a id="afd445769d44f684670eb09a33243574a"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#afd445769d44f684670eb09a33243574a">&#9670;&nbsp;</a></span>max_graph_separation</h2>
 
@@ -276,7 +303,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const int64_t vg::ComponentMinDistanceClusterer::max_read_separation = 750</td>
+          <td class="memname">const int64_t vg::ComponentMinDistanceClusterer::max_read_separation = 2500</td>
         </tr>
       </table>
   </td>

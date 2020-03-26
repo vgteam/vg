@@ -86,7 +86,6 @@ var searchData=
   ['_7epoissoncallinfo',['~PoissonCallInfo',['../structvg_1_1PoissonSupportSnarlCaller_1_1PoissonCallInfo.html#a066ee903413c3c1959ff3de6feeecf5e',1,'vg::PoissonSupportSnarlCaller::PoissonCallInfo']]],
   ['_7epoissonsupportsnarlcaller',['~PoissonSupportSnarlCaller',['../classvg_1_1PoissonSupportSnarlCaller.html#a5bef85e69a8ae047888c4fb72356f215',1,'vg::PoissonSupportSnarlCaller']]],
   ['_7eprotobufemitter',['~ProtobufEmitter',['../classvg_1_1io_1_1ProtobufEmitter.html#ab1994a31484b9a52710a38315adb2bcc',1,'vg::io::ProtobufEmitter']]],
-  ['_7eprotohandlegraph',['~ProtoHandleGraph',['../classvg_1_1ProtoHandleGraph.html#a853491b2624881c53c3c07fb9365118c',1,'vg::ProtoHandleGraph']]],
   ['_7equaladjaligner',['~QualAdjAligner',['../classvg_1_1QualAdjAligner.html#ad46461869b49eb5b7e4fe90437c86c99',1,'vg::QualAdjAligner']]],
   ['_7eratiosupportsnarlcaller',['~RatioSupportSnarlCaller',['../classvg_1_1RatioSupportSnarlCaller.html#a791e985fb18b5fdd13056d609d793eff',1,'vg::RatioSupportSnarlCaller']]],
   ['_7ereadrestrictedtraversalfinder',['~ReadRestrictedTraversalFinder',['../classvg_1_1ReadRestrictedTraversalFinder.html#a8753fffb0d164d41a61de388a148448f',1,'vg::ReadRestrictedTraversalFinder']]],
