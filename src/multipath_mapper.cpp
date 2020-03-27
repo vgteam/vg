@@ -51,11 +51,20 @@ namespace vg {
         cerr << "multipath mapping read " << pb2json(alignment) << endl;
         cerr << "querying MEMs..." << endl;
 #endif
-    
-        // query MEMs using GCSA2
-        double dummy1; double dummy2;
-        vector<MaximalExactMatch> mems = find_mems_deep(alignment.sequence().begin(), alignment.sequence().end(), dummy1, dummy2,
-                                                        0, min_mem_length, mem_reseed_length, false, true, true, false);
+        
+        vector<MaximalExactMatch> mems;
+        if (use_stripped_match_alg) {
+            mems = find_stripped_matches(alignment.sequence().begin(), alignment.sequence().end(),
+                                         stripped_match_alg_strip_length, stripped_match_alg_max_length,
+                                         stripped_match_alg_target_count);
+        }
+        else {
+            // query MEMs using GCSA2
+            double dummy1; double dummy2;
+            mems = find_mems_deep(alignment.sequence().begin(), alignment.sequence().end(), dummy1, dummy2,
+                                  0, min_mem_length, mem_reseed_length, false, true, true, false);
+        }
+        
         
 #ifdef debug_multipath_mapper
         cerr << "obtained MEMs:" << endl;
@@ -68,25 +77,20 @@ namespace vg {
         // TODO: use the automatic expected MEM length algorithm to restrict the MEMs used for clustering?
         
         // cluster the MEMs
-        unique_ptr<SnarlOrientedDistanceMeasurer> snarl_measurer(nullptr);
-        unique_ptr<PathOrientedDistanceMeasurer> path_measurer(nullptr);
         MemoizingGraph memoizing_graph(xindex);
-        
-        OrientedDistanceMeasurer* distance_measurer;
+        unique_ptr<OrientedDistanceMeasurer> distance_measurer;
         if (distance_index) {
 #ifdef debug_multipath_mapper
-            cerr << "using a snarl-based distance measurer" << endl;
+            cerr << "using a snarl-based distance measurer (if doing oriented distance clustering)" << endl;
 #endif
-            snarl_measurer = unique_ptr<SnarlOrientedDistanceMeasurer>(new SnarlOrientedDistanceMeasurer(distance_index));
-            distance_measurer = &(*snarl_measurer);
+            distance_measurer = unique_ptr<OrientedDistanceMeasurer>(new SnarlOrientedDistanceMeasurer(distance_index));
         }
         else {
 #ifdef debug_multipath_mapper
-            cerr << "using a path-based distance measurer" << endl;
+            cerr << "using a path-based distance measurer (if doing oriented distance clustering)" << endl;
 #endif
-            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
+            distance_measurer = unique_ptr<OrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
                                                                                                       &path_component_index));
-            distance_measurer = &(*path_measurer);
         }
         
         vector<memcluster_t> clusters = get_clusters(alignment, mems, &(*distance_measurer));
@@ -167,24 +171,32 @@ namespace vg {
     vector<MultipathMapper::memcluster_t> MultipathMapper::get_clusters(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
                                                                         OrientedDistanceMeasurer* distance_measurer) const {
         
-        vector<MultipathMapper::memcluster_t> return_val;
-        auto aligner = get_aligner(!alignment.quality().empty());
+        // note: we don't want to generate the distance measurer in this function because we want
+        // to be able to re-use the memoization if we cluster pairs later
+        
+        // choose a clusterer
+        unique_ptr<MEMClusterer> clusterer;
         if (use_tvs_clusterer) {
-            TVSClusterer clusterer(xindex, distance_index);
-            return_val = clusterer.clusters(alignment, mems, aligner, min_clustering_mem_length, max_mapping_quality,
-                                            log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+            clusterer = unique_ptr<MEMClusterer>(new TVSClusterer(xindex, distance_index));
+        }
+        else if (use_min_dist_clusterer && greedy_min_dist) {
+            clusterer = unique_ptr<MEMClusterer>(new GreedyMinDistanceClusterer(distance_index));
+        }
+        else if (use_min_dist_clusterer && component_min_dist) {
+            clusterer = unique_ptr<MEMClusterer>(new ComponentMinDistanceClusterer(distance_index));
         }
         else if (use_min_dist_clusterer) {
-            MinDistanceClusterer clusterer(distance_index);
-            return_val = clusterer.clusters(alignment, mems, aligner, min_clustering_mem_length, max_mapping_quality,
-                                            log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+            clusterer = unique_ptr<MEMClusterer>(new MinDistanceClusterer(distance_index));
         }
         else {
-            OrientedDistanceClusterer clusterer(*distance_measurer, max_expected_dist_approx_error);
-            return_val = clusterer.clusters(alignment, mems, aligner, min_clustering_mem_length, max_mapping_quality,
-                                            log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+            clusterer = unique_ptr<MEMClusterer>(new OrientedDistanceClusterer(*distance_measurer,
+                                                                               max_expected_dist_approx_error));
         }
-        return return_val;
+        
+        // generate clusters
+        return clusterer->clusters(alignment, mems, get_aligner(!alignment.quality().empty()),
+                                   min_clustering_mem_length, max_mapping_quality, log_likelihood_approx_factor,
+                                   min_median_mem_coverage_for_split);;
     }
     
     vector<pair<pair<size_t, size_t>, int64_t>> MultipathMapper::get_cluster_pairs(const Alignment& alignment1,
@@ -227,27 +239,21 @@ namespace vg {
         }
         
         // Compute the pairs of cluster graphs and their approximate distances from each other
+        unique_ptr<MEMClusterer> clusterer;
         if (use_tvs_clusterer) {
-            TVSClusterer clusterer(xindex, distance_index);
-            return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
-                                           alt_anchors_1, alt_anchors_2,
-                                           fragment_length_distr.mean(),
-                                           ceil(10.0 * fragment_length_distr.stdev()));
+            clusterer = unique_ptr<MEMClusterer>(new TVSClusterer(xindex, distance_index));
         }
         else if (use_min_dist_clusterer) {
-            MinDistanceClusterer clusterer(distance_index);
-            return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
-                                           alt_anchors_1, alt_anchors_2,
-                                           fragment_length_distr.mean(),
-                                           ceil(10.0 * fragment_length_distr.stdev()));
+            // greedy and non-greedy algorithms are the same, so don't bother distinguishing
+            clusterer = unique_ptr<MEMClusterer>(new MinDistanceClusterer(distance_index));
         }
         else {
-            OrientedDistanceClusterer clusterer(*distance_measurer);
-            return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
-                                           alt_anchors_1, alt_anchors_2,
-                                           fragment_length_distr.mean(),
-                                           ceil(10.0 * fragment_length_distr.stdev()));
+            clusterer = unique_ptr<MEMClusterer>(new OrientedDistanceClusterer(*distance_measurer));
         }
+        return clusterer->pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
+                                       alt_anchors_1, alt_anchors_2,
+                                       fragment_length_distr.mean(),
+                                       ceil(10.0 * fragment_length_distr.stdev()));
     }
     
     void MultipathMapper::align_to_cluster_graphs(const Alignment& alignment,
@@ -414,6 +420,11 @@ namespace vg {
 #endif
             
             ambiguous_pair_buffer.emplace_back(alignment1, alignment2);
+            
+            if (ambiguous_pair_buffer.size() + fragment_length_distr.curr_sample_size()
+                == fragment_length_distr.max_sample_size() * fragment_length_warning_factor) {
+                cerr << "warning:[vg mpmap] Mapped " << ambiguous_pair_buffer.size() + fragment_length_distr.curr_sample_size() << " read pairs as unpaired reads to learn fragment length distribution, but only obtained " << fragment_length_distr.curr_sample_size() << " unambiguous, consistently mapped pairs. Often this indicates data issues, such as reads that are pre-sorted with unmappable reads at the front, or reads that are not actually paired." << endl;
+            }
         }
         
         
@@ -1389,13 +1400,26 @@ namespace vg {
         }
         
         // the fragment length distribution has been estimated, so we can do full-fledged paired mode
-    
-        // query MEMs using GCSA2
-        double dummy1, dummy2;
-        vector<MaximalExactMatch> mems1 = find_mems_deep(alignment1.sequence().begin(), alignment1.sequence().end(), dummy1, dummy2,
-                                                         0, min_mem_length, mem_reseed_length, false, true, true, false);
-        vector<MaximalExactMatch> mems2 = find_mems_deep(alignment2.sequence().begin(), alignment2.sequence().end(), dummy1, dummy2,
-                                                         0, min_mem_length, mem_reseed_length, false, true, true, false);
+        vector<MaximalExactMatch> mems1, mems2;
+        if (use_stripped_match_alg) {
+            // query matches along strips of the read
+            mems1 = find_stripped_matches(alignment1.sequence().begin(), alignment1.sequence().end(),
+                                          stripped_match_alg_strip_length, stripped_match_alg_max_length,
+                                          stripped_match_alg_target_count);
+            mems2 = find_stripped_matches(alignment2.sequence().begin(), alignment2.sequence().end(),
+                                          stripped_match_alg_strip_length, stripped_match_alg_max_length,
+                                          stripped_match_alg_target_count);
+        }
+        else {
+            // query MEMs
+            double dummy1, dummy2;
+            mems1 = find_mems_deep(alignment1.sequence().begin(), alignment1.sequence().end(), dummy1, dummy2,
+                                   0, min_mem_length, mem_reseed_length, false, true, true, false);
+            mems2 = find_mems_deep(alignment2.sequence().begin(), alignment2.sequence().end(), dummy1, dummy2,
+                                   0, min_mem_length, mem_reseed_length, false, true, true, false);
+        }
+        
+        
         
 #ifdef debug_multipath_mapper
         cerr << "obtained read1 MEMs:" << endl;
@@ -1407,6 +1431,9 @@ namespace vg {
             cerr << "\t" << mem << " (" << mem.nodes.size() << " hits filled out of " << mem.match_count << ")" << endl;
         }
 #endif
+        
+        // TODO: this method of identifying a unique mapping is fragile to having a low
+        // count noise MEM. it might be worth fixing this if we ever want to reenable it
         
         // find the count of the most unique match among the MEMs to assess how repetitive the sequence is
         size_t min_match_count_1 = numeric_limits<int64_t>::max();
@@ -1424,25 +1451,20 @@ namespace vg {
         vector<pair<pair<size_t, size_t>, int64_t>> cluster_pairs;
         vector<pair<size_t, size_t>> duplicate_pairs;
         
-        unique_ptr<SnarlOrientedDistanceMeasurer> snarl_measurer(nullptr);
-        unique_ptr<PathOrientedDistanceMeasurer> path_measurer(nullptr);
         MemoizingGraph memoizing_graph(xindex);
-        
-        OrientedDistanceMeasurer* distance_measurer;
+        unique_ptr<OrientedDistanceMeasurer> distance_measurer;
         if (distance_index) {
 #ifdef debug_multipath_mapper
-            cerr << "using a snarl-based distance measurer" << endl;
+            cerr << "using a snarl-based distance measurer (if doing oriented distance clustering)" << endl;
 #endif
-            snarl_measurer = unique_ptr<SnarlOrientedDistanceMeasurer>(new SnarlOrientedDistanceMeasurer(distance_index));
-            distance_measurer = &(*snarl_measurer);
+            distance_measurer = unique_ptr<OrientedDistanceMeasurer>(new SnarlOrientedDistanceMeasurer(distance_index));
         }
         else {
 #ifdef debug_multipath_mapper
-            cerr << "using a path-based distance measurer" << endl;
+            cerr << "using a path-based distance measurer (if doing oriented distance clustering)" << endl;
 #endif
-            path_measurer = unique_ptr<PathOrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
+            distance_measurer = unique_ptr<OrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
                                                                                                       &path_component_index));
-            distance_measurer = &(*path_measurer);
         }
         
         // do we want to try to only cluster one read end and rescue the other?
@@ -2018,6 +2040,7 @@ namespace vg {
                         cerr << "found a duplicate" << endl;
 #endif
                         duplicate = true;
+                        // TODO: should i take the max of the multiplicities, or let it stay at 1?
                         break;
                     }
                 }
@@ -3963,8 +3986,11 @@ namespace vg {
                         else if (removed_so_far > 0) {
                             // move these items into their new position
                             multipath_aln_pairs[i - removed_so_far] = move(multipath_aln_pairs[i]);
-                            scores[i - removed_so_far] = move(scores[i]);
+                            scores[i - removed_so_far] = scores[i];
                             cluster_pairs[i - removed_so_far] = move(cluster_pairs[i]);
+                            if (multiplicities) {
+                                (*multiplicities)[i - removed_so_far] = (*multiplicities)[i];
+                            }
                         }
                     }
                     
@@ -3972,6 +3998,9 @@ namespace vg {
                     multipath_aln_pairs.resize(multipath_aln_pairs.size() - to_remove.size());
                     scores.resize(scores.size() - to_remove.size());
                     cluster_pairs.resize(cluster_pairs.size() - to_remove.size());
+                    if (multiplicities) {
+                        multiplicities->resize(multiplicities->size() - to_remove.size());
+                    }
                     
                     // update the indexes of the marked single-end duplicates
                     for (size_t i = 0, removed_so_far = 0; i < duplicates_1.size(); i++) {

@@ -147,7 +147,12 @@ int main_circularize(int argc, char** argv){
     }
     else{
         for (const auto& path_name : paths_to_circularize) {
-            graph->set_circularity(graph->get_path_handle(path_name), true);
+            path_handle_t path = graph->get_path_handle(path_name);
+            if (graph->get_step_count(path) > 0) {
+                graph->create_edge(graph->get_handle_of_step(graph->path_back(path)),
+                                   graph->get_handle_of_step(graph->path_begin(path)));
+            }
+            graph->set_circularity(path, true);
         }
     }
     

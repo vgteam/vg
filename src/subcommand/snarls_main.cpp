@@ -269,6 +269,9 @@ int main_snarl(int argc, char** argv) {
     }
   
 
+    // Now we have to output stuff.
+    // TODO: remove extra features and just use SnarlManager::serialize()
+
     // Protobuf output buffers
     vector<Snarl> snarl_buffer;
     vector<SnarlTraversal> traversal_buffer;

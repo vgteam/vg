@@ -92,14 +92,14 @@ namespace vg {
         /// compute the mapping quality of the maximal score in the vector.
         /// Sets max_idx_out to the index of that score in the vector.
         /// Optionally includes a vector of implicit counts >= 1 for the scores, but
-        /// the mapping quality is always calculated as if it multiplicity is 1.
+        /// the mapping quality is always calculated as if its multiplicity is 1.
         static double maximum_mapping_quality_exact(const vector<double>& scaled_scores, size_t* max_idx_out,
                                                     const vector<double>* multiplicities = nullptr);
         /// Given a nonempty vector of nonnegative scaled alignment scores,
         /// approximate the mapping quality of the maximal score in the vector.
         /// Sets max_idx_out to the index of that score in the vector.
         /// Optionally includes a vector of implicit counts >= 1 for the scores, but
-        /// the mapping quality is always calculated as if it multiplicity is 1.
+        /// the mapping quality is always calculated as if its multiplicity is 1.
         static double maximum_mapping_quality_approx(const vector<double>& scaled_scores, size_t* max_idx_out,
                                                      const vector<double>* multiplicities = nullptr);
     protected:
@@ -166,11 +166,11 @@ namespace vg {
                                                const HandleGraph& g, int32_t max_alt_alns, int32_t band_padding = 0,
                                                bool permissive_banding = true) const = 0;
         // xdrop aligner
-        virtual void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const = 0;
-        virtual void align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const = 0;
+        virtual void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const = 0;
+        virtual void align_xdrop_multi(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const = 0;
         /// Get a fresh XdropAligner instance to align with.
         /// TODO: make XdropAligner thread safe, and make it a thing you can get from GetAligner.
-        virtual unique_ptr<XdropAligner> get_xdrop() const = 0;
+        virtual const XdropAligner& get_xdrop() const = 0;
 
         /// Compute the score of an exact match in the given alignment, from the
         /// given offset, of the given length.
@@ -371,9 +371,9 @@ namespace vg {
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true) const;
 
         // xdrop aligner
-        void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const;
-        void align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const;
-        unique_ptr<XdropAligner> get_xdrop() const;
+        void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const;
+        void align_xdrop_multi(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const;
+        const XdropAligner& get_xdrop() const;
 
         int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const;
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
@@ -428,9 +428,9 @@ namespace vg {
                                 
         // TODO: xdrop isn't actually possible with the quality adjusted aligner (yet).
         // xdrop aligner
-        void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const;
-        void align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const;
-        unique_ptr<XdropAligner> get_xdrop() const;
+        void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const;
+        void align_xdrop_multi(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const;
+        const XdropAligner& get_xdrop() const;
 
         void init_mapping_quality(double gc_content);
         

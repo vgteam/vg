@@ -426,6 +426,9 @@ public:
     /// Can be moved
     SnarlManager(SnarlManager&& other) = default;
     SnarlManager& operator=(SnarlManager&& other) = default;
+
+    // Can be serialized
+    void serialize(ostream& out) const;
     
     ///////////////////////////////////////////////////////////////////////////
     // Write API

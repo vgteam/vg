@@ -1,6 +1,6 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
+
 import logging
 import shutil
 import subprocess
@@ -9,13 +9,13 @@ import textwrap
 import filecmp
 import pytest
 from unittest import TestCase, skip, TestLoader, TextTestRunner
-from urlparse import urlparse
+from urllib.parse import urlparse
 from uuid import uuid4
 import os, sys
 import argparse
 import collections
 import timeout_decorator
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import shutil
 import glob
 import traceback
@@ -148,9 +148,9 @@ class VGCITest(TestCase):
             # And download it
 
             try:
-                connection = urllib2.urlopen(url)
-                return unicode(connection.read())
-            except urllib2.HTTPError as e:
+                connection = urllib.request.urlopen(url)
+                return connection.read().decode('utf-8')
+            except urllib.error.HTTPError as e:
                 if e.code == 404 or e.code == 403:
                     # Baseline file doesn't yet exist. Give an empty string.
                     # Nonexistent things give 403 to prevent enumeration.
@@ -190,10 +190,9 @@ class VGCITest(TestCase):
         
         log.info('Download {}...\n'.format(src))
         
-        with open(tgt, 'w') as f:
-            # Download the file from the URL
-            # DON'T use an encoding here; the file may be binary
-            connection = urllib2.urlopen(src)
+        with open(tgt, 'wb') as f:
+            # Download the file from the URL, in binary mode.
+            connection = urllib.request.urlopen(src)
             shutil.copyfileobj(connection, f)
 
     def _begin_message(self, name = None, is_tsv = False, ):
@@ -205,11 +204,11 @@ class VGCITest(TestCase):
         if is_tsv:
             token += ' tsv = "True"'
         token += '>'
-        print '\n{}'.format(token)
+        print('\n{}'.format(token))
     
     def _end_message(self):
         """ Finish writing something mineable to stdout """
-        print '</VGCI>\n'
+        print('</VGCI>\n')
                 
     def _toil_vg_index(self, chrom, graph_path, xg_path, gcsa_path, misc_opts, dir_tag, file_tag):
         """
@@ -286,8 +285,8 @@ class VGCITest(TestCase):
             opts += ' {} '.format(misc_opts)
         opts += '--gcsa_index_cores {} \
         --alignment_cores {} --calling_cores {} --calling_cores {} --vcfeval_cores {} '.format(
-            self.cores, self.cores, self.cores, max(1, self.cores / 4),
-            max(1, self.cores / 2), self.cores)
+            self.cores, self.cores, self.cores, int(max(1, self.cores / 4)),
+            int(max(1, self.cores / 2)), self.cores)
         
         cmd = 'toil-vg run {} {} {} {}'.format(job_store, sample_name, out_store, opts)
         print("Run toil-vg with {}".format(cmd))
@@ -462,7 +461,7 @@ class VGCITest(TestCase):
                         toks += [baseline_f1, threshold]
                     elif i > 2:
                         toks += ['N/A', 'N/A']
-                    print '\t'.join([unicode(tok) for tok in toks])
+                    print('\t'.join([str(tok) for tok in toks]))
         
     def _verify_f1(self, sample, tag='', threshold=None):
         # grab the f1.txt file from the output store
@@ -585,7 +584,7 @@ class VGCITest(TestCase):
         for source_path_name in source_path_names:
             opts += '--path {} '.format(source_path_name)
         cmd = 'toil-vg sim {} {} {} {} --gam {} --fastq_out'.format(
-            job_store, ' '.join(sim_xg_paths), reads / 2, out_store, opts)
+            job_store, ' '.join(sim_xg_paths), int(reads / 2), out_store, opts)
         subprocess.check_call(cmd, shell=True)
 
         # then run mapeval
@@ -857,8 +856,8 @@ class VGCITest(TestCase):
         # We need to pad shorter rows with 0s
         stats_columns = 5 # read count, accuracy, AUC, QQ-plot r value, max F1
         
-        print '\t'.join(['Method', 'Acc.', 'Baseline Acc.', 'AUC', 'Baseline AUC', 'Max F1', 'Baseline F1'])
-        for key in sorted(set(baseline_dict.keys() + stats_dict.keys())):
+        print('\t'.join(['Method', 'Acc.', 'Baseline Acc.', 'AUC', 'Baseline AUC', 'Max F1', 'Baseline F1']))
+        for key in sorted(set(list(baseline_dict.keys()) + list(stats_dict.keys()))):
             # What values do we have for the graph this run?
             sval = list(stats_dict.get(key, []))
             while len(sval) < stats_columns:
@@ -882,8 +881,8 @@ class VGCITest(TestCase):
             row = [method]
             for metric_index in [1, 2, 4]:
                 # For each metric, compare stat to baseline
-                stat_val = unicode(r4(sval[metric_index]))
-                baseline_val = unicode(r4(bval[metric_index]))
+                stat_val = str(r4(sval[metric_index]))
+                baseline_val = str(r4(bval[metric_index]))
                 if stat_val != 'DNE' and baseline_val != 'DNE':
                     if sval[metric_index] < bval[metric_index]:
                         # Stat got worse
@@ -894,11 +893,11 @@ class VGCITest(TestCase):
                 row.append(stat_val)
                 row.append(baseline_val)
 
-            print '\t'.join(row)
+            print('\t'.join(row))
         self._end_message()
 
         # test the mapeval results, only looking at baseline keys
-        for key, val in baseline_dict.iteritems():
+        for key, val in list(baseline_dict.items()):
             if key in stats_dict:
                 # For each graph we have a baseline and stats for, compare the
                 # columns we actually have in both.
@@ -947,7 +946,7 @@ class VGCITest(TestCase):
                 # Parse out the real stat values
                 score_stats_dict = self._tsv_to_dict(io.open(score_stats_path, 'r', encoding='utf8').read())
                     
-                for key in score_stats_dict.iterkeys():
+                for key in list(score_stats_dict.keys()):
                     # For every kind of graph
                     
                     if compare_against == 'input' and (key != read_source_graph and
@@ -974,7 +973,7 @@ class VGCITest(TestCase):
                             log.warning('Read {} has a negative score increase of {} on graph {} vs. {}'.format(
                                 read_name, score_diff, key, compare_against))
                 
-                    if not baseline_dict.has_key(key):
+                    if key not in baseline_dict:
                         # We might get new graphs that aren't in the baseline file.
                         log.warning('Key {} missing from score baseline dict for {}. Inserting...'.format(key, compare_against))
                         # Store 0 for the read count, and 1 for the portion that got worse.
@@ -984,8 +983,8 @@ class VGCITest(TestCase):
                     # Report on its stats after dumping reads, so that if there are
                     # too many bad reads and the stats are terrible we still can see
                     # the reads.
-                    print '{} vs. {} Worse: {} Baseline: {}  Threshold: {}'.format(
-                        key, compare_against, score_stats_dict[key][1], baseline_dict[key][1], self.worse_threshold)
+                    print('{} vs. {} Worse: {} Baseline: {}  Threshold: {}'.format(
+                        key, compare_against, score_stats_dict[key][1], baseline_dict[key][1], self.worse_threshold))
                     # Make sure all the reads came through
                     self.assertEqual(score_stats_dict[key][0], reads)
                     

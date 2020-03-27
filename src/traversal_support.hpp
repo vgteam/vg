@@ -23,7 +23,7 @@ using namespace std;
  */ 
 class TraversalSupportFinder {
 public:
-    TraversalSupportFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager);
+    TraversalSupportFinder(const HandleGraph& graph, SnarlManager& snarl_manager);
     virtual ~TraversalSupportFinder();
 
     /// Support of an edge
@@ -58,19 +58,23 @@ public:
     
     /// traversals:      get support for each traversal in this set
     /// shared_travs:    if a node appears N times in shared_travs, then it will count as 1 / (N+1) support
+    /// shared_support:  optional supports for shared_travs.  used to weight support split by traversal support.
     /// tgt_travs:       if not empty, only compute support for these traversals (remaining slots in output vector left 0)
     /// eclusive_only:   shared_travs are completely ignored
-    /// exclusive_count_support: anything in shared_travs has this much support subtracted from it
-    /// mutual_shared:   shared_travs count as 1/N support (instead of 1/(N+1)).  usefuly for total support
+    /// exclusive_count_travs: these traversals get subtracted from supports in the target traversals
+    /// exclusive_count_support: used with above, to determine amount of support to subtract
     /// ref_trav_idx:    index of reference traversal if known
+    /// max_trav_size:   optional input of max trav size.  useful when longest traversral is outside target set
     virtual vector<Support> get_traversal_set_support(const vector<SnarlTraversal>& traversals,
                                                       const vector<int>& shared_travs,
+                                                      const vector<Support>& shared_support,
                                                       const set<int>& tgt_travs,
                                                       bool exclusive_only,
+                                                      const vector<int>& exclusive_count_travs,
                                                       const vector<Support>& exclusive_count_support,
-                                                      bool mutual_shared,
-                                                      int ref_trav_idx = -1) const;
-
+                                                      int ref_trav_idx = -1,
+                                                      int* max_trav_size = nullptr) const;
+    
     /// Get the total length of all nodes in the traversal
     virtual vector<int> get_traversal_sizes(const vector<SnarlTraversal>& traversals) const;
 
@@ -84,6 +88,9 @@ public:
     /// used for up-weighting large deletion edges in complex snarls with average support
     unordered_map<id_t, size_t> get_ref_offsets(const SnarlTraversal& ref_trav) const;
 
+    /// set the threshold
+    virtual void set_support_switch_threshold(size_t trav_thresh, size_t node_thresh);
+
 protected:
 
     size_t average_traversal_support_switch_threshold = 50;
@@ -91,7 +98,7 @@ protected:
     /// its position supports.
     size_t average_node_support_switch_threshold = 50;
 
-    const PathHandleGraph& graph;
+    const HandleGraph& graph;
 
     SnarlManager& snarl_manager;
 

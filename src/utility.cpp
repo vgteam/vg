@@ -480,6 +480,30 @@ void get_input_file(const string& file_name, function<void(istream&)> callback) 
     
 }
 
+pair<string, string> split_ext(const string& filename) {
+    pair<string, string> parts;
+
+    size_t dot = filename.rfind('.');
+    
+    if (dot == string::npos) {
+        // Put it all in the first part
+        parts.first = filename;
+    } else {
+        // Split on either side of the dot.
+        parts.first = filename.substr(0, dot);
+        parts.second = filename.substr(dot + 1);
+    }
+    
+    return parts;
+}
+
+bool file_exists(const string& filename) {
+    // TODO: use C++17 features to actually poll existence.
+    // For now we see if we can open it.
+    ifstream in(filename);
+    return in.is_open();
+}
+
     
 void create_ref_allele(vcflib::Variant& variant, const std::string& allele) {
     // Set the ref allele

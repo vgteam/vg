@@ -134,6 +134,12 @@ namespace vg {
     ///
     void rev_comp_multipath_alignment_in_place(MultipathAlignment* multipath_aln,
                                                const function<int64_t(int64_t)>& node_length);
+
+    /// Replaces all U's in the sequence and the aligned Paths with T's
+    void convert_Us_to_Ts(MultipathAlignment& multipath_aln);
+
+    /// Replaces all T's in the sequence and the aligned Paths with U's
+    void convert_Ts_to_Us(MultipathAlignment& multipath_aln);
     
     /// Converts a Alignment into a Multipath alignment with one Subpath and stores it in an object
     ///
