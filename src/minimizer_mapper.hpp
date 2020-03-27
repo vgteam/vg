@@ -148,12 +148,21 @@ public:
     * Given an aligned read, extract a subgraph of the graph within a distance range
     * based on the fragment length distribution and attempt to align the unaligned
     * read to it.
-    * Rescue_forward is true if the aligned read is the first and false otherwise. Assumes that both reads are facing the same direction
+    * Rescue_forward is true if the aligned read is the first and false otherwise.
+    * Assumes that both reads are facing the same direction.
     * TODO: This should be const, but some of the function calls are not.
     */
    void attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
 
-   // TODO JS: Use this instead of attempt_rescue() if it works better.
+   /**
+    * Given an aligned read, extract all haplotypes within a distance range based on the
+    * fragment length distribution and attempt to align the unaligned read to it.
+    * Rescue_forward is true if the aligned read is the first and false otherwise.
+    * Assumes that both reads are facing the same direction.
+    * NOTE: Using this in a graph with small variants is generally a bad idea, because
+    * the number of local haplotypes is probably too large.
+    * TODO: This should be const, but some of the function calls are not.
+    */
    void attempt_rescue_haplotypes(const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
 
     /**

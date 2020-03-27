@@ -1427,8 +1427,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     return true;
                 }
 
-                found_first ? attempt_rescue_haplotypes(mapped_aln, rescued_aln, true ) : 
-                                attempt_rescue_haplotypes(mapped_aln, rescued_aln, false); 
+                attempt_rescue(mapped_aln, rescued_aln, found_first);
 
                 int64_t fragment_dist = found_first ? distance_between(mapped_aln, rescued_aln) 
                                                       : distance_between(rescued_aln, mapped_aln);
