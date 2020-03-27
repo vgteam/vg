@@ -38,7 +38,7 @@ TEST_CASE("XdropAligner can compute an alignment with no MEMs", "[xdrop][alignme
     
     vector<MaximalExactMatch> no_mems;
     
-    aligner.align(aln, graph.graph, no_mems, false);
+    aligner.align(aln, graph, no_mems, false);
     
     // Make sure we got the right score
     REQUIRE(aln.score() == read.size());
@@ -76,7 +76,7 @@ TEST_CASE("XdropAligner can compute an alignment with no MEMs in reverse mode", 
     vector<MaximalExactMatch> no_mems;
     
     // All this really changes is that we anchor on the last node instead of the first.
-    aligner.align(aln, graph.graph, no_mems, true);
+    aligner.align(aln, graph, no_mems, true);
     
     // Make sure we got the right score
     REQUIRE(aln.score() == read.size());
@@ -119,7 +119,7 @@ TEST_CASE("XdropAligner can compute an alignment with a MEM in the middle", "[xd
     fake_mems.back().end = aln.sequence().begin() + 3;
     fake_mems.back().nodes.push_back(gcsa::Node::encode(n0->id(), 1, false));
     
-    aligner.align(aln, graph.graph, fake_mems, false);
+    aligner.align(aln, graph, fake_mems, false);
     
     // Make sure we got the right score
     REQUIRE(aln.score() == read.size());
@@ -159,7 +159,7 @@ TEST_CASE("XdropAligner still incorrectly applies the full length bonus at only 
     fake_mems.back().end = aln.sequence().begin() + 3;
     fake_mems.back().nodes.push_back(gcsa::Node::encode(n0->id(), 1, false));
     
-    aligner.align(aln, graph.graph, fake_mems, false);
+    aligner.align(aln, graph, fake_mems, false);
     
     // Make sure we got the right score
     size_t expected_score = read.size() + 10 * 1;
@@ -189,7 +189,7 @@ TEST_CASE("XdropAligner still incorrectly applies the full length bonus at only 
     
     vector<MaximalExactMatch> no_mems;
     
-    aligner.align(aln, graph.graph, no_mems, false);
+    aligner.align(aln, graph, no_mems, false);
     
     size_t expected_score = read.size() + 10 * 1;
     REQUIRE(aln.score() == expected_score);
@@ -219,7 +219,7 @@ TEST_CASE("XdropAligner can be induced to pin with MEMs", "[xdrop][alignment][ma
     SECTION("The optimal alignment is foud without a MEM") {
         vector<MaximalExactMatch> no_mems;
         
-        aligner.align(aln, graph.graph, no_mems, false);
+        aligner.align(aln, graph, no_mems, false);
     
         // Make sure we got the right score
         REQUIRE(aln.score() == read.size());
@@ -238,7 +238,7 @@ TEST_CASE("XdropAligner can be induced to pin with MEMs", "[xdrop][alignment][ma
         fake_mems.back().end = aln.sequence().begin() + 1;
         fake_mems.back().nodes.push_back(gcsa::Node::encode(n0->id(), 0, false));
         
-        aligner.align(aln, graph.graph, fake_mems, false);
+        aligner.align(aln, graph, fake_mems, false);
         
         // The score will probably be terrible.
     

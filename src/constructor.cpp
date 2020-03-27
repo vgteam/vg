@@ -5,6 +5,7 @@
  
 #include "vg.hpp"
 #include "constructor.hpp"
+#include "io/load_proto_to_graph.hpp"
 
 #include <cstdlib>
 #include <set>
@@ -1466,7 +1467,7 @@ namespace vg {
     }
 
     void Constructor::construct_graph(string vcf_contig, FastaReference& reference, VcfBuffer& variant_source,
-        const vector<FastaReference*>& insertions, function<void(Graph&)> callback) {
+        const vector<FastaReference*>& insertions, const function<void(Graph&)>& callback) {
 
         // Our caller will set up indexing. We just work with the buffered source that we pull variants from.
 
@@ -1760,7 +1761,8 @@ namespace vg {
             // if we have more than one insertion fasta file, we can pull
             // sequences from the vcf:fasta pair (i.e. the same index in the vectors).
             do_external_insertions = true;
-            cerr << "Passing multiple insertion files not implemented yet." << endl                                                                                    << "Please try combining all of your insertions fastas into one file." << endl;
+            cerr << "Passing multiple insertion files not implemented yet." << endl
+            << "Please try combining all of your insertions fastas into one file." << endl;
             exit(1);
         }   
         else{
@@ -1994,7 +1996,7 @@ namespace vg {
 
     void Constructor::construct_graph(const vector<FastaReference*>& references,
         const vector<vcflib::VariantCallFile*>& variant_files, const vector<FastaReference*>& insertions,
-        function<void(Graph&)> callback) {
+        const function<void(Graph&)>& callback) {
 
         // Make a map from contig name to fasta reference containing it.
         map<string, FastaReference*> reference_for;
@@ -2174,7 +2176,96 @@ namespace vg {
         }
 
     }
-
+    
+    void Constructor::construct_graph(const vector<string>& reference_filenames, const vector<string>& variant_filenames,
+        const vector<string>& insertion_filenames, const function<void(Graph&)>& callback) {
+        
+        vector<unique_ptr<FastaReference>> references;
+        for (auto& fasta_filename : reference_filenames) {
+            // Open each FASTA file
+            FastaReference* reference = new FastaReference();
+            references.emplace_back(reference);
+            reference->open(fasta_filename);
+        }
+        
+        vector<unique_ptr<vcflib::VariantCallFile>> variant_files;
+        for (auto& vcf_filename : variant_filenames) {
+            // Make sure each VCF file exists. Otherwise Tabix++ may exit with a non-
+            // helpful message.
+            
+            // We can't invoke stat woithout a place for it to write. But all we
+            // really want is its return value.
+            struct stat temp;
+            if(stat(vcf_filename.c_str(), &temp)) {
+                cerr << "error:[Constructor::construct_graph] file \"" << vcf_filename << "\" not found" << endl;
+                exit(1);
+            }
+            vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
+            variant_file->parseSamples = false; // Major speedup if there are many samples.
+            variant_files.emplace_back(variant_file);
+            // TODO: vcflib needs a non-const string for the filename for some reason. Fix that.
+            string mutable_filename = vcf_filename;
+            variant_file->open(mutable_filename);
+            if (!variant_file->is_open()) {
+                cerr << "error:[Constructor::construct_graph] could not open" << vcf_filename << endl;
+                exit(1);
+            }
+        }
+        
+        vector<unique_ptr<FastaReference>> insertions;
+        for (auto& insertion_filename : insertion_filenames){
+            // Open up those insertion files
+            FastaReference* insertion = new FastaReference();
+            insertions.emplace_back(insertion);
+            insertion->open(insertion_filename);
+        }
+        
+        // Make vectors of just bare pointers
+        vector<vcflib::VariantCallFile*> vcf_pointers;
+        for(auto& vcf : variant_files) {
+            vcf_pointers.push_back(vcf.get());
+        }
+        vector<FastaReference*> fasta_pointers;
+        for(auto& fasta : references) {
+            fasta_pointers.push_back(fasta.get());
+        }
+        vector<FastaReference*> ins_pointers;
+        for (auto& ins : insertions){
+            ins_pointers.push_back(ins.get());
+        }
+        
+        // Construct the graph.
+        construct_graph(fasta_pointers, vcf_pointers, ins_pointers, callback);
+    }
+    
+    void Constructor::construct_graph(const vector<FastaReference*>& references,
+        const vector<vcflib::VariantCallFile*>& variant_files, const vector<FastaReference*>& insertions,
+        MutablePathMutableHandleGraph* destination) {
+        
+        vg::io::load_proto_to_graph(destination, [&](const function<void(Graph&)>& callback) {
+            // Start a load of a stream of Protobuf Graphs, and when we get the
+            // callback to handle them, construct into it.
+            construct_graph(references, variant_files, insertions, callback);
+        });
+        
+        // Now we did the construction and all the Graph chunks have been saved.
+        // TODO: Refactor everything to not go through Graph chunks?
+    }
+    
+    void Constructor::construct_graph(const vector<string>& reference_filenames, const vector<string>& variant_filenames,
+        const vector<string>& insertion_filenames, MutablePathMutableHandleGraph* destination) {
+        
+        vg::io::load_proto_to_graph(destination, [&](const function<void(Graph&)>& callback) {
+            // Start a load of a stream of Protobuf Graphs, and when we get the
+            // callback to handle them, construct into it.
+            construct_graph(reference_filenames, variant_filenames, insertion_filenames, callback);
+        });
+        
+        // Now we did the construction and all the Graph chunks have been saved.
+        // TODO: Refactor everything to not go through Graph chunks?
+        
+        // TODO: Deduplicate with the version that takes already-opened files somehow...
+    }
 }
 
 

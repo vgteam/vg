@@ -33,7 +33,7 @@ public:
      */
 
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-         const std::vector<std::unique_ptr<gbwtgraph::DefaultMinimizerIndex>>& minimizer_indexes,
+         const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes,
          MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
@@ -74,15 +74,6 @@ public:
      * fragment length distribution.
      */
     pair<vector<Alignment>, vector<Alignment>> map_paired(Alignment& aln1, Alignment& aln2);
-     
-
-    /**
-     * Given an aligned read, extract a subgraph of the graph within a distance range
-     * based on the fragment length distribution and attempt to align the unaligned
-     * read to it.
-     * Rescue_forward is true if the aligned read is the first and false otherwise. Assumes that both reads are facing the same direction
-     */
-     void attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
 
     // Mapping settings.
     // TODO: document each
@@ -152,6 +143,28 @@ public:
             fragment_length_distr.force_parameters(fragment_length_distr.mean(), fragment_length_distr.stdev());
         } 
     }
+
+   /**
+    * Given an aligned read, extract a subgraph of the graph within a distance range
+    * based on the fragment length distribution and attempt to align the unaligned
+    * read to it.
+    * Rescue_forward is true if the aligned read is the first and false otherwise.
+    * Assumes that both reads are facing the same direction.
+    * TODO: This should be const, but some of the function calls are not.
+    */
+   void attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
+
+   /**
+    * Given an aligned read, extract all haplotypes within a distance range based on the
+    * fragment length distribution and attempt to align the unaligned read to it.
+    * Rescue_forward is true if the aligned read is the first and false otherwise.
+    * Assumes that both reads are facing the same direction.
+    * NOTE: Using this in a graph with small variants is generally a bad idea, because
+    * the number of local haplotypes is probably too large.
+    * TODO: This should be const, but some of the function calls are not.
+    */
+   void attempt_rescue_haplotypes(const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
+
     /**
      * Get the distance between a pair of read alignments
      */
@@ -178,7 +191,7 @@ protected:
 
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
-    const std::vector<std::unique_ptr<gbwtgraph::DefaultMinimizerIndex>>& minimizer_indexes;
+    const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes;
     MinimumDistanceIndex& distance_index;
 
     /// This is our primary graph.
@@ -191,6 +204,23 @@ protected:
     SnarlSeedClusterer clusterer;
 
     FragmentLengthDistribution fragment_length_distr;
+
+    /// Use this many bits for approximate probabilities.
+    constexpr static size_t PRECISION = 8;
+
+    /**
+     * Assume that we have n <= max_k independent events with probability p each.
+     * Let x be the PRECISION most significant bits of p. Then
+     *
+     *   phred_at_least_one[(n << PRECISION) + x]
+     *
+     * is an approximate phred score of at least one event occurring.
+     */
+    std::vector<double> phred_at_least_one;
+
+//-----------------------------------------------------------------------------
+
+    // Stages of mapping.
 
     /**
      * Find the minimizers in the sequence using all minimizer indexes and
@@ -212,7 +242,29 @@ protected:
      * of the read covered by seeds in the cluster.
      * TODO JS: Score all clusters at once; calculate fragment scores afterwards.
      */
-    std::tuple<double, double, std::vector<bool>> score_cluster(const std::vector<size_t>& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<size_t>& seed_to_source, size_t seq_length, Funnel& funnel) const;
+    std::tuple<double, double, sdsl::bit_vector> score_cluster(const std::vector<size_t>& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<size_t>& seed_to_source, size_t seq_length, Funnel& funnel) const;
+
+   /**
+    * Score the set of extensions for each cluster using score_extension_group().
+    * Return the scores in the same order as the extensions.
+    */
+   std::vector<int> score_extensions(const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const;
+
+   /**
+    * Score the set of extensions for each cluster using score_extension_group().
+    * Return the scores in the same order as the extensions.
+    */
+   std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
+
+//-----------------------------------------------------------------------------
+
+   /**
+    * Assume that we have n <= max_k independent random events that occur with
+    * probability p each (p is interpreted as a real number between 0 and 1 and
+    * max_k is the largest k in the minimizer indexes). Return an approximate
+    * probability for at least one event occurring as a phred score.
+    */
+   double phred_for_at_least_one(size_t p, size_t n) const;
 
     /**
      * Compute MAPQ caps based on all minimizers present in extended clusters.
@@ -222,8 +274,8 @@ protected:
      *
      * Returns only an "extended" cap at the moment.
      */
-    std::tuple<double> compute_mapq_caps(const Alignment& aln, const std::vector<Minimizer>& minimizers,
-                                         const std::vector<bool>& present_in_any_extended_cluster);
+    double compute_mapq_caps(const Alignment& aln, const std::vector<Minimizer>& minimizers,
+                             const sdsl::bit_vector& present_in_any_extended_cluster);
 
     /**
      * Compute a bound on the Phred score probability of having created the

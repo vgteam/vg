@@ -44,7 +44,7 @@ void register_loader_saver_hash_graph() {
         bdsg::HashGraph* hash_graph = new bdsg::HashGraph();
         
         // Load into it
-        load_proto_to_graph(for_each_message, hash_graph);
+        load_proto_to_graph(hash_graph, for_each_message);
         
         // Return it so the caller owns it.
         return (void*) hash_graph;

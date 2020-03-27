@@ -30,7 +30,7 @@ KEEP_INTERMEDIATE_FILES=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@b6a91af71d42ee797e7ffb2f015d594f85e52505"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@d097d913352d07418b5ec7743a2527f57c3e30b6"
 # What toil should we install?
 # Could be something like "toil[aws,mesos]==3.20.0"
 # or "git+https://github.com/adamnovak/toil.git@2b696bec34fa1381afdcf187456571d2b41f3842#egg=toil[aws,mesos]"
@@ -311,7 +311,7 @@ then
         rm -rf awscli
     fi
     if [ ! -e awscli ]; then
-        virtualenv --python=python2 --never-download awscli && awscli/bin/pip install awscli
+        virtualenv --python=python3.6 --never-download awscli && awscli/bin/pip install awscli
     fi
     # Expose binaries to the PATH
     ln -snf ${PWD}/awscli/bin/aws bin/
@@ -322,7 +322,7 @@ then
         rm -rf .env
     fi
     if [ ! -e .env ]; then
-        virtualenv --python=python2  .env
+        virtualenv --python=python3.6  .env
     fi
     . .env/bin/activate
 
@@ -338,13 +338,13 @@ then
 
     # Upgrade pip so that it can use the wheels for numpy & scipy, so that they
     # don't try to build from source
-    pip install --upgrade pip
+    pip install --upgrade pip setuptools==45.0.0
 
     # Dependencies for running tests.  Need numpy, scipy and sklearn
     # for running toil-vg mapeval, and dateutils and reqests for ./mins_since_last_build.py
-    pip install numpy
+    pip install numpy==1.17.1
     pip install scipy==1.0.0rc2 --only-binary :all:
-    pip install sklearn
+    pip install scikit-learn==0.22.1
     pip install dateutils
     pip install requests
     pip install timeout_decorator
@@ -466,7 +466,7 @@ then
             rm -rf awscli
         fi
         if [ ! -e awscli ]; then
-            virtualenv --python=python2 --never-download awscli && awscli/bin/pip install awscli
+            virtualenv --python=python3.6 --never-download awscli && awscli/bin/pip install awscli
         fi
         # Expose binaries to the PATH
         ln -snf ${PWD}/awscli/bin/aws bin/
@@ -479,7 +479,7 @@ then
         rm -rf s3am
     fi
     if [ ! -e s3am ]; then
-        virtualenv --never-download s3am && s3am/bin/pip install s3am==2.0
+        virtualenv --python=python3.6 --never-download s3am && s3am/bin/pip install s3am==2.0
     fi
     mkdir -p bin
     # Expose binaries to the PATH
@@ -496,7 +496,7 @@ then
     # Generate a report in two files: HTML full output, and a Markdown summary.
     # Takes as input the test result XML and the work directory with the
     # test output files.
-    vgci/mine-logs.py test-report.xml "${LOAD_WORK_DIR}/" report-html/ summary.md
+    python3 vgci/mine-logs.py test-report.xml "${LOAD_WORK_DIR}/" report-html/ summary.md
     if [ "$?" -ne 0 ]
     then
         echo "Log mining fail"

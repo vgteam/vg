@@ -22,7 +22,6 @@
 #include "mem.hpp"
 #include "cluster.hpp"
 #include "graph.hpp"
-#include "proto_handle_graph.hpp"
 #include "translator.hpp"
 // TODO: pull out ScoreProvider into its own file
 #include "haplotypes.hpp"
@@ -243,6 +242,13 @@ public:
                      int min_mem_length = 1,
                      int reseed_length = 0);
     
+    vector<MaximalExactMatch>
+    find_stripped_matches(string::const_iterator seq_begin,
+                          string::const_iterator seq_end,
+                          size_t strip_length,
+                          size_t max_match_length,
+                          size_t target_count);
+    
     /// identifies tracts of order-length MEMs that were unfilled because their hit count was above the max
     /// and fills one MEM in the tract (the one with the smallest hit count), assumes MEMs are lexicographically
     /// ordered by read index
@@ -267,7 +273,8 @@ public:
     double fast_reseed_length_diff = 0.45; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
     bool adaptive_reseed_diff = true; // use an adaptive length difference algorithm in reseed algorithm
     double adaptive_diff_exponent = 0.065; // exponent that describes limiting behavior of adaptive diff algorithm
-    int hit_max = 0;       // ignore or MEMs with more than this many hits
+    int hit_max = 0;       // only query at most this many hits for a MEM (0 for no limit)
+    int hard_hit_max = 0; // don't query any hits for MEMs with this many occurrences or more (0 for no limit)
     bool use_approx_sub_mem_count = false;
     bool prefilter_redundant_hits = true;
     int max_sub_mem_recursion_depth = 2;

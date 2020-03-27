@@ -1,6 +1,3 @@
-#ifndef VG_IO_LOAD_PROTO_TO_GRAPH_HPP_INCLUDED
-#define VG_IO_LOAD_PROTO_TO_GRAPH_HPP_INCLUDED
-
 /**
  * \file load_proto_to_graph.cpp
  * Implementation for backend-agnostic Protobuf loading.
@@ -9,14 +6,16 @@
 #include "load_proto_to_graph.hpp"
 
 #include "../hash_map.hpp"
+#include "../handle.hpp"
+
+#include "load_proto_to_graph.hpp"
 
 #include <vg/vg.pb.h>
 #include <vg/io/registry.hpp>
 #include <handlegraph/mutable_path_mutable_handle_graph.hpp>
 
 #include <unordered_map>
-
-#include "../handle.hpp"
+#include <mutex>
 
 namespace vg {
 
@@ -25,7 +24,26 @@ namespace io {
 using namespace std;
 using namespace vg;
 
-void load_proto_to_graph(const vg::io::message_sender_function_t& for_each_message, vg::MutablePathMutableHandleGraph* destination) {
+void load_proto_to_graph(vg::MutablePathMutableHandleGraph* destination, const vg::io::message_sender_function_t& for_each_message) {
+    
+    load_proto_to_graph(destination, [&](const function<void(Graph&)>& process_chunk) {
+        // Now we can give all the deserialized Graph chunks to process_chunk.
+        for_each_message([&](const string& serialized_graph) {
+            // For each Graph, unpack it
+            Graph g;
+            if (!g.ParseFromString(serialized_graph)) {
+                // TODO: make this an exception if we ever want to be allowed to continue from this.
+                cerr << "error[load_proto_to_graph]: invalid Graph message" << endl;
+                exit(1);
+            }
+            
+            // And send it along.
+            process_chunk(g);
+        });
+    });
+}
+
+void load_proto_to_graph(vg::MutablePathMutableHandleGraph* destination, const function<void(const function<void(Graph&)>&)>& chunk_sender) {
     
     // This holds edges we couldn't make when we saw them because both end nodes didn't exist.
     // We organize them by the ID of the node they were waiting for.
@@ -44,14 +62,16 @@ void load_proto_to_graph(const vg::io::message_sender_function_t& for_each_messa
     // ranks.
     hash_map<path_handle_t, path_record_t> paths_in_progress;
     
-    for_each_message([&](const string& serialized_graph) {
-        // For each Graph, unpack it
-        Graph g;
-        if (!g.ParseFromString(serialized_graph)) {
-            // TODO: make this an exception if we ever want to be allowed to continue from this.
-            cerr << "error[load_proto_to_graph]: invalid Graph message" << endl;
-            exit(1);
-        }
+    // We can only deal with one chunk coming in at a time, but we have
+    // ambitions for a parallel Constructor. So make sure to only handle one
+    // chunk at a time.
+    mutex chunk_mutex;
+    
+    chunk_sender([&](Graph& g) {
+        // For each Graph chunk...
+        
+        // Handle one at a time
+        lock_guard<mutex> chunk_guard(chunk_mutex);
         
         // Within this chunk, we keep a node to handle cache
         unordered_map<nid_t, handle_t> node_to_handle;
@@ -372,4 +392,3 @@ void load_proto_to_graph(const vg::io::message_sender_function_t& for_each_messa
 }
 
 }
-#endif

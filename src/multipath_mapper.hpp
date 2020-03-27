@@ -114,6 +114,10 @@ namespace vg {
         size_t num_mapping_attempts = 48;
         double log_likelihood_approx_factor = 1.0;
         size_t min_clustering_mem_length = 0;
+        bool use_stripped_match_alg = false;
+        size_t stripped_match_alg_strip_length = 16;
+        size_t stripped_match_alg_max_length = 0;
+        size_t stripped_match_alg_target_count = 5;
         size_t max_p_value_memo_size = 500;
         size_t band_padding_memo_size = 500;
         bool use_weibull_calibration = false;
@@ -163,8 +167,12 @@ namespace vg {
         bool simplify_topologies = false;
         bool use_tvs_clusterer = false;
         bool use_min_dist_clusterer = false;
+        bool greedy_min_dist = false;
+        bool component_min_dist = false;
         // length of reversing walks during graph extraction
         size_t reversing_walk_length = 0;
+        bool suppress_p_value_memoization = false;
+        size_t fragment_length_warning_factor = 0;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -325,7 +333,7 @@ namespace vg {
         /// Compute a mapping quality from a list of scores, using the selected method.
         /// Optionally considers non-present duplicates of the scores encoded as multiplicities
         int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method,
-                                                        const vector<double>* multiplicities = nullptr) const;
+                                                        bool have_qualities, const vector<double>* multiplicities = nullptr) const;
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
         /// Optionally also sorts a vector of indexes to keep track of the cluster-of-origin

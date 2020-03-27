@@ -1397,6 +1397,37 @@ namespace vg {
             }
         }
     }
+
+    void convert_multipath_alignment_char(MultipathAlignment& multipath_aln, char from, char to) {
+        auto& seq = *multipath_aln.mutable_sequence();
+        for (size_t i = 0; i < seq.size(); ++i) {
+            if (seq[i] == from) {
+                seq[i] = to;
+            }
+        }
+        for (Subpath& subpath : *multipath_aln.mutable_subpath()) {
+            for (Mapping& mapping : *subpath.mutable_path()->mutable_mapping()) {
+                for (Edit& edit : *mapping.mutable_edit()) {
+                    if (!edit.sequence().empty()) {
+                        auto& eseq = *edit.mutable_sequence();
+                        for (size_t i = 0; i < eseq.size(); ++i) {
+                            if (eseq[i] == from) {
+                                eseq[i] = to;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    void convert_Us_to_Ts(MultipathAlignment& multipath_aln) {
+        convert_multipath_alignment_char(multipath_aln, 'U', 'T');
+    }
+
+    void convert_Ts_to_Us(MultipathAlignment& multipath_aln) {
+        convert_multipath_alignment_char(multipath_aln, 'T', 'U');
+    }
     
     void to_multipath_alignment(const Alignment& aln, MultipathAlignment& multipath_aln_out) {
         

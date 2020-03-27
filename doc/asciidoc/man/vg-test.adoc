@@ -14,6 +14,17 @@ vg-test - run internal vg unit tests
 
 *vg test* [_TESTNAME_ | _PATTERN_ | _TAG_]... [_OPTION_]... 
 
+== Arguments
+
+_TESTNAME_::
+    Specify a test to run, by full name.
+    
+_PATTERN_::
+    Specify a collection of tests to run, via regular expression match.
+    
+_TAG_::
+    Specify a collection of tests to run, via []-enclosed tag. Tag may need to be quoted to avoid being interpreted as a shell wildcard character class.
+
 == Options
 
 *-?*::
@@ -138,6 +149,6 @@ vg test [a-star]
 
 == Copyright
 
-Copyright (C) 2019 {author}.
+Copyright (C) 2020 {author}.
 
 Free use of this documentation is granted under the terms of the MIT License.
