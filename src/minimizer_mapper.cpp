@@ -1427,8 +1427,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     return true;
                 }
 
-                found_first ? attempt_rescue(mapped_aln, rescued_aln, true ) : 
-                                attempt_rescue(mapped_aln, rescued_aln, false); 
+                attempt_rescue(mapped_aln, rescued_aln, found_first);
 
                 int64_t fragment_dist = found_first ? distance_between(mapped_aln, rescued_aln) 
                                                       : distance_between(rescued_aln, mapped_aln);
@@ -2155,6 +2154,31 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& 
     //TODO: mpmap also checks the score here
     return;
 
+}
+
+void MinimizerMapper::attempt_rescue_haplotypes(const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward) {
+
+    // Get the subgraph of all nodes within a reasonable range from aligned_read.
+    SubHandleGraph sub_graph(&(this->gbwt_graph));
+    // TODO: How big should the rescue subgraph be?
+    int64_t min_distance = std::max(0.0, this->fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4 * this->fragment_length_distr.stdev());
+    int64_t max_distance = this->fragment_length_distr.mean() + 4 * this->fragment_length_distr.stdev();
+    this->distance_index.subgraphInRange(aligned_read.path(), &(this->gbwt_graph), min_distance, max_distance, sub_graph, rescue_forward); 
+
+    // Find and unfold the local haplotypes in the subgraph.
+    std::vector<std::vector<handle_t>> haplotype_paths;
+    bdsg::HashGraph align_graph;
+    this->extender.unfold_haplotypes(sub_graph, haplotype_paths, align_graph);
+    
+    // Align to the subgraph.
+    rescued_alignment.clear_path();
+    this->get_regular_aligner()->align(rescued_alignment, align_graph, true, false);
+
+    // Get the corresponding alignment to the original graph.
+    this->extender.transform_alignment(rescued_alignment, haplotype_paths);
+
+    // TODO: mpmap also checks the score here
+    return;
 }
 
 int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment& aln2) {

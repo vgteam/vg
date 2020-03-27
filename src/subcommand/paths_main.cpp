@@ -218,7 +218,7 @@ int main_paths(int argc, char** argv) {
         }
     }
     if (output_formats != 1) {
-        std::cerr << "error: [vg paths] one output format (-X, -V, -d, -r, -L, or -E) must be specified" << std::endl;
+        std::cerr << "error: [vg paths] one output format (-X, -V, -d, -r, -L, -F, or -E) must be specified" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (selection_criteria > 1) {

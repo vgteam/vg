@@ -6,9 +6,11 @@
 #include "../gapless_extender.hpp"
 #include "../gbwt_helper.hpp"
 #include "../json2pb.h"
+#include "../utility.hpp"
 
 #include "catch.hpp"
 
+#include <map>
 #include <vector>
 
 
@@ -108,25 +110,68 @@ void correct_score(const GaplessExtension& extension, const Aligner& aligner) {
     REQUIRE(extension.score == expected_score);
 }
 
-void alignment_matches(const Path& path, const std::vector<std::pair<pos_t, std::string>>& alignment) {
-    REQUIRE(path.mapping_size() == alignment.size());
-    for (size_t i = 0; i < path.mapping_size(); i++) {
-        const Mapping& m = path.mapping(i);
-        REQUIRE(make_pos_t(m.position()) == alignment[i].first);
-        const std::string& edits = alignment[i].second;
-        REQUIRE(m.edit_size() == edits.length());
-        for (size_t j = 0; j < m.edit_size(); j++) {
-            if (edits[j] > '0' && edits[j] <= '9') {
-                int n = edits[j] - '0';
-                bool match_length_ok = (m.edit(j).from_length() == n &&
-                                        m.edit(j).to_length() == n &&
-                                        m.edit(j).sequence().empty());
-                REQUIRE(match_length_ok);
+// Match: 1-9
+// Mismatch: ACGT
+// Insertion: + 1-9 str
+// Deletion: - 1-9
+Path get_path(const std::vector<std::pair<pos_t, std::string>>& mappings) {
+
+    Path result;
+
+    for (const std::pair<pos_t, std::string>& node : mappings) {
+        Mapping& mapping = *(result.add_mapping());
+        pos_t pos = node.first;
+        mapping.mutable_position()->set_node_id(id(pos));
+        mapping.mutable_position()->set_offset(offset(pos));
+        mapping.mutable_position()->set_is_reverse(is_rev(pos));
+
+        std::string edits = node.second;
+        for (size_t i = 0; i < edits.length(); i++) {
+            Edit& edit = *(mapping.add_edit());
+            if (edits[i] > '0' && edits[i] <= '9') {
+                int n = edits[i] - '0';
+                edit.set_from_length(n);
+                edit.set_to_length(n);
+            } else if (edits[i] == '-') {
+                i++;
+                int n = edits[i] - '0';
+                edit.set_from_length(n);
+            } else if (edits[i] == '+') {
+                i++;
+                int n = edits[i] - '0';
+                i++;
+                edit.set_to_length(n);
+                edit.set_sequence(edits.substr(i, n));
+                i += n - 1;
             } else {
-                std::string s = edits.substr(j, 1);
-                bool mismatch_ok = (m.edit(j).from_length() == 1 && m.edit(j).to_length() == 1 && m.edit(j).sequence() == s);
-                REQUIRE(mismatch_ok);
+                edit.set_from_length(1);
+                edit.set_to_length(1);
+                edit.set_sequence(edits.substr(i, 1));
             }
+        }
+    }
+
+    return result;
+}
+
+Alignment get_alignment(const std::vector<std::pair<pos_t, std::string>>& mappings, const std::string& sequence) {
+    Alignment result;
+    result.set_sequence(sequence);
+    *(result.mutable_path()) = get_path(mappings);
+    return result;
+}
+
+void paths_match(const Path& path, const Path& correct_path) {
+    REQUIRE(path.mapping_size() == correct_path.mapping_size());
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        const Mapping& mapping = path.mapping(i);
+        const Mapping& correct = correct_path.mapping(i);
+        REQUIRE(make_pos_t(mapping.position()) == make_pos_t(correct.position()));
+        REQUIRE(mapping.edit_size() == correct.edit_size());
+        for (size_t j = 0; j < mapping.edit_size(); j++) {
+            REQUIRE(mapping.edit(j).from_length() == correct.edit(j).from_length());
+            REQUIRE(mapping.edit(j).to_length() == correct.edit(j).to_length());
+            REQUIRE(mapping.edit(j).sequence() == correct.edit(j).sequence());
         }
     }
 }
@@ -151,7 +196,7 @@ void full_length_match(const std::vector<std::pair<pos_t, size_t>>& seeds, const
         REQUIRE(result.front().full());
         REQUIRE(result.front().mismatches() <= error_bound);
         correct_score(result.front(), *(extender.aligner));
-        alignment_matches(result.front().to_path(*(extender.graph), read), correct_alignment);
+        paths_match(result.front().to_path(*(extender.graph), read), get_path(correct_alignment));
 
         // This extension should contain all the seeds. Check that contains() works correctly.
         if (check_seeds) {
@@ -175,7 +220,7 @@ void full_length_matches(const std::vector<std::pair<pos_t, size_t>>& seeds, con
         REQUIRE(result[i].full());
         REQUIRE(result[i].mismatches() <= error_bound);
         correct_score(result[i], *(extender.aligner));
-        alignment_matches(result[i].to_path(*(extender.graph), read), correct_alignments[i]);
+        paths_match(result[i].to_path(*(extender.graph), read), get_path(correct_alignments[i]));
     }
 }
 
@@ -194,7 +239,7 @@ void partial_matches(const std::vector<std::pair<pos_t, size_t>>& seeds, const s
         }
         REQUIRE(result[i].read_interval.first == correct_offsets[i]);
         correct_score(result.front(), *(extender.aligner));
-        alignment_matches(result[i].to_path(*(extender.graph), read), correct_extensions[i]);
+        paths_match(result[i].to_path(*(extender.graph), read), get_path(correct_extensions[i]));
     }
 }
 
@@ -216,6 +261,50 @@ void trimmed_extensions(std::vector<GaplessExtension>& extensions, std::vector<G
         REQUIRE(extensions[i].score == correct[i].score);
         REQUIRE(extensions[i].left_full == correct[i].left_full);
         REQUIRE(extensions[i].right_full == correct[i].right_full);
+    }
+}
+
+void check_haplotypes(const GaplessExtender& extender, const std::vector<nid_t>& nodes, const std::map<std::vector<handle_t>, std::string>& correct_haplotypes) {
+    const gbwtgraph::GBWTGraph& graph = *(extender.graph);
+    SubHandleGraph subgraph(extender.graph);
+    for (nid_t node : nodes) {
+        subgraph.add_handle(graph.get_handle(node, false));
+    }
+
+    std::vector<std::vector<handle_t>> haplotype_paths;
+    bdsg::HashGraph unfolded;
+    extender.unfold_haplotypes(subgraph, haplotype_paths, unfolded);
+
+    // We assume that the correct paths are in canonical orientation (smaller than the reverse).
+    std::vector<bool> flipped(haplotype_paths.size(), false);
+    for (size_t i = 0; i < haplotype_paths.size(); i++) {
+        std::vector<handle_t> reverse = haplotype_paths[i];
+        std::reverse(reverse.begin(), reverse.end());
+        for (handle_t& handle : reverse) {
+            handle = extender.graph->flip(handle);
+        }
+        if (reverse < haplotype_paths[i]) {
+            haplotype_paths[i] = reverse;
+            flipped[i] = true;
+        }
+    }
+
+    REQUIRE(haplotype_paths.size() == correct_haplotypes.size());
+    REQUIRE(unfolded.get_node_count() == 2 * correct_haplotypes.size());
+    for (size_t i = 0; i < haplotype_paths.size(); i++) {
+        auto iter = correct_haplotypes.find(haplotype_paths[i]);
+        REQUIRE(iter != correct_haplotypes.end());
+        std::string forward = unfolded.get_sequence(unfolded.get_handle(2 * i + 1, false));
+        std::string reverse = unfolded.get_sequence(unfolded.get_handle(2 * i + 2, false));
+        if (flipped[i]) {
+            forward = reverse_complement(forward);
+            REQUIRE(forward == iter->second);
+            REQUIRE(reverse == iter->second);
+        } else {
+            REQUIRE(forward == iter->second);
+            reverse = reverse_complement(reverse);
+            REQUIRE(reverse == iter->second);
+        }
     }
 }
 
@@ -845,6 +934,164 @@ TEST_CASE("Trimming mismatches", "[gapless_extender]") {
         };
         size_t error_bound = 0;
         trimmed_extensions(extensions, correct, extender, error_bound);
+    }
+}
+
+//------------------------------------------------------------------------------
+
+TEST_CASE("Haplotype unfolding", "[gapless_extender]") {
+
+    // Build an XG index.
+    Graph graph;
+    json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(graph));
+
+    // Build a GBWT with three threads including a duplicate.
+    gbwt::GBWT gbwt_index = build_gbwt_index();
+
+    // Build a GBWT-backed graph.
+    gbwtgraph::GBWTGraph gbwt_graph(gbwt_index, xg_index);
+
+    // And finally wrap it in a GaplessExtender with an Aligner.
+    Aligner aligner;
+    GaplessExtender extender(gbwt_graph, aligner);
+
+    SECTION("normal subgraph") {
+        std::vector<nid_t> nodes {
+            5, 6, 7, 8
+        };
+        std::map<std::vector<handle_t>, std::string> correct_haplotypes {
+            {
+                { gbwt_graph.get_handle(5, false), gbwt_graph.get_handle(6, false), gbwt_graph.get_handle(7, false) },
+                "TAC"
+            },
+            {
+                { gbwt_graph.get_handle(5, false), gbwt_graph.get_handle(6, false), gbwt_graph.get_handle(8, false) },
+                "TAA"
+            }
+        };
+        check_haplotypes(extender, nodes, correct_haplotypes);
+    }
+
+    SECTION("right-maximal extensions") {
+        std::vector<nid_t> nodes {
+            5, 6, 7
+        };
+        std::map<std::vector<handle_t>, std::string> correct_haplotypes {
+            {
+                { gbwt_graph.get_handle(5, false), gbwt_graph.get_handle(6, false) },
+                "TA"
+            },
+            {
+                { gbwt_graph.get_handle(5, false), gbwt_graph.get_handle(6, false), gbwt_graph.get_handle(7, false) },
+                "TAC"
+            }
+        };
+        check_haplotypes(extender, nodes, correct_haplotypes);
+    }
+
+    SECTION("left-maximal extensions") {
+        std::vector<nid_t> nodes {
+            2, 4, 5, 6, 7
+        };
+        std::map<std::vector<handle_t>, std::string> correct_haplotypes {
+            {
+                { gbwt_graph.get_handle(2, false), gbwt_graph.get_handle(4, false), gbwt_graph.get_handle(5, false), gbwt_graph.get_handle(6, false) },
+                "AGGGTA"
+            },
+            {
+                { gbwt_graph.get_handle(4, false), gbwt_graph.get_handle(5, false), gbwt_graph.get_handle(6, false), gbwt_graph.get_handle(7, false) },
+                "GGGTAC"
+            }
+        };
+        check_haplotypes(extender, nodes, correct_haplotypes);
+    }
+}
+
+//------------------------------------------------------------------------------
+
+TEST_CASE("Alignment transformations", "[gapless_extender]") {
+
+    // Build an XG index.
+    Graph graph;
+    json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(graph));
+
+    // Build a GBWT with three threads including a duplicate.
+    gbwt::GBWT gbwt_index = build_gbwt_index();
+
+    // Build a GBWT-backed graph.
+    gbwtgraph::GBWTGraph gbwt_graph(gbwt_index, xg_index);
+
+    // And finally wrap it in a GaplessExtender with an Aligner.
+    Aligner aligner;
+    GaplessExtender extender(gbwt_graph, aligner);
+
+    // 0: 1, 2, 4, 5, 6, 8, 9 / GAGGGTAAA
+    // 1: 1, 4, 5, 6, 7, 9 / GGGGTACA
+    std::vector<std::vector<handle_t>> haplotype_paths(2);
+    std::vector<std::string> haplotype_sequences(2);
+    for (gbwt::node_type node : alt_path) {
+        handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(node);
+        haplotype_paths[0].push_back(handle);
+        haplotype_sequences[0] += gbwt_graph.get_sequence(handle);
+    }
+    for (gbwt::node_type node : short_path) {
+        handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(node);
+        haplotype_paths[1].push_back(handle);
+        haplotype_sequences[1] += gbwt_graph.get_sequence(handle);
+    }
+
+    SECTION("simple cases") {
+        std::vector<std::vector<std::pair<pos_t, std::string>>> unfolded_alignments {
+            { // Haplotype 1 forward; substitution in the middle + insertion at node boundary.
+                { make_pos_t(1, false, 2), "1C2+1G1" }
+            },
+            { // Haplotype 1 reverse: substitution over node boundary.
+                { make_pos_t(2, false, 2), "1GG2" }
+            },
+            { // Haplotype 2 forward: start in the middle + deletion over node boundary.
+                { make_pos_t(3, false, 2), "1-22" }
+            },
+            { // Haplotype 2 reverse: substitution of a node + deletion of a node + end in the middle.
+                { make_pos_t(4, false, 1), "1C-12" }
+            }
+        };
+        std::vector<std::string> reads {
+            "GCGTGA", "TGGCC", "GAC", "CCGG"
+        };
+        std::vector<std::vector<std::pair<pos_t, std::string>>> correct_alignments {
+            {
+                { make_pos_t(4, false, 0), "1C1" },
+                { make_pos_t(5, false, 0), "1" },
+                { make_pos_t(6, false, 0), "+1G1" }
+            },
+            {
+                { make_pos_t(6, true, 0), "1" },
+                { make_pos_t(5, true, 0), "G" },
+                { make_pos_t(4, true, 0), "G2" }
+            },
+            {
+                { make_pos_t(4, false, 1), "1-1" },
+                { make_pos_t(5, false, 0), "-1" },
+                { make_pos_t(6, false, 0), "1" },
+                { make_pos_t(7, false, 0), "1" }
+            },
+            {
+                { make_pos_t(7, true, 0), "1" },
+                { make_pos_t(6, true, 0), "C" },
+                { make_pos_t(5, true, 0), "-1" },
+                { make_pos_t(4, true, 0), "2" }
+            }
+        };
+        for (size_t i = 0; i < unfolded_alignments.size(); i++) {
+            Alignment source = get_alignment(unfolded_alignments[i], reads[i]);
+            extender.transform_alignment(source, haplotype_paths);
+            Path target = get_path(correct_alignments[i]);
+            paths_match(source.path(), target);
+        }
     }
 }
 
