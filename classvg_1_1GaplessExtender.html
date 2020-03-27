@@ -96,6 +96,10 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ae9be1f3c04473e7b378c31f9cfcbfa63"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a090ac720e375bf997230e964f7274a47"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a090ac720e375bf997230e964f7274a47">trim</a> (std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extensions, size_t max_mismatches=<a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>, const gbwt::CachedGBWT *cache=nullptr) const</td></tr>
 <tr class="separator:a090ac720e375bf997230e964f7274a47"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a299bcf981f44bd90ec54dedad15f59d3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a299bcf981f44bd90ec54dedad15f59d3">unfold_haplotypes</a> (const <a class="el" href="classvg_1_1SubHandleGraph.html">SubHandleGraph</a> &amp;subgraph, std::vector&lt; std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;haplotype_paths, bdsg::HashGraph &amp;unfolded) const</td></tr>
+<tr class="separator:a299bcf981f44bd90ec54dedad15f59d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae97368246f0be8630c0247324576cbfd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ae97368246f0be8630c0247324576cbfd">transform_alignment</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;haplotype_paths) const</td></tr>
+<tr class="separator:ae97368246f0be8630c0247324576cbfd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
@@ -409,6 +413,35 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="ae97368246f0be8630c0247324576cbfd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae97368246f0be8630c0247324576cbfd">&#9670;&nbsp;</a></span>transform_alignment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::GaplessExtender::transform_alignment </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>haplotype_paths</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Transform an alignment to a single node in the <a class="el" href="classvg_1_1GaplessExtender.html#a299bcf981f44bd90ec54dedad15f59d3">unfold_haplotypes()</a> graph to an alignment to the corresponding path in the original graph. </p>
+
+</div>
+</div>
 <a id="a090ac720e375bf997230e964f7274a47"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a090ac720e375bf997230e964f7274a47">&#9670;&nbsp;</a></span>trim()</h2>
 
@@ -441,6 +474,41 @@ Static Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Try to improve the score of each extension by trimming mismatches from the flanks. Do not trim full-length alignments with &lt;= max_mismatches mismatches. Use the provided CachedGBWT or allocate a new one. Note that <a class="el" href="classvg_1_1GaplessExtender.html#ae9be1f3c04473e7b378c31f9cfcbfa63">extend()</a> already calls this by default. </p>
+
+</div>
+</div>
+<a id="a299bcf981f44bd90ec54dedad15f59d3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a299bcf981f44bd90ec54dedad15f59d3">&#9670;&nbsp;</a></span>unfold_haplotypes()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::GaplessExtender::unfold_haplotypes </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1SubHandleGraph.html">SubHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>subgraph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::vector&lt; std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>haplotype_paths</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bdsg::HashGraph &amp;&#160;</td>
+          <td class="paramname"><em>unfolded</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Find the distinct local haplotypes in the given subgraph and return the corresponding paths. For each path haplotype_paths[i], the output graph will contain node 2i + 1 with sequence corresponding to the path and node 2i + 2 with the reverse complement of the sequence. </p>
 
 </div>
 </div>

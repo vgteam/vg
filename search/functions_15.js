@@ -5,6 +5,7 @@ var searchData=
   ['unescape_5fdelims',['unescape_delims',['../classvg_1_1Packer.html#a92b44e965dd5da9da72e1a9196290d94',1,'vg::Packer']]],
   ['unfold',['unfold',['../classvg_1_1PhaseUnfolder.html#a39a286ab3746a9a175a898bead3d2612',1,'vg::PhaseUnfolder::unfold()'],['../classvg_1_1VG.html#afc568712b6d4aa3b6dc965f37cc769a7',1,'vg::VG::unfold()']]],
   ['unfold_5fcomponent',['unfold_component',['../classvg_1_1PhaseUnfolder.html#a84543fbc3521c9da70838339613ac3b9',1,'vg::PhaseUnfolder']]],
+  ['unfold_5fhaplotypes',['unfold_haplotypes',['../classvg_1_1GaplessExtender.html#a299bcf981f44bd90ec54dedad15f59d3',1,'vg::GaplessExtender']]],
   ['uniform_5fint_5fdistribution',['uniform_int_distribution',['../classvg_1_1uniform__int__distribution.html#ab8d23ee7f2beacc01804f3206c3bc663',1,'vg::uniform_int_distribution']]],
   ['uniform_5freal_5fdistribution',['uniform_real_distribution',['../classvg_1_1uniform__real__distribution.html#aaa8046adecf3b01e7e702df2e4fe3abd',1,'vg::uniform_real_distribution']]],
   ['unindex_5fedge_5fby_5fnode_5fsides',['unindex_edge_by_node_sides',['../classvg_1_1VG.html#a1c0b7db8d3043747e8b9a44cba4eaac9',1,'vg::VG::unindex_edge_by_node_sides(const NodeSide &amp;side1, const NodeSide &amp;side2)'],['../classvg_1_1VG.html#a5677da9ff22052f6c6a85bfe66e1256d',1,'vg::VG::unindex_edge_by_node_sides(Edge *edge)']]],

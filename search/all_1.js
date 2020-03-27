@@ -208,6 +208,7 @@ var searchData=
   ['atomic_5fheader',['atomic_header',['../classvg_1_1HTSAlignmentEmitter.html#a9c8421e34401bc0eab7cd36d656e7acf',1,'vg::HTSAlignmentEmitter']]],
   ['attempt_5frescue',['attempt_rescue',['../classvg_1_1MinimizerMapper.html#a9605b1ef714df2c8f07b7bcd4afd0882',1,'vg::MinimizerMapper::attempt_rescue()'],['../classvg_1_1MultipathMapper.html#a58a6a2bccf8123914bcf4e378edcbb61',1,'vg::MultipathMapper::attempt_rescue()']]],
   ['attempt_5frescue_5ffor_5fsecondaries',['attempt_rescue_for_secondaries',['../classvg_1_1MultipathMapper.html#a1751c97818eef51d83a0e8f31260822b',1,'vg::MultipathMapper']]],
+  ['attempt_5frescue_5fhaplotypes',['attempt_rescue_haplotypes',['../classvg_1_1MinimizerMapper.html#ac116853daed562fc9bbef6c55503d078',1,'vg::MinimizerMapper']]],
   ['attempt_5frescue_5fof_5frepeat_5ffrom_5fnon_5frepeat',['attempt_rescue_of_repeat_from_non_repeat',['../classvg_1_1MultipathMapper.html#a8d8bb2dd043e5298e72699e59c441709',1,'vg::MultipathMapper']]],
   ['attempt_5funpaired_5fmultipath_5fmap_5fof_5fpair',['attempt_unpaired_multipath_map_of_pair',['../classvg_1_1MultipathMapper.html#a6e6fb4cb7896a6de840b2af5b70a4fed',1,'vg::MultipathMapper']]],
   ['attributes',['attributes',['../structvg_1_1GFFRecord.html#af888958f0541209b1e6c0f50285d0d92',1,'vg::GFFRecord']]],
