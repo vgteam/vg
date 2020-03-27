@@ -173,7 +173,7 @@ XdropAligner::graph_pos_s XdropAligner::calculate_seed_position(const OrderedGra
 	 * computing the DP matrix (it is true local alignment).
 	 */
     graph_pos_s pos;
-	MaximalExactMatch const &seed = mems[direction ? (mems.size() - 1) : 0];		// here mems is never empty
+	const MaximalExactMatch& seed = mems[direction ? (mems.size() - 1) : 0];		// here mems is never empty
 
 	auto seed_pos = direction ? seed.nodes.front() : seed.nodes.back();
 	size_t node_id = gcsa::Node::id(seed_pos);
@@ -187,7 +187,9 @@ XdropAligner::graph_pos_s XdropAligner::calculate_seed_position(const OrderedGra
 	// calc query_offset (FIXME: is there O(1) solution?)
     // TODO: i think we need access to the original Alignment to make this O(1)
 	pos.query_offset = query_length - (seed.end - seed.begin);
-	for(auto p = seed.end; *p != '\0'; pos.query_offset--, p++) {}
+	for (auto p = seed.end; *p != '\0'; pos.query_offset--, p++) {
+        // nothing to do in loop, just measuring
+    }
 	pos.query_offset = direction ? query_length - pos.query_offset : pos.query_offset;
 	// fprintf(stderr, "calc_seed_pos, direction(%d), rpos(%lu, %u), qpos(%u), len(%lu)\n", direction, pos.node_index, pos.ref_offset, pos.query_offset, seed.end - seed.begin);
 	return pos;
@@ -204,13 +206,6 @@ XdropAligner::graph_pos_s XdropAligner::calculate_max_position(const OrderedGrap
     handle_t n = graph.order[pos.node_index];
 
     assert(forefronts.at(max_node_index)->mcap != nullptr);
-    if (forefronts.at(max_node_index)->mcap == nullptr) {
-        // No alignment. Not safe to call dz_calc_max_pos.
-        // Bail out early.
-        pos.ref_offset = direction ? 0 : graph.graph.get_length(n);
-        pos.query_offset = seed_pos.query_offset;
-        return pos;
-    }
 
 	// calc max position on the node
 	uint64_t max_pos = (uint64_t) dz_calc_max_pos(dz, forefronts[max_node_index]);
@@ -659,7 +654,8 @@ void XdropAligner::align(Alignment &alignment, const HandleGraph& graph, const v
         
         // scan seed position mems is empty
 		head_pos = scan_seed_position(ordered_graph, query_seq, direction, dz, forefronts);
-	} else {
+	}
+    else {
 		// ordinary extension DP
         
         // we need seed to build edge table (for semi-global extension)
@@ -732,79 +728,42 @@ void XdropAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool
     align_pinned(alignment, g, order, pin_left);
 }
 
-void
-XdropAligner::align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& order, bool pin_left) const
+void XdropAligner::align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& order, bool pin_left) const
 {
-    
-    if (!pin_left) {
-        // If not pin_left, flip around so we can use our left-pinning-only implementation.
-        // TODO: can we get around this somehow with proper use of reverse_complemented?
-        
-        // Flip the graph
-        ReverseGraph rc(&g, true);
-        
-        // Flip the sequence
-        string original_sequence(std::move(*alignment.mutable_sequence()));
-        alignment.set_sequence(reverse_complement(original_sequence));
-    
-        // Fill the topological order with promoted versions of the backing graph's handles, in reverse order
-        vector<handle_t> reverse_order;
-        reverse_order.reserve(order.size());
-        for (auto it = order.rbegin(); it != order.rend(); ++it) {
-            reverse_order.push_back(rc.from_backing(*it));
-        }
-    
-        align_pinned(alignment, rc, reverse_order, true);
-        
-        // Put back in the right order
-        reverse_complement_path_in_place(alignment.mutable_path(), [&](id_t id) {
-            // Get the length of this node
-            return rc.get_length(rc.get_handle(id));
-        });
-        
-        // Because we used a reverse complementing overlay, we have the wrong
-        // idea of which orientation of each node is "forward".
-        //
-        // TODO: if we supported reversing edges in our internal edge indices
-        // we could just flip the handles and avoid the reverse complement
-        // graph and this fixup...
-        for (size_t i = 0; i < alignment.path().mapping_size(); i++) {
-            // Flip the orientation of each mapping
-            auto position = alignment.mutable_path()->mutable_mapping(i)->mutable_position();
-            position->set_is_reverse(!position->is_reverse());
-        }
-        
-        *alignment.mutable_sequence() = std::move(original_sequence);
-    } else {
-        // Otherwise we have the actual implementation, for left pinning.
-        
-        if (order.empty()) {
-            // Can't do anything with no nodes in the graph.
-            return;
-        }
-        
-        // Make a new dozeu instance
-        dz_s* dz = dz_init(score_matrix, gap_open, gap_extend, max_gap_length, full_length_bonus);
-        
-        // Dozeu needs a seed position to start at, but that position doesn't necessarily actually become a match.
-        // So just seed position 0 on the first node and read base 0 and start the DP from that matrix position.
-       
-        // TODO: use forefronts more intelligently to pin at any head
-        // Create a fixed seed match to start from.
-        // Match up base 0 on node 0 in the topological sort with query base 0.
-        graph_pos_s head_pos = {0, 0, 0}; 
-    
-        // Attach order to graph
-        OrderedGraph ordered(g, order);
-        
-        // construct node_id -> index mapping table
-        vector<const dz_forefront_s*> forefronts(ordered.order.size(), nullptr);
-    
-        // Do the left-to-right alignment from the fixed head_pos seed, and then do the traceback.
-        align_downward(alignment, ordered, head_pos, true, dz, forefronts);
-        
-        // We just pass the alignment we got through, because we didn't touch the graph.
+    if (order.empty()) {
+        // Can't do anything with no nodes in the graph.
+        return;
     }
+    
+    // Make a new dozeu instance
+    dz_s* dz = dz_init(score_matrix, gap_open, gap_extend, max_gap_length, full_length_bonus);
+    
+    // Dozeu needs a seed position to start at, but that position doesn't necessarily actually become a match.
+    // So just seed position 0 on the first node and read base 0 and start the DP from that matrix position.
+    
+    // TODO: use forefronts more intelligently to pin at any head
+    // Create a fixed seed match to start from.
+    graph_pos_s head_pos;
+    if (pin_left) {
+        head_pos.node_index = 0;
+        head_pos.ref_offset = 0;
+        head_pos.query_offset = 0;
+    }
+    else {
+        head_pos.node_index = order.size() - 1;
+        head_pos.ref_offset = g.get_length(order.back());
+        head_pos.query_offset = alignment.sequence().size();
+    }
+    
+    // Attach order to graph
+    OrderedGraph ordered(g, order);
+    
+    // construct node_id -> index mapping table
+    vector<const dz_forefront_s*> forefronts(ordered.order.size(), nullptr);
+    
+    // Do the left-to-right alignment from the fixed head_pos seed, and then do the traceback.
+    align_downward(alignment, ordered, head_pos, pin_left, dz, forefronts);
+
 }
 
 /**
