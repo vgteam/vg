@@ -94,8 +94,6 @@ int main_concat(int argc, char** argv) {
         int64_t delta = max_node_id - graph->min_node_id();
         if (delta >= 0) {
             graph->increment_node_ids(delta + 1);
-            // necessary for HashGraph not to crash during append_path_handle_graph():
-            graph->reassign_node_ids([](nid_t node_id) { return node_id; });
         }
         max_node_id = graph->max_node_id();
 
