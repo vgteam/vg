@@ -694,7 +694,7 @@ void XdropAligner::align(Alignment &alignment, const HandleGraph& graph, const v
 		graph_pos_s seed_pos = calculate_seed_position(ordered_graph, mems, qlen, direction);
 
 		// pack query (upward)
-		dz_query_s const *packed_query_seq_up = (direction
+		const dz_query_s* packed_query_seq_up = (direction
 			? dz_pack_query_reverse(dz, &query_seq.c_str()[0],                     seed_pos.query_offset)
 			: dz_pack_query_forward(dz, &query_seq.c_str()[seed_pos.query_offset], qlen - seed_pos.query_offset)
 		);
@@ -702,8 +702,7 @@ void XdropAligner::align(Alignment &alignment, const HandleGraph& graph, const v
 		// upward extension
 		head_pos = calculate_max_position(ordered_graph, seed_pos,
                                           extend(ordered_graph, packed_query_seq_up,
-                                                 {seed_pos},
-                                                 direction, dz, forefronts),
+                                                 {seed_pos}, direction, dz, forefronts),
                                           direction, dz, forefronts);
 	}
 	// fprintf(stderr, "head_node_index(%lu), rpos(%lu, %u), qpos(%u), direction(%d)\n", head_pos.node_index, head_pos.node_index, head_pos.ref_offset, head_pos.query_offset, direction);
@@ -808,6 +807,7 @@ void XdropAligner::align_pinned(Alignment& alignment, const HandleGraph& g, cons
     // Do the left-to-right alignment from the fixed head_pos seed, and then do the traceback.
     align_downward(alignment, ordered, head_positions, pin_left, dz, forefronts);
 
+    dz_destroy(dz);
 }
 
 /**
