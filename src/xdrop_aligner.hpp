@@ -214,7 +214,7 @@ namespace vg {
         /// Note that if no non-empty local alignment is found, it may not be
         /// safe to call dz_calc_max_qpos on the associated forefront!
 		size_t extend(const OrderedGraph& graph, const dz_query_s* packed_query,
-                      size_t seed_node_index, uint64_t seed_offset, bool right_to_left,
+                      const vector<graph_pos_s>& seed_positions, bool right_to_left,
                       dz_s* dz, vector<const dz_forefront_s*>& forefronts) const;
        
         /**
@@ -227,9 +227,10 @@ namespace vg {
          * left, and the internal traceback comes out in right to left order,
          * so we need to flip it.
          */
-        void calculate_and_save_alignment(Alignment &alignment, const OrderedGraph& graph,
-                                          const graph_pos_s& head_pos, size_t tail_node_index, bool left_to_right,
-                                          dz_s* dz, const vector<const dz_forefront_s*>& forefronts) const;
+        void calculate_and_save_alignment(Alignment& alignment, const OrderedGraph& graph,
+                                          const vector<graph_pos_s>& head_positions,
+                                          size_t tail_node_index, bool left_to_right, dz_s* dz,
+                                          const vector<const dz_forefront_s*>& forefronts) const;
 
 		// void debug_print(Alignment const &alignment, OrderedGraph const &graph, MaximalExactMatch const &seed, bool reverse_complemented);
 		// bench_t bench;
@@ -238,7 +239,8 @@ namespace vg {
         /// the downward alignment pass and traceback. If left_to_right is
         /// set, goes left to right and traces back the other way. If it is
         /// unset, goes right to left and traces back the other way.
-        void align_downward(Alignment &alignment, const OrderedGraph& graph, const graph_pos_s& head_pos,
+        void align_downward(Alignment &alignment, const OrderedGraph& graph,
+                            const vector<graph_pos_s>& head_positions,
                             bool left_to_right, dz_s* dz, vector<const dz_forefront_s*>& forefronts) const;
 
         

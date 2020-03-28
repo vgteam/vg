@@ -10,6 +10,7 @@
 #include "../vg.hpp"
 #include "../xdrop_aligner.hpp"
 #include "catch.hpp"
+#include "bdsg/hash_graph.hpp"
 
 namespace vg {
 namespace unittest {
@@ -475,6 +476,62 @@ TEST_CASE("XdropAligner can align pinned left when the entire read is an inserti
 
     // Make sure we got a rank set.
     REQUIRE(aln.path().mapping(0).rank() == 1);
+}
+
+TEST_CASE("XdropAligner can select the best head and tail nodes automatically in pinned alignment", "[xdrop][alignment][mapping]") {
+    
+    bdsg::HashGraph graph;
+    
+    handle_t h1 = graph.create_handle("ATA");
+    handle_t h2 = graph.create_handle("CGC");
+    handle_t h3 = graph.create_handle("A");
+    handle_t h4 = graph.create_handle("AGA");
+    handle_t h5 = graph.create_handle("CTC");
+    
+    graph.create_edge(h1, h3);
+    graph.create_edge(h2, h3);
+    graph.create_edge(h3, h4);
+    graph.create_edge(h3, h5);
+    
+    Alignment aln1;
+    aln1.set_sequence("ATA");
+    
+    Alignment aln2;
+    aln2.set_sequence("CGC");
+    
+    Alignment aln3;
+    aln3.set_sequence("AGA");
+    
+    Alignment aln4;
+    aln4.set_sequence("CTC");
+    
+    // Last parameter here is max gap length.
+    XdropAligner aligner(1, 4, 6, 1, 5, 40);
+    
+    aligner.align_pinned(aln1, graph, true);
+    aligner.align_pinned(aln2, graph, true);
+    aligner.align_pinned(aln3, graph, false);
+    aligner.align_pinned(aln4, graph, false);
+    
+    REQUIRE(aln1.score() == 8);
+    REQUIRE(aln2.score() == 8);
+    REQUIRE(aln3.score() == 8);
+    REQUIRE(aln4.score() == 8);
+    
+    REQUIRE(aln1.path().mapping_size() == 1);
+    REQUIRE(aln2.path().mapping_size() == 1);
+    REQUIRE(aln3.path().mapping_size() == 1);
+    REQUIRE(aln4.path().mapping_size() == 1);
+    
+    REQUIRE(aln1.path().mapping(0).edit_size() == 1);
+    REQUIRE(aln2.path().mapping(0).edit_size() == 1);
+    REQUIRE(aln3.path().mapping(0).edit_size() == 1);
+    REQUIRE(aln4.path().mapping(0).edit_size() == 1);
+    
+    REQUIRE(aln1.path().mapping(0).position().node_id() == graph.get_id(h1));
+    REQUIRE(aln2.path().mapping(0).position().node_id() == graph.get_id(h2));
+    REQUIRE(aln3.path().mapping(0).position().node_id() == graph.get_id(h4));
+    REQUIRE(aln4.path().mapping(0).position().node_id() == graph.get_id(h5));
 }
 
 
