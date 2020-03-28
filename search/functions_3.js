@@ -5,7 +5,7 @@ var searchData=
   ['cactus_5fto_5fvg',['cactus_to_vg',['../namespacevg.html#adf53e86632a6d1d4b54370e6d948d08c',1,'vg']]],
   ['cactusify',['cactusify',['../namespacevg.html#aa4d05bc207717708d48e1da09f83eec6',1,'vg']]],
   ['cactussnarlfinder',['CactusSnarlFinder',['../classvg_1_1CactusSnarlFinder.html#a523de5b05cbb527b87940258eed03e9b',1,'vg::CactusSnarlFinder']]],
-  ['calculate_5fand_5fsave_5falignment',['calculate_and_save_alignment',['../classvg_1_1XdropAligner.html#a5e351c3b1ebed4d5540ba60b3b3bc25b',1,'vg::XdropAligner']]],
+  ['calculate_5fand_5fsave_5falignment',['calculate_and_save_alignment',['../classvg_1_1XdropAligner.html#a5ba4cca0001224ded648192688c132a5',1,'vg::XdropAligner']]],
   ['calculate_5fconsistency',['calculate_consistency',['../classvg_1_1ConsistencyCalculator.html#a208c36e5e95ab3c538f2c16175275c39',1,'vg::ConsistencyCalculator::calculate_consistency()'],['../classvg_1_1SimpleConsistencyCalculator.html#a391f08cf329583daf0c2a58cd5e20473',1,'vg::SimpleConsistencyCalculator::calculate_consistency()']]],
   ['calculate_5fi',['calculate_I',['../structhaplo_1_1haplo__DP__rectangle.html#ab2680796767cbf6721c326e5b0273e61',1,'haplo::haplo_DP_rectangle']]],
   ['calculate_5flog_5flikelihood',['calculate_log_likelihood',['../classvg_1_1GenotypeLikelihoodCalculator.html#acb4f74190d7cb1464ec8fd88d40d5d8f',1,'vg::GenotypeLikelihoodCalculator']]],
