@@ -2,7 +2,7 @@
 #include "../vg.hpp"
 #include "../utility.hpp"
 #include "xg.hpp"
-#include "../convert_handle.hpp"
+#include "../algorithms/copy_graph.hpp"
 #include "../io/save_handle_graph.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
@@ -20,6 +20,7 @@ using namespace vg::subcommand;
 void help_convert(char** argv) {
     cerr << "usage: " << argv[0] << " convert [options] <input-graph>" << endl
          << "output options:" << endl
+         << "    -g, --gfa-in           input in GFA format" << endl
          << "    -v, --vg-out           output in VG format [default]" << endl
          << "    -a, --hash-out         output in HashGraph format" << endl
          << "    -p, --packed-out       output in PackedGraph format" << endl
@@ -42,6 +43,7 @@ int main_convert(int argc, char** argv) {
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
+            {"gfa-in", no_argument, 0, 'g'},
             {"vg-out", no_argument, 0, 'v'},
             {"hash-out", no_argument, 0, 'a'},
             {"packed-out", no_argument, 0, 'p'},
@@ -51,7 +53,7 @@ int main_convert(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hvxapxo",
+        c = getopt_long (argc, argv, "hgvxapxo",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -64,7 +66,7 @@ int main_convert(int argc, char** argv) {
         case '?':
         case 'h':
             help_convert(argv);
-            return 1;
+            return 0;
         case 'v':
             output_format = "vg";
             break;
@@ -123,12 +125,12 @@ int main_convert(int argc, char** argv) {
     else if (input_path_graph != nullptr && output_path_graph != nullptr) {
         MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
         assert(mutable_output_graph != nullptr);
-        convert_path_handle_graph(input_path_graph, mutable_output_graph);
+        algorithms::copy_path_handle_graph(input_path_graph, mutable_output_graph);
     } else if (input_path_graph != nullptr) {
         MutableHandleGraph* mutable_output_graph = dynamic_cast<MutableHandleGraph*>(output_graph.get());
         assert(mutable_output_graph != nullptr);
         cerr << "warning [vg convert]: output format does not support paths" << endl;
-        convert_handle_graph(input_graph.get(), mutable_output_graph);
+        algorithms::copy_handle_graph(input_graph.get(), mutable_output_graph);
     }
 
     // Serialize the graph using VPKG.

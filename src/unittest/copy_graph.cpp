@@ -1,5 +1,5 @@
 #include "catch.hpp"
-#include "../convert_handle.hpp"
+#include "../algorithms/copy_graph.hpp"
 #include "../handle.hpp"
 #include "../vg.hpp"
 #include "xg.hpp"
@@ -12,17 +12,17 @@ namespace vg {
         
         using namespace std;
         
-        TEST_CASE("convert_handle converter works on empty graph, xg to vg", "[handle][vg][xg]") {
+        TEST_CASE("copy_handle_graph converter works on empty graph, xg to vg", "[handle][vg][xg]") {
             xg::XG xg;
             VG vg;
-            convert_handle_graph(&xg, &vg);
+           algorithms::copy_handle_graph(&xg, &vg);
             REQUIRE(vg.node_count() == 0);
             REQUIRE(vg.edge_count() == 0);
         }
-        TEST_CASE("convert_handle converter works on empty graph, xg to pg", "[handle][pg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on empty graph, xg to pg", "[handle][pg][xg]") {
             xg::XG xg;
             bdsg::PackedGraph pg;
-            convert_handle_graph(&xg, &pg);
+            algorithms::copy_handle_graph(&xg, &pg);
             REQUIRE(pg.get_node_count() == 0);
             
             int edge_count = 0;
@@ -32,10 +32,10 @@ namespace vg {
             });
             REQUIRE(edge_count == 0);
         }
-        TEST_CASE("convert_handle converter works on empty graph, xg to hg", "[handle][hg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on empty graph, xg to hg", "[handle][hg][xg]") {
             xg::XG xg;
             bdsg::HashGraph hg;
-            convert_handle_graph(&xg, &hg);
+            algorithms::copy_handle_graph(&xg, &hg);
             REQUIRE(hg.get_node_count() == 0);
             
             int edge_count = 0;
@@ -46,7 +46,7 @@ namespace vg {
             REQUIRE(edge_count == 0);
         }
         
-        TEST_CASE("convert_handle converter works on graphs with one node, xg to vg", "[handle][vg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on graphs with one node, xg to vg", "[handle][vg][xg]") {
             string graph_json = R"(
             {
                 "node": [
@@ -60,12 +60,12 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
-            convert_handle_graph(&xg, &vg);
+            algorithms::copy_handle_graph(&xg, &vg);
             
             REQUIRE(xg.get_node_count() == 1);
             REQUIRE(vg.get_node_count() == 1);
         }
-        TEST_CASE("convert_handle converter works on graphs with one node, xg to pg", "[handle][pg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on graphs with one node, xg to pg", "[handle][pg][xg]") {
             string graph_json = R"(
             {
                 "node": [
@@ -79,12 +79,12 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
-            convert_handle_graph(&xg, &pg);
+            algorithms::copy_handle_graph(&xg, &pg);
             
             REQUIRE(xg.get_node_count() == 1);
             REQUIRE(pg.get_node_count() == 1);
         }
-        TEST_CASE("convert_handle converter works on graphs with one node, xg to hg", "[handle][hg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on graphs with one node, xg to hg", "[handle][hg][xg]") {
             string graph_json = R"(
             {
                 "node": [
@@ -98,13 +98,13 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
-            convert_handle_graph(&xg, &hg);
+            algorithms::copy_handle_graph(&xg, &hg);
             
             REQUIRE(xg.get_node_count() == 1);
             REQUIRE(hg.get_node_count() == 1);
         }
 
-        TEST_CASE("convert_handle converter works on graphs with one reversing edge, xg to vg", "[handle][vg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on graphs with one reversing edge, xg to vg", "[handle][vg][xg]") {
             string graph_json = R"(
             {
                 "node": [
@@ -127,7 +127,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
-            convert_handle_graph(&xg, &vg);
+            algorithms::copy_handle_graph(&xg, &vg);
             
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(vg.get_node_count() == 4);
@@ -135,7 +135,7 @@ namespace vg {
             REQUIRE(vg.length() == 16);
             
         }
-        TEST_CASE("convert_handle converter works on graphs with one reversing edge, xg to pg", "[handle][pg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on graphs with one reversing edge, xg to pg", "[handle][pg][xg]") {
             string graph_json = R"(
             {
                 "node": [
@@ -158,7 +158,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
-            convert_handle_graph(&xg, &pg);
+            algorithms::copy_handle_graph(&xg, &pg);
             
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(pg.get_node_count() == 4);
@@ -178,7 +178,7 @@ namespace vg {
             REQUIRE(edge_count == 4);
         
         }
-        TEST_CASE("convert_handle converter works on graphs with one reversing edge, xg to hg", "[handle][hg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on graphs with one reversing edge, xg to hg", "[handle][hg][xg]") {
             string graph_json = R"(
             {
                 "node": [
@@ -201,7 +201,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
-            convert_handle_graph(&xg, &hg);
+            algorithms::copy_handle_graph(&xg, &hg);
             
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(hg.get_node_count() == 4);
@@ -220,7 +220,7 @@ namespace vg {
             REQUIRE(edge_count == 4);
             
         }
-        TEST_CASE("convert_handle converter works on graphs with reversing edges and loops", "[handle][vg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on graphs with reversing edges and loops", "[handle][vg][xg]") {
             string graph_json = R"(
             {
                 "node": [
@@ -246,7 +246,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
-            convert_handle_graph(&xg, &vg);
+            algorithms::copy_handle_graph(&xg, &vg);
             
             REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
             REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
@@ -255,7 +255,7 @@ namespace vg {
             REQUIRE(vg.edge_count() == 7);
             REQUIRE(vg.length() == 16);
         }
-        TEST_CASE("convert_handle converter works on graphs with reversing edges and loops, xg to pg", "[handle][pg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on graphs with reversing edges and loops, xg to pg", "[handle][pg][xg]") {
             string graph_json = R"(
             {
                 "node": [
@@ -281,7 +281,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
-            convert_handle_graph(&xg, &pg);
+            algorithms::copy_handle_graph(&xg, &pg);
             
             REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
             REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
@@ -302,7 +302,7 @@ namespace vg {
             });
             REQUIRE(edge_count == 7);
         }
-        TEST_CASE("convert_handle converter works on graphs with reversing edges and loops, xg to hg", "[handle][hg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on graphs with reversing edges and loops, xg to hg", "[handle][hg][xg]") {
             string graph_json = R"(
             {
                 "node": [
@@ -328,7 +328,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
-            convert_handle_graph(&xg, &hg);
+            algorithms::copy_handle_graph(&xg, &hg);
             
             REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
             REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
@@ -350,7 +350,7 @@ namespace vg {
             REQUIRE(edge_count == 7);
         }
         
-        TEST_CASE("convert_handle converter works on paths, xg to vg", "[handle][vg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on paths, xg to vg", "[handle][vg][xg]") {
             string graph_json = R"(
             {
                 "node": [
@@ -389,7 +389,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
-            convert_path_handle_graph(&xg, &vg);
+           algorithms::copy_path_handle_graph(&xg, &vg);
             
             
             
@@ -412,7 +412,7 @@ namespace vg {
                 }
             });
         }
-        TEST_CASE("convert_handle converter works on paths, xg to pg", "[handle][pg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on paths, xg to pg", "[handle][pg][xg]") {
             string graph_json = R"(
             {
                 "node": [
@@ -451,7 +451,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
-            convert_path_handle_graph(&xg, &pg);
+           algorithms::copy_path_handle_graph(&xg, &pg);
             
             
             
@@ -489,7 +489,7 @@ namespace vg {
                 }
             });
         }
-        TEST_CASE("convert_handle converter works on paths, xg to hg", "[handle][hg][xg]") {
+        TEST_CASE( "copy_handle_graph converter works on paths, xg to hg", "[handle][hg][xg]") {
             string graph_json = R"(
             {
                 "node": [
@@ -528,7 +528,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
-            convert_path_handle_graph(&xg, &hg);
+           algorithms::copy_path_handle_graph(&xg, &hg);
             
             
             
