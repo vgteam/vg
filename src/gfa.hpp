@@ -10,8 +10,9 @@
  * edge overlaps and edges that specify containment of one node in another, to
  * a blunt-ended VG.
  */
-
+#include <functional>
 #include "vg.hpp"
+#include "tinygfa.hpp"
 
 namespace vg {
 

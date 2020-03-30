@@ -197,8 +197,8 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     // So let's start
     
     // Parse the GFA
-    GFAKluge gg;
-    gg.parse_gfa_file(in);
+    // RM GFAKluge gg;
+    // RM gg.parse_gfa_file(in);
     // This maps from GFA sequence name to GFA sequence record
     map<string, sequence_elem, custom_key> gfa_sequences = gg.get_name_to_seq();
     // This maps from GFA sequence name to the GFA links for which it is the source
@@ -211,18 +211,23 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
 
     // Make a translator to convert from GFA string names to numeric pinch thread names
     GFAToPinchTranslator gfa_to_pinch;
+
+    std::function<void(tgfa::sequence_elem)> seqfunc = [&](tgfa::sequence_elem& s){
+        auto& pinch_name = gfa_to_pinch.translate(std::to_string(s.seq_id));
+        stPinchThreadSet_addThread(pinch.get(), pinch_name, 0, s.seq_length);
+    };
     
-    for(auto& name_and_record : gfa_sequences) {
-        // For each GFA sequence record by string name
-        auto& name = name_and_record.first;
-        auto& record = name_and_record.second;
+    // for(auto& name_and_record : gfa_sequences) {
+    //     // For each GFA sequence record by string name
+    //     auto& name = name_and_record.first;
+    //     auto& record = name_and_record.second;
         
-        // Assign it a numeric pinch thread name
-        auto pinch_name = gfa_to_pinch.translate(name);
+    //     // Assign it a numeric pinch thread name
+    //     auto pinch_name = gfa_to_pinch.translate(name);
         
-        // Add the thread to the pinch thread set
-        stPinchThreadSet_addThread(pinch.get(), pinch_name, 0, record.sequence.size());
-    }
+    //     // Add the thread to the pinch thread set
+    //     stPinchThreadSet_addThread(pinch.get(), pinch_name, 0, record.sequence.size());
+    // }
     
     // As we go through the links, we need to remmeber links which are straight abutments of sequences.
     // These won't be processed by the pinch graph; we need to store them and process them later.
@@ -253,6 +258,16 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     // (thread name, base, is_left) tripples that get merged.
     using tuck_side_t = tuple<int64_t, size_t, bool>;
     vector<pair<tuck_side_t, tuck_side_t>> tucks;
+
+    std::function<void(tgfa::edge_elem&)> edge_func = [&](tgfa::edge_elem& e){
+        string name = std::to_string(e.source_id);
+        auto source_pinch_name = gfa_to_pinch.translate(name);
+        auto source_thread = stPinchThreadSet_getThread(pinch.get(), source_pinch_name);
+        auto& source_string = name_to_seq[std::to_string(e.source_id)];
+        auto source_sequence_length = stPinchThread_getLength(stPinchThreadSet_getThread(pinch.get(), source_pinch_name));
+
+        auto cigar = vcflib::splitCigar(e.alignment);
+    };
     
     for (auto& name_and_links : gfa_links) {
         // For each set of links, by source node name
@@ -347,11 +362,11 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             // When traversing sink to source, skip the alignment's length in the source.
             link_skips[make_tuple(sink_pinch_name, source_pinch_name, !sink_backward, !source_backward)] = source_alignment_length;
             
-#ifdef debug
+            #ifdef debug
             cerr << "Found edge " << link.source_name << " = " << source_pinch_name << (source_backward ? 'L' : 'R')
                 << " -> " << link.sink_name << " = " << sink_pinch_name << (sink_backward ? 'R' : 'L') << endl;
             cerr << "Skips: " << sink_alignment_length << " forward, " << source_alignment_length << " reverse" << endl; 
-#endif
+            #endif
             
             if (source_alignment_length == 0 || sink_alignment_length == 0) {
                 // This link is just an end-to-end abutment with no overlap.
@@ -512,11 +527,11 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                     // thread space, not corresponding to each other to to the
                     // start/end of the operation.
                     
-#ifdef debug
+                    #ifdef debug
                     cerr << "Suboperation " << subelem.first << subelem.second << " runs "
                         << source_region_start << " through " << source_region_last << " in " << source_pinch_name
                         << " and " << sink_region_start << " through " << sink_region_last << " in " << sink_pinch_name << endl;
-#endif
+                    #endif
                     
                     // We need to know when to wire in dangling source/sink bits. 
                     bool is_first_subelement = (cigar_index == 0 && subelem_index == 0);
@@ -558,11 +573,11 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                                 // Queue up the edge exchange
                                 tucks.emplace_back(dangling_end, tuck_into);
                                 
-#ifdef debug    
+                                #ifdef debug    
                                 cerr << "\tSuboperation requires tucking "
                                     << get<0>(dangling_end) << ":" << get<1>(dangling_end) << (get<2>(dangling_end) ? 'L' : 'R')
                                     << " in with " <<  get<0>(tuck_into) << ":" << get<1>(tuck_into) << (get<2>(tuck_into) ? 'L' : 'R') << endl;
-#endif
+                                #endif
                                 
                                 // Splits to allow tucks will be done later.
                             }
@@ -578,11 +593,11 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                                 // Queue up the edge exchange
                                 tucks.emplace_back(dangling_end, tuck_into);
                                 
-#ifdef debug    
+                                #ifdef debug    
                                 cerr << "\tSuboperation requires tucking "
                                     << get<0>(dangling_end) << ":" << get<1>(dangling_end) << (get<2>(dangling_end) ? 'L' : 'R')
                                     << " in with " <<  get<0>(tuck_into) << ":" << get<1>(tuck_into) << (get<2>(tuck_into) ? 'L' : 'R') << endl;
-#endif
+                                #endif
                                 
                                 // Splits to allow tucks will be done later.
                             }
@@ -601,11 +616,11 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                             // Queue up the edge exchange
                             tucks.emplace_back(dangling_end, tuck_into);
                             
-#ifdef debug    
+                            #ifdef debug    
                             cerr << "\tSuboperation requires tucking "
                                 << get<0>(dangling_end) << ":" << get<1>(dangling_end) << (get<2>(dangling_end) ? 'L' : 'R')
                                 << " in with " <<  get<0>(tuck_into) << ":" << get<1>(tuck_into) << (get<2>(tuck_into) ? 'L' : 'R') << endl;
-#endif
+                            #endif
                             
                             // Splits to allow tucks will be done later.
                         }
@@ -624,11 +639,11 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                             // Queue up the edge exchange
                             tucks.emplace_back(dangling_end, tuck_into);
                             
-#ifdef debug    
+                            #ifdef debug    
                             cerr << "\tSuboperation requires tucking "
                                 << get<0>(dangling_end) << ":" << get<1>(dangling_end) << (get<2>(dangling_end) ? 'L' : 'R')
                                 << " in with " <<  get<0>(tuck_into) << ":" << get<1>(tuck_into) << (get<2>(tuck_into) ? 'L' : 'R') << endl;
-#endif
+                            #endif
                             
                         }
                         break;
@@ -920,16 +935,20 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     // Now all the nodes and edges exist.
     
     // Process the GFA paths
+
+    std::function<void(tgfa::group_elem&)> pathfunc = [&](tgfa::group_elem&){
+
+    };
     
     for (auto& name_and_path : gfa_paths) {
         // For each path record by name
         auto& name = name_and_path.first;
         auto& path = name_and_path.second;
         
-#ifdef debug
+        #ifdef debug
         cerr << "Import path " << name << endl;
         cerr << path.to_string() << endl;
-#endif
+        #endif
         
         // Create each path
         graph->paths.create_path(name);
@@ -952,10 +971,10 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             // Get the starting end appropriate to the orientation
             stPinchSegment* segment = thread_backward ? stPinchThread_getLast(thread) : stPinchThread_getFirst(thread);
             
-#ifdef debug
+            #ifdef debug
             cerr << "\tBegin at " << path.segment_names[0]
                 << " = " << thread_name << (thread_backward ? 'L' : 'R') << endl;
-#endif
+            #endif
             
             while (segment != nullptr) {
                 // Look up the node
@@ -963,10 +982,10 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                 // Compute its visit orientation
                 bool node_backward = (!stPinchSegment_getBlockOrientationSafe(segment) != thread_backward);
                 
-#ifdef debug 
+                #ifdef debug 
                 cerr << "\t\tPath starts with " << stPinchSegment_getLength(segment)
                     << " bases on node " << node << " orientation " << (node_backward ? "rev" : "fwd") << endl;
-#endif
+                #endif
                 
                 // Visit it
                 graph->paths.append_mapping(name, node, node_backward, stPinchSegment_getLength(segment), 0);
@@ -989,11 +1008,11 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             int64_t prev_thread_name = gfa_to_pinch.translate(path.segment_names[i - 1]);
             bool prev_thread_backward = !path.orientations[i - 1];
             
-#ifdef debug
+            #ifdef debug
             cerr << "\tCross edge " << path.segment_names[i - 1]
                 << " = " << prev_thread_name << (prev_thread_backward ? 'L' : 'R') 
                 << " to " << path.segment_names[i] << " = " << thread_name << (thread_backward ? 'R' : 'L') << endl;
-#endif
+            #endif
             
             // Work out how much of this thread the previous thread ate, by looking at the overlaps on the links
             auto overlap_to = link_skips.find(tie(prev_thread_name, thread_name, prev_thread_backward, thread_backward));
@@ -1033,10 +1052,10 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             size_t overlap_skipped = 0;
             while (overlap_skipped < overlap_to->second && segment != nullptr) {
                 overlap_skipped += stPinchSegment_getLength(segment);
-#ifdef debug 
+                #ifdef debug 
                 cerr << "\t\tSkip overlap of " << stPinchSegment_getLength(segment)
                     << " from segment for node " << pinch_to_vg.translate(segment) << endl;
-#endif
+                #endif
                 segment = thread_backward ? stPinchSegment_get5Prime(segment) : stPinchSegment_get3Prime(segment);
             }
             
@@ -1050,10 +1069,10 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                 // Compute its visit orientation
                 bool node_backward = (!stPinchSegment_getBlockOrientationSafe(segment) != thread_backward);
                 
-#ifdef debug 
+                #ifdef debug 
                 cerr << "\t\tPath follows " << stPinchSegment_getLength(segment)
                     << " bases on node " << node << " orientation " << (node_backward ? "rev" : "fwd") << endl;
-#endif
+                #endif
                 
                 // Visit it
                 graph->paths.append_mapping(name, node, node_backward, stPinchSegment_getLength(segment), 0);
@@ -1062,6 +1081,8 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             }
         }
     }
+
+    tgfa::parse_gfa_file(fil)
     
     // Save the paths to the graph
     graph->paths.rebuild_mapping_aux();

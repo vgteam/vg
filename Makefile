@@ -300,6 +300,7 @@ DEPS += $(INC_DIR)/dynamic/dynamic.hpp
 DEPS += $(INC_DIR)/sparsehash/sparse_hash_map
 DEPS += $(INC_DIR)/sparsepp/spp.h
 DEPS += $(INC_DIR)/gfakluge.hpp
+DEPS += $(INC_DIR)/tinygfa.hpp
 DEPS += $(INC_DIR)/sha1.hpp
 DEPS += $(INC_DIR)/progress_bar.hpp
 DEPS += $(INC_DIR)/backward.hpp
@@ -521,7 +522,9 @@ $(LIB_DIR)/libvcfh.a: $(DEP_DIR)/libVCFH/*.cpp $(DEP_DIR)/libVCFH/*.hpp
 	+. ./source_me.sh && cd $(DEP_DIR)/libVCFH && $(MAKE) $(FILTER) && cp libvcfh.a $(CWD)/$(LIB_DIR)/ && cp vcfheader.hpp $(CWD)/$(INC_DIR)/
 
 $(INC_DIR)/gfakluge.hpp: $(DEP_DIR)/gfakluge/src/gfakluge.hpp
-	+cp $(DEP_DIR)/gfakluge/src/*.hpp $(CWD)/$(INC_DIR)/ && cp $(DEP_DIR)/gfakluge/src/tinyFA/*.hpp $(CWD)/$(INC_DIR)/
+	+cp $(DEP_DIR)/gfakluge/src/*.hpp $(CWD)/$(INC_DIR)/ && cp $(DEP_DIR)/gfakluge/src/tinyFA/tinyfa.hpp $(CWD)/$(INC_DIR)/ 
+$(INC_DIR)/tinygfa.hpp: $(DEP_DIR)/tinygfa/tinygfa.hpp
+	+cp $(DEP_DIR)/tinygfa/*.hpp $(CWD)/$(INC_DIR)/ && cp $(DEP_DIR)/tinygfa/pliib/*.hpp $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libsonlib.a: $(CWD)/$(DEP_DIR)/sonLib/C/inc/*.h $(CWD)/$(DEP_DIR)/sonLib/C/impl/*.c
 	+. ./source_me.sh && cd $(DEP_DIR)/sonLib && kyotoTycoonLib="" $(MAKE) $(FILTER) && cp lib/sonLib.a $(CWD)/$(LIB_DIR)/libsonlib.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
