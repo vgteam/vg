@@ -1744,7 +1744,7 @@ TEST_CASE("reverse_complement_graph() produces expected results", "[vg]") {
         vg.create_edge(n6, n4, true, true);
         vg.create_edge(n3, n6);
       
-        unordered_map<int64_t, pair<int64_t, bool>> trans;
+        unordered_map<nid_t, pair<nid_t, bool>> trans;
         VG rev = vg.reverse_complement_graph(trans);
         
         REQUIRE(trans.size() == rev.graph.node_size());
@@ -1755,11 +1755,11 @@ TEST_CASE("reverse_complement_graph() produces expected results", "[vg]") {
             Node* orig_node = vg.get_node(trans[node.id()].first);
             REQUIRE(reverse_complement(node.sequence()) == orig_node->sequence());
             
-            vector<pair<int64_t, bool>> start_edges = vg.edges_start(orig_node);
-            vector<pair<int64_t, bool>> end_edges = vg.edges_end(orig_node);
+            vector<pair<nid_t, bool>> start_edges = vg.edges_start(orig_node);
+            vector<pair<nid_t, bool>> end_edges = vg.edges_end(orig_node);
             
-            vector<pair<int64_t, bool>> rev_start_edges = rev.edges_start(node.id());
-            vector<pair<int64_t, bool>> rev_end_edges = rev.edges_end(node.id());
+            vector<pair<nid_t, bool>> rev_start_edges = rev.edges_start(node.id());
+            vector<pair<nid_t, bool>> rev_end_edges = rev.edges_end(node.id());
             
             REQUIRE(start_edges.size() == rev_end_edges.size());
             REQUIRE(end_edges.size() == rev_start_edges.size());

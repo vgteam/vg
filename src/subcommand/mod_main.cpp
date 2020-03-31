@@ -667,14 +667,14 @@ int main_mod(int argc, char** argv) {
     }
 
     if (dagify_steps) {
-        unordered_map<int64_t, pair<int64_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         // TODO: turn into an algorithm
         ensure_vg();
         *vg_graph = vg_graph->dagify(dagify_steps, node_translation, 0, dagify_component_length_max);
     }
 
     if (dagify_to) {
-        unordered_map<int64_t, pair<int64_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         // use the walk as our maximum number of steps; it's the worst case
         // TODO: turn into an algorithm
         ensure_vg();
@@ -682,7 +682,7 @@ int main_mod(int argc, char** argv) {
     }
 
     if (unfold_to) {
-        unordered_map<int64_t, pair<int64_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         // TODO: turn into an algorithm
         ensure_vg();
         *vg_graph = vg_graph->unfold(unfold_to, node_translation);
