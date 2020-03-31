@@ -11,6 +11,7 @@
  * a blunt-ended VG.
  */
 #include <functional>
+#include <unordered_map>
 #include "vg.hpp"
 #include "tinygfa.hpp"
 

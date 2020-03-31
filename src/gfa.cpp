@@ -197,8 +197,8 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     // So let's start
     
     // Parse the GFA
-    // RM GFAKluge gg;
-    // RM gg.parse_gfa_file(in);
+    GFAKluge gg;
+    gg.parse_gfa_file(in);
     // This maps from GFA sequence name to GFA sequence record
     map<string, sequence_elem, custom_key> gfa_sequences = gg.get_name_to_seq();
     // This maps from GFA sequence name to the GFA links for which it is the source
@@ -212,9 +212,13 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     // Make a translator to convert from GFA string names to numeric pinch thread names
     GFAToPinchTranslator gfa_to_pinch;
 
-    std::function<void(tgfa::sequence_elem)> seqfunc = [&](tgfa::sequence_elem& s){
-        auto& pinch_name = gfa_to_pinch.translate(std::to_string(s.seq_id));
+    spp::sparse_hash_map<string, string> name_to_seq;
+    
+
+    std::function<void(tgfa::sequence_elem&)> seqfunc = [&](tgfa::sequence_elem& s){
+        auto pinch_name = gfa_to_pinch.translate(std::string(s.seq_id));
         stPinchThreadSet_addThread(pinch.get(), pinch_name, 0, s.seq_length);
+        name_to_seq[s.seq_id] = s.seq;
     };
     
     // for(auto& name_and_record : gfa_sequences) {
@@ -260,37 +264,16 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     vector<pair<tuck_side_t, tuck_side_t>> tucks;
 
     std::function<void(tgfa::edge_elem&)> edge_func = [&](tgfa::edge_elem& e){
-        string name = std::to_string(e.source_id);
+        string name = std::string(e.source_id);
         auto source_pinch_name = gfa_to_pinch.translate(name);
         auto source_thread = stPinchThreadSet_getThread(pinch.get(), source_pinch_name);
-        auto& source_string = name_to_seq[std::to_string(e.source_id)];
+        auto& source_string = name_to_seq[std::string(e.source_id)];
         auto source_sequence_length = stPinchThread_getLength(stPinchThreadSet_getThread(pinch.get(), source_pinch_name));
 
         auto cigar = vcflib::splitCigar(e.alignment);
-    };
-    
-    for (auto& name_and_links : gfa_links) {
-        // For each set of links, by source node name
-        auto& name = name_and_links.first;
-        auto& links = name_and_links.second;
-        
-        // Find the source pinch thread
-        auto source_pinch_name = gfa_to_pinch.translate(name);
-        auto source_thread = stPinchThreadSet_getThread(pinch.get(), source_pinch_name);
-        
-        // And the source sequence string
-        auto& source_string = gfa_sequences[name].sequence;
-        // And sequence length
-        auto source_sequence_length = stPinchThread_getLength(stPinchThreadSet_getThread(pinch.get(), source_pinch_name));
-        
-        for (auto& link : links) {
-            // For each link on this source node
-            
-            // Get the CIGAR alignment for the link
-            auto cigar = vcflib::splitCigar(link.alignment);
-            
-            if (only_perfect_match) {
-                // We only care about all-match/mismatch CIGARs. Does this one qualify?
+
+        if (only_perfect_match){
+            //We only care about all-match/mismatch CIGARs. Does this one qualify?
                 bool is_all_match_mismatch = true;
                 for (auto& elem : cigar) {
                     if (elem.second != "M" && elem.second != "=" && elem.second != "X") {
@@ -302,12 +285,11 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                 
                 if (!is_all_match_mismatch) {
                     // This CIGAR has other operations in it and we want to discard the link because of it
-                    continue;
+                    return;
                 }
-            }
-            
-            // Now we know we need to do the link and process the CIGAR.
-            
+        }
+
+                 
             // Get the CIGAR's length in the source and the sink.
             // TODO: Is it really true that source is reference and sink is query?
             size_t source_alignment_length = 0;
@@ -343,18 +325,18 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                     break;
                 default:
                     // This is an invalid operation; the GFA is invalid.
-                    cerr << "error:[gfa_to_graph]: GFA CIGAR invalid: " << elem.second << " operation in " << link.to_string_2() << endl;
-                    return false;
+                    cerr << "error:[gfa_to_graph]: GFA CIGAR invalid: " << elem.second << " operation in " << e.edge_id  << endl;
+                    return;
                 }
             }
-            
-            // Work out what thread the link is to
-            auto sink_pinch_name = gfa_to_pinch.translate(link.sink_name);
+
+                      // Work out what thread the link is to
+            auto sink_pinch_name = gfa_to_pinch.translate(e.sink_id);
             auto sink_thread = stPinchThreadSet_getThread(pinch.get(), sink_pinch_name);
             
             // Get the orientations
-            bool source_backward = !link.source_orientation_forward;
-            bool sink_backward = !link.sink_orientation_forward;
+            bool source_backward = !e.source_orientation_forward;
+            bool sink_backward = !e.sink_orientation_forward;
             
             // Record the link skip distances from the alignment, for interpreting paths.
             // When traversion source to sink, skip the alignment's length in the sink
@@ -379,11 +361,12 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                 // connect in to the end of the insert?
                 
                 // Skip the link CIGAR execution
-                continue;
+                return;
             }
-            
+
+                    
             // Find the sink sequence data
-            auto& sink_string = gfa_sequences[link.sink_name].sequence;
+            auto& sink_string = gfa_sequences[e.sink_id].sequence;
             // And sequence length
             auto sink_sequence_length = stPinchThread_getLength(stPinchThreadSet_getThread(pinch.get(), sink_pinch_name));
             
@@ -391,274 +374,409 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                 // The GFA file is invalid and specifies using more bases than are present.
                 if (only_perfect_match) {
                     // Be tolerant and reject just this edge.
-                    continue;
+                    return;
                 }
                 
                 // Otherwise complain to the user
-                cerr << "error:[gfa_to_graph]: GFA file contains a link " << link.source_name << " " << (source_backward ? 'L' : 'R')
-                    << " to " << link.sink_name  << " " << (sink_backward ? 'R' : 'L')
+                cerr << "error:[gfa_to_graph]: GFA file contains a link " << e.source_id << " " << (source_backward ? 'L' : 'R')
+                    << " to " << e.sink_id  << " " << (sink_backward ? 'R' : 'L')
                     << " that tries to consume more source sequence (" << source_alignment_length
                     << ") than is present (" << source_sequence_length << ")" << endl;
-                    
-                return false;
+                    throw (9);
+                return ;
             }
+    };
+    
+    // for (auto& name_and_links : gfa_links) {
+    //     // For each set of links, by source node name
+    //     auto& name = name_and_links.first;
+    //     auto& links = name_and_links.second;
+        
+    //     // Find the source pinch thread
+    //     auto source_pinch_name = gfa_to_pinch.translate(name);
+    //     auto source_thread = stPinchThreadSet_getThread(pinch.get(), source_pinch_name);
+        
+    //     // And the source sequence string
+    //     auto& source_string = gfa_sequences[name].sequence;
+    //     // And sequence length
+    //     auto source_sequence_length = stPinchThread_getLength(stPinchThreadSet_getThread(pinch.get(), source_pinch_name));
+        
+    //     for (auto& link : links) {
+    //         // For each link on this source node
             
-            if (sink_alignment_length > sink_sequence_length) {
-                // The GFA file is invalid and specifies using more bases than are present.
-                if (only_perfect_match) {
-                    // Be tolerant and reject just this edge.
-                    continue;
-                }
+    //         // Get the CIGAR alignment for the link
+    //         auto cigar = vcflib::splitCigar(link.alignment);
+            
+    //         if (only_perfect_match) {
+    //             // We only care about all-match/mismatch CIGARs. Does this one qualify?
+    //             bool is_all_match_mismatch = true;
+    //             for (auto& elem : cigar) {
+    //                 if (elem.second != "M" && elem.second != "=" && elem.second != "X") {
+    //                     // This operation isn't any of the match/mismatch operations
+    //                     is_all_match_mismatch = false;
+    //                     break;
+    //                 }
+    //             }
                 
-                // Otherwise complain to the user
-                cerr << "error:[gfa_to_graph]: GFA file contains a link " << link.source_name << " " << (source_backward ? 'L' : 'R')
-                    << " to " << link.sink_name  << " " << (sink_backward ? 'R' : 'L')
-                    << " that tries to consume more sink sequence (" << sink_alignment_length
-                    << ") than is present (" << sink_sequence_length << ")" << endl;
+    //             if (!is_all_match_mismatch) {
+    //                 // This CIGAR has other operations in it and we want to discard the link because of it
+    //                 continue;
+    //             }
+    //         }
+            
+    //         // Now we know we need to do the link and process the CIGAR.
+            
+    //         // Get the CIGAR's length in the source and the sink.
+    //         // TODO: Is it really true that source is reference and sink is query?
+    //         size_t source_alignment_length = 0;
+    //         size_t sink_alignment_length = 0;
+    //         for (auto& elem : cigar) {
+    //             // Parse each CIGAR element
+    //             auto& length = elem.first;
+    //             assert(!elem.second.empty());
+    //             switch(elem.second[0]) {
+    //             case 'M':
+    //             case '=':
+    //             case 'X':
+    //                 // Equal-length in both
+    //                 source_alignment_length += length;
+    //                 sink_alignment_length += length;
+    //                 break;
+    //             case 'I':
+    //                 // Insert = more sink
+    //                 sink_alignment_length += length;
+    //                 break;
+    //             case 'D':
+    //                 // Deletion = more source
+    //                 source_alignment_length += length;
+    //                 break;
+    //             case 'S':
+    //                 // Soft clip = extra sink?
+    //                 // Probably shouldn't be allowed.
+    //                 throw runtime_error("GFA CIGAR contains a soft-clip operation; semantics unclear");
+    //                 break;
+    //             case 'H':
+    //                 // Hard clip = extra sink also, but even weirder than a soft clip.
+    //                 throw runtime_error("GFA CIGAR contains a hard-clip operation; semantics unclear");
+    //                 break;
+    //             default:
+    //                 // This is an invalid operation; the GFA is invalid.
+    //                 cerr << "error:[gfa_to_graph]: GFA CIGAR invalid: " << elem.second << " operation in " << link.to_string_2() << endl;
+    //                 return false;
+    //             }
+    //         }
+            
+    //         // Work out what thread the link is to
+    //         auto sink_pinch_name = gfa_to_pinch.translate(link.sink_name);
+    //         auto sink_thread = stPinchThreadSet_getThread(pinch.get(), sink_pinch_name);
+            
+    //         // Get the orientations
+    //         bool source_backward = !link.source_orientation_forward;
+    //         bool sink_backward = !link.sink_orientation_forward;
+            
+    //         // Record the link skip distances from the alignment, for interpreting paths.
+    //         // When traversion source to sink, skip the alignment's length in the sink
+    //         link_skips[make_tuple(source_pinch_name, sink_pinch_name, source_backward, sink_backward)] = sink_alignment_length;
+    //         // When traversing sink to source, skip the alignment's length in the source.
+    //         link_skips[make_tuple(sink_pinch_name, source_pinch_name, !sink_backward, !source_backward)] = source_alignment_length;
+            
+    //         #ifdef debug
+    //         cerr << "Found edge " << link.source_name << " = " << source_pinch_name << (source_backward ? 'L' : 'R')
+    //             << " -> " << link.sink_name << " = " << sink_pinch_name << (sink_backward ? 'R' : 'L') << endl;
+    //         cerr << "Skips: " << sink_alignment_length << " forward, " << source_alignment_length << " reverse" << endl; 
+    //         #endif
+            
+    //         if (source_alignment_length == 0 || sink_alignment_length == 0) {
+    //             // This link is just an end-to-end abutment with no overlap.
+    //             // It can't be sent through the pinch graph; we store it separately.
+    //             // We also have no need to do any tucks.
+    //             abut_links.push_back(make_tuple(source_pinch_name, sink_pinch_name, source_backward, sink_backward));
+                
+    //             // TODO: What exactly are the semantics on e.g. an all-insert
+    //             // alignment? Is it really just that the ends abut? Or do we
+    //             // connect in to the end of the insert?
+                
+    //             // Skip the link CIGAR execution
+    //             continue;
+    //         }
+            
+    //         // Find the sink sequence data
+    //         auto& sink_string = gfa_sequences[link.sink_name].sequence;
+    //         // And sequence length
+    //         auto sink_sequence_length = stPinchThread_getLength(stPinchThreadSet_getThread(pinch.get(), sink_pinch_name));
+            
+    //         if (source_alignment_length > source_sequence_length) {
+    //             // The GFA file is invalid and specifies using more bases than are present.
+    //             if (only_perfect_match) {
+    //                 // Be tolerant and reject just this edge.
+    //                 continue;
+    //             }
+                
+    //             // Otherwise complain to the user
+    //             cerr << "error:[gfa_to_graph]: GFA file contains a link " << link.source_name << " " << (source_backward ? 'L' : 'R')
+    //                 << " to " << link.sink_name  << " " << (sink_backward ? 'R' : 'L')
+    //                 << " that tries to consume more source sequence (" << source_alignment_length
+    //                 << ") than is present (" << source_sequence_length << ")" << endl;
                     
-                return false;
-            }
+    //             return false;
+    //         }
             
-            // Set up some cursors in each node's sequence that go the right
-            // direction, based on orientations. Cursors start at the first
-            // base in the CIGAR, which may be past the end/before the
-            // beginning on the source if the CIGAR is 0 length.
-            int64_t source_cursor = source_backward ? (-1 + source_alignment_length) : (source_sequence_length - source_alignment_length);
-            int64_t source_motion = source_backward ? -1 : 1;
-            int64_t sink_cursor = sink_backward ? (sink_sequence_length - 1) : 0;
-            int64_t sink_motion = sink_backward ? -1 : 1;
+    //         if (sink_alignment_length > sink_sequence_length) {
+    //             // The GFA file is invalid and specifies using more bases than are present.
+    //             if (only_perfect_match) {
+    //                 // Be tolerant and reject just this edge.
+    //                 continue;
+    //             }
+                
+    //             // Otherwise complain to the user
+    //             cerr << "error:[gfa_to_graph]: GFA file contains a link " << link.source_name << " " << (source_backward ? 'L' : 'R')
+    //                 << " to " << link.sink_name  << " " << (sink_backward ? 'R' : 'L')
+    //                 << " that tries to consume more sink sequence (" << sink_alignment_length
+    //                 << ") than is present (" << sink_sequence_length << ")" << endl;
+                    
+    //             return false;
+    //         }
             
-            // Decide if we are pinching in agreeing orientations
-            bool pinch_same_strand = (source_backward == sink_backward);
+    //         // Set up some cursors in each node's sequence that go the right
+    //         // direction, based on orientations. Cursors start at the first
+    //         // base in the CIGAR, which may be past the end/before the
+    //         // beginning on the source if the CIGAR is 0 length.
+    //         int64_t source_cursor = source_backward ? (-1 + source_alignment_length) : (source_sequence_length - source_alignment_length);
+    //         int64_t source_motion = source_backward ? -1 : 1;
+    //         int64_t sink_cursor = sink_backward ? (sink_sequence_length - 1) : 0;
+    //         int64_t sink_motion = sink_backward ? -1 : 1;
             
-            // Interpret the CIGAR string and perform pinches.
+    //         // Decide if we are pinching in agreeing orientations
+    //         bool pinch_same_strand = (source_backward == sink_backward);
             
-            for (size_t cigar_index = 0; cigar_index < cigar.size(); cigar_index++) {
-                // For each cigar operation
-                auto& elem = cigar[cigar_index];
+    //         // Interpret the CIGAR string and perform pinches.
+            
+    //         for (size_t cigar_index = 0; cigar_index < cigar.size(); cigar_index++) {
+    //             // For each cigar operation
+    //             auto& elem = cigar[cigar_index];
                 
-                if (elem.first == 0) {
-                    // Skip 0-length operations
-                    continue;
-                }
+    //             if (elem.first == 0) {
+    //                 // Skip 0-length operations
+    //                 continue;
+    //             }
                 
-                if (cigar_index != 0 && (elem.second == "D" && cigar[cigar_index - 1].second == "I" ||
-                    elem.second == "I" && cigar[cigar_index - 1].second == "D")) {
-                    // We found adjacent inserts and deletions, which throws
-                    // off our dangling tip tucking algorithm and which
-                    // shouldn't happen anyway in a well-behaved alignment.
-                    // TODO: accomodate this somehow.
-                    throw runtime_error("GFA importer cannot (yet) handle adjacent insertions and deletions.");
-                }
+    //             if (cigar_index != 0 && (elem.second == "D" && cigar[cigar_index - 1].second == "I" ||
+    //                 elem.second == "I" && cigar[cigar_index - 1].second == "D")) {
+    //                 // We found adjacent inserts and deletions, which throws
+    //                 // off our dangling tip tucking algorithm and which
+    //                 // shouldn't happen anyway in a well-behaved alignment.
+    //                 // TODO: accomodate this somehow.
+    //                 throw runtime_error("GFA importer cannot (yet) handle adjacent insertions and deletions.");
+    //             }
                 
-                // Decompose each operation into a series of suboperations.
-                // This gives us an opportunity to replace M operations with =/X
-                vector<pair<size_t, string>> suboperations;
+    //             // Decompose each operation into a series of suboperations.
+    //             // This gives us an opportunity to replace M operations with =/X
+    //             vector<pair<size_t, string>> suboperations;
                 
-                if (elem.second == "M" && !only_perfect_match) {
-                    // This is an M operation that needs to be decomposed into = and X
-                    for (size_t i = 0; i < elem.first; i++) {
-                        // For each position along the M operation
+    //             if (elem.second == "M" && !only_perfect_match) {
+    //                 // This is an M operation that needs to be decomposed into = and X
+    //                 for (size_t i = 0; i < elem.first; i++) {
+    //                     // For each position along the M operation
                         
-                        // Find the next character in the source
-                        auto source_char = source_string.at(source_cursor + source_motion * i);
-                        if (source_backward) {
-                            source_char = reverse_complement(source_char);
-                        }
-                        // And the sink
-                        auto sink_char = sink_string.at(sink_cursor + sink_motion * i);
-                        if (sink_backward) {
-                            sink_char = reverse_complement(sink_char);
-                        }
-                        // Work out what kind of operation we need for this pairing of bases.
-                        // TODO: Handle Ns specially?
-                        string opcode = (source_char == sink_char) ? "=" : "X";
+    //                     // Find the next character in the source
+    //                     auto source_char = source_string.at(source_cursor + source_motion * i);
+    //                     if (source_backward) {
+    //                         source_char = reverse_complement(source_char);
+    //                     }
+    //                     // And the sink
+    //                     auto sink_char = sink_string.at(sink_cursor + sink_motion * i);
+    //                     if (sink_backward) {
+    //                         sink_char = reverse_complement(sink_char);
+    //                     }
+    //                     // Work out what kind of operation we need for this pairing of bases.
+    //                     // TODO: Handle Ns specially?
+    //                     string opcode = (source_char == sink_char) ? "=" : "X";
                         
-                        if (!suboperations.empty() && suboperations.back().second == opcode) {
-                            // We can accumulate onto the existing suboperation of this type
-                            suboperations.back().first++;
-                        } else {
-                            // We need a new suboperation of this type
-                            suboperations.push_back(make_pair(1, opcode));
-                        }
-                    }
-                } else {
-                    // This operation can be passed through as-is
-                    suboperations.push_back(elem);
-                }
+    //                     if (!suboperations.empty() && suboperations.back().second == opcode) {
+    //                         // We can accumulate onto the existing suboperation of this type
+    //                         suboperations.back().first++;
+    //                     } else {
+    //                         // We need a new suboperation of this type
+    //                         suboperations.push_back(make_pair(1, opcode));
+    //                     }
+    //                 }
+    //             } else {
+    //                 // This operation can be passed through as-is
+    //                 suboperations.push_back(elem);
+    //             }
                
-                for (auto subelem_index = 0; subelem_index < suboperations.size(); subelem_index++) {
-                    // For each suboperation
-                    auto& subelem = suboperations[subelem_index];
+    //             for (auto subelem_index = 0; subelem_index < suboperations.size(); subelem_index++) {
+    //                 // For each suboperation
+    //                 auto& subelem = suboperations[subelem_index];
                     
-                    // Get its length
-                    auto& length = subelem.first;
+    //                 // Get its length
+    //                 auto& length = subelem.first;
                     
-                    // Compute source and sink lengths
-                    size_t source_length = 0;
-                    size_t sink_length = 0;
-                    assert(!subelem.second.empty());
-                    switch(subelem.second[0]) {
-                    case 'M':
-                    case '=':
-                    case 'X':
-                        source_length = length;
-                        // Fall through
-                    case 'I':
-                        sink_length = length;
-                        break;
-                    case 'D':
-                        source_length = length;
-                        break;
-                    default:
-                        // We should have already checked for weird operations.
-                        throw runtime_error("Invalid operation " + subelem.second + " in pre-screened CIGAR");
-                    }
+    //                 // Compute source and sink lengths
+    //                 size_t source_length = 0;
+    //                 size_t sink_length = 0;
+    //                 assert(!subelem.second.empty());
+    //                 switch(subelem.second[0]) {
+    //                 case 'M':
+    //                 case '=':
+    //                 case 'X':
+    //                     source_length = length;
+    //                     // Fall through
+    //                 case 'I':
+    //                     sink_length = length;
+    //                     break;
+    //                 case 'D':
+    //                     source_length = length;
+    //                     break;
+    //                 default:
+    //                     // We should have already checked for weird operations.
+    //                     throw runtime_error("Invalid operation " + subelem.second + " in pre-screened CIGAR");
+    //                 }
                     
-                    // Work out the sequence-local start of the region in each sequence that it may apply to, which depends on orientation.
-                    int64_t source_region_start = source_backward ? (source_cursor - source_length + 1) : source_cursor;
-                    int64_t sink_region_start = sink_backward ? (sink_cursor - sink_length + 1) : sink_cursor;
+    //                 // Work out the sequence-local start of the region in each sequence that it may apply to, which depends on orientation.
+    //                 int64_t source_region_start = source_backward ? (source_cursor - source_length + 1) : source_cursor;
+    //                 int64_t sink_region_start = sink_backward ? (sink_cursor - sink_length + 1) : sink_cursor;
                     
-                    // And also the end positions (last in region, on the other side of the start if the region is empty)
-                    int64_t source_region_last = source_backward ? source_cursor : (source_cursor + source_length - 1);
-                    int64_t sink_region_last = sink_backward ? sink_cursor : (sink_cursor + sink_length - 1);
+    //                 // And also the end positions (last in region, on the other side of the start if the region is empty)
+    //                 int64_t source_region_last = source_backward ? source_cursor : (source_cursor + source_length - 1);
+    //                 int64_t sink_region_last = sink_backward ? sink_cursor : (sink_cursor + sink_length - 1);
                     
-                    // Note thatb these are just lowest/highest coordinate in
-                    // thread space, not corresponding to each other to to the
-                    // start/end of the operation.
+    //                 // Note thatb these are just lowest/highest coordinate in
+    //                 // thread space, not corresponding to each other to to the
+    //                 // start/end of the operation.
                     
-                    #ifdef debug
-                    cerr << "Suboperation " << subelem.first << subelem.second << " runs "
-                        << source_region_start << " through " << source_region_last << " in " << source_pinch_name
-                        << " and " << sink_region_start << " through " << sink_region_last << " in " << sink_pinch_name << endl;
-                    #endif
+    //                 #ifdef debug
+    //                 cerr << "Suboperation " << subelem.first << subelem.second << " runs "
+    //                     << source_region_start << " through " << source_region_last << " in " << source_pinch_name
+    //                     << " and " << sink_region_start << " through " << sink_region_last << " in " << sink_pinch_name << endl;
+    //                 #endif
                     
-                    // We need to know when to wire in dangling source/sink bits. 
-                    bool is_first_subelement = (cigar_index == 0 && subelem_index == 0);
-                    bool is_last_subelement = (cigar_index == cigar.size() - 1 && subelem_index == suboperations.size() - 1);
+    //                 // We need to know when to wire in dangling source/sink bits. 
+    //                 bool is_first_subelement = (cigar_index == 0 && subelem_index == 0);
+    //                 bool is_last_subelement = (cigar_index == cigar.size() - 1 && subelem_index == suboperations.size() - 1);
                     
-                    assert(!subelem.second.empty());
-                    switch(subelem.second[0]) {
-                    case 'M':
-                        if (only_perfect_match) {
-                            // The whole match can be merged
-                            stPinchThread_pinch(source_thread, sink_thread, source_region_start, sink_region_start, length, pinch_same_strand);
-                        } else {
-                            // If we aren't in always_perfect_match mode this should have become =/X
-                            throw runtime_error("Encountered unparsed M operation");
-                        }
-                        break;
-                    case '=':
-                        // Always pinch.
-                        // TODO: should we check sequence equality?
-                        stPinchThread_pinch(source_thread, sink_thread, source_region_start, sink_region_start, length, pinch_same_strand);
-                        break;
-                    case 'X':
-                        // Only pinch if we are forcing matches (in which case this was X originally)
-                        if (only_perfect_match) {
-                            stPinchThread_pinch(source_thread, sink_thread, source_region_start, sink_region_start, length, pinch_same_strand);
-                        } else {
-                            if (is_first_subelement) {
-                                // We dangled the sink and potentially created
-                                // a tip. We need to remember the pinch we
-                                // would have made, so we can wire up the
-                                // dangling end to what we would have wired it
-                                // to if we had pinched it.
+    //                 assert(!subelem.second.empty());
+    //                 switch(subelem.second[0]) {
+    //                 case 'M':
+    //                     if (only_perfect_match) {
+    //                         // The whole match can be merged
+    //                         stPinchThread_pinch(source_thread, sink_thread, source_region_start, sink_region_start, length, pinch_same_strand);
+    //                     } else {
+    //                         // If we aren't in always_perfect_match mode this should have become =/X
+    //                         throw runtime_error("Encountered unparsed M operation");
+    //                     }
+    //                     break;
+    //                 case '=':
+    //                     // Always pinch.
+    //                     // TODO: should we check sequence equality?
+    //                     stPinchThread_pinch(source_thread, sink_thread, source_region_start, sink_region_start, length, pinch_same_strand);
+    //                     break;
+    //                 case 'X':
+    //                     // Only pinch if we are forcing matches (in which case this was X originally)
+    //                     if (only_perfect_match) {
+    //                         stPinchThread_pinch(source_thread, sink_thread, source_region_start, sink_region_start, length, pinch_same_strand);
+    //                     } else {
+    //                         if (is_first_subelement) {
+    //                             // We dangled the sink and potentially created
+    //                             // a tip. We need to remember the pinch we
+    //                             // would have made, so we can wire up the
+    //                             // dangling end to what we would have wired it
+    //                             // to if we had pinched it.
                                 
-                                // Describe the end that is dangling as (thread name, base, is_left)
-                                tuck_side_t dangling_end = make_tuple(sink_pinch_name,
-                                    sink_backward ? stPinchThread_getLength(sink_thread) - 1 : 0, !sink_backward);
-                                // Describe what it would have merged with.
-                                tuck_side_t tuck_into = make_tuple(source_pinch_name, source_cursor, !source_backward);
-                                // Queue up the edge exchange
-                                tucks.emplace_back(dangling_end, tuck_into);
+    //                             // Describe the end that is dangling as (thread name, base, is_left)
+    //                             tuck_side_t dangling_end = make_tuple(sink_pinch_name,
+    //                                 sink_backward ? stPinchThread_getLength(sink_thread) - 1 : 0, !sink_backward);
+    //                             // Describe what it would have merged with.
+    //                             tuck_side_t tuck_into = make_tuple(source_pinch_name, source_cursor, !source_backward);
+    //                             // Queue up the edge exchange
+    //                             tucks.emplace_back(dangling_end, tuck_into);
                                 
-                                #ifdef debug    
-                                cerr << "\tSuboperation requires tucking "
-                                    << get<0>(dangling_end) << ":" << get<1>(dangling_end) << (get<2>(dangling_end) ? 'L' : 'R')
-                                    << " in with " <<  get<0>(tuck_into) << ":" << get<1>(tuck_into) << (get<2>(tuck_into) ? 'L' : 'R') << endl;
-                                #endif
+    //                             #ifdef debug    
+    //                             cerr << "\tSuboperation requires tucking "
+    //                                 << get<0>(dangling_end) << ":" << get<1>(dangling_end) << (get<2>(dangling_end) ? 'L' : 'R')
+    //                                 << " in with " <<  get<0>(tuck_into) << ":" << get<1>(tuck_into) << (get<2>(tuck_into) ? 'L' : 'R') << endl;
+    //                             #endif
                                 
-                                // Splits to allow tucks will be done later.
-                            }
+    //                             // Splits to allow tucks will be done later.
+    //                         }
                             
-                            if (is_last_subelement) {
-                                // We dangled the source as well, on the right of the overlap
+    //                         if (is_last_subelement) {
+    //                             // We dangled the source as well, on the right of the overlap
                                 
-                                // Describe the end that is dangling as (thread name, base, is_left)
-                                tuck_side_t dangling_end = make_tuple(source_pinch_name,
-                                    source_backward ? 0 : stPinchThread_getLength(source_thread) - 1, source_backward);
-                                // Describe what it would have merged with.
-                                tuck_side_t tuck_into = make_tuple(sink_pinch_name, sink_cursor + sink_motion * (sink_length - 1), sink_backward);
-                                // Queue up the edge exchange
-                                tucks.emplace_back(dangling_end, tuck_into);
+    //                             // Describe the end that is dangling as (thread name, base, is_left)
+    //                             tuck_side_t dangling_end = make_tuple(source_pinch_name,
+    //                                 source_backward ? 0 : stPinchThread_getLength(source_thread) - 1, source_backward);
+    //                             // Describe what it would have merged with.
+    //                             tuck_side_t tuck_into = make_tuple(sink_pinch_name, sink_cursor + sink_motion * (sink_length - 1), sink_backward);
+    //                             // Queue up the edge exchange
+    //                             tucks.emplace_back(dangling_end, tuck_into);
                                 
-                                #ifdef debug    
-                                cerr << "\tSuboperation requires tucking "
-                                    << get<0>(dangling_end) << ":" << get<1>(dangling_end) << (get<2>(dangling_end) ? 'L' : 'R')
-                                    << " in with " <<  get<0>(tuck_into) << ":" << get<1>(tuck_into) << (get<2>(tuck_into) ? 'L' : 'R') << endl;
-                                #endif
+    //                             #ifdef debug    
+    //                             cerr << "\tSuboperation requires tucking "
+    //                                 << get<0>(dangling_end) << ":" << get<1>(dangling_end) << (get<2>(dangling_end) ? 'L' : 'R')
+    //                                 << " in with " <<  get<0>(tuck_into) << ":" << get<1>(tuck_into) << (get<2>(tuck_into) ? 'L' : 'R') << endl;
+    //                             #endif
                                 
-                                // Splits to allow tucks will be done later.
-                            }
-                        }
-                        break;
-                    case 'I':
-                        // We don't need to do any pinching
-                        if (is_first_subelement) {
-                            // We dangled the sink on the left of the overlap
+    //                             // Splits to allow tucks will be done later.
+    //                         }
+    //                     }
+    //                     break;
+    //                 case 'I':
+    //                     // We don't need to do any pinching
+    //                     if (is_first_subelement) {
+    //                         // We dangled the sink on the left of the overlap
                             
-                            // Describe the end that is dangling as (thread name, base, is_left)
-                            tuck_side_t dangling_end = make_tuple(sink_pinch_name,
-                                sink_backward ? stPinchThread_getLength(sink_thread) - 1 : 0, !sink_backward);
-                            // Describe what it would have merged with.
-                            tuck_side_t tuck_into = make_tuple(source_pinch_name, source_cursor, !source_backward);
-                            // Queue up the edge exchange
-                            tucks.emplace_back(dangling_end, tuck_into);
+    //                         // Describe the end that is dangling as (thread name, base, is_left)
+    //                         tuck_side_t dangling_end = make_tuple(sink_pinch_name,
+    //                             sink_backward ? stPinchThread_getLength(sink_thread) - 1 : 0, !sink_backward);
+    //                         // Describe what it would have merged with.
+    //                         tuck_side_t tuck_into = make_tuple(source_pinch_name, source_cursor, !source_backward);
+    //                         // Queue up the edge exchange
+    //                         tucks.emplace_back(dangling_end, tuck_into);
                             
-                            #ifdef debug    
-                            cerr << "\tSuboperation requires tucking "
-                                << get<0>(dangling_end) << ":" << get<1>(dangling_end) << (get<2>(dangling_end) ? 'L' : 'R')
-                                << " in with " <<  get<0>(tuck_into) << ":" << get<1>(tuck_into) << (get<2>(tuck_into) ? 'L' : 'R') << endl;
-                            #endif
+    //                         #ifdef debug    
+    //                         cerr << "\tSuboperation requires tucking "
+    //                             << get<0>(dangling_end) << ":" << get<1>(dangling_end) << (get<2>(dangling_end) ? 'L' : 'R')
+    //                             << " in with " <<  get<0>(tuck_into) << ":" << get<1>(tuck_into) << (get<2>(tuck_into) ? 'L' : 'R') << endl;
+    //                         #endif
                             
-                            // Splits to allow tucks will be done later.
-                        }
-                        break;
-                    case 'D':
-                        // No pinching
-                        if (is_last_subelement) {
-                            // We dangled the source on the right of the overlap
+    //                         // Splits to allow tucks will be done later.
+    //                     }
+    //                     break;
+    //                 case 'D':
+    //                     // No pinching
+    //                     if (is_last_subelement) {
+    //                         // We dangled the source on the right of the overlap
                             
-                            // Describe the end that is dangling as (thread name, base, is_left)
-                            tuck_side_t dangling_end = make_tuple(source_pinch_name,
-                                source_backward ? 0 : stPinchThread_getLength(source_thread) - 1, source_backward);
-                            // Describe what it would have merged with.
-                            // We have to back out sink motion since the cursor is right now at the after-the-deletion position.
-                            tuck_side_t tuck_into = make_tuple(sink_pinch_name, sink_cursor - sink_motion, sink_backward);
-                            // Queue up the edge exchange
-                            tucks.emplace_back(dangling_end, tuck_into);
+    //                         // Describe the end that is dangling as (thread name, base, is_left)
+    //                         tuck_side_t dangling_end = make_tuple(source_pinch_name,
+    //                             source_backward ? 0 : stPinchThread_getLength(source_thread) - 1, source_backward);
+    //                         // Describe what it would have merged with.
+    //                         // We have to back out sink motion since the cursor is right now at the after-the-deletion position.
+    //                         tuck_side_t tuck_into = make_tuple(sink_pinch_name, sink_cursor - sink_motion, sink_backward);
+    //                         // Queue up the edge exchange
+    //                         tucks.emplace_back(dangling_end, tuck_into);
                             
-                            #ifdef debug    
-                            cerr << "\tSuboperation requires tucking "
-                                << get<0>(dangling_end) << ":" << get<1>(dangling_end) << (get<2>(dangling_end) ? 'L' : 'R')
-                                << " in with " <<  get<0>(tuck_into) << ":" << get<1>(tuck_into) << (get<2>(tuck_into) ? 'L' : 'R') << endl;
-                            #endif
+    //                         #ifdef debug    
+    //                         cerr << "\tSuboperation requires tucking "
+    //                             << get<0>(dangling_end) << ":" << get<1>(dangling_end) << (get<2>(dangling_end) ? 'L' : 'R')
+    //                             << " in with " <<  get<0>(tuck_into) << ":" << get<1>(tuck_into) << (get<2>(tuck_into) ? 'L' : 'R') << endl;
+    //                         #endif
                             
-                        }
-                        break;
-                    default:
-                        // We should have already checked for weird operations twice now.
-                        throw runtime_error("Invalid operation " + subelem.second + " in pre-screened CIGAR");
-                    }
+    //                     }
+    //                     break;
+    //                 default:
+    //                     // We should have already checked for weird operations twice now.
+    //                     throw runtime_error("Invalid operation " + subelem.second + " in pre-screened CIGAR");
+    //                 }
                     
-                    // Advance the cursors
-                    sink_cursor += sink_motion * sink_length;
-                    source_cursor += source_motion * source_length;
-                }
-            }
-        }
-    }
+    //                 // Advance the cursors
+    //                 sink_cursor += sink_motion * sink_length;
+    //                 source_cursor += source_motion * source_length;
+    //             }
+    //         }
+    //     }
+    // }
 
     // Now all the pinches have been made
     
@@ -693,9 +811,9 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
         stPinchThread_split(thread, is_left ? position - 1 : position);
     }
     
-    // Everything else should wait until after graph nodes are made
+     // Everything else should wait until after graph nodes are made
     
-#ifdef debug
+    #ifdef debug
     {
         size_t segment_count = 0;
         auto segment_iter = stPinchThreadSet_getSegmentIt(pinch.get());
@@ -706,12 +824,12 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
         
         cerr << "Total pinch segments: " << segment_count << endl;
     }
-#endif
+    #endif
 
-    // Convert the pinch blocks into vg nodes
+     // Convert the pinch blocks into vg nodes
     
-    // We use this translator to translate block pointers to node IDs
-    PinchToVGTranslator pinch_to_vg;
+     // We use this translator to translate block pointers to node IDs
+     PinchToVGTranslator pinch_to_vg;
     
     {
         auto segment_iter = stPinchThreadSet_getSegmentIt(pinch.get());
@@ -776,194 +894,178 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                 // Make the edge if not present already
                 Edge* e = graph->create_edge(here_id, next_id, here_backward, next_backward);
                 
-#ifdef debug
+                #ifdef debug
                 cerr << "Created pinch graph edge " << pb2json(*e) << endl;
-#endif
+                #endif
                 
                 // Advance right
                 here = next;
                 next = stPinchSegment_get3Prime(here);
             }
         }
-    }
+     }
     
-    // Add edges from abut_links
-    for (auto& abutment : abut_links) {
-        // Unpack each abutment record
-        auto& source_name = get<0>(abutment);
-        auto& sink_name = get<1>(abutment);
-        auto& source_backward = get<2>(abutment);
-        auto& sink_backward = get<3>(abutment);
+//     // Add edges from abut_links
+//     for (auto& abutment : abut_links) {
+//         // Unpack each abutment record
+//         auto& source_name = get<0>(abutment);
+//         auto& sink_name = get<1>(abutment);
+//         auto& source_backward = get<2>(abutment);
+//         auto& sink_backward = get<3>(abutment);
         
-        // Get the threads by name
-        stPinchThread* source_thread = stPinchThreadSet_getThread(pinch.get(), source_name);
-        stPinchThread* sink_thread = stPinchThreadSet_getThread(pinch.get(), sink_name);
+//         // Get the threads by name
+//         stPinchThread* source_thread = stPinchThreadSet_getThread(pinch.get(), source_name);
+//         stPinchThread* sink_thread = stPinchThreadSet_getThread(pinch.get(), sink_name);
         
-        // Find the segment of the source that is relevant.
-        // If the source sequence is forward, it is the last one, but if it is backward, it is the first one.
-        stPinchSegment* source_segment = source_backward ? stPinchThread_getFirst(source_thread) : stPinchThread_getLast(source_thread);
-        // And conversely for the sink
-        stPinchSegment* sink_segment = sink_backward ? stPinchThread_getLast(sink_thread) : stPinchThread_getFirst(sink_thread);
+//         // Find the segment of the source that is relevant.
+//         // If the source sequence is forward, it is the last one, but if it is backward, it is the first one.
+//         stPinchSegment* source_segment = source_backward ? stPinchThread_getFirst(source_thread) : stPinchThread_getLast(source_thread);
+//         // And conversely for the sink
+//         stPinchSegment* sink_segment = sink_backward ? stPinchThread_getLast(sink_thread) : stPinchThread_getFirst(sink_thread);
     
-        // Get the node IDs to connect
-        id_t from_id = pinch_to_vg.translate(source_segment);
-        id_t to_id = pinch_to_vg.translate(sink_segment);
+//         // Get the node IDs to connect
+//         id_t from_id = pinch_to_vg.translate(source_segment);
+//         id_t to_id = pinch_to_vg.translate(sink_segment);
         
-        // Figure out the orientation of each node. We take whether the segemnt
-        // is backward in its node, and flip it if the segment itself is
-        // visited backward.
-        bool from_start = (!stPinchSegment_getBlockOrientationSafe(source_segment) != source_backward);
-        bool to_end = (!stPinchSegment_getBlockOrientationSafe(sink_segment) != sink_backward);
+//         // Figure out the orientation of each node. We take whether the segemnt
+//         // is backward in its node, and flip it if the segment itself is
+//         // visited backward.
+//         bool from_start = (!stPinchSegment_getBlockOrientationSafe(source_segment) != source_backward);
+//         bool to_end = (!stPinchSegment_getBlockOrientationSafe(sink_segment) != sink_backward);
         
-        // Make the edge
-        Edge* e = graph->create_edge(from_id, to_id, from_start, to_end);
+//         // Make the edge
+//         Edge* e = graph->create_edge(from_id, to_id, from_start, to_end);
         
-#ifdef debug
-        cerr << "Created abutment edge " << pb2json(*e) << endl;
-#endif
-    }
+// #ifdef debug
+//         cerr << "Created abutment edge " << pb2json(*e) << endl;
+// #endif
+//     }
     
-    // Copy edges to equivalent nodes caused by tucking
+//     // Copy edges to equivalent nodes caused by tucking
     
-#ifdef debug
-    cerr << "Before tucks:" << endl;
-    cerr << pb2json(graph->graph) << endl;
-#endif
+// #ifdef debug
+//     cerr << "Before tucks:" << endl;
+//     cerr << pb2json(graph->graph) << endl;
+// #endif
 
 
-    // OK now we need to do the tucking
+//     // OK now we need to do the tucking
     
-    // Make a vector of tuck sides to give them all indexes
-    vector<tuck_side_t> tuck_side_vector(tuck_side_set.begin(), tuck_side_set.end());
-    tuck_side_set.clear();
+//     // Make a vector of tuck sides to give them all indexes
+//     vector<tuck_side_t> tuck_side_vector(tuck_side_set.begin(), tuck_side_set.end());
+//     tuck_side_set.clear();
     
-    // Get a map to invert the vector
-    unordered_map<tuck_side_t, size_t> tuck_side_to_index;
-    for (size_t i = 0; i < tuck_side_vector.size(); i++) {
-        tuck_side_to_index[tuck_side_vector[i]] = i;
-    }
+//     // Get a map to invert the vector
+//     unordered_map<tuck_side_t, size_t> tuck_side_to_index;
+//     for (size_t i = 0; i < tuck_side_vector.size(); i++) {
+//         tuck_side_to_index[tuck_side_vector[i]] = i;
+//     }
     
-    // Create the union-find
-    structures::UnionFind tuck_merger(tuck_side_vector.size());
+//     // Create the union-find
+//     structures::UnionFind tuck_merger(tuck_side_vector.size());
     
-    for (auto& to_union : tucks) {
-        // Do all the unioning
-        auto side1 = tuck_side_to_index[to_union.first];
-        auto side2 = tuck_side_to_index[to_union.second];
-        tuck_merger.union_groups(side1, side2);
-    }
-    // We don't need these anymore now that we have the union-find filled in.
-    tuck_side_to_index.clear();
-    tucks.clear();
+//     for (auto& to_union : tucks) {
+//         // Do all the unioning
+//         auto side1 = tuck_side_to_index[to_union.first];
+//         auto side2 = tuck_side_to_index[to_union.second];
+//         tuck_merger.union_groups(side1, side2);
+//     }
+//     // We don't need these anymore now that we have the union-find filled in.
+//     tuck_side_to_index.clear();
+//     tucks.clear();
     
-    // Convert all the tuck sides to outward-pointing handles
-    vector<handle_t> tuck_handles(tuck_side_vector.size());
-    // Also invert the handle vector so we can get handle indexes
-    unordered_map<handle_t, size_t> handle_to_index;
-    for (size_t i = 0; i < tuck_side_vector.size(); i++) {
-        // Unpack each side
-        auto& side = tuck_side_vector[i];
-        auto& thread_name = get<0>(side);
-        auto& position = get<1>(side);
-        auto& is_left = get<2>(side);
+//     // Convert all the tuck sides to outward-pointing handles
+//     vector<handle_t> tuck_handles(tuck_side_vector.size());
+//     // Also invert the handle vector so we can get handle indexes
+//     unordered_map<handle_t, size_t> handle_to_index;
+//     for (size_t i = 0; i < tuck_side_vector.size(); i++) {
+//         // Unpack each side
+//         auto& side = tuck_side_vector[i];
+//         auto& thread_name = get<0>(side);
+//         auto& position = get<1>(side);
+//         auto& is_left = get<2>(side);
         
-        // Find the thread
-        stPinchThread* thread = stPinchThreadSet_getThread(pinch.get(), thread_name);
+//         // Find the thread
+//         stPinchThread* thread = stPinchThreadSet_getThread(pinch.get(), thread_name);
         
-        // Find the segment
-        stPinchSegment* segment = stPinchThread_getSegment(thread, position);
+//         // Find the segment
+//         stPinchSegment* segment = stPinchThread_getSegment(thread, position);
         
-        // Find the node and segment-relative orientation
-        id_t node = pinch_to_vg.translate(segment);
-        bool segment_reverse_in_node = !stPinchSegment_getBlockOrientationSafe(segment);
+//         // Find the node and segment-relative orientation
+//         id_t node = pinch_to_vg.translate(segment);
+//         bool segment_reverse_in_node = !stPinchSegment_getBlockOrientationSafe(segment);
         
-        // Make the handle
-        tuck_handles[i] = graph->get_handle(node, is_left != segment_reverse_in_node);
-        // And store its index under it
-        handle_to_index[tuck_handles[i]] = i;
-    }
-    tuck_side_vector.clear();
+//         // Make the handle
+//         tuck_handles[i] = graph->get_handle(node, is_left != segment_reverse_in_node);
+//         // And store its index under it
+//         handle_to_index[tuck_handles[i]] = i;
+//     }
+//     tuck_side_vector.clear();
     
-    // Keep a set, for each union-find group, of all the destination handles
-    // that everything in the group has to have an edge to.
-    unordered_map<size_t, unordered_set<handle_t>> destinations;
+//     // Keep a set, for each union-find group, of all the destination handles
+//     // that everything in the group has to have an edge to.
+//     unordered_map<size_t, unordered_set<handle_t>> destinations;
     
-    for (size_t i = 0; i < tuck_handles.size(); i++) {
-        // For each tuck side handle
-        auto& handle = tuck_handles[i];
+//     for (size_t i = 0; i < tuck_handles.size(); i++) {
+//         // For each tuck side handle
+//         auto& handle = tuck_handles[i];
         
-        // Find the destination set for the union-find group this tuck side handle belongs to
-        auto& my_destinations = destinations[tuck_merger.find_group(i)];
+//         // Find the destination set for the union-find group this tuck side handle belongs to
+//         auto& my_destinations = destinations[tuck_merger.find_group(i)];
         
-        graph->follow_edges(handle, false, [&](const handle_t& next) {
-            // Loop over every handle it goes to (facing inward)
+//         graph->follow_edges(handle, false, [&](const handle_t& next) {
+//             // Loop over every handle it goes to (facing inward)
         
-            // Add each handle to the destinations set for the union-find group that owns this tuck side
-            my_destinations.insert(next);
+//             // Add each handle to the destinations set for the union-find group that owns this tuck side
+//             my_destinations.insert(next);
             
-            // Check and see if this place we go itself belongs to a union-find
-            // group (making sure to make it face us first)
-            auto found = handle_to_index.find(graph->flip(next));
+//             // Check and see if this place we go itself belongs to a union-find
+//             // group (making sure to make it face us first)
+//             auto found = handle_to_index.find(graph->flip(next));
             
-            if (found != handle_to_index.end()) {
-                // It does, so we have to pretend it is also all the other things in its group
-                for(size_t other_index : tuck_merger.group(found->second)) {
-                    // Go get all the handles that tuck in with it
-                    handle_t& also_tucked = tuck_handles.at(other_index);
+//             if (found != handle_to_index.end()) {
+//                 // It does, so we have to pretend it is also all the other things in its group
+//                 for(size_t other_index : tuck_merger.group(found->second)) {
+//                     // Go get all the handles that tuck in with it
+//                     handle_t& also_tucked = tuck_handles.at(other_index);
                 
-                    // And add them all as destinations too
-                    my_destinations.insert(graph->flip(also_tucked));
-                }
-            }
-        });
-    }
+//                     // And add them all as destinations too
+//                     my_destinations.insert(graph->flip(also_tucked));
+//                 }
+//             }
+//         });
+//     }
     
-    for (size_t i = 0; i < tuck_handles.size(); i++) {
-        // For each tuck side handle again
-        auto& handle = tuck_handles[i];
+//     for (size_t i = 0; i < tuck_handles.size(); i++) {
+//         // For each tuck side handle again
+//         auto& handle = tuck_handles[i];
         
-        // Look up all the destinations for its union-find group
-        auto& my_destinations = destinations[tuck_merger.find_group(i)];
+//         // Look up all the destinations for its union-find group
+//         auto& my_destinations = destinations[tuck_merger.find_group(i)];
         
-        for (auto& destination : my_destinations) {
-            // Connect it to each of them
-            graph->create_edge(handle, destination);
-        }
+//         for (auto& destination : my_destinations) {
+//             // Connect it to each of them
+//             graph->create_edge(handle, destination);
+//         }
         
-    }
+//     }
     
     // Now all the nodes and edges exist.
     
     // Process the GFA paths
 
-    std::function<void(tgfa::group_elem&)> pathfunc = [&](tgfa::group_elem&){
-
-    };
-    
-    for (auto& name_and_path : gfa_paths) {
-        // For each path record by name
-        auto& name = name_and_path.first;
-        auto& path = name_and_path.second;
-        
-        #ifdef debug
-        cerr << "Import path " << name << endl;
-        cerr << path.to_string() << endl;
-        #endif
-        
-        // Create each path
-        graph->paths.create_path(name);
-        
-        if (path.segment_names.size() == 0) {
-            // Empty paths need nothing else.
-            continue;
+    std::function<void(tgfa::group_elem&)> pathfunc = [&](tgfa::group_elem& g){
+        if (!g.ordered || g.segment_count == 0){
+            return;
         }
-        
-        // Start the path with visits to the entirety of the first thread it traces
+        std::string name = g.group_id;
+        graph->paths.create_path(name);
+
         {
             // Find the thread to visit
-            int64_t thread_name = gfa_to_pinch.translate(path.segment_names[0]);
+            int64_t thread_name = gfa_to_pinch.translate(g.segment_name(0));
             // Determine if it is visited backward
-            bool thread_backward = !path.orientations[0];
+            bool thread_backward = !g.segment_orientation(0);
             
             // Get the actual thread
             stPinchThread* thread = stPinchThreadSet_getThread(pinch.get(), thread_name);
@@ -993,20 +1095,19 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                 segment = thread_backward ? stPinchSegment_get5Prime(segment) : stPinchSegment_get3Prime(segment);
             }
         }
-        
-        // If we find a nonexistent/skipped link we need to abort the entire path.
+
         bool abort_path = false;
-        for (size_t i = 1; i < path.segment_names.size() && !abort_path; i++) {
+        for (size_t i = 1; i < g.segment_count && !abort_path; i++) {
             // For each subsequent GFA path visit (which becomes a thread)
             
             // Find the thread to visit
-            int64_t thread_name = gfa_to_pinch.translate(path.segment_names[i]);
+            int64_t thread_name = gfa_to_pinch.translate(g.segment_name(i));
             // Determine if it is visited backward
-            bool thread_backward = !path.orientations[i];
+            bool thread_backward = !g.segment_orientation(i);
             
             // And the previous thread
-            int64_t prev_thread_name = gfa_to_pinch.translate(path.segment_names[i - 1]);
-            bool prev_thread_backward = !path.orientations[i - 1];
+            int64_t prev_thread_name = gfa_to_pinch.translate(g.segment_name(i - 1));
+            bool prev_thread_backward = !g.segment_orientation(i - 1);
             
             #ifdef debug
             cerr << "\tCross edge " << path.segment_names[i - 1]
@@ -1022,16 +1123,16 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                 
                 if (only_perfect_match) {
                     // Edge may have been removed for having a bad alignment.
-                    cerr << "warning [gfa_to_graph]: path " << name << ": edge " << path.segment_names[i - 1]
+                    cerr << "warning [gfa_to_graph]: path " << name << ": edge " << g.segment_name(i - 1)
                         << " = " << prev_thread_name << (prev_thread_backward ? 'L' : 'R') 
-                        << " to " << path.segment_names[i] << " = " << thread_name << (thread_backward ? 'R' : 'L')
+                        << " to " << g.segment_name(i) << " = " << thread_name << (thread_backward ? 'R' : 'L')
                         << " is not present. It may have been removed due to having a bad alignment. Discarding path!" << endl;
                 } else {
                     // All the edges should be there. This is an error in the GFA.
                     stringstream msg;
-                    msg << "error [gfa_to_graph]: path " << name << ": edge " << path.segment_names[i - 1]
+                    msg << "error [gfa_to_graph]: path " << name << ": edge " << g.segment_name(i - 1)
                         << " = " << prev_thread_name << (prev_thread_backward ? 'L' : 'R') 
-                        << " to " << path.segment_names[i] << " = " << thread_name << (thread_backward ? 'R' : 'L')
+                        << " to " << g.segment_name(i) << " = " << thread_name << (thread_backward ? 'R' : 'L')
                         << " is not present. The GFA file is malformed!";
                     throw runtime_error(msg.str());
                 }
@@ -1080,9 +1181,11 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                 segment = thread_backward ? stPinchSegment_get5Prime(segment) : stPinchSegment_get3Prime(segment);
             }
         }
-    }
 
-    tgfa::parse_gfa_file(fil)
+    };
+    tgfa::gfa_stat_t stat;
+    tgfa::parse_gfa_file(in, seqfunc, edge_func, pathfunc, 1.0);
+    
     
     // Save the paths to the graph
     graph->paths.rebuild_mapping_aux();
