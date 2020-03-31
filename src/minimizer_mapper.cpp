@@ -1687,9 +1687,10 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             auto& to_annotate = (read_num == 0 ? mappings.first : mappings.second).front();
             set_annotation(to_annotate, "mapq_extended_cap", mapq_extended_cap);
 
-            // Compute the cap. It should be the higher of the caps for the two reads (unless one has no minimizers, i.e. if it was rescued) 
+            // Compute the cap. It should be the higher of the caps for the two reads 
+            // (unless one has no minimizers, i.e. if it was rescued) 
             // The individual cap values are either actual numbers or +inf, so the cap can't stay as -inf.
-            mapq_cap = mapq_cap == numeric_limits<double>::infinity() ? mapq_cap : max(mapq_cap, mapq_extended_cap);
+            mapq_cap = mapq_extended_cap == numeric_limits<double>::infinity() ? mapq_cap : max(mapq_cap, mapq_extended_cap);
         }
         mapq_cap = mapq_cap == -std::numeric_limits<float>::infinity() ? numeric_limits<double>::infinity() : mapq_cap;
 
