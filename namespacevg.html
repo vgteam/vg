@@ -1009,12 +1009,6 @@ Functions</h2></td></tr>
 <tr class="memitem:ad7b1ca8b13ad1732d0679723bb206f18"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:ad7b1ca8b13ad1732d0679723bb206f18"><td class="memTemplItemLeft" align="right" valign="top">std::string&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad7b1ca8b13ad1732d0679723bb206f18">convert</a> (const T &amp;r)</td></tr>
 <tr class="separator:ad7b1ca8b13ad1732d0679723bb206f18"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a516af361cd83414f278eeea202f155ac"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a516af361cd83414f278eeea202f155ac">convert_handle_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *converting, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *converted)</td></tr>
-<tr class="memdesc:a516af361cd83414f278eeea202f155ac"><td class="mdescLeft">&#160;</td><td class="mdescRight">Takes in a pointer to a HandleGraph and copies it into an empty MutableHandleGraph graph.  <a href="#a516af361cd83414f278eeea202f155ac">More...</a><br /></td></tr>
-<tr class="separator:a516af361cd83414f278eeea202f155ac"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa6c0fbf6d65818a2bd2092fec9df48fc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa6c0fbf6d65818a2bd2092fec9df48fc">convert_path_handle_graph</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *converting, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *converted)</td></tr>
-<tr class="memdesc:aa6c0fbf6d65818a2bd2092fec9df48fc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Takes in a pointer to a PathHandleGraph and copies it, inclding paths, into an empty MutablePathMutableHandleGraph graph.  <a href="#aa6c0fbf6d65818a2bd2092fec9df48fc">More...</a><br /></td></tr>
-<tr class="separator:aa6c0fbf6d65818a2bd2092fec9df48fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8d771862cc44504508267240462cb043"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8d771862cc44504508267240462cb043">stacktrace_manually</a> (ostream &amp;out, int signalNumber, void *ip, void **bp)</td></tr>
 <tr class="separator:a8d771862cc44504508267240462cb043"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a40556998a17c0f59c8ecc682af3a99a3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a40556998a17c0f59c8ecc682af3a99a3">emit_stacktrace</a> (int signalNumber, siginfo_t *signalInfo, void *signalContext)</td></tr>
@@ -5212,36 +5206,6 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a516af361cd83414f278eeea202f155ac"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a516af361cd83414f278eeea202f155ac">&#9670;&nbsp;</a></span>convert_handle_graph()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::convert_handle_graph </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>converting</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>converted</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Takes in a pointer to a HandleGraph and copies it into an empty MutableHandleGraph graph. </p>
-
-</div>
-</div>
 <a id="a5e8d27a73e98bb6cde283e45d7d4c554"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a5e8d27a73e98bb6cde283e45d7d4c554">&#9670;&nbsp;</a></span>convert_multipath_alignment_char()</h2>
 
@@ -5273,36 +5237,6 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a id="aa6c0fbf6d65818a2bd2092fec9df48fc"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa6c0fbf6d65818a2bd2092fec9df48fc">&#9670;&nbsp;</a></span>convert_path_handle_graph()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::convert_path_handle_graph </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>converting</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>converted</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Takes in a pointer to a PathHandleGraph and copies it, inclding paths, into an empty MutablePathMutableHandleGraph graph. </p>
 
 </div>
 </div>
@@ -12218,8 +12152,38 @@ template&lt;typename Scalar &gt; </div>
 
 </div>
 </div>
+<a id="a81357f8477c9ed2c3839489e0ada1ced"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a81357f8477c9ed2c3839489e0ada1ced">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[5/13]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">ostream &amp; vg::operator&lt;&lt; </td>
+          <td>(</td>
+          <td class="paramtype">ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1mapping__t.html">mapping_t</a>&#160;</td>
+          <td class="paramname"><em>mapping</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Allow a <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> to be printed, for debugging purposes. </p>
+
+</div>
+</div>
 <a id="a9b4bea48392e7bb9e745b3b04e5bf223"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9b4bea48392e7bb9e745b3b04e5bf223">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[5/13]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a9b4bea48392e7bb9e745b3b04e5bf223">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[6/13]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -12253,36 +12217,6 @@ template&lt;typename Scalar &gt; </div>
 </div><div class="memdoc">
 
 <p>Print a <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> to a stream. </p>
-
-</div>
-</div>
-<a id="a81357f8477c9ed2c3839489e0ada1ced"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a81357f8477c9ed2c3839489e0ada1ced">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[6/13]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">ostream &amp; vg::operator&lt;&lt; </td>
-          <td>(</td>
-          <td class="paramtype">ostream &amp;&#160;</td>
-          <td class="paramname"><em>out</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1mapping__t.html">mapping_t</a>&#160;</td>
-          <td class="paramname"><em>mapping</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Allow a <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> to be printed, for debugging purposes. </p>
 
 </div>
 </div>
