@@ -12,9 +12,11 @@ namespace algorithms {
         if (into == nullptr) {
             throw runtime_error("error:[copy_handle_graph] must supply graph to copy into");
         }
-        if (into->get_node_count() > 0) {
-            throw runtime_error("error:[copy_handle_graph] cannot copy into a non-empty graph");
-        }
+        
+        // TODO: some code paths depend on this algorithm for appending one graph onto another
+//        if (into->get_node_count() > 0) {
+//            throw runtime_error("error:[copy_handle_graph] cannot copy into a non-empty graph");
+//        }
         
         // copy nodes
         from->for_each_handle([&](const handle_t& handle) {
@@ -32,12 +34,13 @@ namespace algorithms {
     
     void copy_path_handle_graph(const PathHandleGraph* from, MutablePathMutableHandleGraph* into) {
         
-        if (into->get_path_count() > 0) {
-            throw runtime_error("error:[copy_handle_graph] cannot copy into a non-empty graph");
-        }
-        
         // copy topology
         copy_handle_graph(from, into);
+        
+        // TODO: some code paths depend on this algorithm for appending one graph onto another
+//        if (into->get_path_count() > 0) {
+//            throw runtime_error("error:[copy_handle_graph] cannot copy into a non-empty graph");
+//        }
         
         // copy paths
         from->for_each_path_handle([&](const path_handle_t& path_handle) {

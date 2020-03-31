@@ -20,10 +20,10 @@ using namespace std;
 /// Read a GFA file for a blunt-ended graph into a HandleGraph. Give "-" as a filename for stdin.
 ///
 /// Optionally tries read the GFA from disk without creating an in-memory representation (defaults to
-/// in-memory algorithm if input stream is not seekable).
+/// in-memory algorithm if reading from stdin).
 ///
 /// Also optionally provides a hint about the node ID range to the handle graph implementation before
-/// constructing it (defaults to no hint if input stream is not seekable).
+/// constructing it (defaults to no hint if reading from stdin).
 void gfa_to_handle_graph(const string& filename,
                          MutableHandleGraph* graph,
                          bool try_from_disk = true,
