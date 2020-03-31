@@ -3,6 +3,7 @@
 #include "../utility.hpp"
 #include "xg.hpp"
 #include "../algorithms/copy_graph.hpp"
+#include "../algorithms/gfa_to_handle.hpp"
 #include "../io/save_handle_graph.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
@@ -31,6 +32,7 @@ void help_convert(char** argv) {
 int main_convert(int argc, char** argv) {
 
     string output_format = "vg";
+    bool input_gfa = false;
 
     if (argc == 2) {
         help_convert(argv);
@@ -67,6 +69,8 @@ int main_convert(int argc, char** argv) {
         case 'h':
             help_convert(argv);
             return 0;
+        case 'g':
+            input_gfa = true;
         case 'v':
             output_format = "vg";
             break;
@@ -87,12 +91,7 @@ int main_convert(int argc, char** argv) {
             abort();
         }
     }
-
-    unique_ptr<HandleGraph> input_graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-        input_graph = vg::io::VPKG::load_one<HandleGraph>(in);
-      });
-
+    
     // allocate a graph using the graph_type string to decide a class
     unique_ptr<HandleGraph> output_graph;
     if (output_format == "vg") {
@@ -108,30 +107,74 @@ int main_convert(int argc, char** argv) {
       cerr << "error [vg convert]: odgi conversion does not work yet" << endl;
       return 1;
     }
-
-    PathHandleGraph* input_path_graph = dynamic_cast<PathHandleGraph*>(input_graph.get());
+    
     PathHandleGraph* output_path_graph = dynamic_cast<PathHandleGraph*>(output_graph.get());
-
-    if (output_format == "xg") {
-        if (input_path_graph != nullptr) {
-            dynamic_cast<xg::XG*>(output_graph.get())->from_path_handle_graph(*input_path_graph);
-        } else {
-            // not that this will happen any time soon, but we can relax it once xg0 is in,
-            // as it has a from_handle_graph
-            cerr << "error [vg convert]: cannot output to xg as input graph does not support paths" << endl;
+    
+    if (input_gfa) {
+        // we have to check this manually since we're not using the istream-based loading
+        // functions in order to be able to use the disk-backed loading algorithm
+        if (optind >= argc) {
+            cerr << "error [vg convert]: no input graph supplied" << endl;
             return 1;
         }
+        string input_stream_name = argv[optind];
+        if (output_format == "xg") {
+            if (input_stream_name == "-") {
+                cerr << "error [vg convert]: currently cannot convert GFA from stdin to XG, try loading from disk instead" << endl;
+                return 1;
+            }
+            dynamic_cast<xg::XG*>(output_graph.get())->from_gfa(input_stream_name);
+        }
+        else {
+            if (output_path_graph != nullptr) {
+                MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
+                assert(mutable_output_graph != nullptr);
+                algorithms::gfa_to_path_handle_graph(input_stream_name, mutable_output_graph,
+                                                     input_stream_name != "-", output_format == "odgi");
+            }
+            else {
+                MutableHandleGraph* mutable_output_graph = dynamic_cast<MutableHandleGraph*>(output_graph.get());
+                assert(mutable_output_graph != nullptr);
+                algorithms::gfa_to_handle_graph(input_stream_name, mutable_output_graph,
+                                                input_stream_name != "-", false);
+            }
+        }
     }
-    else if (input_path_graph != nullptr && output_path_graph != nullptr) {
-        MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
-        assert(mutable_output_graph != nullptr);
-        algorithms::copy_path_handle_graph(input_path_graph, mutable_output_graph);
-    } else if (input_path_graph != nullptr) {
-        MutableHandleGraph* mutable_output_graph = dynamic_cast<MutableHandleGraph*>(output_graph.get());
-        assert(mutable_output_graph != nullptr);
-        cerr << "warning [vg convert]: output format does not support paths" << endl;
-        algorithms::copy_handle_graph(input_graph.get(), mutable_output_graph);
+    else {
+        unique_ptr<HandleGraph> input_graph;
+        get_input_file(optind, argc, argv, [&](istream& in) {
+            input_graph = vg::io::VPKG::load_one<HandleGraph>(in);
+        });
+        
+        PathHandleGraph* input_path_graph = dynamic_cast<PathHandleGraph*>(input_graph.get());
+        
+        if (output_format == "xg") {
+            if (input_path_graph != nullptr) {
+                dynamic_cast<xg::XG*>(output_graph.get())->from_path_handle_graph(*input_path_graph);
+            }
+            else {
+                dynamic_cast<xg::XG*>(output_graph.get())->from_handle_graph(*input_graph);
+            }
+        }
+        else if (input_path_graph != nullptr && output_path_graph != nullptr) {
+            MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
+            assert(mutable_output_graph != nullptr);
+            // ID hint (currently only for odgi)
+            mutable_output_graph->set_id_increment(input_graph->min_node_id());
+            algorithms::copy_path_handle_graph(input_path_graph, mutable_output_graph);
+        }
+        else {
+            if (input_path_graph != nullptr) {
+                cerr << "warning [vg convert]: output format does not support paths, they are being dopped from the input" << endl;
+            }
+            MutableHandleGraph* mutable_output_graph = dynamic_cast<MutableHandleGraph*>(output_graph.get());
+            assert(mutable_output_graph != nullptr);
+            // ID hint (currently only for odgi)
+            mutable_output_graph->set_id_increment(input_graph->min_node_id());
+            algorithms::copy_handle_graph(input_graph.get(), mutable_output_graph);
+        }
     }
+    
 
     // Serialize the graph using VPKG.
     vg::io::save_handle_graph(output_graph.get(), cout);
