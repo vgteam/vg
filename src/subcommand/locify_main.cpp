@@ -346,7 +346,7 @@ int main_locify(int argc, char** argv){
         if (forwardize) {
             if (aln.second.path().mapping_size() && aln.second.path().mapping(0).position().is_reverse()) {
                 output_buf.push_back(reverse_complement_alignment(aln.second,
-                                                                  [&xgidx](int64_t id) { return xgidx->get_length(xgidx->get_handle(id)); }));
+                                                                  [&xgidx](nid_t id) { return xgidx->get_length(xgidx->get_handle(id)); }));
             } else {
                 output_buf.push_back(aln.second);
             }

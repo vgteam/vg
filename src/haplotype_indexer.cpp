@@ -308,12 +308,12 @@ tuple<vector<string>, size_t, vector<string>> HaplotypeIndexer::generate_threads
         if (show_progress) {
             cerr << "Finding maximum node id in GAM..." << endl;
         }
-        vg::id_t max_id = 0;
+        nid_t max_id = 0;
         size_t alignments_in_gam = 0;
         function<void(Alignment&)> lambda = [&](Alignment& aln) {
             gbwt::vector_type buffer;
             for (auto& m : aln.path().mapping()) {
-                max_id = max((vg::id_t) m.position().node_id(), max_id);
+                max_id = max((nid_t) m.position().node_id(), max_id);
             }
             alignments_in_gam++;
         };

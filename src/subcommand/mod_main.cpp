@@ -103,7 +103,7 @@ int main_mod(int argc, char** argv) {
     bool remove_non_path = false;
     bool remove_path = false;
     bool compact_ranks = false;
-    vector<int64_t> root_nodes;
+    vector<nid_t> root_nodes;
     int32_t context_steps;
     bool remove_null = false;
     bool strong_connect = false;
@@ -113,7 +113,7 @@ int main_mod(int argc, char** argv) {
     uint32_t dagify_to = 0;
     uint32_t dagify_component_length_max = 0;
     bool orient_forward = false;
-    int64_t destroy_node_id = 0;
+    nid_t destroy_node_id = 0;
     int until_normal_iter = 0;
     bool flip_doubly_reversed_edges = false;
     bool cactus = false;
