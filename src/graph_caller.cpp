@@ -907,6 +907,15 @@ bool FlowCaller::call_snarl(const Snarl& snarl) {
         // can't call one-node or out-of graph snarls.
         return false;
     }
+    auto snarl_contents = snarl_manager.deep_contents(&snarl, graph, false);
+    if (snarl_contents.second.size() > max_snarl_edges) {
+        // size cap needed as FlowCaller doesn't have nesting support yet
+        return false;
+    }
+    size_t total_length = 0;
+    for (id_t node_id : snarl_contents.first) {
+        total_length += graph.get_length(graph.get_handle(node_id));
+    }
     
     handle_t start_handle = graph.get_handle(snarl.start().node_id(), snarl.start().backward());
     handle_t end_handle = graph.get_handle(snarl.end().node_id(), snarl.end().backward());
@@ -946,10 +955,15 @@ bool FlowCaller::call_snarl(const Snarl& snarl) {
     }
 
     string& ref_path_name = common_names.front();
-                    
+
+    // toggle average flow / flow width based on snarl length.  this is a bit inconsistent with
+    // downstream which uses the longest traversal length, but it's a bit chicken and egg
+    // todo: maybe use snarl length for everything?
+    const auto& support_finder = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller).get_support_finder();
+    bool avg_flow = total_length > support_finder.get_average_traversal_support_switch_threshold();
 
     // find the max flow traversals, along with their flows (todo: use them?)
-    pair<vector<SnarlTraversal>, vector<double>> weighted_travs = traversal_finder->find_weighted_traversals(snarl);
+    pair<vector<SnarlTraversal>, vector<double>> weighted_travs = traversal_finder->find_weighted_traversals(snarl, avg_flow);
 
     // find the reference traversal and coordinates using the path position graph interface
     tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, ref_path_name);

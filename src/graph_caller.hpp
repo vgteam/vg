@@ -265,6 +265,9 @@ protected:
     /// keep track of offsets in the reference paths
     map<string, size_t> ref_offsets;
 
+    /// until we support nested snarls, cap snarl size we attempt to process
+    size_t max_snarl_edges = 500000;
+
 };
 
 
