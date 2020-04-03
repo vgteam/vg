@@ -12,7 +12,6 @@
 #include "reverse_graph.hpp"
 #include "extra_node_graph.hpp"
 #include "algorithms/topological_sort.hpp"
-#include "convert_handle.hpp"
 
 #define DZ_FULL_LENGTH_BONUS
 

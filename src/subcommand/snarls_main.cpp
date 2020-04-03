@@ -13,7 +13,6 @@
 #include "../vg.hpp"
 #include <vg/vg.pb.h>
 #include "../traversal_finder.hpp"
-#include "../convert_handle.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 
