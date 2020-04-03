@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['algorithms',['algorithms',['../namespacebdsg_1_1algorithms.html',1,'bdsg']]],
   ['b',['b',['../classvg_1_1uniform__real__distribution.html#a6583cca9d3b8133ecd853c48c37f2256',1,'vg::uniform_real_distribution::b()'],['../classvg_1_1uniform__int__distribution.html#a56282403defd710bacffb1326a146a4f',1,'vg::uniform_int_distribution::b()']]],
   ['b64_5fdecode',['b64_decode',['../bin2ascii_8h.html#ac9c3e26b958b172011908ac99df520c9',1,'bin2ascii.h']]],
   ['b64_5fencode',['b64_encode',['../bin2ascii_8h.html#accfad92fa2269e4d4c9a161fa5d64b29',1,'bin2ascii.h']]],
@@ -57,7 +58,11 @@ var searchData=
   ['batch_5ffile_5fprefix',['batch_file_prefix',['../classvg_1_1HaplotypeIndexer.html#a3823e07210ab4a9ceabd7de359f0ce37',1,'vg::HaplotypeIndexer']]],
   ['batch_5fkmer',['batch_kmer',['../classvg_1_1Index.html#af2716e338785081bcb4ac1c2cc49afb4',1,'vg::Index']]],
   ['batch_5fnode',['batch_node',['../classvg_1_1Index.html#a3c8c380cc8d3ff712b5c41cd2fd6bd3b',1,'vg::Index']]],
-  ['begin',['begin',['../structvg_1_1kmer__t.html#ace8cd88692b6bb3c25a2989a4c505d1a',1,'vg::kmer_t::begin()'],['../classvg_1_1MaximalExactMatch.html#a894b11889ee0ef652acbfb84527e5225',1,'vg::MaximalExactMatch::begin()'],['../classvg_1_1PathNode.html#a4b103c45ebef87573a2b0288a2fc483c',1,'vg::PathNode::begin()'],['../structvg_1_1walk__t.html#af2f0816d239b918c2f2d76f9b696ab1b',1,'vg::walk_t::begin()'],['../classvg_1_1ShuffledPairs.html#adb49843f1fd59a0c592b88d85ae4e8f0',1,'vg::ShuffledPairs::begin()'],['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html#a5d420005a03d913545a2c28527aeae1b',1,'vg::Option&lt; vector&lt; Item &gt;, Parser &gt;::begin()'],['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html#a63060a85a3d8e92246fa4d91daefda53',1,'vg::Option&lt; vector&lt; Item &gt;, Parser &gt;::begin() const'],['../structvg_1_1PathIndex.html#ad239d0a2fb9bbbddce753a6c3cf639ed',1,'vg::PathIndex::begin()'],['../classvg_1_1PhasedGenome.html#a5ec1fda02f9b639fa315337290dca80f',1,'vg::PhasedGenome::begin()'],['../classhandlegraph_1_1PathForEachSocket.html#a0b82e3b3b8674d484cb181fb47e16b31',1,'handlegraph::PathForEachSocket::begin()']]],
+  ['bbhashhelper',['BBHashHelper',['../structbdsg_1_1BBHashHelper.html',1,'bdsg::BBHashHelper'],['../structbdsg_1_1BBHashHelper_1_1iterator.html#accb680b81a2bea0c12cd329b9657e83f',1,'bdsg::BBHashHelper::iterator::BBHashHelper()'],['../structbdsg_1_1BBHashHelper.html#a9b4b20ff2e1bfe1b036c0b189725117e',1,'bdsg::BBHashHelper::BBHashHelper(const PathHandleGraph *graph)'],['../structbdsg_1_1BBHashHelper.html#a2e4091551dcc89c8c79ec6cade4a8455',1,'bdsg::BBHashHelper::BBHashHelper()=delete']]],
+  ['bdsg',['bdsg',['../namespacebdsg.html',1,'']]],
+  ['begin',['begin',['../structvg_1_1kmer__t.html#ace8cd88692b6bb3c25a2989a4c505d1a',1,'vg::kmer_t::begin()'],['../classvg_1_1MaximalExactMatch.html#a894b11889ee0ef652acbfb84527e5225',1,'vg::MaximalExactMatch::begin()'],['../classvg_1_1PathNode.html#a4b103c45ebef87573a2b0288a2fc483c',1,'vg::PathNode::begin()'],['../structvg_1_1walk__t.html#af2f0816d239b918c2f2d76f9b696ab1b',1,'vg::walk_t::begin()'],['../structvg_1_1algorithms_1_1kmer__t.html#a7623139debae3d31f6246cfb4f4c0346',1,'vg::algorithms::kmer_t::begin()'],['../structvg_1_1algorithms_1_1walk__t.html#a3d07d5849d404936cf9dd87bb5071d4c',1,'vg::algorithms::walk_t::begin()'],['../classvg_1_1ShuffledPairs.html#adb49843f1fd59a0c592b88d85ae4e8f0',1,'vg::ShuffledPairs::begin()'],['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html#a5d420005a03d913545a2c28527aeae1b',1,'vg::Option&lt; vector&lt; Item &gt;, Parser &gt;::begin()'],['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html#a63060a85a3d8e92246fa4d91daefda53',1,'vg::Option&lt; vector&lt; Item &gt;, Parser &gt;::begin() const'],['../structvg_1_1PathIndex.html#ad239d0a2fb9bbbddce753a6c3cf639ed',1,'vg::PathIndex::begin()'],['../classvg_1_1PhasedGenome.html#a5ec1fda02f9b639fa315337290dca80f',1,'vg::PhasedGenome::begin()'],['../structbdsg_1_1BBHashHelper.html#a0479c7ac8cf2aca66935249d8f8def9b',1,'bdsg::BBHashHelper::begin()'],['../classhandlegraph_1_1PathForEachSocket.html#a0b82e3b3b8674d484cb181fb47e16b31',1,'handlegraph::PathForEachSocket::begin()']]],
+  ['begin_5fidx',['begin_idx',['../classbdsg_1_1PackedDeque.html#a2d3330c73fbf22aa50bfd26fc63e1c8b',1,'bdsg::PackedDeque']]],
+  ['bellman_5fford_5fshortest_5fcycle_5flength',['bellman_ford_shortest_cycle_length',['../namespacevg_1_1algorithms.html#af51e5eafc2c18f33dd6a120c753247a3',1,'vg::algorithms']]],
   ['benchmark_2ecpp',['benchmark.cpp',['../benchmark_8cpp.html',1,'']]],
   ['benchmark_2ehpp',['benchmark.hpp',['../benchmark_8hpp.html',1,'']]],
   ['benchmark_5fcontrol',['benchmark_control',['../namespacevg.html#a71046fb34dc43f0a3e102e1394ce8697',1,'vg']]],
@@ -78,6 +83,12 @@ var searchData=
   ['bin_5fto_5fprefix',['bin_to_prefix',['../classvg_1_1StreamIndexBase.html#ac4e243c64474f83800e3f9baa9894eea',1,'vg::StreamIndexBase']]],
   ['bin_5fto_5franges',['bin_to_ranges',['../classvg_1_1StreamIndexBase.html#a4801a54e202c9214718c71db7cea12a9',1,'vg::StreamIndexBase']]],
   ['binary_5fextend_5fintervals',['binary_extend_intervals',['../structhaplo_1_1haplo__DP__column.html#a69b9396f9bc9534432d89c411c60c8c5',1,'haplo::haplo_DP_column']]],
+  ['binder_5fhook_5fbind_2ehpp',['binder_hook_bind.hpp',['../binder__hook__bind_8hpp.html',1,'']]],
+  ['binder_5fhook_5fcompile_2ehpp',['binder_hook_compile.hpp',['../binder__hook__compile_8hpp.html',1,'']]],
+  ['bindings_2ehpp',['bindings.hpp',['../bindings_8hpp.html',1,'']]],
+  ['binned_5fpacked_5fdepth',['binned_packed_depth',['../namespacevg_1_1algorithms.html#a8fb3df22b1d7955546bbcc8c438f6efc',1,'vg::algorithms']]],
+  ['binned_5fpacked_5fdepth_5findex',['binned_packed_depth_index',['../namespacevg_1_1algorithms.html#a167040eda2453e21c71321b0f17f1983',1,'vg::algorithms']]],
+  ['binneddepthindex',['BinnedDepthIndex',['../namespacevg_1_1algorithms.html#ae0218d4262c7c5c6836a0721c23bac34',1,'vg::algorithms']]],
   ['binomial_5fcmf_5fln',['binomial_cmf_ln',['../namespacevg.html#a038ccb26c0c9c0a87601edc7b8b5df70',1,'vg']]],
   ['bins_5fby_5fid_5fprefix',['bins_by_id_prefix',['../classvg_1_1StreamIndexBase.html#a19b9a91061212bfd558a384fa19d4854',1,'vg::StreamIndexBase']]],
   ['bit_5flength',['bit_length',['../classvg_1_1BitString.html#afa7b98ed5fc1b88e1a0fa99fd23ab991',1,'vg::BitString']]],
@@ -96,6 +107,8 @@ var searchData=
   ['boolreturningwrapper',['BoolReturningWrapper',['../structhandlegraph_1_1BoolReturningWrapper.html',1,'handlegraph']]],
   ['boolreturningwrapper_3c_20iteratee_2c_20iterated_2c_20bool_20_3e',['BoolReturningWrapper&lt; Iteratee, Iterated, bool &gt;',['../structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01Iterated_00_01bool_01_4.html',1,'handlegraph']]],
   ['boolreturningwrapper_3c_20iteratee_2c_20iterated_2c_20void_20_3e',['BoolReturningWrapper&lt; Iteratee, Iterated, void &gt;',['../structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01Iterated_00_01void_01_4.html',1,'handlegraph']]],
+  ['boomph_5fpair_5fhash',['boomph_pair_hash',['../structbdsg_1_1VectorizableOverlay_1_1boomph__pair__hash.html',1,'bdsg::VectorizableOverlay']]],
+  ['boomph_5fpair_5fpair_5fhash',['boomph_pair_pair_hash',['../structbdsg_1_1VectorizableOverlay_1_1boomph__pair__pair__hash.html',1,'bdsg::VectorizableOverlay']]],
   ['border',['border',['../classvg_1_1PhaseUnfolder.html#a29ec1d4e6557b27c4f92c0280c80b90a',1,'vg::PhaseUnfolder']]],
   ['bottom',['bottom',['../structhaplo_1_1int__itvl__t.html#a9124b7f6c7e637788d1a72b54ac1b7dc',1,'haplo::int_itvl_t']]],
   ['bottom_5fdiag',['bottom_diag',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a9814adda35066d761c279d543a2493a2',1,'vg::BandedGlobalAligner::BAMatrix']]],
@@ -128,5 +141,8 @@ var searchData=
   ['by_5fid',['by_id',['../structvg_1_1PathIndex.html#a3f5697a5db586a467dc4923e2cccbfe1',1,'vg::PathIndex']]],
   ['by_5fstart',['by_start',['../structvg_1_1PathIndex.html#a55cb6181f7b4b80016aaf2fefbb402c2',1,'vg::PathIndex']]],
   ['byte_5fcount',['byte_count',['../classvg_1_1io_1_1BlockedGzipInputStream.html#aca10a84d86b0e9db6ef5727f9e454add',1,'vg::io::BlockedGzipInputStream::byte_count()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a745da931cd84709a1a8b8f64e357d2fb',1,'vg::io::BlockedGzipOutputStream::byte_count()']]],
-  ['bytecount',['ByteCount',['../classvg_1_1io_1_1BlockedGzipInputStream.html#aa90daab17c2449563e96bbca827c8ccf',1,'vg::io::BlockedGzipInputStream::ByteCount()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a35058523e5b100a0c55af4f4371544a7',1,'vg::io::BlockedGzipOutputStream::ByteCount()']]]
+  ['bytecount',['ByteCount',['../classvg_1_1io_1_1BlockedGzipInputStream.html#aa90daab17c2449563e96bbca827c8ccf',1,'vg::io::BlockedGzipInputStream::ByteCount()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a35058523e5b100a0c55af4f4371544a7',1,'vg::io::BlockedGzipOutputStream::ByteCount()']]],
+  ['bytes',['bytes',['../classbdsg_1_1node__t.html#ae508ded8819da292ef85186f5db8ded5',1,'bdsg::node_t::bytes()'],['../namespacebdsg_1_1sqvarint.html#a640648795a6762a873eee457f5063dc0',1,'bdsg::sqvarint::bytes()'],['../namespacebdsg_1_1msbvarint.html#a9511c968781ce9ad60396ae0ce1eb44d',1,'bdsg::msbvarint::bytes()']]],
+  ['msbvarint',['msbvarint',['../namespacebdsg_1_1msbvarint.html',1,'bdsg']]],
+  ['sqvarint',['sqvarint',['../namespacebdsg_1_1sqvarint.html',1,'bdsg']]]
 ];

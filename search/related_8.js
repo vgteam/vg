@@ -1,4 +1,6 @@
 var searchData=
 [
-  ['testmindistanceindex',['TestMinDistanceIndex',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a94fc0ec641a42a4f4a4f4d2bd5e888a3',1,'vg::MinimumDistanceIndex::SnarlIndex::TestMinDistanceIndex()'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#a94fc0ec641a42a4f4a4f4d2bd5e888a3',1,'vg::MinimumDistanceIndex::ChainIndex::TestMinDistanceIndex()'],['../classvg_1_1MinimumDistanceIndex.html#a94fc0ec641a42a4f4a4f4d2bd5e888a3',1,'vg::MinimumDistanceIndex::TestMinDistanceIndex()']]]
+  ['shuffledpairs',['ShuffledPairs',['../classvg_1_1ShuffledPairs_1_1iterator.html#a716354d123e5197d160a8d6c4da7817d',1,'vg::ShuffledPairs::iterator']]],
+  ['snarlindex',['SnarlIndex',['../classvg_1_1MinimumDistanceIndex.html#a840981c535f0ee72ad44a29f40364c24',1,'vg::MinimumDistanceIndex']]],
+  ['snarlseedclusterer',['SnarlSeedClusterer',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a580011ffaaa65265389daaad29189535',1,'vg::MinimumDistanceIndex::SnarlIndex::SnarlSeedClusterer()'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#a580011ffaaa65265389daaad29189535',1,'vg::MinimumDistanceIndex::ChainIndex::SnarlSeedClusterer()'],['../classvg_1_1MinimumDistanceIndex.html#a580011ffaaa65265389daaad29189535',1,'vg::MinimumDistanceIndex::SnarlSeedClusterer()']]]
 ];

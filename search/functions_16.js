@@ -1,5 +1,7 @@
 var searchData=
 [
+  ['valid_5foutput_5fformat',['valid_output_format',['../namespacevg_1_1io.html#accd0bfdce54ff793cf2fae6b1122ec54',1,'vg::io']]],
+  ['validate_5fgfa_5fedge',['validate_gfa_edge',['../namespacevg_1_1algorithms.html#af69b02ea90f7e78fbd75fea9525303f7',1,'vg::algorithms']]],
   ['validate_5fmultipath_5falignment',['validate_multipath_alignment',['../namespacevg.html#a89a7010176a6425c2a8183054cc9781f',1,'vg']]],
   ['value_5fcast',['value_cast',['../namespacevg.html#a76fc86953f8c080621c080cd35bc9ae0',1,'vg::value_cast(const google::protobuf::Value &amp;value)'],['../namespacevg.html#ac84a9621d5108f53976d51f1188e7214',1,'vg::value_cast(const T &amp;wrap)'],['../namespacevg.html#a12109d27c9801031e32a408e75af2bd1',1,'vg::value_cast(const google::protobuf::Value &amp;value)'],['../namespacevg.html#aca53457219a2ced000f439df5bd0d71f',1,'vg::value_cast(const Container &amp;wrap)']]],
   ['value_5fcast_3c_20bool_20_3e',['value_cast&lt; bool &gt;',['../namespacevg.html#ac90d23f22ad3ec78da4e03dc011cabf8',1,'vg::value_cast&lt; bool &gt;(const google::protobuf::Value &amp;value)'],['../namespacevg.html#ab572dfa4b65db43984f1572d74a94036',1,'vg::value_cast&lt; bool &gt;(const bool &amp;wrap)']]],
@@ -15,6 +17,7 @@ var searchData=
   ['vcfgenotyper',['VCFGenotyper',['../classvg_1_1VCFGenotyper.html#a477075df158ff07f7ff903f5437d9cd0',1,'vg::VCFGenotyper']]],
   ['vcfoutputcaller',['VCFOutputCaller',['../classvg_1_1VCFOutputCaller.html#ad758f9180a51784374ef044b54883f87',1,'vg::VCFOutputCaller']]],
   ['vcftraversalfinder',['VCFTraversalFinder',['../classvg_1_1VCFTraversalFinder.html#aaa8aa0b5cbe8a0e2ff664b6b385339da',1,'vg::VCFTraversalFinder']]],
+  ['vectorizableoverlay',['VectorizableOverlay',['../classbdsg_1_1VectorizableOverlay.html#a7808486d987d7d6d7acc9074cf7bfe3f',1,'bdsg::VectorizableOverlay::VectorizableOverlay(const HandleGraph *graph)'],['../classbdsg_1_1VectorizableOverlay.html#a8cf41d1f3f6fa6f7dfd6bf59caff4997',1,'bdsg::VectorizableOverlay::VectorizableOverlay()']]],
   ['vectorizer',['Vectorizer',['../classVectorizer.html#ac6f2b56806bc2e8444492cb3d32f42be',1,'Vectorizer']]],
   ['verify_5fpath',['verify_path',['../namespacevg.html#a3ed0a4f26673002b2081832a7602e9bd',1,'vg']]],
   ['verify_5fpaths',['verify_paths',['../classvg_1_1PhaseUnfolder.html#a910deba7dd5b5f9bce7a1da4e53cfeb1',1,'vg::PhaseUnfolder']]],

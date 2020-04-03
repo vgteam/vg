@@ -78,10 +78,14 @@ Inheritance diagram for handlegraph::DeletableHandleGraph:</div>
  <div class="center">
   <img src="classhandlegraph_1_1DeletableHandleGraph.png" usemap="#handlegraph::DeletableHandleGraph_map" alt=""/>
   <map id="handlegraph::DeletableHandleGraph_map" name="handlegraph::DeletableHandleGraph_map">
-<area href="classhandlegraph_1_1MutableHandleGraph.html" alt="handlegraph::MutableHandleGraph" shape="rect" coords="0,56,287,80"/>
-<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="0,0,287,24"/>
-<area href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html" alt="handlegraph::MutablePathDeletableHandleGraph" shape="rect" coords="0,168,287,192"/>
-<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="0,224,287,248"/>
+<area href="classhandlegraph_1_1MutableHandleGraph.html" alt="handlegraph::MutableHandleGraph" shape="rect" coords="594,56,881,80"/>
+<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="594,0,881,24"/>
+<area href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html" alt="handlegraph::MutablePathDeletableHandleGraph" shape="rect" coords="594,168,881,192"/>
+<area href="classbdsg_1_1HashGraph.html" alt="bdsg::HashGraph" shape="rect" coords="0,224,287,248"/>
+<area href="classbdsg_1_1MutablePositionOverlay.html" alt="bdsg::MutablePositionOverlay" shape="rect" coords="297,224,584,248"/>
+<area href="classbdsg_1_1ODGI.html" alt="bdsg::ODGI" shape="rect" coords="594,224,881,248"/>
+<area href="classbdsg_1_1PackedGraph.html" alt="bdsg::PackedGraph" shape="rect" coords="891,224,1178,248"/>
+<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="1188,224,1475,248"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -254,7 +258,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Remove all nodes and edges. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#aa1eb3332c0a99a25c75681da485297e5">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#a0ab9365f440e7a561b1d046a8e98dc22">bdsg::MutablePositionOverlay</a>, <a class="el" href="classbdsg_1_1ODGI.html#a03fb2ec6571cc5bfa141827303a530cf">bdsg::ODGI</a>, <a class="el" href="classvg_1_1VG.html#aa1eb3332c0a99a25c75681da485297e5">vg::VG</a>, <a class="el" href="classbdsg_1_1PackedGraph.html#a49ffbb9d5d8ff42cb196498ab39269dd">bdsg::PackedGraph</a>, and <a class="el" href="classbdsg_1_1HashGraph.html#a6f7cf2da7b3a7c4fd859441745c2dca3">bdsg::HashGraph</a>.</p>
 
 </div>
 </div>
@@ -293,7 +297,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Remove the edge connecting the given handles in the given order and orientations. Ignores nonexistent edges. Does not update any stored paths. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a9d4264e39e3826ded714992361ab879e">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#aded20cef3f21c97b4feae6a41c698023">bdsg::MutablePositionOverlay</a>, <a class="el" href="classbdsg_1_1ODGI.html#ac899f9aba8759607a6629ef40ff8ca4f">bdsg::ODGI</a>, <a class="el" href="classvg_1_1VG.html#a9d4264e39e3826ded714992361ab879e">vg::VG</a>, <a class="el" href="classbdsg_1_1PackedGraph.html#aa707e831fb29c6427d0f38adf756961e">bdsg::PackedGraph</a>, and <a class="el" href="classbdsg_1_1HashGraph.html#a1cd738c77c3b981ae94f1b5300cb4a3b">bdsg::HashGraph</a>.</p>
 
 </div>
 </div>
@@ -350,7 +354,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Remove the node belonging to the given handle and all of its edges. Does not update any stored paths. Invalidates the destroyed handle. May be called during serial for_each_handle iteration <b>ONLY</b> on the node being iterated. May <b>NOT</b> be called during parallel for_each_handle iteration. May <b>NOT</b> be called on the node from which edges are being followed during follow_edges. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a3e52875d37f046daeaf9e7b301ad59ff">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#a4fe4510982fc4bdf70eff82c1d5b6011">bdsg::MutablePositionOverlay</a>, <a class="el" href="classbdsg_1_1ODGI.html#a63156a0199c9382de3b196aeef7d845e">bdsg::ODGI</a>, <a class="el" href="classvg_1_1VG.html#a3e52875d37f046daeaf9e7b301ad59ff">vg::VG</a>, <a class="el" href="classbdsg_1_1PackedGraph.html#af299fbb72bf0e424756d673990f51d59">bdsg::PackedGraph</a>, and <a class="el" href="classbdsg_1_1HashGraph.html#ae468a73455d10ce107c037963b0d13f4">bdsg::HashGraph</a>.</p>
 
 </div>
 </div>

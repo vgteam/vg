@@ -25,5 +25,6 @@ var searchData=
   ['mutablehandlegraph',['MutableHandleGraph',['../classhandlegraph_1_1MutableHandleGraph.html',1,'handlegraph']]],
   ['mutablepathdeletablehandlegraph',['MutablePathDeletableHandleGraph',['../classhandlegraph_1_1MutablePathDeletableHandleGraph.html',1,'handlegraph']]],
   ['mutablepathhandlegraph',['MutablePathHandleGraph',['../classhandlegraph_1_1MutablePathHandleGraph.html',1,'handlegraph']]],
-  ['mutablepathmutablehandlegraph',['MutablePathMutableHandleGraph',['../classhandlegraph_1_1MutablePathMutableHandleGraph.html',1,'handlegraph']]]
+  ['mutablepathmutablehandlegraph',['MutablePathMutableHandleGraph',['../classhandlegraph_1_1MutablePathMutableHandleGraph.html',1,'handlegraph']]],
+  ['mutablepositionoverlay',['MutablePositionOverlay',['../classbdsg_1_1MutablePositionOverlay.html',1,'bdsg']]]
 ];

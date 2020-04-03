@@ -36,6 +36,7 @@ var searchData=
   ['alts_5fas_5floci',['alts_as_loci',['../classvg_1_1Constructor.html#aedef6d593704f6739abcb116369935f7',1,'vg::Constructor']]],
   ['always_5fcheck_5fpopulation',['always_check_population',['../classvg_1_1MultipathMapper.html#a135abf9221806d613a60edb087509a06',1,'vg::MultipathMapper']]],
   ['always_5frescue',['always_rescue',['../classvg_1_1Mapper.html#aa49ab15f9f924414fca3c56a7d6660c9',1,'vg::Mapper']]],
+  ['anchors',['anchors',['../classbdsg_1_1PagedVector.html#a94fa5942f76cea9d06b4241d25a87b6c',1,'bdsg::PagedVector']]],
   ['annotation',['annotation',['../structvg_1_1Alignment.html#af531ff2b8c2b08c78a8b3095fd52c0d8',1,'vg::Alignment::annotation()'],['../structvg_1_1MultipathAlignment.html#acb66af5a0c0197fe49e7dfbac312bd6d',1,'vg::MultipathAlignment::annotation()']]],
   ['append_5fregions',['append_regions',['../classvg_1_1ReadFilter.html#a457e9fef8d1e19c78b4a72ff10d14260',1,'vg::ReadFilter']]],
   ['assume_5facyclic',['assume_acyclic',['../classvg_1_1BaseMapper.html#a7127a75ac293b9b05093134ee8e51cd2',1,'vg::BaseMapper']]],

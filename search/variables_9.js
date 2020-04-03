@@ -42,9 +42,10 @@ var searchData=
   ['internal_5fscore',['internal_score',['../structvg_1_1GaplessExtension.html#a0045e76ebc1c911201d6744d6c20e50a',1,'vg::GaplessExtension']]],
   ['intervals',['intervals',['../classvg_1_1SRPE.html#a5fc255cb93b3221c2b8a01ae7553ac7b',1,'vg::SRPE']]],
   ['inverse',['inverse',['../classvg_1_1Filter.html#a05e7274611008cdd5b89d1fa81605882',1,'vg::Filter']]],
+  ['inverse_5fchar_5fassignment',['inverse_char_assignment',['../classbdsg_1_1PackedGraph.html#aff0351002c89d050c36827fc18bcc6da',1,'bdsg::PackedGraph']]],
   ['is_5falt',['is_alt',['../classvg_1_1Paths.html#a3e8fd05a0a584cbae2f2919b5ab98e4d',1,'vg::Paths']]],
   ['is_5fchecked_5fin',['is_checked_in',['../structvg_1_1Watchdog_1_1thread__state__t.html#aae7887d9b7548a028a6b7271aabd44eb',1,'vg::Watchdog::thread_state_t']]],
-  ['is_5fcircular',['is_circular',['../structvg_1_1Path.html#ad04d3a1745f479f32b4a4358bec17c8f',1,'vg::Path']]],
+  ['is_5fcircular',['is_circular',['../classxg_1_1XGPath.html#a4cc65b6cfdbd12f6220dde5a716fd345',1,'xg::XGPath::is_circular()'],['../classbdsg_1_1HashGraph_1_1path__t.html#a227ebcad0b12aad4eb6a1deea64079ef',1,'bdsg::HashGraph::path_t::is_circular()'],['../structbdsg_1_1ODGI_1_1path__metadata__t.html#a21cb52661c732bcd9543b817e6243144',1,'bdsg::ODGI::path_metadata_t::is_circular()'],['../structvg_1_1Path.html#ad04d3a1745f479f32b4a4358bec17c8f',1,'vg::Path::is_circular()']]],
   ['is_5fcompacted',['is_compacted',['../classvg_1_1Packer.html#aa7f90bbde45e8487029a424392b653ad',1,'vg::Packer']]],
   ['is_5fend',['is_end',['../structvg_1_1CactusSide.html#a960c0e9a2c2dc004aac017030f6ad805',1,'vg::CactusSide::is_end()'],['../classvg_1_1NodeSide.html#a1493cac020ed0c9b1cbd37e2a99eb9b5',1,'vg::NodeSide::is_end()']]],
   ['is_5ffixed',['is_fixed',['../classvg_1_1FragmentLengthDistribution.html#adcfca733e40d173dcbaf2e8c617c74ec',1,'vg::FragmentLengthDistribution']]],
@@ -58,5 +59,5 @@ var searchData=
   ['isforward',['isForward',['../structvg_1_1BREAKPOINT.html#a3179531d48993e05d802907b730e1631',1,'vg::BREAKPOINT']]],
   ['item_5fvo',['item_vo',['../classvg_1_1io_1_1MessageIterator.html#a1f58abce5de3c8f71a82e689c0170c49',1,'vg::io::MessageIterator']]],
   ['items',['items',['../structvg_1_1Funnel_1_1Stage.html#a787bab13fd8bd1bccb1ac8e7821688c6',1,'vg::Funnel::Stage']]],
-  ['iteratee',['iteratee',['../classvg_1_1ShuffledPairs_1_1iterator.html#a09d41523db4b9b9c6cebb02ecf7bfa3c',1,'vg::ShuffledPairs::iterator']]]
+  ['iteratee',['iteratee',['../classvg_1_1ShuffledPairs_1_1iterator.html#a09d41523db4b9b9c6cebb02ecf7bfa3c',1,'vg::ShuffledPairs::iterator::iteratee()'],['../structbdsg_1_1BBHashHelper_1_1iterator.html#acad8865b2739f5c86d952d387dddb569',1,'bdsg::BBHashHelper::iterator::iteratee()']]]
 ];

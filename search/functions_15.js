@@ -1,5 +1,9 @@
 var searchData=
 [
+  ['unaligned_5fload',['unaligned_load',['../namespacebdsg_1_1sqvarint.html#a818b895051d28fb80c98fd31c2a2b17c',1,'bdsg::sqvarint']]],
+  ['unaligned_5fload_5fu16',['unaligned_load_u16',['../namespacebdsg_1_1sqvarint.html#ad184da9ecc81881faf9b459ee71b98cf',1,'bdsg::sqvarint']]],
+  ['unaligned_5fload_5fu64',['unaligned_load_u64',['../namespacebdsg_1_1sqvarint.html#a203d7eb0e50cae20eba08a7e49945e30',1,'bdsg::sqvarint']]],
+  ['unchop',['unchop',['../namespacevg_1_1algorithms.html#a0109d211ac713194397e14a1f7dc8435',1,'vg::algorithms']]],
   ['underflow',['underflow',['../classvg_1_1io_1_1fdinbuf.html#a67ea7aab3e21cacec9fb836d4a70673e',1,'vg::io::fdinbuf']]],
   ['unescape_5fdelim',['unescape_delim',['../classvg_1_1Packer.html#a32f8697cf4c222f5e207a4b15a1f0883',1,'vg::Packer']]],
   ['unescape_5fdelims',['unescape_delims',['../classvg_1_1Packer.html#a92b44e965dd5da9da72e1a9196290d94',1,'vg::Packer']]],
@@ -13,6 +17,9 @@ var searchData=
   ['unmapped_5ffilter',['unmapped_filter',['../classvg_1_1Filter.html#a3a02d37cb7cf0b042aa5933186a76061',1,'vg::Filter']]],
   ['unpack_5fbit',['unpack_bit',['../structhandlegraph_1_1number__bool__packing.html#a52f57c83e66ad6f09b519dff55be71d9',1,'handlegraph::number_bool_packing']]],
   ['unpack_5fnumber',['unpack_number',['../structhandlegraph_1_1number__bool__packing.html#a5f2f610bc0e6819ff0ae3d91d2aff9fc',1,'handlegraph::number_bool_packing']]],
+  ['unpack_5fon_5frev',['unpack_on_rev',['../structbdsg_1_1ODGI_1_1edge__helper.html#a8c4b83d5a0f8d98b4ab7bed5fe506b42',1,'bdsg::ODGI::edge_helper']]],
+  ['unpack_5fother_5frev',['unpack_other_rev',['../structbdsg_1_1ODGI_1_1edge__helper.html#a1d5fc248b80e2d3f2a48b840227a5501',1,'bdsg::ODGI::edge_helper']]],
+  ['unpack_5fto_5fcurr',['unpack_to_curr',['../structbdsg_1_1ODGI_1_1edge__helper.html#a4565f7101135a9581102fc60fc5851d3',1,'bdsg::ODGI::edge_helper']]],
   ['unpaired_5ffor_5feach_5fparallel',['unpaired_for_each_parallel',['../namespacevg.html#ad9d7a5ca192b47b922e17a717774ff66',1,'vg']]],
   ['unparse',['unparse',['../classvg_1_1OptionValueParser.html#a816cf0ccd1d8b95f6f8f47434e1af376',1,'vg::OptionValueParser::unparse()'],['../classvg_1_1OptionValueParser_3_01vector_3_01Item_01_4_01_4.html#a57f771079219ffb85ea0cebc6b024045',1,'vg::OptionValueParser&lt; vector&lt; Item &gt; &gt;::unparse()'],['../classvg_1_1OptionValueParser.html#ae397faa8d0ae66c9c841a153045a6de2',1,'vg::OptionValueParser::unparse()']]],
   ['unrecord',['unrecord',['../classvg_1_1SnarlManager.html#a40be4db13bf881c882f3be70c067c111',1,'vg::SnarlManager::unrecord(const SnarlRecord *record) const'],['../classvg_1_1SnarlManager.html#aeeb8bf1eb342004f69b33caadad5a713',1,'vg::SnarlManager::unrecord(SnarlRecord *record)']]],

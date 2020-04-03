@@ -1,7 +1,19 @@
 var searchData=
 [
+  ['_5fdeleted_5fnode_5fcount',['_deleted_node_count',['../classbdsg_1_1ODGI.html#a27ba4eff77a484fb635e6275b3294d39',1,'bdsg::ODGI']]],
+  ['_5fedge_5fbytes',['_edge_bytes',['../classbdsg_1_1node__t.html#a020171fd29854b85f4913736727584ad',1,'bdsg::node_t']]],
+  ['_5fedge_5fcount',['_edge_count',['../classbdsg_1_1node__t.html#aa68e9f17fb3f49675d1c7f1bb4a75dac',1,'bdsg::node_t::_edge_count()'],['../classbdsg_1_1ODGI.html#a8a55ac331a90b588e7f795572c4b0963',1,'bdsg::ODGI::_edge_count()']]],
   ['_5ferror',['_error',['../classj2pb__error.html#a6c1faa9c2a04cb41166771a03f8fe757',1,'j2pb_error']]],
+  ['_5ffp',['_fp',['../classvg_1_1io_1_1JSONStreamHelper.html#a9a37ea0b07062cb1fcab096188ac5ced',1,'vg::io::JSONStreamHelper']]],
+  ['_5fhidden_5fcount',['_hidden_count',['../classbdsg_1_1ODGI.html#a604bc3e78b1c7fe270b819579884d019',1,'bdsg::ODGI']]],
+  ['_5fid_5fincrement',['_id_increment',['../classbdsg_1_1ODGI.html#a042ef9861a75537a35e26d2dd31516c6',1,'bdsg::ODGI']]],
+  ['_5fmax_5fnode_5fid',['_max_node_id',['../classbdsg_1_1ODGI.html#a714031b9149f514fdbf4543621f6578d',1,'bdsg::ODGI']]],
+  ['_5fmin_5fnode_5fid',['_min_node_id',['../classbdsg_1_1ODGI.html#a88f45b371084432970afa68e446f8130',1,'bdsg::ODGI']]],
+  ['_5fnode_5fcount',['_node_count',['../classbdsg_1_1ODGI.html#a22bc41b3879acd02979c22f841791e6e',1,'bdsg::ODGI']]],
+  ['_5fpath_5fcount',['_path_count',['../classbdsg_1_1ODGI.html#ac40a397647ed92d84ea2bb418bad40bb',1,'bdsg::ODGI']]],
+  ['_5fpath_5fhandle_5fnext',['_path_handle_next',['../classbdsg_1_1ODGI.html#a9afadd1464c1817fa40ecdc991c4f9bc',1,'bdsg::ODGI']]],
   ['_5fpaths',['_paths',['../classvg_1_1Paths.html#a5857b70582a67d2819f5e5db23a984cf',1,'vg::Paths']]],
+  ['_5fseq_5fbytes',['_seq_bytes',['../classbdsg_1_1node__t.html#a82d2762785c4d11fa65106efe312ea41',1,'bdsg::node_t']]],
   ['_5fsplice_5fgraph',['_splice_graph',['../classvg_1_1Transcriptome.html#a7071af495337c1f8e128e3e5dd8042db',1,'vg::Transcriptome']]],
   ['_5fsplice_5fgraph_5fnode_5fupdated',['_splice_graph_node_updated',['../classvg_1_1Transcriptome.html#a171230d85aa7f8e7fdbcb8c0b4a4e9df',1,'vg::Transcriptome']]],
   ['_5ftranscript_5fpaths',['_transcript_paths',['../classvg_1_1Transcriptome.html#a8c232c3a1a730b3abc0771f0d45cb341',1,'vg::Transcriptome']]]

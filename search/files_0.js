@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['a_5fstar_2ehpp',['a_star.hpp',['../a__star_8hpp.html',1,'']]],
   ['add_5fmain_2ecpp',['add_main.cpp',['../add__main_8cpp.html',1,'']]],
   ['align_5fmain_2ecpp',['align_main.cpp',['../align__main_8cpp.html',1,'']]],
   ['aligner_2ecpp',['aligner.cpp',['../aligner_8cpp.html',1,'']]],
@@ -8,8 +9,18 @@ var searchData=
   ['alignment_2ehpp',['alignment.hpp',['../alignment_8hpp.html',1,'']]],
   ['alignment_5femitter_2ecpp',['alignment_emitter.cpp',['../alignment__emitter_8cpp.html',1,'']]],
   ['alignment_5femitter_2ehpp',['alignment_emitter.hpp',['../alignment__emitter_8hpp.html',1,'']]],
+  ['alignment_5fpath_5foffsets_2ecpp',['alignment_path_offsets.cpp',['../alignment__path__offsets_8cpp.html',1,'']]],
+  ['alignment_5fpath_5foffsets_2ehpp',['alignment_path_offsets.hpp',['../alignment__path__offsets_8hpp.html',1,'']]],
   ['annotate_5fmain_2ecpp',['annotate_main.cpp',['../annotate__main_8cpp.html',1,'']]],
   ['annotation_2ehpp',['annotation.hpp',['../annotation_8hpp.html',1,'']]],
+  ['append_5fgraph_2ecpp',['append_graph.cpp',['../append__graph_8cpp.html',1,'']]],
+  ['append_5fgraph_2ehpp',['append_graph.hpp',['../append__graph_8hpp.html',1,'']]],
+  ['apply_5fbulk_5fmodifications_2ecpp',['apply_bulk_modifications.cpp',['../apply__bulk__modifications_8cpp.html',1,'']]],
+  ['apply_5fbulk_5fmodifications_2ehpp',['apply_bulk_modifications.hpp',['../apply__bulk__modifications_8hpp.html',1,'']]],
+  ['approx_5fpath_5fdistance_2ecpp',['approx_path_distance.cpp',['../approx__path__distance_8cpp.html',1,'']]],
+  ['approx_5fpath_5fdistance_2ehpp',['approx_path_distance.hpp',['../approx__path__distance_8hpp.html',1,'']]],
+  ['are_5fequivalent_2ecpp',['are_equivalent.cpp',['../are__equivalent_8cpp.html',1,'']]],
+  ['are_5fequivalent_2ehpp',['are_equivalent.hpp',['../are__equivalent_8hpp.html',1,'']]],
   ['augment_2ecpp',['augment.cpp',['../augment_8cpp.html',1,'']]],
   ['augment_2ehpp',['augment.hpp',['../augment_8hpp.html',1,'']]],
   ['augment_5fmain_2ecpp',['augment_main.cpp',['../augment__main_8cpp.html',1,'']]]

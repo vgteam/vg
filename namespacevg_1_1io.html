@@ -89,6 +89,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1io_1_1hFILE__cppstream.html">hFILE_cppstream</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1JSONStreamHelper.html">JSONStreamHelper</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html">MessageEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a></td></tr>
@@ -127,6 +129,45 @@ Typedefs</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:aeef1360dbaeba693008f3ee0d39dde30"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#aeef1360dbaeba693008f3ee0d39dde30">load_proto_to_graph</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">vg::MutablePathMutableHandleGraph</a> *destination, const <a class="el" href="namespacevg_1_1io.html#a26ea41d1ec4cf44b436a345f1eefccf1">vg::io::message_sender_function_t</a> &amp;for_each_message)</td></tr>
+<tr class="separator:aeef1360dbaeba693008f3ee0d39dde30"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad96a1414b35d7f181ddbb3194d6dcf6c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ad96a1414b35d7f181ddbb3194d6dcf6c">load_proto_to_graph</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">vg::MutablePathMutableHandleGraph</a> *destination, const function&lt; void(const function&lt; void(<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;)&gt; &amp;)&gt; &amp;chunk_sender)</td></tr>
+<tr class="separator:ad96a1414b35d7f181ddbb3194d6dcf6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad93f27be4f07ab9c6a91a1501b992f70"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ad93f27be4f07ab9c6a91a1501b992f70">register_libvg_io</a> ()</td></tr>
+<tr class="separator:ad93f27be4f07ab9c6a91a1501b992f70"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a45372f8f761a3bce9e7ef6e1422db47b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a45372f8f761a3bce9e7ef6e1422db47b">register_loader_saver_distance_index</a> ()</td></tr>
+<tr class="separator:a45372f8f761a3bce9e7ef6e1422db47b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a47fc4c5122bf0f0810993822d194eb20"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a47fc4c5122bf0f0810993822d194eb20">register_loader_saver_gbwt</a> ()</td></tr>
+<tr class="separator:a47fc4c5122bf0f0810993822d194eb20"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6143362abf3060042589f1ffb22ff498"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a6143362abf3060042589f1ffb22ff498">register_loader_saver_gbwtgraph</a> ()</td></tr>
+<tr class="separator:a6143362abf3060042589f1ffb22ff498"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:affca170910f12393eb1381c4d72e4e73"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#affca170910f12393eb1381c4d72e4e73">register_loader_saver_gcsa</a> ()</td></tr>
+<tr class="separator:affca170910f12393eb1381c4d72e4e73"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a49d41e6f52ad981f96d772396fd4eee5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a49d41e6f52ad981f96d772396fd4eee5">register_loader_saver_hash_graph</a> ()</td></tr>
+<tr class="separator:a49d41e6f52ad981f96d772396fd4eee5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af7df97a78891ada683647c88c6393eb9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#af7df97a78891ada683647c88c6393eb9">register_loader_saver_lcp</a> ()</td></tr>
+<tr class="separator:af7df97a78891ada683647c88c6393eb9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa69bc026abe7a1db4530704dfc7e7b3f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#aa69bc026abe7a1db4530704dfc7e7b3f">register_loader_saver_minimizer</a> ()</td></tr>
+<tr class="separator:aa69bc026abe7a1db4530704dfc7e7b3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae638cf2f14d5c444b0164f2e9c587213"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ae638cf2f14d5c444b0164f2e9c587213">register_loader_saver_odgi</a> ()</td></tr>
+<tr class="separator:ae638cf2f14d5c444b0164f2e9c587213"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a776b6490958856d44dc2d962d629440d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a776b6490958856d44dc2d962d629440d">register_loader_saver_packed_graph</a> ()</td></tr>
+<tr class="separator:a776b6490958856d44dc2d962d629440d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8072168ee8165f81afb2688ef0825ea8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a8072168ee8165f81afb2688ef0825ea8">register_loader_saver_snarl_manager</a> ()</td></tr>
+<tr class="separator:a8072168ee8165f81afb2688ef0825ea8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac3485846033fd4accb221b0a866dfeb7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ac3485846033fd4accb221b0a866dfeb7">register_loader_saver_vg</a> ()</td></tr>
+<tr class="separator:ac3485846033fd4accb221b0a866dfeb7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7a23bf45ec66db4b724b7f8a9f223c33"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a7a23bf45ec66db4b724b7f8a9f223c33">register_loader_saver_xg</a> ()</td></tr>
+<tr class="separator:a7a23bf45ec66db4b724b7f8a9f223c33"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af3f5510bd6a0e5514d3083fcd2ffdd32"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#af3f5510bd6a0e5514d3083fcd2ffdd32">save_handle_graph</a> (<a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> *graph, ostream &amp;os)</td></tr>
+<tr class="separator:af3f5510bd6a0e5514d3083fcd2ffdd32"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a571f402ff74b738d9070a598a41b58da"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a571f402ff74b738d9070a598a41b58da">save_handle_graph</a> (<a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> *graph, const string &amp;dest_path)</td></tr>
+<tr class="separator:a571f402ff74b738d9070a598a41b58da"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:accd0bfdce54ff793cf2fae6b1122ec54"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#accd0bfdce54ff793cf2fae6b1122ec54">valid_output_format</a> (const string &amp;fmt_string)</td></tr>
+<tr class="separator:accd0bfdce54ff793cf2fae6b1122ec54"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4b6ad53e3fc9e4c143221b213932db70"><td class="memTemplParams" colspan="2">template&lt;class T &gt; </td></tr>
+<tr class="memitem:a4b6ad53e3fc9e4c143221b213932db70"><td class="memTemplItemLeft" align="right" valign="top">unique_ptr&lt; T &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a4b6ad53e3fc9e4c143221b213932db70">new_output_graph</a> (const string &amp;fmt_string)</td></tr>
+<tr class="separator:a4b6ad53e3fc9e4c143221b213932db70"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a09b6c55dd368ec0c3e85f51a87321ba2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a09b6c55dd368ec0c3e85f51a87321ba2">mergeGraphs</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;graph, const <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;part)</td></tr>
 <tr class="separator:a09b6c55dd368ec0c3e85f51a87321ba2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a857cf3810d138ef43e25aa37f147ac25"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Graph.html">Graph</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a857cf3810d138ef43e25aa37f147ac25">inputStream</a> (const string &amp;filename)</td></tr>
@@ -617,6 +658,66 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
+<a id="aeef1360dbaeba693008f3ee0d39dde30"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aeef1360dbaeba693008f3ee0d39dde30">&#9670;&nbsp;</a></span>load_proto_to_graph() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::load_proto_to_graph </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">vg::MutablePathMutableHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>destination</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="namespacevg_1_1io.html#a26ea41d1ec4cf44b436a345f1eefccf1">vg::io::message_sender_function_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>for_each_message</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Read all string messages supplied by the given message sender as Protobuf <a class="el" href="structvg_1_1Graph.html">Graph</a> objects, and create the specified graph in the destination graph.</p>
+<p><a class="el" href="classvg_1_1Paths.html">Paths</a> need to be cached until the end for ranks to be respected. </p>
+
+</div>
+</div>
+<a id="ad96a1414b35d7f181ddbb3194d6dcf6c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad96a1414b35d7f181ddbb3194d6dcf6c">&#9670;&nbsp;</a></span>load_proto_to_graph() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::load_proto_to_graph </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">vg::MutablePathMutableHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>destination</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(const function&lt; void(<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;)&gt; &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>chunk_sender</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Call the given function with a callback which it can call with a series of Protobuf <a class="el" href="structvg_1_1Graph.html">Graph</a> objects, possibly in multiple threads. The Protobuf <a class="el" href="structvg_1_1Graph.html">Graph</a> objects may have dangling edges.</p>
+<p>Resolves all the dangling edges and writes all the graph data into the given MutablePathMutableHandleGraph, with the destination graph being protected from concurrent modification. </p>
+
+</div>
+</div>
 <a id="a09b6c55dd368ec0c3e85f51a87321ba2"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a09b6c55dd368ec0c3e85f51a87321ba2">&#9670;&nbsp;</a></span>mergeGraphs()</h2>
 
@@ -645,6 +746,26 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
+<a id="a4b6ad53e3fc9e4c143221b213932db70"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4b6ad53e3fc9e4c143221b213932db70">&#9670;&nbsp;</a></span>new_output_graph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class T &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">unique_ptr&lt;T&gt; vg::io::new_output_graph </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>fmt_string</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a477841175891d3e770995307eea45f38"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a477841175891d3e770995307eea45f38">&#9670;&nbsp;</a></span>outputStream()</h2>
 
@@ -659,6 +780,327 @@ template&lt;typename T &gt; </div>
           <td></td>
         </tr>
       </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ad93f27be4f07ab9c6a91a1501b992f70"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad93f27be4f07ab9c6a91a1501b992f70">&#9670;&nbsp;</a></span>register_libvg_io()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::io::register_libvg_io </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Register libvg types with libvgio. Must be called by library users before doing IO. Does not magically statically call itself. TODO: work out a way it can. Returns true on success. </p>
+
+</div>
+</div>
+<a id="a45372f8f761a3bce9e7ef6e1422db47b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a45372f8f761a3bce9e7ef6e1422db47b">&#9670;&nbsp;</a></span>register_loader_saver_distance_index()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::register_loader_saver_distance_index </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a47fc4c5122bf0f0810993822d194eb20"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a47fc4c5122bf0f0810993822d194eb20">&#9670;&nbsp;</a></span>register_loader_saver_gbwt()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::register_loader_saver_gbwt </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a6143362abf3060042589f1ffb22ff498"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6143362abf3060042589f1ffb22ff498">&#9670;&nbsp;</a></span>register_loader_saver_gbwtgraph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::register_loader_saver_gbwtgraph </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="affca170910f12393eb1381c4d72e4e73"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#affca170910f12393eb1381c4d72e4e73">&#9670;&nbsp;</a></span>register_loader_saver_gcsa()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::register_loader_saver_gcsa </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a49d41e6f52ad981f96d772396fd4eee5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a49d41e6f52ad981f96d772396fd4eee5">&#9670;&nbsp;</a></span>register_loader_saver_hash_graph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::register_loader_saver_hash_graph </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="af7df97a78891ada683647c88c6393eb9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af7df97a78891ada683647c88c6393eb9">&#9670;&nbsp;</a></span>register_loader_saver_lcp()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::register_loader_saver_lcp </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="aa69bc026abe7a1db4530704dfc7e7b3f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa69bc026abe7a1db4530704dfc7e7b3f">&#9670;&nbsp;</a></span>register_loader_saver_minimizer()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::register_loader_saver_minimizer </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ae638cf2f14d5c444b0164f2e9c587213"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae638cf2f14d5c444b0164f2e9c587213">&#9670;&nbsp;</a></span>register_loader_saver_odgi()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::register_loader_saver_odgi </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a776b6490958856d44dc2d962d629440d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a776b6490958856d44dc2d962d629440d">&#9670;&nbsp;</a></span>register_loader_saver_packed_graph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::register_loader_saver_packed_graph </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a8072168ee8165f81afb2688ef0825ea8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8072168ee8165f81afb2688ef0825ea8">&#9670;&nbsp;</a></span>register_loader_saver_snarl_manager()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::register_loader_saver_snarl_manager </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac3485846033fd4accb221b0a866dfeb7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac3485846033fd4accb221b0a866dfeb7">&#9670;&nbsp;</a></span>register_loader_saver_vg()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::register_loader_saver_vg </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a7a23bf45ec66db4b724b7f8a9f223c33"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7a23bf45ec66db4b724b7f8a9f223c33">&#9670;&nbsp;</a></span>register_loader_saver_xg()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::register_loader_saver_xg </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="af3f5510bd6a0e5514d3083fcd2ffdd32"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af3f5510bd6a0e5514d3083fcd2ffdd32">&#9670;&nbsp;</a></span>save_handle_graph() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::save_handle_graph </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">ostream &amp;&#160;</td>
+          <td class="paramname"><em>os</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Save a handle graph using the <a class="el" href="classvg_1_1io_1_1VPKG.html#a80551b46351f1e8d47e8b3ebaf028847">VPKG::save()</a> function. Todo: should this be somewhere else (ie in vgio with new types registered?) </p>
+
+</div>
+</div>
+<a id="a571f402ff74b738d9070a598a41b58da"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a571f402ff74b738d9070a598a41b58da">&#9670;&nbsp;</a></span>save_handle_graph() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::save_handle_graph </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>dest_path</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="accd0bfdce54ff793cf2fae6b1122ec54"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#accd0bfdce54ff793cf2fae6b1122ec54">&#9670;&nbsp;</a></span>valid_output_format()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::io::valid_output_format </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>fmt_string</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 </div>

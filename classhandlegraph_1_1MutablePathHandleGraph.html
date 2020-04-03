@@ -78,11 +78,15 @@ Inheritance diagram for handlegraph::MutablePathHandleGraph:</div>
  <div class="center">
   <img src="classhandlegraph_1_1MutablePathHandleGraph.png" usemap="#handlegraph::MutablePathHandleGraph_map" alt=""/>
   <map id="handlegraph::MutablePathHandleGraph_map" name="handlegraph::MutablePathHandleGraph_map">
-<area href="classhandlegraph_1_1PathHandleGraph.html" alt="handlegraph::PathHandleGraph" shape="rect" coords="0,56,287,80"/>
-<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="0,0,287,24"/>
-<area href="classhandlegraph_1_1MutablePathMutableHandleGraph.html" alt="handlegraph::MutablePathMutableHandleGraph" shape="rect" coords="0,168,287,192"/>
-<area href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html" alt="handlegraph::MutablePathDeletableHandleGraph" shape="rect" coords="0,224,287,248"/>
-<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="0,280,287,304"/>
+<area href="classhandlegraph_1_1PathHandleGraph.html" alt="handlegraph::PathHandleGraph" shape="rect" coords="594,56,881,80"/>
+<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="594,0,881,24"/>
+<area href="classhandlegraph_1_1MutablePathMutableHandleGraph.html" alt="handlegraph::MutablePathMutableHandleGraph" shape="rect" coords="594,168,881,192"/>
+<area href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html" alt="handlegraph::MutablePathDeletableHandleGraph" shape="rect" coords="594,224,881,248"/>
+<area href="classbdsg_1_1HashGraph.html" alt="bdsg::HashGraph" shape="rect" coords="0,280,287,304"/>
+<area href="classbdsg_1_1MutablePositionOverlay.html" alt="bdsg::MutablePositionOverlay" shape="rect" coords="297,280,584,304"/>
+<area href="classbdsg_1_1ODGI.html" alt="bdsg::ODGI" shape="rect" coords="594,280,881,304"/>
+<area href="classbdsg_1_1PackedGraph.html" alt="bdsg::PackedGraph" shape="rect" coords="891,280,1178,304"/>
+<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="1188,280,1475,304"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -301,7 +305,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Append a visit to a node to the given path. Returns a handle to the new final step on the path which is appended. If the path is cirular, the new step is placed between the steps considered "last" and "first" by the method path_begin. Handles to prior steps on the path, and to other paths, must remain valid. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#ad11c8a716733fce2aa9dab94b42286bd">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classbdsg_1_1ODGI.html#af9b068258f3a98847bcde404ef293d9c">bdsg::ODGI</a>, <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#a09c334427bd1d5919599bbb2beb19ff1">bdsg::MutablePositionOverlay</a>, <a class="el" href="classvg_1_1VG.html#ad11c8a716733fce2aa9dab94b42286bd">vg::VG</a>, <a class="el" href="classbdsg_1_1PackedGraph.html#a5e5c580f60fa9630f8813d78575f7161">bdsg::PackedGraph</a>, and <a class="el" href="classbdsg_1_1HashGraph.html#aa8941157389a0ccc79fe81e46682d476">bdsg::HashGraph</a>.</p>
 
 </div>
 </div>
@@ -340,6 +344,8 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Create a path with the given name. The caller must ensure that no path with the given name exists already, or the behavior is undefined. Returns a handle to the created empty path. Handles to other paths must remain valid. </p>
 
+<p>Implemented in <a class="el" href="classbdsg_1_1ODGI.html#a127ed64f4237d7b307e73633508c7e5d">bdsg::ODGI</a>.</p>
+
 </div>
 </div>
 <a id="a05a7303ef2f259c6384b0b9b1f9d3f56"></a>
@@ -367,7 +373,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Destroy the given path. Invalidates handles to the path and its steps. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#adb25bd1fdb9e36c55157c5be864ca403">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classbdsg_1_1ODGI.html#ab1265a7527979210c56e990e08d4e650">bdsg::ODGI</a>, <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#a592fdf8e98df36fce5e11e9da8e9db1b">bdsg::MutablePositionOverlay</a>, <a class="el" href="classvg_1_1VG.html#adb25bd1fdb9e36c55157c5be864ca403">vg::VG</a>, <a class="el" href="classbdsg_1_1PackedGraph.html#ade4984d8fbd73d4661173cd8ae773a87">bdsg::PackedGraph</a>, and <a class="el" href="classbdsg_1_1HashGraph.html#a4e8b6e991de2913e55e189ab3e845006">bdsg::HashGraph</a>.</p>
 
 </div>
 </div>
@@ -406,7 +412,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Prepend a visit to a node to the given path. Returns a handle to the new first step on the path which is appended. If the path is cirular, the new step is placed between the steps considered "last" and "first" by the method path_begin. Handles to later steps on the path, and to other paths, must remain valid. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a43c2858dc8e80ba160359ccf5e1508d2">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#a9fdd52f39cb3b9228e3a35e8e4e76fff">bdsg::MutablePositionOverlay</a>, <a class="el" href="classbdsg_1_1ODGI.html#a74b5764a3b881b921ce745fd8e53d1ab">bdsg::ODGI</a>, <a class="el" href="classvg_1_1VG.html#a43c2858dc8e80ba160359ccf5e1508d2">vg::VG</a>, <a class="el" href="classbdsg_1_1PackedGraph.html#a5c0a7f1579a8c18cf1de1a5690cd1ed4">bdsg::PackedGraph</a>, and <a class="el" href="classbdsg_1_1HashGraph.html#a1cf570276a2b0c134b35dac3846f1283">bdsg::HashGraph</a>.</p>
 
 </div>
 </div>
@@ -451,6 +457,8 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Delete a segment of a path and rewrite it as some other sequence of steps. Returns a pair of <a class="el" href="structhandlegraph_1_1step__handle__t.html" title="A step handle is an opaque reference to a single step of an oriented node on a path in a graph...">step_handle_t</a>'s that indicate the range of the new segment in the path. The segment to delete should be designated by the first and last step handle. If the step that is returned by path_begin is deleted, path_begin will now return the first step from the new segment or, in the case that the new segment is empty, the step past segment_end. </p>
 
+<p>Implemented in <a class="el" href="classbdsg_1_1ODGI.html#ad1a08999aeec3f00b077be5157e497b4">bdsg::ODGI</a>, and <a class="el" href="classbdsg_1_1HashGraph.html#ada764092989abbce737f402ed72253ae">bdsg::HashGraph</a>.</p>
+
 </div>
 </div>
 <a id="a9172694447503e35d50093d55e845eb8"></a>
@@ -488,7 +496,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Make a path circular or non-circular. If the path is becoming circular, the last step is joined to the first step. If the path is becoming linear, the step considered "last" is unjoined from the step considered "first" according to the method path_begin. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a73c97ce0157b90f95b888e4b6983f5c8">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#a4a95338a8b9b3435bcd5d38ce0dd6176">bdsg::MutablePositionOverlay</a>, <a class="el" href="classvg_1_1VG.html#a73c97ce0157b90f95b888e4b6983f5c8">vg::VG</a>, <a class="el" href="classbdsg_1_1PackedGraph.html#aaa756f1d4671ea6a22382f1753c1bd17">bdsg::PackedGraph</a>, <a class="el" href="classbdsg_1_1HashGraph.html#a7df1822dca2270850444d236208263c6">bdsg::HashGraph</a>, and <a class="el" href="classbdsg_1_1ODGI.html#a916a526721ae5d609b354957172f971b">bdsg::ODGI</a>.</p>
 
 </div>
 </div>

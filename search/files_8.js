@@ -1,5 +1,7 @@
 var searchData=
 [
+  ['id_5fsort_2ecpp',['id_sort.cpp',['../id__sort_8cpp.html',1,'']]],
+  ['id_5fsort_2ehpp',['id_sort.hpp',['../id__sort_8hpp.html',1,'']]],
   ['identity_5foverlay_2ecpp',['identity_overlay.cpp',['../identity__overlay_8cpp.html',1,'']]],
   ['identity_5foverlay_2ehpp',['identity_overlay.hpp',['../identity__overlay_8hpp.html',1,'']]],
   ['ids_5fmain_2ecpp',['ids_main.cpp',['../ids__main_8cpp.html',1,'']]],
@@ -11,5 +13,9 @@ var searchData=
   ['indexed_5fvg_2ecpp',['indexed_vg.cpp',['../indexed__vg_8cpp.html',1,'']]],
   ['indexed_5fvg_2ehpp',['indexed_vg.hpp',['../indexed__vg_8hpp.html',1,'']]],
   ['inject_5fmain_2ecpp',['inject_main.cpp',['../inject__main_8cpp.html',1,'']]],
+  ['is_5facyclic_2ecpp',['is_acyclic.cpp',['../is__acyclic_8cpp.html',1,'']]],
+  ['is_5facyclic_2ehpp',['is_acyclic.hpp',['../is__acyclic_8hpp.html',1,'']]],
+  ['is_5fsingle_5fstranded_2ecpp',['is_single_stranded.cpp',['../src_2algorithms_2is__single__stranded_8cpp.html',1,'(Global Namespace)'],['../deps_2libbdsg_2src_2is__single__stranded_8cpp.html',1,'(Global Namespace)']]],
+  ['is_5fsingle_5fstranded_2ehpp',['is_single_stranded.hpp',['../src_2algorithms_2is__single__stranded_8hpp.html',1,'(Global Namespace)'],['../deps_2libbdsg_2include_2bdsg_2is__single__stranded_8hpp.html',1,'(Global Namespace)']]],
   ['iteratee_2ehpp',['iteratee.hpp',['../iteratee_8hpp.html',1,'']]]
 ];

@@ -1,9 +1,11 @@
 var searchData=
 [
   ['r',['R',['../structhaplo_1_1haplo__DP__rectangle.html#a93bec5529e8477c30fca8118e3e44f5f',1,'haplo::haplo_DP_rectangle']]],
+  ['r_5fiv',['r_iv',['../classxg_1_1XG.html#aa5b5890158459739ca5e986555bcf74e',1,'xg::XG']]],
   ['random_5fengine',['random_engine',['../classvg_1_1MCMCGenotyper.html#a742e3fb0ca54f531f23d1a8f18cb4da5',1,'vg::MCMCGenotyper']]],
   ['range',['range',['../classvg_1_1MaximalExactMatch.html#a8652369dde83e159dd8c5638745a749c',1,'vg::MaximalExactMatch']]],
   ['rank',['rank',['../classvg_1_1mapping__t.html#a8f97d898f658a36c3046b8fcc2c846ff',1,'vg::mapping_t::rank()'],['../classvg_1_1PhasedGenome_1_1iterator.html#ab8b58edefb4cb58e014344c6010eec62',1,'vg::PhasedGenome::iterator::rank()'],['../structvg_1_1Mapping.html#a9ad71eb17b88b2cdd00cee8476e6c7b3',1,'vg::Mapping::rank()']]],
+  ['rank_5fto_5fnode',['rank_to_node',['../classbdsg_1_1VectorizableOverlay.html#a311351aec2dfe498014c6d0ff3a799ff',1,'bdsg::VectorizableOverlay']]],
   ['read',['read',['../structhFILE__backend.html#ad710f254730683318f2d62b9c1ef3d60',1,'hFILE_backend']]],
   ['read_5fbest_5fleft',['read_best_left',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#a1cb9c926cfd56cc7f2a68b176b38119e',1,'vg::SnarlSeedClusterer::NodeClusters']]],
   ['read_5fbest_5fright',['read_best_right',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#adfa95e9e1e1b9fb34637bb1bbe14320b',1,'vg::SnarlSeedClusterer::NodeClusters']]],
@@ -53,9 +55,11 @@ var searchData=
   ['retry_5fon_5fns',['retry_on_Ns',['../classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd',1,'vg::NGSSimulator']]],
   ['rev_5fin_5fparent',['rev_in_parent',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a3d6a7da19bb2f8ce0c762dde01384392',1,'vg::MinimumDistanceIndex::SnarlIndex::rev_in_parent()'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#ae42bfcae1c483aa51641b3ef48dbe4fa',1,'vg::MinimumDistanceIndex::ChainIndex::rev_in_parent()']]],
   ['reverse',['reverse',['../structvg_1_1Support.html#acc2aa2a4b0278503817664600938c8a2',1,'vg::Support']]],
+  ['reversing_5fself_5fedge_5frecords',['reversing_self_edge_records',['../classbdsg_1_1PackedGraph.html#ad10bc4726865eabba327d590e7f6d62b',1,'bdsg::PackedGraph']]],
   ['reversing_5fwalk_5flength',['reversing_walk_length',['../classvg_1_1MultipathMapper.html#af87eaae1274e33230fffe9dca05dbbec',1,'vg::MultipathMapper']]],
   ['rho',['rho',['../structhaplo_1_1haploMath_1_1RRMemo.html#a7536987972e5d717ba43a951adcece82',1,'haplo::haploMath::RRMemo']]],
   ['right',['right',['../structvg_1_1Support.html#ab2fd7cba17f56ce67501f47fda6ae153',1,'vg::Support']]],
+  ['right_5fedges',['right_edges',['../structbdsg_1_1HashGraph_1_1node__t.html#a7a641996acd7098da767e6177f0070b5',1,'bdsg::HashGraph::node_t']]],
   ['right_5fends',['right_ends',['../structvg_1_1ConstructedChunk.html#ac20dbdc398181350e73bee0429fe2842',1,'vg::ConstructedChunk']]],
   ['right_5ffull',['right_full',['../structvg_1_1GaplessExtension.html#ae7ca191732330cb5a6db94ee5531f2ed',1,'vg::GaplessExtension']]],
   ['right_5fmaximal',['right_maximal',['../structvg_1_1GaplessExtension.html#a8e4d53c78f3c355b5b17bf3e959bbd41',1,'vg::GaplessExtension']]],

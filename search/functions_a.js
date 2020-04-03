@@ -4,5 +4,7 @@ var searchData=
   ['join_5fheads',['join_heads',['../classvg_1_1VG.html#a817384b8d147371448ad60e1db097b52',1,'vg::VG::join_heads(void)'],['../classvg_1_1VG.html#adc40377520118436b729cd68be16d0ba',1,'vg::VG::join_heads(Node *node, bool from_start=false)']]],
   ['join_5ftails',['join_tails',['../classvg_1_1VG.html#a33e3f7942afd3ca82bfb78083c245146',1,'vg::VG']]],
   ['json2pb',['json2pb',['../json2pb_8cpp.html#a2eb37967f22b379b956fe97f7c974203',1,'json2pb(Message &amp;msg, const char *buf, size_t size):&#160;json2pb.cpp'],['../json2pb_8cpp.html#a947740c497c7efcc20241ca8dcd890c5',1,'json2pb(Message &amp;msg, FILE *fp):&#160;json2pb.cpp'],['../json2pb_8cpp.html#a3b3ae0b9e33187a31a408a4e4e82898b',1,'json2pb(Message &amp;msg, const std::string &amp;data):&#160;json2pb.cpp'],['../json2pb_8h.html#aee640ab0597802043d3778f2f8d251ab',1,'json2pb(google::protobuf::Message &amp;msg, const char *buf, size_t size):&#160;json2pb.h'],['../json2pb_8h.html#ad3edc7550a299bb85558377c35581364',1,'json2pb(google::protobuf::Message &amp;msg, FILE *fp):&#160;json2pb.h'],['../json2pb_8h.html#ae83324c05726c12f6a3602a6aa7b2182',1,'json2pb(google::protobuf::Message &amp;msg, const std::string &amp;data):&#160;json2pb.h']]],
-  ['json_5fautoptr',['json_autoptr',['../structjson__autoptr.html#a3879742fd5ef3183006f93ebc6e57678',1,'json_autoptr']]]
+  ['json_5fautoptr',['json_autoptr',['../structjson__autoptr.html#a3879742fd5ef3183006f93ebc6e57678',1,'json_autoptr']]],
+  ['jsonstreamhelper',['JSONStreamHelper',['../classvg_1_1io_1_1JSONStreamHelper.html#ad795787bc270c5cfe737535f2e242aa6',1,'vg::io::JSONStreamHelper']]],
+  ['jump_5falong_5fclosest_5fpath',['jump_along_closest_path',['../namespacevg_1_1algorithms.html#a633a1600c6a7e447c040fefb1432e508',1,'vg::algorithms']]]
 ];

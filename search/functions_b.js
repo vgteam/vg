@@ -24,6 +24,6 @@ var searchData=
   ['key_5fprefix_5ffor_5ftraversal',['key_prefix_for_traversal',['../classvg_1_1Index.html#adadacac4e1843a9f2515e2380618f11c',1,'vg::Index']]],
   ['kmer_5fentry_5fto_5fstring',['kmer_entry_to_string',['../classvg_1_1Index.html#a390728092e37532a1e36a417952e21b7',1,'vg::Index']]],
   ['kmer_5fmatches',['kmer_matches',['../classvg_1_1Index.html#a2cf8b8ad22bf41d6a30ac488ead6b52c',1,'vg::Index']]],
-  ['kmer_5ft',['kmer_t',['../structvg_1_1kmer__t.html#a83d1946c92dcdc9c6adbc03b4da30312',1,'vg::kmer_t']]],
+  ['kmer_5ft',['kmer_t',['../structvg_1_1kmer__t.html#a83d1946c92dcdc9c6adbc03b4da30312',1,'vg::kmer_t::kmer_t()'],['../structvg_1_1algorithms_1_1kmer__t.html#ae029bc309fbd34a7dd7391f9a74f79f5',1,'vg::algorithms::kmer_t::kmer_t()']]],
   ['kmer_5fto_5fgcsa_5fkmers',['kmer_to_gcsa_kmers',['../namespacevg.html#a661fc17618ee9ff7bd9d469c74c63369',1,'vg']]]
 ];

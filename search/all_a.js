@@ -9,5 +9,10 @@ var searchData=
   ['json2pb_2ecpp',['json2pb.cpp',['../json2pb_8cpp.html',1,'']]],
   ['json2pb_2eh',['json2pb.h',['../json2pb_8h.html',1,'']]],
   ['json_5fautoptr',['json_autoptr',['../structjson__autoptr.html',1,'json_autoptr'],['../structjson__autoptr.html#a3879742fd5ef3183006f93ebc6e57678',1,'json_autoptr::json_autoptr()']]],
-  ['json_5fboolean',['json_boolean',['../json2pb_8cpp.html#a250fb410df685e30b6cac97ff6e76982',1,'json2pb.cpp']]]
+  ['json_5fboolean',['json_boolean',['../json2pb_8cpp.html#a250fb410df685e30b6cac97ff6e76982',1,'json2pb.cpp']]],
+  ['json_5fstream_5fhelper_2ehpp',['json_stream_helper.hpp',['../json__stream__helper_8hpp.html',1,'']]],
+  ['jsonstreamhelper',['JSONStreamHelper',['../classvg_1_1io_1_1JSONStreamHelper.html',1,'vg::io::JSONStreamHelper&lt; T &gt;'],['../classvg_1_1io_1_1JSONStreamHelper.html#ad795787bc270c5cfe737535f2e242aa6',1,'vg::io::JSONStreamHelper::JSONStreamHelper()']]],
+  ['jump_5falong_5fclosest_5fpath',['jump_along_closest_path',['../namespacevg_1_1algorithms.html#a633a1600c6a7e447c040fefb1432e508',1,'vg::algorithms']]],
+  ['jump_5falong_5fpath_2ecpp',['jump_along_path.cpp',['../jump__along__path_8cpp.html',1,'']]],
+  ['jump_5falong_5fpath_2ehpp',['jump_along_path.hpp',['../jump__along__path_8hpp.html',1,'']]]
 ];

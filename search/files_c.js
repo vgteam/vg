@@ -13,6 +13,8 @@ var searchData=
   ['memoizing_5fgraph_2ehpp',['memoizing_graph.hpp',['../memoizing__graph_8hpp.html',1,'']]],
   ['memusage_2ecpp',['memusage.cpp',['../memusage_8cpp.html',1,'']]],
   ['memusage_2ehpp',['memusage.hpp',['../memusage_8hpp.html',1,'']]],
+  ['merge_2ecpp',['merge.cpp',['../merge_8cpp.html',1,'']]],
+  ['merge_2ehpp',['merge.hpp',['../merge_8hpp.html',1,'']]],
   ['message_5femitter_2ecpp',['message_emitter.cpp',['../message__emitter_8cpp.html',1,'']]],
   ['message_5femitter_2ehpp',['message_emitter.hpp',['../message__emitter_8hpp.html',1,'']]],
   ['message_5fiterator_2ecpp',['message_iterator.cpp',['../message__iterator_8cpp.html',1,'']]],
