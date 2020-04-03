@@ -58,8 +58,9 @@ pair<double, vector<handle_t>> widest_dijkstra(const HandleGraph* g, handle_t so
     } else {
         // heuristic average flow
         acc_node = [&](double next_score, handle_t next, double& total_score, double& total_length) {
-            total_length += g->get_length(next);
-            total_score += node_weight_callback(next);
+            size_t length = g->get_length(next);
+            total_length += length;
+            total_score += node_weight_callback(next) * length;
             return total_score / total_length;
         };
         acc_edge = [&](double next_score, edge_t edge, double& total_score, double& total_length) {
@@ -74,7 +75,7 @@ pair<double, vector<handle_t>> widest_dijkstra(const HandleGraph* g, handle_t so
     handle_t previous;
     // we don't include the score of the source
     // todo: should this be an option?
-    double score = 0;
+    double score = avg_flow ? 0 : numeric_limits<double>::max();
     double total_score = 0;
     double total_length = 0;
     queue.push(make_tuple(score, source, source, total_score, total_length));
@@ -177,7 +178,7 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
     map<vector<handle_t>, size_t> B;
     // used to pull out the biggest element in B
     multimap<double, map<vector<handle_t>, size_t>::iterator> score_to_B;
-    
+
     // start scanning for our k-1 next-widest paths
     for (size_t k = 1; k < K && best_paths.back().first > cutoff; ++k) {
 
