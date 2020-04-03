@@ -16,7 +16,7 @@
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/mutable_path_deletable_handle_graph.hpp>
 #include "../handle.hpp"
-#include "../convert_handle.hpp"
+#include "../algorithms/copy_graph.hpp"
 #include "../utility.hpp"
 #include "../algorithms/topological_sort.hpp"
 #include "../algorithms/remove_high_degree.hpp"
@@ -607,7 +607,7 @@ int main_mod(int argc, char** argv) {
         if (vg_graph == nullptr) {
             // Copy instead.
             vg_graph = new vg::VG();
-            convert_path_handle_graph(graph.get(), vg_graph);
+            algorithms::copy_path_handle_graph(graph.get(), vg_graph);
             // Give the unique_ptr ownership and delete the graph we loaded.
             graph.reset(vg_graph);
             // Make sure the paths are all synced up

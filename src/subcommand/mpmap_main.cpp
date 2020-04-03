@@ -79,7 +79,7 @@ void help_mpmap(char** argv) {
     //<< "  -r, --reseed-length INT       reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
     //<< "  -W, --reseed-diff FLOAT       require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
     //<< "  -K, --clust-length INT        minimum MEM length used in clustering [automatic]" << endl
-    << "  -F, --stripped-match          use stripped match algorithm instead of MEMs" << endl
+    //<< "  -F, --stripped-match          use stripped match algorithm instead of MEMs" << endl
     << "  -c, --hit-max INT             use at most this many hits for any match seeds (0 for no limit) [1024]" << endl
     //<< "  --approx-exp FLOAT            let the approximate likelihood miscalculate likelihood ratios by this power [10.0]" << endl
     //<< "  --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
@@ -124,6 +124,12 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_GREEDY_MIN_DIST 1010
     #define OPT_COMPONENT_MIN_DIST 1011
     #define OPT_BAND_PADDING_MULTIPLIER 1012
+    #define OPT_HARD_HIT_MAX_MULTIPLIER 1013
+    #define OPT_MAX_RESCUE_ATTEMPTS 1014
+    #define OPT_STRIP_LENGTH 1015
+    #define OPT_STRIP_COUNT 1016
+    #define OPT_SECONDARY_RESCUE_ATTEMPTS 1017
+    #define OPT_SECONDARY_MAX_DIFF 1018
     string matrix_file_name;
     string xg_name;
     string gcsa_name;
@@ -146,7 +152,6 @@ int main_mpmap(int argc, char** argv) {
     int max_branch_trim_length = 5;
     bool suppress_tail_anchors = false;
     int max_paired_end_map_attempts = 24;
-    int max_single_end_mappings_for_rescue = 64;
     int max_single_end_map_attempts = 64;
     int max_rescue_attempts = 10;
     int population_max_paths = 10;
@@ -158,12 +163,15 @@ int main_mpmap(int argc, char** argv) {
     int max_num_mappings = 1;
     int buffer_size = 200;
     int hit_max = 1024;
+    int hard_hit_max_muliplier = 10;
     int min_mem_length = 1;
     int min_clustering_mem_length = 0;
     bool use_stripped_match_alg = false;
-    int stripped_match_alg_strip_length = 10;
+    int default_strip_length = 10;
+    int stripped_match_alg_strip_length = default_strip_length;
     int stripped_match_alg_max_length = 0; // no maximum yet
-    int stripped_match_alg_target_count = 10;
+    int default_strip_count = 10;
+    int stripped_match_alg_target_count = default_strip_count;
     int reseed_length = 28;
     double reseed_diff = 0.45;
     double reseed_exp = 0.065;
@@ -255,6 +263,9 @@ int main_mpmap(int argc, char** argv) {
             {"frag-sample", required_argument, 0, 'b'},
             {"frag-mean", required_argument, 0, 'I'},
             {"frag-stddev", required_argument, 0, 'D'},
+            {"max-rescues", required_argument, 0, OPT_MAX_RESCUE_ATTEMPTS},
+            {"max-secondary-rescues", required_argument, 0, OPT_SECONDARY_RESCUE_ATTEMPTS},
+            {"secondary-diff", required_argument, 0, OPT_SECONDARY_MAX_DIFF},
             {"no-calibrate", no_argument, 0, 'B'},
             {"max-p-val", required_argument, 0, 'P'},
             {"mq-max", required_argument, 0, 'Q'},
@@ -268,7 +279,10 @@ int main_mpmap(int argc, char** argv) {
             {"reseed-diff", required_argument, 0, 'W'},
             {"clustlength", required_argument, 0, 'K'},
             {"stripped-match", no_argument, 0, 'F'},
+            {"strip-length", no_argument, 0, OPT_STRIP_LENGTH},
+            {"strip-count", no_argument, 0, OPT_STRIP_COUNT},
             {"hit-max", required_argument, 0, 'c'},
+            {"hard-hit-mult", required_argument, 0, OPT_HARD_HIT_MAX_MULTIPLIER},
             {"approx-exp", required_argument, 0, OPT_APPROX_EXP},
             {"recombination-penalty", required_argument, 0, OPT_RECOMBINATION_PENALTY},
             {"always-check-population", no_argument, 0, OPT_ALWAYS_CHECK_POPULATION},
@@ -337,6 +351,15 @@ int main_mpmap(int argc, char** argv) {
                     use_min_dist_clusterer = true;
                 }
                 break;
+                
+            case OPT_MAX_RESCUE_ATTEMPTS:
+                max_rescue_attempts = parse<int>(optarg);
+                
+            case OPT_SECONDARY_RESCUE_ATTEMPTS:
+                secondary_rescue_attempts = parse<int>(optarg);
+                
+            case OPT_SECONDARY_MAX_DIFF:
+                secondary_rescue_score_diff = parse<double>(optarg);
                 
             case 1: // --linear-index
                 sublinearLS_name = optarg;
@@ -500,8 +523,20 @@ int main_mpmap(int argc, char** argv) {
                 use_stripped_match_alg = true;
                 break;
                 
+            case OPT_STRIP_LENGTH:
+                stripped_match_alg_strip_length = parse<int>(optarg);
+                break;
+                
+            case OPT_STRIP_COUNT:
+                stripped_match_alg_target_count = parse<int>(optarg);
+                break;
+                
             case 'c':
                 hit_max = parse<int>(optarg);
+                break;
+                
+            case OPT_HARD_HIT_MAX_MULTIPLIER:
+                hard_hit_max_muliplier = parse<int>(optarg);
                 break;
                 
             case OPT_APPROX_EXP:
@@ -607,7 +642,7 @@ int main_mpmap(int argc, char** argv) {
     
     // check for valid parameters
     
-    int hard_hit_max = 10 * hit_max;
+    int hard_hit_max = hard_hit_max_muliplier * hit_max;
     
     if (std::isnan(frag_length_mean) != std::isnan(frag_length_stddev)) {
         cerr << "error:[vg mpmap] Cannot specify only one of fragment length mean (-I) and standard deviation (-D)." << endl;
@@ -718,8 +753,28 @@ int main_mpmap(int argc, char** argv) {
     // choose either the user supplied max or the default for paired/unpaired
     int max_map_attempts = max_map_attempts_arg ? max_map_attempts_arg : ((interleaved_input || !fastq_name_2.empty()) ?
                                                                           max_paired_end_map_attempts : max_single_end_map_attempts);
+    int max_single_end_mappings_for_rescue = max_map_attempts_arg ? max_map_attempts_arg : max_single_end_map_attempts;
     if (max_num_mappings > max_map_attempts && max_map_attempts != 0) {
         cerr << "warning:[vg mpmap] Reporting up to " << max_num_mappings << " mappings, but only computing up to " << max_map_attempts << " mappings." << endl;
+    }
+    
+    if (max_rescue_attempts < 0) {
+        cerr << "error:[vg mpmap] Maximum number of rescue attempts (--max-rescues) set to " << max_rescue_attempts << ", must set to a non-negative integer (0 for no rescue)." << endl;
+        exit(1);
+    }
+    
+    if (max_rescue_attempts > max_single_end_mappings_for_rescue) {
+        cerr << "warning:[vg mpmap] Maximum number of rescue attempts (--max-rescues) of " << max_rescue_attempts << " is greater than number of mapping attempts for rescue " << max_single_end_mappings_for_rescue << endl;
+    }
+    
+    if (secondary_rescue_attempts < 0) {
+        cerr << "error:[vg mpmap] Maximum number of rescue attempts for secondary mappings (--max-secondary-rescues) set to " << secondary_rescue_attempts << ", must set to a non-negative integer (0 for no rescue)." << endl;
+        exit(1);
+    }
+    
+    if (secondary_rescue_score_diff < 0.0) {
+        cerr << "error:[vg mpmap] Max score difference for candidates clusters for secondary rescue (--secondary-diff) set to " << secondary_rescue_score_diff << ", must set to a non-negative number." << endl;
+        exit(1);
     }
     
     if (max_num_mappings <= 0) {
@@ -742,33 +797,46 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    if (hard_hit_max_muliplier < 0) {
+        cerr << "error:[vg mpmap] Hard MEM hit max multipler (--hard-hit-mult) set to " << hard_hit_max_muliplier << ", must set to a positive integer or 0 for no maximum." << endl;
+        exit(1);
+    }
+    
     if (hit_max < 0) {
         cerr << "error:[vg mpmap] MEM hit max (-c) set to " << hit_max << ", must set to a positive integer or 0 for no maximum." << endl;
         exit(1);
     }
     
-    if (hard_hit_max < hit_max) {
+    if (hard_hit_max < hit_max && hit_max && hard_hit_max) {
         cerr << "warning:[vg mpmap] MEM hit query limit (-c) set to " << hit_max << ", which is higher than the threshold to ignore a MEM (" << hard_hit_max << ")" << endl;
     }
     
     if (min_mem_length < 0) {
-        cerr << "error:[vg mpmap] minimum MEM length set to " << min_mem_length << ", must set to a positive integer or 0 for no maximum." << endl;
+        cerr << "error:[vg mpmap] Minimum MEM length set to " << min_mem_length << ", must set to a positive integer or 0 for no maximum." << endl;
         exit(1);
     }
     
     if (stripped_match_alg_strip_length <= 0) {
-        cerr << "error:[vg mpmap] match strip length set to " << stripped_match_alg_strip_length << ", must set to a positive integer or 0 for no maximum." << endl;
+        cerr << "error:[vg mpmap] Match strip length (--strip-length) set to " << stripped_match_alg_strip_length << ", must set to a positive integer or 0 for no maximum." << endl;
         exit(1);
     }
     
     if (stripped_match_alg_max_length < 0) {
-        cerr << "error:[vg mpmap] maximum seed match length set to " << stripped_match_alg_max_length << ", must set to a positive integer or 0 for no maximum." << endl;
+        cerr << "error:[vg mpmap] Maximum seed match length set to " << stripped_match_alg_max_length << ", must set to a positive integer or 0 for no maximum." << endl;
         exit(1);
     }
     
     if (stripped_match_alg_target_count < 0) {
-        cerr << "error:[vg mpmap] target seed count set to " << stripped_match_alg_target_count << ", must set to a positive integer or 0 for no maximum." << endl;
+        cerr << "error:[vg mpmap] Target seed count (--strip-count) set to " << stripped_match_alg_target_count << ", must set to a positive integer or 0 for no maximum." << endl;
         exit(1);
+    }
+    
+    if (stripped_match_alg_target_count != default_strip_count && !use_stripped_match_alg) {
+        cerr << "warning:[vg mpmap] Target stripped match count (--strip-count) set to " << stripped_match_alg_target_count << ", but stripped algorithm (--stripped-match) was not selected. Ignoring strip count." << endl;
+    }
+    
+    if (stripped_match_alg_strip_length != default_strip_length && !use_stripped_match_alg) {
+        cerr << "warning:[vg mpmap] Strip length (--strip-length) set to " << stripped_match_alg_strip_length << ", but stripped algorithm (--stripped-match) was not selected. Ignoring strip length." << endl;
     }
     
     if (likelihood_approx_exp < 1.0) {
@@ -879,6 +947,7 @@ int main_mpmap(int argc, char** argv) {
     
     if (single_path_alignment_mode && !long_read_scoring) {
         // we get better performance by splitting up clusters a bit more when we're forcing alignments to go to only one place
+        // long reads on the other hand display underclustering behavior with some parameter settings
         min_median_mem_coverage_for_split = 2;
         suppress_cluster_merging = true;
     }
@@ -1116,7 +1185,7 @@ int main_mpmap(int argc, char** argv) {
     
     // set pair rescue parameters
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;
-    multipath_mapper.max_single_end_mappings_for_rescue = max(max(max_single_end_mappings_for_rescue, max_rescue_attempts), max_num_mappings);
+    multipath_mapper.max_single_end_mappings_for_rescue = max(max_single_end_mappings_for_rescue, max_rescue_attempts);
     multipath_mapper.secondary_rescue_subopt_diff = secondary_rescue_subopt_diff;
     multipath_mapper.secondary_rescue_score_diff = secondary_rescue_score_diff;
     multipath_mapper.secondary_rescue_attempts = secondary_rescue_attempts;

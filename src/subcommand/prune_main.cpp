@@ -21,7 +21,7 @@
  */
 
 #include "../phase_unfolder.hpp"
-#include "../convert_handle.hpp"
+#include "../algorithms/copy_graph.hpp"
 #include <vg/io/vpkg.hpp>
 #include "subcommand.hpp"
 #include "xg.hpp"
@@ -344,7 +344,7 @@ int main_prune(int argc, char** argv) {
     if (vg_graph == nullptr) {
         // Copy instead.
         vg_graph = new vg::VG();
-        convert_path_handle_graph(graph.get(), vg_graph);
+        algorithms::copy_path_handle_graph(graph.get(), vg_graph);
         // Give the unique_ptr ownership and delete the graph we loaded.
         graph.reset(vg_graph);
         // Make sure the paths are all synced up
