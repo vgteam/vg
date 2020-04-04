@@ -54,7 +54,8 @@ public:
     virtual vector<Support> get_traversal_genotype_support(const vector<SnarlTraversal>& traversals,
                                                            const vector<int>& genotype,
                                                            const set<int>& other_trav_subset,
-                                                           int ref_trav_idx = -1);
+                                                           int ref_trav_idx = -1,
+                                                           int* max_trav_size = nullptr);
     
     /// traversals:      get support for each traversal in this set
     /// shared_travs:    if a node appears N times in shared_travs, then it will count as 1 / (N+1) support
