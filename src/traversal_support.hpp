@@ -136,7 +136,8 @@ protected:
  */
 class CachedPackedTraversalSupportFinder : public PackedTraversalSupportFinder {
 public:
-    CachedPackedTraversalSupportFinder(const Packer& packer, SnarlManager& snarl_manager, size_t cache_size = 100000);
+    // good if cache_size lines up with FlowCaller::max_snarl_edges in graph_caller.hpp
+    CachedPackedTraversalSupportFinder(const Packer& packer, SnarlManager& snarl_manager, size_t cache_size = 500000);
     virtual ~CachedPackedTraversalSupportFinder();
 
     /// Support of an edge

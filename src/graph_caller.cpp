@@ -1017,7 +1017,7 @@ bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
     emit_variant(graph, snarl_caller, snarl, weighted_travs.first, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
                  ref_offsets[ref_path_name]);
 
-    return trav_genotype.size() == 2;    
+    return trav_genotype.size() == ploidy;
 }
 
 string FlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,

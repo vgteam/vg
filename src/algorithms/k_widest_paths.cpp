@@ -65,7 +65,7 @@ pair<double, vector<handle_t>> widest_dijkstra(const HandleGraph* g, handle_t so
             visited[current] = make_pair(previous, score);
         }
                 
-        if (current != sink) {
+        if (current != sink && current != g->flip(source)) {
             g->follow_edges(current, false, [&](const handle_t& next) {
                     // For each handle to the right of here
                     if (!visited.count(next) && 
@@ -192,6 +192,8 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
               cerr << "forgetting node " << g->get_id(prev_path[j]) << ":" << g->get_is_reverse(prev_path[j]) << endl;
 #endif
                 forgotten_nodes.insert(prev_path[j]);
+                // don't allow loop-backs in paths
+                forgotten_nodes.insert(g->flip(prev_path[j]));
             }
 
             // find our path from the the spur_node to the sink
