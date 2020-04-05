@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['cachedpackedtraversalsupportfinder',['CachedPackedTraversalSupportFinder',['../classvg_1_1CachedPackedTraversalSupportFinder.html#a0b3418baef9a7bf8fe11b49e4a3c3ea3',1,'vg::CachedPackedTraversalSupportFinder']]],
+  ['cachedpackedtraversalsupportfinder',['CachedPackedTraversalSupportFinder',['../classvg_1_1CachedPackedTraversalSupportFinder.html#acf3672c8fe5fcdd91afd44d5c1eec12f',1,'vg::CachedPackedTraversalSupportFinder']]],
   ['cacheentry',['CacheEntry',['../structvg_1_1IndexedVG_1_1CacheEntry.html#aab15096460395eb73cf757068bd33b11',1,'vg::IndexedVG::CacheEntry::CacheEntry(cursor_t &amp;to_read)'],['../structvg_1_1IndexedVG_1_1CacheEntry.html#ad0d6214f5d1f91aee27e67788f203e97',1,'vg::IndexedVG::CacheEntry::CacheEntry(CacheEntry &amp;&amp;other)=default']]],
   ['cactus_5fto_5fvg',['cactus_to_vg',['../namespacevg.html#adf53e86632a6d1d4b54370e6d948d08c',1,'vg']]],
   ['cactusify',['cactusify',['../namespacevg.html#aa4d05bc207717708d48e1da09f83eec6',1,'vg']]],
@@ -16,11 +16,11 @@ var searchData=
   ['calculatemaxindex',['calculateMaxIndex',['../classvg_1_1MinimumDistanceIndex.html#a14d3483f9703955d75465ab4f5411b02',1,'vg::MinimumDistanceIndex']]],
   ['calculateminindex',['calculateMinIndex',['../classvg_1_1MinimumDistanceIndex.html#a6668b09f77ad09bd7cb269246dc0461d',1,'vg::MinimumDistanceIndex']]],
   ['calibrate_5fmismapping_5fdetection',['calibrate_mismapping_detection',['../classvg_1_1MultipathMapper.html#aa4307bce23fe2a909f96273dbca7b126',1,'vg::MultipathMapper']]],
-  ['call_5fsnarl',['call_snarl',['../classvg_1_1GraphCaller.html#a6064d47ccef10174fab1037764a3cf29',1,'vg::GraphCaller::call_snarl()'],['../classvg_1_1VCFGenotyper.html#a1e3a89bae885b463272873e538815151',1,'vg::VCFGenotyper::call_snarl()'],['../classvg_1_1LegacyCaller.html#a732a1385c9846d9605db70139d8e275b',1,'vg::LegacyCaller::call_snarl()'],['../classvg_1_1FlowCaller.html#abe755bb8027b80711002dc229fe3399a',1,'vg::FlowCaller::call_snarl()']]],
+  ['call_5fsnarl',['call_snarl',['../classvg_1_1GraphCaller.html#a3364caf28e027a77baf826e68a34efcd',1,'vg::GraphCaller::call_snarl()'],['../classvg_1_1VCFGenotyper.html#a7a33f808a60c6c9a28246e6db4a148e2',1,'vg::VCFGenotyper::call_snarl()'],['../classvg_1_1LegacyCaller.html#aa46468a589a7234b8cfbc4f5c7237fee',1,'vg::LegacyCaller::call_snarl()'],['../classvg_1_1FlowCaller.html#adeb7a1e4d9d69074ea78906e3f86903f',1,'vg::FlowCaller::call_snarl()']]],
   ['call_5fsvs',['call_svs',['../classvg_1_1SRPE.html#a3aa5214b351a318d6588213de0ce883c',1,'vg::SRPE']]],
   ['call_5fsvs_5fpaired_5fend',['call_svs_paired_end',['../classvg_1_1SRPE.html#a65a5aa002a4dca2bd60e53f3ce3e7025',1,'vg::SRPE']]],
   ['call_5fsvs_5fsplit_5fread',['call_svs_split_read',['../classvg_1_1SRPE.html#a029ea22587199e2954e8fda544871334',1,'vg::SRPE']]],
-  ['call_5ftop_5flevel_5fsnarls',['call_top_level_snarls',['../classvg_1_1GraphCaller.html#a2c348aa22e868f7121384b4d8656bb4a',1,'vg::GraphCaller']]],
+  ['call_5ftop_5flevel_5fsnarls',['call_top_level_snarls',['../classvg_1_1GraphCaller.html#a5a3999f76efa4537a61d52cda4505126',1,'vg::GraphCaller']]],
   ['can_5fget',['can_get',['../classvg_1_1IndexManager.html#a879079635418ec294a6d1b8b8c863d13',1,'vg::IndexManager']]],
   ['can_5fget_5fdistance',['can_get_distance',['../classvg_1_1IndexManager.html#af9e7909bfd9b5ca37d9c7627e39ecb9d',1,'vg::IndexManager']]],
   ['can_5fget_5fgbwt',['can_get_gbwt',['../classvg_1_1IndexManager.html#adfbb2cb009045257f3a9fd24c20c8d06',1,'vg::IndexManager']]],

@@ -61,6 +61,7 @@ var searchData=
   ['delim1',['delim1',['../classvg_1_1Packer.html#acffc9465bdaa0bb770372edf788aad48',1,'vg::Packer']]],
   ['delim2',['delim2',['../classvg_1_1Packer.html#a0d1336853823c62812b2009e80085800',1,'vg::Packer']]],
   ['depth',['depth',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#acf3587bcb06ec3af96a739fa785115c0',1,'vg::MinimumDistanceIndex::SnarlIndex::depth()'],['../classvg_1_1SRPE.html#a8a7019bfb559eb108b1e7ca22a8afa08',1,'vg::SRPE::depth()']]],
+  ['depth_5ferr',['depth_err',['../structvg_1_1PoissonSupportSnarlCaller_1_1PoissonCallInfo.html#ac8c734835666c796508c7714c332c467',1,'vg::PoissonSupportSnarlCaller::PoissonCallInfo']]],
   ['depth_5ffilter',['depth_filter',['../classvg_1_1Filter.html#a554d7fd6bc98d2c7e720e3edcb98c7d0',1,'vg::Filter']]],
   ['depth_5findex',['depth_index',['../classvg_1_1PoissonSupportSnarlCaller.html#adebf4d923f033aa67032c4340d9ebb1e',1,'vg::PoissonSupportSnarlCaller']]],
   ['depth_5fmain_2ecpp',['depth_main.cpp',['../depth__main_8cpp.html',1,'']]],

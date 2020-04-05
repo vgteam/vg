@@ -51,7 +51,7 @@ var searchData=
   ['whole_5fgraph_5flock',['whole_graph_lock',['../classvg_1_1GraphSynchronizer.html#aa1a7be56b29656fa604b44b37e134c80',1,'vg::GraphSynchronizer']]],
   ['wide_5fpage_5fwidth',['WIDE_PAGE_WIDTH',['../classbdsg_1_1PackedGraph.html#a7e6a0778610a6c987e25973a3dc6b063',1,'bdsg::PackedGraph']]],
   ['wideningprng',['WideningPRNG',['../classvg_1_1WideningPRNG.html',1,'vg::WideningPRNG&lt; PRNG, OutType &gt;'],['../classvg_1_1WideningPRNG.html#a5437179a5230df00551a618df6bc4c53',1,'vg::WideningPRNG::WideningPRNG()']]],
-  ['widest_5fdijkstra',['widest_dijkstra',['../namespacevg_1_1algorithms.html#a0acbd6da800ce93814bb03e7b623469a',1,'vg::algorithms']]],
+  ['widest_5fdijkstra',['widest_dijkstra',['../namespacevg_1_1algorithms.html#a08c6d85f2dc09c22c5d14ed81808769e',1,'vg::algorithms']]],
   ['widget',['WIDGET',['../namespacevg_1_1subcommand.html#a98d12492502a2d7f7c46386d2faed838afa639842a4d69790c890c94b80e27792',1,'vg::subcommand']]],
   ['window_5fbreaking_5fquality',['window_breaking_quality',['../classvg_1_1MinimizerMapper.html#aa19502481af491af1d623da3ed16a766',1,'vg::MinimizerMapper']]],
   ['window_5flength',['window_length',['../classvg_1_1Filter.html#ad719ad4c073cbe1298c9911e1c1cb329',1,'vg::Filter']]],

@@ -229,11 +229,11 @@ Functions</h2></td></tr>
 <tr class="separator:a44b88266bbec640c5450bb810843516a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a633a1600c6a7e447c040fefb1432e508"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a633a1600c6a7e447c040fefb1432e508">jump_along_closest_path</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos, int64_t jump_dist, size_t max_search_dist)</td></tr>
 <tr class="separator:a633a1600c6a7e447c040fefb1432e508"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0acbd6da800ce93814bb03e7b623469a"><td class="memItemLeft" align="right" valign="top">pair&lt; double, vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0acbd6da800ce93814bb03e7b623469a">widest_dijkstra</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> source, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> sink, function&lt; double(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; node_weight_callback, function&lt; double(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt; edge_weight_callback, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; is_node_ignored_callback, function&lt; bool(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt; is_edge_ignored_callback)</td></tr>
-<tr class="separator:a0acbd6da800ce93814bb03e7b623469a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3d5a4f01d8b278e509f7aaec5fbbb6e7"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; double, vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a3d5a4f01d8b278e509f7aaec5fbbb6e7">yens_k_widest_paths</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> source, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> sink, size_t K, function&lt; double(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; node_weight_callback, function&lt; double(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt; edge_weight_callback)</td></tr>
-<tr class="memdesc:a3d5a4f01d8b278e509f7aaec5fbbb6e7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Find the k widest paths.  <a href="#a3d5a4f01d8b278e509f7aaec5fbbb6e7">More...</a><br /></td></tr>
-<tr class="separator:a3d5a4f01d8b278e509f7aaec5fbbb6e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a08c6d85f2dc09c22c5d14ed81808769e"><td class="memItemLeft" align="right" valign="top">pair&lt; double, vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a08c6d85f2dc09c22c5d14ed81808769e">widest_dijkstra</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> source, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> sink, function&lt; double(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; node_weight_callback, function&lt; double(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt; edge_weight_callback, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; is_node_ignored_callback, function&lt; bool(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt; is_edge_ignored_callback, bool greedy_avg)</td></tr>
+<tr class="separator:a08c6d85f2dc09c22c5d14ed81808769e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afcecbe277497471c983db60212a3c72e"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; double, vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#afcecbe277497471c983db60212a3c72e">yens_k_widest_paths</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> source, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> sink, size_t K, function&lt; double(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; node_weight_callback, function&lt; double(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt; edge_weight_callback, bool greedy_avg=false)</td></tr>
+<tr class="memdesc:afcecbe277497471c983db60212a3c72e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Find the k widest paths.  <a href="#afcecbe277497471c983db60212a3c72e">More...</a><br /></td></tr>
+<tr class="separator:afcecbe277497471c983db60212a3c72e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a30b8fd7a0d56e1827faa3aa56c8828f0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a30b8fd7a0d56e1827faa3aa56c8828f0">for_each_kmer</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t k, size_t edge_max, const std::function&lt; void(const <a class="el" href="structvg_1_1algorithms_1_1kmer__t.html">kmer_t</a> &amp;)&gt; &amp;lambda)</td></tr>
 <tr class="memdesc:a30b8fd7a0d56e1827faa3aa56c8828f0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all the kmers in the graph, running lambda on each.  <a href="#a30b8fd7a0d56e1827faa3aa56c8828f0">More...</a><br /></td></tr>
 <tr class="separator:a30b8fd7a0d56e1827faa3aa56c8828f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -4069,8 +4069,8 @@ template&lt;class DistHeuristic &gt; </div>
 
 </div>
 </div>
-<a id="a0acbd6da800ce93814bb03e7b623469a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0acbd6da800ce93814bb03e7b623469a">&#9670;&nbsp;</a></span>widest_dijkstra()</h2>
+<a id="a08c6d85f2dc09c22c5d14ed81808769e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a08c6d85f2dc09c22c5d14ed81808769e">&#9670;&nbsp;</a></span>widest_dijkstra()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -4115,7 +4115,13 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">function&lt; bool(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt;&#160;</td>
-          <td class="paramname"><em>is_edge_ignored_callbback</em>&#160;</td>
+          <td class="paramname"><em>is_edge_ignored_callbback</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>greedy_avg</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -4124,12 +4130,12 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>This Dijkstra is the same underlying algorithm as the one in <a class="el" href="dijkstra_8hpp.html">dijkstra.hpp</a> but the interface is different enough that I opted to make it a seprate thing rather than add loads of optional arguments. The key differences are these generalizations: &ndash; looks for the "widest" path (maximum minimum weight) instead of shortest &ndash; counts node and edge weights (via callbakcs) &ndash; returns the path as well as the score &ndash; option for ignoring certain nodes and edges in search (required by Yen's algorithm) </p>
+<p>This Dijkstra is the same underlying algorithm as the one in <a class="el" href="dijkstra_8hpp.html">dijkstra.hpp</a> but the interface is different enough that I opted to make it a seprate thing rather than add loads of optional arguments. The key differences are these generalizations: &ndash; looks for the "widest" path (maximum minimum weight) instead of shortest &ndash; counts node and edge weights (via callbakcs) &ndash; returns the path as well as the score &ndash; option for ignoring certain nodes and edges in search (required by Yen's algorithm) &ndash; greedy_avg option switches the algorithm to a heuristic (no optimal guarantee) search using the running averages support instead of min-flow support as objective function. </p>
 
 </div>
 </div>
-<a id="a3d5a4f01d8b278e509f7aaec5fbbb6e7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3d5a4f01d8b278e509f7aaec5fbbb6e7">&#9670;&nbsp;</a></span>yens_k_widest_paths()</h2>
+<a id="afcecbe277497471c983db60212a3c72e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afcecbe277497471c983db60212a3c72e">&#9670;&nbsp;</a></span>yens_k_widest_paths()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -4168,7 +4174,13 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">function&lt; double(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt;&#160;</td>
-          <td class="paramname"><em>edge_weight_callback</em>&#160;</td>
+          <td class="paramname"><em>edge_weight_callback</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>greedy_avg</em>&#160;</td>
         </tr>
         <tr>
           <td></td>

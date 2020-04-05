@@ -16,7 +16,7 @@ var searchData=
   ['what',['what',['../classvg_1_1NoAlignmentInBandException.html#a006dddb79b9d1c6035c2466c35dbcacf',1,'vg::NoAlignmentInBandException::what()'],['../classvg_1_1indexOpenException.html#a333df86cfbb0c05dadd25081e69ac210',1,'vg::indexOpenException::what()'],['../classvg_1_1keyNotFoundException.html#ac67561e57be6703921105f1b46a81ccf',1,'vg::keyNotFoundException::what()'],['../classj2pb__error.html#a4ac3313fff0e2721ca9480b61ebe6a8b',1,'j2pb_error::what()']]],
   ['which_5fhaplotype',['which_haplotype',['../classvg_1_1PhasedGenome_1_1iterator.html#a02b60bd3c0ec6d86a8bec582e717ea15',1,'vg::PhasedGenome::iterator']]],
   ['wideningprng',['WideningPRNG',['../classvg_1_1WideningPRNG.html#a5437179a5230df00551a618df6bc4c53',1,'vg::WideningPRNG']]],
-  ['widest_5fdijkstra',['widest_dijkstra',['../namespacevg_1_1algorithms.html#a0acbd6da800ce93814bb03e7b623469a',1,'vg::algorithms']]],
+  ['widest_5fdijkstra',['widest_dijkstra',['../namespacevg_1_1algorithms.html#a08c6d85f2dc09c22c5d14ed81808769e',1,'vg::algorithms']]],
   ['window_5fbreaking_5fquality',['window_breaking_quality',['../classvg_1_1MinimizerMapper.html#aa19502481af491af1d623da3ed16a766',1,'vg::MinimizerMapper']]],
   ['window_5fof_5fid',['window_of_id',['../classvg_1_1StreamIndexBase.html#a320b27d89fbc1a74574cc00befe1e7fe',1,'vg::StreamIndexBase']]],
   ['windowedvcfbuffer',['WindowedVcfBuffer',['../classvg_1_1WindowedVcfBuffer.html#a7d7af1d1441bab6c687bdf1be7fc4675',1,'vg::WindowedVcfBuffer::WindowedVcfBuffer(vcflib::VariantCallFile *file, size_t window_size)'],['../classvg_1_1WindowedVcfBuffer.html#aa57da13990d5983d5e8aa787dfe56995',1,'vg::WindowedVcfBuffer::WindowedVcfBuffer(const WindowedVcfBuffer &amp;other)=delete']]],

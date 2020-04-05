@@ -91,11 +91,11 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a74c8ec3f036cf1da2ba1a10ece5bb1a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a443486cd8ab78a5392b5ed47506ca4c4"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a443486cd8ab78a5392b5ed47506ca4c4">~GraphCaller</a> ()</td></tr>
 <tr class="separator:a443486cd8ab78a5392b5ed47506ca4c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2c348aa22e868f7121384b4d8656bb4a"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a2c348aa22e868f7121384b4d8656bb4a">call_top_level_snarls</a> (bool recurse_on_fail=true)</td></tr>
-<tr class="separator:a2c348aa22e868f7121384b4d8656bb4a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6064d47ccef10174fab1037764a3cf29"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a6064d47ccef10174fab1037764a3cf29">call_snarl</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl)=0</td></tr>
-<tr class="memdesc:a6064d47ccef10174fab1037764a3cf29"><td class="mdescLeft">&#160;</td><td class="mdescRight">Call a given snarl, and print the output to out_stream.  <a href="#a6064d47ccef10174fab1037764a3cf29">More...</a><br /></td></tr>
-<tr class="separator:a6064d47ccef10174fab1037764a3cf29"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5a3999f76efa4537a61d52cda4505126"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a5a3999f76efa4537a61d52cda4505126">call_top_level_snarls</a> (int ploidy, bool recurse_on_fail=true)</td></tr>
+<tr class="separator:a5a3999f76efa4537a61d52cda4505126"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3364caf28e027a77baf826e68a34efcd"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a3364caf28e027a77baf826e68a34efcd">call_snarl</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, int ploidy)=0</td></tr>
+<tr class="memdesc:a3364caf28e027a77baf826e68a34efcd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Call a given snarl, and print the output to out_stream.  <a href="#a3364caf28e027a77baf826e68a34efcd">More...</a><br /></td></tr>
+<tr class="separator:a3364caf28e027a77baf826e68a34efcd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
@@ -172,8 +172,8 @@ Protected Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a6064d47ccef10174fab1037764a3cf29"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6064d47ccef10174fab1037764a3cf29">&#9670;&nbsp;</a></span>call_snarl()</h2>
+<a id="a3364caf28e027a77baf826e68a34efcd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3364caf28e027a77baf826e68a34efcd">&#9670;&nbsp;</a></span>call_snarl()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -185,8 +185,18 @@ Protected Attributes</h2></td></tr>
           <td class="memname">virtual bool vg::GraphCaller::call_snarl </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;&#160;</td>
-          <td class="paramname"><em>snarl</em></td><td>)</td>
+          <td class="paramname"><em>snarl</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>ploidy</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -198,12 +208,12 @@ Protected Attributes</h2></td></tr>
 
 <p>Call a given snarl, and print the output to out_stream. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1FlowCaller.html#abe755bb8027b80711002dc229fe3399a">vg::FlowCaller</a>, <a class="el" href="classvg_1_1LegacyCaller.html#a732a1385c9846d9605db70139d8e275b">vg::LegacyCaller</a>, and <a class="el" href="classvg_1_1VCFGenotyper.html#a1e3a89bae885b463272873e538815151">vg::VCFGenotyper</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1FlowCaller.html#adeb7a1e4d9d69074ea78906e3f86903f">vg::FlowCaller</a>, <a class="el" href="classvg_1_1LegacyCaller.html#aa46468a589a7234b8cfbc4f5c7237fee">vg::LegacyCaller</a>, and <a class="el" href="classvg_1_1VCFGenotyper.html#a7a33f808a60c6c9a28246e6db4a148e2">vg::VCFGenotyper</a>.</p>
 
 </div>
 </div>
-<a id="a2c348aa22e868f7121384b4d8656bb4a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2c348aa22e868f7121384b4d8656bb4a">&#9670;&nbsp;</a></span>call_top_level_snarls()</h2>
+<a id="a5a3999f76efa4537a61d52cda4505126"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5a3999f76efa4537a61d52cda4505126">&#9670;&nbsp;</a></span>call_top_level_snarls()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -214,9 +224,19 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::GraphCaller::call_top_level_snarls </td>
           <td>(</td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>recurse_on_fail</em> = <code>true</code></td><td>)</td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>ploidy</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>recurse_on_fail</em> = <code>true</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -225,7 +245,7 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Run <a class="el" href="classvg_1_1GraphCaller.html#a6064d47ccef10174fab1037764a3cf29" title="Call a given snarl, and print the output to out_stream. ">call_snarl()</a> on every top-level snarl in the manager. For any that return false, try the children, etc. (when recurse_on_fail true) Snarls are processed in parallel </p>
+<p>Run <a class="el" href="classvg_1_1GraphCaller.html#a3364caf28e027a77baf826e68a34efcd" title="Call a given snarl, and print the output to out_stream. ">call_snarl()</a> on every top-level snarl in the manager. For any that return false, try the children, etc. (when recurse_on_fail true) Snarls are processed in parallel </p>
 
 </div>
 </div>

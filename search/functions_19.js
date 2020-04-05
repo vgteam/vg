@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['yens_5fk_5fwidest_5fpaths',['yens_k_widest_paths',['../namespacevg_1_1algorithms.html#a3d5a4f01d8b278e509f7aaec5fbbb6e7',1,'vg::algorithms']]]
+  ['yens_5fk_5fwidest_5fpaths',['yens_k_widest_paths',['../namespacevg_1_1algorithms.html#afcecbe277497471c983db60212a3c72e',1,'vg::algorithms']]]
 ];
