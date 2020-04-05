@@ -19,14 +19,15 @@ pair<double, vector<handle_t>> widest_dijkstra(const HandleGraph* g, handle_t so
                                                function<double(const handle_t&)> node_weight_callback,
                                                function<double(const edge_t&)> edge_weight_callback,
                                                function<bool(const handle_t&)> is_node_ignored_callback,
-                                               function<bool(const edge_t&)> is_edge_ignored_callback) {
+                                               function<bool(const edge_t&)> is_edge_ignored_callback,
+                                               bool greedy_avg) {
 
     // We keep a priority queue so we can visit the handle with the shortest
     // distance next. We put handles in here whenever we see them with shorter
     // distances (since STL priority queue can't update), so we also need to
     // make sure nodes coming out haven't been visited already.
     // (score, previous, current)
-    using Record = tuple<double, handle_t, handle_t>;
+    using Record = tuple<double, handle_t, handle_t, double, double>;
     
     // We filter out handles that have already been visited.  And keep track of predecessors
     unordered_map<handle_t, pair<handle_t, double>> visited;
@@ -42,18 +43,46 @@ pair<double, vector<handle_t>> widest_dijkstra(const HandleGraph* g, handle_t so
     UpdateablePriorityQueue<Record, handle_t, vector<Record>, IsFirstGreater> queue([](const Record& item) {
             return get<2>(item);
     });
+
+    // We toggle between greedy average flow and minimum flow here
+    function<double(double, handle_t, double&, double&)> acc_node;
+    function<double(double, edge_t, double&, double&)> acc_edge;
+    if (greedy_avg == false) {
+        // min flow
+        acc_node = [&](double next_score, handle_t next, double& total_score, double& total_length) {
+            return min(next_score, node_weight_callback(next));
+        };
+        acc_edge = [&](double next_score, edge_t edge, double& total_score, double& total_length) {
+            return min(next_score, edge_weight_callback(edge));
+        };
+    } else {
+        // heuristic average flow
+        acc_node = [&](double next_score, handle_t next, double& total_score, double& total_length) {
+            size_t length = g->get_length(next);
+            total_length += length;
+            total_score += node_weight_callback(next) * (double)length;
+            return total_score / (double)total_length;
+        };
+        acc_edge = [&](double next_score, edge_t edge, double& total_score, double& total_length) {
+            total_length += 1;
+            total_score += edge_weight_callback(edge);
+            return total_score / (double)total_length;
+        };
+    }
     
     // We keep a current handle
     handle_t current;
     handle_t previous;
     // we don't include the score of the source
     // todo: should this be an option?
-    double score = numeric_limits<double>::max();
-    queue.push(make_tuple(score, source, source));
+    double score = greedy_avg ? 0 : numeric_limits<double>::max();
+    double total_score = 0;
+    double total_length = 0;
+    queue.push(make_tuple(score, source, source, total_score, total_length));
     
     while (!queue.empty()) {
         // While there are things in the queue, get the first.
-        tie(score, previous, current) = queue.top();
+        tie(score, previous, current, total_score, total_length) = queue.top();
         queue.pop();
 
 #ifdef debug_vg_algorithms
@@ -77,12 +106,12 @@ pair<double, vector<handle_t>> widest_dijkstra(const HandleGraph* g, handle_t so
                         if (next != source && next != sink) {
                             // we don't include the source / sink
                             // todo: should we? should it be an option?
-                            next_score = min(next_score, node_weight_callback(next));
+                            next_score = acc_node(next_score, next, total_score, total_length);
                         }
-                        next_score = min(next_score, edge_weight_callback(g->edge_handle(current, next)));
+                        next_score = acc_edge(next_score, g->edge_handle(current, next), total_score, total_length);
 
                         // New shortest distance. Will never happen after the handle comes out of the queue because of Dijkstra.
-                        queue.push(make_tuple(next_score, current, next));
+                        queue.push(make_tuple(next_score, current, next, total_score, total_length));
                         
 #ifdef debug_vg_algorithms
                         cerr << "\tNew best path to " << g->get_id(next) << ":" << g->get_is_reverse(next)
@@ -127,7 +156,8 @@ pair<double, vector<handle_t>> widest_dijkstra(const HandleGraph* g, handle_t so
 vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g, handle_t source, handle_t sink,
                                                            size_t K,
                                                            function<double(const handle_t&)> node_weight_callback,
-                                                           function<double(const edge_t&)> edge_weight_callback) {
+                                                           function<double(const edge_t&)> edge_weight_callback,
+                                                           bool greedy_avg) {
 
     vector<pair<double, vector<handle_t>>> best_paths;
     best_paths.reserve(K);
@@ -139,7 +169,8 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
     // get the widest path from dijkstra
     best_paths.push_back(widest_dijkstra(g, source, sink, node_weight_callback,
                                          edge_weight_callback, [](handle_t) {return false;},
-                                         [](edge_t) {return false;}));
+                                         [](edge_t) {return false;}, greedy_avg));
+
     best_spurs.push_back(0);
     
     // working path set, mapped to spur index (plus 1 -- ie next spot we want to look when finding new spurs)
@@ -199,7 +230,8 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
             // find our path from the the spur_node to the sink
             pair<double, vector<handle_t>> spur_path_v = widest_dijkstra(g, spur_node, sink, node_weight_callback, edge_weight_callback,
                                                                          [&](handle_t h) {return forgotten_nodes.count(h);},
-                                                                         [&](edge_t e) {return forgotten_edges.count(e);});
+                                                                         [&](edge_t e) {return forgotten_edges.count(e);},
+                                                                         greedy_avg);
 
             if (!spur_path_v.second.empty()) {
             
@@ -219,11 +251,33 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
 
                 // insert the path into our sorted set
                 total_path.second.insert(total_path.second.end(), spur_path_v.second.begin(), spur_path_v.second.end());
-                total_path.first = min(total_width, spur_path_v.first);
+                if (!greedy_avg) {
+                    total_path.first = min(total_width, spur_path_v.first);
+                } else {
+                    // todo: we can avoid recomputing the part that comes out of dijkstra by passing it out
+                    size_t total_length = 0;
+                    double total_support = 0;
+                    for (size_t avg_i = 0; avg_i < total_path.second.size(); ++avg_i) {
+                        size_t node_len = g->get_length(total_path.second[avg_i]);
+                        total_length += node_len;
+                        total_support += node_weight_callback(total_path.second[avg_i]) * (double)node_len;
+                        if (avg_i > 0) {
+                            total_length += 1;
+                            total_support += edge_weight_callback(g->edge_handle(total_path.second[avg_i-1], total_path.second[avg_i]));
+                        }
+                    }
+                    total_path.first = total_length > 0 ? total_support / total_length : 0;
+                }                    
                 pair<map<vector<handle_t>, size_t>::iterator, bool> ins = B.insert(make_pair(total_path.second, i + 1));
                 if (ins.second == true) {
                     score_to_B.insert(make_pair(total_path.first, ins.first));
                 } // todo: is there any reason we'd need to update the score of an existing entry in B?
+
+                // if we're in greedy average mode, it's possible that the score got better.  Choose this spur and move on
+                // to save looping through every spur.  could miss good paths, but will speed up search.  
+                if (greedy_avg && total_path.first >= best_paths.front().first) {
+                    break;
+                }
             }
         }
 
@@ -233,7 +287,7 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
 
         assert(score_to_B.size() == B.size());
         multimap<double, map<vector<handle_t>, size_t>::iterator>::iterator best_B_it = std::prev(score_to_B.end());
-        
+
         // the best path gets put into our output list
         best_paths.push_back(make_pair(best_B_it->first, best_B_it->second->first));
         best_spurs.push_back(best_B_it->second->second);

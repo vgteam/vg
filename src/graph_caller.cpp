@@ -907,9 +907,23 @@ bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
         // can't call one-node or out-of graph snarls.
         return false;
     }
-    if (snarl_manager.deep_contents(&snarl, graph, false).second.size() > max_snarl_edges) {
-        // size cap needed as FlowCaller doesn't have nesting support yet
-        return false;
+    // toggle average flow / flow width based on snarl length.  this is a bit inconsistent with
+    // downstream which uses the longest traversal length, but it's a bit chicken and egg
+    // todo: maybe use snarl length for everything?
+    bool greedy_avg_flow = false;
+    {
+        auto snarl_contents = snarl_manager.deep_contents(&snarl, graph, false);
+        if (snarl_contents.second.size() > max_snarl_edges) {
+            // size cap needed as FlowCaller doesn't have nesting support yet
+            return false;
+        }
+        const auto& support_finder = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller).get_support_finder();
+        size_t len_threshold = support_finder.get_average_traversal_support_switch_threshold();
+        size_t length = 0;
+        for (auto i = snarl_contents.first.begin(); i != snarl_contents.first.end() && length < len_threshold; ++i) {
+            length += graph.get_length(graph.get_handle(*i));
+        }
+        greedy_avg_flow = length > len_threshold;
     }
     
     handle_t start_handle = graph.get_handle(snarl.start().node_id(), snarl.start().backward());
@@ -952,7 +966,7 @@ bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
     string& ref_path_name = common_names.front();
 
     // find the max flow traversals, along with their flows (todo: use them?)
-    pair<vector<SnarlTraversal>, vector<double>> weighted_travs = traversal_finder->find_weighted_traversals(snarl);
+    pair<vector<SnarlTraversal>, vector<double>> weighted_travs = traversal_finder->find_weighted_traversals(snarl, greedy_avg_flow);
 
     // find the reference traversal and coordinates using the path position graph interface
     tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, ref_path_name);
