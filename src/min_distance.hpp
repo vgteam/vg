@@ -66,6 +66,14 @@ class MinimumDistanceIndex {
     void subgraphInRange(const Path& path, const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
                          SubHandleGraph& sub_graph, bool look_forward);
 
+
+    //Given a node id, return a unique identifier for the connected component that the node is on and
+    //the offset of the node in the root chain - the minimum distance from the beginning of the chain to 
+    //the position
+    //If the position is not on a root node (that is, a boundary node of a snarl in a root chain), returns
+    //<std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()> 
+    pair<size_t, size_t> offset_in_root_chain (pos_t pos);
+
     ///Helper function to find the minimum value that is not -1
     static int64_t minPos(vector<int64_t> vals);
 
@@ -301,6 +309,16 @@ class MinimumDistanceIndex {
     ///vector of all ChainIndex objects
     vector< ChainIndex> chain_indexes;
 
+    //Each connected component of the graph gets a unique identifier
+    //Identifiers start at 1, 0 indicates that it is a trivial chain
+    //Assigns each node to its connected component and its offset in the root chain
+    //node_to_component[(id-min_node_id)*2] is the identifier
+    //If the node is on boundary node in the root snarl, then node_to_component[(id-min_node_id)*2+1] is the offset + 1, 
+    //otherwise 0
+    sdsl::int_vector<> node_to_component;
+    //TODO: These could be one vector but they're small enough it probably doesn't matter
+    sdsl::int_vector<> component_to_chain_length;
+    sdsl::int_vector<> component_to_chain_index;
 
     //Each of the ints in these vectors are offset by 1: 0 is stored as 1, etc.
     //This is so that we can store -1 as 0 instead of int max
@@ -379,12 +397,15 @@ class MinimumDistanceIndex {
 
     ///Helper function for constructor - populate the minimum distance index
     ///Given the top level snarls
+    //Returns the length of the chain
     int64_t calculateMinIndex(const HandleGraph* graph, 
                       const SnarlManager* snarl_manager, const Chain* chain, 
                        size_t parent_id, bool rev_in_parent, 
-                       bool trivial_chain, size_t depth); 
+                       bool trivial_chain, size_t depth, size_t component_num); 
+
     void populateSnarlIndex(const HandleGraph* graph, const SnarlManager* snarl_manager, const NetGraph& ng,
-                            const Snarl* snarl, bool snarl_rev_in_chain, size_t snarl_assignment, hash_set<pair<id_t, bool>>& all_nodes, size_t depth);
+                            const Snarl* snarl, bool snarl_rev_in_chain, size_t snarl_assignment, 
+                            hash_set<pair<id_t, bool>>& all_nodes, size_t depth, size_t component_num);
 
     ///Compute min_distances and max_distances, which store
     /// distances needed for maximum distance calculation
