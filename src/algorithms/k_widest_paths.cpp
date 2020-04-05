@@ -19,15 +19,14 @@ pair<double, vector<handle_t>> widest_dijkstra(const HandleGraph* g, handle_t so
                                                function<double(const handle_t&)> node_weight_callback,
                                                function<double(const edge_t&)> edge_weight_callback,
                                                function<bool(const handle_t&)> is_node_ignored_callback,
-                                               function<bool(const edge_t&)> is_edge_ignored_callback,
-                                               double cutoff) {
+                                               function<bool(const edge_t&)> is_edge_ignored_callback) {
 
     // We keep a priority queue so we can visit the handle with the shortest
     // distance next. We put handles in here whenever we see them with shorter
     // distances (since STL priority queue can't update), so we also need to
     // make sure nodes coming out haven't been visited already.
     // (score, previous, current)
-    using Record = tuple<double, handle_t, handle_t, double>;
+    using Record = tuple<double, handle_t, handle_t>;
     
     // We filter out handles that have already been visited.  And keep track of predecessors
     unordered_map<handle_t, pair<handle_t, double>> visited;
@@ -35,7 +34,7 @@ pair<double, vector<handle_t>> widest_dijkstra(const HandleGraph* g, handle_t so
     // We need a custom ordering for the queue
     struct IsFirstGreater {
         inline bool operator()(const Record& a, const Record& b) {
-            return get<0>(a) < get<0>(b) || (get<0>(a) == get<0>(b) && get<3>(a) < get<3>(b));
+            return get<0>(a) < get<0>(b);
         }
     };
     
@@ -50,11 +49,11 @@ pair<double, vector<handle_t>> widest_dijkstra(const HandleGraph* g, handle_t so
     // we don't include the score of the source
     // todo: should this be an option?
     double score = numeric_limits<double>::max();
-    queue.push(make_tuple(score, source, source, 0));
-
+    queue.push(make_tuple(score, source, source));
+    
     while (!queue.empty()) {
         // While there are things in the queue, get the first.
-        tie(score, previous, current, std::ignore) = queue.top();
+        tie(score, previous, current) = queue.top();
         queue.pop();
 
 #ifdef debug_vg_algorithms
@@ -74,24 +73,16 @@ pair<double, vector<handle_t>> widest_dijkstra(const HandleGraph* g, handle_t so
                         !is_edge_ignored_callback(g->edge_handle(current, next))) {
 
                         double next_score = score;
-                        double greedy_hint = 0;
 
                         if (next != source && next != sink) {
                             // we don't include the source / sink
                             // todo: should we? should it be an option?
-                            double node_weight = node_weight_callback(next);
-                            next_score = min(next_score, node_weight);
-                            greedy_hint = node_weight;
+                            next_score = min(next_score, node_weight_callback(next));
                         }
-                        double edge_weight = edge_weight_callback(g->edge_handle(current, next));
-                        next_score = min(next_score, edge_weight);
-                        // if all the scores are 0, try to prioritize stuff that looks better locally
-                        greedy_hint = min(next_score, edge_weight);
+                        next_score = min(next_score, edge_weight_callback(g->edge_handle(current, next)));
 
-                        if (next_score >= cutoff) {
-                            // New shortest distance. Will never happen after the handle comes out of the queue because of Dijkstra.
-                            queue.push(make_tuple(next_score, current, next, greedy_hint));
-                        }
+                        // New shortest distance. Will never happen after the handle comes out of the queue because of Dijkstra.
+                        queue.push(make_tuple(next_score, current, next));
                         
 #ifdef debug_vg_algorithms
                         cerr << "\tNew best path to " << g->get_id(next) << ":" << g->get_is_reverse(next)
@@ -128,7 +119,7 @@ pair<double, vector<handle_t>> widest_dijkstra(const HandleGraph* g, handle_t so
     }
     cerr << endl;
 #endif
-
+    
     return make_pair(width, widest_path);
 }
 
@@ -160,8 +151,6 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
     // start scanning for our k-1 next-widest paths
     for (size_t k = 1; k < K; ++k) {
 
-        // use to prune search
-        double best_this_iteration = numeric_limits<double>::lowest();
         // we look for a "spur node" in the previous path.  the current path will be the previous path
         // up to that spur node, then a new path to the sink. (i is the index of the spur node in
         // the previous (k - 1) path
@@ -208,8 +197,8 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
             // find our path from the the spur_node to the sink
             pair<double, vector<handle_t>> spur_path_v = widest_dijkstra(g, spur_node, sink, node_weight_callback, edge_weight_callback,
                                                                          [&](handle_t h) {return forgotten_nodes.count(h);},
-                                                                         [&](edge_t e) {return forgotten_edges.count(e);},
-                                                                         best_this_iteration);
+                                                                         [&](edge_t e) {return forgotten_edges.count(e);});
+
             if (!spur_path_v.second.empty()) {
             
                 // make the path by combining the root path and the spur path
@@ -233,14 +222,6 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
                 if (ins.second == true) {
                     score_to_B.insert(make_pair(total_path.first, ins.first));
                 } // todo: is there any reason we'd need to update the score of an existing entry in B?
-
-                best_this_iteration = max(total_path.first, best_this_iteration);
-                // optimization: if we've found a tie for the previous best path, we're never going to do better,
-                // so stop iterating spur nodes.  this saves us O(n) a lot when the current best path has score
-                // 0 and we're just exhaustively enumerating
-                if (total_path.first == best_paths.back().first) {
-                    break;
-                }
             }
         }
 
