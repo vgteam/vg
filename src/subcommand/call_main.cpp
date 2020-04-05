@@ -40,6 +40,7 @@ void help_call(char** argv) {
        << "    -p, --ref-path NAME     Reference path to call on (multipile allowed.  defaults to all paths)" << endl
        << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
        << "    -l, --ref-length N      Override length of reference in the contig field of output VCF" << endl
+       << "    -d, --ploidy N          Ploidy of sample.  Only 1 and 2 supported. (default: 2)" << endl
        << "    -t, --threads N         number of threads to use" << endl;
 }    
 
@@ -58,6 +59,7 @@ int main_call(int argc, char** argv) {
     string bias_string;
     bool ratio_caller = false;
     bool legacy = false;
+    int ploidy = 2;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -76,6 +78,7 @@ int main_call(int argc, char** argv) {
             {"ref-path", required_argument, 0, 'p'},
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'},
+            {"ploidy", required_argument, 0, 'd'},
             {"legacy", no_argument, 0, 'L'},
             {"threads", required_argument, 0, 't'},
             {"help", no_argument, 0, 'h'},
@@ -84,7 +87,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Bb:m:v:f:i:s:r:p:o:l:Lt:h",
+        c = getopt_long (argc, argv, "k:Bb:m:v:f:i:s:r:p:o:l:d:Lt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -128,6 +131,9 @@ int main_call(int argc, char** argv) {
             break;
         case 'l':
             ref_path_lengths.push_back(parse<int>(optarg));
+            break;
+        case 'd':
+            ploidy = parse<int>(optarg);
             break;
         case 'L':
             legacy = true;
@@ -233,6 +239,17 @@ int main_call(int argc, char** argv) {
     if (!bias_string.empty() && !ratio_caller) {
         cerr << "error [vg call]: -b can only be used with -B" << endl;
         return 1;
+    }
+    // Check ploidy option
+    if (ploidy < 1 || ploidy > 2) {
+        cerr << "error [vg call]: ploidy (-d) must be either 1 or 2" << endl;
+        return 1;
+    }
+    if (ratio_caller == true && ploidy != 2) {
+        cerr << "error [vg call]: ploidy (-d) must be 2 when using ratio caller (-B)" << endl;
+    }
+    if (legacy == true && ploidy != 2) {
+        cerr << "error [vg call]: ploidy (-d) must be 2 when using legacy caller (-L)" << endl;
     }
 
     // No paths specified: use them all
@@ -352,7 +369,7 @@ int main_call(int argc, char** argv) {
     }
 
     // Call the graph
-    graph_caller->call_top_level_snarls();
+    graph_caller->call_top_level_snarls(ploidy);
 
     // VCF output is our only supported output
     VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());

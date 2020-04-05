@@ -602,7 +602,8 @@ public:
     /**
      * Return the K widest traversals, along with their flows
      */
-    virtual pair<vector<SnarlTraversal>, vector<double>> find_weighted_traversals(const Snarl& site);
+    virtual pair<vector<SnarlTraversal>, vector<double>> find_weighted_traversals(const Snarl& site,
+                                                                                  bool greedy_avg = false);
 
     /// Set K
     void setK(size_t k);
