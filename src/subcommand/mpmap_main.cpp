@@ -1097,12 +1097,20 @@ int main_mpmap(int argc, char** argv) {
         cerr << "[vg mpmap] Loading graph from " << graph_name << "." << endl;
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_stream);
-    SerializableHandleGraph* serializable = dynamic_cast<SerializableHandleGraph*>(path_handle_graph.get());
-    if (!serializable) {
-        cerr << "warning:[vg mpmap] Graph is valid, but not in XG format. XG format is recommended for most mapping tasks (see `vg convert`)." << endl;
-    }
-    else {
-        auto magic_num = serializable->get_magic_number();
+    
+    if (!suppress_progress) {
+        // let's be a friendly guide to selecting a graph
+        
+        // get the graphs magic number if it has one
+        uint32_t magic_num = 0;
+        {
+            SerializableHandleGraph* serializable = dynamic_cast<SerializableHandleGraph*>(path_handle_graph.get());
+            if (serializable) {
+                magic_num = serializable->get_magic_number();
+            }
+        }
+        
+        // compare to known magic numbers
         string type;
         if (magic_num == xg::XG().get_magic_number()) {
             type = "XG";
@@ -1117,26 +1125,38 @@ int main_mpmap(int argc, char** argv) {
             type = "ODGI";
         }
         
-        cerr << "[vg mpmap] Loaded graph is in " << type << " format. ";
+        if (!type.empty()) {
+            // we found the type, give an appropriate message about it
+            cerr << "[vg mpmap] Graph is in " << type << " format. ";
+            
+            if (type == "XG") {
+                cerr << "XG is a good graph format for most mapping use cases. PackedGraph may be selected if memory usage is too high. ";
+            }
+            else if (type == "HashGraph") {
+                cerr << "HashGraph can have high memory usage. ";
+            }
+            else if (type == "PackedGraph") {
+                cerr << "PackedGraph is memory efficient, but has some slow queries. ";
+            }
+            else if (type == "ODGI") {
+                cerr << "ODGI is fairly memory efficient, but can be slow on certain queries. ";
+            }
+        }
+        else {
+            // probably a VG graph
+            cerr << "[vg mpmap] Graph is not in XG format. " << endl;
+        }
         
-        if (type == "XG") {
-            cerr << "XG is a good graph format for most mapping use cases. PackedGraph may be selected if memory usage is too high. ";
-        }
-        else if (type == "HashGraph") {
-            cerr << "HashGraph can have high memory usage. ";
-        }
-        else if (type == "PackedGraph") {
-            cerr << "PackedGraph is memory efficient, but has some slow queries. ";
-        }
-        else if (type == "ODGI") {
-            cerr << "ODGI is fairly memory efficient, but can be slow on certain queries. ";
-        }
-        
-        if (type != "XG" && (!use_min_dist_clusterer || type == "HashGraph")) {
+        // are they using a graph combo that I don't recommend?
+        if (type != "XG" && (!use_min_dist_clusterer || type == "HashGraph" || type.empty())) {
             // min dist clustering alleviates the issues with slow path queries because we don't need to do
-            // so many, but I want to dissuade people from using HashGraph for mapping regardless
+            // so many, but I want to dissuade people from using HashGraph and VG for mapping regardless
             cerr << "XG format is recommended for most mapping tasks. ";
         }
+        else {
+            cerr << "This graph implementation will probably work fine for the current mapping parameters. ";
+        }
+        
         cerr << "See `vg convert` if you want to change graph formats." << endl;
     }
     
