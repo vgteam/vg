@@ -52,3 +52,16 @@ me:example:some_gene rdfs:seeAlso ENSEMBL:ESG00000XXXX . #and then pick up the a
 
 At this moment VG RDF wants a fully embedded variation graph. e.g. all positions in vg json have a single edit which covers a whole node. This is to enable easy SPARQL queries where substring operations are rarely used.
 
+
+## Annotations on pantograph and odgi
+
+On top of VG RDF, we can describe the same path information on `odgi bin` and Pantograph format as well.
+
+```turtle
+# For representing odgi bin
+bin:1 a odgi:Bin ; odgi:edge bin:2 ; rdf:value "ACT" .
+bin:2 a odgi:Bin ; odgi:edge bin:3 : rdf:value "TGAAGT" .
+
+path:1 a vg:Path .
+path_step_1 a vg:Step ; odgi:bin bin:101 ; odgi:link bin:103 .
+```
