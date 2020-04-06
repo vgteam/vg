@@ -14,7 +14,7 @@ var searchData=
   ['rank',['rank',['../classvg_1_1mapping__t.html#a8f97d898f658a36c3046b8fcc2c846ff',1,'vg::mapping_t::rank()'],['../classvg_1_1PhasedGenome_1_1iterator.html#ab8b58edefb4cb58e014344c6010eec62',1,'vg::PhasedGenome::iterator::rank()'],['../structvg_1_1Mapping.html#a9ad71eb17b88b2cdd00cee8476e6c7b3',1,'vg::Mapping::rank()']]],
   ['rank_5fby_5fsupport',['rank_by_support',['../classvg_1_1PoissonSupportSnarlCaller.html#a300ca3bbff527fb43fbc12e65177d053',1,'vg::PoissonSupportSnarlCaller']]],
   ['rank_5fin_5fparent',['rank_in_parent',['../structvg_1_1SnarlSeedClusterer_1_1NetgraphNode.html#a8764931229567f2ffbf14988d02ff17f',1,'vg::SnarlSeedClusterer::NetgraphNode']]],
-  ['rank_5fto_5fid',['rank_to_id',['../classxg_1_1XG.html#aee052f301d8cae7b30c50c115c6b950b',1,'xg::XG']]],
+  ['rank_5fto_5fid',['rank_to_id',['../classxg_1_1XG.html#aee052f301d8cae7b30c50c115c6b950b',1,'xg::XG::rank_to_id()'],['../classbdsg_1_1ODGI.html#a2629006a078b90f4e6306d6bc8c133be',1,'bdsg::ODGI::rank_to_id()']]],
   ['rank_5fto_5fnode',['rank_to_node',['../classbdsg_1_1VectorizableOverlay.html#a311351aec2dfe498014c6d0ff3a799ff',1,'bdsg::VectorizableOverlay']]],
   ['rare_5fvariant_5fsimplifier_2ecpp',['rare_variant_simplifier.cpp',['../rare__variant__simplifier_8cpp.html',1,'']]],
   ['rare_5fvariant_5fsimplifier_2ehpp',['rare_variant_simplifier.hpp',['../rare__variant__simplifier_8hpp.html',1,'']]],

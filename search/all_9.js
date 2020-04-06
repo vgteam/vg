@@ -14,7 +14,7 @@ var searchData=
   ['id_5fto_5fname',['id_to_name',['../classvg_1_1Paths.html#a75a67b0c836eb9a21ae0eee3a213d62c',1,'vg::Paths']]],
   ['id_5fto_5fnode_5findex',['id_to_node_index',['../structvg_1_1IndexedVG_1_1CacheEntry.html#aa83d17938b7e420d9c592707721eed35',1,'vg::IndexedVG::CacheEntry']]],
   ['id_5fto_5fprefix',['id_to_prefix',['../classvg_1_1StreamIndexBase.html#a4b0e44b8cb40b33c5ef4db47a8a89272',1,'vg::StreamIndexBase']]],
-  ['id_5fto_5frank',['id_to_rank',['../classVectorizer.html#aae03497d2de713a68c6d453d32f9cf4a',1,'Vectorizer::id_to_rank()'],['../classvg_1_1Viz.html#a2474cd8505ed561cd414648438fedb5e',1,'vg::Viz::id_to_rank()'],['../classxg_1_1XG.html#a39172dc94153da745dd765f3c45ceeea',1,'xg::XG::id_to_rank()']]],
+  ['id_5fto_5frank',['id_to_rank',['../classVectorizer.html#aae03497d2de713a68c6d453d32f9cf4a',1,'Vectorizer::id_to_rank()'],['../classvg_1_1Viz.html#a2474cd8505ed561cd414648438fedb5e',1,'vg::Viz::id_to_rank()'],['../classxg_1_1XG.html#a39172dc94153da745dd765f3c45ceeea',1,'xg::XG::id_to_rank()'],['../classbdsg_1_1ODGI.html#a75675edac6cc43b4aaaf9328d51279cf',1,'bdsg::ODGI::id_to_rank()']]],
   ['identify_5fpinning_5fpoints',['identify_pinning_points',['../classvg_1_1GSSWAligner.html#a9e07985027f6dffb561b132a32fc0fae',1,'vg::GSSWAligner']]],
   ['identify_5fsources_5fand_5fsinks',['identify_sources_and_sinks',['../classvg_1_1MEMClusterer_1_1HitGraph.html#aff810bb5affe3201fccf437be3290fde',1,'vg::MEMClusterer::HitGraph']]],
   ['identify_5fstart_5fsubpaths',['identify_start_subpaths',['../namespacevg.html#a84d3918e06a7c8948bb6e91ba1226fa9',1,'vg']]],

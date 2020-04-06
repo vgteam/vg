@@ -416,9 +416,12 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:a3304c7fd92ccdc8b7492df7a18c97d89"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a3304c7fd92ccdc8b7492df7a18c97d89">set_handle_sequence</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const std::string &amp;seq)</td></tr>
 <tr class="memdesc:a3304c7fd92ccdc8b7492df7a18c97d89"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compact away the deleted nodes info.  <a href="#a3304c7fd92ccdc8b7492df7a18c97d89">More...</a><br /></td></tr>
 <tr class="separator:a3304c7fd92ccdc8b7492df7a18c97d89"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4eb7c0fe5fb3c10ee7bdbcb0e95d2c47"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a4eb7c0fe5fb3c10ee7bdbcb0e95d2c47">get_node_rank</a> (const <a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a> &amp;node_id) const</td></tr>
-<tr class="memdesc:a4eb7c0fe5fb3c10ee7bdbcb0e95d2c47"><td class="mdescLeft">&#160;</td><td class="mdescRight">get the backing node rank for a given node id  <a href="#a4eb7c0fe5fb3c10ee7bdbcb0e95d2c47">More...</a><br /></td></tr>
-<tr class="separator:a4eb7c0fe5fb3c10ee7bdbcb0e95d2c47"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a75675edac6cc43b4aaaf9328d51279cf"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a75675edac6cc43b4aaaf9328d51279cf">id_to_rank</a> (const <a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a> &amp;node_id) const</td></tr>
+<tr class="memdesc:a75675edac6cc43b4aaaf9328d51279cf"><td class="mdescLeft">&#160;</td><td class="mdescRight">get the backing node rank for a given node id  <a href="#a75675edac6cc43b4aaaf9328d51279cf">More...</a><br /></td></tr>
+<tr class="separator:a75675edac6cc43b4aaaf9328d51279cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2629006a078b90f4e6306d6bc8c133be"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a2629006a078b90f4e6306d6bc8c133be">rank_to_id</a> (const uint64_t &amp;rank) const</td></tr>
+<tr class="memdesc:a2629006a078b90f4e6306d6bc8c133be"><td class="mdescLeft">&#160;</td><td class="mdescRight">get the node id for the node with the given backing rank  <a href="#a2629006a078b90f4e6306d6bc8c133be">More...</a><br /></td></tr>
+<tr class="separator:a2629006a078b90f4e6306d6bc8c133be"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -430,11 +433,10 @@ Private Attributes</h2></td></tr>
 <tr class="separator:aaef8013c0bbc64e9e4ba1ba9faf74985"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a27ba4eff77a484fb635e6275b3294d39"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a27ba4eff77a484fb635e6275b3294d39">_deleted_node_count</a> = 0</td></tr>
 <tr class="separator:a27ba4eff77a484fb635e6275b3294d39"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a714031b9149f514fdbf4543621f6578d"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a714031b9149f514fdbf4543621f6578d">_max_node_id</a> = 0</td></tr>
-<tr class="memdesc:a714031b9149f514fdbf4543621f6578d"><td class="mdescLeft">&#160;</td><td class="mdescRight">efficient id to handle/sequence conversion  <a href="#a714031b9149f514fdbf4543621f6578d">More...</a><br /></td></tr>
-<tr class="separator:a714031b9149f514fdbf4543621f6578d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a88f45b371084432970afa68e446f8130"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a88f45b371084432970afa68e446f8130">_min_node_id</a> = 0</td></tr>
-<tr class="separator:a88f45b371084432970afa68e446f8130"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1c79025549d3e373a09fe471d09c8808"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a1c79025549d3e373a09fe471d09c8808">_max_node_rank</a> = 0</td></tr>
+<tr class="separator:a1c79025549d3e373a09fe471d09c8808"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abbcd0546ab6e96642d38570f642a6a2a"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#abbcd0546ab6e96642d38570f642a6a2a">_min_node_rank</a> = std::numeric_limits&lt;decltype(_min_node_rank)&gt;::max()</td></tr>
+<tr class="separator:abbcd0546ab6e96642d38570f642a6a2a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a042ef9861a75537a35e26d2dd31516c6"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a042ef9861a75537a35e26d2dd31516c6">_id_increment</a> = 0</td></tr>
 <tr class="separator:a042ef9861a75537a35e26d2dd31516c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab1912ed2dfb8ca4d717573e7abab1eda"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classbdsg_1_1hash__set.html">hash_set</a>&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#ab1912ed2dfb8ca4d717573e7abab1eda">graph_id_hidden_set</a></td></tr>
@@ -1934,35 +1936,6 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a4eb7c0fe5fb3c10ee7bdbcb0e95d2c47"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4eb7c0fe5fb3c10ee7bdbcb0e95d2c47">&#9670;&nbsp;</a></span>get_node_rank()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">uint64_t bdsg::ODGI::get_node_rank </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>node_id</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>get the backing node rank for a given node id </p>
-<p>get the backing node for a given node id </p>
-
-</div>
-</div>
 <a id="a8f19e1e243a7476bb02dbdbc0c7e4e3f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a8f19e1e243a7476bb02dbdbc0c7e4e3f">&#9670;&nbsp;</a></span>get_path()</h2>
 
@@ -2375,6 +2348,34 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a75675edac6cc43b4aaaf9328d51279cf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a75675edac6cc43b4aaaf9328d51279cf">&#9670;&nbsp;</a></span>id_to_rank()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint64_t bdsg::ODGI::id_to_rank </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>node_id</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>get the backing node rank for a given node id </p>
+
+</div>
+</div>
 <a id="abb93e89319a1730e8aa1b4cd646b3a88"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#abb93e89319a1730e8aa1b4cd646b3a88">&#9670;&nbsp;</a></span>increment_node_ids()</h2>
 
@@ -2779,6 +2780,34 @@ Private Attributes</h2></td></tr>
 <p>Append a visit to a node to the given path. Returns a handle to the new final step on the path which is appended. Handles to prior steps on the path, and to other paths, must remain valid. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#aed17038a0104017d37ff74e15f7f436a">handlegraph::MutablePathHandleGraph</a>.</p>
+
+</div>
+</div>
+<a id="a2629006a078b90f4e6306d6bc8c133be"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2629006a078b90f4e6306d6bc8c133be">&#9670;&nbsp;</a></span>rank_to_id()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a> bdsg::ODGI::rank_to_id </td>
+          <td>(</td>
+          <td class="paramtype">const uint64_t &amp;&#160;</td>
+          <td class="paramname"><em>rank</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>get the node id for the node with the given backing rank </p>
 
 </div>
 </div>
@@ -3230,8 +3259,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a714031b9149f514fdbf4543621f6578d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a714031b9149f514fdbf4543621f6578d">&#9670;&nbsp;</a></span>_max_node_id</h2>
+<a id="a1c79025549d3e373a09fe471d09c8808"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1c79025549d3e373a09fe471d09c8808">&#9670;&nbsp;</a></span>_max_node_rank</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3240,7 +3269,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a> bdsg::ODGI::_max_node_id = 0</td>
+          <td class="memname">uint64_t bdsg::ODGI::_max_node_rank = 0</td>
         </tr>
       </table>
   </td>
@@ -3249,13 +3278,12 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>efficient id to handle/sequence conversion </p>
+<p>Max rank (distance above _id_increment) of a node in the graph. 0 if the graph is empty. </p>
 
 </div>
 </div>
-<a id="a88f45b371084432970afa68e446f8130"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a88f45b371084432970afa68e446f8130">&#9670;&nbsp;</a></span>_min_node_id</h2>
+<a id="abbcd0546ab6e96642d38570f642a6a2a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abbcd0546ab6e96642d38570f642a6a2a">&#9670;&nbsp;</a></span>_min_node_rank</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3264,7 +3292,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a> bdsg::ODGI::_min_node_id = 0</td>
+          <td class="memname">uint64_t bdsg::ODGI::_min_node_rank = std::numeric_limits&lt;decltype(_min_node_rank)&gt;::max()</td>
         </tr>
       </table>
   </td>
@@ -3273,6 +3301,7 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<p>Min rank (distance above _id_increment) of a node in the graph. Maximum possible value if the graph is empty, for easy min(). </p>
 
 </div>
 </div>

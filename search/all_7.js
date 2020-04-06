@@ -208,7 +208,6 @@ var searchData=
   ['get_5fnode_5foffset',['get_node_offset',['../classvg_1_1GaplessExtender.html#a12663a32f4bc41137eb372c845f0eafe',1,'vg::GaplessExtender']]],
   ['get_5fnode_5fpath',['get_node_path',['../classvg_1_1Index.html#ad53a8d290adc82aaaf36d7712df06e4e',1,'vg::Index']]],
   ['get_5fnode_5fpath_5frelative_5fposition',['get_node_path_relative_position',['../classvg_1_1Index.html#a102af40b28f12b450f5208b79121a8a2',1,'vg::Index']]],
-  ['get_5fnode_5frank',['get_node_rank',['../classbdsg_1_1ODGI.html#a4eb7c0fe5fb3c10ee7bdbcb0e95d2c47',1,'bdsg::ODGI']]],
   ['get_5fnode_5fsupport',['get_node_support',['../classvg_1_1RepresentativeTraversalFinder.html#a40f64596e2e8bb4b78120f351fa3bf79',1,'vg::RepresentativeTraversalFinder']]],
   ['get_5fnodes',['get_nodes',['../classvg_1_1SnarlSeedClusterer.html#a3086c1a3932b73487b7eb67cefbc897a',1,'vg::SnarlSeedClusterer']]],
   ['get_5fnodes_5fnext',['get_nodes_next',['../classvg_1_1Index.html#a62779a0ff7c4705235069b2604099d3c',1,'vg::Index']]],

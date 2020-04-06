@@ -10,7 +10,7 @@ var searchData=
   ['range_5fvector',['range_vector',['../namespacevg.html#a931d9271de88fc786030fdd0ab4bf534',1,'vg::range_vector(size_t begin, size_t end)'],['../namespacevg.html#a39adca1737de5d28d007d95b809deb7f',1,'vg::range_vector(size_t end)']]],
   ['rank_5fby_5fsupport',['rank_by_support',['../classvg_1_1PoissonSupportSnarlCaller.html#a300ca3bbff527fb43fbc12e65177d053',1,'vg::PoissonSupportSnarlCaller']]],
   ['rank_5fin_5fparent',['rank_in_parent',['../structvg_1_1SnarlSeedClusterer_1_1NetgraphNode.html#a8764931229567f2ffbf14988d02ff17f',1,'vg::SnarlSeedClusterer::NetgraphNode']]],
-  ['rank_5fto_5fid',['rank_to_id',['../classxg_1_1XG.html#aee052f301d8cae7b30c50c115c6b950b',1,'xg::XG']]],
+  ['rank_5fto_5fid',['rank_to_id',['../classxg_1_1XG.html#aee052f301d8cae7b30c50c115c6b950b',1,'xg::XG::rank_to_id()'],['../classbdsg_1_1ODGI.html#a2629006a078b90f4e6306d6bc8c133be',1,'bdsg::ODGI::rank_to_id()']]],
   ['rarevariantsimplifier',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html#a08cf82d7c40db195176b9bf177a50e32',1,'vg::RareVariantSimplifier']]],
   ['ratiosupportsnarlcaller',['RatioSupportSnarlCaller',['../classvg_1_1RatioSupportSnarlCaller.html#ad6905b3e30632f2a0a3e304cdfd15faa',1,'vg::RatioSupportSnarlCaller']]],
   ['re_5fgenotype',['re_genotype',['../classvg_1_1LegacyCaller.html#a6c23ee5b732d26d4f55bd3b5b4830fca',1,'vg::LegacyCaller']]],
