@@ -965,6 +965,10 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
         Node* n11 = graph.create_node("CTGA");
         Node* n12 = graph.create_node("G");
         Node* n13 = graph.create_node("CTGA");
+//Disconnected
+        Node* n14 = graph.create_node("T");
+        Node* n15 = graph.create_node("G");
+        Node* n16 = graph.create_node("CTGA");
 
         Edge* e1 = graph.create_edge(n1, n2);
         Edge* e2 = graph.create_edge(n1, n3);
@@ -983,7 +987,10 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
         Edge* e14 = graph.create_edge(n11, n12);
         Edge* e15 = graph.create_edge(n11, n13);
         Edge* e16 = graph.create_edge(n12, n13);
-            
+ 
+        Edge* e17 = graph.create_edge(n14, n15);
+        Edge* e18 = graph.create_edge(n14, n16);
+        Edge* e19 = graph.create_edge(n15, n16);           
         // Define the snarls for the top level
        
         CactusSnarlFinder bubble_finder(graph);
@@ -998,43 +1005,54 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
             //Connected components should be have unique identifiers
 
-            REQUIRE (di.offset_in_root_chain(make_pos_t(1 , false, 0)).first != 0);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(2 , false, 0)).first == 0);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(1 , false, 0)).first != std::numeric_limits<size_t>::max());
+            REQUIRE (di.offset_in_root_chain(make_pos_t(2 , false, 0)).first == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(3 , false, 0)).first == 
                      di.offset_in_root_chain(make_pos_t(1, false, 0)).first);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(4 , false, 0)).first == 0);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(4 , false, 0)).first == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(5 , false, 0)).first == 
                      di.offset_in_root_chain(make_pos_t(1, false, 0)).first);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(6 , false, 0)).first == 0);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(7 , false, 0)).first == 0);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(6 , false, 0)).first == std::numeric_limits<size_t>::max());
+            REQUIRE (di.offset_in_root_chain(make_pos_t(7 , false, 0)).first == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(8 , false, 0)).first == 
                      di.offset_in_root_chain(make_pos_t(1, false, 0)).first);
             REQUIRE (di.offset_in_root_chain(make_pos_t(9 , false, 0)).first != 
                      di.offset_in_root_chain(make_pos_t(1, false, 0)).first);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(9 , false, 0)).first != 0);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(9 , false, 0)).first != std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(9 , false, 0)).first != 
                      di.offset_in_root_chain(make_pos_t(1, false, 0)).first);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(10, false, 0)).first == 0);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(10, false, 0)).first == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(11, false, 0)).first == 
                      di.offset_in_root_chain(make_pos_t(9, false, 0)).first);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(12, false, 0)).first == 0);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(12, false, 0)).first == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(13, false, 0)).first == 
                      di.offset_in_root_chain(make_pos_t(9, false, 0)).first);
 
+            REQUIRE (di.offset_in_root_chain(make_pos_t(14, false, 0)).first != std::numeric_limits<size_t>::max());
+            REQUIRE (di.offset_in_root_chain(make_pos_t(14, false, 0)).first != 
+                     di.offset_in_root_chain(make_pos_t(9, false, 0)).first);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(14, false, 0)).first != 
+                     di.offset_in_root_chain(make_pos_t(1, false, 0)).first);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(15, false, 0)).first == std::numeric_limits<size_t>::max());
+            REQUIRE (di.offset_in_root_chain(make_pos_t(16, false, 0)).first == 
+                     di.offset_in_root_chain(make_pos_t(14, false, 0)).first);
             //Offsets should be correct
             REQUIRE (di.offset_in_root_chain(make_pos_t(1 , false, 0)).second == 0);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(2 , false, 0)).second == 0);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(2 , false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(3 , false, 0)).second == 3);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(4 , false, 0)).second == 0);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(4 , false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(5 , false, 0)).second == 4);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(6 , false, 0)).second == 0);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(7 , false, 0)).second == 0);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(6 , false, 0)).second == std::numeric_limits<size_t>::max());
+            REQUIRE (di.offset_in_root_chain(make_pos_t(7 , false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(8 , false, 0)).second == 8);
             REQUIRE (di.offset_in_root_chain(make_pos_t(9 , false, 0)).second == 0);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(10, false, 0)).second == 0);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(10, false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(11, false, 0)).second == 1);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(12, false, 0)).second == 0);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(12, false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(13, false, 0)).second == 5);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(14, false, 0)).second == 0);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(15, false, 0)).second == std::numeric_limits<size_t>::max());
+            REQUIRE (di.offset_in_root_chain(make_pos_t(16, false, 0)).second == 1);
 
 
 

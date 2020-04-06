@@ -2518,21 +2518,29 @@ pair<size_t, size_t> MinimumDistanceIndex::offset_in_root_chain (pos_t pos) {
     id_t id = get_id(pos);
     SnarlIndex& snarl_index = snarl_indexes[getPrimaryAssignment(id)];
     size_t snarl_rank =  getPrimaryRank(id);
+
+    bool is_boundary_node = snarl_rank == 0 || snarl_rank == 1 || 
+                            snarl_rank == snarl_index.num_nodes*2-1 || snarl_rank == snarl_index.num_nodes*2-2;
+    size_t component = node_to_component[id - min_node_id]; 
+    if (component == 0 || !is_boundary_node || !snarl_index.depth == 0) {
+        return make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+    }
     int64_t node_offset = get_offset(pos);
     bool node_is_rev_in_snarl = snarl_rank% 2;
     bool node_is_rev_in_chain = node_is_rev_in_snarl ? !snarl_index.rev_in_parent : snarl_index.rev_in_parent;
     if (node_is_rev_in_chain){
         node_offset = snarl_index.nodeLength(snarl_rank) - node_offset - 1;
     }
-    bool is_boundary_node = snarl_rank == 0 || snarl_rank == 1 || 
-                            snarl_rank == snarl_index.num_nodes*2-1 || snarl_rank == snarl_index.num_nodes*2-2;
-    size_t component = node_to_component[id - min_node_id]; 
-    if (component == 0 || !snarl_index.in_chain || !is_boundary_node || !snarl_index.depth == 0) {
-        return make_pair(0,0);
+  
+    size_t offset;
+    if (snarl_index.in_chain) {
+        size_t length = component_to_chain_length[component-1];
+        size_t chain_rank = getChainRank(id); 
+        offset = chain_rank == 0 ? 0 : chain_indexes[component_to_chain_index[component-1]].prefix_sum[chain_rank] - 1;
+    } else {
+        offset = snarl_rank == 0 || snarl_rank == 1 ? 0 : 
+                 snarl_index.snarlLength()-snarl_index.nodeLength(snarl_index.num_nodes*2-1);
     }
-    size_t length = component_to_chain_length[component-1];
-    size_t chain_rank = getChainRank(id); 
-    size_t offset = chain_rank == 0 ? 0 : chain_indexes[component_to_chain_index[component-1]].prefix_sum[chain_rank] - 1;
     return make_pair(component, offset + node_offset);
 }
 
