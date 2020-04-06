@@ -104,8 +104,6 @@ int main_convert(int argc, char** argv) {
       output_graph = unique_ptr<HandleGraph>(new xg::XG());
     } else if (output_format == "odgi") {
       output_graph = unique_ptr<HandleGraph>(new bdsg::ODGI());
-      cerr << "error [vg convert]: odgi conversion does not work yet" << endl;
-      return 1;
     }
     
     PathHandleGraph* output_path_graph = dynamic_cast<PathHandleGraph*>(output_graph.get());
