@@ -74,6 +74,8 @@ class MinimumDistanceIndex {
     //<std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()> 
     pair<size_t, size_t> offset_in_root_chain (pos_t pos);
 
+    bool in_same_connected_component(id_t node_id1, id_t node_id2);
+
     ///Helper function to find the minimum value that is not -1
     static int64_t minPos(vector<int64_t> vals);
 

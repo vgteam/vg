@@ -2544,5 +2544,8 @@ pair<size_t, size_t> MinimumDistanceIndex::offset_in_root_chain (pos_t pos) {
     return make_pair(component, offset + node_offset);
 }
 
+bool MinimumDistanceIndex::in_same_connected_component(id_t node_id1, id_t node_id2) {
+    return node_to_component[node_id1-min_node_id] == node_to_component[node_id1 - min_node_id];
+}
 
 }
