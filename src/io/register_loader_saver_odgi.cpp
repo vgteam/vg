@@ -22,7 +22,7 @@ void register_loader_saver_odgi() {
         bdsg::ODGI* odgi = new bdsg::ODGI();
         
         // Load it
-        odgi->load(input);
+        odgi->deserialize(input);
         
         // Return it so the caller owns it.
         return (void*) odgi;
