@@ -354,12 +354,15 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_MAX_RESCUE_ATTEMPTS:
                 max_rescue_attempts = parse<int>(optarg);
+                break;
                 
             case OPT_SECONDARY_RESCUE_ATTEMPTS:
                 secondary_rescue_attempts = parse<int>(optarg);
+                break;
                 
             case OPT_SECONDARY_MAX_DIFF:
                 secondary_rescue_score_diff = parse<double>(optarg);
+                break;
                 
             case 1: // --linear-index
                 sublinearLS_name = optarg;
