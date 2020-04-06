@@ -15,7 +15,7 @@
 #include "../vg.hpp"
 #include "../xg.hpp"
 #include <vg/io/vpkg.hpp>
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 #include "../position.hpp"
 
 #include "algorithms/nearest_offsets_in_paths.hpp"

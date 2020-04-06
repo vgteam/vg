@@ -11,7 +11,8 @@
 #include "subcommand.hpp"
 
 #include <bdsg/hash_graph.hpp>
-#include <bdsg/path_position_overlays.hpp>
+#include <bdsg/overlays/path_position_overlays.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 #include "../vg.hpp"
 #include "../xg.hpp"
@@ -20,7 +21,7 @@
 #include "../utility.hpp"
 #include "../surjector.hpp"
 #include "../alignment_emitter.hpp"
-#include <bdsg/overlay_helper.hpp>
+
 
 using namespace std;
 using namespace vg;

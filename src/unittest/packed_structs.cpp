@@ -11,7 +11,7 @@
 #include "../json2pb.h"
 #include "catch.hpp"
 
-#include "bdsg/packed_structs.hpp"
+#include <bdsg/internal/packed_structs.hpp>
 
 namespace vg {
 namespace unittest {
