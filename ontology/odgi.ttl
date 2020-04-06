@@ -1,0 +1,108 @@
+# baseURI: http://biohackathon.org/resource/odgi
+
+@prefix : <http://biohackathon.org/resource/odgi#> .
+@prefix vg: <http://biohackathon.org/resource/vg#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix spin: <http://spinrdf.org/spin#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix edam: <http://edamontology.org/> .
+
+<http://biohackathon.org/resource/odgi>
+  rdf:type owl:Ontology ;
+  <http://purl.org/dc/terms/license> <http://creativecommons.org/publicdomain/zero/1.0/> ;
+  spin:imports <http://topbraid.org/spin/owlrl-all> ;
+  spin:imports <http://topbraid.org/spin/rdfsplus> ;
+  spin:imports <http://topbraid.org/spin/spinowl> ;
+  owl:versionInfo "Created at the CoVID-19 Hackathon"^^xsd:string ;
+.
+
+:Bin
+  rdf:type owl:Class ;
+  rdfs:comment "A bin in the output of odgi bin, representing a sequence section."^^xsd:string ;
+  rdfs:label "Bin"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:PangenomeSequence
+  rdf:type owl:Class ;
+  rdfs:comment "A PangenomeSequence is a sorted graph the sequences of each Node are laid out in order, which is a collection of steps from bin to bin."^^xsd:string ;
+  rdfs:label "PangenomeSequence"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:Step
+  rdf:type owl:Class ;
+  rdfs:comment "A step along a PangenomeSequence in the variant graph. A step points to a :Bin."^^xsd:string ;
+  rdfs:label "Step"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:bin
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "This means that this step occurs on the forward strand of the sequence attaced to the node (i.e. it is on the explicit encoded forward (5' to 3') strand) of the predicate node."^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "bin"^^xsd:string ;
+  rdfs:range :Bin ;
+.
+:path
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "This means that this step occurs on the path that is the object of this statment"^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "path"^^xsd:string ;
+  rdfs:range vg:Path ;
+.
+:edge
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "The super property that says two bins are linked on the PangenomeSequence."^^xsd:string ;
+  rdfs:domain :Bin ;
+  rdfs:label "connects"^^xsd:string ;
+  rdfs:range :Bin ;
+.
+:link
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "The super property that says two bins have a nonlinear connection against PangenomeSequence on the path."^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "links"^^xsd:string ;
+  rdfs:range :Step ;
+.
+:width
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The bin width."^^xsd:string ;
+  rdfs:domain :Bin ;
+  rdfs:label "width"^^xsd:string ;
+  rdfs:range xsd:positiveInteger ;
+.
+:meanCov
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The mean coverage in the bin of the path."^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "meanCoverage"^^xsd:string ;
+  rdfs:range xsd:float ;
+.
+:meanInv
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The mean inversion rate in the bin of the path."^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "meanInversion"^^xsd:string ;
+  rdfs:range xsd:float ;
+.
+:meanPos
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The mean position in the bin of the path."^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "meanPosition"^^xsd:string ;
+  rdfs:range xsd:float ;
+.
+:firstNucleotide
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "This is the position on the path at which this step starts."^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "firstPosition"^^xsd:string ;
+  rdfs:range xsd:positiveInteger ;
+.
+:lastNucleotide
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "This is the position on the path at which this step ends."^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "lastPosition"^^xsd:string ;
+  rdfs:range xsd:positiveInteger ;
+.
