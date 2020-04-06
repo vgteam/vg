@@ -11,9 +11,13 @@
 #include <vg/io/vpkg.hpp>
 #include "../multipath_mapper.hpp"
 #include "../path.hpp"
-#include "../xg.hpp"
+#include "../watchdog.hpp"
 #include "../watchdog.hpp"
 #include <bdsg/overlay_helper.hpp>
+#include <bdsg/odgi.hpp>
+#include <bdsg/packed_graph.hpp>
+#include <bdsg/hash_graph.hpp>
+#include <xg.hpp>
 
 //#define record_read_run_times
 
@@ -29,12 +33,12 @@ using namespace vg::subcommand;
 
 void help_mpmap(char** argv) {
     cerr
-    << "usage: " << argv[0] << " mpmap [options] -x index.xg -g index.gcsa [-f reads1.fq [-f reads2.fq] | -G reads.gam] > aln.gamp" << endl
+    << "usage: " << argv[0] << " mpmap [options] -x graph.[xg|pg|og|hg] -g index.gcsa [-f reads1.fq [-f reads2.fq] | -G reads.gam] > aln.gamp" << endl
     << "Multipath align reads to a graph." << endl
     << endl
     << "basic options:" << endl
     << "graph/index:" << endl
-    << "  -x, --xg-name FILE            use this XG index of the graph (required)" << endl
+    << "  -x, --graph-name FILE         graph (required; XG format recommended but other formats are valid, see `vg convert`) " << endl
     << "  -g, --gcsa-name FILE          use this GCSA2/LCP index pair for MEMs (required; both FILE and FILE.lcp)" << endl
     //<< "  -H, --gbwt-name FILE          use this GBWT haplotype index for population-based MAPQs" << endl
     << "  -d, --dist-name FILE          use this snarl distance index for clustering" << endl
@@ -134,7 +138,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_SECONDARY_RESCUE_ATTEMPTS 1017
     #define OPT_SECONDARY_MAX_DIFF 1018
     string matrix_file_name;
-    string xg_name;
+    string graph_name;
     string gcsa_name;
     string gbwt_name;
     string sublinearLS_name;
@@ -248,7 +252,7 @@ int main_mpmap(int argc, char** argv) {
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
-            {"xg-name", required_argument, 0, 'x'},
+            {"graph-name", required_argument, 0, 'x'},
             {"gcsa-name", required_argument, 0, 'g'},
             {"gbwt-name", required_argument, 0, 'H'},
             {"dist-name", required_argument, 0, 'd'},
@@ -326,9 +330,9 @@ int main_mpmap(int argc, char** argv) {
         switch (c)
         {
             case 'x':
-                xg_name = optarg;
-                if (xg_name.empty()) {
-                    cerr << "error:[vg mpmap] Must provide XG file with -x." << endl;
+                graph_name = optarg;
+                if (graph_name.empty()) {
+                    cerr << "error:[vg mpmap] Must provide Graph file with -x." << endl;
                     exit(1);
                 }
                 break;
@@ -1006,8 +1010,8 @@ int main_mpmap(int argc, char** argv) {
     
     // ensure required parameters are provided
     
-    if (xg_name.empty()) {
-        cerr << "error:[vg mpmap] Multipath mapping requires an XG index, must provide XG file (-x)" << endl;
+    if (graph_name.empty()) {
+        cerr << "error:[vg mpmap] Multipath mapping requires a graph (-x)" << endl;
         exit(1);
     }
     
@@ -1018,9 +1022,9 @@ int main_mpmap(int argc, char** argv) {
     
     // create in-memory objects
     
-    ifstream xg_stream(xg_name);
-    if (!xg_stream) {
-        cerr << "error:[vg mpmap] Cannot open XG file " << xg_name << endl;
+    ifstream graph_stream(graph_name);
+    if (!graph_stream) {
+        cerr << "error:[vg mpmap] Cannot open graph file " << graph_name << endl;
         exit(1);
     }
     
@@ -1090,20 +1094,64 @@ int main_mpmap(int argc, char** argv) {
     
     // Load required indexes
     if (!suppress_progress) {
-        cerr << "[vg mpmap] loading graph from " << xg_name << endl;
+        cerr << "[vg mpmap] Loading graph from " << graph_name << "." << endl;
     }
-    unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_stream);
+    unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_stream);
+    SerializableHandleGraph* serializable = dynamic_cast<SerializableHandleGraph*>(path_handle_graph.get());
+    if (!serializable) {
+        cerr << "warning:[vg mpmap] Graph is valid, but not in XG format. XG format is recommended for most mapping tasks (see `vg convert`)." << endl;
+    }
+    else {
+        auto magic_num = serializable->get_magic_number();
+        string type;
+        if (magic_num == xg::XG().get_magic_number()) {
+            type = "XG";
+        }
+        else if (magic_num == bdsg::PackedGraph().get_magic_number()) {
+            type = "PackedGraph";
+        }
+        else if (magic_num == bdsg::HashGraph().get_magic_number()) {
+            type = "HashGraph";
+        }
+        else if (magic_num == bdsg::ODGI().get_magic_number()) {
+            type = "ODGI";
+        }
+        
+        cerr << "[vg mpmap] Loaded graph is in " << type << " format. ";
+        
+        if (type == "XG") {
+            cerr << "XG is a good graph format for most mapping use cases. PackedGraph may be selected if memory usage is too high. ";
+        }
+        else if (type == "HashGraph") {
+            cerr << "HashGraph can have high memory usage. ";
+        }
+        else if (type == "PackedGraph") {
+            cerr << "PackedGraph is memory efficient, but has some slow queries. ";
+        }
+        else if (type == "ODGI") {
+            cerr << "ODGI is fairly memory efficient, but can be slow on certain queries. ";
+        }
+        
+        if (type != "XG" && (!use_min_dist_clusterer || type == "HashGraph")) {
+            // min dist clustering alleviates the issues with slow path queries because we don't need to do
+            // so many, but I want to dissuade people from using HashGraph for mapping regardless
+            cerr << "XG format is recommended for most mapping tasks. ";
+        }
+        cerr << "See `vg convert` if you want to change graph formats." << endl;
+    }
+    
     bdsg::PathPositionOverlayHelper overlay_helper;
-    PathPositionHandleGraph* xg_index = overlay_helper.apply(path_handle_graph.get());
+    PathPositionHandleGraph* path_position_handle_graph = overlay_helper.apply(path_handle_graph.get());
+    
     if (!suppress_progress) {
-        cerr << "[vg mpmap] loading GCSA2 from " << gcsa_name << endl;
+        cerr << "[vg mpmap] Loading GCSA2 from " << gcsa_name << "." << endl;
     }
     unique_ptr<gcsa::GCSA> gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
     unique_ptr<gcsa::LCPArray> lcp_array;
     if (!use_stripped_match_alg) {
         // The stripped algorithm doesn't use the LCP, but we aren't doing it
         if (!suppress_progress) {
-            cerr << "[vg mpmap] loading LCP from " << lcp_name << endl;
+            cerr << "[vg mpmap] Loading LCP from " << lcp_name << "." << endl;
         }
         lcp_array = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     }
@@ -1115,7 +1163,7 @@ int main_mpmap(int argc, char** argv) {
     haplo::ScoreProvider* haplo_score_provider = nullptr;
     if (!gbwt_name.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] loading GBWT from " << gbwt_name << endl;
+            cerr << "[vg mpmap] Loading GBWT from " << gbwt_name << "." << endl;
         }
         // Load the GBWT from its container
         gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
@@ -1131,22 +1179,21 @@ int main_mpmap(int argc, char** argv) {
     }
     else if (!sublinearLS_name.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] loading LS index from " << sublinearLS_name << endl;
+            cerr << "[vg mpmap] Loading LS index from " << sublinearLS_name << "." << endl;
         }
         
         // TODO: we only support a single ref contig, and we use these
         // hardcoded mutation and recombination likelihoods
         
-        sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, *xg_index,
-                                                 xg_index->get_path_handle(sublinearLS_ref_path));
+        sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, *path_position_handle_graph,
+                                                 path_position_handle_graph->get_path_handle(sublinearLS_ref_path));
         haplo_score_provider = new haplo::LinearScoreProvider(*sublinearLS);
     }
-    // TODO: Allow using haplo::XGScoreProvider?
     
     unique_ptr<SnarlManager> snarl_manager;
     if (!snarls_name.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] loading snarls from " << snarls_name << endl;
+            cerr << "[vg mpmap] Loading snarls from " << snarls_name << "." << endl;
         }
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
     }
@@ -1154,7 +1201,7 @@ int main_mpmap(int argc, char** argv) {
     unique_ptr<MinimumDistanceIndex> distance_index;
     if (!distance_index_name.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] loading distance index from " << distance_index_name << endl;
+            cerr << "[vg mpmap] Loading distance index from " << distance_index_name << "." << endl;
         }
         
         // Load the index
@@ -1162,7 +1209,7 @@ int main_mpmap(int argc, char** argv) {
         
     }
     
-    MultipathMapper multipath_mapper(xg_index, gcsa_index.get(), lcp_array.get(), haplo_score_provider,
+    MultipathMapper multipath_mapper(path_position_handle_graph, gcsa_index.get(), lcp_array.get(), haplo_score_provider,
         snarl_manager.get(), distance_index.get());
     
     // set alignment parameters
@@ -1252,7 +1299,7 @@ int main_mpmap(int argc, char** argv) {
     // if directed to, auto calibrate the mismapping detection to the graph
     if (auto_calibrate_mismapping_detection) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] building null model to calibrate mismapping detection (can take some time)" << endl;
+            cerr << "[vg mpmap] Building null model to calibrate mismapping detection (can take some time)." << endl;
         }
         multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_lengths);
     }
@@ -1373,7 +1420,9 @@ int main_mpmap(int argc, char** argv) {
             else {
                 output_buf.emplace_back();
                 rev_comp_multipath_alignment(mp_aln_pair.second,
-                                             [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); },
+                                             [&](vg::id_t node_id) {
+                    return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id));
+                },
                                              output_buf.back());
             }
 
@@ -1442,7 +1491,9 @@ int main_mpmap(int argc, char** argv) {
             // switch second read back to the opposite strand if necessary
             if (!same_strand) {
                 reverse_complement_alignment_in_place(&output_buf.back(),
-                                                      [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); });
+                                                      [&](vg::id_t node_id) {
+                    return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id));
+                });
             }
             
             // label with read group and sample name
@@ -1500,7 +1551,7 @@ int main_mpmap(int argc, char** argv) {
 #pragma omp atomic capture
             n = ++num_reads_mapped;
             if (n % progress_frequency == 0) {
-                cerr << "[vg mpmap] mapped " << n << " reads" << endl;
+                cerr << "[vg mpmap] Mapped " << n << " reads." << endl;
             }
         }
         
@@ -1535,7 +1586,7 @@ int main_mpmap(int argc, char** argv) {
         if (!same_strand) {
             // remove the path so we won't try to RC it (the path may not refer to this graph)
             alignment_2.clear_path();
-            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); });
+            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id)); });
         }
                 
         vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;
@@ -1564,7 +1615,7 @@ int main_mpmap(int argc, char** argv) {
 #pragma omp atomic capture
             n = ++num_reads_mapped;
             if (n % progress_frequency == 0) {
-                cerr << "[vg mpmap] mapped " << n << " read pairs" << endl;
+                cerr << "[vg mpmap] Mapped " << n << " read pairs." << endl;
             }
         }
         
@@ -1602,7 +1653,7 @@ int main_mpmap(int argc, char** argv) {
         
             // remove the path so we won't try to RC it (the path may not refer to this graph)
             alignment_2.clear_path();
-            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); });
+            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id)); });
         }
         
         // Align independently
@@ -1651,12 +1702,12 @@ int main_mpmap(int argc, char** argv) {
         return multipath_mapper.has_fixed_fragment_length_distr();
     };
     
-    if (!suppress_progress) {
-        cerr << "[vg mpmap] mapping reads" << endl;
-    }
-    
     // FASTQ input
     if (!fastq_name_1.empty()) {
+        if (!suppress_progress) {
+            cerr << "[vg mpmap] Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << "." << endl;
+        }
+        
         if (interleaved_input) {
             fastq_paired_interleaved_for_each_parallel_after_wait(fastq_name_1, do_paired_alignments,
                                                                   multi_threaded_condition);
@@ -1674,9 +1725,13 @@ int main_mpmap(int argc, char** argv) {
     if (!gam_file_name.empty()) {
         function<void(istream&)> execute = [&](istream& gam_in) {
             if (!gam_in) {
-                cerr << "error:[vg mpmap] Cannot open GAM file " << gam_file_name << endl;
+                cerr << "error:[vg mpmap] Cannot open GAM file " << gam_file_name << "." << endl;
                 exit(1);
             }
+            if (!suppress_progress) {
+                cerr << "[vg mpmap] Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << "." << endl;
+            }
+            
             if (interleaved_input) {
                 vg::io::for_each_interleaved_pair_parallel_after_wait(gam_in, do_paired_alignments,
                                                                       multi_threaded_condition);
@@ -1700,7 +1755,9 @@ int main_mpmap(int argc, char** argv) {
                 // TODO: slightly wasteful, inelegant
                 if (!same_strand) {
                     reverse_complement_alignment_in_place(&aln_pair.second,
-                                                          [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); });
+                                                          [&](vg::id_t node_id) {
+                        return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id));
+                    });
                 }
                 do_paired_alignments(aln_pair.first, aln_pair.second);
             }
@@ -1716,7 +1773,9 @@ int main_mpmap(int argc, char** argv) {
                 // TODO: slightly wasteful, inelegant
                 if (!same_strand) {
                     reverse_complement_alignment_in_place(&aln_pair.second,
-                                                          [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); });
+                                                          [&](vg::id_t node_id) {
+                        return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id));
+                    });
                 }
                 do_independent_paired_alignments(aln_pair.first, aln_pair.second);
             }

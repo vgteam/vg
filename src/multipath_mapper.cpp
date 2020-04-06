@@ -176,7 +176,7 @@ namespace vg {
         
         // choose a clusterer
         unique_ptr<MEMClusterer> clusterer;
-        else if (use_min_dist_clusterer && component_min_dist) {
+        if (use_min_dist_clusterer && component_min_dist) {
             clusterer = unique_ptr<MEMClusterer>(new ComponentMinDistanceClusterer(distance_index));
         }
         else if (use_min_dist_clusterer && greedy_min_dist) {
@@ -185,7 +185,7 @@ namespace vg {
         else if (use_min_dist_clusterer) {
             clusterer = unique_ptr<MEMClusterer>(new MinDistanceClusterer(distance_index));
         }
-        if (use_tvs_clusterer) {
+        else if (use_tvs_clusterer) {
             clusterer = unique_ptr<MEMClusterer>(new TVSClusterer(xindex, distance_index));
         }
         else {
