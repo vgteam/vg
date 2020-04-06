@@ -36,7 +36,7 @@
 .
 :links
   rdf:type owl:ObjectProperty ;
-  rdfs:comment "The super property that says two nodes are linked and does not allow one to infer wwhich side to side it goes"^^xsd:string ;
+  rdfs:comment "The super property that says two nodes are linked and does not allow one to infer which side to side it goes"^^xsd:string ;
   rdfs:domain :Node ;
   rdfs:label "links"^^xsd:string ;
   rdfs:range :Node ;
