@@ -24,7 +24,7 @@
 .
 :Path
   rdf:type owl:Class ;
-  rdfs:comment "A Path is a collection of steps from path to path that represent an asserdfs:labelmbled sequence integrated into the variant grap."^^xsd:string ;
+  rdfs:comment "A Path is a collection of steps from path to path that represent an asserdfs:labelmbled sequence integrated into the variant graph."^^xsd:string ;
   rdfs:label "Path"^^xsd:string ;
   rdfs:subClassOf owl:Thing ;
 .
