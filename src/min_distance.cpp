@@ -203,6 +203,9 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
     util::bit_compress(chain_ranks);
     util::bit_compress(has_chain_bv);
     util::bit_compress(has_secondary_snarl_bv);
+    util::bit_compress(node_to_component);
+    util::bit_compress(component_to_chain_index);
+    util::bit_compress(component_to_chain_length);
 
 
     if (cap > 0) {
@@ -275,6 +278,9 @@ void MinimumDistanceIndex::load(istream& in){
     util::assign(has_secondary_snarl, 
                  rank_support_v<1>(&has_secondary_snarl_bv));
 
+    node_to_component.load(in);
+    component_to_chain_index.load(in);
+    component_to_chain_length.load(in);
     //Load serialized chains
     size_t num_chains;
     sdsl::read_member(num_chains, in);
@@ -323,6 +329,9 @@ void MinimumDistanceIndex::serialize(ostream& out) const {
     secondary_snarl_ranks.serialize(out);
     has_secondary_snarl_bv.serialize(out);
     has_secondary_snarl.serialize(out);
+    node_to_component.serialize(out);
+    component_to_chain_index.serialize(out);
+    component_to_chain_length.serialize(out);
 
     //Serialize chains 
     sdsl::write_member(chain_indexes.size(), out);
