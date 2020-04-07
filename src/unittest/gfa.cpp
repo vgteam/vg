@@ -4,6 +4,8 @@
 #include "../gfa.hpp"
 #include "../algorithms/gfa_to_handle.hpp"
 
+#include <bdsg/hash_graph.hpp>
+
 namespace vg {
 namespace unittest {
 
@@ -301,5 +303,73 @@ L	1	+	3	+	0M)";
     }
 }
 
+TEST_CASE("Can reject GFAs using unsupported features", "[gfa]") {
+
+    SECTION("An inoffensive graph is accepted") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATT
+S	2	ACA
+L	1	+	2	+	0M)";
+        
+        bdsg::HashGraph graph;
+        stringstream in(graph_gfa);
+        algorithms::gfa_to_path_handle_graph_in_memory(in, &graph);
+        
+        REQUIRE(graph.get_node_count() == 2);
+    }
+
+    SECTION("A graph that merges the ends of two nodes is rejected with GFAFormatError") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATTAC
+S	2	ATTACA
+L	1	+	2	+	5M)";
+        
+        bdsg::HashGraph graph;
+        stringstream in(graph_gfa);
+        REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph_in_memory(in, &graph), algorithms::GFAFormatError);
+    }
+    
+    SECTION("A graph that uses a non-numerical identifier is rejected with GFAFormatError") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATT
+S	Chana	ACA
+L	1	+	Chana	+	0M)";
+        
+        bdsg::HashGraph graph;
+        stringstream in(graph_gfa);
+        REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph_in_memory(in, &graph), algorithms::GFAFormatError);
+    }
+    
+    SECTION("A graph that uses a negative identifier is rejected with GFAFormatError") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATT
+S	-2	ACA
+L	1	+	-2	+	0M)";
+        
+        bdsg::HashGraph graph;
+        stringstream in(graph_gfa);
+        REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph_in_memory(in, &graph), algorithms::GFAFormatError);
+    }
+    
+    SECTION("A graph that uses a zero identifier is rejected with GFAFormatError") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATT
+S	0	ACA
+L	1	+	0	+	0M)";
+        
+        bdsg::HashGraph graph;
+        stringstream in(graph_gfa);
+        REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph_in_memory(in, &graph), algorithms::GFAFormatError);
+    }
+
+}
+
+
+        
 }
 }
