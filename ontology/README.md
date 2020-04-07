@@ -53,15 +53,38 @@ me:example:some_gene rdfs:seeAlso ENSEMBL:ESG00000XXXX . #and then pick up the a
 At this moment VG RDF wants a fully embedded variation graph. e.g. all positions in vg json have a single edit which covers a whole node. This is to enable easy SPARQL queries where substring operations are rarely used.
 
 
-## Annotations on pantograph and odgi
+## Annotations on pantograph
 
-On top of VG RDF, we can describe the same path information on `odgi bin` and Pantograph format as well.
+On top of VG RDF, we can describe the same path information on Pantograph format as well.
 
-```turtle
-# For representing odgi bin
-bin:1 a odgi:Bin ; odgi:edge bin:2 ; rdf:value "ACT" .
-bin:2 a odgi:Bin ; odgi:edge bin:3 : rdf:value "TGAAGT" .
-
-path:1 a vg:Path .
-path_step_1 a vg:Step ; odgi:bin bin:101 ; odgi:link bin:103 .
+```ttl
+<pg/zoom10> a pg:ZoomLevel ;
+   pg:components <pg/zoom10/group1>, <pg/zoom10/group2> ;
+   pg:zoomFactor 10 .
+<pg/zoom1000> a pg:ZoomLevel ;
+   pg:components <pg/zoom1000/group1>, <pg/zoom1000/group2> ;
+   pg:zoomFactor 1000 . // zoomFactor is binWidth here.
+<pg/zoom1000/group1> a pg:Component ;
+   pg:componentRank 1 ;   # The order of component is inferred by rank.
+   pg:bins <pg/zoom1000/group1/bin1>, <pg/zoom1000/group1/bin2> ;
+   pg:steps <pg/zoom1000/group1/step1>, <pg/zoom1000/group1/step2> ;
+<pg/zoom1000/group1/step1> a pg:Step ;
+   pg:positionPercent 0.04
+   pg:inversionPercent 1
+   pg:stepRegion <path1/region/6-100> .  # To infer firstNucleotide and last Nucleotide. faldo:begin of stepRegion is the first position. faldo:end of stepRegion is the last position.
+<pg/zoom1000/group1/bin1> a vg:Bin ;
+#   vg:binEdge <pg/zoom1000/bin2> ;
+   vg:binRank 1 ;
+   vg:binRegion <path1/region/6-100>,<path2/region/7-101> .
+<pg/zoom1000/group2/bin2> a vg:Bin ;
+#   vg:binEdge <pg/zoom1000/bin3> ;
+   vg:binRank 2 ;
+   vg:binRegion <path1/region/101-1000>,<path2/region/103-1004> .
+<pg/zoom1000/link1> a vg:Link ; # This is a non-linear Step between Bins.
+   vg:arrival <pg/zoom1000/group1/bin1>
+   vg:departure <pg/zoom1000/group2/bin2>
+   vg:paths <path1> <path2> # Participants of the link
+<path1/region/6-100> a faldo:Region ;
+   faldo:begin <path1/position/6>  ;
+   faldo:end <path1/position/100>  ;
 ```
