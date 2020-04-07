@@ -245,7 +245,7 @@ protected:
     vector<int> rank_by_support(const vector<Support>& supports);
 
     /// Baseline mapping error rate (gets added to the standard error from coverage)
-    double baseline_mapping_error = 0.005;
+    double baseline_mapping_error = 0.01;
 
     /// Consider up to the top-k traversals (based on support) for genotyping
     size_t top_k = 20;
