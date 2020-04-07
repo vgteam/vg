@@ -39,11 +39,17 @@ void gfa_to_handle_graph(const string& filename,
                          bool try_from_disk = true,
                          bool try_id_increment_hint = false);
 
-/// Same as above but also adds path elements from the GFA to the graph
+/// Same as gfa_to_handle_graph but also adds path elements from the GFA to the graph
 void gfa_to_path_handle_graph(const string& filename,
                               MutablePathMutableHandleGraph* graph,
                               bool try_from_disk = true,
                               bool try_id_increment_hint = false);
+                              
+/// Same as above but operating on a stream. Assumed to be non-seekable; all conversion happens in memory.
+/// Always streaming. Doesn't support ID increment hints.
+void gfa_to_path_handle_graph_in_memory(istream& in,
+                                        MutablePathMutableHandleGraph* graph);
+
 
 }
 }
