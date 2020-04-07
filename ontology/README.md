@@ -66,6 +66,7 @@ On top of VG RDF, we can describe the same path information on Pantograph format
    pg:zoomFactor 1000 . // zoomFactor is binWidth here.
 <pg/zoom1000/group1> a pg:Component ;
    pg:componentRank 1 ;   # The order of component is inferred by rank.
+   pg:componentEdge <pg/zoom1000/group2> ;
    pg:bins <pg/zoom1000/group1/bin1>, <pg/zoom1000/group1/bin2> ;
    pg:steps <pg/zoom1000/group1/step1>, <pg/zoom1000/group1/step2> ;
 <pg/zoom1000/group1/step1> a pg:Step ;
@@ -73,11 +74,11 @@ On top of VG RDF, we can describe the same path information on Pantograph format
    pg:inversionPercent 1
    pg:stepRegion <path1/region/6-100> .  # To infer firstNucleotide and last Nucleotide. faldo:begin of stepRegion is the first position. faldo:end of stepRegion is the last position.
 <pg/zoom1000/group1/bin1> a vg:Bin ;
-#   vg:binEdge <pg/zoom1000/bin2> ;
+   vg:binEdge <pg/zoom1000/group2/bin2> ;
    vg:binRank 1 ;
    vg:binRegion <path1/region/6-100>,<path2/region/7-101> .
 <pg/zoom1000/group2/bin2> a vg:Bin ;
-#   vg:binEdge <pg/zoom1000/bin3> ;
+   vg:binEdge <pg/zoom1000/group2/bin3> ;
    vg:binRank 2 ;
    vg:binRegion <path1/region/101-1000>,<path2/region/103-1004> .
 <pg/zoom1000/link1> a vg:Link ; # This is a non-linear Step between Bins.
