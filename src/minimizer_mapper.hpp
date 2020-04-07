@@ -172,14 +172,14 @@ public:
 protected:
 
     /**
-     * We define our own type for minimizers, to use during mapping and to apss around between our internal functions.
+     * We define our own type for minimizers, to use during mapping and to pass around between our internal functions.
      */
     struct Minimizer {
         typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
         size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
         size_t agglomeration_length; // What is the regioin of consecutive windows this minimizer instance is minimal in?
         size_t hits; // How many hits does the minimizer have?
-        const typename gbwtgraph::DefaultMinimizerIndex::code_type* occs;
+        const gbwtgraph::hit_type* occs;
         size_t origin; // This minimizer came from minimizer_indexes[origin].
         double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
 
@@ -232,6 +232,7 @@ protected:
      * Find seeds for all minimizers passing the filters. Return the seeds, the
      * corresponding source minimizers, and a bit vector over all minimizers
      * flagging the ones that were located.
+     * TODO JS: We should define a seed struct to store all the necessary fields.
      */
     std::tuple<std::vector<pos_t>, std::vector<size_t>, std::vector<bool>> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
 

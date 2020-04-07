@@ -246,7 +246,7 @@ int main_cluster(int argc, char** argv) {
                         // reverse minimizers, as the clusterer only cares about node ids.
                         for (auto& hit : minimizer_index->find(minimizers[i])) {
                             // For each position, remember it and what minimizer it came from
-                            seeds.push_back(hit);
+                            seeds.push_back(hit.first);
                             seed_to_source.push_back(i);
                         }
                     }

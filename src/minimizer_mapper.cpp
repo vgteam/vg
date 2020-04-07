@@ -2322,10 +2322,10 @@ std::tuple<std::vector<pos_t>, std::vector<size_t>, std::vector<bool>> Minimizer
             // sufficiently rare, or we want it to make target_score, or it is
             // the same sequence as the previous minimizer which we also took.
 
-            // Locate the hits.
+            // Locate the hits. We ignore the payload for now.
             minimizer_located[i] = true;
             for (size_t j = 0; j < minimizer.hits; j++) {
-                pos_t hit = gbwtgraph::DefaultMinimizerIndex::decode(minimizer.occs[j]);
+                pos_t hit = gbwtgraph::Position::decode(minimizer.occs[j].pos);
                 // Reverse the hits for a reverse minimizer
                 if (minimizer.value.is_reverse) {
                     size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(hit)));

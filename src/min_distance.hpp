@@ -71,7 +71,7 @@ class MinimumDistanceIndex {
     //the offset of the node in the root chain - the minimum distance from the beginning of the chain to 
     //the position
     //If the position is not on a root node (that is, a boundary node of a snarl in a root chain), returns
-    //<std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()> 
+    //<MIPayload::NO_VALUE, MIPayload::NO_VALUE> 
     pair<size_t, size_t> offset_in_root_chain (pos_t pos);
 
     bool in_same_connected_component(id_t node_id1, id_t node_id2);
@@ -476,7 +476,29 @@ class MinimumDistanceIndex {
 
 
 };
- 
+
+/**
+ * The encoding of (chain id, chain offset) pairs for positions in top-level chains.
+ * We store this information in the minimizer index.
+ */
+struct MIPayload {
+    typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::payload_type.
+
+    constexpr static code_type NO_CODE = std::numeric_limits<code_type>::max();
+    constexpr static size_t NO_VALUE = std::numeric_limits<size_t>::max(); // From offset_in_root_chain().
+
+    constexpr static size_t ID_OFFSET = 32;
+    constexpr static code_type OFFSET_MASK = (static_cast<code_type>(1) << ID_OFFSET) - 1;
+
+    static code_type encode(std::pair<size_t, size_t> chain_pos) {
+        return (chain_pos.first << ID_OFFSET) | (chain_pos.second & OFFSET_MASK);
+    }
+
+    static std::pair<size_t, size_t> decode(code_type code) {
+        return std::pair<size_t, size_t>(code >> ID_OFFSET, code & OFFSET_MASK);
+    }
+};
+
 }
 
 #endif
