@@ -7,6 +7,7 @@
 @prefix spin: <http://spinrdf.org/spin#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix edam: <http://edamontology.org/> .
+@prefix faldo: <http://biohackathon.org/resource/faldo#> .
 
 <http://biohackathon.org/resource/vg>
   rdf:type owl:Ontology ;
@@ -112,6 +113,53 @@
   rdfs:domain :Step ;
   rdfs:label "reverseOfNode"^^xsd:string ;
   rdfs:range :Node ;
+.
+:Bin
+  rdf:type owl:Class ;
+  rdfs:comment "A bin in the output of odgi bin, representing a sequence section."^^xsd:string ;
+  rdfs:label "Bin"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:Link
+  rdf:type owl:Class ;
+  rdfs:comment "An arrow marks a graph traversal along a nonlinear connection."^^xsd:string ;
+  rdfs:label "Arrow"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:binRank
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The rank records that step place along its panngenome sequence."^^xsd:string ;
+  rdfs:domain :Bin ;
+  rdfs:label "rank"^^xsd:string ;
+  rdfs:range xsd:positiveInteger ;
+.
+:binRegion
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A bin correspnds to the specific region of bins."^^xsd:string ;
+  rdfs:domain :Bin ;
+  rdfs:label "is"^^xsd:string ;
+  rdfs:range faldo:Region ;
+.
+:arrival
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A start bin of nonlinear link."^^xsd:string ;
+  rdfs:domain :Link ;
+  rdfs:label "from"^^xsd:string ;
+  rdfs:range :Bin ;
+.
+:departure
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "An end bin of nonlinear link."^^xsd:string ;
+  rdfs:domain :Link ;
+  rdfs:label "to"^^xsd:string ;
+  rdfs:range :Bin ;
+.
+:paths
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "This means that the path participates the non-linear links between bins."^^xsd:string ;
+  rdfs:domain :Link ;
+  rdfs:label "consistsOf"^^xsd:string ;
+  rdfs:range :Path ;
 .
 :VG_Format
   a owl:Class ;
