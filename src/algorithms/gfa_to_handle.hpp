@@ -17,6 +17,12 @@ namespace vg {
 namespace algorithms {
 using namespace std;
 
+/// This exception will be thrown if the GFA data is not acceptable.
+struct GFAFormatError : std::runtime_error {
+    // Keep the constructor from a message
+    using std::runtime_error::runtime_error;
+};
+
 /// Read a GFA file for a blunt-ended graph into a HandleGraph. Give "-" as a filename for stdin.
 ///
 /// Optionally tries read the GFA from disk without creating an in-memory representation (defaults to
@@ -24,6 +30,10 @@ using namespace std;
 ///
 /// Also optionally provides a hint about the node ID range to the handle graph implementation before
 /// constructing it (defaults to no hint if reading from stdin).
+///
+/// Throws GFAFormatError if the GFA file is not acceptable, and
+/// std::ios_base::failure if an IO operation fails. Throws invalid_argument if
+/// otherwise misused.
 void gfa_to_handle_graph(const string& filename,
                          MutableHandleGraph* graph,
                          bool try_from_disk = true,

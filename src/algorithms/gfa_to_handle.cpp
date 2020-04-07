@@ -5,28 +5,30 @@ namespace algorithms {
 
 nid_t parse_gfa_sequence_id(const string& str) {
     if (any_of(str.begin(), str.end(), [](char c) { return !isdigit(c); })) {
-        throw runtime_error("error:[gfa_to_handle_graph] Could not parse sequence ID '" + str + "'. GFA sequence IDs must be integers >= 1.");
+        throw GFAFormatError("error:[gfa_to_handle_graph] Could not parse sequence ID '" + str + "'. GFA sequence IDs must be integers >= 1.");
     }
     nid_t node_id = stoll(str);
     if (node_id <= 0) {
-        throw runtime_error("error:[gfa_to_handle_graph] Could not parse sequence ID '" + str + "'. GFA sequence IDs must be integers >= 1.");
+        throw GFAFormatError("error:[gfa_to_handle_graph] Could not parse sequence ID '" + str + "'. GFA sequence IDs must be integers >= 1.");
     }
     return node_id;
 }
 
 
 void validate_gfa_edge(const gfak::edge_elem& e) {
+    string not_blunt = ("error:[gfa_to_handle_graph] Can only load blunt-ended GFAs. "
+        "Try \"bluntifying\" your graph with a tool like <https://github.com/hnikaein/stark>.");
     if (e.source_begin != e.source_end || e.sink_begin != 0 || e.sink_end != 0) {
-        throw runtime_error("error:[gfa_to_handle_graph] Only can load blunt ended GFAs. Found edge with an overlay: " + e.source_name + "[" + to_string(e.source_begin) + ":" + to_string(e.source_end) + "] -> " + e.sink_name + "[" + to_string(e.sink_begin) + ":" + to_string(e.sink_end) + "]");
+        throw GFAFormatError(not_blunt + " Found edge with an overlay: " + e.source_name + "[" + to_string(e.source_begin) + ":" + to_string(e.source_end) + "] -> " + e.sink_name + "[" + to_string(e.sink_begin) + ":" + to_string(e.sink_end) + "]");
     }
     if (!(e.alignment == "0M" || e.alignment == "*" || e.alignment.empty())) {
-        throw runtime_error("error:[gfa_to_handle_graph] Only can load blunt ended GFAs. Found edge with a non-null alignment '" + e.alignment + "'.");
+        throw GFAFormatError(not_blunt + " Found edge with a non-null alignment '" + e.alignment + "'.");
     }
     if (e.source_name.empty()) {
-        throw runtime_error("error:[gfa_to_handle_graph] Found edge record with missing source name");
+        throw GFAFormatError("error:[gfa_to_handle_graph] Found edge record with missing source name");
     }
     if (e.sink_name.empty()) {
-        throw runtime_error("error:[gfa_to_handle_graph] Found edge record with missing sink name");
+        throw GFAFormatError("error:[gfa_to_handle_graph] Found edge record with missing sink name");
     }
 }
 
@@ -38,18 +40,12 @@ string process_raw_gfa_path_name(const string& path_name_raw)  {
     return processed;
 }
 
-void gfa_to_handle_graph_in_memory(const string& filename, MutableHandleGraph* graph,
+void gfa_to_handle_graph_in_memory(istream& in, MutableHandleGraph* graph,
                                    gfak::GFAKluge& gg) {
-    if (filename == "-") {
-        gg.parse_gfa_file(cin);
+    if (!in) {
+        throw runtime_error("error:[gfa_to_handle_graph] Couldn't open input stream");
     }
-    else {
-        ifstream in(filename);
-        if (!in) {
-            throw runtime_error("error:[gfa_to_handle_graph] Couldn't open file " + filename);
-        }
-        gg.parse_gfa_file(in);
-    }
+    gg.parse_gfa_file(in);
     
     // create nodes
     for (const auto& seq_record : gg.get_name_to_seq()) {
@@ -65,6 +61,21 @@ void gfa_to_handle_graph_in_memory(const string& filename, MutableHandleGraph* g
             handle_t b = graph->get_handle(parse_gfa_sequence_id(edge.sink_name), !edge.sink_orientation_forward);
             graph->create_edge(a, b);
         }
+    }
+}
+
+void gfa_to_handle_graph_in_memory(const string& filename, MutableHandleGraph* graph,
+                                   gfak::GFAKluge& gg) {
+    
+    if (filename == "-") {
+        gfa_to_handle_graph_in_memory(cin, graph, gg);
+    }
+    else {
+        ifstream in(filename);
+        if (!in) {
+            throw runtime_error("error:[gfa_to_handle_graph] Couldn't open file " + filename);
+        }
+        gfa_to_handle_graph_in_memory(in, graph, gg);
     }
 }
 
@@ -109,7 +120,7 @@ void gfa_to_handle_graph_internal(const string& filename, MutableHandleGraph* gr
                                   gfak::GFAKluge& gg) {
     
     if (graph->get_node_count() > 0) {
-        throw runtime_error("error:[gfa_to_handle_graph] Must parse GFA into an empty graph");
+        throw invalid_argument("error:[gfa_to_handle_graph] Must parse GFA into an empty graph");
     }
     
     if (try_id_increment_hint && filename == "-") {
@@ -141,7 +152,7 @@ void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGr
     
     
     if (graph->get_path_count() > 0) {
-        throw runtime_error("error:[gfa_to_handle_graph] Must parse GFA into an empty graph");
+        throw invalid_argument("error:[gfa_to_handle_graph] Must parse GFA into an empty graph");
     }
     
     gfak::GFAKluge gg;
