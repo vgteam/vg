@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 20
+plan tests 19
 
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg view -d - | wc -l) 505 "view produces the expected number of lines of dot output"
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg view -g - | wc -l) 503 "view produces the expected number of lines of GFA output"
@@ -49,16 +49,14 @@ is "$(cat x.vg x.vg | vg view -vVD - 2>&1 > /dev/null | wc -l)" 0 "duplicate war
 
 rm x.vg
 
-is "$(vg view -Fv overlaps/two_snvs_assembly1.gfa | vg stats -l - | cut -f2)" "315" "gfa graphs are bluntified on import"
-
-is "$(vg view -Fv overlaps/two_snvs_assembly4.gfa | vg stats -l - | cut -f2)" "335" "a more complex GFA can be imported"
+vg view -Fv overlaps/two_snvs_assembly1.gfa >/dev/null 2>errors.txt
+is "${?}" "1" "gfa graphs with overlaps are rejected"
+is "$(cat errors.txt | wc -l)" "2" "GFA import produces a concise error message when overlaps are present"
 
 vg view -Fv overlaps/incorrect_overlap.gfa >/dev/null 2>errors.txt
 is "$?" "1" "GFA import rejects a GFA file with an overlap that goes beyond its sequences"
-is "$(cat errors.txt | wc -l)" "1" "GFA import produces a concise error message in that case"
+is "$(cat errors.txt | wc -l)" "2" "GFA import produces a concise error message in that case"
 
 rm -f errors.txt
 
-vg view -Fv overlaps/corrected_overlap.gfa >/dev/null
-is "$?" "0" "GFA import accepts that file when the offending overlap length is fixed"
 

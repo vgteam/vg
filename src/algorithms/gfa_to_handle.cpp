@@ -43,7 +43,7 @@ string process_raw_gfa_path_name(const string& path_name_raw)  {
 void gfa_to_handle_graph_in_memory(istream& in, MutableHandleGraph* graph,
                                    gfak::GFAKluge& gg) {
     if (!in) {
-        throw runtime_error("error:[gfa_to_handle_graph] Couldn't open input stream");
+        throw std::ios_base::failure("error:[gfa_to_handle_graph] Couldn't open input stream");
     }
     gg.parse_gfa_file(in);
     
@@ -73,7 +73,7 @@ void gfa_to_handle_graph_in_memory(const string& filename, MutableHandleGraph* g
     else {
         ifstream in(filename);
         if (!in) {
-            throw runtime_error("error:[gfa_to_handle_graph] Couldn't open file " + filename);
+            throw std::ios_base::failure("error:[gfa_to_handle_graph] Couldn't open file " + filename);
         }
         gfa_to_handle_graph_in_memory(in, graph, gg);
     }
@@ -125,10 +125,6 @@ void gfa_to_handle_graph_internal(const string& filename, MutableHandleGraph* gr
     
     if (try_id_increment_hint && filename == "-") {
         cerr << "warning:[gfa_to_handle_graph] Skipping node ID increment hint because input stream for GFA does not support seeking. If performance suffers, consider using an alternate graph implementation or reading GFA from hard disk." << endl;
-    }
-    
-    if (try_from_disk && filename == "-") {
-        cerr << "warning:[gfa_to_handle_graph] From-disk GFA reading was selected, but input stream is not seekable. Using in-memory conversion algorithm instead. If memory performance suffers, consider reading GFA from hard disk." << endl;
     }
     
     if (try_from_disk && filename != "-") {
