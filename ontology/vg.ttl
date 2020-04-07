@@ -127,6 +127,13 @@
   rdfs:subClassOf owl:Thing ;
 .
 :binRank
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "The super property that says two bins are linked on the PangenomeSequence."^^xsd:string ;
+  rdfs:domain :Bin ;
+  rdfs:label "connects"^^xsd:string ;
+  rdfs:range :Bin ;
+.
+:binEdge
   rdf:type owl:DatatypeProperty ;
   rdfs:comment "The rank records that step place along its panngenome sequence."^^xsd:string ;
   rdfs:domain :Bin ;
