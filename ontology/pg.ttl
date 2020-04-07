@@ -47,7 +47,7 @@
 .
 :componentRank
   rdf:type owl:DatatypeProperty ;
-  rdfs:comment "The rank records that step place along its panngenome sequence."^^xsd:string ;
+  rdfs:comment "The rank records that step place along its pangenome sequence."^^xsd:string ;
   rdfs:domain :Component ;
   rdfs:label "rank"^^xsd:string ;
   rdfs:range xsd:positiveInteger ;
