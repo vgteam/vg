@@ -1,0 +1,95 @@
+# baseURI: http://biohackathon.org/resource/pg
+
+@prefix : <http://biohackathon.org/resource/pg#> .
+@prefix vg: <http://biohackathon.org/resource/vg#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix spin: <http://spinrdf.org/spin#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix edam: <http://edamontology.org/> .
+@prefix faldo: <http://biohackathon.org/resource/faldo#> .
+
+<http://biohackathon.org/resource/pg>
+  rdf:type owl:Ontology ;
+  <http://purl.org/dc/terms/license> <http://creativecommons.org/publicdomain/zero/1.0/> ;
+  spin:imports <http://topbraid.org/spin/owlrl-all> ;
+  spin:imports <http://topbraid.org/spin/rdfsplus> ;
+  spin:imports <http://topbraid.org/spin/spinowl> ;
+  owl:versionInfo "Created at the CoVID-19 Hackathon"^^xsd:string ;
+.
+
+:ZoomLevel
+  rdf:type owl:Class ;
+  rdfs:comment "A zoom level of Pangenome."^^xsd:string ;
+  rdfs:label "ZoomLevel"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:zoomFactor
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The zoom factor of pangenome, which is defined as bin width, generally."^^xsd:string ;
+  rdfs:domain :ZoomLevel ;
+  rdfs:label "factor"^^xsd:string ;
+  rdfs:range xsd:positiveInteger ;
+.
+:components
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A zoom level has one or more components."^^xsd:string ;
+  rdfs:domain :ZoomLevel ;
+  rdfs:label "has"^^xsd:string ;
+  rdfs:range :Component ;
+.
+:Component
+  rdf:type owl:Class ;
+  rdfs:comment "A region between Arrows shared by all individuals."^^xsd:string ;
+  rdfs:label "Component"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:componentRank
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The rank records that step place along its panngenome sequence."^^xsd:string ;
+  rdfs:domain :Component ;
+  rdfs:label "rank"^^xsd:string ;
+  rdfs:range xsd:positiveInteger ;
+.
+:bins
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A Component has one or more Bins."^^xsd:string ;
+  rdfs:domain :Component ;
+  rdfs:label "has"^^xsd:string ;
+  rdfs:range vg:Bin ;
+.
+:steps
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A Component has one or more Steps, which is a path of a specific group (component) of a specific zoom."^^xsd:string ;
+  rdfs:domain :Component ;
+  rdfs:label "has"^^xsd:string ;
+  rdfs:range :Step ;
+.
+:Step
+  rdf:type owl:Class ;
+  rdfs:comment "A step along a path of a specific group (component) of a specific zoom. A step points to a :Component with supplemental informations."^^xsd:string ;
+  rdfs:label "Step"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:stepRegion
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A bin correspnds to the specific region of bins."^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "is"^^xsd:string ;
+  rdfs:range faldo:Region ;
+.
+:positionPercent
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The position coverage in the component of the path."^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "coverage"^^xsd:string ;
+  rdfs:range xsd:float ;
+.
+:inversionPercent
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The percent Position in the component of the path."^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "inversion"^^xsd:string ;
+  rdfs:range xsd:float ;
+.
