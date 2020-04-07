@@ -45,6 +45,13 @@
   rdfs:label "Component"^^xsd:string ;
   rdfs:subClassOf owl:Thing ;
 .
+:componentEdge
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "The super property that says two components are linked on the PangenomeSequence."^^xsd:string ;
+  rdfs:domain :Component ;
+  rdfs:label "connects"^^xsd:string ;
+  rdfs:range :Component ;
+.
 :componentRank
   rdf:type owl:DatatypeProperty ;
   rdfs:comment "The rank records that step place along its pangenome sequence."^^xsd:string ;
