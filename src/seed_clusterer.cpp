@@ -3,7 +3,6 @@
 #include <algorithm>
 
 //#define DEBUG_CLUSTER
-
 namespace vg {
 
     SnarlSeedClusterer::SnarlSeedClusterer( MinimumDistanceIndex& dist_index) :
@@ -127,6 +126,10 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
             tree_state.chain_to_snarls.clear();
         }
 
+        //Now add the seeds on top-level chains to the clusters
+        //TODO: Make sure the clusters exist
+        cluster_top_level(tree_state);
+
 #ifdef DEBUG_CLUSTER
         cerr << "Found read clusters : " << endl;
         for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
@@ -176,21 +179,35 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
             for (size_t i = 0; i < seeds->size(); i++) {
                 pos_t pos = seeds->at(i);
                 id_t id = get_id(pos);
+                size_t component = 0;//TODO: Get component
 
                 //Assign the seed to a node
-                tree_state.node_to_seeds[read_num].emplace_back(id, i);
+                if (component == std::numeric_limits<size_t>::max()) {
+                    //If this seed is not on a top-level chain
+                    tree_state.node_to_seeds[read_num].emplace_back(id, i);
 
-                //And the node to a snarl
-                if (seen_nodes.count(id) < 1) {
-                    seen_nodes.insert(id);
-                    size_t snarl_i = dist_index.getPrimaryAssignment(id);
-                    size_t depth = dist_index.snarl_indexes[snarl_i].depth;
-                    snarl_to_nodes_by_level[depth][snarl_i].emplace_back(
-                             NetgraphNode(id, NODE), NodeClusters(tree_state.all_seeds->size()));
+                    //And the node to a snarl
+                    if (seen_nodes.count(id) < 1) {
+                        seen_nodes.insert(id);
+                        size_t snarl_i = dist_index.getPrimaryAssignment(id);
+                        size_t depth = dist_index.snarl_indexes[snarl_i].depth;
+                        snarl_to_nodes_by_level[depth][snarl_i].emplace_back(
+                                 NetgraphNode(id, NODE), NodeClusters(tree_state.all_seeds->size()));
+                    } 
+                } else {
+                    //If this is a top-level seed, defer clustering until we reach the top-level
+
+                    if (tree_state.component_to_index.count(component) == 0) {
+                        tree_state.component_to_index.emplace(component, tree_state.top_level_seed_clusters.size());
+                        tree_state.top_level_seed_clusters.emplace_back();
+                    }
+                    tree_state.top_level_seed_clusters[tree_state.component_to_index.at(component)].emplace_back(read_num, i);
+
                 }
             }
             std::sort(tree_state.node_to_seeds[read_num].begin(), tree_state.node_to_seeds[read_num].end());
         }
+        tree_state.top_level_clusters.resize(tree_state.top_level_seed_clusters.size());
     }
 
 
@@ -258,7 +275,18 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
                 } else {
                     //If it doesn't have a parent, don't need to keep track of
                     //its contents
-                    cluster_one_snarl(tree_state, snarl_i);
+
+                    NodeClusters top_snarl_clusters = cluster_one_snarl(tree_state, snarl_i);
+                    size_t component = dist_index.get_connected_component(snarl_index.id_in_parent);
+                    assert(component != std::numeric_limits<size_t>::max());
+                    if (tree_state.component_to_index.count(component) == 0) {
+                        tree_state.component_to_index.emplace(component, tree_state.top_level_clusters.size());
+                        tree_state.top_level_clusters.emplace_back();
+                    } 
+                    tree_state.top_level_clusters[tree_state.component_to_index.at(component)] = std::move(top_snarl_clusters.read_cluster_heads);
+                    
+
+
                 }
             }
         }
@@ -281,7 +309,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
 #endif
 
             // Compute the clusters for the chain
-            auto chain_clusters = cluster_one_chain(tree_state, chain_i);
+            NodeClusters chain_clusters = cluster_one_chain(tree_state, chain_i);
 
             if (depth > 0) {
                 // We actually have a parent
@@ -309,9 +337,21 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
                     << tree_state.parent_snarl_to_nodes[parent_snarl_i].size()
                     << " children now" << endl;
 #endif
+            } else {
+                //If this is the top-level chain, then add the clusters to the top level clusters
+                size_t component = dist_index.get_connected_component(dist_index.chain_indexes[chain_i].id_in_parent);
+                assert(component != std::numeric_limits<size_t>::max());
+                if (tree_state.component_to_index.count(component) == 0) {
+                    tree_state.component_to_index.emplace(component, tree_state.top_level_clusters.size());
+                    tree_state.top_level_clusters.emplace_back();
+                }
+                tree_state.top_level_clusters[tree_state.component_to_index.at(component)] = 
+                    std::move(chain_clusters.read_cluster_heads);
             }
         }
     }
+
+
     SnarlSeedClusterer::NodeClusters SnarlSeedClusterer::cluster_one_node(
                        TreeState& tree_state,
                        id_t node_id, int64_t node_length) const {
@@ -1533,5 +1573,164 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
         }
 #endif
         return snarl_clusters;
+    };
+
+
+    void SnarlSeedClusterer::cluster_top_level(TreeState& tree_state) const {
+        //Cluster top_level_clusters and top_level_seed_clusters
+
+        auto insert_in_order = [&](vector<tuple<bool, size_t, size_t>> input_vector, tuple<bool, size_t, size_t> item) {
+            //Get the offset of the thing we're inserting
+            int64_t item_offset = std::get<0>(item) ?  0//tree_state.all_seeds->at(std::get<1>(item))[std::get<2>(item)] //TODO: get this value
+                                                    : tree_state.read_cluster_dists[std::get<1>(item)][std::get<2>(item)].first;
+
+            //Get an iterator to where the thing we're inserting should go in the vector
+            std::vector<tuple<bool, size_t, size_t>>::iterator insert_itr = std::upper_bound(input_vector.begin(), input_vector.end(),
+               item_offset, [&](int64_t val, tuple<bool, size_t, size_t> vector_item) {
+                   int64_t offset = std::get<0>(vector_item) ? 
+                        0 : //tree_state.all_seeds->at(std::get<1>(vector_item))[std::get<2>(vector_item)] : //TODO: Get the correct value
+                        tree_state.read_cluster_dists[std::get<1>(vector_item)][std::get<2>(vector_item)].first;
+                   return val < offset; 
+               });
+            //Add the item to the vector in sorted order
+            input_vector.insert(insert_itr, item);
+        };
+
+        //Holds all clusters as tuple of <is top level seed cluster, read num, seed num> 
+        //vectors of tuples are sorted by the offset
+        vector<vector<tuple<bool, size_t, size_t>>> cluster_head_indices (tree_state.top_level_clusters.size());
+
+        //Add top-level clusters to sorted list
+        for (size_t component = 0 ; component < tree_state.top_level_clusters.size() ; component++) {
+            for (const pair<size_t, size_t>& indices : tree_state.top_level_clusters[component]) {
+                cluster_head_indices[component], make_tuple(false, indices.first, indices.second);
+            }
+        }
+        //Add top-level seed clusters to sorted list
+        for (size_t component = 0 ; component < tree_state.top_level_seed_clusters.size() ; component++) {
+            for (const pair<size_t, size_t>& indices : tree_state.top_level_seed_clusters[component]) {
+                cluster_head_indices[component], make_tuple(true, indices.first, indices.second);
+            }
+        }
+
+
+        //Now for each component, cluster the clusters using a linear sweep
+        //Don't cluster two clusters that aren't top-level seeds
+        for (size_t component = 0 ; component < cluster_head_indices.size() ; component++) {
+            //Keep track of the rightmost seed that came from a cluster
+            vector<int64_t> fragment_best_dist_left_cluster;
+            vector<size_t> fragment_cluster_head_cluster;
+            //The rightmost seed that is a top-level seed or in a cluster with a top-level seed
+            //(Since we don't want to just combine two clusters if they aren't top level seeds, since they would have
+            //already been clustered if they were reachable, whereas top-level seeds are always reachable)
+            int64_t fragment_best_dist_left_seeds = -1;
+            size_t fragment_cluster_head_seeds;
+            //And the same thing for each read
+            vector<vector<int64_t>> best_dist_left_cluster_by_read_num(tree_state.all_seeds->size());
+            vector<vector<size_t>> cluster_head_cluster_by_read_num(tree_state.all_seeds->size());
+            vector<int64_t> best_dist_left_seeds_by_read_num(tree_state.all_seeds->size(), -1);
+            vector<size_t> cluster_head_seeds_by_read_num(tree_state.all_seeds->size());
+
+            //Now go through all the seeds and cluster them
+            //Go through the clusters in order and cluster them. If the cluster was a real cluster, then compare it to the
+            //last seed cluster we found. If it was a seed, compare it to all previous clusters since we last saw a seed
+            for (tuple<bool, size_t, size_t>& seed_index : cluster_head_indices[component]) { 
+
+                size_t read_num = std::get<1>(seed_index);
+                if (std::get<0>(seed_index)) {
+                    //If this is a top-level seed, then try to compare it to the best clusters and update the
+                    //best seed-only clusters. If the last cluster we found was a seed, compare it to that
+                    int64_t offset = 0; //tree_state.all_seeds->at(std::get<1>(seed_index))[std::get<2>(seed_index)];//TODO: Get offset somehow
+
+                    //try clustering by fragment
+                    if (tree_state.fragment_distance_limit != 0) {
+                        if (fragment_best_dist_left_cluster.size() == 0 ) {
+                            //Combine this seed cluster with the last seed cluster we found
+                            if (fragment_best_dist_left_seeds != -1 && 
+                                offset - fragment_best_dist_left_seeds <= tree_state.fragment_distance_limit) {
+                                tree_state.fragment_union_find.union_groups(fragment_cluster_head_seeds, 
+                                                            std::get<2>(seed_index)+tree_state.read_index_offsets[read_num]);
+                            }
+                        } else {
+                            //Combine this seed cluster with all previous clusters we've seen since the last seed cluster
+                            for (size_t i = 0 ; i < fragment_best_dist_left_cluster.size() ; i++) {
+                                if (offset - fragment_best_dist_left_cluster[i] <= tree_state.fragment_distance_limit) {
+                                    tree_state.fragment_union_find.union_groups(fragment_cluster_head_cluster[i], 
+                                                            std::get<2>(seed_index)+tree_state.read_index_offsets[read_num]);
+                                }
+                            }
+                        }
+                        //Update the most recent fragment seed cluster
+                        fragment_cluster_head_seeds = std::get<2>(seed_index)+tree_state.read_index_offsets[read_num];
+                        fragment_best_dist_left_seeds = offset; 
+
+                        //Forget the last fragment clusters we saw
+                        fragment_best_dist_left_cluster.clear();
+                        fragment_cluster_head_cluster.clear();
+                    }
+
+
+                    //try clustering by read
+                    if (best_dist_left_cluster_by_read_num[read_num].size() == 0) {
+                        //If the last seed we saw was a seed cluster
+                        if (best_dist_left_seeds_by_read_num[read_num] != -1 &&
+                            offset - best_dist_left_seeds_by_read_num[read_num] <= tree_state.read_distance_limit) {
+                                tree_state.read_union_find[read_num].union_groups(std::get<2>(seed_index), 
+                                                                                  cluster_head_seeds_by_read_num[read_num]); 
+                        }
+                    } else {
+                        //Cluster with all clusters we saw before last seed cluster
+                        for (size_t i = 0 ; i < best_dist_left_cluster_by_read_num[read_num].size() ; i++) {
+                            if (offset - best_dist_left_cluster_by_read_num[read_num][i] <= tree_state.read_distance_limit) {
+                                tree_state.read_union_find[read_num].union_groups(std::get<2>(seed_index), 
+                                                                                  cluster_head_cluster_by_read_num[read_num][i]); 
+
+                            }
+                        }
+                    }
+                    //Update the most recent seed cluster we've seen
+                    cluster_head_seeds_by_read_num[read_num] = std::get<2>(seed_index);
+                    best_dist_left_seeds_by_read_num[read_num] = offset;
+
+                    //And forget the clusters we've seen since the last seed cluster
+                    best_dist_left_cluster_by_read_num.clear();
+                    cluster_head_cluster_by_read_num.clear();
+
+                } else {
+                    //If this is an actual cluster, compare it only to the most recent seed-only cluster 
+                    //and update the real cluster clusters
+                    int64_t offset = tree_state.read_cluster_dists[std::get<1>(seed_index)][std::get<2>(seed_index)].first;
+                    size_t read_num = std::get<1>(seed_index);
+
+                    //try clustering by fragment
+                    if (tree_state.fragment_distance_limit != 0) {
+                        if (fragment_best_dist_left_seeds != -1 &&
+                            offset - fragment_best_dist_left_seeds <= tree_state.fragment_distance_limit) {
+                            tree_state.fragment_union_find.union_groups(fragment_cluster_head_seeds, 
+                                                            std::get<2>(seed_index)+tree_state.read_index_offsets[read_num]);
+                        }
+
+                        fragment_best_dist_left_cluster.push_back( offset);
+                        fragment_cluster_head_cluster.push_back(std::get<2>(seed_index)+tree_state.read_index_offsets[read_num]);
+                    }
+
+
+                    //try clustering by read
+                    if (best_dist_left_seeds_by_read_num[read_num] != -1 &&
+                        offset - best_dist_left_seeds_by_read_num[read_num] <= tree_state.read_distance_limit) {
+                        tree_state.read_union_find[read_num].union_groups(cluster_head_seeds_by_read_num[read_num], 
+                                                                          std::get<2>(seed_index));
+
+                    } 
+
+                    //Update the most recent cluster we've seen
+                    best_dist_left_cluster_by_read_num[read_num].push_back( offset);
+                    cluster_head_cluster_by_read_num[read_num].push_back(std::get<2>(seed_index));
+                   
+                }
+                 
+            }
+        }
+        return;
     };
 }

@@ -125,6 +125,8 @@ class SnarlSeedClusterer {
             vector<int64_t> read_best_left;
             vector<int64_t> read_best_right;
 
+            //Constructor
+            //read_count is the number of reads in a fragment (2 for paired end)
             NodeClusters(size_t read_count) :
                 fragment_best_left(-1), fragment_best_right(-1),
                 read_best_left(read_count, -1), read_best_right(read_count, -1){}
@@ -192,6 +194,20 @@ class SnarlSeedClusterer {
             //This gets updated as the current level is processed
             hash_map<size_t,vector<pair<NetgraphNode,NodeClusters>>> parent_snarl_to_nodes;
 
+
+            /////////////////// Hold the top-level clusters
+
+
+            //maps connected component number to index into top_level_seed_clusters and top_level_clusters
+            hash_map<size_t, size_t> component_to_index;
+
+            //Indexes of seeds that occur on a top level chain, separated into components
+            vector<vector<pair<size_t, size_t>>> top_level_seed_clusters;
+
+            //Set this to the cluster heads not on a top-level chain after we've finished clustering
+            //This gets clustered with top-level_seed_clusters at the very end with cluster_top_level 
+            vector<hash_set<pair<size_t, size_t>>> top_level_clusters;
+
             //Constructor takes in a pointer to the seeds, the distance limits, and 
             //the total number of seeds in all_seeds
             TreeState (const vector<const vector<pos_t>*>* all_seeds, int64_t read_distance_limit, 
@@ -246,6 +262,10 @@ class SnarlSeedClusterer {
         //dist_index.snarl_indexes
         NodeClusters cluster_one_snarl(TreeState& tree_state,
                                        size_t snarl_index_i) const;
+
+        //Combine the top-level clusters from individual seeds in tree_state.top_level_seed_clusters
+        //with the clusters of other seeds in tree_state.top_level_clusters
+        void cluster_top_level(TreeState& tree_state) const;
 
 };
 }

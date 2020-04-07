@@ -360,9 +360,7 @@ void MinimumDistanceIndex::serialize(ostream& out) const {
 /////////////////////////    MINIMUM INDEX    ///////////////////////////////
 
 
-//TODO: Need to make a chain index for all top-level chains even trivial ones
 //TODO: Add seen nodes here instead of going through them earlier
-//TODO: Add each node's component the first time we see it
 int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                     const SnarlManager* snarl_manager,
                                     const Chain* chain, size_t parent_id,
@@ -388,7 +386,6 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
  
     if (!trivial_chain) {
         //If this is a chain, initialize a new ChainIndex object
-        //Also keep a ChainIndex if it is a top-level snarl
 
         //Get the start of the chain
         auto first_visit = get_start_of(*chain);
@@ -1594,7 +1591,6 @@ int64_t MinimumDistanceIndex::minPos (vector<int64_t> vals) {
 };
 
 void MinimumDistanceIndex::printSelf() {
-    //TODO: DOn't actually know the node ids when we're printing things out
     cerr << "node id \t primary snarl \t rank \t secondary snarl \t rank \t chain \t rank" << endl;
     for (size_t i = 0 ; i < primary_snarl_assignments.size() ; i ++ ) {
         if (primary_snarl_assignments[i] != 0){
@@ -2553,8 +2549,12 @@ pair<size_t, size_t> MinimumDistanceIndex::offset_in_root_chain (pos_t pos) {
     return make_pair(component, offset + node_offset);
 }
 
-bool MinimumDistanceIndex::in_same_connected_component(id_t node_id1, id_t node_id2) {
-    return node_to_component[node_id1-min_node_id] == node_to_component[node_id1 - min_node_id];
+int64_t MinimumDistanceIndex::top_level_chain_length(id_t node_id) {
+    size_t component = node_to_component[node_id-min_node_id];
+    return component == 0 ? -1 : component_to_chain_length[component-1];
+}
+size_t MinimumDistanceIndex::get_connected_component(id_t node_id) {
+    return node_to_component[node_id-min_node_id];
 }
 
 }
