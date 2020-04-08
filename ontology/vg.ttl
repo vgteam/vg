@@ -149,16 +149,18 @@
 .
 :arrival
   rdf:type owl:ObjectProperty ;
-  rdfs:comment "A start bin of nonlinear link."^^xsd:string ;
+  rdfs:comment "An end bin of nonlinear link. Incoming edge of the bin."^^xsd:string ;
+  owl:inverseOf :departure;
   rdfs:domain :Link ;
-  rdfs:label "from"^^xsd:string ;
+  rdfs:label "to"^^xsd:string ;
   rdfs:range :Bin ;
 .
 :departure
   rdf:type owl:ObjectProperty ;
-  rdfs:comment "An end bin of nonlinear link."^^xsd:string ;
+  rdfs:comment "A start bin of nonlinear link. Outgoing edge of the bin."^^xsd:string ;
+  owl:inverseOf :arrival;
   rdfs:domain :Link ;
-  rdfs:label "to"^^xsd:string ;
+  rdfs:label "from"^^xsd:string ;
   rdfs:range :Bin ;
 .
 :paths
