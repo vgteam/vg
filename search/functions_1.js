@@ -30,6 +30,7 @@ var searchData=
   ['add_5fsubpaths_5fto_5fsubgraph',['add_subpaths_to_subgraph',['../namespacevg_1_1algorithms.html#ad37fc704de99f02f0bf767d6ab41fe4e',1,'vg::algorithms']]],
   ['add_5fthread_5fedges_5fto_5fset',['add_thread_edges_to_set',['../namespacevg.html#afe2d6096dfe672a486e44df018c713c2',1,'vg']]],
   ['add_5fthread_5fnodes_5fto_5fset',['add_thread_nodes_to_set',['../namespacevg.html#a2adfa9e81b2553fefdd5e1d6b24c7a77',1,'vg']]],
+  ['add_5fto_5fnumber',['add_to_number',['../classbdsg_1_1ODGI.html#a8db273d2507e0e7960d0b1fa2d439d1b',1,'bdsg::ODGI']]],
   ['add_5ftranscript_5fsplice_5fjunctions',['add_transcript_splice_junctions',['../classvg_1_1Transcriptome.html#ac76b37c51170732a6a15394036e235df',1,'vg::Transcriptome']]],
   ['add_5ftranscripts',['add_transcripts',['../classvg_1_1Transcriptome.html#a930c70d10c70312636dee1611a3ba645',1,'vg::Transcriptome']]],
   ['add_5ftraversals',['add_traversals',['../classvg_1_1ExhaustiveTraversalFinder.html#a4d93c5f43e4be897874b2468c026c0ca',1,'vg::ExhaustiveTraversalFinder']]],

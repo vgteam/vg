@@ -244,7 +244,7 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:aa6710e4471ebadab935e9d5da028b3fa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convenient wrapper for destroy_edge.  <a href="#aa6710e4471ebadab935e9d5da028b3fa">More...</a><br /></td></tr>
 <tr class="separator:aa6710e4471ebadab935e9d5da028b3fa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a03fb2ec6571cc5bfa141827303a530cf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a03fb2ec6571cc5bfa141827303a530cf">clear</a> (void)</td></tr>
-<tr class="memdesc:a03fb2ec6571cc5bfa141827303a530cf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remove all nodes and edges. Does not update any stored paths.  <a href="#a03fb2ec6571cc5bfa141827303a530cf">More...</a><br /></td></tr>
+<tr class="memdesc:a03fb2ec6571cc5bfa141827303a530cf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remove all nodes, edges, and paths.  <a href="#a03fb2ec6571cc5bfa141827303a530cf">More...</a><br /></td></tr>
 <tr class="separator:a03fb2ec6571cc5bfa141827303a530cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0751769e5119ed6b511d715564fc94b3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a0751769e5119ed6b511d715564fc94b3">clear_paths</a> (void)</td></tr>
 <tr class="memdesc:a0751769e5119ed6b511d715564fc94b3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remove all stored paths.  <a href="#a0751769e5119ed6b511d715564fc94b3">More...</a><br /></td></tr>
@@ -413,6 +413,11 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:aead08eef70b458c7437b1b426c66553f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#aead08eef70b458c7437b1b426c66553f">decrement_rank</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle)</td></tr>
 <tr class="memdesc:aead08eef70b458c7437b1b426c66553f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Decrement the step rank references for this step.  <a href="#aead08eef70b458c7437b1b426c66553f">More...</a><br /></td></tr>
 <tr class="separator:aead08eef70b458c7437b1b426c66553f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab673c6dd900657a2a31ee9ea0dbf2611"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#ab673c6dd900657a2a31ee9ea0dbf2611">set_handle_of_step</a> (<a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const</td></tr>
+<tr class="memdesc:ab673c6dd900657a2a31ee9ea0dbf2611"><td class="mdescLeft">&#160;</td><td class="mdescRight">Modify the given step handle to point to the given handle.  <a href="#ab673c6dd900657a2a31ee9ea0dbf2611">More...</a><br /></td></tr>
+<tr class="separator:ab673c6dd900657a2a31ee9ea0dbf2611"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8db273d2507e0e7960d0b1fa2d439d1b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a8db273d2507e0e7960d0b1fa2d439d1b">add_to_number</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, int64_t offset) const</td></tr>
+<tr class="separator:a8db273d2507e0e7960d0b1fa2d439d1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3304c7fd92ccdc8b7492df7a18c97d89"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a3304c7fd92ccdc8b7492df7a18c97d89">set_handle_sequence</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const std::string &amp;seq)</td></tr>
 <tr class="memdesc:a3304c7fd92ccdc8b7492df7a18c97d89"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compact away the deleted nodes info.  <a href="#a3304c7fd92ccdc8b7492df7a18c97d89">More...</a><br /></td></tr>
 <tr class="separator:a3304c7fd92ccdc8b7492df7a18c97d89"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -437,7 +442,7 @@ Private Attributes</h2></td></tr>
 <tr class="separator:a1c79025549d3e373a09fe471d09c8808"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abbcd0546ab6e96642d38570f642a6a2a"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#abbcd0546ab6e96642d38570f642a6a2a">_min_node_rank</a> = std::numeric_limits&lt;decltype(_min_node_rank)&gt;::max()</td></tr>
 <tr class="separator:abbcd0546ab6e96642d38570f642a6a2a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a042ef9861a75537a35e26d2dd31516c6"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a042ef9861a75537a35e26d2dd31516c6">_id_increment</a> = 0</td></tr>
+<tr class="memitem:a042ef9861a75537a35e26d2dd31516c6"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a042ef9861a75537a35e26d2dd31516c6">_id_increment</a> = 1</td></tr>
 <tr class="separator:a042ef9861a75537a35e26d2dd31516c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab1912ed2dfb8ca4d717573e7abab1eda"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classbdsg_1_1hash__set.html">hash_set</a>&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#ab1912ed2dfb8ca4d717573e7abab1eda">graph_id_hidden_set</a></td></tr>
 <tr class="memdesc:ab1912ed2dfb8ca4d717573e7abab1eda"><td class="mdescLeft">&#160;</td><td class="mdescRight">records nodes that are hidden, but used to compactly store path sequence that has been removed from the node space  <a href="#ab1912ed2dfb8ca4d717573e7abab1eda">More...</a><br /></td></tr>
@@ -518,6 +523,43 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a8db273d2507e0e7960d0b1fa2d439d1b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8db273d2507e0e7960d0b1fa2d439d1b">&#9670;&nbsp;</a></span>add_to_number()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> bdsg::ODGI::add_to_number </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>offset</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Add the offset to the number packed in the given handle, and return a new modified handle. </p>
+
+</div>
+</div>
 <a id="af9b068258f3a98847bcde404ef293d9c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#af9b068258f3a98847bcde404ef293d9c">&#9670;&nbsp;</a></span>append_step()</h2>
 
@@ -706,7 +748,7 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Remove all nodes and edges. Does not update any stored paths. </p>
+<p>Remove all nodes, edges, and paths. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html#a6e1a83e72b47643e43c6176f39d8db5e">handlegraph::DeletableHandleGraph</a>.</p>
 
@@ -2977,6 +3019,44 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="ab673c6dd900657a2a31ee9ea0dbf2611"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab673c6dd900657a2a31ee9ea0dbf2611">&#9670;&nbsp;</a></span>set_handle_of_step()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void bdsg::ODGI::set_handle_of_step </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>step_handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Modify the given step handle to point to the given handle. </p>
+
+</div>
+</div>
 <a id="a3304c7fd92ccdc8b7492df7a18c97d89"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a3304c7fd92ccdc8b7492df7a18c97d89">&#9670;&nbsp;</a></span>set_handle_sequence()</h2>
 
@@ -3247,7 +3327,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a> bdsg::ODGI::_id_increment = 0</td>
+          <td class="memname"><a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a> bdsg::ODGI::_id_increment = 1</td>
         </tr>
       </table>
   </td>
@@ -3256,6 +3336,7 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<p>ID of the lowest-rank (rank 0) node. Must be at least 1, or else the rank 0 node can't exist. </p>
 
 </div>
 </div>

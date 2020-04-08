@@ -80,6 +80,7 @@ var searchData=
   ['set_5fgbwt_5foverride',['set_gbwt_override',['../classvg_1_1IndexManager.html#a1850d1302ef82f90c67a4d5015ec5597',1,'vg::IndexManager']]],
   ['set_5fgbwtgraph_5foverride',['set_gbwtgraph_override',['../classvg_1_1IndexManager.html#a13cc94a56c26c7d763d192fca7d8c44b',1,'vg::IndexManager']]],
   ['set_5fgraph_5foverride',['set_graph_override',['../classvg_1_1IndexManager.html#a88ea5f3b7adf0128640913ab32f62a08',1,'vg::IndexManager']]],
+  ['set_5fhandle_5fof_5fstep',['set_handle_of_step',['../classbdsg_1_1ODGI.html#ab673c6dd900657a2a31ee9ea0dbf2611',1,'bdsg::ODGI']]],
   ['set_5fhandle_5fsequence',['set_handle_sequence',['../classbdsg_1_1ODGI.html#a3304c7fd92ccdc8b7492df7a18c97d89',1,'bdsg::ODGI']]],
   ['set_5fhash_5fcolor',['set_hash_color',['../classvg_1_1Viz.html#ab5559043258bf1e1cd4e3a754342cdde',1,'vg::Viz']]],
   ['set_5fhet_5fbias',['set_het_bias',['../classvg_1_1RatioSupportSnarlCaller.html#a0cb5e2761e2c2feebc901d54a5891454',1,'vg::RatioSupportSnarlCaller']]],
