@@ -67,7 +67,7 @@ var searchData=
   ['curr_5fdeflxn',['curr_deflxn',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#ad6fb487aa27ac7baca766a597243fe99',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
   ['curr_5ftraceback',['curr_traceback',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a9e2f8458aa7f547adda7154ef90a1c5c',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
   ['current',['current',['../structvg_1_1IncrementIter.html#a63f121c026a4681a4bf61ad56198542b',1,'vg::IncrementIter::current()'],['../classvg_1_1WindowedVcfBuffer.html#a9e4eeb593eee805717734190d9940f79',1,'vg::WindowedVcfBuffer::current()']]],
-  ['current_5fid',['current_id',['../classvg_1_1VG.html#a93f069b1a683a86ff2981a7f340ac009',1,'vg::VG']]],
+  ['current_5fid',['current_id',['../classvg_1_1VG.html#a68f4b0cfbadab3cebace110733565d38',1,'vg::VG']]],
   ['current_5fnode_5fid',['current_node_id',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#afbd1560242a69c0b36dbe0f6ffb81684',1,'vg::BandedGlobalAligner::BABuilder']]],
   ['current_5fnode_5fsequence',['current_node_sequence',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#a47a70166200af736bc64f4cc7adbfdad',1,'vg::BandedGlobalAligner::BABuilder']]],
   ['current_5fversion',['CURRENT_VERSION',['../classxg_1_1XG.html#aa4970917df65809c23db35d429ffe595',1,'xg::XG']]],

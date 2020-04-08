@@ -94,8 +94,12 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a9a599d81c23e4f13e4a94f7252e8351d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aed30acaddc8cc1650044fd8299643a24"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#aed30acaddc8cc1650044fd8299643a24">serialize</a> (std::ostream &amp;out) const</td></tr>
 <tr class="separator:aed30acaddc8cc1650044fd8299643a24"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a97b908eb72c828e7f75d825a34a87651"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a97b908eb72c828e7f75d825a34a87651">serialize</a> (const std::string &amp;filename) const</td></tr>
+<tr class="separator:a97b908eb72c828e7f75d825a34a87651"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9736fd91bf5becf144e4e9c1a247af31"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a9736fd91bf5becf144e4e9c1a247af31">deserialize</a> (std::istream &amp;in)</td></tr>
 <tr class="separator:a9736fd91bf5becf144e4e9c1a247af31"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5e247159597af5d6596f7eba9afbe284"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a5e247159597af5d6596f7eba9afbe284">deserialize</a> (const std::string &amp;filename)</td></tr>
+<tr class="separator:a5e247159597af5d6596f7eba9afbe284"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
@@ -134,7 +138,7 @@ Protected Member Functions</h2></td></tr>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
 <a id="a9736fd91bf5becf144e4e9c1a247af31"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9736fd91bf5becf144e4e9c1a247af31">&#9670;&nbsp;</a></span>deserialize()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a9736fd91bf5becf144e4e9c1a247af31">&#9670;&nbsp;</a></span>deserialize() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -157,6 +161,33 @@ Protected Member Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Sets the contents of this graph to the contents of a serialized graph from an istream. The serialized graph must be from the same implementation of the <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> interface as is calling <a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a9736fd91bf5becf144e4e9c1a247af31">deserialize()</a>. Can only be called on an empty graph. </p>
+
+</div>
+</div>
+<a id="a5e247159597af5d6596f7eba9afbe284"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5e247159597af5d6596f7eba9afbe284">&#9670;&nbsp;</a></span>deserialize() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void handlegraph::SerializableHandleGraph::deserialize </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Sets the contents of this graph to the contents of a serialized graph from a file. The serialized graph must be from the same implementation of the <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> interface as is calling <a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a9736fd91bf5becf144e4e9c1a247af31">deserialize()</a>. Can only be called on an empty graph. </p>
 
 </div>
 </div>
@@ -219,7 +250,7 @@ Protected Member Functions</h2></td></tr>
 </div>
 </div>
 <a id="aed30acaddc8cc1650044fd8299643a24"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aed30acaddc8cc1650044fd8299643a24">&#9670;&nbsp;</a></span>serialize()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#aed30acaddc8cc1650044fd8299643a24">&#9670;&nbsp;</a></span>serialize() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -243,6 +274,33 @@ Protected Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Write the contents of this graph to an ostream. Makes sure to include a leading magic number.</p>
 <p>Inline implementations </p>
+
+</div>
+</div>
+<a id="a97b908eb72c828e7f75d825a34a87651"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a97b908eb72c828e7f75d825a34a87651">&#9670;&nbsp;</a></span>serialize() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void handlegraph::SerializableHandleGraph::serialize </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Write the contents of this graph to a named file. Makes sure to include a leading magic number. </p>
 
 </div>
 </div>

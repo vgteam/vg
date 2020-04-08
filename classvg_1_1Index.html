@@ -116,16 +116,16 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a3c8c380cc8d3ff712b5c41cd2fd6bd3b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a396cc86a668620dbf4c65aa8408db6ea"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a396cc86a668620dbf4c65aa8408db6ea">batch_edge</a> (const <a class="el" href="structvg_1_1Edge.html">Edge</a> *edge, rocksdb::WriteBatch &amp;batch)</td></tr>
 <tr class="separator:a396cc86a668620dbf4c65aa8408db6ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa6d98853f5fe14e29e4294f139d231ab"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aa6d98853f5fe14e29e4294f139d231ab">put_kmer</a> (const string &amp;kmer, const int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, const int32_t pos)</td></tr>
-<tr class="separator:aa6d98853f5fe14e29e4294f139d231ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af2716e338785081bcb4ac1c2cc49afb4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#af2716e338785081bcb4ac1c2cc49afb4">batch_kmer</a> (const string &amp;kmer, const int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, const int32_t pos, rocksdb::WriteBatch &amp;batch)</td></tr>
-<tr class="separator:af2716e338785081bcb4ac1c2cc49afb4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a783f82c29898e8500b8e749b38af9503"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a783f82c29898e8500b8e749b38af9503">put_kmer</a> (const string &amp;kmer, const <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, const int32_t pos)</td></tr>
+<tr class="separator:a783f82c29898e8500b8e749b38af9503"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4921e44e5b4d6c1b0010fd827153cda5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a4921e44e5b4d6c1b0010fd827153cda5">batch_kmer</a> (const string &amp;kmer, const <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, const int32_t pos, rocksdb::WriteBatch &amp;batch)</td></tr>
+<tr class="separator:a4921e44e5b4d6c1b0010fd827153cda5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac779a221df22fd64a8c30359d98072aa"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ac779a221df22fd64a8c30359d98072aa">put_metadata</a> (const string &amp;tag, const string &amp;data)</td></tr>
 <tr class="separator:ac779a221df22fd64a8c30359d98072aa"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae4527677f7ecc9c8b94326f4e479318b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ae4527677f7ecc9c8b94326f4e479318b">put_node_path</a> (int64_t node_id, int64_t path_id, int64_t path_pos, bool backward, const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
-<tr class="separator:ae4527677f7ecc9c8b94326f4e479318b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a68bf130cf123d928f1362c7e1da406bf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a68bf130cf123d928f1362c7e1da406bf">put_path_position</a> (int64_t path_id, int64_t path_pos, bool backward, int64_t node_id, const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
-<tr class="separator:a68bf130cf123d928f1362c7e1da406bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2a479a494ff74f28e56c6c9693fb56d5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a2a479a494ff74f28e56c6c9693fb56d5">put_node_path</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, int64_t path_id, int64_t path_pos, bool backward, const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
+<tr class="separator:a2a479a494ff74f28e56c6c9693fb56d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4781c2dcfd48e89a2aa08140373e41f8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a4781c2dcfd48e89a2aa08140373e41f8">put_path_position</a> (int64_t path_id, int64_t path_pos, bool backward, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
+<tr class="separator:a4781c2dcfd48e89a2aa08140373e41f8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a249b3bf9b4021760edd06199b8510be5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a249b3bf9b4021760edd06199b8510be5">put_mapping</a> (const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
 <tr class="separator:a249b3bf9b4021760edd06199b8510be5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a03cb689688df49b9ba0bf61344de618a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a03cb689688df49b9ba0bf61344de618a">put_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
@@ -136,84 +136,84 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a15d4dd390558b702ee18d2d82b0a9350"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af7bd6437921643ddbf17df39405ec7b2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#af7bd6437921643ddbf17df39405ec7b2">cross_alignment</a> (int64_t aln_id, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
 <tr class="separator:af7bd6437921643ddbf17df39405ec7b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a305cfc70f59a5d06b4e5eb1e7082446c"><td class="memItemLeft" align="right" valign="top">rocksdb::Status&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a305cfc70f59a5d06b4e5eb1e7082446c">get_node</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, <a class="el" href="structvg_1_1Node.html">Node</a> &amp;node)</td></tr>
-<tr class="separator:a305cfc70f59a5d06b4e5eb1e7082446c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a718f5b5c557c69fbd33e08da1f07eb29"><td class="memItemLeft" align="right" valign="top">rocksdb::Status&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a718f5b5c557c69fbd33e08da1f07eb29">get_edge</a> (int64_t from, bool from_start, int64_t to, bool to_end, <a class="el" href="structvg_1_1Edge.html">Edge</a> &amp;edge)</td></tr>
-<tr class="separator:a718f5b5c557c69fbd33e08da1f07eb29"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a33307bf40d0f4b2004103cd6583581dc"><td class="memItemLeft" align="right" valign="top">rocksdb::Status&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a33307bf40d0f4b2004103cd6583581dc">get_node</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, <a class="el" href="structvg_1_1Node.html">Node</a> &amp;node)</td></tr>
+<tr class="separator:a33307bf40d0f4b2004103cd6583581dc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acdd51ebff16b4cffe40e195166b87026"><td class="memItemLeft" align="right" valign="top">rocksdb::Status&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#acdd51ebff16b4cffe40e195166b87026">get_edge</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> from, bool from_start, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> to, bool to_end, <a class="el" href="structvg_1_1Edge.html">Edge</a> &amp;edge)</td></tr>
+<tr class="separator:acdd51ebff16b4cffe40e195166b87026"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac8458f2c27fba113a889935251dd6bf8"><td class="memItemLeft" align="right" valign="top">rocksdb::Status&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ac8458f2c27fba113a889935251dd6bf8">get_metadata</a> (const string &amp;key, string &amp;data)</td></tr>
 <tr class="separator:ac8458f2c27fba113a889935251dd6bf8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad53a8d290adc82aaaf36d7712df06e4e"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ad53a8d290adc82aaaf36d7712df06e4e">get_node_path</a> (int64_t node_id, int64_t path_id, int64_t &amp;path_pos, bool &amp;backward, <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
-<tr class="separator:ad53a8d290adc82aaaf36d7712df06e4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af857cafb69d6f37c49b912dd8549d31f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#af857cafb69d6f37c49b912dd8549d31f">get_mappings</a> (int64_t node_id, vector&lt; <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &gt; &amp;mappings)</td></tr>
-<tr class="separator:af857cafb69d6f37c49b912dd8549d31f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aff7ba23c907f058c1c8cd015966f74ce"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aff7ba23c907f058c1c8cd015966f74ce">get_alignments</a> (int64_t node_id, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alignments)</td></tr>
-<tr class="separator:aff7ba23c907f058c1c8cd015966f74ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a19f1fcf1fa2175c5ffc6e0e8a65de966"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a19f1fcf1fa2175c5ffc6e0e8a65de966">get_alignments</a> (int64_t id1, int64_t id2, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alignments)</td></tr>
-<tr class="separator:a19f1fcf1fa2175c5ffc6e0e8a65de966"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a09184e97d246ef7cfcce7627eb2ea2ac"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a09184e97d246ef7cfcce7627eb2ea2ac">for_alignment_in_range</a> (int64_t id1, int64_t id2, std::function&lt; void(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda)</td></tr>
-<tr class="separator:a09184e97d246ef7cfcce7627eb2ea2ac"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae7caffcd8f034f9eafa3f41c48846513"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ae7caffcd8f034f9eafa3f41c48846513">for_alignment_to_node</a> (int64_t node_id, std::function&lt; void(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda)</td></tr>
-<tr class="separator:ae7caffcd8f034f9eafa3f41c48846513"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa81a3b3060d43f71a4cba7b5ac1a3cdb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aa81a3b3060d43f71a4cba7b5ac1a3cdb">for_alignment_to_nodes</a> (const vector&lt; int64_t &gt; &amp;ids, std::function&lt; void(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda)</td></tr>
-<tr class="separator:aa81a3b3060d43f71a4cba7b5ac1a3cdb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aea285feb12c7c8e73f16a504105a4431"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aea285feb12c7c8e73f16a504105a4431">get_node_path</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, int64_t path_id, int64_t &amp;path_pos, bool &amp;backward, <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
+<tr class="separator:aea285feb12c7c8e73f16a504105a4431"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a79e2ad8ec6f49f3b13281adfb4a856ab"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a79e2ad8ec6f49f3b13281adfb4a856ab">get_mappings</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, vector&lt; <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &gt; &amp;mappings)</td></tr>
+<tr class="separator:a79e2ad8ec6f49f3b13281adfb4a856ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8e2b43d1b346a64fd5285ef2334c1c74"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a8e2b43d1b346a64fd5285ef2334c1c74">get_alignments</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alignments)</td></tr>
+<tr class="separator:a8e2b43d1b346a64fd5285ef2334c1c74"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a43abb5997329528b956e535c08674d68"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a43abb5997329528b956e535c08674d68">get_alignments</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> id1, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> id2, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alignments)</td></tr>
+<tr class="separator:a43abb5997329528b956e535c08674d68"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a499264ae0075eaa4d9003637949a991f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a499264ae0075eaa4d9003637949a991f">for_alignment_in_range</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> id1, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> id2, std::function&lt; void(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda)</td></tr>
+<tr class="separator:a499264ae0075eaa4d9003637949a991f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a44f760a1009ae0377dadfae300c153f5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a44f760a1009ae0377dadfae300c153f5">for_alignment_to_node</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, std::function&lt; void(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda)</td></tr>
+<tr class="separator:a44f760a1009ae0377dadfae300c153f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acec34866c182823004e658f37f284082"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#acec34866c182823004e658f37f284082">for_alignment_to_nodes</a> (const vector&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;ids, std::function&lt; void(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda)</td></tr>
+<tr class="separator:acec34866c182823004e658f37f284082"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aab6f544f683534ce44998ec8e0af83ef"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aab6f544f683534ce44998ec8e0af83ef">for_base_alignments</a> (const set&lt; int64_t &gt; &amp;aln_ids, std::function&lt; void(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda)</td></tr>
 <tr class="separator:aab6f544f683534ce44998ec8e0af83ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9f0009a0abd62c00b79bee39b349e4b2"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a9f0009a0abd62c00b79bee39b349e4b2">key_for_node</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>)</td></tr>
-<tr class="separator:a9f0009a0abd62c00b79bee39b349e4b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afc0343b19653720423888d15d337104f"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#afc0343b19653720423888d15d337104f">key_for_edge_on_start</a> (int64_t node_id, int64_t other, bool backward)</td></tr>
-<tr class="separator:afc0343b19653720423888d15d337104f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aef09a7d0aa6864acfeb0e6b87880176c"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aef09a7d0aa6864acfeb0e6b87880176c">key_for_edge_on_end</a> (int64_t node_id, int64_t other, bool backward)</td></tr>
-<tr class="separator:aef09a7d0aa6864acfeb0e6b87880176c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a77134aa6423cfdbfe5bad27ec178018d"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a77134aa6423cfdbfe5bad27ec178018d">key_prefix_for_edges_on_node_start</a> (int64_t node)</td></tr>
-<tr class="separator:a77134aa6423cfdbfe5bad27ec178018d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aae14a669e93fa8f3712fd8189ba0c289"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aae14a669e93fa8f3712fd8189ba0c289">key_prefix_for_edges_on_node_end</a> (int64_t node)</td></tr>
-<tr class="separator:aae14a669e93fa8f3712fd8189ba0c289"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3d4cee6154c9346aaf9b9ce6e010ed0a"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a3d4cee6154c9346aaf9b9ce6e010ed0a">key_for_kmer</a> (const string &amp;kmer, int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>)</td></tr>
-<tr class="separator:a3d4cee6154c9346aaf9b9ce6e010ed0a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a79e431af296fee87123de4f9117f101f"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a79e431af296fee87123de4f9117f101f">key_for_node</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>)</td></tr>
+<tr class="separator:a79e431af296fee87123de4f9117f101f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0efbfb55fbf5d2384a5203bf72ff7376"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a0efbfb55fbf5d2384a5203bf72ff7376">key_for_edge_on_start</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> other, bool backward)</td></tr>
+<tr class="separator:a0efbfb55fbf5d2384a5203bf72ff7376"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1c2f95dea7e1382d4886827862a04aee"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a1c2f95dea7e1382d4886827862a04aee">key_for_edge_on_end</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> other, bool backward)</td></tr>
+<tr class="separator:a1c2f95dea7e1382d4886827862a04aee"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aae540295ffa9770b63649a54c813c0ca"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aae540295ffa9770b63649a54c813c0ca">key_prefix_for_edges_on_node_start</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node)</td></tr>
+<tr class="separator:aae540295ffa9770b63649a54c813c0ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aefcedc89173b71a0d3c245b9354291cf"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aefcedc89173b71a0d3c245b9354291cf">key_prefix_for_edges_on_node_end</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node)</td></tr>
+<tr class="separator:aefcedc89173b71a0d3c245b9354291cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2101e00c1bb23aabf4183a04f67dfc84"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a2101e00c1bb23aabf4183a04f67dfc84">key_for_kmer</a> (const string &amp;kmer, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>)</td></tr>
+<tr class="separator:a2101e00c1bb23aabf4183a04f67dfc84"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac1cf69b986649867350efdc859d58c1d"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ac1cf69b986649867350efdc859d58c1d">key_prefix_for_kmer</a> (const string &amp;kmer)</td></tr>
 <tr class="separator:ac1cf69b986649867350efdc859d58c1d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4ea73546470aa4308e1bbc7a8f30d238"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a4ea73546470aa4308e1bbc7a8f30d238">key_for_metadata</a> (const string &amp;tag)</td></tr>
 <tr class="separator:a4ea73546470aa4308e1bbc7a8f30d238"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a63c04e2bb7add378db03a64aef446b38"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a63c04e2bb7add378db03a64aef446b38">key_for_path_position</a> (int64_t path_id, int64_t path_pos, bool backward, int64_t node_id)</td></tr>
-<tr class="separator:a63c04e2bb7add378db03a64aef446b38"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae629b6f96c483367c77156f2483c51f0"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ae629b6f96c483367c77156f2483c51f0">key_for_node_path_position</a> (int64_t node_id, int64_t path_id, int64_t path_pos, bool backward)</td></tr>
-<tr class="separator:ae629b6f96c483367c77156f2483c51f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab949083766fa19ce514ae152bb1d41cb"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ab949083766fa19ce514ae152bb1d41cb">key_prefix_for_node_path</a> (int64_t node_id, int64_t path_id)</td></tr>
-<tr class="separator:ab949083766fa19ce514ae152bb1d41cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a11e8734e99ea15e2389d710e63395725"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a11e8734e99ea15e2389d710e63395725">key_for_mapping_prefix</a> (int64_t node_id)</td></tr>
-<tr class="separator:a11e8734e99ea15e2389d710e63395725"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:add57a0af73fc2fcb251eb46a052f874a"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#add57a0af73fc2fcb251eb46a052f874a">key_for_path_position</a> (int64_t path_id, int64_t path_pos, bool backward, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id)</td></tr>
+<tr class="separator:add57a0af73fc2fcb251eb46a052f874a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4233865e98c8e74bb95c94cd12ace509"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a4233865e98c8e74bb95c94cd12ace509">key_for_node_path_position</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, int64_t path_id, int64_t path_pos, bool backward)</td></tr>
+<tr class="separator:a4233865e98c8e74bb95c94cd12ace509"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae17e481f22c61a5513e27f35d48e8517"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ae17e481f22c61a5513e27f35d48e8517">key_prefix_for_node_path</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, int64_t path_id)</td></tr>
+<tr class="separator:ae17e481f22c61a5513e27f35d48e8517"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a58aa417dbd943c4336198f440c4916ea"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a58aa417dbd943c4336198f440c4916ea">key_for_mapping_prefix</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id)</td></tr>
+<tr class="separator:a58aa417dbd943c4336198f440c4916ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adc444225e012061e9f064a64862e3ca6"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#adc444225e012061e9f064a64862e3ca6">key_for_mapping</a> (const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
 <tr class="separator:adc444225e012061e9f064a64862e3ca6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acad84d9f946896624486b8266830dcde"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#acad84d9f946896624486b8266830dcde">key_for_alignment_prefix</a> (int64_t node_id)</td></tr>
-<tr class="separator:acad84d9f946896624486b8266830dcde"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aab2b9b66a28ea47aefce06469a8084b7"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aab2b9b66a28ea47aefce06469a8084b7">key_for_alignment_prefix</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id)</td></tr>
+<tr class="separator:aab2b9b66a28ea47aefce06469a8084b7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a46e39f6fb77f26a35db9236b25a74b55"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a46e39f6fb77f26a35db9236b25a74b55">key_for_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
 <tr class="separator:a46e39f6fb77f26a35db9236b25a74b55"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a78af8deb82ab23ea5e28ac764d86ed0d"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a78af8deb82ab23ea5e28ac764d86ed0d">key_for_base</a> (int64_t aln_id)</td></tr>
 <tr class="separator:a78af8deb82ab23ea5e28ac764d86ed0d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adadacac4e1843a9f2515e2380618f11c"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#adadacac4e1843a9f2515e2380618f11c">key_prefix_for_traversal</a> (int64_t node_id)</td></tr>
-<tr class="separator:adadacac4e1843a9f2515e2380618f11c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae94002f37de0b301101fb964c8a3550b"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ae94002f37de0b301101fb964c8a3550b">key_prefix_for_traversal</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id)</td></tr>
+<tr class="separator:ae94002f37de0b301101fb964c8a3550b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a83d547136b87603572504b36d690f5db"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a83d547136b87603572504b36d690f5db">key_for_traversal</a> (int64_t aln_id, const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
 <tr class="separator:a83d547136b87603572504b36d690f5db"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4d5e09047e701288444acfb2a72de64d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a4d5e09047e701288444acfb2a72de64d">parse_node</a> (const string &amp;key, const string &amp;value, int64_t &amp;<a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, <a class="el" href="structvg_1_1Node.html">Node</a> &amp;node)</td></tr>
-<tr class="separator:a4d5e09047e701288444acfb2a72de64d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2e4f852179aff69a081bef942bb44b33"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a2e4f852179aff69a081bef942bb44b33">parse_edge</a> (const string &amp;key, const string &amp;value, char &amp;type, int64_t &amp;id1, int64_t &amp;id2, <a class="el" href="structvg_1_1Edge.html">Edge</a> &amp;edge)</td></tr>
-<tr class="separator:a2e4f852179aff69a081bef942bb44b33"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa6e04b6297c3d384ee74f86047c57c95"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aa6e04b6297c3d384ee74f86047c57c95">parse_edge</a> (const string &amp;key, char &amp;type, int64_t &amp;node_id, int64_t &amp;other_id, bool &amp;backward)</td></tr>
-<tr class="separator:aa6e04b6297c3d384ee74f86047c57c95"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a59cab369954a075f3b2d0a4c7bb9c9ba"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a59cab369954a075f3b2d0a4c7bb9c9ba">parse_kmer</a> (const string &amp;key, const string &amp;value, string &amp;kmer, int64_t &amp;<a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, int32_t &amp;pos)</td></tr>
-<tr class="separator:a59cab369954a075f3b2d0a4c7bb9c9ba"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7365eee22bb3bfc4dfbaa93c0bb16963"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a7365eee22bb3bfc4dfbaa93c0bb16963">parse_node_path</a> (const string &amp;key, const string &amp;value, int64_t &amp;node_id, int64_t &amp;path_id, int64_t &amp;path_pos, bool &amp;backward, <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
-<tr class="separator:a7365eee22bb3bfc4dfbaa93c0bb16963"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a421d127c63939caee363663b7168d27c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a421d127c63939caee363663b7168d27c">parse_path_position</a> (const string &amp;key, const string &amp;value, int64_t &amp;path_id, int64_t &amp;path_pos, bool &amp;backward, int64_t &amp;node_id, <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
-<tr class="separator:a421d127c63939caee363663b7168d27c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a87d5a1aac53ead176393975356f49d36"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a87d5a1aac53ead176393975356f49d36">parse_mapping</a> (const string &amp;key, const string &amp;value, int64_t &amp;node_id, uint64_t &amp;nonce, <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
-<tr class="separator:a87d5a1aac53ead176393975356f49d36"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abeb20b5ce8ebe4d6097a14e7ae09f527"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#abeb20b5ce8ebe4d6097a14e7ae09f527">parse_alignment</a> (const string &amp;key, const string &amp;value, int64_t &amp;node_id, uint64_t &amp;nonce, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
-<tr class="separator:abeb20b5ce8ebe4d6097a14e7ae09f527"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a76dd2982617012d1ed4d32e267a01770"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a76dd2982617012d1ed4d32e267a01770">parse_node</a> (const string &amp;key, const string &amp;value, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;<a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, <a class="el" href="structvg_1_1Node.html">Node</a> &amp;node)</td></tr>
+<tr class="separator:a76dd2982617012d1ed4d32e267a01770"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4fbd282102503c29d239424bc816f77d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a4fbd282102503c29d239424bc816f77d">parse_edge</a> (const string &amp;key, const string &amp;value, char &amp;type, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;id1, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;id2, <a class="el" href="structvg_1_1Edge.html">Edge</a> &amp;edge)</td></tr>
+<tr class="separator:a4fbd282102503c29d239424bc816f77d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a59a40c7822edee96d4fe3d5fcd357f5e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a59a40c7822edee96d4fe3d5fcd357f5e">parse_edge</a> (const string &amp;key, char &amp;type, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;node_id, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;other_id, bool &amp;backward)</td></tr>
+<tr class="separator:a59a40c7822edee96d4fe3d5fcd357f5e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a68bed6e28a6e9e2c71024292477cc104"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a68bed6e28a6e9e2c71024292477cc104">parse_kmer</a> (const string &amp;key, const string &amp;value, string &amp;kmer, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;<a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, int32_t &amp;pos)</td></tr>
+<tr class="separator:a68bed6e28a6e9e2c71024292477cc104"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa924c65de2a0ab1c430eee8ac4ba0041"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aa924c65de2a0ab1c430eee8ac4ba0041">parse_node_path</a> (const string &amp;key, const string &amp;value, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;node_id, int64_t &amp;path_id, int64_t &amp;path_pos, bool &amp;backward, <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
+<tr class="separator:aa924c65de2a0ab1c430eee8ac4ba0041"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1d385835be4e163907c3d7cb290f8093"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a1d385835be4e163907c3d7cb290f8093">parse_path_position</a> (const string &amp;key, const string &amp;value, int64_t &amp;path_id, int64_t &amp;path_pos, bool &amp;backward, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;node_id, <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
+<tr class="separator:a1d385835be4e163907c3d7cb290f8093"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae64eec10b2a79efca1621217b7cb23c7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ae64eec10b2a79efca1621217b7cb23c7">parse_mapping</a> (const string &amp;key, const string &amp;value, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;node_id, uint64_t &amp;nonce, <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
+<tr class="separator:ae64eec10b2a79efca1621217b7cb23c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a39e7518a72ee4ffea14ed5cd907b6eee"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a39e7518a72ee4ffea14ed5cd907b6eee">parse_alignment</a> (const string &amp;key, const string &amp;value, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;node_id, uint64_t &amp;nonce, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
+<tr class="separator:a39e7518a72ee4ffea14ed5cd907b6eee"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a758a08cf391fb75fd4f942bff57398ae"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a758a08cf391fb75fd4f942bff57398ae">parse_base</a> (const string &amp;key, const string &amp;value, int64_t &amp;aln_id, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
 <tr class="separator:a758a08cf391fb75fd4f942bff57398ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7ff884ed1bb9b9446f1db40900c1bcaf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a7ff884ed1bb9b9446f1db40900c1bcaf">parse_traversal</a> (const string &amp;key, const string &amp;value, int64_t &amp;node_id, int16_t &amp;rank, bool &amp;backward, int64_t &amp;aln_id)</td></tr>
-<tr class="separator:a7ff884ed1bb9b9446f1db40900c1bcaf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abd03a4dbf2235ca3e0a6a59c29a64b28"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#abd03a4dbf2235ca3e0a6a59c29a64b28">parse_traversal</a> (const string &amp;key, const string &amp;value, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;node_id, int16_t &amp;rank, bool &amp;backward, int64_t &amp;aln_id)</td></tr>
+<tr class="separator:abd03a4dbf2235ca3e0a6a59c29a64b28"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a18c0d0d11da737aa6e4a040810b5c986"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a18c0d0d11da737aa6e4a040810b5c986">entry_to_string</a> (const string &amp;key, const string &amp;value)</td></tr>
 <tr class="separator:a18c0d0d11da737aa6e4a040810b5c986"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6ab0b0b94f6b7d10ff344982414e7b76"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a6ab0b0b94f6b7d10ff344982414e7b76">graph_entry_to_string</a> (const string &amp;key, const string &amp;value)</td></tr>
@@ -236,44 +236,44 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a1426dd5881bf343842232d86c7ce24e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7854f4dc7725be6ab73e04f9a95365ff"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a7854f4dc7725be6ab73e04f9a95365ff">traversal_entry_to_string</a> (const string &amp;key, const string &amp;value)</td></tr>
 <tr class="separator:a7854f4dc7725be6ab73e04f9a95365ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0ccabfc885a10a46ff16ab0a8d43373e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a0ccabfc885a10a46ff16ab0a8d43373e">get_context</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph)</td></tr>
-<tr class="separator:a0ccabfc885a10a46ff16ab0a8d43373e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1764a94ba2cc281b803dc953537ef914"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a1764a94ba2cc281b803dc953537ef914">get_context</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph)</td></tr>
+<tr class="separator:a1764a94ba2cc281b803dc953537ef914"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8c0d7928f9c93b102c30a71c2366ec86"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a8c0d7928f9c93b102c30a71c2366ec86">expand_context</a> (<a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph, int steps)</td></tr>
 <tr class="separator:a8c0d7928f9c93b102c30a71c2366ec86"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad1dd49ebb0404b72aefc21cc1732a5c6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ad1dd49ebb0404b72aefc21cc1732a5c6">get_range</a> (int64_t from_id, int64_t to_id, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph)</td></tr>
-<tr class="separator:ad1dd49ebb0404b72aefc21cc1732a5c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aae9238927a90fb39af6b1e1095837edf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aae9238927a90fb39af6b1e1095837edf">for_graph_range</a> (int64_t from_id, int64_t to_id, function&lt; void(string &amp;, string &amp;)&gt; lambda)</td></tr>
-<tr class="separator:aae9238927a90fb39af6b1e1095837edf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adcba0470461ef4d406ac2736d781b4e7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#adcba0470461ef4d406ac2736d781b4e7">get_range</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> from_id, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> to_id, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph)</td></tr>
+<tr class="separator:adcba0470461ef4d406ac2736d781b4e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7d4b5e1a06b5c4c58b3dbf094b9dd19b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a7d4b5e1a06b5c4c58b3dbf094b9dd19b">for_graph_range</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> from_id, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> to_id, function&lt; void(string &amp;, string &amp;)&gt; lambda)</td></tr>
+<tr class="separator:a7d4b5e1a06b5c4c58b3dbf094b9dd19b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7f616c9c191bd1dfd925991cc301e644"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a7f616c9c191bd1dfd925991cc301e644">get_connected_nodes</a> (<a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph)</td></tr>
 <tr class="separator:a7f616c9c191bd1dfd925991cc301e644"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a45a62678cf86b570822bc40fea4348ad"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a45a62678cf86b570822bc40fea4348ad">get_edges_of</a> (int64_t node, vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &amp;edges)</td></tr>
-<tr class="separator:a45a62678cf86b570822bc40fea4348ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a05365e96a2a88b63bbb68b47d4c51594"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a05365e96a2a88b63bbb68b47d4c51594">get_edges_on_end</a> (int64_t node, vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &amp;edges)</td></tr>
-<tr class="separator:a05365e96a2a88b63bbb68b47d4c51594"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a65ac015a41f4e087a81a6ae50b543d01"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a65ac015a41f4e087a81a6ae50b543d01">get_edges_on_start</a> (int64_t node, vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &amp;edges)</td></tr>
-<tr class="separator:a65ac015a41f4e087a81a6ae50b543d01"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a62779a0ff7c4705235069b2604099d3c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a62779a0ff7c4705235069b2604099d3c">get_nodes_next</a> (int64_t node, bool backward, vector&lt; pair&lt; int64_t, bool &gt;&gt; &amp;destinations)</td></tr>
-<tr class="separator:a62779a0ff7c4705235069b2604099d3c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa679f98fda67685f32e8d61c2db366b0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aa679f98fda67685f32e8d61c2db366b0">get_nodes_prev</a> (int64_t node, bool backward, vector&lt; pair&lt; int64_t, bool &gt;&gt; &amp;destinations)</td></tr>
-<tr class="separator:aa679f98fda67685f32e8d61c2db366b0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac868241f191c7300c80cd11fd7092260"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ac868241f191c7300c80cd11fd7092260">get_edges_of</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node, vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &amp;edges)</td></tr>
+<tr class="separator:ac868241f191c7300c80cd11fd7092260"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a416560311a2d0b5dac78e8ebdf7e0780"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a416560311a2d0b5dac78e8ebdf7e0780">get_edges_on_end</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node, vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &amp;edges)</td></tr>
+<tr class="separator:a416560311a2d0b5dac78e8ebdf7e0780"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a99978d0144b015ed8aa3c9d0b253617b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a99978d0144b015ed8aa3c9d0b253617b">get_edges_on_start</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node, vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &amp;edges)</td></tr>
+<tr class="separator:a99978d0144b015ed8aa3c9d0b253617b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aad5bfc60111b66dd0dde913c295511f4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aad5bfc60111b66dd0dde913c295511f4">get_nodes_next</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node, bool backward, vector&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;destinations)</td></tr>
+<tr class="separator:aad5bfc60111b66dd0dde913c295511f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a30dc8fa411dab94024523e66e1d4f49a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a30dc8fa411dab94024523e66e1d4f49a">get_nodes_prev</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node, bool backward, vector&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;destinations)</td></tr>
+<tr class="separator:a30dc8fa411dab94024523e66e1d4f49a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a263e453a7264ad6402dd2e9e42ca83d8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a263e453a7264ad6402dd2e9e42ca83d8">get_path</a> (<a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph, const string &amp;<a class="el" href="classvg_1_1Index.html#a8b5b41590a51545bd652637c7493d87b">name</a>, int64_t start, int64_t end)</td></tr>
 <tr class="separator:a263e453a7264ad6402dd2e9e42ca83d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8d5d32ba37e203fc3a2a7360ae13cea4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a8d5d32ba37e203fc3a2a7360ae13cea4">node_path_position</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, string &amp;path_name, int64_t &amp;position, bool &amp;backward, int64_t &amp;<a class="el" href="namespacevg.html#a416939020600ce2996331c350f1fe68c">offset</a>)</td></tr>
-<tr class="separator:a8d5d32ba37e203fc3a2a7360ae13cea4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad1b2bf966dd450e950a6ab188a8797a0"><td class="memItemLeft" align="right" valign="top">pair&lt; list&lt; pair&lt; int64_t, bool &gt; &gt;, pair&lt; int64_t, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ad1b2bf966dd450e950a6ab188a8797a0">get_nearest_node_prev_path_member</a> (int64_t node_id, bool backward, int64_t path_id, int64_t &amp;path_pos, bool &amp;relative_orientation, int max_steps=4)</td></tr>
-<tr class="separator:ad1b2bf966dd450e950a6ab188a8797a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad6fe3ce75d2eb3b3299a566b1d1235df"><td class="memItemLeft" align="right" valign="top">pair&lt; list&lt; pair&lt; int64_t, bool &gt; &gt;, pair&lt; int64_t, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ad6fe3ce75d2eb3b3299a566b1d1235df">get_nearest_node_next_path_member</a> (int64_t node_id, bool backward, int64_t path_id, int64_t &amp;path_pos, bool &amp;relative_orientation, int max_steps=4)</td></tr>
-<tr class="separator:ad6fe3ce75d2eb3b3299a566b1d1235df"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a102af40b28f12b450f5208b79121a8a2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a102af40b28f12b450f5208b79121a8a2">get_node_path_relative_position</a> (int64_t node_id, bool backward, int64_t path_id, list&lt; pair&lt; int64_t, bool &gt;&gt; &amp;path_prev, int64_t &amp;prev_pos, bool &amp;prev_orientation, list&lt; pair&lt; int64_t, bool &gt;&gt; &amp;path_next, int64_t &amp;next_pos, bool &amp;next_orientation)</td></tr>
-<tr class="separator:a102af40b28f12b450f5208b79121a8a2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a58f7a2c4777215f49479e3ee2f9626d0"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Mapping.html">Mapping</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a58f7a2c4777215f49479e3ee2f9626d0">path_relative_mapping</a> (int64_t node_id, bool backward, int64_t path_id, list&lt; pair&lt; int64_t, bool &gt;&gt; &amp;path_prev, int64_t &amp;prev_pos, bool &amp;prev_orientation, list&lt; pair&lt; int64_t, bool &gt;&gt; &amp;path_next, int64_t &amp;next_pos, bool &amp;next_orientation)</td></tr>
-<tr class="separator:a58f7a2c4777215f49479e3ee2f9626d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa54ac43282224e50372ecee60f744685"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aa54ac43282224e50372ecee60f744685">path_layout</a> (map&lt; string, pair&lt; pair&lt; int64_t, bool &gt;, pair&lt; int64_t, bool &gt;&gt; &gt; &amp;layout, map&lt; string, int64_t &gt; &amp;lengths)</td></tr>
-<tr class="separator:aa54ac43282224e50372ecee60f744685"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acc5774854998c7ef2f0928086d8ee627"><td class="memItemLeft" align="right" valign="top">pair&lt; int64_t, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#acc5774854998c7ef2f0928086d8ee627">path_first_node</a> (int64_t path_id)</td></tr>
-<tr class="separator:acc5774854998c7ef2f0928086d8ee627"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2ae7a0e0014582d69cbafcd8049ec611"><td class="memItemLeft" align="right" valign="top">pair&lt; int64_t, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a2ae7a0e0014582d69cbafcd8049ec611">path_last_node</a> (int64_t path_id, int64_t &amp;path_length)</td></tr>
-<tr class="separator:a2ae7a0e0014582d69cbafcd8049ec611"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2b2187dd55304651d16b51282f0268a7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a2b2187dd55304651d16b51282f0268a7">node_path_position</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, string &amp;path_name, int64_t &amp;position, bool &amp;backward, int64_t &amp;<a class="el" href="namespacevg.html#a416939020600ce2996331c350f1fe68c">offset</a>)</td></tr>
+<tr class="separator:a2b2187dd55304651d16b51282f0268a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac9933eaa2a8975b90a29c7feaceee6f9"><td class="memItemLeft" align="right" valign="top">pair&lt; list&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt; &gt;, pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ac9933eaa2a8975b90a29c7feaceee6f9">get_nearest_node_prev_path_member</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, bool backward, int64_t path_id, int64_t &amp;path_pos, bool &amp;relative_orientation, int max_steps=4)</td></tr>
+<tr class="separator:ac9933eaa2a8975b90a29c7feaceee6f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad9b57d3a128ed9563d5e037e4d4d4a86"><td class="memItemLeft" align="right" valign="top">pair&lt; list&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt; &gt;, pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ad9b57d3a128ed9563d5e037e4d4d4a86">get_nearest_node_next_path_member</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, bool backward, int64_t path_id, int64_t &amp;path_pos, bool &amp;relative_orientation, int max_steps=4)</td></tr>
+<tr class="separator:ad9b57d3a128ed9563d5e037e4d4d4a86"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a25825d24c4321da567cec2281638e442"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a25825d24c4321da567cec2281638e442">get_node_path_relative_position</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, bool backward, int64_t path_id, list&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;path_prev, int64_t &amp;prev_pos, bool &amp;prev_orientation, list&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;path_next, int64_t &amp;next_pos, bool &amp;next_orientation)</td></tr>
+<tr class="separator:a25825d24c4321da567cec2281638e442"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af86c630db2501e860611e3c04a8ba388"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Mapping.html">Mapping</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#af86c630db2501e860611e3c04a8ba388">path_relative_mapping</a> (<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> node_id, bool backward, int64_t path_id, list&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;path_prev, int64_t &amp;prev_pos, bool &amp;prev_orientation, list&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;path_next, int64_t &amp;next_pos, bool &amp;next_orientation)</td></tr>
+<tr class="separator:af86c630db2501e860611e3c04a8ba388"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4501d38a3a6d3b5f05ec1fb278de3381"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a4501d38a3a6d3b5f05ec1fb278de3381">path_layout</a> (map&lt; string, pair&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;, pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &gt; &amp;layout, map&lt; string, int64_t &gt; &amp;lengths)</td></tr>
+<tr class="separator:a4501d38a3a6d3b5f05ec1fb278de3381"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acc1fff21e72feb2a4a3c05f644f47d3c"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#acc1fff21e72feb2a4a3c05f644f47d3c">path_first_node</a> (int64_t path_id)</td></tr>
+<tr class="separator:acc1fff21e72feb2a4a3c05f644f47d3c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1a66bcf39cfcb47584abf4d2f9e3d595"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a1a66bcf39cfcb47584abf4d2f9e3d595">path_last_node</a> (int64_t path_id, int64_t &amp;path_length)</td></tr>
+<tr class="separator:a1a66bcf39cfcb47584abf4d2f9e3d595"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaca8d1bf6120336d71f780e853402966"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aaca8d1bf6120336d71f780e853402966">get_kmer_subgraph</a> (const string &amp;kmer, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph)</td></tr>
 <tr class="separator:aaca8d1bf6120336d71f780e853402966"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1ce56895ffdb9ea147e0b0ead6b1479f"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a1ce56895ffdb9ea147e0b0ead6b1479f">approx_size_of_kmer_matches</a> (const string &amp;kmer)</td></tr>
@@ -282,10 +282,10 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ac8e7788125662b6ad41b20b70f24f791"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab9f97fd87f19af40f8a67793941f874b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ab9f97fd87f19af40f8a67793941f874b">for_kmer_range</a> (const string &amp;kmer, function&lt; void(string &amp;, string &amp;)&gt; lambda)</td></tr>
 <tr class="separator:ab9f97fd87f19af40f8a67793941f874b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a60dce6f1c695dda8c08a8b0f4cd42fab"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a60dce6f1c695dda8c08a8b0f4cd42fab">get_kmer_positions</a> (const string &amp;kmer, map&lt; int64_t, vector&lt; int32_t &gt; &gt; &amp;positions)</td></tr>
-<tr class="separator:a60dce6f1c695dda8c08a8b0f4cd42fab"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1ce19e437a73e934f4761f16fafdb596"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a1ce19e437a73e934f4761f16fafdb596">get_kmer_positions</a> (const string &amp;kmer, map&lt; string, vector&lt; pair&lt; int64_t, int32_t &gt; &gt; &gt; &amp;positions)</td></tr>
-<tr class="separator:a1ce19e437a73e934f4761f16fafdb596"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0839938e67b92f6dee2900277dbabb0a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a0839938e67b92f6dee2900277dbabb0a">get_kmer_positions</a> (const string &amp;kmer, map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, vector&lt; int32_t &gt; &gt; &amp;positions)</td></tr>
+<tr class="separator:a0839938e67b92f6dee2900277dbabb0a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab611f7abf5966dc2d3b8222d9986ee37"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#ab611f7abf5966dc2d3b8222d9986ee37">get_kmer_positions</a> (const string &amp;kmer, map&lt; string, vector&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, int32_t &gt; &gt; &gt; &amp;positions)</td></tr>
+<tr class="separator:ab611f7abf5966dc2d3b8222d9986ee37"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa1fc314841c278662fec2e07925b10b0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aa1fc314841c278662fec2e07925b10b0">prune_kmers</a> (int max_kb_on_disk)</td></tr>
 <tr class="separator:aa1fc314841c278662fec2e07925b10b0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a314fdb721b7cc6831d95528fc34c75a0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a314fdb721b7cc6831d95528fc34c75a0">remember_kmer_size</a> (int size)</td></tr>
@@ -294,12 +294,12 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a3959e7eccaf4d3d001b585c4cfc6078b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6156925c489e7e384fc31b4d76bd9eaa"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a6156925c489e7e384fc31b4d76bd9eaa">store_batch</a> (map&lt; string, string &gt; &amp;items)</td></tr>
 <tr class="separator:a6156925c489e7e384fc31b4d76bd9eaa"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2cf8b8ad22bf41d6a30ac488ead6b52c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a2cf8b8ad22bf41d6a30ac488ead6b52c">kmer_matches</a> (std::string &amp;kmer, std::set&lt; int64_t &gt; &amp;node_ids, std::set&lt; int64_t &gt; &amp;edge_ids)</td></tr>
-<tr class="separator:a2cf8b8ad22bf41d6a30ac488ead6b52c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adee0633838380dad771f9fcd26151f8d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#adee0633838380dad771f9fcd26151f8d">kmer_matches</a> (std::string &amp;kmer, std::set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;node_ids, std::set&lt; int64_t &gt; &amp;edge_ids)</td></tr>
+<tr class="separator:adee0633838380dad771f9fcd26151f8d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afc5035b858c22439a9c9e86c53149f76"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#afc5035b858c22439a9c9e86c53149f76">first_kmer_key</a> (const string &amp;kmer)</td></tr>
 <tr class="separator:afc5035b858c22439a9c9e86c53149f76"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa64f755f8bc3e2d0c035179afde606c1"><td class="memItemLeft" align="right" valign="top">pair&lt; int64_t, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#aa64f755f8bc3e2d0c035179afde606c1">compare_kmers</a> (<a class="el" href="classvg_1_1Index.html">Index</a> &amp;other)</td></tr>
-<tr class="separator:aa64f755f8bc3e2d0c035179afde606c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a466fc6f7ad5c6c956f395a9181f32e31"><td class="memItemLeft" align="right" valign="top">pair&lt; uint64_t, uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a466fc6f7ad5c6c956f395a9181f32e31">compare_kmers</a> (<a class="el" href="classvg_1_1Index.html">Index</a> &amp;other)</td></tr>
+<tr class="separator:a466fc6f7ad5c6c956f395a9181f32e31"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5ffcf9901872873d88db7821073ad126"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a5ffcf9901872873d88db7821073ad126">get_max_path_id</a> (void)</td></tr>
 <tr class="separator:a5ffcf9901872873d88db7821073ad126"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a098ca25f15a45740d4aab2576dc2a75b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Index.html#a098ca25f15a45740d4aab2576dc2a75b">put_max_path_id</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>)</td></tr>
@@ -542,8 +542,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="af2716e338785081bcb4ac1c2cc49afb4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af2716e338785081bcb4ac1c2cc49afb4">&#9670;&nbsp;</a></span>batch_kmer()</h2>
+<a id="a4921e44e5b4d6c1b0010fd827153cda5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4921e44e5b4d6c1b0010fd827153cda5">&#9670;&nbsp;</a></span>batch_kmer()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -557,7 +557,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const int64_t&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>id</em>, </td>
         </tr>
         <tr>
@@ -646,14 +646,14 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aa64f755f8bc3e2d0c035179afde606c1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa64f755f8bc3e2d0c035179afde606c1">&#9670;&nbsp;</a></span>compare_kmers()</h2>
+<a id="a466fc6f7ad5c6c956f395a9181f32e31"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a466fc6f7ad5c6c956f395a9181f32e31">&#9670;&nbsp;</a></span>compare_kmers()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">pair&lt; int64_t, int64_t &gt; vg::Index::compare_kmers </td>
+          <td class="memname">pair&lt; uint64_t, uint64_t &gt; vg::Index::compare_kmers </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="classvg_1_1Index.html">Index</a> &amp;&#160;</td>
           <td class="paramname"><em>other</em></td><td>)</td>
@@ -802,8 +802,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a09184e97d246ef7cfcce7627eb2ea2ac"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a09184e97d246ef7cfcce7627eb2ea2ac">&#9670;&nbsp;</a></span>for_alignment_in_range()</h2>
+<a id="a499264ae0075eaa4d9003637949a991f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a499264ae0075eaa4d9003637949a991f">&#9670;&nbsp;</a></span>for_alignment_in_range()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -811,13 +811,13 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::for_alignment_in_range </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>id1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>id2</em>, </td>
         </tr>
         <tr>
@@ -836,8 +836,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ae7caffcd8f034f9eafa3f41c48846513"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae7caffcd8f034f9eafa3f41c48846513">&#9670;&nbsp;</a></span>for_alignment_to_node()</h2>
+<a id="a44f760a1009ae0377dadfae300c153f5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a44f760a1009ae0377dadfae300c153f5">&#9670;&nbsp;</a></span>for_alignment_to_node()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -845,7 +845,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::for_alignment_to_node </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
@@ -864,8 +864,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aa81a3b3060d43f71a4cba7b5ac1a3cdb"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa81a3b3060d43f71a4cba7b5ac1a3cdb">&#9670;&nbsp;</a></span>for_alignment_to_nodes()</h2>
+<a id="acec34866c182823004e658f37f284082"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acec34866c182823004e658f37f284082">&#9670;&nbsp;</a></span>for_alignment_to_nodes()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -873,7 +873,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::for_alignment_to_nodes </td>
           <td>(</td>
-          <td class="paramtype">const vector&lt; int64_t &gt; &amp;&#160;</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>ids</em>, </td>
         </tr>
         <tr>
@@ -974,8 +974,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aae9238927a90fb39af6b1e1095837edf"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aae9238927a90fb39af6b1e1095837edf">&#9670;&nbsp;</a></span>for_graph_range()</h2>
+<a id="a7d4b5e1a06b5c4c58b3dbf094b9dd19b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7d4b5e1a06b5c4c58b3dbf094b9dd19b">&#9670;&nbsp;</a></span>for_graph_range()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -983,13 +983,13 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::for_graph_range </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>from_id</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>to_id</em>, </td>
         </tr>
         <tr>
@@ -1070,8 +1070,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aff7ba23c907f058c1c8cd015966f74ce"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aff7ba23c907f058c1c8cd015966f74ce">&#9670;&nbsp;</a></span>get_alignments() <span class="overload">[1/2]</span></h2>
+<a id="a8e2b43d1b346a64fd5285ef2334c1c74"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8e2b43d1b346a64fd5285ef2334c1c74">&#9670;&nbsp;</a></span>get_alignments() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1079,7 +1079,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::get_alignments </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
@@ -1098,8 +1098,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a19f1fcf1fa2175c5ffc6e0e8a65de966"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a19f1fcf1fa2175c5ffc6e0e8a65de966">&#9670;&nbsp;</a></span>get_alignments() <span class="overload">[2/2]</span></h2>
+<a id="a43abb5997329528b956e535c08674d68"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a43abb5997329528b956e535c08674d68">&#9670;&nbsp;</a></span>get_alignments() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1107,13 +1107,13 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::get_alignments </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>id1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>id2</em>, </td>
         </tr>
         <tr>
@@ -1150,8 +1150,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a0ccabfc885a10a46ff16ab0a8d43373e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0ccabfc885a10a46ff16ab0a8d43373e">&#9670;&nbsp;</a></span>get_context()</h2>
+<a id="a1764a94ba2cc281b803dc953537ef914"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1764a94ba2cc281b803dc953537ef914">&#9670;&nbsp;</a></span>get_context()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1159,7 +1159,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::get_context </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>id</em>, </td>
         </tr>
         <tr>
@@ -1178,8 +1178,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a718f5b5c557c69fbd33e08da1f07eb29"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a718f5b5c557c69fbd33e08da1f07eb29">&#9670;&nbsp;</a></span>get_edge()</h2>
+<a id="acdd51ebff16b4cffe40e195166b87026"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acdd51ebff16b4cffe40e195166b87026">&#9670;&nbsp;</a></span>get_edge()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1187,7 +1187,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">rocksdb::Status vg::Index::get_edge </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>from</em>, </td>
         </tr>
         <tr>
@@ -1199,7 +1199,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>to</em>, </td>
         </tr>
         <tr>
@@ -1224,8 +1224,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a45a62678cf86b570822bc40fea4348ad"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a45a62678cf86b570822bc40fea4348ad">&#9670;&nbsp;</a></span>get_edges_of()</h2>
+<a id="ac868241f191c7300c80cd11fd7092260"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac868241f191c7300c80cd11fd7092260">&#9670;&nbsp;</a></span>get_edges_of()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1233,7 +1233,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::get_edges_of </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node</em>, </td>
         </tr>
         <tr>
@@ -1252,8 +1252,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a05365e96a2a88b63bbb68b47d4c51594"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a05365e96a2a88b63bbb68b47d4c51594">&#9670;&nbsp;</a></span>get_edges_on_end()</h2>
+<a id="a416560311a2d0b5dac78e8ebdf7e0780"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a416560311a2d0b5dac78e8ebdf7e0780">&#9670;&nbsp;</a></span>get_edges_on_end()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1261,7 +1261,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::get_edges_on_end </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node</em>, </td>
         </tr>
         <tr>
@@ -1280,8 +1280,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a65ac015a41f4e087a81a6ae50b543d01"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a65ac015a41f4e087a81a6ae50b543d01">&#9670;&nbsp;</a></span>get_edges_on_start()</h2>
+<a id="a99978d0144b015ed8aa3c9d0b253617b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a99978d0144b015ed8aa3c9d0b253617b">&#9670;&nbsp;</a></span>get_edges_on_start()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1289,7 +1289,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::get_edges_on_start </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node</em>, </td>
         </tr>
         <tr>
@@ -1308,8 +1308,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a60dce6f1c695dda8c08a8b0f4cd42fab"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a60dce6f1c695dda8c08a8b0f4cd42fab">&#9670;&nbsp;</a></span>get_kmer_positions() <span class="overload">[1/2]</span></h2>
+<a id="a0839938e67b92f6dee2900277dbabb0a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0839938e67b92f6dee2900277dbabb0a">&#9670;&nbsp;</a></span>get_kmer_positions() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1323,7 +1323,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">map&lt; int64_t, vector&lt; int32_t &gt; &gt; &amp;&#160;</td>
+          <td class="paramtype">map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, vector&lt; int32_t &gt; &gt; &amp;&#160;</td>
           <td class="paramname"><em>positions</em>&#160;</td>
         </tr>
         <tr>
@@ -1336,8 +1336,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a1ce19e437a73e934f4761f16fafdb596"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1ce19e437a73e934f4761f16fafdb596">&#9670;&nbsp;</a></span>get_kmer_positions() <span class="overload">[2/2]</span></h2>
+<a id="ab611f7abf5966dc2d3b8222d9986ee37"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab611f7abf5966dc2d3b8222d9986ee37">&#9670;&nbsp;</a></span>get_kmer_positions() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1351,7 +1351,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">map&lt; string, vector&lt; pair&lt; int64_t, int32_t &gt; &gt; &gt; &amp;&#160;</td>
+          <td class="paramtype">map&lt; string, vector&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, int32_t &gt; &gt; &gt; &amp;&#160;</td>
           <td class="paramname"><em>positions</em>&#160;</td>
         </tr>
         <tr>
@@ -1392,8 +1392,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="af857cafb69d6f37c49b912dd8549d31f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af857cafb69d6f37c49b912dd8549d31f">&#9670;&nbsp;</a></span>get_mappings()</h2>
+<a id="a79e2ad8ec6f49f3b13281adfb4a856ab"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a79e2ad8ec6f49f3b13281adfb4a856ab">&#9670;&nbsp;</a></span>get_mappings()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1401,7 +1401,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::get_mappings </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
@@ -1466,16 +1466,16 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ad6fe3ce75d2eb3b3299a566b1d1235df"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad6fe3ce75d2eb3b3299a566b1d1235df">&#9670;&nbsp;</a></span>get_nearest_node_next_path_member()</h2>
+<a id="ad9b57d3a128ed9563d5e037e4d4d4a86"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad9b57d3a128ed9563d5e037e4d4d4a86">&#9670;&nbsp;</a></span>get_nearest_node_next_path_member()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">pair&lt; list&lt; pair&lt; int64_t, bool &gt; &gt;, pair&lt; int64_t, bool &gt; &gt; vg::Index::get_nearest_node_next_path_member </td>
+          <td class="memname">pair&lt; list&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt; &gt;, pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt; &gt; vg::Index::get_nearest_node_next_path_member </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
@@ -1518,16 +1518,16 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ad1b2bf966dd450e950a6ab188a8797a0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad1b2bf966dd450e950a6ab188a8797a0">&#9670;&nbsp;</a></span>get_nearest_node_prev_path_member()</h2>
+<a id="ac9933eaa2a8975b90a29c7feaceee6f9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac9933eaa2a8975b90a29c7feaceee6f9">&#9670;&nbsp;</a></span>get_nearest_node_prev_path_member()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">pair&lt; list&lt; pair&lt; int64_t, bool &gt; &gt;, pair&lt; int64_t, bool &gt; &gt; vg::Index::get_nearest_node_prev_path_member </td>
+          <td class="memname">pair&lt; list&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt; &gt;, pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt; &gt; vg::Index::get_nearest_node_prev_path_member </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
@@ -1570,8 +1570,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a305cfc70f59a5d06b4e5eb1e7082446c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a305cfc70f59a5d06b4e5eb1e7082446c">&#9670;&nbsp;</a></span>get_node()</h2>
+<a id="a33307bf40d0f4b2004103cd6583581dc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a33307bf40d0f4b2004103cd6583581dc">&#9670;&nbsp;</a></span>get_node()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1579,7 +1579,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">rocksdb::Status vg::Index::get_node </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>id</em>, </td>
         </tr>
         <tr>
@@ -1598,8 +1598,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ad53a8d290adc82aaaf36d7712df06e4e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad53a8d290adc82aaaf36d7712df06e4e">&#9670;&nbsp;</a></span>get_node_path()</h2>
+<a id="aea285feb12c7c8e73f16a504105a4431"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aea285feb12c7c8e73f16a504105a4431">&#9670;&nbsp;</a></span>get_node_path()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1607,7 +1607,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">int vg::Index::get_node_path </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
@@ -1644,8 +1644,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a102af40b28f12b450f5208b79121a8a2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a102af40b28f12b450f5208b79121a8a2">&#9670;&nbsp;</a></span>get_node_path_relative_position()</h2>
+<a id="a25825d24c4321da567cec2281638e442"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a25825d24c4321da567cec2281638e442">&#9670;&nbsp;</a></span>get_node_path_relative_position()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1653,7 +1653,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">bool vg::Index::get_node_path_relative_position </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
@@ -1671,7 +1671,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">list&lt; pair&lt; int64_t, bool &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">list&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>path_prev</em>, </td>
         </tr>
         <tr>
@@ -1689,7 +1689,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">list&lt; pair&lt; int64_t, bool &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">list&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>path_next</em>, </td>
         </tr>
         <tr>
@@ -1714,8 +1714,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a62779a0ff7c4705235069b2604099d3c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a62779a0ff7c4705235069b2604099d3c">&#9670;&nbsp;</a></span>get_nodes_next()</h2>
+<a id="aad5bfc60111b66dd0dde913c295511f4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aad5bfc60111b66dd0dde913c295511f4">&#9670;&nbsp;</a></span>get_nodes_next()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1723,7 +1723,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::get_nodes_next </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node</em>, </td>
         </tr>
         <tr>
@@ -1735,7 +1735,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; pair&lt; int64_t, bool &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>destinations</em>&#160;</td>
         </tr>
         <tr>
@@ -1748,8 +1748,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aa679f98fda67685f32e8d61c2db366b0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa679f98fda67685f32e8d61c2db366b0">&#9670;&nbsp;</a></span>get_nodes_prev()</h2>
+<a id="a30dc8fa411dab94024523e66e1d4f49a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a30dc8fa411dab94024523e66e1d4f49a">&#9670;&nbsp;</a></span>get_nodes_prev()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1757,7 +1757,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::get_nodes_prev </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node</em>, </td>
         </tr>
         <tr>
@@ -1769,7 +1769,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; pair&lt; int64_t, bool &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>destinations</em>&#160;</td>
         </tr>
         <tr>
@@ -1858,8 +1858,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ad1dd49ebb0404b72aefc21cc1732a5c6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad1dd49ebb0404b72aefc21cc1732a5c6">&#9670;&nbsp;</a></span>get_range()</h2>
+<a id="adcba0470461ef4d406ac2736d781b4e7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adcba0470461ef4d406ac2736d781b4e7">&#9670;&nbsp;</a></span>get_range()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1867,13 +1867,13 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::get_range </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>from_id</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>to_id</em>, </td>
         </tr>
         <tr>
@@ -1974,8 +1974,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="acad84d9f946896624486b8266830dcde"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acad84d9f946896624486b8266830dcde">&#9670;&nbsp;</a></span>key_for_alignment_prefix()</h2>
+<a id="aab2b9b66a28ea47aefce06469a8084b7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aab2b9b66a28ea47aefce06469a8084b7">&#9670;&nbsp;</a></span>key_for_alignment_prefix()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1983,7 +1983,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">const string vg::Index::key_for_alignment_prefix </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em></td><td>)</td>
           <td></td>
         </tr>
@@ -2010,8 +2010,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aef09a7d0aa6864acfeb0e6b87880176c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aef09a7d0aa6864acfeb0e6b87880176c">&#9670;&nbsp;</a></span>key_for_edge_on_end()</h2>
+<a id="a1c2f95dea7e1382d4886827862a04aee"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1c2f95dea7e1382d4886827862a04aee">&#9670;&nbsp;</a></span>key_for_edge_on_end()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2019,13 +2019,13 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">const string vg::Index::key_for_edge_on_end </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>other</em>, </td>
         </tr>
         <tr>
@@ -2044,8 +2044,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="afc0343b19653720423888d15d337104f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afc0343b19653720423888d15d337104f">&#9670;&nbsp;</a></span>key_for_edge_on_start()</h2>
+<a id="a0efbfb55fbf5d2384a5203bf72ff7376"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0efbfb55fbf5d2384a5203bf72ff7376">&#9670;&nbsp;</a></span>key_for_edge_on_start()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2053,13 +2053,13 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">const string vg::Index::key_for_edge_on_start </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>other</em>, </td>
         </tr>
         <tr>
@@ -2078,8 +2078,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a3d4cee6154c9346aaf9b9ce6e010ed0a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3d4cee6154c9346aaf9b9ce6e010ed0a">&#9670;&nbsp;</a></span>key_for_kmer()</h2>
+<a id="a2101e00c1bb23aabf4183a04f67dfc84"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2101e00c1bb23aabf4183a04f67dfc84">&#9670;&nbsp;</a></span>key_for_kmer()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2093,7 +2093,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>id</em>&#160;</td>
         </tr>
         <tr>
@@ -2124,8 +2124,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a11e8734e99ea15e2389d710e63395725"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a11e8734e99ea15e2389d710e63395725">&#9670;&nbsp;</a></span>key_for_mapping_prefix()</h2>
+<a id="a58aa417dbd943c4336198f440c4916ea"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a58aa417dbd943c4336198f440c4916ea">&#9670;&nbsp;</a></span>key_for_mapping_prefix()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2133,7 +2133,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">const string vg::Index::key_for_mapping_prefix </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em></td><td>)</td>
           <td></td>
         </tr>
@@ -2160,8 +2160,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a9f0009a0abd62c00b79bee39b349e4b2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9f0009a0abd62c00b79bee39b349e4b2">&#9670;&nbsp;</a></span>key_for_node()</h2>
+<a id="a79e431af296fee87123de4f9117f101f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a79e431af296fee87123de4f9117f101f">&#9670;&nbsp;</a></span>key_for_node()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2169,7 +2169,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">const string vg::Index::key_for_node </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>id</em></td><td>)</td>
           <td></td>
         </tr>
@@ -2178,8 +2178,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ae629b6f96c483367c77156f2483c51f0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae629b6f96c483367c77156f2483c51f0">&#9670;&nbsp;</a></span>key_for_node_path_position()</h2>
+<a id="a4233865e98c8e74bb95c94cd12ace509"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4233865e98c8e74bb95c94cd12ace509">&#9670;&nbsp;</a></span>key_for_node_path_position()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2187,7 +2187,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">const string vg::Index::key_for_node_path_position </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
@@ -2218,8 +2218,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a63c04e2bb7add378db03a64aef446b38"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a63c04e2bb7add378db03a64aef446b38">&#9670;&nbsp;</a></span>key_for_path_position()</h2>
+<a id="add57a0af73fc2fcb251eb46a052f874a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#add57a0af73fc2fcb251eb46a052f874a">&#9670;&nbsp;</a></span>key_for_path_position()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2245,7 +2245,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em>&#160;</td>
         </tr>
         <tr>
@@ -2286,8 +2286,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aae14a669e93fa8f3712fd8189ba0c289"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aae14a669e93fa8f3712fd8189ba0c289">&#9670;&nbsp;</a></span>key_prefix_for_edges_on_node_end()</h2>
+<a id="aefcedc89173b71a0d3c245b9354291cf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aefcedc89173b71a0d3c245b9354291cf">&#9670;&nbsp;</a></span>key_prefix_for_edges_on_node_end()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2295,7 +2295,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">const string vg::Index::key_prefix_for_edges_on_node_end </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node</em></td><td>)</td>
           <td></td>
         </tr>
@@ -2304,8 +2304,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a77134aa6423cfdbfe5bad27ec178018d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a77134aa6423cfdbfe5bad27ec178018d">&#9670;&nbsp;</a></span>key_prefix_for_edges_on_node_start()</h2>
+<a id="aae540295ffa9770b63649a54c813c0ca"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aae540295ffa9770b63649a54c813c0ca">&#9670;&nbsp;</a></span>key_prefix_for_edges_on_node_start()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2313,7 +2313,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">const string vg::Index::key_prefix_for_edges_on_node_start </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node</em></td><td>)</td>
           <td></td>
         </tr>
@@ -2340,8 +2340,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ab949083766fa19ce514ae152bb1d41cb"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab949083766fa19ce514ae152bb1d41cb">&#9670;&nbsp;</a></span>key_prefix_for_node_path()</h2>
+<a id="ae17e481f22c61a5513e27f35d48e8517"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae17e481f22c61a5513e27f35d48e8517">&#9670;&nbsp;</a></span>key_prefix_for_node_path()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2349,7 +2349,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">const string vg::Index::key_prefix_for_node_path </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
@@ -2368,8 +2368,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="adadacac4e1843a9f2515e2380618f11c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#adadacac4e1843a9f2515e2380618f11c">&#9670;&nbsp;</a></span>key_prefix_for_traversal()</h2>
+<a id="ae94002f37de0b301101fb964c8a3550b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae94002f37de0b301101fb964c8a3550b">&#9670;&nbsp;</a></span>key_prefix_for_traversal()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2377,7 +2377,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">const string vg::Index::key_prefix_for_traversal </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em></td><td>)</td>
           <td></td>
         </tr>
@@ -2414,8 +2414,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a2cf8b8ad22bf41d6a30ac488ead6b52c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2cf8b8ad22bf41d6a30ac488ead6b52c">&#9670;&nbsp;</a></span>kmer_matches()</h2>
+<a id="adee0633838380dad771f9fcd26151f8d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adee0633838380dad771f9fcd26151f8d">&#9670;&nbsp;</a></span>kmer_matches()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2429,7 +2429,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">std::set&lt; int64_t &gt; &amp;&#160;</td>
+          <td class="paramtype">std::set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>node_ids</em>, </td>
         </tr>
         <tr>
@@ -2558,8 +2558,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a8d5d32ba37e203fc3a2a7360ae13cea4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8d5d32ba37e203fc3a2a7360ae13cea4">&#9670;&nbsp;</a></span>node_path_position()</h2>
+<a id="a2b2187dd55304651d16b51282f0268a7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2b2187dd55304651d16b51282f0268a7">&#9670;&nbsp;</a></span>node_path_position()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2567,7 +2567,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::node_path_position </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>id</em>, </td>
         </tr>
         <tr>
@@ -2714,8 +2714,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="abeb20b5ce8ebe4d6097a14e7ae09f527"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abeb20b5ce8ebe4d6097a14e7ae09f527">&#9670;&nbsp;</a></span>parse_alignment()</h2>
+<a id="a39e7518a72ee4ffea14ed5cd907b6eee"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a39e7518a72ee4ffea14ed5cd907b6eee">&#9670;&nbsp;</a></span>parse_alignment()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2735,7 +2735,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
@@ -2800,8 +2800,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a2e4f852179aff69a081bef942bb44b33"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2e4f852179aff69a081bef942bb44b33">&#9670;&nbsp;</a></span>parse_edge() <span class="overload">[1/2]</span></h2>
+<a id="a4fbd282102503c29d239424bc816f77d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4fbd282102503c29d239424bc816f77d">&#9670;&nbsp;</a></span>parse_edge() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2827,13 +2827,13 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;&#160;</td>
           <td class="paramname"><em>id1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;&#160;</td>
           <td class="paramname"><em>id2</em>, </td>
         </tr>
         <tr>
@@ -2852,8 +2852,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aa6e04b6297c3d384ee74f86047c57c95"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa6e04b6297c3d384ee74f86047c57c95">&#9670;&nbsp;</a></span>parse_edge() <span class="overload">[2/2]</span></h2>
+<a id="a59a40c7822edee96d4fe3d5fcd357f5e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a59a40c7822edee96d4fe3d5fcd357f5e">&#9670;&nbsp;</a></span>parse_edge() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2873,13 +2873,13 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;&#160;</td>
           <td class="paramname"><em>other_id</em>, </td>
         </tr>
         <tr>
@@ -2898,8 +2898,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a59cab369954a075f3b2d0a4c7bb9c9ba"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a59cab369954a075f3b2d0a4c7bb9c9ba">&#9670;&nbsp;</a></span>parse_kmer()</h2>
+<a id="a68bed6e28a6e9e2c71024292477cc104"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a68bed6e28a6e9e2c71024292477cc104">&#9670;&nbsp;</a></span>parse_kmer()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2925,7 +2925,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;&#160;</td>
           <td class="paramname"><em>id</em>, </td>
         </tr>
         <tr>
@@ -2944,8 +2944,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a87d5a1aac53ead176393975356f49d36"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a87d5a1aac53ead176393975356f49d36">&#9670;&nbsp;</a></span>parse_mapping()</h2>
+<a id="ae64eec10b2a79efca1621217b7cb23c7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae64eec10b2a79efca1621217b7cb23c7">&#9670;&nbsp;</a></span>parse_mapping()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2965,7 +2965,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
@@ -2990,8 +2990,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a4d5e09047e701288444acfb2a72de64d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4d5e09047e701288444acfb2a72de64d">&#9670;&nbsp;</a></span>parse_node()</h2>
+<a id="a76dd2982617012d1ed4d32e267a01770"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a76dd2982617012d1ed4d32e267a01770">&#9670;&nbsp;</a></span>parse_node()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3011,7 +3011,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;&#160;</td>
           <td class="paramname"><em>id</em>, </td>
         </tr>
         <tr>
@@ -3030,8 +3030,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a7365eee22bb3bfc4dfbaa93c0bb16963"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7365eee22bb3bfc4dfbaa93c0bb16963">&#9670;&nbsp;</a></span>parse_node_path()</h2>
+<a id="aa924c65de2a0ab1c430eee8ac4ba0041"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa924c65de2a0ab1c430eee8ac4ba0041">&#9670;&nbsp;</a></span>parse_node_path()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3051,7 +3051,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
@@ -3088,8 +3088,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a421d127c63939caee363663b7168d27c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a421d127c63939caee363663b7168d27c">&#9670;&nbsp;</a></span>parse_path_position()</h2>
+<a id="a1d385835be4e163907c3d7cb290f8093"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1d385835be4e163907c3d7cb290f8093">&#9670;&nbsp;</a></span>parse_path_position()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3127,7 +3127,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
@@ -3146,8 +3146,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a7ff884ed1bb9b9446f1db40900c1bcaf"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7ff884ed1bb9b9446f1db40900c1bcaf">&#9670;&nbsp;</a></span>parse_traversal()</h2>
+<a id="abd03a4dbf2235ca3e0a6a59c29a64b28"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abd03a4dbf2235ca3e0a6a59c29a64b28">&#9670;&nbsp;</a></span>parse_traversal()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3167,7 +3167,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
@@ -3198,14 +3198,14 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="acc5774854998c7ef2f0928086d8ee627"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acc5774854998c7ef2f0928086d8ee627">&#9670;&nbsp;</a></span>path_first_node()</h2>
+<a id="acc1fff21e72feb2a4a3c05f644f47d3c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acc1fff21e72feb2a4a3c05f644f47d3c">&#9670;&nbsp;</a></span>path_first_node()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">pair&lt; int64_t, bool &gt; vg::Index::path_first_node </td>
+          <td class="memname">pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt; vg::Index::path_first_node </td>
           <td>(</td>
           <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>path_id</em></td><td>)</td>
@@ -3234,14 +3234,14 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a2ae7a0e0014582d69cbafcd8049ec611"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2ae7a0e0014582d69cbafcd8049ec611">&#9670;&nbsp;</a></span>path_last_node()</h2>
+<a id="a1a66bcf39cfcb47584abf4d2f9e3d595"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1a66bcf39cfcb47584abf4d2f9e3d595">&#9670;&nbsp;</a></span>path_last_node()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">pair&lt; int64_t, bool &gt; vg::Index::path_last_node </td>
+          <td class="memname">pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt; vg::Index::path_last_node </td>
           <td>(</td>
           <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>path_id</em>, </td>
@@ -3262,8 +3262,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aa54ac43282224e50372ecee60f744685"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa54ac43282224e50372ecee60f744685">&#9670;&nbsp;</a></span>path_layout()</h2>
+<a id="a4501d38a3a6d3b5f05ec1fb278de3381"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4501d38a3a6d3b5f05ec1fb278de3381">&#9670;&nbsp;</a></span>path_layout()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3271,7 +3271,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::path_layout </td>
           <td>(</td>
-          <td class="paramtype">map&lt; string, pair&lt; pair&lt; int64_t, bool &gt;, pair&lt; int64_t, bool &gt;&gt; &gt; &amp;&#160;</td>
+          <td class="paramtype">map&lt; string, pair&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;, pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &gt; &amp;&#160;</td>
           <td class="paramname"><em>layout</em>, </td>
         </tr>
         <tr>
@@ -3336,8 +3336,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a58f7a2c4777215f49479e3ee2f9626d0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a58f7a2c4777215f49479e3ee2f9626d0">&#9670;&nbsp;</a></span>path_relative_mapping()</h2>
+<a id="af86c630db2501e860611e3c04a8ba388"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af86c630db2501e860611e3c04a8ba388">&#9670;&nbsp;</a></span>path_relative_mapping()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3345,7 +3345,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname"><a class="el" href="structvg_1_1Mapping.html">Mapping</a> vg::Index::path_relative_mapping </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
@@ -3363,7 +3363,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">list&lt; pair&lt; int64_t, bool &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">list&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>path_prev</em>, </td>
         </tr>
         <tr>
@@ -3381,7 +3381,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">list&lt; pair&lt; int64_t, bool &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">list&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>path_next</em>, </td>
         </tr>
         <tr>
@@ -3534,8 +3534,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aa6d98853f5fe14e29e4294f139d231ab"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa6d98853f5fe14e29e4294f139d231ab">&#9670;&nbsp;</a></span>put_kmer()</h2>
+<a id="a783f82c29898e8500b8e749b38af9503"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a783f82c29898e8500b8e749b38af9503">&#9670;&nbsp;</a></span>put_kmer()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3549,7 +3549,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const int64_t&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>id</em>, </td>
         </tr>
         <tr>
@@ -3650,8 +3650,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ae4527677f7ecc9c8b94326f4e479318b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae4527677f7ecc9c8b94326f4e479318b">&#9670;&nbsp;</a></span>put_node_path()</h2>
+<a id="a2a479a494ff74f28e56c6c9693fb56d5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2a479a494ff74f28e56c6c9693fb56d5">&#9670;&nbsp;</a></span>put_node_path()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3659,7 +3659,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Index::put_node_path </td>
           <td>(</td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>
@@ -3752,8 +3752,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a68bf130cf123d928f1362c7e1da406bf"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a68bf130cf123d928f1362c7e1da406bf">&#9670;&nbsp;</a></span>put_path_position()</h2>
+<a id="a4781c2dcfd48e89a2aa08140373e41f8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4781c2dcfd48e89a2aa08140373e41f8">&#9670;&nbsp;</a></span>put_path_position()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3779,7 +3779,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
         </tr>
         <tr>

@@ -101,12 +101,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a8018547ffd3175ab28ebd8fb92b8f842"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a8018547ffd3175ab28ebd8fb92b8f842">for_each_kmer_parallel</a> (size_t kmer_size, const function&lt; void(const <a class="el" href="structvg_1_1kmer__t.html">kmer_t</a> &amp;)&gt; &amp;lambda)</td></tr>
 <tr class="memdesc:a8018547ffd3175ab28ebd8fb92b8f842"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all kmers in the graph.  <a href="#a8018547ffd3175ab28ebd8fb92b8f842">More...</a><br /></td></tr>
 <tr class="separator:a8018547ffd3175ab28ebd8fb92b8f842"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a025bbf9c919cd28e16ca857d78bcc073"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a025bbf9c919cd28e16ca857d78bcc073">write_gcsa_kmers_ascii</a> (ostream &amp;out, int kmer_size, int64_t head_id=0, int64_t tail_id=0)</td></tr>
-<tr class="separator:a025bbf9c919cd28e16ca857d78bcc073"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa48a0bc96e1707b148c43f07a1855c08"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#aa48a0bc96e1707b148c43f07a1855c08">write_gcsa_kmers_binary</a> (ostream &amp;out, int kmer_size, size_t &amp;size_limit, int64_t head_id=0, int64_t tail_id=0)</td></tr>
-<tr class="separator:aa48a0bc96e1707b148c43f07a1855c08"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9bcfc1213bc9125e0e05f7ca83afb903"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a9bcfc1213bc9125e0e05f7ca83afb903">write_gcsa_kmers_binary</a> (int kmer_size, size_t &amp;size_limit, int64_t head_id=0, int64_t tail_id=0)</td></tr>
-<tr class="separator:a9bcfc1213bc9125e0e05f7ca83afb903"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8f9d1a671c39aa51a768d0733bccecb9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a8f9d1a671c39aa51a768d0733bccecb9">write_gcsa_kmers_ascii</a> (ostream &amp;out, int kmer_size, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> head_id=0, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> tail_id=0)</td></tr>
+<tr class="separator:a8f9d1a671c39aa51a768d0733bccecb9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7de0f3cd0ccccd60dc0ef4c29840fe0b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a7de0f3cd0ccccd60dc0ef4c29840fe0b">write_gcsa_kmers_binary</a> (ostream &amp;out, int kmer_size, size_t &amp;size_limit, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> head_id=0, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> tail_id=0)</td></tr>
+<tr class="separator:a7de0f3cd0ccccd60dc0ef4c29840fe0b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0c1615ae5874cbcc4f77d0b224f2e12e"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a0c1615ae5874cbcc4f77d0b224f2e12e">write_gcsa_kmers_binary</a> (int kmer_size, size_t &amp;size_limit, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> head_id=0, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> tail_id=0)</td></tr>
+<tr class="separator:a0c1615ae5874cbcc4f77d0b224f2e12e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -366,8 +366,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a025bbf9c919cd28e16ca857d78bcc073"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a025bbf9c919cd28e16ca857d78bcc073">&#9670;&nbsp;</a></span>write_gcsa_kmers_ascii()</h2>
+<a id="a8f9d1a671c39aa51a768d0733bccecb9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8f9d1a671c39aa51a768d0733bccecb9">&#9670;&nbsp;</a></span>write_gcsa_kmers_ascii()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -387,13 +387,13 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>head_id</em> = <code>0</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>tail_id</em> = <code>0</code>&#160;</td>
         </tr>
         <tr>
@@ -407,8 +407,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aa48a0bc96e1707b148c43f07a1855c08"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa48a0bc96e1707b148c43f07a1855c08">&#9670;&nbsp;</a></span>write_gcsa_kmers_binary() <span class="overload">[1/2]</span></h2>
+<a id="a7de0f3cd0ccccd60dc0ef4c29840fe0b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7de0f3cd0ccccd60dc0ef4c29840fe0b">&#9670;&nbsp;</a></span>write_gcsa_kmers_binary() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -434,13 +434,13 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>head_id</em> = <code>0</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>tail_id</em> = <code>0</code>&#160;</td>
         </tr>
         <tr>
@@ -453,8 +453,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a9bcfc1213bc9125e0e05f7ca83afb903"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9bcfc1213bc9125e0e05f7ca83afb903">&#9670;&nbsp;</a></span>write_gcsa_kmers_binary() <span class="overload">[2/2]</span></h2>
+<a id="a0c1615ae5874cbcc4f77d0b224f2e12e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0c1615ae5874cbcc4f77d0b224f2e12e">&#9670;&nbsp;</a></span>write_gcsa_kmers_binary() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -474,13 +474,13 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>head_id</em> = <code>0</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>&#160;</td>
           <td class="paramname"><em>tail_id</em> = <code>0</code>&#160;</td>
         </tr>
         <tr>

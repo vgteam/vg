@@ -26,7 +26,7 @@ var searchData=
   ['add_5freachability_5fedges',['add_reachability_edges',['../classvg_1_1MultipathAlignmentGraph.html#a1268ebdd6f7aa63390375351aeb2869c',1,'vg::MultipathAlignmentGraph']]],
   ['add_5fsnarl',['add_snarl',['../classvg_1_1SnarlManager.html#ad41eeea8a375f91349a475a1782c3160',1,'vg::SnarlManager']]],
   ['add_5fsplice_5fjunction_5fedges',['add_splice_junction_edges',['../classvg_1_1Transcriptome.html#afdb0ae75032057859ad882400e6c16e5',1,'vg::Transcriptome::add_splice_junction_edges(const list&lt; EditedTranscriptPath &gt; &amp;edited_transcript_paths)'],['../classvg_1_1Transcriptome.html#a9be2d779faebdb40a8048ddc9727c6fb',1,'vg::Transcriptome::add_splice_junction_edges(const vector&lt; CompletedTranscriptPath &gt; &amp;completed_transcript_paths)']]],
-  ['add_5fstart_5fend_5fmarkers',['add_start_end_markers',['../classvg_1_1VG.html#a27730f354959a95c892c5ea5787fb687',1,'vg::VG']]],
+  ['add_5fstart_5fend_5fmarkers',['add_start_end_markers',['../classvg_1_1VG.html#a91eaa395f197ca65f38c6139bc57d161',1,'vg::VG']]],
   ['add_5fsubpaths_5fto_5fsubgraph',['add_subpaths_to_subgraph',['../namespacevg_1_1algorithms.html#ad37fc704de99f02f0bf767d6ab41fe4e',1,'vg::algorithms']]],
   ['add_5fthread_5fedges_5fto_5fset',['add_thread_edges_to_set',['../namespacevg.html#afe2d6096dfe672a486e44df018c713c2',1,'vg']]],
   ['add_5fthread_5fnodes_5fto_5fset',['add_thread_nodes_to_set',['../namespacevg.html#a2adfa9e81b2553fefdd5e1d6b24c7a77',1,'vg']]],

@@ -7,7 +7,7 @@ var searchData=
   ['underflow',['underflow',['../classvg_1_1io_1_1fdinbuf.html#a67ea7aab3e21cacec9fb836d4a70673e',1,'vg::io::fdinbuf']]],
   ['unescape_5fdelim',['unescape_delim',['../classvg_1_1Packer.html#a32f8697cf4c222f5e207a4b15a1f0883',1,'vg::Packer']]],
   ['unescape_5fdelims',['unescape_delims',['../classvg_1_1Packer.html#a92b44e965dd5da9da72e1a9196290d94',1,'vg::Packer']]],
-  ['unfold',['unfold',['../classvg_1_1PhaseUnfolder.html#a39a286ab3746a9a175a898bead3d2612',1,'vg::PhaseUnfolder::unfold()'],['../classvg_1_1VG.html#afc568712b6d4aa3b6dc965f37cc769a7',1,'vg::VG::unfold()']]],
+  ['unfold',['unfold',['../classvg_1_1PhaseUnfolder.html#a39a286ab3746a9a175a898bead3d2612',1,'vg::PhaseUnfolder::unfold()'],['../classvg_1_1VG.html#a6552b9da8cff82802ee24090064eb3a8',1,'vg::VG::unfold()']]],
   ['unfold_5fcomponent',['unfold_component',['../classvg_1_1PhaseUnfolder.html#a84543fbc3521c9da70838339613ac3b9',1,'vg::PhaseUnfolder']]],
   ['unfold_5fhaplotypes',['unfold_haplotypes',['../classvg_1_1GaplessExtender.html#a299bcf981f44bd90ec54dedad15f59d3',1,'vg::GaplessExtender']]],
   ['uniform_5fint_5fdistribution',['uniform_int_distribution',['../classvg_1_1uniform__int__distribution.html#ab8d23ee7f2beacc01804f3206c3bc663',1,'vg::uniform_int_distribution']]],

@@ -20,7 +20,7 @@ var searchData=
   ['underlying_5fpath_5fposition_5fgraph',['underlying_path_position_graph',['../classbdsg_1_1PathPositionVectorizableOverlay.html#a35cac640c3674b1c92586cd3ee35b626',1,'bdsg::PathPositionVectorizableOverlay']]],
   ['unescape_5fdelim',['unescape_delim',['../classvg_1_1Packer.html#a32f8697cf4c222f5e207a4b15a1f0883',1,'vg::Packer']]],
   ['unescape_5fdelims',['unescape_delims',['../classvg_1_1Packer.html#a92b44e965dd5da9da72e1a9196290d94',1,'vg::Packer']]],
-  ['unfold',['unfold',['../classvg_1_1PhaseUnfolder.html#a39a286ab3746a9a175a898bead3d2612',1,'vg::PhaseUnfolder::unfold()'],['../classvg_1_1VG.html#afc568712b6d4aa3b6dc965f37cc769a7',1,'vg::VG::unfold()']]],
+  ['unfold',['unfold',['../classvg_1_1PhaseUnfolder.html#a39a286ab3746a9a175a898bead3d2612',1,'vg::PhaseUnfolder::unfold()'],['../classvg_1_1VG.html#a6552b9da8cff82802ee24090064eb3a8',1,'vg::VG::unfold()']]],
   ['unfold_5fcomponent',['unfold_component',['../classvg_1_1PhaseUnfolder.html#a84543fbc3521c9da70838339613ac3b9',1,'vg::PhaseUnfolder']]],
   ['unfold_5fhaplotypes',['unfold_haplotypes',['../classvg_1_1GaplessExtender.html#a299bcf981f44bd90ec54dedad15f59d3',1,'vg::GaplessExtender']]],
   ['unfold_5fmax_5flength',['unfold_max_length',['../classvg_1_1Genotyper.html#ab3e4270419b361c9455125ca305709e2',1,'vg::Genotyper']]],
