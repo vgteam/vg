@@ -95,7 +95,7 @@
 .
 :inversionPercent
   rdf:type owl:DatatypeProperty ;
-  rdfs:comment "The percent Position in the component of the path."^^xsd:string ;
+  rdfs:comment "The percent inversion in the component of the path."^^xsd:string ;
   rdfs:domain :Step ;
   rdfs:label "inversion"^^xsd:string ;
   rdfs:range xsd:float ;
