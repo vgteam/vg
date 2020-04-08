@@ -815,8 +815,12 @@ int main_map(int argc, char** argv) {
         m->fast_reseed = use_fast_reseed;
         m->max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
         m->max_target_factor = max_target_factor;
-        m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, max_gap_length, haplotype_consistency_exponent);
-        if(matrix_stream.is_open()) m->load_scoring_matrix(matrix_stream);
+        if (matrix_stream.is_open()) {
+            m->set_alignment_scores(matrix_stream, gap_open, gap_extend, full_length_bonus, max_gap_length, haplotype_consistency_exponent);
+        }
+        else {
+            m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, max_gap_length, haplotype_consistency_exponent);
+        }
         m->strip_bonuses = strip_bonuses;
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
         m->extra_multimaps = extra_multimaps;

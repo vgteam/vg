@@ -6,7 +6,7 @@
 
 #include <stdio.h>
 #include "catch.hpp"
-#include "aligner.hpp"
+#include "test_aligner.hpp"
 #include "vg.hpp"
 #include "path.hpp"
 #include "banded_global_aligner.hpp"
@@ -24,7 +24,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("C");
@@ -73,7 +74,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("C");
@@ -122,7 +124,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("CCCAGTT");
                 Node* n1 = graph.create_node("C");
@@ -175,7 +178,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("CCCAGATG");
                 Node* n1 = graph.create_node("C");
@@ -232,7 +236,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AACCCAGATG");
                 Node* n1 = graph.create_node("C");
@@ -289,7 +294,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AACCCAGG");
                 Node* n1 = graph.create_node("C");
@@ -346,7 +352,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AACCCAGG");
                 Node* n1 = graph.create_node("C");
@@ -403,7 +410,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AACCCAGG");
                 Node* n1 = graph.create_node("CA");
@@ -461,7 +469,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AACCCAGG");
                 Node* n1 = graph.create_node("CA");
@@ -516,7 +525,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AACCCAGG");
                 Node* n1 = graph.create_node("CA");
@@ -569,7 +579,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AACCCAGG");
                 Node* n1 = graph.create_node("CA");
@@ -622,7 +633,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AACCCAGG");
                 Node* n1 = graph.create_node("CA");
@@ -675,7 +687,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AA");
                 Node* n1 = graph.create_node("CCCAGGCA");
@@ -729,7 +742,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("A");
                 Node* n1 = graph.create_node("C");
@@ -770,7 +784,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AATG");
                 Node* n1 = graph.create_node("C");
@@ -814,7 +829,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("TG");
                 Node* n1 = graph.create_node("TGGC");
@@ -863,7 +879,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("C");
                 
@@ -895,7 +912,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("CTAG");
                 Node* n1 = graph.create_node("T");
@@ -945,7 +963,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("TG");
                 Node* n1 = graph.create_node("TGGC");
@@ -994,7 +1013,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("CGCC");
@@ -1035,7 +1055,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("C");
@@ -1076,7 +1097,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("CGCC");
@@ -1126,7 +1148,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("CGCC");
@@ -1173,7 +1196,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("CAGGA");
                 Node* n1 = graph.create_node("AA");
@@ -1222,7 +1246,10 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                
+                
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("C");
@@ -1285,7 +1312,10 @@ namespace vg {
                 graph.create_edge(n3, n4);
                 graph.create_edge(n4, n5);
                 
-                Aligner aligner;
+                
+                
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 string read = "C";
                 Alignment aln;
@@ -1314,7 +1344,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner = Aligner();
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("C");
@@ -1363,7 +1394,10 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                
+                
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("CTGGTGTAGTA");
@@ -1604,7 +1638,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner = Aligner();
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("ACGTAGTCTGAA");
                 Node* n1 = graph.create_node("CA");
@@ -1650,7 +1685,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("ACGTAGTCTGAA");
                 Node* n1 = graph.create_node("CA");
@@ -1694,7 +1730,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("ACGTAGTCTGAA");
                 Node* n1 = graph.create_node("CA");
@@ -1790,7 +1827,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("ACGTAGTCTGAA");
                 Node* n1 = graph.create_node("C");
@@ -1835,7 +1873,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AAAAAAAA");
                 Node* n1 = graph.create_node("GGG");
@@ -1949,7 +1988,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner(1, 4, 6, 1);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("A");
                 Node* n1 = graph.create_node("T");
@@ -2052,7 +2092,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AAAAAAAAAA");
                 Node* n1 = graph.create_node("CGGC");
@@ -2173,7 +2214,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("C");
                 Node* n1 = graph.create_node("T");
@@ -2252,7 +2294,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 // low complexity sequences to ensure many alternate alignments
                 Node* n0 = graph.create_node("CCCCCCCCCTCCCCCCCCCCTCCCCCCCCCCGACCCCCCCCCCC");
@@ -2293,7 +2336,8 @@ namespace vg {
             SECTION( "Banded global aligner can align Ns to letters" ) {
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("C");
@@ -2327,7 +2371,8 @@ namespace vg {
             SECTION( "Banded global aligner can align letters to Ns" ) {
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("C");
@@ -2361,7 +2406,8 @@ namespace vg {
             SECTION( "Banded global aligner can align Ns to Ns" ) {
                 VG graph;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("NNNG");
                 Node* n1 = graph.create_node("C");
@@ -2399,7 +2445,8 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
                 
                 Node* n0 = graph.create_node("");
                 Node* n1 = graph.create_node("CT");
@@ -2487,7 +2534,8 @@ namespace vg {
             SECTION( "Banded global aligner can align to a graph with an empty sink node") {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
                 
                 Node* n0 = graph.create_node("GA");
                 Node* n1 = graph.create_node("CT");
@@ -2539,7 +2587,8 @@ namespace vg {
             SECTION( "Banded global aligner can align to a graph with an empty source and sink node") {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
                 
                 Node* n0 = graph.create_node("");
                 Node* n1 = graph.create_node("CT");
@@ -2590,7 +2639,8 @@ namespace vg {
             SECTION( "Banded global aligner can align to a graph with a chained empty source and sink nodes") {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
                 
                 Node* n0 = graph.create_node("");
                 Node* n1 = graph.create_node("");
@@ -2655,7 +2705,8 @@ namespace vg {
             SECTION( "Banded global aligner can align to a graph with an empty nodes that is both a source and sink") {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
                 
                 Node* n0 = graph.create_node("");
                 
@@ -2688,7 +2739,8 @@ namespace vg {
             SECTION( "Banded global aligner can align to a graph with both empty and non-empty sources and sinks") {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
                 
                 Node* n0 = graph.create_node("");
                 Node* n1 = graph.create_node("GA");
@@ -2773,7 +2825,8 @@ namespace vg {
             SECTION( "Banded global aligner can align to a graph with empty interior nodes") {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
                 
                 Node* n0 = graph.create_node("GA");
                 Node* n1 = graph.create_node("");
@@ -2831,7 +2884,8 @@ namespace vg {
             SECTION( "Banded global aligner can align to an empty graph" ) {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
                 
                 Node* n0 = graph.create_node("");
                 
@@ -2865,7 +2919,8 @@ namespace vg {
             SECTION( "Banded global aligner can align to an empty graph of more than one node" ) {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
                 
                 Node* n0 = graph.create_node("");
                 Node* n1 = graph.create_node("");
@@ -2907,7 +2962,8 @@ namespace vg {
             SECTION( "Banded global aligner can align to a graph with empty and non-empty paths" ) {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
                 
                 Node* n0 = graph.create_node("");
                 Node* n1 = graph.create_node("");
@@ -2974,7 +3030,8 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
                 
                 Node* n0 = graph.create_node("GA");
                 Node* n1 = graph.create_node("");
@@ -3053,7 +3110,8 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
                 
                 Node* n0 = graph.create_node("C");
                 Node* n1 = graph.create_node("TT");
@@ -3136,7 +3194,8 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
                 
                 Node* n0 = graph.create_node("A");
                 Node* n1 = graph.create_node("G");
@@ -3186,7 +3245,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("A");
                 Node* n1 = graph.create_node("G");
@@ -3240,7 +3300,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("");
                 Node* n1 = graph.create_node("G");
@@ -3308,7 +3369,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("");
                 
@@ -3344,7 +3406,8 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner(1, 4, 6, 1, 5);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 Node* n0 = graph.create_node("A");
                 Node* n1 = graph.create_node("GG");
@@ -3418,7 +3481,8 @@ namespace vg {
                 json2pb(graph, graph_json.c_str(), graph_json.size());
                 VG vg_graph(graph);
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 string read = "TTTTGATGGAGGCC";
                 Alignment aln;

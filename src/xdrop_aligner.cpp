@@ -93,7 +93,7 @@ XdropAligner::XdropAligner()
 	
 }
 
-XdropAligner::XdropAligner(int8_t const *_score_matrix, int8_t _gap_open, int8_t _gap_extension,
+XdropAligner::XdropAligner(const int8_t* _score_matrix, int8_t _gap_open, int8_t _gap_extension,
                            int32_t _full_length_bonus, uint32_t _max_gap_length) :
     gap_open(_gap_open - _gap_extension), gap_extend(_gap_extension), max_gap_length(_max_gap_length), full_length_bonus(_full_length_bonus)
 {
@@ -113,12 +113,12 @@ XdropAligner::XdropAligner(int8_t _match, int8_t _mismatch, int8_t _gap_open, in
                            int32_t _full_length_bonus, uint32_t _max_gap_length) :
     gap_open(_gap_open - _gap_extension), gap_extend(_gap_extension), max_gap_length(_max_gap_length), full_length_bonus(_full_length_bonus)
 {
-	assert(_match > 0);
-	assert(_mismatch > 0);
-	assert(_gap_open - _gap_extension >= 0);
-	assert(_gap_extension > 0);
-	assert(_full_length_bonus >= 0);
-	assert(_max_gap_length > 0);
+    assert(_match > 0);
+    assert(_mismatch > 0);
+    assert(_gap_open - _gap_extension >= 0);
+    assert(_gap_extension > 0);
+    assert(_full_length_bonus >= 0);
+    assert(_max_gap_length > 0);
     
     score_matrix = (int8_t*) malloc(16 * sizeof(int8_t));
     for (size_t i = 0; i < 16; ++i) {

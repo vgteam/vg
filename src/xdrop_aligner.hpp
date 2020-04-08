@@ -51,15 +51,14 @@ namespace vg {
      */
 	class XdropAligner {
     public:
-    
-        XdropAligner(int8_t _match,
-                     int8_t _mismatch,
+        // Expects a 4 x 4 score matrix
+        XdropAligner(const int8_t* _score_matrix,
                      int8_t _gap_open,
                      int8_t _gap_extension,
                      int32_t _full_length_bonus,
                      uint32_t _max_gap_length);
-        // Expects a 4 x 4 score matrix
-        XdropAligner(const int8_t* _score_matrix,
+        XdropAligner(int8_t _match,
+                     int8_t _mismatch,
                      int8_t _gap_open,
                      int8_t _gap_extension,
                      int32_t _full_length_bonus,

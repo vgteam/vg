@@ -1122,8 +1122,12 @@ int main_mpmap(int argc, char** argv) {
         snarl_manager.get(), distance_index.get());
     
     // set alignment parameters
-    multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
-    if(matrix_stream.is_open()) multipath_mapper.load_scoring_matrix(matrix_stream);
+    if (matrix_stream.is_open()) {
+        multipath_mapper.set_alignment_scores(matrix_stream, gap_open_score, gap_extension_score, full_length_bonus);
+    }
+    else {
+        multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
+    }
     multipath_mapper.adjust_alignments_for_base_quality = qual_adjusted;
     multipath_mapper.strip_bonuses = strip_full_length_bonus;
     multipath_mapper.band_padding_multiplier = band_padding_multiplier;

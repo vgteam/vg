@@ -8,7 +8,7 @@
 #include <string>
 #include "../json2pb.h"
 #include <vg/vg.pb.h>
-#include "../aligner.hpp"
+#include "test_aligner.hpp"
 #include "catch.hpp"
 
 namespace vg {
@@ -19,8 +19,13 @@ TEST_CASE("Aligner respects the full length bonus at both ends", "[aligner][alig
     
     VG graph;
     
-    Aligner aligner_1(1, 4, 6, 1, 0);
-    Aligner aligner_2(1, 4, 6, 1, 10);
+    TestAligner aligner_source_1;
+    aligner_source_1.set_alignment_scores(1, 4, 6, 1, 0);
+    const Aligner& aligner_1 = *aligner_source_1.get_regular_aligner();
+    
+    TestAligner aligner_source_2;
+    aligner_source_2.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner_2 = *aligner_source_2.get_regular_aligner();
     
     Node* n0 = graph.create_node("AGTG");
     Node* n1 = graph.create_node("C");
@@ -50,8 +55,14 @@ TEST_CASE("Aligner respects the full length bonus for a single base read", "[ali
     
     VG graph;
     
-    Aligner aligner_1(1, 4, 6, 1, 0);
-    Aligner aligner_2(1, 4, 6, 1, 10);
+    TestAligner aligner_source_1;
+    aligner_source_1.set_alignment_scores(1, 4, 6, 1, 0);
+    const Aligner& aligner_1 = *aligner_source_1.get_regular_aligner();
+    
+    TestAligner aligner_source_2;
+    aligner_source_2.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner_2 = *aligner_source_2.get_regular_aligner();
+    
     
     Node* n0 = graph.create_node("AGTG");
     Node* n1 = graph.create_node("C");
@@ -80,8 +91,14 @@ TEST_CASE("Aligner works when end bonus is granted to a match at the start of a 
     
     VG graph;
     
-    Aligner aligner_1(1, 4, 6, 1, 0);
-    Aligner aligner_2(1, 4, 6, 1, 10);
+    TestAligner aligner_source_1;
+    aligner_source_1.set_alignment_scores(1, 4, 6, 1, 0);
+    const Aligner& aligner_1 = *aligner_source_1.get_regular_aligner();
+    
+    TestAligner aligner_source_2;
+    aligner_source_2.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner_2 = *aligner_source_2.get_regular_aligner();
+    
     
     Node* n0 = graph.create_node("AGTG");
     Node* n1 = graph.create_node("C");
@@ -110,8 +127,14 @@ TEST_CASE("Aligner works when end bonus is granted to a match at the start of a 
 
 TEST_CASE("Full-length bonus can hold down the left end", "[aligner][alignment][mapping]") {
     VG graph;
-    Aligner aligner_1(1, 4, 6, 1, 0);
-    Aligner aligner_2(1, 4, 6, 1, 10);
+    
+    TestAligner aligner_source_1;
+    aligner_source_1.set_alignment_scores(1, 4, 6, 1, 0);
+    const Aligner& aligner_1 = *aligner_source_1.get_regular_aligner();
+    
+    TestAligner aligner_source_2;
+    aligner_source_2.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner_2 = *aligner_source_2.get_regular_aligner();
     
     Node* n0 = graph.create_node("AGTGCTGAAGT");
     
@@ -145,8 +168,14 @@ TEST_CASE("Full-length bonus can hold down the left end", "[aligner][alignment][
 
 TEST_CASE("Full-length bonus can hold down the right end", "[aligner][alignment][mapping]") {
     VG graph;
-    Aligner aligner_1(1, 4, 6, 1, 0);
-    Aligner aligner_2(1, 4, 6, 1, 10);
+    
+    TestAligner aligner_source_1;
+    aligner_source_1.set_alignment_scores(1, 4, 6, 1, 0);
+    const Aligner& aligner_1 = *aligner_source_1.get_regular_aligner();
+    
+    TestAligner aligner_source_2;
+    aligner_source_2.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner_2 = *aligner_source_2.get_regular_aligner();
     
     Node* n0 = graph.create_node("AGTGCTGAAGT");
     
@@ -182,8 +211,13 @@ TEST_CASE("Full-length bonus can attach Ns", "[aligner][alignment][mapping]") {
     
     VG graph;
     
-    Aligner aligner_1(1, 4, 6, 1, 0);
-    Aligner aligner_2(1, 4, 6, 1, 10);
+    TestAligner aligner_source_1;
+    aligner_source_1.set_alignment_scores(1, 4, 6, 1, 0);
+    const Aligner& aligner_1 = *aligner_source_1.get_regular_aligner();
+    
+    TestAligner aligner_source_2;
+    aligner_source_2.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner_2 = *aligner_source_2.get_regular_aligner();
     
     Node* n0 = graph.create_node("AGTG");
     Node* n1 = graph.create_node("C");
@@ -221,8 +255,13 @@ TEST_CASE("Full-length bonus can attach to Ns", "[aligner][alignment][mapping]")
     
     VG graph;
     
-    Aligner aligner_1(1, 4, 6, 1, 0);
-    Aligner aligner_2(1, 4, 6, 1, 10);
+    TestAligner aligner_source_1;
+    aligner_source_1.set_alignment_scores(1, 4, 6, 1, 0);
+    const Aligner& aligner_1 = *aligner_source_1.get_regular_aligner();
+    
+    TestAligner aligner_source_2;
+    aligner_source_2.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner_2 = *aligner_source_2.get_regular_aligner();
     
     Node* n0 = graph.create_node("NNNG");
     Node* n1 = graph.create_node("C");
@@ -260,8 +299,13 @@ TEST_CASE("Full-length bonus can attach Ns to Ns", "[aligner][alignment][mapping
     
     VG graph;
     
-    Aligner aligner_1(1, 4, 6, 1, 0);
-    Aligner aligner_2(1, 4, 6, 1, 10);
+    TestAligner aligner_source_1;
+    aligner_source_1.set_alignment_scores(1, 4, 6, 1, 0);
+    const Aligner& aligner_1 = *aligner_source_1.get_regular_aligner();
+    
+    TestAligner aligner_source_2;
+    aligner_source_2.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner_2 = *aligner_source_2.get_regular_aligner();
     
     Node* n0 = graph.create_node("NNNG");
     Node* n1 = graph.create_node("C");
@@ -302,10 +346,13 @@ TEST_CASE("Full-length bonus is applied to both ends by rescoring", "[aligner][a
     Alignment aln;
     json2pb(aln, aln_str.c_str(), aln_str.size());
     
-    // Make an aligner with a full lenth bonus of 5
-    Aligner aligner1(1, 4, 6, 1, 5);
-    // And one with no bonus
-    Aligner aligner2(1, 4, 6, 1, 0);
+    TestAligner aligner_source_1;
+    aligner_source_1.set_alignment_scores(1, 4, 6, 1, 5);
+    const Aligner& aligner1 = *aligner_source_1.get_regular_aligner();
+    
+    TestAligner aligner_source_2;
+    aligner_source_2.set_alignment_scores(1, 4, 6, 1, 0);
+    const Aligner& aligner2 = *aligner_source_2.get_regular_aligner();
 
     REQUIRE(!softclip_start(aln));
     REQUIRE(!softclip_end(aln));
@@ -320,7 +367,9 @@ TEST_CASE("Aligner can accept a topological order", "[aligner][alignment][mappin
     
     VG graph;
     
-    Aligner aligner(1, 4, 6, 1, 0);
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 0);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
     
     Node* n0 = graph.create_node("AGTG");
     Node* n1 = graph.create_node("C");

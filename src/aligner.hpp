@@ -27,16 +27,19 @@
 
 namespace vg {
 
-    static const int8_t default_match = 1;
-    static const int8_t default_mismatch = 4;
-    static const int8_t default_gap_open = 6;
-    static const int8_t default_gap_extension = 1;
-    static const int8_t default_full_length_bonus = 5;
-    static const double default_gc_content = 0.5;
-    static const uint32_t default_xdrop_max_gap_length = 40;
-
-    
-    class VG; // forward declaration
+    static constexpr int8_t default_match = 1;
+    static constexpr int8_t default_mismatch = 4;
+    static constexpr int8_t default_score_matrix[16] = {
+         default_match,    -default_mismatch, -default_mismatch, -default_mismatch,
+        -default_mismatch,  default_match,    -default_mismatch, -default_mismatch,
+        -default_mismatch, -default_mismatch,  default_match,    -default_mismatch,
+        -default_mismatch, -default_mismatch, -default_mismatch,  default_match
+    };;
+    static constexpr int8_t default_gap_open = 6;
+    static constexpr int8_t default_gap_extension = 1;
+    static constexpr int8_t default_full_length_bonus = 5;
+    static constexpr double default_gc_content = 0.5;
+    static constexpr uint32_t default_xdrop_max_gap_length = 40;
 
     /**
      * The abstract interface that any Aligner should implement.
@@ -58,18 +61,10 @@ namespace vg {
      */
     class GSSWAligner : public BaseAligner {
         
-        
-        /// Reads a 4x4 substitution scoring matrix from an input stream (can be an ifstream).
-        /// Expecting 4 whitespace-separated 8-bit integers per line
-        virtual void load_scoring_matrix(std::istream& matrix_stream) = 0;
-        
     protected:
         
         GSSWAligner() = default;
-        virtual ~GSSWAligner();
-        
-        // allocates an array to hold a 4x4 substitution matrix and returns it
-        int8_t* load_4x4_matrix(std::istream& matrix_stream);
+        ~GSSWAligner();
         
         // for construction
         // needed when constructing an alignable graph from the nodes
@@ -116,7 +111,7 @@ namespace vg {
         double estimate_next_best_score(int length, double min_diffs) const;
         
         // for calling in constructors so that mapping quality can be queried
-        void init_mapping_quality();
+        void init_mapping_quality(const int8_t* score_matrix, double gc_content);
         
         // TODO: this algorithm has numerical problems, just removing it for now
         //vector<double> all_mapping_qualities_exact(vector<double> scaled_scores);
@@ -290,9 +285,6 @@ namespace vg {
         
         // log of the base of the logarithm underlying the log-odds interpretation of the scores
         double log_base = 0.0;
-        
-        // estimate of GC content
-        double gc_content = default_gc_content;
     };
     
     /**
@@ -312,25 +304,14 @@ namespace vg {
         XdropAligner xdrop;
         // bench_t bench;
     public:
-        Aligner(int8_t _match = default_match,
-                int8_t _mismatch = default_mismatch,
+        
+        Aligner(const int8_t* _score_matrix = default_score_matrix,
                 int8_t _gap_open = default_gap_open,
                 int8_t _gap_extension = default_gap_extension,
                 int8_t _full_length_bonus = default_full_length_bonus,
-                double _gc_content = default_gc_content);
-        // xdrop_aligner wrapper, omit default values to call the one above for Aligner();
-        Aligner(int8_t _match,
-                int8_t _mismatch,
-                int8_t _gap_open,
-                int8_t _gap_extension,
-                int8_t _full_length_bonus,
-                double _gc_content,
-                uint32_t _xdrop_max_gap_length);
+                double _gc_content = default_gc_content,
+                uint32_t _xdrop_max_gap_length = default_xdrop_max_gap_length);
         ~Aligner(void) = default;
-        
-        /// Reads a 4x4 substitution scoring matrix from an input stream (can be an ifstream).
-        /// Expecting 4 whitespace-separated 8-bit integers per line
-        void load_scoring_matrix(istream& matrix_stream);
         
         /// Store optimal local alignment against a graph in the Alignment object.
         /// Gives the full length bonus separately on each end of the alignment.
@@ -405,18 +386,13 @@ namespace vg {
     class QualAdjAligner : public GSSWAligner {
     public:
         
-        QualAdjAligner(int8_t _match = default_match,
-                       int8_t _mismatch = default_mismatch,
+        QualAdjAligner(const int8_t* _score_matrix = default_score_matrix,
                        int8_t _gap_open = default_gap_open,
                        int8_t _gap_extension = default_gap_extension,
                        int8_t _full_length_bonus = default_full_length_bonus,
                        double _gc_content = default_gc_content);
 
         ~QualAdjAligner(void) = default;
-
-        /// Reads a 4x4 substitution scoring matrix from an input stream (can be an ifstream).
-        /// Expecting 4 whitespace-separated 8-bit integers per line
-        void load_scoring_matrix(istream& matrix_stream);
         
         // base quality adjusted counterparts to functions of same name from Aligner
         void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) const;
@@ -489,16 +465,29 @@ namespace vg {
         const Aligner* get_regular_aligner() const;
         
     public:
+        
         /// Set all the aligner scoring parameters and create the stored aligner instances.
         void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
                                   uint32_t xdrop_max_gap_length = default_xdrop_max_gap_length);
-                                  
-        /// Load a scoring matrix from a file to set scores
-        void load_scoring_matrix(std::istream& matrix_stream);
+        
+        /// Set the algner scoring parameters and create the stored aligner instances. The
+        /// stream should contain a 4 x 4 whitespace-separated substitution matrix (in the
+        /// order ACGT)
+        void set_alignment_scores(std::istream& matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
+                                  uint32_t xdrop_max_gap_length = default_xdrop_max_gap_length);
+        
+        /// Set the algner scoring parameters and create the stored aligner instances. The
+        /// score matrix should by a 4 x 4 array in the order (ACGT)
+        void set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
+                                  uint32_t xdrop_max_gap_length = default_xdrop_max_gap_length);
+        
+        /// Allocates an array to hold a 4x4 substitution matrix and returns it
+        static int8_t* parse_matrix(std::istream& matrix_stream);
         
         bool adjust_alignments_for_base_quality = false; // use base quality adjusted alignments
 
     private:
+        
         // GSSW aligners
         unique_ptr<QualAdjAligner> qual_adj_aligner;
         unique_ptr<Aligner> regular_aligner;
