@@ -71,7 +71,7 @@ On top of VG RDF, we can describe the same path information on Pantograph format
    pg:steps <pg/zoom1000/group1/step1>, <pg/zoom1000/group1/step2> ;
 <pg/zoom1000/group1/step1> a pg:Step ;
    pg:positionPercent 0.04
-   pg:inversionPercent 1
+   pg:inversionPercent 
    pg:stepRegion <path1/region/6-100> .  # To infer firstNucleotide and last Nucleotide. faldo:begin of stepRegion is the first position. faldo:end of stepRegion is the last position.
 <pg/zoom1000/group1/bin1> a vg:Bin ;
    vg:binEdge <pg/zoom1000/group2/bin2> ;
