@@ -10,7 +10,7 @@
 #include "../gff_reader.hpp"
 #include "../region_expander.hpp"
 #include "../algorithms/alignment_path_offsets.hpp"
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 #include <unistd.h>
 #include <getopt.h>

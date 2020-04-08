@@ -16,7 +16,7 @@
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include "../handle.hpp"
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 #include "../utility.hpp"
 #include "../packer.hpp"
 #include "algorithms/coverage_depth.hpp"

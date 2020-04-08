@@ -18,7 +18,7 @@
 #include "../convert.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -177,7 +177,7 @@ int main_locify(int argc, char** argv){
                 locus_to_pos[l.name()].insert(pos.first);
             }
         }
-        // void for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda);
+        // void for_alignment_in_range(nid_t id1, nid_t id2, std::function<void(const Alignment&)> lambda);
         std::function<void(const Alignment&)> fill_alns = [&](const Alignment& a){
             // TODO reverse complementing alleles ?
             // overlap is stranded
@@ -227,7 +227,7 @@ int main_locify(int argc, char** argv){
             Alignment& aln = alignments_with_loci[a.name()];
             *aln.add_locus() = matching;
         };
-        vector<vg::id_t> nodes_vec;
+        vector<nid_t> nodes_vec;
         for (auto& id : nodes_in_locus) nodes_vec.push_back(id);
         gam_idx.for_alignment_to_nodes(nodes_vec, fill_alns);
     };
@@ -346,7 +346,7 @@ int main_locify(int argc, char** argv){
         if (forwardize) {
             if (aln.second.path().mapping_size() && aln.second.path().mapping(0).position().is_reverse()) {
                 output_buf.push_back(reverse_complement_alignment(aln.second,
-                                                                  [&xgidx](int64_t id) { return xgidx->get_length(xgidx->get_handle(id)); }));
+                                                                  [&xgidx](nid_t id) { return xgidx->get_length(xgidx->get_handle(id)); }));
             } else {
                 output_buf.push_back(aln.second);
             }
