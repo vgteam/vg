@@ -32,8 +32,6 @@ namespace vg {
     static const int8_t default_gap_open = 6;
     static const int8_t default_gap_extension = 1;
     static const int8_t default_full_length_bonus = 5;
-    static const int8_t default_max_scaled_score = 32;
-    static const uint8_t default_max_qual_score = 255;
     static const double default_gc_content = 0.5;
     static const uint32_t default_xdrop_max_gap_length = 40;
 
@@ -59,9 +57,19 @@ namespace vg {
      * The basic GSSW-based core aligner implementation, which can then be quality-adjusted or not.
      */
     class GSSWAligner : public BaseAligner {
+        
+        
+        /// Reads a 4x4 substitution scoring matrix from an input stream (can be an ifstream).
+        /// Expecting 4 whitespace-separated 8-bit integers per line
+        virtual void load_scoring_matrix(std::istream& matrix_stream) = 0;
+        
     protected:
+        
         GSSWAligner() = default;
-        ~GSSWAligner();
+        virtual ~GSSWAligner();
+        
+        // allocates an array to hold a 4x4 substitution matrix and returns it
+        int8_t* load_4x4_matrix(std::istream& matrix_stream);
         
         // for construction
         // needed when constructing an alignable graph from the nodes
@@ -107,8 +115,8 @@ namespace vg {
                                            const vector<double>* multiplicities = nullptr) const;
         double estimate_next_best_score(int length, double min_diffs) const;
         
-        // must be called before querying mapping_quality
-        void init_mapping_quality(double gc_content);
+        // for calling in constructors so that mapping quality can be queried
+        void init_mapping_quality();
         
         // TODO: this algorithm has numerical problems, just removing it for now
         //vector<double> all_mapping_qualities_exact(vector<double> scaled_scores);
@@ -265,10 +273,6 @@ namespace vg {
         virtual int32_t score_ungapped_alignment(const Alignment& aln,
                                                  bool strip_bonuses = false) const;
 
-        /// Reads a 5x5 substitution scoring matrix from an input stream (can be an ifstream)
-        /// expecting 5 whitespace-separated 8-bit integers per line
-        virtual void load_scoring_matrix(std::istream& matrix_stream);
-
         /// Without necessarily rescoring the entire alignment, return the score
         /// of the given alignment with bonuses removed. Assumes that bonuses
         /// are actually included in the score.
@@ -287,6 +291,8 @@ namespace vg {
         // log of the base of the logarithm underlying the log-odds interpretation of the scores
         double log_base = 0.0;
         
+        // estimate of GC content
+        double gc_content = default_gc_content;
     };
     
     /**
@@ -321,6 +327,10 @@ namespace vg {
                 double _gc_content,
                 uint32_t _xdrop_max_gap_length);
         ~Aligner(void) = default;
+        
+        /// Reads a 4x4 substitution scoring matrix from an input stream (can be an ifstream).
+        /// Expecting 4 whitespace-separated 8-bit integers per line
+        void load_scoring_matrix(istream& matrix_stream);
         
         /// Store optimal local alignment against a graph in the Alignment object.
         /// Gives the full length bonus separately on each end of the alignment.
@@ -400,12 +410,14 @@ namespace vg {
                        int8_t _gap_open = default_gap_open,
                        int8_t _gap_extension = default_gap_extension,
                        int8_t _full_length_bonus = default_full_length_bonus,
-                       int8_t _max_scaled_score = default_max_scaled_score,
-                       uint8_t _max_qual_score = default_max_qual_score,
-                       double gc_content = default_gc_content);
+                       double _gc_content = default_gc_content);
 
         ~QualAdjAligner(void) = default;
 
+        /// Reads a 4x4 substitution scoring matrix from an input stream (can be an ifstream).
+        /// Expecting 4 whitespace-separated 8-bit integers per line
+        void load_scoring_matrix(istream& matrix_stream);
+        
         // base quality adjusted counterparts to functions of same name from Aligner
         void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) const;
         void align(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
@@ -431,8 +443,6 @@ namespace vg {
         void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const;
         void align_xdrop_multi(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const;
         const XdropAligner& get_xdrop() const;
-
-        void init_mapping_quality(double gc_content);
         
         int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const;
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
@@ -442,8 +452,6 @@ namespace vg {
         int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
                                         string::const_iterator seq_begin) const;
         
-        uint8_t max_qual_score;
-        int8_t scale_factor;
         
     private:
 
@@ -485,8 +493,8 @@ namespace vg {
         void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
                                   uint32_t xdrop_max_gap_length = default_xdrop_max_gap_length);
                                   
-        /// Load a scoring amtrix from a file to set scores
-        void load_scoring_matrix(std::ifstream& matrix_stream);
+        /// Load a scoring matrix from a file to set scores
+        void load_scoring_matrix(std::istream& matrix_stream);
         
         bool adjust_alignments_for_base_quality = false; // use base quality adjusted alignments
 

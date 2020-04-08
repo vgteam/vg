@@ -59,7 +59,7 @@ void help_map(char** argv) {
          << "scoring:" << endl
          << "    -q, --match INT               use this match score [1]" << endl
          << "    -z, --mismatch INT            use this mismatch penalty [4]" << endl
-         << "    --score-matrix FILE           read a 5x5 integer substitution scoring matrix from a file" << endl
+         << "    --score-matrix FILE           read a 4x4 integer substitution scoring matrix from a file" << endl
          << "    -o, --gap-open INT            use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT          use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT        the full-length alignment bonus [5]" << endl

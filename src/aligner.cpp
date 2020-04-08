@@ -124,22 +124,49 @@ unordered_set<vg::id_t> GSSWAligner::identify_pinning_points(const HandleGraph& 
     return return_val;
 }
 
-void GSSWAligner::load_scoring_matrix(istream& matrix_stream) {
-    if(score_matrix) free(score_matrix);
-    score_matrix = (int8_t*)calloc(25, sizeof(int8_t));
-    for(size_t i=0; i<25; i++){
-      if(!matrix_stream.good()){
-        std::cerr << "error: vg GSSWAligner::load_scoring_matrix requires a 5x5 whitespace separated integer matrix\n";
-        throw "";
+int8_t* GSSWAligner::load_4x4_matrix(istream& matrix_stream) {
+
+    int8_t* matrix = (int8_t*) malloc(16 * sizeof(int8_t));
+    for (size_t i = 0; i < 16; i++) {
+      if (!matrix_stream.good()) {
+          std::cerr << "error: vg GSSWAligner::load_scoring_matrix requires a 5x5 whitespace separated integer matrix\n";
+          throw "";
       }
-      int score;
-      matrix_stream >> score;
-      if(score > 127 || score < -127){
-        std::cerr << "error: vg GSSWAligner::load_scoring_matrix requires values in the range [-127,127]\n";
-        throw "";
-      }
-      score_matrix[i] = score;
+        int score;
+        matrix_stream >> score;
+        if (score > 127 || score < -127) {
+            std::cerr << "error: vg GSSWAligner::load_scoring_matrix requires values in the range [-127,127]\n";
+            throw "";
+        }
+        matrix[i] = score;
     }
+    return matrix;
+}
+
+void Aligner::load_scoring_matrix(istream& matrix_stream) {
+    
+    // load the 16 values
+    int8_t* matrix_4x4 = load_4x4_matrix(matrix_stream);
+    
+    if (score_matrix) {
+        // get rid of the current internal matrix
+        free(score_matrix);
+    }
+    score_matrix = (int8_t*) malloc(sizeof(int8_t) * 25);
+    
+    for (size_t i = 0, j = 0; i < 25; ++i) {
+        if (i % 5 == 4 || i / 5 == 4) {
+            // adding 0s in the 5th row and column for N-matches
+            score_matrix[i] = 0;
+        }
+        else {
+            // setting the substitution scores
+            score_matrix[i] = matrix_4x4[j];
+            ++j;
+        }
+    }
+    
+    free(matrix_4x4);
 }
 
 void GSSWAligner::gssw_mapping_to_alignment(gssw_graph* graph,
@@ -352,7 +379,7 @@ string GSSWAligner::graph_cigar(gssw_graph_mapping* gm) const {
     return s.str();
 }
 
-void GSSWAligner::init_mapping_quality(double gc_content) {
+void GSSWAligner::init_mapping_quality() {
     log_base = gssw_dna_recover_log_base(match, mismatch, gc_content, 1e-12);
 }
 
@@ -781,8 +808,7 @@ double GSSWAligner::estimate_max_possible_mapping_quality(int length, double min
 }
 
 double GSSWAligner::score_to_unnormalized_likelihood_ln(double score) const {
-    // Log base needs to be set, or this can't work. It's set by default in
-    // QualAdjAligner but needs to be set up manually in the normal Aligner.
+    // Log base needs to be set, or this can't work.
     assert(log_base != 0);
     // Likelihood is proportional to e^(lambda * score), so ln is just the exponent.
     return log_base * score;
@@ -909,8 +935,8 @@ Aligner::Aligner(int8_t _match,
                  int8_t _gap_open,
                  int8_t _gap_extension,
                  int8_t _full_length_bonus,
-                 double gc_content)
-    : Aligner(_match, _mismatch, _gap_open, _gap_extension, _full_length_bonus, gc_content, default_xdrop_max_gap_length)
+                 double _gc_content)
+    : Aligner(_match, _mismatch, _gap_open, _gap_extension, _full_length_bonus, _gc_content, default_xdrop_max_gap_length)
 {
 }
 
@@ -919,7 +945,7 @@ Aligner::Aligner(int8_t _match,
                  int8_t _gap_open,
                  int8_t _gap_extension,
                  int8_t _full_length_bonus,
-                 double gc_content,
+                 double _gc_content,
                  uint32_t _xdrop_max_gap_length)
     : xdrop(_match, _mismatch, _gap_open, _gap_extension, _full_length_bonus, _xdrop_max_gap_length)
 {
@@ -928,19 +954,12 @@ Aligner::Aligner(int8_t _match,
     gap_open = _gap_open;
     gap_extension = _gap_extension;
     full_length_bonus = _full_length_bonus;
+    gc_content = _gc_content;
     // these are used when setting up the nodes
     nt_table = gssw_create_nt_table();
     score_matrix = gssw_create_score_matrix(match, mismatch);
-    GSSWAligner::init_mapping_quality(gc_content);
-    // bench_init(bench);
+    init_mapping_quality();
 }
-
-/*
-Aligner::~Aligner()
-{
-    // fprintf(stderr, "gssw: time(%lu), count(%lu)\n", bench_get(bench) / 1000, bench_get_count(bench));
-}
-*/
 
 void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
                              const vector<handle_t>* topological_order, bool pinned, bool pin_left,
@@ -1432,32 +1451,65 @@ QualAdjAligner::QualAdjAligner(int8_t _match,
                                int8_t _gap_open,
                                int8_t _gap_extension,
                                int8_t _full_length_bonus,
-                               int8_t _max_scaled_score,
-                               uint8_t _max_qual_score,
-                               double gc_content)
+                               double _gc_content)
 {
-    
-    max_qual_score = _max_qual_score;
     match = _match;
     mismatch = _mismatch;
     gap_open = _gap_open;
     gap_extension = _gap_extension;
     full_length_bonus = _full_length_bonus;
+    gc_content = _gc_content;
     
-    int8_t original_gap_open = gap_open;
-    
+    // find max score and set it to be the max so that scaling doesn't change score
+    // TODO: hacky
+    int8_t max_score = max(match, max(mismatch, max(gap_open, gap_extension)));
+        
     nt_table = gssw_create_nt_table();
-    score_matrix = gssw_dna_scaled_adjusted_qual_matrix(_max_scaled_score, max_qual_score, &gap_open,
+    score_matrix = gssw_dna_scaled_adjusted_qual_matrix(max_score, 255, &gap_open,
                                                         &gap_extension, match, mismatch,
                                                         gc_content, 1e-12);
+    init_mapping_quality();
+}
+
+void QualAdjAligner::load_scoring_matrix(istream& matrix_stream) {
     
-    // hacky way to update the stored match and mismatch scores, but it works
-    scale_factor = gap_open / original_gap_open;
-    match *= scale_factor;
-    mismatch *= scale_factor;
-    full_length_bonus *= scale_factor;
+    if (score_matrix) {
+        // get rid of the current internal matrix
+        free(score_matrix);
+    }
     
-    GSSWAligner::init_mapping_quality(gc_content);
+    // load the 16 values
+    int8_t* matrix_4x4 = load_4x4_matrix(matrix_stream);
+    
+    // TODO: this interface could really be improved in GSSW, oh well though
+    
+    // convert gc content into base-wise frequencies
+    double* nt_freqs = (double*) malloc(sizeof(double) * 4);
+    nt_freqs[0] = 0.5 * (1 - gc_content);
+    nt_freqs[1] = 0.5 * gc_content;
+    nt_freqs[2] = 0.5 * gc_content;
+    nt_freqs[3] = 0.5 * (1 - gc_content);
+    
+    // find max score and set it to be the max so that scaling doesn't change score
+    // TODO: hacky
+    int8_t max_score = max(gap_open, gap_extension);
+    for (size_t i = 0; i < 16; ++i) {
+        max_score = max<int8_t>(max_score, abs(matrix_4x4[i]));
+    }
+    
+    // find the quality-adjusted, scaled scores
+    int8_t* scaled_matrix_4x4 = gssw_scaled_adjusted_qual_matrix(max_score, 255, &gap_open, &gap_extension,
+                                                                 matrix_4x4, nt_freqs, 4, 1e-10);
+    // finally, add in the 0s to the 5-th row and column
+    score_matrix = gssw_add_ambiguous_char_to_adjusted_matrix(scaled_matrix_4x4, 255, 4);
+    
+    // also update the mapping quality log base
+    log_base = gssw_recover_log_base(matrix_4x4, nt_freqs, 4, 1e-10);
+    
+    // free the temporary arrays we allocated
+    free(matrix_4x4);
+    free(nt_freqs);
+    free(scaled_matrix_4x4);
 }
 
 void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
@@ -1581,10 +1633,10 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
             }
             
             // did we both 1) do DP (i.e. the graph is non-empty), and 2) find a traceback with positive score?
-            if (gms ? gms[0]->score > 0 : false) {
+            if (gms && gms[0]->score > 0) {
                 
                 if (pin_left) {
-                    // translate graph and mappings into original node space// translate nodes and mappings into original sequence
+                    // translate graph and mappings into original node space
                     unreverse_graph(graph);
                     for (int32_t i = 0; i < max_alt_alns; i++) {
                         unreverse_graph_mapping(gms[i]);
@@ -1909,25 +1961,23 @@ const Aligner* AlignerClient::get_regular_aligner() const {
 
 void AlignerClient::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, 
                                          int8_t full_length_bonus, uint32_t xdrop_max_gap_length) {
-    
-    // hacky, find max score so that scaling doesn't change score
-    int8_t max_score = match;
-    if (mismatch > max_score) max_score = mismatch;
-    if (gap_open > max_score) max_score = gap_open;
-    if (gap_extend > max_score) max_score = gap_extend;
-    
+        
     qual_adj_aligner = unique_ptr<QualAdjAligner>(new QualAdjAligner(match, mismatch, gap_open, gap_extend,
-                                                                     full_length_bonus, max_score, 255, gc_content_estimate));
+                                                                     full_length_bonus, gc_content_estimate));
     regular_aligner = unique_ptr<Aligner>(new Aligner(match, mismatch, gap_open, gap_extend,
                                                       full_length_bonus, gc_content_estimate, xdrop_max_gap_length));
                   
 }
 
-void AlignerClient::load_scoring_matrix(std::ifstream& matrix_stream){
+void AlignerClient::load_scoring_matrix(std::istream& matrix_stream){
     matrix_stream.clear();
     matrix_stream.seekg(0);
-    if(regular_aligner) regular_aligner->load_scoring_matrix(matrix_stream);
+    if (regular_aligner) {
+        regular_aligner->load_scoring_matrix(matrix_stream);
+    }
     matrix_stream.clear();
     matrix_stream.seekg(0);
-    if(qual_adj_aligner) qual_adj_aligner->load_scoring_matrix(matrix_stream);
+    if (qual_adj_aligner) {
+        qual_adj_aligner->load_scoring_matrix(matrix_stream);
+    }
 }

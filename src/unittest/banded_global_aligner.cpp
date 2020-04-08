@@ -2399,7 +2399,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
+                QualAdjAligner aligner(1, 4, 6, 1, 5);
                 
                 Node* n0 = graph.create_node("");
                 Node* n1 = graph.create_node("CT");
@@ -2487,7 +2487,7 @@ namespace vg {
             SECTION( "Banded global aligner can align to a graph with an empty sink node") {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
+                QualAdjAligner aligner(1, 4, 6, 1, 5);
                 
                 Node* n0 = graph.create_node("GA");
                 Node* n1 = graph.create_node("CT");
@@ -2539,7 +2539,7 @@ namespace vg {
             SECTION( "Banded global aligner can align to a graph with an empty source and sink node") {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
+                QualAdjAligner aligner(1, 4, 6, 1, 5);
                 
                 Node* n0 = graph.create_node("");
                 Node* n1 = graph.create_node("CT");
@@ -2590,7 +2590,7 @@ namespace vg {
             SECTION( "Banded global aligner can align to a graph with a chained empty source and sink nodes") {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
+                QualAdjAligner aligner(1, 4, 6, 1, 5);
                 
                 Node* n0 = graph.create_node("");
                 Node* n1 = graph.create_node("");
@@ -2655,7 +2655,7 @@ namespace vg {
             SECTION( "Banded global aligner can align to a graph with an empty nodes that is both a source and sink") {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
+                QualAdjAligner aligner(1, 4, 6, 1, 5);
                 
                 Node* n0 = graph.create_node("");
                 
@@ -2688,7 +2688,7 @@ namespace vg {
             SECTION( "Banded global aligner can align to a graph with both empty and non-empty sources and sinks") {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
+                QualAdjAligner aligner(1, 4, 6, 1, 5);
                 
                 Node* n0 = graph.create_node("");
                 Node* n1 = graph.create_node("GA");
@@ -2773,7 +2773,7 @@ namespace vg {
             SECTION( "Banded global aligner can align to a graph with empty interior nodes") {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
+                QualAdjAligner aligner(1, 4, 6, 1, 5);
                 
                 Node* n0 = graph.create_node("GA");
                 Node* n1 = graph.create_node("");
@@ -2831,7 +2831,7 @@ namespace vg {
             SECTION( "Banded global aligner can align to an empty graph" ) {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
+                QualAdjAligner aligner(1, 4, 6, 1, 5);
                 
                 Node* n0 = graph.create_node("");
                 
@@ -2865,7 +2865,7 @@ namespace vg {
             SECTION( "Banded global aligner can align to an empty graph of more than one node" ) {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
+                QualAdjAligner aligner(1, 4, 6, 1, 5);
                 
                 Node* n0 = graph.create_node("");
                 Node* n1 = graph.create_node("");
@@ -2907,7 +2907,7 @@ namespace vg {
             SECTION( "Banded global aligner can align to a graph with empty and non-empty paths" ) {
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
+                QualAdjAligner aligner(1, 4, 6, 1, 5);
                 
                 Node* n0 = graph.create_node("");
                 Node* n1 = graph.create_node("");
@@ -2974,7 +2974,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
+                QualAdjAligner aligner(1, 4, 6, 1, 5);
                 
                 Node* n0 = graph.create_node("GA");
                 Node* n1 = graph.create_node("");
@@ -3053,7 +3053,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
+                QualAdjAligner aligner(1, 4, 6, 1, 5);
                 
                 Node* n0 = graph.create_node("C");
                 Node* n1 = graph.create_node("TT");
@@ -3136,7 +3136,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
+                QualAdjAligner aligner(1, 4, 6, 1, 5);
                 
                 Node* n0 = graph.create_node("A");
                 Node* n1 = graph.create_node("G");

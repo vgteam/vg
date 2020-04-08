@@ -1661,7 +1661,7 @@ namespace vg {
                 bool pin_left = true;
                 int8_t full_length_bonus = 5;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 6);
+                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus);
                 aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -1725,7 +1725,7 @@ namespace vg {
                 bool pin_left = false;
                 int8_t full_length_bonus = 5;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 6);
+                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus);
                 aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -1788,71 +1788,7 @@ namespace vg {
                 bool pin_left = false;
                 int8_t full_length_bonus = 5;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 6);
-                aligner.align_pinned(aln, graph, pin_left);
-                
-                const Path& path = aln.path();
-                
-                // is a pinned alignment
-                if (pin_left) {
-                    REQUIRE(path.mapping(0).position().offset() == 0);
-                    REQUIRE(path.mapping(0).position().node_id() == pinned_node->id());
-                }
-                else {
-                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == pinned_node->sequence().length());
-                    REQUIRE(path.mapping(path.mapping_size() - 1).position().node_id() == pinned_node->id());
-                }
-                
-                // follows correct path
-                REQUIRE(path.mapping(0).position().node_id() == 1);
-                REQUIRE(path.mapping(1).position().node_id() == 2);
-                REQUIRE(path.mapping(2).position().node_id() == 4);
-                
-                // has corrects edits
-                REQUIRE(path.mapping(0).edit(0).from_length() == 9);
-                REQUIRE(path.mapping(0).edit(0).to_length() == 9);
-                REQUIRE(path.mapping(0).edit(0).sequence().empty());
-                
-                REQUIRE(path.mapping(1).edit(0).from_length() == 1);
-                REQUIRE(path.mapping(1).edit(0).to_length() == 1);
-                REQUIRE(path.mapping(1).edit(0).sequence().empty());
-                
-                REQUIRE(path.mapping(2).edit(0).from_length() == 5);
-                REQUIRE(path.mapping(2).edit(0).to_length() == 5);
-                REQUIRE(path.mapping(2).edit(0).sequence().empty());
-                
-                REQUIRE(path.mapping(2).edit(1).from_length() == 1);
-                REQUIRE(path.mapping(2).edit(1).to_length() == 1);
-                REQUIRE(path.mapping(2).edit(1).sequence() == "G");
-            }
-            
-            SECTION( "Quality adjusted pinned alignment runs with non-trivial quality scores and score scaling" ) {
-                
-                VG graph;
-                
-                Node* n0 = graph.create_node("AAACCCAGG");
-                Node* n1 = graph.create_node("C");
-                Node* n2 = graph.create_node("A");
-                Node* n3 = graph.create_node("TGAAGC");
-                
-                graph.create_edge(n0, n1);
-                graph.create_edge(n0, n2);
-                graph.create_edge(n1, n3);
-                graph.create_edge(n2, n3);
-                
-                string read = string("AAACCCAGGCTGAAGG");
-                string qual = string("HHHDDD<<<88800((");
-                Alignment aln;
-                aln.set_sequence(read);
-                aln.set_quality(qual);
-                alignment_quality_char_to_short(aln);
-                
-                Node* pinned_node = n3;
-                bool pin_left = false;
-                int8_t full_length_bonus = 5;
-                
-                
-                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 64);
+                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus);
                 aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -1915,7 +1851,7 @@ namespace vg {
                 bool pin_left = true;
                 int8_t full_length_bonus = 3;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 64);
+                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus);
                 aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -2483,7 +2419,7 @@ namespace vg {
                 bool pin_left = true;
                 int max_multi_alns = 100;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
+                QualAdjAligner aligner(1, 4, 6, 1, 5);
                 vector<Alignment> multi_alns;
                 aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 

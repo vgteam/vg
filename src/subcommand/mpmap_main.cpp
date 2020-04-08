@@ -95,7 +95,7 @@ void help_mpmap(char** argv) {
     << "  -o, --gap-open INT            use this gap open penalty [6]" << endl
     << "  -y, --gap-extend INT          use this gap extension penalty [1]" << endl
     << "  -L, --full-l-bonus INT        add this score to alignments that align each end of the read [5]" << endl
-    << "  -w, --score-matrix FILE       read a 5x5 integer substitution scoring matrix from a file (in the order ACGTN)" << endl
+    << "  -w, --score-matrix FILE       read a 4x4 integer substitution scoring matrix from a file (in the order ACGT)" << endl
     << "  -m, --remove-bonuses          remove full length alignment bonuses in reported scores" << endl
     << "computational parameters:" << endl
     << "  -Z, --buffer-size INT         buffer this many alignments together (per compute thread) before outputting to stdout [200]" << endl;
