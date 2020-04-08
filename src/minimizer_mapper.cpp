@@ -2971,7 +2971,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
             
             // Align, accounting for full length bonus.
             // We *always* do left-pinned alignment internally, since that's the shape of trees we get.
-            get_regular_aligner()->get_xdrop().align_pinned(current_alignment, subgraph, subgraph.get_topological_order(), true);
+            get_regular_aligner()->get_xdrop().align_pinned(current_alignment, subgraph, true);
             
 #ifdef debug
             cerr << "\tScore: " << current_alignment.score() << endl;

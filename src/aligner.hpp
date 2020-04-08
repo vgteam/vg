@@ -50,10 +50,6 @@ namespace vg {
         /// Store optimal local alignment against a graph in the Alignment object.
         /// Gives the full length bonus separately on each end of the alignment.
         virtual void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) const = 0;
-        
-        /// Same as previous, but takes advantage of a pre-computed topological order
-        virtual void align(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
-                           bool traceback_aln, bool print_score_matrices) const = 0;
     };
 
     /**
@@ -69,8 +65,6 @@ namespace vg {
         // for construction
         // needed when constructing an alignable graph from the nodes
         gssw_graph* create_gssw_graph(const HandleGraph& g) const;
-        // for constructing an alignable graph when the topological order is already known
-        gssw_graph* create_gssw_graph(const HandleGraph& g, const vector<handle_t>& topological_order) const;
         
         // identify the IDs of nodes that should be used as pinning points in GSSW for pinned
         // alignment ((i.e. non-empty nodes as close as possible to sinks))
@@ -121,50 +115,33 @@ namespace vg {
         double max_possible_mapping_quality(int length) const;
         double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs) const;
         
-        // store optimal alignment against a graph in the Alignment object with one end of the sequence
-        // guaranteed to align to a source/sink node
-        //
-        // pinning left means that that the alignment starts with the first base of the read sequence and
-        // the first base of a source node sequence, pinning right means that the alignment starts with
-        // the final base of the read sequence and the final base of a sink node sequence
-        //
-        // Gives the full length bonus only on the non-pinned end of the alignment.
-        //
-        // assumes that graph is topologically sorted by node index
+        /// store optimal alignment against a graph in the Alignment object with one end of the sequence
+        /// guaranteed to align to a source/sink node
+        ///
+        /// pinning left means that that the alignment starts with the first base of the read sequence and
+        /// the first base of a source node sequence, pinning right means that the alignment starts with
+        /// the final base of the read sequence and the final base of a sink node sequence
+        ///
+        /// Gives the full length bonus only on the non-pinned end of the alignment.
         virtual void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const = 0;
         
-        /// Same as previous, but takes advantage of a pre-computed topological order.
-        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
-        /// If alignment needs to proceed backward, it will be reversed internally.
-        virtual void align_pinned(Alignment& alignment, const HandleGraph& g,
-                                  const vector<handle_t>& topological_order, bool pin_left) const = 0;
-        
-        // store the top scoring pinned alignments in the vector in descending score order up to a maximum
-        // number of alignments (including the optimal one). if there are fewer than the maximum number in
-        // the return value, then it includes all alignments with a positive score. the optimal alignment
-        // will be stored in both the vector and in the main alignment object
-        //
-        // assumes that graph is topologically sorted by node index
+        /// store the top scoring pinned alignments in the vector in descending score order up to a maximum
+        /// number of alignments (including the optimal one). if there are fewer than the maximum number in
+        /// the return value, then it includes all alignments with a positive score. the optimal alignment
+        /// will be stored in both the vector and in the main alignment object
         virtual void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                         bool pin_left, int32_t max_alt_alns) const = 0;
         
-        
-        /// Same as previous, but takes advantage of a pre-computed topological order.
-        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
-        /// If alignment needs to proceed backward, it will be reversed internally.
-        virtual void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
-                                        const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns) const = 0;
-        
-        // store optimal global alignment against a graph within a specified band in the Alignment object
-        // permissive banding auto detects the width of band needed so that paths can travel
-        // through every node in the graph
+        /// store optimal global alignment against a graph within a specified band in the Alignment object
+        /// permissive banding auto detects the width of band needed so that paths can travel
+        /// through every node in the graph
         virtual void align_global_banded(Alignment& alignment, const HandleGraph& g,
                                          int32_t band_padding = 0, bool permissive_banding = true) const = 0;
         
-        // store top scoring global alignments in the vector in descending score order up to a maximum number
-        // of alternate alignments (including the optimal alignment). if there are fewer than the maximum
-        // number of alignments in the return value, then the vector contains all possible alignments. the
-        // optimal alignment will be stored in both the vector and the original alignment object
+        /// store top scoring global alignments in the vector in descending score order up to a maximum number
+        /// of alternate alignments (including the optimal alignment). if there are fewer than the maximum
+        /// number of alignments in the return value, then the vector contains all possible alignments. the
+        /// optimal alignment will be stored in both the vector and the original alignment object
         virtual void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments,
                                                const HandleGraph& g, int32_t max_alt_alns, int32_t band_padding = 0,
                                                bool permissive_banding = true) const = 0;
@@ -291,18 +268,7 @@ namespace vg {
      * An ordinary aligner.
      */
     class Aligner : public GSSWAligner {
-    private:
-        
-        // internal function interacting with gssw for pinned and local alignment
-        void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
-                            const vector<handle_t>* topological_order,
-                            bool pinned, bool pin_left, int32_t max_alt_alns,
-                            bool traceback_aln,
-                            bool print_score_matrices) const;
 
-        // members
-        XdropAligner xdrop;
-        // bench_t bench;
     public:
         
         Aligner(const int8_t* _score_matrix = default_score_matrix,
@@ -315,10 +281,7 @@ namespace vg {
         
         /// Store optimal local alignment against a graph in the Alignment object.
         /// Gives the full length bonus separately on each end of the alignment.
-        /// Assumes that graph is topologically sorted by node index.
         void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) const;
-        void align(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
-                   bool traceback_aln, bool print_score_matrices) const;
         
         /// store optimal alignment against a graph in the Alignment object with one end of the sequence
         /// guaranteed to align to a source/sink node
@@ -328,25 +291,14 @@ namespace vg {
         /// the final base of the read sequence and the final base of a sink node sequence
         ///
         /// Gives the full length bonus only on the non-pinned end of the alignment.
-        ///
         void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const;
-        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
-        /// If alignment needs to proceed backward, it will be reversed internally.
-        void align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
-                          bool pin_left) const;
                 
         /// store the top scoring pinned alignments in the vector in descending score order up to a maximum
         /// number of alignments (including the optimal one). if there are fewer than the maximum number in
         /// the return value, then it includes all alignments with a positive score. the optimal alignment
         /// will be stored in both the vector and in the main alignment object
-        ///
-        /// assumes that graph is topologically sorted by node index
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 bool pin_left, int32_t max_alt_alns) const;
-        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
-        /// If alignment needs to proceed backward, it will be reversed internally.
-        void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
-                                const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns) const;
         
         /// store optimal global alignment against a graph within a specified band in the Alignment object
         /// permissive banding auto detects the width of band needed so that paths can travel
@@ -378,6 +330,17 @@ namespace vg {
 
         int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
                                         string::const_iterator seq_begin) const;
+        
+    private:
+        
+        // internal function interacting with gssw for pinned and local alignment
+        void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
+                            bool pinned, bool pin_left, int32_t max_alt_alns,
+                            bool traceback_aln,
+                            bool print_score_matrices) const;
+        
+        // members
+        vector<XdropAligner> xdrops;
     };
 
     /**
@@ -395,27 +358,17 @@ namespace vg {
         ~QualAdjAligner(void) = default;
         
         // base quality adjusted counterparts to functions of same name from Aligner
+        
         void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) const;
-        void align(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
-                   bool traceback_aln, bool print_score_matrices) const;
         void align_global_banded(Alignment& alignment, const HandleGraph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true) const;
         void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const;
-        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
-        /// If alignment needs to proceed backward, it will be reversed internally.
-        void align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
-                          bool pin_left) const;
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true) const;
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 bool pin_left, int32_t max_alt_alns) const;
-        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
-        /// If alignment needs to proceed backward, it will be reversed internally.
-        void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
-                                const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns) const;
                                 
         // TODO: xdrop isn't actually possible with the quality adjusted aligner (yet).
-        // xdrop aligner
         void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const;
         void align_xdrop_multi(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const;
         const XdropAligner& get_xdrop() const;
@@ -431,8 +384,8 @@ namespace vg {
         
     private:
 
+        // internal function interacting with gssw for pinned and local alignment
         void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
-                            const vector<handle_t>* topological_order,
                             bool pinned, bool pin_left, int32_t max_alt_alns,
                             bool traceback_aln,
                             bool print_score_matrices) const;

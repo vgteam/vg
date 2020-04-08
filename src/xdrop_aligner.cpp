@@ -658,10 +658,11 @@ void XdropAligner::debug_print(const Alignment& alignment, const OrderedGraph& g
  *
  * Then we extend the head seed backing-downstream, and trace that back to find the optimal alignment.
  */
-void XdropAligner::align(Alignment &alignment, const HandleGraph& graph, const vector<handle_t>& topological_order,
-                         const vector<MaximalExactMatch>& mems, bool reverse_complemented) const
+void XdropAligner::align(Alignment& alignment, const HandleGraph& graph, const vector<MaximalExactMatch>& mems,
+                         bool reverse_complemented) const
 {
 
+    vector<handle_t> topological_order = algorithms::lazy_topological_order(&graph);
     const OrderedGraph ordered_graph(graph, topological_order);
     
     dz_s* dz = dz_init(score_matrix, gap_open, gap_extend, max_gap_length, full_length_bonus);
@@ -748,23 +749,11 @@ void XdropAligner::align_downward(Alignment &alignment, const OrderedGraph& grap
 	dz_flush(dz);
 }
 
-void XdropAligner::align(Alignment &alignment, const HandleGraph& graph, const vector<MaximalExactMatch>& mems,
-                         bool reverse_complemented) const
-{
-    align(alignment, graph, algorithms::topological_order(&graph), mems, reverse_complemented);
-}
-
 void XdropAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const
 {
     // Compute our own topological order
-    vector<handle_t> order = algorithms::topological_order(&g);
+    vector<handle_t> order = algorithms::lazy_topological_order(&g);
     
-    // Align with it
-    align_pinned(alignment, g, order, pin_left);
-}
-
-void XdropAligner::align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& order, bool pin_left) const
-{
     if (order.empty()) {
         // Can't do anything with no nodes in the graph.
         return;

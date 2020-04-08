@@ -26,7 +26,7 @@ TEST_CASE("Aligner respects the full length bonus at both ends", "[aligner][alig
     TestAligner aligner_source_2;
     aligner_source_2.set_alignment_scores(1, 4, 6, 1, 10);
     const Aligner& aligner_2 = *aligner_source_2.get_regular_aligner();
-    
+        
     Node* n0 = graph.create_node("AGTG");
     Node* n1 = graph.create_node("C");
     Node* n2 = graph.create_node("A");
@@ -44,7 +44,7 @@ TEST_CASE("Aligner respects the full length bonus at both ends", "[aligner][alig
     
     aligner_1.align(aln1, graph, true, false);
     aligner_2.align(aln2, graph, true, false);
-    
+        
     SECTION("bonus is collected at both ends") {
         REQUIRE(aln2.score() == aln1.score() + 20);
     }
@@ -361,56 +361,6 @@ TEST_CASE("Full-length bonus is applied to both ends by rescoring", "[aligner][a
     REQUIRE(aligner2.score_ungapped_alignment(aln) == 129);
     // And with a full length bonus at each end it's 139.
     REQUIRE(aligner1.score_ungapped_alignment(aln) == 139);
-}
-
-TEST_CASE("Aligner can accept a topological order", "[aligner][alignment][mapping]") {
-    
-    VG graph;
-    
-    TestAligner aligner_source;
-    aligner_source.set_alignment_scores(1, 4, 6, 1, 0);
-    const Aligner& aligner = *aligner_source.get_regular_aligner();
-    
-    Node* n0 = graph.create_node("AGTG");
-    Node* n1 = graph.create_node("C");
-    Node* n2 = graph.create_node("A");
-    Node* n3 = graph.create_node("TGAAGT");
-    
-    graph.create_edge(n0, n1);
-    graph.create_edge(n0, n2);
-    graph.create_edge(n1, n3);
-    graph.create_edge(n2, n3);
-    
-    Alignment aln;
-    
-    // Prepare the topological order
-    vector<handle_t> topological_order;
-    topological_order.push_back(graph.get_handle(n0->id(), false));
-    topological_order.push_back(graph.get_handle(n1->id(), false));
-    topological_order.push_back(graph.get_handle(n2->id(), false));
-    topological_order.push_back(graph.get_handle(n3->id(), false));
-    
-    SECTION("pinning left works") {
-        bool pin_left = true;
-        string read = string("AGTGCTGAAGT");
-        aln.set_sequence(read);
-        
-        // It used to be that pinning left required a reversed topological
-        // order, because we would reverse the graph but not the passed order.
-        aligner.align_pinned(aln, graph, topological_order, pin_left);
-        
-        REQUIRE(aln.score() == read.size() * 1);
-    }
-    
-    SECTION("pinning right works") {
-        bool pin_left = false;
-        string read = string("AGTGCTGAAGT");
-        aln.set_sequence(read);
-        
-        aligner.align_pinned(aln, graph, topological_order, pin_left);
-        
-        REQUIRE(aln.score() == read.size() * 1);
-    }
 }
 
 TEST_CASE("GSSWAligner mapping quality estimation is robust", "[aligner][alignment][mapping][mapq]") {
