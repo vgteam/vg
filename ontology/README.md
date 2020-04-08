@@ -58,21 +58,21 @@ At this moment VG RDF wants a fully embedded variation graph. e.g. all positions
 On top of VG RDF, we can describe the same path information on Pantograph format as well.
 
 ```ttl
-<pg/zoom10> a pg:ZoomLevel ;
-   pg:components <pg/zoom10/group1>, <pg/zoom10/group2> ;
-   pg:zoomFactor 10 .
-<pg/zoom1000> a pg:ZoomLevel ;
-   pg:components <pg/zoom1000/group1>, <pg/zoom1000/group2> ;
-   pg:zoomFactor 1000 . // zoomFactor is binWidth here.
-<pg/zoom1000/group1> a pg:Component ;
-   pg:componentRank 1 ;   # The order of component is inferred by rank.
-   pg:componentEdge <pg/zoom1000/group2> ;
-   pg:bins <pg/zoom1000/group1/bin1>, <pg/zoom1000/group1/bin2> ;
-   pg:steps <pg/zoom1000/group1/step1>, <pg/zoom1000/group1/step2> ;
-<pg/zoom1000/group1/step1> a pg:Step ;
-   pg:positionPercent 0.04
-   pg:inversionPercent 
-   pg:stepRegion <path1/region/6-100> .  # To infer firstNucleotide and last Nucleotide. faldo:begin of stepRegion is the first position. faldo:end of stepRegion is the last position.
+<pg/zoom10> a vg:ZoomLevel ;
+   vg:components <pg/zoom10/group1>, <pg/zoom10/group2> ;
+   vg:zoomFactor 10 .
+<pg/zoom1000> a vg:ZoomLevel ;
+   vg:components <pg/zoom1000/group1>, <pg/zoom1000/group2> ;
+   vg:zoomFactor 1000 . // zoomFactor is binWidth here.
+<pg/zoom1000/group1> a vg:Component ;
+   vg:componentRank 1 ;   # The order of component is inferred by rank.
+   vg:componentEdge <pg/zoom1000/group2> ;
+   vg:bins <pg/zoom1000/group1/bin1>, <pg/zoom1000/group1/bin2> ;
+   vg:rows <pg/zoom1000/group1/row1>, <pg/zoom1000/group1/row2> ;
+<pg/zoom1000/group1/row1> a vg:Row ;
+   vg:positionPercent 0.04
+   vg:inversionPercent 0.98
+   vg:rowRegion <path1/region/6-100> .  # To infer firstNucleotide and last Nucleotide. faldo:begin of stepRegion is the first position. faldo:end of rowRegion is the last position.
 <pg/zoom1000/group1/bin1> a vg:Bin ;
    vg:binEdge <pg/zoom1000/group2/bin2> ;
    vg:binRank 1 ;
@@ -81,7 +81,7 @@ On top of VG RDF, we can describe the same path information on Pantograph format
    vg:binEdge <pg/zoom1000/group2/bin3> ;
    vg:binRank 2 ;
    vg:binRegion <path1/region/101-1000>,<path2/region/103-1004> .
-<pg/zoom1000/link1> a vg:Link ; # This is a non-linear Step between Bins.
+<pg/zoom1000/link1> a vg:Link ; # This is a non-linear connection between Bins.
    vg:arrival <pg/zoom1000/group1/bin1>
    vg:departure <pg/zoom1000/group2/bin2>
    vg:paths <path1> <path2> # Participants of the link

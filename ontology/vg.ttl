@@ -15,7 +15,7 @@
   spin:imports <http://topbraid.org/spin/owlrl-all> ;
   spin:imports <http://topbraid.org/spin/rdfsplus> ;
   spin:imports <http://topbraid.org/spin/spinowl> ;
-  owl:versionInfo "Created at the DBCLS RDF Summit 2, Sendai Japan 20"^^xsd:string ;
+  owl:versionInfo "Created at the DBCLS RDF Summit 2, Sendai Japan and COVID-19 Virtual Biohackathon"^^xsd:string ;
 .
 :Node
   rdf:type owl:Class ;
@@ -170,54 +170,135 @@
   rdfs:label "consistsOf"^^xsd:string ;
   rdfs:range :Path ;
 .
+:ZoomLevel
+  rdf:type owl:Class ;
+  rdfs:comment "A zoom level of Pangenome."^^xsd:string ;
+  rdfs:label "ZoomLevel"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:zoomFactor
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The zoom factor of pangenome, which is defined as bin width, generally."^^xsd:string ;
+  rdfs:domain :ZoomLevel ;
+  rdfs:label "factor"^^xsd:string ;
+  rdfs:range xsd:positiveInteger ;
+.
+:components
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A zoom level has one or more components."^^xsd:string ;
+  rdfs:domain :ZoomLevel ;
+  rdfs:label "has"^^xsd:string ;
+  rdfs:range :Component ;
+.
+:Component
+  rdf:type owl:Class ;
+  rdfs:comment "A region between Arrows shared by all individuals."^^xsd:string ;
+  rdfs:label "Component"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:componentEdge
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "The super property that says two components are linked on the PangenomeSequence."^^xsd:string ;
+  rdfs:domain :Component ;
+  rdfs:label "connects"^^xsd:string ;
+  rdfs:range :Component ;
+.
+:componentRank
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The rank records that step place along its pangenome sequence."^^xsd:string ;
+  rdfs:domain :Component ;
+  rdfs:label "rank"^^xsd:string ;
+  rdfs:range xsd:positiveInteger ;
+.
+:bins
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A Component has one or more Bins."^^xsd:string ;
+  rdfs:domain :Component ;
+  rdfs:label "has"^^xsd:string ;
+  rdfs:range :Bin ;
+.
+:rows
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A Component has one or more paths of a specific group (component) of a specific zoom. That is represented as rows on the matrix."^^xsd:string ;
+  rdfs:domain :Component ;
+  rdfs:label "has"^^xsd:string ;
+  rdfs:range :Row ;
+.
+:Row
+  rdf:type owl:Class ;
+  rdfs:comment "A row along a path of a specific group (component) of a specific zoom. A row to a :Component and a :Path with supplemental informations."^^xsd:string ;
+  rdfs:label "Row"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:rowRegion
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A bin correspnds to the specific region of paths."^^xsd:string ;
+  rdfs:domain :Row ;
+  rdfs:label "is"^^xsd:string ;
+  rdfs:range faldo:Region ;
+.
+:positionPercent
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The position coverage of the path in the component."^^xsd:string ;
+  rdfs:domain :Row ;
+  rdfs:label "coverage"^^xsd:string ;
+  rdfs:range xsd:float ;
+.
+:inversionPercent
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The inversion percentage of the path in the component."^^xsd:string ;
+  rdfs:domain :Row ;
+  rdfs:label "inversion"^^xsd:string ;
+  rdfs:range xsd:float ;
+.
 :VG_Format
   a owl:Class ;
   rdfs:subClassOf edam:format_2921, edam:format_2055 ;
   rdfs:label "Graph" ;
   rdfs:comment "Consists of nodes, edges, and paths. Nodes each have a unique ID and a DNA sequence, edges consist of two node sides (so the graph is bidirected), and paths are a sequence of nodes and orientations. Paths also have names." ;
-  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto> ;
 .
 :GAM_Format
   a owl:Class ;
   rdfs:label "Alignment" ;
   rdfs:subClassOf edam:format_2055 ;
   rdfs:comment "Contains an alignment to a graph" ;
-  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto> ;
 .
 :GAMP_Format
   a owl:Class ;
   rdfs:label "MultipathAlignment" ;
   rdfs:comment "Contains a DAG of subalignments to different paths through the reference graph" ;
-  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto> ;
 .
 :Snarl_Format
   a owl:Class ;
   rdfs:label "Snarl" ;
   rdfs:comment " A series of Snarl objects, each of which contain: The boundaries of a snarl (a bubble-like motif in a graph), the snarl (if any) that contains this one, classifications of the snarl based on the reachability of the two boundary nodes from each other and the cyclic-ness of the subcomponent." ;
-  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto> ;
 .
 :Snarl_Traversal_Format
   a owl:Class ;
   rdfs:label "SnarlTraversal" ;
   rdfs:comment " A series of SnarlTraversal objects, each of which contain: A walk in the graph through a Snarl, and optionally a name." ;
-  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto> ;
 .
 :XG_Format
   a owl:Class ;
   rdfs:label "XG" ;
   rdfs:comment "An immutable, succinct representation of a graph. Contains the same info as the .vg." ;
   rdfs:seeAlso :VG_Format ;
-  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto> ;
 .
 :GCSA2_Format
   a owl:Class ;
   rdfs:label "GCSA2" ;
   rdfs:comment "Generalized compressed suffix array 2, an exact match index published by Jouni Siren" ;
-  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto> ;
 .
 :GBWT_Format 
   a owl:Class ;
   rdfs:label "GBWT" ;
   rdfs:comment "Graph Burrows-Wheeler Transform, a succinct collection of paths through a genome graph, published by Jouni Siren. Usually represents haplotypes." ;
-  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto> ;
 .
