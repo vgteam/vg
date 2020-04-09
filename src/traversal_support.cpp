@@ -66,24 +66,33 @@ Support TraversalSupportFinder::get_traversal_support(const SnarlTraversal& trav
 vector<Support> TraversalSupportFinder::get_traversal_genotype_support(const vector<SnarlTraversal>& traversals,
                                                                        const vector<int>& genotype,
                                                                        const set<int>& other_trav_subset,
-                                                                       int ref_trav_idx) {
+                                                                       int ref_trav_idx,
+                                                                       int* max_trav_size) {
     set<int> tgt_trav_set(genotype.begin(), genotype.end());
     vector<int> tgt_travs(tgt_trav_set.begin(), tgt_trav_set.end());
-    vector<int> other_travs(other_trav_subset.begin(), other_trav_subset.end());
-    int max_trav_size = 0;
+    vector<int> other_travs;
+    for (int i = 0; i < traversals.size(); ++i) {
+        if (!tgt_trav_set.count(i) && (other_trav_subset.empty() || other_trav_subset.count(i))) {
+            other_travs.push_back(i);
+        }
+    }
+    int max_trav_size_internal = 0; // size of longest traversal
+    if (max_trav_size == nullptr) {
+        max_trav_size = &max_trav_size_internal;
+    }
     
     // compute independent support of allele in the genotype
     // todo:  pass this in instead of recomputing.  as there's no reason to compute this more than once
-    vector<Support> ind_allele_support = get_traversal_set_support(traversals, {}, {}, tgt_trav_set, false, {}, {}, ref_trav_idx, &max_trav_size);
+    vector<Support> ind_allele_support = get_traversal_set_support(traversals, {}, {}, tgt_trav_set, false, {}, {}, ref_trav_idx, max_trav_size);
     
     // get the support of just the alleles in the genotype, but splitting support of nodes/edges they share
     // the split is weighted by the total support of the alleles compute above. for node N and genotype A,B:
     // so support(node N in allele A) = support(node N) * support(allele A) / (support(allele A + allele B))
-    vector<Support> allele_support = get_traversal_set_support(traversals, genotype, ind_allele_support, tgt_trav_set, false, {}, {}, ref_trav_idx, &max_trav_size);
-    
-    // get the support of everythin else, subtracting genotype supports, and splitting mutual supports
-    vector<Support> other_support = get_traversal_set_support(traversals, other_travs, {}, other_trav_subset, false, genotype, allele_support, ref_trav_idx, &max_trav_size);
+    vector<Support> allele_support = get_traversal_set_support(traversals, genotype, ind_allele_support, tgt_trav_set, false, {}, {}, ref_trav_idx, max_trav_size);
 
+    // get the support of everythin else, subtracting genotype supports, and splitting mutual supports
+    vector<Support> other_support = get_traversal_set_support(traversals, other_travs, {}, other_trav_subset, false, genotype, allele_support, ref_trav_idx, max_trav_size);
+    
     // combine the above two vectors
     for (int allele : tgt_travs) {
         other_support[allele] = allele_support[allele];
@@ -244,6 +253,7 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
             tot_sizes[trav_idx] += length;
             min_supports_min[trav_idx] = support_min(min_supports_min[trav_idx], scaled_support_min);
             min_supports_avg[trav_idx] = support_min(min_supports_avg[trav_idx], scaled_support_avg);
+
 #ifdef debug
             cerr << "updating min support to " << pb2json(min_supports_min[trav_idx]) << endl;
             cerr << "updating min avg support to " << pb2json(min_supports_avg[trav_idx]) << endl;
@@ -294,7 +304,7 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
                 length = get_edge_length(edge, ref_offsets);
                 if (edge_counts.count(edge)) {
                     share_count = edge_counts[edge];                    
-                } 
+                }
                 update_support(trav_idx, min_support, min_support, length, share_count);
             }
         }

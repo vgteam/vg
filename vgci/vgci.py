@@ -1256,7 +1256,7 @@ class VGCITest(TestCase):
                            acc_threshold=0.0075, auc_threshold=0.075, mappers = ['map', 'mpmap'],
                            sim_opts='-l 150 -p 570 -v 150 -e 0.01 -i 0.002')
 
-    @timeout_decorator.timeout(2400)        
+    @timeout_decorator.timeout(4400)        
     def test_sim_chr21_snp1kg_trained(self):
         self._test_mapeval(100000, 'CHR21', 'snp1kg',
                            ['primary', 'snp1kg'],
