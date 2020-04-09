@@ -367,13 +367,29 @@ int main_paths(int argc, char** argv) {
                 m->set_rank(rank++);
             }
             if (extract_as_gam) {
-                // Write as an Alignment
+                // Write as an Alignment. Must contain the whole path.
                 gam_emitter->write(alignment_from_path(*graph, path));
             } else if (extract_as_vg) {
                 // Write as a Path in a VG
-                Graph g;
-                *(g.add_path()) = path;
-                graph_emitter->write(std::move(g));
+                
+                size_t chunk_size = 10000;
+                
+                for (size_t start = 0; start < path.mapping_size(); start += chunk_size) {
+                    // Make sure to chunk.
+                    // TODO: Can we avoild a copy here somehow?
+                    Path chunk;
+                    chunk.set_name(path.name());
+                    
+                    for (size_t i; i < chunk_size && start + i < path.mapping_size(); i++) {
+                        // Copy over this batch of mappings
+                        *chunk.add_mapping() = path.mapping(start + i);
+                    }
+                    
+                    // Emit a graph chunk containing htis part of the path
+                    Graph g;
+                    *(g.add_path()) = chunk;
+                    graph_emitter->write(std::move(g));
+                }
             } else if (extract_as_fasta) {
                 write_fasta_sequence(name, path_sequence(*graph, path), cout);
             }
