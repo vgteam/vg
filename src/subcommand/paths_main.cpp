@@ -59,8 +59,9 @@ void chunk_to_emitter(const Path& path, vg::io::ProtobufEmitter<Graph>& graph_em
         // TODO: Can we avoild a copy here somehow?
         Path chunk;
         chunk.set_name(path.name());
+        chunk.set_is_circular(path.is_circular());
         
-        for (size_t i; i < chunk_size && start + i < path.mapping_size(); i++) {
+        for (size_t i = 0; i < chunk_size && start + i < path.mapping_size(); i++) {
             // Copy over this batch of mappings
             *chunk.add_mapping() = path.mapping(start + i);
         }
