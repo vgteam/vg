@@ -116,14 +116,15 @@ namespace vg {
         double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs) const;
         
         /// store optimal alignment against a graph in the Alignment object with one end of the sequence
-        /// guaranteed to align to a source/sink node
+        /// guaranteed to align to a source/sink node. if xdrop is selected, use the xdrop heuristic, which
+        /// does not guarantee an optimal alignment.
         ///
         /// pinning left means that that the alignment starts with the first base of the read sequence and
         /// the first base of a source node sequence, pinning right means that the alignment starts with
         /// the final base of the read sequence and the final base of a sink node sequence
         ///
         /// Gives the full length bonus only on the non-pinned end of the alignment.
-        virtual void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const = 0;
+        virtual void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false) const = 0;
         
         /// store the top scoring pinned alignments in the vector in descending score order up to a maximum
         /// number of alignments (including the optimal one). if there are fewer than the maximum number in
@@ -147,10 +148,6 @@ namespace vg {
                                                bool permissive_banding = true) const = 0;
         // xdrop aligner
         virtual void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const = 0;
-        virtual void align_xdrop_multi(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const = 0;
-        /// Get a fresh XdropAligner instance to align with.
-        /// TODO: make XdropAligner thread safe, and make it a thing you can get from GetAligner.
-        virtual const XdropAligner& get_xdrop() const = 0;
 
         /// Compute the score of an exact match in the given alignment, from the
         /// given offset, of the given length.
@@ -284,14 +281,15 @@ namespace vg {
         void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) const;
         
         /// store optimal alignment against a graph in the Alignment object with one end of the sequence
-        /// guaranteed to align to a source/sink node
+        /// guaranteed to align to a source/sink node. if xdrop is selected, use the xdrop heuristic, which
+        /// does not guarantee an optimal alignment.
         ///
         /// pinning left means that that the alignment starts with the first base of the read sequence and
         /// the first base of a source node sequence, pinning right means that the alignment starts with
         /// the final base of the read sequence and the final base of a sink node sequence
         ///
         /// Gives the full length bonus only on the non-pinned end of the alignment.
-        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const;
+        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false) const;
                 
         /// store the top scoring pinned alignments in the vector in descending score order up to a maximum
         /// number of alignments (including the optimal one). if there are fewer than the maximum number in
@@ -315,8 +313,6 @@ namespace vg {
 
         // xdrop aligner
         void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const;
-        void align_xdrop_multi(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const;
-        const XdropAligner& get_xdrop() const;
 
         int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const;
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
@@ -362,7 +358,7 @@ namespace vg {
         void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) const;
         void align_global_banded(Alignment& alignment, const HandleGraph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true) const;
-        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const;
+        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false) const;
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true) const;
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
@@ -370,8 +366,6 @@ namespace vg {
                                 
         // TODO: xdrop isn't actually possible with the quality adjusted aligner (yet).
         void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const;
-        void align_xdrop_multi(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const;
-        const XdropAligner& get_xdrop() const;
         
         int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const;
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;

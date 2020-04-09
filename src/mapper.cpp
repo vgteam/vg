@@ -1827,9 +1827,9 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
     } else if (pinned_alignment) {
         get_aligner(!aln.quality().empty())->align_pinned(aligned, align_graph, pin_left);
     } else if (xdrop_alignment) {
-        get_aligner(!aln.quality().empty())->get_xdrop().align(aligned, align_graph,
-                                                               translate_mems(mems, node_trans),
-                                                               (xdrop_alignment == 1) ? false : true);
+        get_aligner(!aln.quality().empty())->align_xdrop(aligned, align_graph,
+                                                         translate_mems(mems, node_trans),
+                                                         xdrop_alignment != 1);
     } else {
         get_aligner(!aln.quality().empty())->align(aligned, align_graph, traceback, false);
     }

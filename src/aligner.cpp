@@ -1145,9 +1145,18 @@ void Aligner::align(Alignment& alignment, const HandleGraph& g, bool traceback_a
     align_internal(alignment, nullptr, g, false, false, 1, traceback_aln, print_score_matrices);
 }
 
-void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const {
+void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop) const {
     
-    align_internal(alignment, nullptr, g, true, pin_left, 1, true, false);
+    if (xdrop) {
+        // XdropAligner manages its own stack, so it can never be threadsafe without be recreated
+        // for every alignment, which meshes poorly with its stack implementation. We achieve
+        // thread-safety by having one per thread, which makes this method const-ish.
+        XdropAligner& xdrop = const_cast<XdropAligner&>(xdrops[omp_get_thread_num()]);
+        xdrop.align_pinned(alignment, g, pin_left);
+    }
+    else {
+        align_internal(alignment, nullptr, g, true, pin_left, 1, true, false);
+    }
 }
 
 void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
@@ -1274,20 +1283,13 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
     }
 }
 
-// X-drop aligner
 void Aligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const
 {
-    // Make a single-problem aligner, so we don't modify ourselves and are thread-safe.
-    xdrops[omp_get_thread_num()].align(alignment, g, mems, reverse_complemented);
-}
-
-void Aligner::align_xdrop_multi(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const
-{
-    throw runtime_error("Aligner::align_xdrop_multi not yet implemented");
-}
-
-const XdropAligner& Aligner::get_xdrop() const {
-    return xdrops[omp_get_thread_num()];
+    // XdropAligner manages its own stack, so it can never be threadsafe without be recreated
+    // for every alignment, which meshes poorly with its stack implementation. We achieve
+    // thread-safety by having one per thread, which makes this method const-ish.
+    XdropAligner& xdrop = const_cast<XdropAligner&>(xdrops[omp_get_thread_num()]);
+    xdrop.align(alignment, g, mems, reverse_complemented);
 }
 
 
@@ -1665,10 +1667,14 @@ void QualAdjAligner::align(Alignment& alignment, const HandleGraph& g, bool trac
     align_internal(alignment, nullptr, g, false, false, 1, traceback_aln, print_score_matrices);
 }
 
-void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const {
-
-    align_internal(alignment, nullptr, g, true, pin_left, 1, true, false);
-
+void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop) const {
+    if (xdrop) {
+        cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
+        exit(1);
+    }
+    else {
+        align_internal(alignment, nullptr, g, true, pin_left, 1, true, false);
+    }
 }
 
 void QualAdjAligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
@@ -1708,20 +1714,6 @@ void QualAdjAligner::align_xdrop(Alignment& alignment, const HandleGraph& g, con
     // TODO: implement?
     cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
     exit(1);
-}
-
-void QualAdjAligner::align_xdrop_multi(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const
-{
-    // TODO: implement?
-    cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
-    exit(1);
-}
-
-const XdropAligner& QualAdjAligner::get_xdrop() const {
-    // TODO: implement?
-    cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
-    exit(1);
-    return XdropAligner();
 }
 
 int32_t QualAdjAligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const {

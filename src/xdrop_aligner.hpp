@@ -48,23 +48,33 @@ namespace vg {
      * This won't actually work in theory to get the optimal local alignment in
      * all cases, but it works well in practice.
      *
+     * This class maintains an internal dz_s, which is *NOT THREADSAFE*,
+     * and non-const during alignments. However, it may be reused for
+     * subsequent alignments.
      */
 	class XdropAligner {
+        
     public:
-        // Expects a 4 x 4 score matrix
+        
+        /// Main constructor. Expects a 4 x 4 score matrix.
         XdropAligner(const int8_t* _score_matrix,
-                     int8_t _gap_open,
-                     int8_t _gap_extension,
-                     int32_t _full_length_bonus,
-                     uint32_t _max_gap_length);
-        XdropAligner(int8_t _match,
-                     int8_t _mismatch,
                      int8_t _gap_open,
                      int8_t _gap_extension,
                      int32_t _full_length_bonus,
                      uint32_t _max_gap_length);
         XdropAligner();
         ~XdropAligner(void);
+        
+        
+        /// Copy constructor
+        XdropAligner(const XdropAligner& other);
+        /// Copy assignment
+        XdropAligner& operator=(const XdropAligner& other);
+        /// Move constructor
+        XdropAligner(XdropAligner&& other);
+        /// Move assignment
+        XdropAligner& operator=(XdropAligner&& other);
+        
         
         /**
          * align query: forward-backward banded alignment
@@ -96,7 +106,7 @@ namespace vg {
          * true, and the last occurrence of the first MEM otherwise.
          */
         void align(Alignment& alignment, const HandleGraph& graph, const vector<MaximalExactMatch>& mems,
-                   bool reverse_complemented) const;
+                   bool reverse_complemented);
         
         /**
          * Compute a pinned alignment, where the start (pin_left=true) or end
@@ -107,7 +117,7 @@ namespace vg {
          * Does not account for multiple sources/sinks in the topological
          * order; whichever comes first/last ends up being used for the pin.
          */
-        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const;\
+        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left);
         
     private:
         /**
@@ -135,19 +145,6 @@ namespace vg {
             unordered_map<handle_t, size_t> index_of;
         };
         
-        /// 4 x 4 matrix of match/mismatch scores
-        int8_t* score_matrix = nullptr;
-        /// Amount paid in addition to gap_extend on first base of a gap
-        uint16_t gap_open = 0;
-        /// Amount paid on each base of a gap
-        uint16_t gap_extend = 0;
-        
-        int32_t full_length_bonus = 0;
-        uint32_t max_gap_length = 0;
-
-		// position handling -> (node_index, ref_offset, query_offset): graph_pos_s
-		// MaximalExactMatch const &select_root_seed(vector<MaximalExactMatch> const &mems);
-        
         /// Given the subgraph we are aligning to, the MEM hist against it, the
         /// length of the query, and the direction we are aligning the query in
         /// (true = forward), select a single anchoring match between the graph
@@ -161,7 +158,7 @@ namespace vg {
         /// match is found.
         graph_pos_s calculate_max_position(const OrderedGraph& graph, const graph_pos_s& seed_pos,
                                            size_t max_node_index, bool direction,
-                                           dz_s* dz, const vector<const dz_forefront_s*>& forefronts) const;
+                                           const vector<const dz_forefront_s*>& forefronts);
 	
         /// If no seeds are provided as alignment input, we need to compute our own starting anchor position. This function does that.
         /// Takes the topologically-sorted graph, the query sequence, and the direction.
@@ -169,7 +166,7 @@ namespace vg {
         ///
         /// This replaces calculate_seed_position for the case where we have no MEMs.
         graph_pos_s scan_seed_position(const OrderedGraph& graph, const string& query_seq, bool direction,
-                                       dz_s* dz, vector<const dz_forefront_s*>& forefronts) const;
+                                       vector<const dz_forefront_s*>& forefronts);
 
         /// Append an edit at the end of the current mapping array.
         /// Returns the length passed in.
@@ -200,7 +197,7 @@ namespace vg {
         /// safe to call dz_calc_max_qpos on the associated forefront!
 		size_t extend(const OrderedGraph& graph, const dz_query_s* packed_query,
                       const vector<graph_pos_s>& seed_positions, bool right_to_left,
-                      dz_s* dz, vector<const dz_forefront_s*>& forefronts) const;
+                      vector<const dz_forefront_s*>& forefronts);
        
         /**
          * After all the alignment work has been done, do the traceback and
@@ -214,8 +211,8 @@ namespace vg {
          */
         void calculate_and_save_alignment(Alignment& alignment, const OrderedGraph& graph,
                                           const vector<graph_pos_s>& head_positions,
-                                          size_t tail_node_index, bool left_to_right, dz_s* dz,
-                                          const vector<const dz_forefront_s*>& forefronts) const;
+                                          size_t tail_node_index, bool left_to_right,
+                                          const vector<const dz_forefront_s*>& forefronts);
 
 		// void debug_print(Alignment const &alignment, OrderedGraph const &graph, MaximalExactMatch const &seed, bool reverse_complemented);
 		// bench_t bench;
@@ -226,16 +223,11 @@ namespace vg {
         /// unset, goes right to left and traces back the other way.
         void align_downward(Alignment &alignment, const OrderedGraph& graph,
                             const vector<graph_pos_s>& head_positions,
-                            bool left_to_right, dz_s* dz, vector<const dz_forefront_s*>& forefronts) const;
+                            bool left_to_right, vector<const dz_forefront_s*>& forefronts);
 
         
-	public:
-        
-		XdropAligner(XdropAligner const &);
-		XdropAligner& operator=(XdropAligner const &);
-		XdropAligner(XdropAligner&&);
-		XdropAligner& operator=(XdropAligner&&);
-		
+        /// The core dozeu class, which does the alignments
+        dz_s* dz = nullptr;
 	};
 } // end of namespace vg
 
