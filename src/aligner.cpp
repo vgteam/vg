@@ -1833,7 +1833,6 @@ const Aligner* AlignerClient::get_regular_aligner() const {
 }
 
 int8_t* AlignerClient::parse_matrix(istream& matrix_stream) {
-    
     int8_t* matrix = (int8_t*) malloc(16 * sizeof(int8_t));
     for (size_t i = 0; i < 16; i++) {
         if (!matrix_stream.good()) {
@@ -1885,7 +1884,6 @@ void AlignerClient::set_alignment_scores(const int8_t* score_matrix, int8_t gap_
 
 void AlignerClient::set_alignment_scores(std::istream& matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
                                          uint32_t xdrop_max_gap_length) {
-    
     int8_t* score_matrix = parse_matrix(matrix_stream);
     qual_adj_aligner = unique_ptr<QualAdjAligner>(new QualAdjAligner(score_matrix, gap_open, gap_extend,
                                                                      full_length_bonus, gc_content_estimate));

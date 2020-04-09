@@ -817,6 +817,8 @@ int main_map(int argc, char** argv) {
         m->max_target_factor = max_target_factor;
         if (matrix_stream.is_open()) {
             m->set_alignment_scores(matrix_stream, gap_open, gap_extend, full_length_bonus, max_gap_length, haplotype_consistency_exponent);
+            // reset the stream for the next Mapper
+            matrix_stream.seekg(0);
         }
         else {
             m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, max_gap_length, haplotype_consistency_exponent);

@@ -1459,8 +1459,11 @@ int main_mpmap(int argc, char** argv) {
             uint64_t n;
 #pragma omp atomic capture
             n = ++num_reads_mapped;
-            if (n % progress_frequency) {
-                cerr << "[vg mpmap] mapped " << n << " reads" << endl;
+            if (n % progress_frequency == 0) {
+#pragma omp critical
+                {
+                    cerr << "[vg mpmap] mapped " << n << " reads" << endl;
+                }
             }
         }
         
@@ -1523,8 +1526,11 @@ int main_mpmap(int argc, char** argv) {
             uint64_t n;
 #pragma omp atomic capture
             n = ++num_reads_mapped;
-            if (n % progress_frequency) {
-                cerr << "[vg mpmap] mapped " << n << " read pairs" << endl;
+            if (n % progress_frequency == 0) {
+#pragma omp critical
+                {
+                    cerr << "[vg mpmap] mapped " << n << " read pairs" << endl;
+                }
             }
         }
         
