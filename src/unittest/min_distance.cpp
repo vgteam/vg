@@ -7,6 +7,7 @@
 #include "vg.hpp"
 #include "catch.hpp"
 #include "snarls.hpp"
+#include "position.hpp"
 #include "min_distance.hpp"
 #include "genotypekit.hpp"
 #include "random_graph.hpp"
@@ -1129,7 +1130,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             REQUIRE (di.offset_in_root_chain(make_pos_t(1 , false, 0)).first != std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(2 , false, 0)).first == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(3 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(4 , false, 0)).first == std::numeric_limits<size_t>::max());
+            REQUIRE (di.offset_in_root_chain(make_pos_t(4 , true, 3)).first == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(5 , false, 0)).first == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(6 , false, 0)).first == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(7 , false, 0)).first == std::numeric_limits<size_t>::max());
@@ -1155,14 +1156,14 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             REQUIRE (di.offset_in_root_chain(make_pos_t(1 , false, 0)).second == 0);
             REQUIRE (di.offset_in_root_chain(make_pos_t(2 , false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(3 , false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(4 , false, 0)).second == std::numeric_limits<size_t>::max());
+            REQUIRE (di.offset_in_root_chain(make_pos_t(4 , true, 3)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(5 , false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(6 , false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(7 , false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(8 , false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(9 , false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(10, false, 0)).second == 8);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(11, false, 0)).second == 0);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(10, true, 0)).second == 8);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(11, true, 3)).second == 0);
             REQUIRE (di.offset_in_root_chain(make_pos_t(12, false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(13, false, 0)).second == 4);
             REQUIRE (di.offset_in_root_chain(make_pos_t(14, false, 0)).second == std::numeric_limits<size_t>::max());
@@ -1245,7 +1246,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
                 off_t offset2 = uniform_int_distribution<int>(0,node2->sequence().size() - 1)(generator);
 
                 pos_t pos1 = make_pos_t(nodeID1, 
-                  uniform_int_distribution<int>(0,1)(generator) == 0,offset1 );
+                  uniform_int_distribution<int>(0,1)(generator) == 0, offset1 );
                 pos_t pos2 = make_pos_t(nodeID2, 
                   uniform_int_distribution<int>(0,1)(generator) == 0, offset2 );
  
@@ -1264,6 +1265,31 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
                     int64_t actDist = minDistance(&graph, pos1, pos2);
 
 
+                    int64_t dist2 = di.minDistance(pos1, make_pos_t(nodeID2, !is_rev(pos2), node2->sequence().size() - offset2 - 1) ); 
+                    dist2 = myDist == -1 ? dist2 : (dist2 == -1 ? myDist : min(myDist, dist2));
+                    int64_t dist3 = di.minDistance(make_pos_t(nodeID1, !is_rev(pos1), node1->sequence().size() - offset1 - 1), pos2 ); 
+                    dist3 = dist2 == -1 ? dist3 : (dist3 == -1 ? dist2 : min(dist2, dist3));
+                    int64_t dist4 = di.minDistance(make_pos_t(nodeID1, !is_rev(pos1), node1->sequence().size() - offset1 - 1), 
+                                                   make_pos_t(nodeID2, !is_rev(pos2), node2->sequence().size() - offset2 - 1) ); 
+                    dist4 = dist3 == -1 ? dist4 : (dist4 == -1 ? dist3 : min(dist3, dist4));
+
+                    pair<size_t, size_t> root_offset1 = di.offset_in_root_chain (pos1);
+                    pair<size_t, size_t> root_offset2 = di.offset_in_root_chain (pos2);
+                    if (root_offset1.first != std::numeric_limits<size_t>::max() && 
+                        root_offset2.first != std::numeric_limits<size_t>::max() &&
+                        root_offset1.first == root_offset2.first &&
+                        dist4 != -1) {
+                        graph.serialize_to_file("testGraph");
+                        //If these positions are both on the same root chain, then the minimum (unoriented) distance between them
+                        //should be the difference between the offsets we store
+                        if (root_offset1.second < root_offset2.second) {
+                            REQUIRE(root_offset2.second - root_offset1.second == dist4);
+                        } else {
+                            REQUIRE(root_offset1.second - root_offset2.second == dist4);
+                        }
+
+                        
+                    }
          
 
  

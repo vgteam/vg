@@ -67,8 +67,8 @@ class MinimumDistanceIndex {
                          SubHandleGraph& sub_graph, bool look_forward);
 
 
-    //Given a node id, return a unique identifier for the connected component that the node is on and
-    //the offset of the node in the root chain - the minimum distance from the beginning of the chain to 
+    //Given a position, return a unique identifier for the connected component that the node is on and
+    //the offset of the position in the root chain - the minimum distance from the beginning of the chain to 
     //the position
     //If the position is not on a root node (that is, a boundary node of a snarl in a root chain), returns
     //<std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()> 
@@ -206,7 +206,6 @@ class MinimumDistanceIndex {
 
         friend class MinimumDistanceIndex;
         friend class SnarlSeedClusterer;
-        friend class TestMinDistanceIndex;
     };
 
 
@@ -298,7 +297,6 @@ class MinimumDistanceIndex {
 
         friend class MinimumDistanceIndex;   
         friend class SnarlSeedClusterer;
-        friend class TestMinDistanceIndex;
     }; 
 
 
@@ -475,7 +473,6 @@ class MinimumDistanceIndex {
     friend class SnarlIndex;
     friend class ChainIndex;
     friend class SnarlSeedClusterer;
-    friend class TestMinDistanceIndex;
 
 
 };
