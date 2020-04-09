@@ -49,6 +49,29 @@ void help_paths(char** argv) {
          << "    -a, --variant-paths      select the variant paths added by 'vg construct -a'" << endl;
 }
 
+/// Chunk a path and emit it in Graph messages.
+/// Paht must have ranks set.
+void chunk_to_emitter(const Path& path, vg::io::ProtobufEmitter<Graph>& graph_emitter) {
+    size_t chunk_size = 10000;
+                    
+    for (size_t start = 0; start < path.mapping_size(); start += chunk_size) {
+        // Make sure to chunk.
+        // TODO: Can we avoild a copy here somehow?
+        Path chunk;
+        chunk.set_name(path.name());
+        
+        for (size_t i; i < chunk_size && start + i < path.mapping_size(); i++) {
+            // Copy over this batch of mappings
+            *chunk.add_mapping() = path.mapping(start + i);
+        }
+        
+        // Emit a graph chunk containing htis part of the path
+        Graph g;
+        *(g.add_path()) = std::move(chunk);
+        graph_emitter.write(std::move(g));
+    }
+}
+
 int main_paths(int argc, char** argv) {
 
     if (argc == 2) {
@@ -371,25 +394,7 @@ int main_paths(int argc, char** argv) {
                 gam_emitter->write(alignment_from_path(*graph, path));
             } else if (extract_as_vg) {
                 // Write as a Path in a VG
-                
-                size_t chunk_size = 10000;
-                
-                for (size_t start = 0; start < path.mapping_size(); start += chunk_size) {
-                    // Make sure to chunk.
-                    // TODO: Can we avoild a copy here somehow?
-                    Path chunk;
-                    chunk.set_name(path.name());
-                    
-                    for (size_t i; i < chunk_size && start + i < path.mapping_size(); i++) {
-                        // Copy over this batch of mappings
-                        *chunk.add_mapping() = path.mapping(start + i);
-                    }
-                    
-                    // Emit a graph chunk containing htis part of the path
-                    Graph g;
-                    *(g.add_path()) = chunk;
-                    graph_emitter->write(std::move(g));
-                }
+                chunk_to_emitter(path, *graph_emitter);
             } else if (extract_as_fasta) {
                 write_fasta_sequence(name, path_sequence(*graph, path), cout);
             }
@@ -450,9 +455,7 @@ int main_paths(int argc, char** argv) {
                         if (extract_as_gam) {
                             gam_emitter->write(alignment_from_path(*graph, path));
                         } else if (extract_as_vg) {
-                            Graph g;
-                            *(g.add_path()) = path;
-                            graph_emitter->write(std::move(g));
+                            chunk_to_emitter(path, *graph_emitter); 
                         } else if (extract_as_fasta) {
                             write_fasta_sequence(path_name, path_sequence(*graph, path), cout);
                         }
