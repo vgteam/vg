@@ -172,7 +172,7 @@ public:
 protected:
 
     /**
-     * We define our own type for minimizers, to use during mapping and to apss around between our internal functions.
+     * We define our own type for minimizers, to use during mapping and to pass around between our internal functions.
      */
     struct Minimizer {
         typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
@@ -193,7 +193,6 @@ protected:
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes;
     MinimumDistanceIndex& distance_index;
-
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
     

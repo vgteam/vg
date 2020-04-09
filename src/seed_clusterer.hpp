@@ -12,13 +12,23 @@ class SnarlSeedClusterer {
 
     public:
 
+        //TODO: Get rid of this once the actual one gets made
+        struct Seed {
+            pos_t pos;
+            size_t source;
+            size_t component = std::numeric_limits<size_t>::max();
+            size_t offset = std::numeric_limits<size_t>::max();
+        };
+
         SnarlSeedClusterer(MinimumDistanceIndex& dist_index);
 
-        ///Given a vector of seeds (pos_t) and a distance limit, 
+        //TODO: I don't want to be too tied to the minimizer_mapper implementation with seed structs
+
+        ///Given a vector of seeds and a distance limit, 
         //cluster the seeds such that two seeds whose minimum distance
         //between them (including both of the positions) is less than
         // the distance limit are in the same cluster
-        vector<vector<size_t>> cluster_seeds ( const vector<pos_t>& seeds, int64_t read_distance_limit) const;
+        vector<vector<size_t>> cluster_seeds ( const vector<Seed>& seeds, int64_t read_distance_limit) const;
         
         ///The same thing, but for paired end reads.
         //Given seeds from multiple reads of a fragment, cluster each read
@@ -32,13 +42,21 @@ class SnarlSeedClusterer {
         // Returns: For each read, a vector of clusters. One cluster is a pair of the index of the fragment cluster and
         // a vector of the indices of the seeds it contains
         vector<vector<pair<vector<size_t>, size_t>>> cluster_seeds ( 
-                const vector<vector<pos_t>>& all_seeds, int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
+                const vector<vector<Seed>>& all_seeds, int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
+
+
+        //The same clustering algorithms but using seed positions instead of structs
+        vector<vector<size_t>> cluster_seeds ( const vector<pos_t>& seed_positions, int64_t read_distance_limit) const;
+        
+        vector<vector<pair<vector<size_t>, size_t>>> cluster_seeds ( 
+                const vector<vector<pos_t>>& all_seed_positions, int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
 
     private:
 
+
         //Actual clustering function that takes a vector of pointers to seeds
         tuple<vector<structures::UnionFind>, structures::UnionFind> cluster_seeds_internal ( 
-                const vector<const vector<pos_t>*>& all_seeds,
+                const vector<const vector<Seed>*>& all_seeds,
                 int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
 
         MinimumDistanceIndex& dist_index;
@@ -140,7 +158,7 @@ class SnarlSeedClusterer {
             //is updated to know about its children
 
             //Vector of all the seeds for each read
-            const vector<const vector<pos_t>*>* all_seeds; 
+            const vector<const vector<Seed>*>* all_seeds; 
 
             //prefix sum vector of the number of seeds per read
             //To get the index of a seed for the fragment clusters
@@ -210,7 +228,7 @@ class SnarlSeedClusterer {
 
             //Constructor takes in a pointer to the seeds, the distance limits, and 
             //the total number of seeds in all_seeds
-            TreeState (const vector<const vector<pos_t>*>* all_seeds, int64_t read_distance_limit, 
+            TreeState (const vector<const vector<Seed>*>* all_seeds, int64_t read_distance_limit, 
                        int64_t fragment_distance_limit, size_t seed_count) :
                 all_seeds(all_seeds),
                 read_distance_limit(read_distance_limit),

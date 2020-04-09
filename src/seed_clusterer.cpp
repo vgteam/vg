@@ -9,10 +9,17 @@ namespace vg {
                                             dist_index(dist_index){
     };
 
-    vector<vector<size_t>> SnarlSeedClusterer::cluster_seeds (const vector<pos_t>& seeds, int64_t read_distance_limit) const {
-        //Wrapper for single ended
+    vector<vector<size_t>> SnarlSeedClusterer::cluster_seeds (const vector<pos_t>& seed_positions, int64_t read_distance_limit) const {
+        //Wrapper for single ended given positions instead of seeds
+        //
+        vector<Seed> seeds;
+        seeds.reserve(seed_positions.size());
+        for (pos_t pos : seed_positions) {
+            seeds.emplace_back();
+            seeds.back().pos = pos;
+        }
 
-        vector<const vector<pos_t>*> all_seeds;
+        vector<const vector<Seed>*> all_seeds;
         all_seeds.push_back(&seeds);
 
         auto all_clusters = cluster_seeds_internal(all_seeds, read_distance_limit, 0);
@@ -21,16 +28,81 @@ namespace vg {
     };
 
     vector<vector<pair<vector<size_t>, size_t>>> SnarlSeedClusterer::cluster_seeds (
-                  const vector<vector<pos_t>>& all_seeds, int64_t read_distance_limit,
+                  const vector<vector<pos_t>>& all_seed_positions, int64_t read_distance_limit,
                   int64_t fragment_distance_limit) const {
-        //Wrapper for paired end
-        vector<const vector<pos_t>*> seed_pointers;
+        //Wrapper for paired end given positions instead of seeds
+        vector<vector<Seed>> all_seeds (all_seed_positions.size());
+        vector<const vector<Seed>*> seed_pointers;
         seed_pointers.reserve(all_seeds.size());
-        for (const vector<pos_t>& v : all_seeds) seed_pointers.push_back(&v);
+        for (size_t i = 0 ; i < all_seed_positions.size() ; i++) {
+            const vector<pos_t>& v = all_seed_positions[i];
+            for (const pos_t& pos : v) {
+                all_seeds[i].emplace_back();
+                all_seeds[i].back().pos = pos;
+            }
+
+            seed_pointers.push_back(&all_seeds[i]);
+        }
+
+        //Actually cluster the seeds
         auto union_finds = cluster_seeds_internal(seed_pointers, read_distance_limit, fragment_distance_limit);
+
         vector<structures::UnionFind> read_union_finds = std::move(std::get<0>(union_finds));
         structures::UnionFind* fragment_union_find = &std::get<1>(union_finds);
 
+        //Reorganize clusters
+        vector<vector<pair<vector<size_t>, size_t>>> all_clusters;
+        //Map the old group heads to new indices
+        size_t curr_index = 0;
+        size_t read_num_offset = 0;
+        hash_map<size_t, size_t> old_to_new_cluster_index;
+
+        for (size_t read_num = 0 ; read_num < read_union_finds.size() ; read_num++) {
+            all_clusters.emplace_back();
+            vector<vector<size_t>> read_clusters = read_union_finds[read_num].all_groups();
+            for (vector<size_t>& cluster : read_clusters) {
+                size_t fragment_index = read_num_offset + cluster[0];
+                size_t fragment_cluster_head = fragment_union_find->find_group(fragment_index);
+                if (old_to_new_cluster_index.count(fragment_cluster_head) == 0) {
+                    old_to_new_cluster_index.emplace(fragment_cluster_head, curr_index);
+                    fragment_cluster_head = curr_index;
+                    curr_index++;
+                } else {
+                    fragment_cluster_head = old_to_new_cluster_index[fragment_cluster_head];
+                }
+                all_clusters.back().emplace_back(std::move(cluster), fragment_cluster_head);
+            }
+            read_num_offset += all_seeds[read_num].size();
+        }
+        return all_clusters;
+    }
+
+    vector<vector<size_t>> SnarlSeedClusterer::cluster_seeds (const vector<Seed>& seeds, int64_t read_distance_limit) const {
+        //Wrapper for single ended
+
+        vector<const vector<Seed>*> all_seeds;
+        all_seeds.push_back(&seeds);
+
+        auto all_clusters = cluster_seeds_internal(all_seeds, read_distance_limit, 0);
+
+        return std::get<0>(all_clusters)[0].all_groups();
+    };
+
+    vector<vector<pair<vector<size_t>, size_t>>> SnarlSeedClusterer::cluster_seeds (
+                  const vector<vector<Seed>>& all_seeds, int64_t read_distance_limit,
+                  int64_t fragment_distance_limit) const {
+        //Wrapper for paired end
+        vector<const vector<Seed>*> seed_pointers;
+        seed_pointers.reserve(all_seeds.size());
+        for (const vector<Seed>& v : all_seeds) seed_pointers.push_back(&v);
+
+        //Actually cluster the seeds
+        auto union_finds = cluster_seeds_internal(seed_pointers, read_distance_limit, fragment_distance_limit);
+
+        vector<structures::UnionFind> read_union_finds = std::move(std::get<0>(union_finds));
+        structures::UnionFind* fragment_union_find = &std::get<1>(union_finds);
+
+        //Reorganize clusters
         vector<vector<pair<vector<size_t>, size_t>>> all_clusters;
         //Map the old group heads to new indices
         size_t curr_index = 0;
@@ -58,7 +130,7 @@ namespace vg {
     }
 
     tuple<vector<structures::UnionFind>, structures::UnionFind> SnarlSeedClusterer::cluster_seeds_internal (
-                  const vector<const vector<pos_t>*>& all_seeds, int64_t read_distance_limit,
+                  const vector<const vector<Seed>*>& all_seeds, int64_t read_distance_limit,
                   int64_t fragment_distance_limit) const {
         /* Given a vector of seeds and a limit, find a clustering of seeds where
          * seeds that are closer than the limit cluster together.
@@ -143,7 +215,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
             }
             cerr << endl;
         }
-        vector<pos_t> ordered_seeds;
+        vector<Seed> ordered_seeds;
         for (size_t i = 0 ; i < tree_state.all_seeds->size() ; i++) {
             const auto v = tree_state.all_seeds->at(i);
             for ( auto x : *v) {
@@ -175,15 +247,16 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
         // Assign each seed to a node.
         hash_set<id_t> seen_nodes;
         for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++){ 
-            const vector<pos_t>* seeds = tree_state.all_seeds->at(read_num);
+            const vector<Seed>* seeds = tree_state.all_seeds->at(read_num);
             for (size_t i = 0; i < seeds->size(); i++) {
-                pos_t pos = seeds->at(i);
+                pos_t pos = seeds->at(i).pos;
                 id_t id = get_id(pos);
-                size_t component = 0;//TODO: Get component
+                size_t component = seeds->at(i).component;
 
                 //Assign the seed to a node
                 if (component == std::numeric_limits<size_t>::max()) {
                     //If this seed is not on a top-level chain
+                    //A seed can still be added here if it is on a top-level chain
                     tree_state.node_to_seeds[read_num].emplace_back(id, i);
 
                     //And the node to a snarl
@@ -346,7 +419,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
                     tree_state.top_level_clusters.emplace_back();
                 }
                 tree_state.top_level_clusters[tree_state.component_to_index.at(component)] = 
-                    std::move(chain_clusters.read_cluster_heads);
+                        std::move(chain_clusters.read_cluster_heads);
             }
         }
     }
@@ -383,7 +456,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
                         //And find the shortest distance from any seed to both
                         //ends of the node
 
-                        pos_t seed = tree_state.all_seeds->at(read_num)->at(iter->second);
+                        pos_t seed = tree_state.all_seeds->at(read_num)->at(iter->second).pos;
                         int64_t dist_left = is_rev(seed) ? node_length- get_offset(seed) : get_offset(seed) + 1;
                         int64_t dist_right = is_rev(seed) ? get_offset(seed) + 1 : node_length - get_offset(seed);
 
@@ -475,7 +548,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
                 for (auto iter = seed_range_start; iter != tree_state.node_to_seeds[read_num].end() 
                                                     && iter->first == node_id; ++iter) {
                     //For each seed, find its offset
-                    pos_t seed = tree_state.all_seeds->at(read_num)->at(iter->second);
+                    pos_t seed = tree_state.all_seeds->at(read_num)->at(iter->second).pos;
                     int64_t offset = is_rev(seed) ? node_length - get_offset(seed) : get_offset(seed) + 1;
 
                     node_clusters.fragment_best_left = min_not_minus_one(offset, node_clusters.fragment_best_left);
@@ -1579,16 +1652,17 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
     void SnarlSeedClusterer::cluster_top_level(TreeState& tree_state) const {
         //Cluster top_level_clusters and top_level_seed_clusters
 
+        //Puts an item (bool is top level seed cluster, read num of seed, index of seed) into a sorted vector
         auto insert_in_order = [&](vector<tuple<bool, size_t, size_t>> input_vector, tuple<bool, size_t, size_t> item) {
             //Get the offset of the thing we're inserting
-            int64_t item_offset = std::get<0>(item) ?  0//tree_state.all_seeds->at(std::get<1>(item))[std::get<2>(item)] //TODO: get this value
+            int64_t item_offset = std::get<0>(item) ?  tree_state.all_seeds->at(std::get<1>(item))->at(std::get<2>(item)).offset
                                                     : tree_state.read_cluster_dists[std::get<1>(item)][std::get<2>(item)].first;
 
             //Get an iterator to where the thing we're inserting should go in the vector
             std::vector<tuple<bool, size_t, size_t>>::iterator insert_itr = std::upper_bound(input_vector.begin(), input_vector.end(),
                item_offset, [&](int64_t val, tuple<bool, size_t, size_t> vector_item) {
                    int64_t offset = std::get<0>(vector_item) ? 
-                        0 : //tree_state.all_seeds->at(std::get<1>(vector_item))[std::get<2>(vector_item)] : //TODO: Get the correct value
+                        tree_state.all_seeds->at(std::get<1>(vector_item))->at(std::get<2>(vector_item)).offset :
                         tree_state.read_cluster_dists[std::get<1>(vector_item)][std::get<2>(vector_item)].first;
                    return val < offset; 
                });
@@ -1600,31 +1674,32 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
         //vectors of tuples are sorted by the offset
         vector<vector<tuple<bool, size_t, size_t>>> cluster_head_indices (tree_state.top_level_clusters.size());
 
-        //Add top-level clusters to sorted list
+        //Add the cluster heads of top-level clusters to sorted list
         for (size_t component = 0 ; component < tree_state.top_level_clusters.size() ; component++) {
             for (const pair<size_t, size_t>& indices : tree_state.top_level_clusters[component]) {
-                cluster_head_indices[component], make_tuple(false, indices.first, indices.second);
+                insert_in_order(cluster_head_indices[component], make_tuple(false, indices.first, indices.second));
             }
         }
         //Add top-level seed clusters to sorted list
         for (size_t component = 0 ; component < tree_state.top_level_seed_clusters.size() ; component++) {
             for (const pair<size_t, size_t>& indices : tree_state.top_level_seed_clusters[component]) {
-                cluster_head_indices[component], make_tuple(true, indices.first, indices.second);
+                insert_in_order(cluster_head_indices[component], make_tuple(true, indices.first, indices.second));
             }
         }
 
 
         //Now for each component, cluster the clusters using a linear sweep
-        //Don't cluster two clusters that aren't top-level seeds
+        //Don't directly combine two clusters that aren't top-level seeds
         for (size_t component = 0 ; component < cluster_head_indices.size() ; component++) {
             //Keep track of the rightmost seed that came from a cluster
             vector<int64_t> fragment_best_dist_left_cluster;
             vector<size_t> fragment_cluster_head_cluster;
             //The rightmost seed that is a top-level seed or in a cluster with a top-level seed
-            //(Since we don't want to just combine two clusters if they aren't top level seeds, since they would have
+            //(Since we don't necessarily want to combine two clusters if they aren't top level seeds, since they would have
             //already been clustered if they were reachable, whereas top-level seeds are always reachable)
             int64_t fragment_best_dist_left_seeds = -1;
             size_t fragment_cluster_head_seeds;
+
             //And the same thing for each read
             vector<vector<int64_t>> best_dist_left_cluster_by_read_num(tree_state.all_seeds->size());
             vector<vector<size_t>> cluster_head_cluster_by_read_num(tree_state.all_seeds->size());
@@ -1640,7 +1715,7 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                 if (std::get<0>(seed_index)) {
                     //If this is a top-level seed, then try to compare it to the best clusters and update the
                     //best seed-only clusters. If the last cluster we found was a seed, compare it to that
-                    int64_t offset = 0; //tree_state.all_seeds->at(std::get<1>(seed_index))[std::get<2>(seed_index)];//TODO: Get offset somehow
+                    int64_t offset = tree_state.all_seeds->at(std::get<1>(seed_index))->at(std::get<2>(seed_index)).offset;
 
                     //try clustering by fragment
                     if (tree_state.fragment_distance_limit != 0) {
@@ -1679,7 +1754,7 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                                                                                   cluster_head_seeds_by_read_num[read_num]); 
                         }
                     } else {
-                        //Cluster with all clusters we saw before last seed cluster
+                        //Cluster with all clusters we saw since last seed cluster
                         for (size_t i = 0 ; i < best_dist_left_cluster_by_read_num[read_num].size() ; i++) {
                             if (offset - best_dist_left_cluster_by_read_num[read_num][i] <= tree_state.read_distance_limit) {
                                 tree_state.read_union_find[read_num].union_groups(std::get<2>(seed_index), 
