@@ -57,7 +57,7 @@ namespace vg {
   +=\x00 is our 'start' separator
   -=\xff is our 'end' separator --- this makes it easy to do range queries
 
-  ids are stored as raw int64_t
+  ids are stored as raw nid_t
 
   bools are stored a '0' or '1', not as sizeof(bool) bytes, since sizeof(bool) can vary.
 
@@ -129,15 +129,15 @@ public:
     // start positions. The aligner is responsible for searching both strands of
     // any query string.
     void put_kmer(const string& kmer,
-                  const int64_t id,
+                  const nid_t id,
                   const int32_t pos);
     void batch_kmer(const string& kmer,
-                    const int64_t id,
+                    const nid_t id,
                     const int32_t pos,
                     rocksdb::WriteBatch& batch);
     void put_metadata(const string& tag, const string& data);
-    void put_node_path(int64_t node_id, int64_t path_id, int64_t path_pos, bool backward, const Mapping& mapping);
-    void put_path_position(int64_t path_id, int64_t path_pos, bool backward, int64_t node_id, const Mapping& mapping);
+    void put_node_path(nid_t node_id, int64_t path_id, int64_t path_pos, bool backward, const Mapping& mapping);
+    void put_path_position(int64_t path_id, int64_t path_pos, bool backward, nid_t node_id, const Mapping& mapping);
     void put_mapping(const Mapping& mapping);
     void put_alignment(const Alignment& alignment);
     void put_base(int64_t aln_id, const Alignment& alignment);
@@ -146,59 +146,59 @@ public:
     // cross-index alignment by aln_id and record its traversals
     void cross_alignment(int64_t aln_id, const Alignment& alignment);
 
-    rocksdb::Status get_node(int64_t id, Node& node);
+    rocksdb::Status get_node(nid_t id, Node& node);
     // Takes the nodes and orientations and gets the Edge object with any associated edge data.
-    rocksdb::Status get_edge(int64_t from, bool from_start, int64_t to, bool to_end, Edge& edge);
+    rocksdb::Status get_edge(nid_t from, bool from_start, nid_t to, bool to_end, Edge& edge);
     rocksdb::Status get_metadata(const string& key, string& data);
     // Gets information about the first time the given node appears in the given
     // path, and returns the number of times it appears.
-    int get_node_path(int64_t node_id, int64_t path_id, int64_t& path_pos, bool& backward, Mapping& mapping);
-    void get_mappings(int64_t node_id, vector<Mapping>& mappings);
-    void get_alignments(int64_t node_id, vector<Alignment>& alignments);
-    void get_alignments(int64_t id1, int64_t id2, vector<Alignment>& alignments);
-    void for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda);
-    void for_alignment_to_node(int64_t node_id, std::function<void(const Alignment&)> lambda);
-    void for_alignment_to_nodes(const vector<int64_t>& ids, std::function<void(const Alignment&)> lambda);
+    int get_node_path(nid_t node_id, int64_t path_id, int64_t& path_pos, bool& backward, Mapping& mapping);
+    void get_mappings(nid_t node_id, vector<Mapping>& mappings);
+    void get_alignments(nid_t node_id, vector<Alignment>& alignments);
+    void get_alignments(nid_t id1, nid_t id2, vector<Alignment>& alignments);
+    void for_alignment_in_range(nid_t id1, nid_t id2, std::function<void(const Alignment&)> lambda);
+    void for_alignment_to_node(nid_t node_id, std::function<void(const Alignment&)> lambda);
+    void for_alignment_to_nodes(const vector<nid_t>& ids, std::function<void(const Alignment&)> lambda);
     void for_base_alignments(const set<int64_t>& aln_ids, std::function<void(const Alignment&)> lambda);
 
     // obtain the key corresponding to each entity
-    const string key_for_node(int64_t id);
-    const string key_for_edge_on_start(int64_t node_id, int64_t other, bool backward);
-    const string key_for_edge_on_end(int64_t node_id, int64_t other, bool backward);
-    const string key_prefix_for_edges_on_node_start(int64_t node);
-    const string key_prefix_for_edges_on_node_end(int64_t node);
-    const string key_for_kmer(const string& kmer, int64_t id);
+    const string key_for_node(nid_t id);
+    const string key_for_edge_on_start(nid_t node_id, nid_t other, bool backward);
+    const string key_for_edge_on_end(nid_t node_id, nid_t other, bool backward);
+    const string key_prefix_for_edges_on_node_start(nid_t node);
+    const string key_prefix_for_edges_on_node_end(nid_t node);
+    const string key_for_kmer(const string& kmer, nid_t id);
     const string key_prefix_for_kmer(const string& kmer);
     const string key_for_metadata(const string& tag);
-    const string key_for_path_position(int64_t path_id, int64_t path_pos, bool backward, int64_t node_id);
-    const string key_for_node_path_position(int64_t node_id, int64_t path_id, int64_t path_pos, bool backward);
-    const string key_prefix_for_node_path(int64_t node_id, int64_t path_id);
-    const string key_for_mapping_prefix(int64_t node_id);
+    const string key_for_path_position(int64_t path_id, int64_t path_pos, bool backward, nid_t node_id);
+    const string key_for_node_path_position(nid_t node_id, int64_t path_id, int64_t path_pos, bool backward);
+    const string key_prefix_for_node_path(nid_t node_id, int64_t path_id);
+    const string key_for_mapping_prefix(nid_t node_id);
     const string key_for_mapping(const Mapping& mapping);
-    const string key_for_alignment_prefix(int64_t node_id);
+    const string key_for_alignment_prefix(nid_t node_id);
     const string key_for_alignment(const Alignment& alignment);
     const string key_for_base(int64_t aln_id);
-    const string key_prefix_for_traversal(int64_t node_id);
+    const string key_prefix_for_traversal(nid_t node_id);
     const string key_for_traversal(int64_t aln_id, const Mapping& mapping);
 
     // deserialize a key/value pair
-    void parse_node(const string& key, const string& value, int64_t& id, Node& node);
+    void parse_node(const string& key, const string& value, nid_t& id, Node& node);
     // Parse an edge from any of the three kinds of edge keys. For the key types
     // that don't actually store the Edge object, this really constructs a new
     // Edge which won't have the data payload and which might have from and to
     // swapped, but which is equivalent to the actual edge. Populates id1 and id2 with the from and to nodes, and Edge with the actual edge. Populates type with 's' for on-start keys, 'e' for on-end keys, or 'n' for "normal" two-ID edge keys.
-    void parse_edge(const string& key, const string& value, char& type, int64_t& id1, int64_t& id2, Edge& edge);
+    void parse_edge(const string& key, const string& value, char& type, nid_t& id1, nid_t& id2, Edge& edge);
     // We have an overload that doesn't actually fill in an Edge and just looks at the key.
-    void parse_edge(const string& key, char& type, int64_t& node_id, int64_t& other_id, bool& backward);
-    void parse_kmer(const string& key, const string& value, string& kmer, int64_t& id, int32_t& pos);
+    void parse_edge(const string& key, char& type, nid_t& node_id, nid_t& other_id, bool& backward);
+    void parse_kmer(const string& key, const string& value, string& kmer, nid_t& id, int32_t& pos);
     void parse_node_path(const string& key, const string& value,
-                         int64_t& node_id, int64_t& path_id, int64_t& path_pos, bool& backward, Mapping& mapping);
+                         nid_t& node_id, int64_t& path_id, int64_t& path_pos, bool& backward, Mapping& mapping);
     void parse_path_position(const string& key, const string& value,
-                             int64_t& path_id, int64_t& path_pos, bool& backward, int64_t& node_id, Mapping& mapping);
-    void parse_mapping(const string& key, const string& value, int64_t& node_id, uint64_t& nonce, Mapping& mapping);
-    void parse_alignment(const string& key, const string& value, int64_t& node_id, uint64_t& nonce, Alignment& alignment);
+                             int64_t& path_id, int64_t& path_pos, bool& backward, nid_t& node_id, Mapping& mapping);
+    void parse_mapping(const string& key, const string& value, nid_t& node_id, uint64_t& nonce, Mapping& mapping);
+    void parse_alignment(const string& key, const string& value, nid_t& node_id, uint64_t& nonce, Alignment& alignment);
     void parse_base(const string& key, const string& value, int64_t& aln_id, Alignment& alignment);
-    void parse_traversal(const string& key, const string& value, int64_t& node_id, int16_t& rank, bool& backward, int64_t& aln_id);
+    void parse_traversal(const string& key, const string& value, nid_t& node_id, int16_t& rank, bool& backward, int64_t& aln_id);
 
     // for dumping graph state/ inspection
     string entry_to_string(const string& key, const string& value);
@@ -214,24 +214,24 @@ public:
     string traversal_entry_to_string(const string& key, const string& value);
 
     // accessors, traversal, context
-    void get_context(int64_t id, VG& graph);
+    void get_context(nid_t id, VG& graph);
     // Augment the given graph with the nodes referenced by orphan edges, and
     // all the edges of those nodes, repeatedly for the given number of steps.
     void expand_context(VG& graph, int steps);
     // Add all the elements in the given range to the given graph, if they aren't in it already.
-    void get_range(int64_t from_id, int64_t to_id, VG& graph);
-    void for_graph_range(int64_t from_id, int64_t to_id, function<void(string&, string&)> lambda);
+    void get_range(nid_t from_id, nid_t to_id, VG& graph);
+    void for_graph_range(nid_t from_id, nid_t to_id, function<void(string&, string&)> lambda);
     void get_connected_nodes(VG& graph);
     // Get the edges of the given node
-    void get_edges_of(int64_t node, vector<Edge>& edges);
+    void get_edges_of(nid_t node, vector<Edge>& edges);
     // Get the edges on the end of the given node
-    void get_edges_on_end(int64_t node, vector<Edge>& edges);
+    void get_edges_on_end(nid_t node, vector<Edge>& edges);
     // Get the edges on the start of the given node
-    void get_edges_on_start(int64_t node, vector<Edge>& edges);
+    void get_edges_on_start(nid_t node, vector<Edge>& edges);
     // Get the IDs and orientations of the nodes to the right of the given oriented node
-    void get_nodes_next(int64_t node, bool backward, vector<pair<int64_t, bool>>& destinations);
+    void get_nodes_next(nid_t node, bool backward, vector<pair<nid_t, bool>>& destinations);
     // Get the IDs and orientations of the nodes to the left of the given oriented node
-    void get_nodes_prev(int64_t node, bool backward, vector<pair<int64_t, bool>>& destinations);
+    void get_nodes_prev(nid_t node, bool backward, vector<pair<nid_t, bool>>& destinations);
     // Get the specified region in bases (start inclusive, end exclusive) along
     // the named path, and poipulate the given graph with it. Also gets dangling
     // edges not on the path.
@@ -239,7 +239,7 @@ public:
     // TODO: unimplemented. Supposed to get the position of a node in a path, or
     // relative to a path (using a BFS to find the nearest previous path node)
     // if not actually in the path.
-    void node_path_position(int64_t id, string& path_name, int64_t& position, bool& backward, int64_t& offset);
+    void node_path_position(nid_t id, string& path_name, int64_t& position, bool& backward, int64_t& offset);
 
     // Given a node ID and orientation, and the ID of a path, fill in path_pos
     // with the position along the path of the nearest node left of the node
@@ -248,8 +248,8 @@ public:
     // of the starting node. Returns the path taken by the breadth-first search,
     // and the ID and orientation of the node on the target path that was
     // reached.
-    pair<list<pair<int64_t, bool>>, pair<int64_t, bool>>
-    get_nearest_node_prev_path_member(int64_t node_id, bool backward, int64_t path_id,
+    pair<list<pair<nid_t, bool>>, pair<nid_t, bool>>
+    get_nearest_node_prev_path_member(nid_t node_id, bool backward, int64_t path_id,
                                       int64_t& path_pos, bool& relative_orientation,
                                       int max_steps = 4);
     // Given a node ID and orientation, and the ID of a path, fill in path_pos
@@ -259,26 +259,26 @@ public:
     // of the starting node. Returns the path taken by the breadth-first search,
     // and the ID and orientation of the node on the target path that was
     // reached.
-    pair<list<pair<int64_t, bool>>, pair<int64_t, bool>>
-    get_nearest_node_next_path_member(int64_t node_id, bool backward, int64_t path_id,
+    pair<list<pair<nid_t, bool>>, pair<nid_t, bool>>
+    get_nearest_node_next_path_member(nid_t node_id, bool backward, int64_t path_id,
                                       int64_t& path_pos, bool& relative_orientation,
                                       int max_steps = 4);
     // Get the relative position, in both directions, of the given orientation of the given node along the given path.
-    bool get_node_path_relative_position(int64_t node_id, bool backward, int64_t path_id,
-                                         list<pair<int64_t, bool>>& path_prev, int64_t& prev_pos, bool& prev_orientation,
-                                         list<pair<int64_t, bool>>& path_next, int64_t& next_pos, bool& next_orientation);
+    bool get_node_path_relative_position(nid_t node_id, bool backward, int64_t path_id,
+                                         list<pair<nid_t, bool>>& path_prev, int64_t& prev_pos, bool& prev_orientation,
+                                         list<pair<nid_t, bool>>& path_next, int64_t& next_pos, bool& next_orientation);
     // Get a Mapping for this node relative to the given path. The mapping will point to the given node in the given orientation.
-    Mapping path_relative_mapping(int64_t node_id, bool backward, int64_t path_id,
-                                  list<pair<int64_t, bool>>& path_prev, int64_t& prev_pos, bool& prev_orientation,
-                                  list<pair<int64_t, bool>>& path_next, int64_t& next_pos, bool& next_orientation);
+    Mapping path_relative_mapping(nid_t node_id, bool backward, int64_t path_id,
+                                  list<pair<nid_t, bool>>& path_prev, int64_t& prev_pos, bool& prev_orientation,
+                                  list<pair<nid_t, bool>>& path_next, int64_t& next_pos, bool& next_orientation);
 
     // Populates layout with path start and end nodes (and orientations),
     // indexed by path names, and lengths with path lengths indexed by path
     // names.
-    void path_layout(map<string, pair<pair<int64_t, bool>, pair<int64_t, bool>> >& layout,
+    void path_layout(map<string, pair<pair<nid_t, bool>, pair<nid_t, bool>> >& layout,
                      map<string, int64_t>& lengths);
-    pair<int64_t, bool> path_first_node(int64_t path_id);
-    pair<int64_t, bool> path_last_node(int64_t path_id, int64_t& path_length);
+    pair<nid_t, bool> path_first_node(int64_t path_id);
+    pair<nid_t, bool> path_last_node(int64_t path_id, int64_t& path_length);
 
     // kmers
     void get_kmer_subgraph(const string& kmer, VG& graph);
@@ -289,9 +289,9 @@ public:
     // Run the given function on all the keys and values in the database describing instances of the given kmer.
     void for_kmer_range(const string& kmer, function<void(string&, string&)> lambda);
     // In the given map by node ID, fill in the vector with the offsets in that node at which the given kmer starts.
-    void get_kmer_positions(const string& kmer, map<int64_t, vector<int32_t> >& positions);
+    void get_kmer_positions(const string& kmer, map<nid_t, vector<int32_t> >& positions);
     // In the given map by kmer, fill in the vector with the node IDs and offsets at which the given kmer starts.
-    void get_kmer_positions(const string& kmer, map<string, vector<pair<int64_t, int32_t> > >& positions);
+    void get_kmer_positions(const string& kmer, map<string, vector<pair<nid_t, int32_t> > >& positions);
     void prune_kmers(int max_kb_on_disk);
 
     void remember_kmer_size(int size);
@@ -300,14 +300,14 @@ public:
     //void store_positions(VG& graph, std::map<long, Node*>& node_path, std::map<long, Edge*>& edge_path);
 
     // once we have indexed the kmers, we can get the nodes and edges matching
-    void kmer_matches(std::string& kmer, std::set<int64_t>& node_ids, std::set<int64_t>& edge_ids);
+    void kmer_matches(std::string& kmer, std::set<nid_t>& node_ids, std::set<int64_t>& edge_ids);
 
     // find lowest key with given kmer string (empty string returned if not found)
     // does not check reverse_complement
     string first_kmer_key(const string& kmer);
     // compare kmers with other index: count the number of unique kmers (taking into account strand)
     // in this index that are found in other, and the number not found.  return <#found, #not found> pair
-    pair<int64_t, int64_t> compare_kmers(Index& other);
+    pair<uint64_t, uint64_t> compare_kmers(Index& other);
 
     // paths
     int64_t get_max_path_id(void);

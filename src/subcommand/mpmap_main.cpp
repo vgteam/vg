@@ -13,7 +13,7 @@
 #include "../path.hpp"
 #include "../xg.hpp"
 #include "../watchdog.hpp"
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 //#define record_read_run_times
 
