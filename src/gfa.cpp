@@ -2,7 +2,7 @@
 #include <gfakluge.hpp>
 
 // Use sonLib pinch graphs
-#include <stPinchGraphs.h>
+#include <sonLib/stPinchGraphs.h>
 
 #include <structures/union_find.hpp>
 
