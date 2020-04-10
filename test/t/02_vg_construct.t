@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 26
+plan tests 28
 
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
@@ -109,4 +109,9 @@ is "$(vg construct -r tiny/tiny.fa -v tiny/dots.vcf | vg mod -u - | vg stats -z 
 vg construct -r small/x.fa -v small/x.v4.3.vcf.gz >x.vg
 is $? 1  "VCF with * alleles is rejected"
 rm -f x.vg
+
+vg construct -r tiny/ambiguous.fa >tiny.vg
+is $? 0 "Reference with ambiguity codes has them coerced to Ns"
+is "$(vg view -j tiny.vg | jq -r '.node[].sequence' | tr -d 'ACGT\n' | wc -c)" "10" "Expected number of Ns are created"
+rm -f tiny.vg
 
