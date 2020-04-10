@@ -644,6 +644,8 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
     //double error_rate = std::min(0.05, depth_err + baseline_mapping_error);
     double error_rate = baseline_mapping_error;
     double other_poisson_lambda = error_rate * exp_depth; //support_val(total_site_support);
+    // extremely low error rates can dominate the probability calculations later on so clamp
+    other_poisson_lambda = max(0.5, other_poisson_lambda);
 
     // and our likelihood for the unmapped reads we see:
     double other_log_likelihood = poisson_prob_ln(std::round(support_val(total_other_support)), other_poisson_lambda);

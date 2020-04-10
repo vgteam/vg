@@ -23,7 +23,7 @@
 #include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
 #include "../index_manager.hpp"
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 #include <gbwtgraph/minimizer.h>
 

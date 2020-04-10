@@ -22,7 +22,7 @@
 #include <vg/io/protobuf_emitter.hpp>
 
 #include <gbwtgraph/minimizer.h>
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 //#define USE_CALLGRIND
 
