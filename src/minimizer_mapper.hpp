@@ -189,6 +189,9 @@ protected:
         }
     };
 
+    /// The information we store for each seed.
+    typedef SnarlSeedClusterer::Seed Seed;
+
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes;
@@ -229,21 +232,17 @@ protected:
     std::vector<Minimizer> find_minimizers(const std::string& sequence, Funnel& funnel) const;
 
     /**
-     * Find seeds for all minimizers passing the filters. Return the seeds, the
-     * corresponding source minimizers, and a bit vector over all minimizers
-     * flagging the ones that were located.
-     * TODO JS: We should define a seed struct to store all the necessary fields.
+     * Find seeds for all minimizers passing the filters.
      */
-    std::tuple<std::vector<pos_t>, std::vector<size_t>, std::vector<bool>> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+    std::vector<Seed> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
 
     /**
      * Return cluster score and read coverage, and a vector of flags for the
      * minimizers present in the cluster. Score is the sum of the scores of
      * distinct minimizers in the cluster, while read coverage is the fraction
      * of the read covered by seeds in the cluster.
-     * TODO JS: Score all clusters at once; calculate fragment scores afterwards.
      */
-    std::tuple<double, double, sdsl::bit_vector> score_cluster(const std::vector<size_t>& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<size_t>& seed_to_source, size_t seq_length, Funnel& funnel) const;
+    std::tuple<double, double, sdsl::bit_vector> score_cluster(const std::vector<size_t>& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
 
    /**
     * Score the set of extensions for each cluster using score_extension_group().

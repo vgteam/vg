@@ -12,6 +12,14 @@ class SnarlSeedClusterer {
 
     public:
 
+        /// Seed information used in Giraffe.
+        struct Seed {
+            pos_t  pos;
+            size_t source; // Source minimizer.
+            size_t component; // Component id in the distance index.
+            size_t offset; // Offset in the root chain.
+        };
+
         SnarlSeedClusterer(MinimumDistanceIndex& dist_index);
 
         ///Given a vector of seeds (pos_t) and a distance limit, 

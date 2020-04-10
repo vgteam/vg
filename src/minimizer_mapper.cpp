@@ -69,17 +69,21 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     // Minimizers sorted by score in descending order.
     std::vector<Minimizer> minimizers = this->find_minimizers(aln.sequence(), funnel);
 
-    // Find the seeds and their source minimizers and store them in separate vectors.
-    std::vector<pos_t> seeds;
-    std::vector<size_t> seed_to_source;
-    std::vector<bool> minimizer_located;
-    std::tie(seeds, seed_to_source, minimizer_located) = this->find_seeds(minimizers, aln, funnel);
+    // Find the seeds and mark the minimizers that were located.
+    std::vector<Seed> seeds = this->find_seeds(minimizers, aln, funnel);
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
         funnel.stage("cluster");
     }
-    vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit);
+    // TODO Pass the actual seeds when the clusterer supports them.
+    std::vector<pos_t> temp_seeds;
+    temp_seeds.reserve(seeds.size());
+    for (size_t i = 0; i < seeds.size(); i++) {
+        temp_seeds.push_back(seeds[i].pos);
+    }
+    // TODO We should have a cluster struct as well.
+    vector<vector<size_t>> clusters = clusterer.cluster_seeds(temp_seeds, distance_limit);
 
     // Determine the scores and read coverages for each cluster.
     // Also find the best and second-best cluster scores.
@@ -91,7 +95,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     std::vector<sdsl::bit_vector> present_in_cluster;
     double best_cluster_score = 0.0, second_best_cluster_score = 0.0;
     for (size_t i = 0; i < clusters.size(); i++) {
-        auto result = this->score_cluster(clusters[i], i, minimizers, seed_to_source, aln.sequence().length(), funnel);
+        auto result = this->score_cluster(clusters[i], i, minimizers, seeds, aln.sequence().length(), funnel);
         double score = std::get<0>(result);
         cluster_score.push_back(score);
         if (score > best_cluster_score) {
@@ -215,13 +219,14 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
              
             // Pack the seeds for GaplessExtender.
             GaplessExtender::cluster_type seed_matchings;
-            for (auto& seed_index : cluster) {
+            for (auto seed_index : cluster) {
                 // Insert the (graph position, read offset) pair.
-                seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].value.offset));
+                const Seed& seed = seeds[seed_index];
+                seed_matchings.insert(GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset));
 #ifdef debug
-                const Minimizer& minimizer = minimizers[seed_to_source[seed_index]];
-                cerr << "Seed read:" << minimizer.value.offset << " = " << seeds[seed_index]
-                    << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer.hits << ")" << endl;
+                const Minimizer& minimizer = minimizers[seed.source];
+                cerr << "Seed read:" << minimizer.value.offset << " = " << seed.pos
+                    << " from minimizer " << seed.source << "(" << minimizer.hits << ")" << endl;
 #endif
             }
             
@@ -728,12 +733,10 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     minimizers_by_read[0] = this->find_minimizers(aln1.sequence(), funnels[0]);
     minimizers_by_read[1] = this->find_minimizers(aln2.sequence(), funnels[1]);
 
-    // Seeds and their source minimizers for both reads, stored in separate vectors.
-    std::vector<std::vector<pos_t>> seeds_by_read(2);
-    std::pair<std::vector<size_t>, std::vector<size_t>> seed_to_source_by_read;
-    std::pair<std::vector<bool>, std::vector<bool>> minimizer_located_by_read;
-    std::tie(seeds_by_read[0], seed_to_source_by_read.first, minimizer_located_by_read.first) = this->find_seeds(minimizers_by_read[0], aln1, funnels[0]);
-    std::tie(seeds_by_read[1], seed_to_source_by_read.second, minimizer_located_by_read.second) = this->find_seeds(minimizers_by_read[1], aln2, funnels[1]);
+    // Seeds for both reads, stored in separate vectors.
+    std::vector<std::vector<Seed>> seeds_by_read(2);
+    seeds_by_read[0] = this->find_seeds(minimizers_by_read[0], aln1, funnels[0]);
+    seeds_by_read[1] = this->find_seeds(minimizers_by_read[1], aln2, funnels[1]);
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
     // If the fragment length distribution hasn't been fixed yet (if the expected fragment length = 0),
@@ -743,7 +746,17 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         funnels[0].stage("cluster");
         funnels[1].stage("cluster");
     }
-    vector<vector<pair<vector<size_t>, size_t>>> all_clusters = clusterer.cluster_seeds(seeds_by_read, distance_limit, 
+    // TODO: Pass the actual seeds when the clusterer supports them.
+    std::vector<std::vector<pos_t>> temp_seeds_by_read(seeds_by_read.size());
+    for (size_t read = 0; read < seeds_by_read.size(); read++) {
+        std::vector<Seed>& seeds = seeds_by_read[read];
+        std::vector<pos_t> temp_seeds = temp_seeds_by_read[read];
+        temp_seeds.reserve(seeds.size());
+        for (size_t i = 0; i < seeds.size(); i++) {
+            temp_seeds.push_back(seeds[i].pos);
+        }
+    }
+    vector<vector<pair<vector<size_t>, size_t>>> all_clusters = clusterer.cluster_seeds(temp_seeds_by_read, distance_limit, 
             fragment_length_distr.mean() + 2 * fragment_length_distr.stdev());
 
     //For each fragment cluster, determine if it has clusters from both reads
@@ -805,10 +818,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
 
         Alignment& aln = read_num == 0 ? aln1 : aln2;
-        vector<size_t>& seed_to_source = read_num == 0 ? seed_to_source_by_read.first : seed_to_source_by_read.second;
         vector<pair<vector<size_t>, size_t>>& clusters = all_clusters[read_num];
         std::vector<Minimizer>& minimizers = minimizers_by_read[read_num];
-        vector<pos_t>& seeds = seeds_by_read[read_num];
+        vector<Seed>& seeds = seeds_by_read[read_num];
         vector<double>& best_cluster_score = read_num == 0 ? cluster_score_by_fragment.first : cluster_score_by_fragment.second;
         vector<double>& best_cluster_coverage = read_num == 0 ? cluster_coverage_by_fragment.first : cluster_coverage_by_fragment.second;
 
@@ -819,7 +831,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
         for (size_t i = 0; i < clusters.size(); i++) {
             // Deterimine cluster score and read coverage.
-            auto result = this->score_cluster(clusters[i].first, i, minimizers, seed_to_source, aln.sequence().length(), funnels[read_num]);
+            auto result = this->score_cluster(clusters[i].first, i, minimizers, seeds, aln.sequence().length(), funnels[read_num]);
             cluster_score.push_back(std::get<0>(result));
             read_coverage_by_cluster.push_back(std::get<1>(result));
             present_in_cluster.emplace_back(std::move(std::get<2>(result)));
@@ -867,10 +879,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
 
         Alignment& aln = read_num == 0 ? aln1 : aln2;
-        vector<size_t>& seed_to_source = read_num == 0 ? seed_to_source_by_read.first : seed_to_source_by_read.second;
         vector<pair<vector<size_t>, size_t>>& clusters = all_clusters[read_num];
         std::vector<Minimizer>& minimizers = minimizers_by_read[read_num];
-        vector<pos_t>& seeds = seeds_by_read[read_num];
+        vector<Seed>& seeds = seeds_by_read[read_num];
         vector<double>& cluster_score = read_num == 0 ? cluster_scores.first : cluster_scores.second;
         vector<double>& read_coverage_by_cluster = read_num == 0 ? cluster_coverages.first : cluster_coverages.second;
 
@@ -975,12 +986,13 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                      
                     // Pack the seeds for GaplessExtender.
                     GaplessExtender::cluster_type seed_matchings;
-                    for (auto& seed_index : cluster) {
+                    for (auto seed_index : cluster) {
                         // Insert the (graph position, read offset) pair.
-                        seed_matchings.insert(GaplessExtender::to_seed(seeds[seed_index], minimizers[seed_to_source[seed_index]].value.offset));
+                        const Seed& seed = seeds[seed_index];
+                        seed_matchings.insert(GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset));
 #ifdef debug
-                        cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].value.offset << " = " << seeds[seed_index]
-                            << " from minimizer " << seed_to_source[seed_index] << endl;
+                        cerr << "Seed read:" << minimizers[seed.source].value.offset << " = " << seed.pos
+                            << " from minimizer " << seed.source << endl;
 #endif
                     }
                     
@@ -1674,9 +1686,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
             // Find the source read
             auto& aln = read_num == 0 ? aln1 : aln2;
-
-            // And the minimizer-located bit flag vector
-            auto& minimizer_located = read_num == 0 ? minimizer_located_by_read.first : minimizer_located_by_read.second;
     
             // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
             double mapq_extended_cap = compute_mapq_caps(aln,
@@ -2246,7 +2255,7 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
                     score = 1.0;
                 }
             }
-            result.push_back({ get<0>(m), get<1>(m), get<2>(m), hits.first, hits.second, i, score });
+            result.push_back({ std::get<0>(m), std::get<1>(m), std::get<2>(m), hits.first, hits.second, i, score });
         }
     }
     std::sort(result.begin(), result.end());
@@ -2259,7 +2268,7 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
     return result;
 }
 
-std::tuple<std::vector<pos_t>, std::vector<size_t>, std::vector<bool>> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const {
+std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const {
 
     if (this->track_provenance) {
         // Start the minimizer locating stage
@@ -2281,17 +2290,13 @@ std::tuple<std::vector<pos_t>, std::vector<size_t>, std::vector<bool>> Minimizer
 
     // Select the minimizers we use for seeds.
     size_t rejected_count = 0;
-    std::tuple<std::vector<pos_t>, std::vector<size_t>, std::vector<bool>> result;
-    std::vector<pos_t>& seeds = std::get<0>(result);
-    std::vector<size_t>& seed_to_source = std::get<1>(result);
+    std::vector<Seed> seeds;
     // Flag whether each minimizer in the read was located or not, for MAPQ capping.
     // We ignore minimizers with no hits (count them as not located), because
     // they would have to be created in the read no matter where we say it came
     // from, and because adding more of them should lower the MAPQ cap, whereas
     // locating more of the minimizers that are present and letting them pass
     // to the enxt stage should raise the cap.
-    vector<bool>& minimizer_located = std::get<2>(result);
-    minimizer_located = vector<bool>(minimizers.size(), false);
     for (size_t i = 0; i < minimizers.size(); i++) {
         if (this->track_provenance) {
             // Say we're working on it
@@ -2322,8 +2327,7 @@ std::tuple<std::vector<pos_t>, std::vector<size_t>, std::vector<bool>> Minimizer
             // sufficiently rare, or we want it to make target_score, or it is
             // the same sequence as the previous minimizer which we also took.
 
-            // Locate the hits. We ignore the payload for now.
-            minimizer_located[i] = true;
+            // Locate the hits.
             for (size_t j = 0; j < minimizer.hits; j++) {
                 pos_t hit = gbwtgraph::Position::decode(minimizer.occs[j].pos);
                 // Reverse the hits for a reverse minimizer
@@ -2331,9 +2335,13 @@ std::tuple<std::vector<pos_t>, std::vector<size_t>, std::vector<bool>> Minimizer
                     size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(hit)));
                     hit = reverse_base_pos(hit, node_length);
                 }
-                seeds.push_back(hit);
+                // Extract component id and offset in the root chain, if we have them for this seed.
+                std::pair<size_t, size_t> chain_info(MIPayload::NO_VALUE, MIPayload::NO_VALUE);
+                if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
+                    chain_info = MIPayload::decode(minimizer.occs[j].payload);
+                }
+                seeds.push_back({ hit, i, chain_info.first, chain_info.second });
             }
-            seed_to_source.insert(seed_to_source.end(), minimizer.hits, i); // These seeds came from minimizer i.
             
             if (!(took_last && i > 0 && minimizer.value.key == minimizers[i - 1].value.key)) {
                 // We did not also take a previous identical-sequence minimizer, so count this one towards the score.
@@ -2389,7 +2397,7 @@ std::tuple<std::vector<pos_t>, std::vector<size_t>, std::vector<bool>> Minimizer
 
             for (size_t i = 0; i < seeds.size(); i++) {
                 // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
-                auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, seeds[i], 100);
+                auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, seeds[i].pos, 100);
                 for (auto& hit_pos : offsets[this->path_graph->get_path_handle(true_pos.name())]) {
                     // Look at all the ones on the path the read's true position is on.
                     if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
@@ -2405,12 +2413,12 @@ std::tuple<std::vector<pos_t>, std::vector<size_t>, std::vector<bool>> Minimizer
     std::cerr << "Found " << seeds.size() << " seeds from " << (minimizers.size() - rejected_count) << " minimizers, rejected " << rejected_count << std::endl;
 #endif
 
-    return result;
+    return seeds;
 }
 
 //-----------------------------------------------------------------------------
 
-std::tuple<double, double, sdsl::bit_vector> MinimizerMapper::score_cluster(const std::vector<size_t>& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<size_t>& seed_to_source, size_t seq_length, Funnel& funnel) const {
+std::tuple<double, double, sdsl::bit_vector> MinimizerMapper::score_cluster(const std::vector<size_t>& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const {
 
     if (this->track_provenance) {
         // Say we're making it
@@ -2420,9 +2428,9 @@ std::tuple<double, double, sdsl::bit_vector> MinimizerMapper::score_cluster(cons
     // Determine the minimizers that are present in the cluster and cluster coverage.
     sdsl::bit_vector present(minimizers.size(), 0);
     for (auto hit_index : cluster) {
-        present[seed_to_source[hit_index]] = 1;
+        present[seeds[hit_index].source] = 1;
 #ifdef debug
-        cerr << "Minimizer " << seed_to_source[hit_index] << " is present in cluster " << i << endl;
+        cerr << "Minimizer " << seeds[hit_index].source << " is present in cluster " << i << endl;
 #endif
     }
 
