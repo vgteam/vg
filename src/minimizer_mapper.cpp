@@ -741,7 +741,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     std::vector<std::vector<pos_t>> temp_seeds_by_read(seeds_by_read.size());
     for (size_t read = 0; read < seeds_by_read.size(); read++) {
         std::vector<Seed>& seeds = seeds_by_read[read];
-        std::vector<pos_t> temp_seeds = temp_seeds_by_read[read];
+        std::vector<pos_t>& temp_seeds = temp_seeds_by_read[read];
         temp_seeds.reserve(seeds.size());
         for (size_t i = 0; i < seeds.size(); i++) {
             temp_seeds.push_back(seeds[i].pos);
