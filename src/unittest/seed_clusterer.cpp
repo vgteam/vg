@@ -75,7 +75,7 @@ namespace unittest {
                 seeds.push_back(make_pos_t(n, false, 0));
             }
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
             REQUIRE(clusters.size() == 1); 
 
         }
@@ -90,11 +90,11 @@ namespace unittest {
             }
 
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 7); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 7); 
             vector<hash_set<size_t>> cluster_sets;
-            for (vector<size_t> v : clusters) {
+            for (auto& c : clusters) {
                 hash_set<size_t> h;
-                for (size_t s : v) {
+                for (size_t s : c.seeds) {
                     h.insert(s);
                 }
                 cluster_sets.push_back(h);
@@ -137,14 +137,14 @@ namespace unittest {
             all_seeds.push_back(seeds1);
 
 
-            vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 7, 15); 
+            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 7, 15); 
             //Should be [[<[0,1,2], 0>],[<[3,4,5,6], 0>]] 
             REQUIRE( paired_clusters.size() == 2);
             REQUIRE( paired_clusters[0].size() == 1);
             REQUIRE( paired_clusters[1].size() == 1);
-            REQUIRE( paired_clusters[0][0].first.size() == 3);
-            REQUIRE( paired_clusters[1][0].first.size() == 4);
-            REQUIRE( paired_clusters[0][0].second == paired_clusters[1][0].second);
+            REQUIRE( paired_clusters[0][0].seeds.size() == 3);
+            REQUIRE( paired_clusters[1][0].seeds.size() == 4);
+            REQUIRE( paired_clusters[0][0].fragment == paired_clusters[1][0].fragment);
         }
         SECTION( "Two fragment clusters" ) {
  
@@ -165,15 +165,15 @@ namespace unittest {
             all_seeds.push_back(seeds1);
 
 
-            vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 2, 7); 
+            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 2, 7); 
             // read_clusters = [ [[0,1,2]],[[3,4],[5,6]] ]
             // fragment_clusters = [ [0,1,2], [3,4,5,6] ]
             REQUIRE( paired_clusters.size() == 2) ;
             REQUIRE( paired_clusters[0].size() == 1);
             REQUIRE( paired_clusters[1].size() == 2);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][0].second);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][1].second);
-            REQUIRE( paired_clusters[1][0].second == paired_clusters[1][1].second);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[1][0].fragment);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[1][1].fragment);
+            REQUIRE( paired_clusters[1][0].fragment == paired_clusters[1][1].fragment);
 
         }
     }//End test case
@@ -221,7 +221,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(4, false, 0));
 
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 13); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 13); 
 
             REQUIRE( clusters.size() == 1);
         }
@@ -230,7 +230,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(3, false, 0));
             seeds.push_back(make_pos_t(11, false, 9));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 8); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 8); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -279,7 +279,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(7, false, 0));
             seeds.push_back(make_pos_t(6, false, 0));
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 20); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -289,7 +289,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(2, false, 0));
             seeds.push_back(make_pos_t(6, true, 0));
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 20); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
 
 
         }
@@ -298,7 +298,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(8, false, 0));
             seeds.push_back(make_pos_t(6, false, 0));
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 20); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -371,13 +371,13 @@ namespace unittest {
             seeds.push_back(make_pos_t(6, false, 0));
             seeds.push_back(make_pos_t(8, false, 0));
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
 
             REQUIRE( clusters.size() == 2);
             vector<hash_set<size_t>> cluster_sets;
-            for (vector<size_t> v : clusters) {
+            for (auto& c : clusters) {
                 hash_set<size_t> h;
-                for (size_t s : v) {
+                for (size_t s : c.seeds) {
                     h.insert(s);
                 }
                 cluster_sets.push_back(h);
@@ -413,22 +413,22 @@ namespace unittest {
             seeds.push_back(make_pos_t(14, false, 0));
             seeds.push_back(make_pos_t(15, false, 0));
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
 
             REQUIRE( clusters.size() == 4);
 
             vector<vector<pos_t>> all_seeds;
             all_seeds.push_back(seeds);
-            vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3); 
+            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3); 
 
             REQUIRE( paired_clusters.size() == 1);
             REQUIRE( paired_clusters[0].size() == 4);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[0][1].second);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[0][2].second);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[0][3].second);
-            REQUIRE( paired_clusters[0][1].second != paired_clusters[0][2].second);
-            REQUIRE( paired_clusters[0][1].second != paired_clusters[0][3].second);
-            REQUIRE( paired_clusters[0][2].second != paired_clusters[0][3].second);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[0][1].fragment);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[0][2].fragment);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[0][3].fragment);
+            REQUIRE( paired_clusters[0][1].fragment != paired_clusters[0][2].fragment);
+            REQUIRE( paired_clusters[0][1].fragment != paired_clusters[0][3].fragment);
+            REQUIRE( paired_clusters[0][2].fragment != paired_clusters[0][3].fragment);
 
             //New fragment clusters
         } SECTION ("Four fragment clusters") {
@@ -450,16 +450,16 @@ namespace unittest {
             seeds.push_back(make_pos_t(15, false, 0));
             all_seeds.push_back(seeds);
 
-            vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3);
+            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3);
 
             REQUIRE( paired_clusters.size() == 2);
             REQUIRE( paired_clusters[0].size() == 2);
             REQUIRE( paired_clusters[1].size() == 2);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[0][1].second);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][0].second);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][1].second);
-            REQUIRE( paired_clusters[0][1].second != paired_clusters[1][0].second);
-            REQUIRE( paired_clusters[0][1].second != paired_clusters[1][1].second);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[0][1].fragment);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[1][0].fragment);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[1][1].fragment);
+            REQUIRE( paired_clusters[0][1].fragment != paired_clusters[1][0].fragment);
+            REQUIRE( paired_clusters[0][1].fragment != paired_clusters[1][1].fragment);
 
             //New fragment clusters
 
@@ -468,12 +468,12 @@ namespace unittest {
             REQUIRE( paired_clusters.size() == 2);
             REQUIRE( paired_clusters[0].size() == 2);
             REQUIRE( paired_clusters[1].size() == 2);
-            REQUIRE( paired_clusters[0][0].second == paired_clusters[0][1].second);
-            REQUIRE( paired_clusters[0][0].second == paired_clusters[1][0].second);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][1].second);
-            REQUIRE( paired_clusters[0][1].second == paired_clusters[1][0].second);
-            REQUIRE( paired_clusters[0][1].second != paired_clusters[1][1].second);
-            REQUIRE( paired_clusters[1][0].second != paired_clusters[1][1].second);
+            REQUIRE( paired_clusters[0][0].fragment == paired_clusters[0][1].fragment);
+            REQUIRE( paired_clusters[0][0].fragment == paired_clusters[1][0].fragment);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[1][1].fragment);
+            REQUIRE( paired_clusters[0][1].fragment == paired_clusters[1][0].fragment);
+            REQUIRE( paired_clusters[0][1].fragment != paired_clusters[1][1].fragment);
+            REQUIRE( paired_clusters[1][0].fragment != paired_clusters[1][1].fragment);
         }
         SECTION( "Same node, same cluster" ) {
             vector<pos_t> seeds;
@@ -481,7 +481,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(5, false, 11));
             seeds.push_back(make_pos_t(5, false, 5));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 7); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 7); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -527,7 +527,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(2, false, 0));
             seeds.push_back(make_pos_t(7, false, 0));
 
-            vector<vector<size_t>> clusters= clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters= clusterer.cluster_seeds(seeds, 10); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -539,7 +539,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(7, false, 0));
             seeds.push_back(make_pos_t(4, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -549,7 +549,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(2, false, 0));
             seeds.push_back(make_pos_t(4, false, 0));
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
 
 
 
@@ -561,7 +561,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(4, false, 1));
             seeds.push_back(make_pos_t(6, false, 0));
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -569,7 +569,7 @@ namespace unittest {
         SECTION("No clusters") {
             vector<pos_t> seeds;
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
 
 
             REQUIRE( clusters.size() == 0);
@@ -623,7 +623,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(3, false, 0));
             seeds.push_back(make_pos_t(9, false, 0));
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -673,7 +673,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(3, false, 0));
             seeds.push_back(make_pos_t(8, false, 0));
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -685,7 +685,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(2, false, 0));
             seeds.push_back(make_pos_t(7, false, 0));
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 6); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 6); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -697,7 +697,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(8, false, 0));
             seeds.push_back(make_pos_t(10, false, 0));
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -744,7 +744,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(3, false, 0));
             seeds.push_back(make_pos_t(4, false, 0));
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -754,7 +754,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(5, false, 0));
             seeds.push_back(make_pos_t(3, false, 0));
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -765,7 +765,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(3, false, 0));
             seeds.push_back(make_pos_t(8, false, 0));
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
 
 
 
@@ -776,7 +776,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(2, false, 0));
             seeds.push_back(make_pos_t(3, false, 0));
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 15); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 15); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -815,10 +815,10 @@ namespace unittest {
         all_seeds[0].push_back(make_pos_t(245, false, 0));
         all_seeds[0].push_back(make_pos_t(248, true, 0));
 
-        tuple<vector<vector<vector<size_t>>>, vector<vector<size_t>>> paired_clusters = 
+        tuple<vector<vector<SnarlSeedClusterer::Cluster>>, vector<SnarlSeedClusterer::Cluster>> paired_clusters = 
             clusterer.cluster_seeds(all_seeds, read_lim, fragment_lim); 
-        vector<vector<vector<size_t>>> read_clusters = std::get<0>(paired_clusters);
-        vector<vector<size_t>> fragment_clusters = std::get<1>(paired_clusters);
+        vector<vector<SnarlSeedClusterer::Cluster>> read_clusters = std::get<0>(paired_clusters);
+        vector<SnarlSeedClusterer::Cluster> fragment_clusters = std::get<1>(paired_clusters);
         cerr << "read cluster: " << read_clusters[0].size() << endl << "fragment clusters: " << fragment_clusters.size() << endl;
 
         REQUIRE(fragment_clusters.size() == 2);
@@ -879,7 +879,7 @@ namespace unittest {
 
                     }
                 }
-                vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, read_lim, fragment_lim); 
+                vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, read_lim, fragment_lim); 
 
 
                 
@@ -891,8 +891,8 @@ namespace unittest {
                         for (size_t a = 0; a < one_read_clusters.size(); a++) {
                             // For each cluster -cluster this cluster to ensure that 
                             // there is only one
-                            vector<size_t> clust = one_read_clusters[a].first;
-                            size_t fragment_cluster = one_read_clusters[a].second;
+                            vector<size_t> clust = one_read_clusters[a].seeds;
+                            size_t fragment_cluster = one_read_clusters[a].fragment;
                             if (fragment_cluster >= fragment_clusters.size()) {
                                 fragment_clusters.resize(fragment_cluster+1);
                             }
@@ -908,7 +908,7 @@ namespace unittest {
                                 for (size_t b = 0 ; b < one_read_clusters.size() ; b++) {
                                     if (b != a) {
                                         //For each other cluster
-                                        vector<size_t> clust2 = one_read_clusters[b].first;
+                                        vector<size_t> clust2 = one_read_clusters[b].seeds;
                                         for (size_t i2 = 0 ; i2 < clust2.size() ; i2++) {
                                             //And each position in each other cluster,
                                             //make sure that this position is far away from i1

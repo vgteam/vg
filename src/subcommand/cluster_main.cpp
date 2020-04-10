@@ -257,7 +257,7 @@ int main_cluster(int argc, char** argv) {
             // Cluster the seeds. Get sets of input seed indexes that go together.
             // Make sure to time it.
             std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit);
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, distance_limit);
             std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
             
@@ -269,7 +269,7 @@ int main_cluster(int argc, char** argv) {
                 // We use this to convert iterators to indexes
                 auto start = aln.sequence().begin();
                 
-                for (auto& hit_index : cluster) {
+                for (auto hit_index : cluster.seeds) {
                     // For each hit in the cluster, work out what anchor sequence it is from.
                     size_t source_index = seed_to_source.at(hit_index);
                     
@@ -325,7 +325,7 @@ int main_cluster(int argc, char** argv) {
                     read_coverage_by_cluster.at(cluster_indexes_in_order[i]) >= best_coverage; i++) {
                     
                     // For each cluster covering that much or more of the read
-                    for (auto& seed_index : clusters.at(cluster_indexes_in_order[i])) {
+                    for (auto seed_index : clusters.at(cluster_indexes_in_order[i]).seeds) {
                         // For each seed in those clusters
                         
                         // Mark that seed as being part of the best cluster(s)
@@ -363,7 +363,7 @@ int main_cluster(int argc, char** argv) {
             vector<double> cluster_sizes;
             cluster_sizes.reserve(clusters.size());
             for (auto& cluster : clusters) {
-                cluster_sizes.push_back((double)cluster.size());
+                cluster_sizes.push_back((double)cluster.seeds.size());
             }
             
             // Tag the alignment with cluster accuracy
