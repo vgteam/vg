@@ -89,6 +89,7 @@ var searchData=
   ['choose_5ftraversal',['choose_traversal',['../classvg_1_1Deconstructor.html#a1c3d9bfac17e3943d59ba3aac648c5de',1,'vg::Deconstructor']]],
   ['chrom',['chrom',['../structvg_1_1Transcript.html#ad79bd4743b079f2de3156970344ba689',1,'vg::Transcript']]],
   ['chunk_5fmain_2ecpp',['chunk_main.cpp',['../chunk__main_8cpp.html',1,'']]],
+  ['chunk_5fto_5femitter',['chunk_to_emitter',['../paths__main_8cpp.html#a94d4a4abb97cdbaf3e5564d60d4ce07c',1,'paths_main.cpp']]],
   ['chunker_2ecpp',['chunker.cpp',['../chunker_8cpp.html',1,'']]],
   ['chunker_2ehpp',['chunker.hpp',['../chunker_8hpp.html',1,'']]],
   ['cigar_5fagainst_5fpath',['cigar_against_path',['../namespacevg.html#a43ac2d1903fa51a20a2366a865f5f0a4',1,'vg']]],

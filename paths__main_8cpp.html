@@ -86,12 +86,43 @@ $(function() {
 Functions</h2></td></tr>
 <tr class="memitem:a290bac84a159c7e6ab2a9abca73f7000"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="paths__main_8cpp.html#a290bac84a159c7e6ab2a9abca73f7000">help_paths</a> (char **argv)</td></tr>
 <tr class="separator:a290bac84a159c7e6ab2a9abca73f7000"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a94d4a4abb97cdbaf3e5564d60d4ce07c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="paths__main_8cpp.html#a94d4a4abb97cdbaf3e5564d60d4ce07c">chunk_to_emitter</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, <a class="el" href="classvg_1_1io_1_1ProtobufEmitter.html">vg::io::ProtobufEmitter</a>&lt; <a class="el" href="structvg_1_1Graph.html">Graph</a> &gt; &amp;graph_emitter)</td></tr>
+<tr class="separator:a94d4a4abb97cdbaf3e5564d60d4ce07c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6357ea987a573514a31781145d74cd61"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="paths__main_8cpp.html#a6357ea987a573514a31781145d74cd61">main_paths</a> (int argc, char **argv)</td></tr>
 <tr class="separator:a6357ea987a573514a31781145d74cd61"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines the "vg paths" subcommand, which reads paths in the graph. </p>
 </div><h2 class="groupheader">Function Documentation</h2>
+<a id="a94d4a4abb97cdbaf3e5564d60d4ce07c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a94d4a4abb97cdbaf3e5564d60d4ce07c">&#9670;&nbsp;</a></span>chunk_to_emitter()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void chunk_to_emitter </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1io_1_1ProtobufEmitter.html">vg::io::ProtobufEmitter</a>&lt; <a class="el" href="structvg_1_1Graph.html">Graph</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>graph_emitter</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Chunk a path and emit it in Graph messages. Paht must have ranks set. </p>
+
+</div>
+</div>
 <a id="a290bac84a159c7e6ab2a9abca73f7000"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a290bac84a159c7e6ab2a9abca73f7000">&#9670;&nbsp;</a></span>help_paths()</h2>
 
