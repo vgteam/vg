@@ -1160,6 +1160,10 @@ int main_mpmap(int argc, char** argv) {
         cerr << "See `vg convert` if you want to change graph formats." << endl;
     }
     
+    if (path_handle_graph->get_path_count() == 0 && distance_index_name.empty()) {
+        cerr << "warning:[vg mpmap] Using a distance index (-d) for clustering is highly recommended for graphs that lack embedded paths. Speed and accuracy are likely to suffer severely without one." << endl;
+    }
+    
     bdsg::PathPositionOverlayHelper overlay_helper;
     PathPositionHandleGraph* path_position_handle_graph = overlay_helper.apply(path_handle_graph.get());
     
