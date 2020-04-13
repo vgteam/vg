@@ -140,6 +140,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a57a532cd2bab1d857bee058633ffa525"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9da8d803e6e0c0be942ca2ecc35e9267"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#a9da8d803e6e0c0be942ca2ecc35e9267">warn_on_lowercase</a> = true</td></tr>
 <tr class="separator:a9da8d803e6e0c0be942ca2ecc35e9267"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a24e663d6eee52a9f723faf398cf720fa"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#a24e663d6eee52a9f723faf398cf720fa">warn_on_ambiguous</a> = true</td></tr>
+<tr class="separator:a24e663d6eee52a9f723faf398cf720fa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6ca9a0b7785c1c9c6e859cc75ea2a2f4"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#a6ca9a0b7785c1c9c6e859cc75ea2a2f4">max_node_size</a> = 1000</td></tr>
 <tr class="separator:a6ca9a0b7785c1c9c6e859cc75ea2a2f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7cc8ae0e38492082ba8e886ea174944f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#a7cc8ae0e38492082ba8e886ea174944f">vars_per_chunk</a> = 1024</td></tr>
@@ -180,12 +182,15 @@ Static Private Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
-<tr class="memitem:a40f9794e0ce98121d8334e1a62c75689"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#a40f9794e0ce98121d8334e1a62c75689">warned_sequences</a></td></tr>
-<tr class="memdesc:a40f9794e0ce98121d8334e1a62c75689"><td class="mdescLeft">&#160;</td><td class="mdescRight">What sequences have we warned about containing lowercase characters?  <a href="#a40f9794e0ce98121d8334e1a62c75689">More...</a><br /></td></tr>
-<tr class="separator:a40f9794e0ce98121d8334e1a62c75689"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a796834180783ae5bcd634f737191df9d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#a796834180783ae5bcd634f737191df9d">warned_alt</a> = false</td></tr>
-<tr class="memdesc:a796834180783ae5bcd634f737191df9d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Have we given a warning yet about lowercase alt alleles?  <a href="#a796834180783ae5bcd634f737191df9d">More...</a><br /></td></tr>
-<tr class="separator:a796834180783ae5bcd634f737191df9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4a5f08f7d9c8e7bc821a7618e019289d"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#a4a5f08f7d9c8e7bc821a7618e019289d">lowercase_warned_sequences</a></td></tr>
+<tr class="memdesc:a4a5f08f7d9c8e7bc821a7618e019289d"><td class="mdescLeft">&#160;</td><td class="mdescRight">What sequences have we warned about containing lowercase characters?  <a href="#a4a5f08f7d9c8e7bc821a7618e019289d">More...</a><br /></td></tr>
+<tr class="separator:a4a5f08f7d9c8e7bc821a7618e019289d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af296f5e32632a4fee39ac4bc11589c09"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#af296f5e32632a4fee39ac4bc11589c09">lowercase_warned_alt</a> = false</td></tr>
+<tr class="memdesc:af296f5e32632a4fee39ac4bc11589c09"><td class="mdescLeft">&#160;</td><td class="mdescRight">Have we given a warning yet about lowercase alt alleles?  <a href="#af296f5e32632a4fee39ac4bc11589c09">More...</a><br /></td></tr>
+<tr class="separator:af296f5e32632a4fee39ac4bc11589c09"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab4733354328ad88166206d95680570f1"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#ab4733354328ad88166206d95680570f1">ambiguous_warned_sequences</a></td></tr>
+<tr class="memdesc:ab4733354328ad88166206d95680570f1"><td class="mdescLeft">&#160;</td><td class="mdescRight">What sequences have we warned about containing unsupported ambiguity codes?  <a href="#ab4733354328ad88166206d95680570f1">More...</a><br /></td></tr>
+<tr class="separator:ab4733354328ad88166206d95680570f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Member Function Documentation</h2>
 <a id="a1b13ae925876f9f7617850ab4e2ad355"></a>
@@ -619,6 +624,30 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="ab4733354328ad88166206d95680570f1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab4733354328ad88166206d95680570f1">&#9670;&nbsp;</a></span>ambiguous_warned_sequences</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_set&lt;string&gt; vg::Constructor::ambiguous_warned_sequences</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">mutable</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>What sequences have we warned about containing unsupported ambiguity codes? </p>
+
+</div>
+</div>
 <a id="ae525487466a66456d7169cc5047abf90"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae525487466a66456d7169cc5047abf90">&#9670;&nbsp;</a></span>bases_per_chunk</h2>
 
@@ -686,6 +715,54 @@ Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="af296f5e32632a4fee39ac4bc11589c09"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af296f5e32632a4fee39ac4bc11589c09">&#9670;&nbsp;</a></span>lowercase_warned_alt</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Constructor::lowercase_warned_alt = false</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">mutable</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Have we given a warning yet about lowercase alt alleles? </p>
+
+</div>
+</div>
+<a id="a4a5f08f7d9c8e7bc821a7618e019289d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4a5f08f7d9c8e7bc821a7618e019289d">&#9670;&nbsp;</a></span>lowercase_warned_sequences</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_set&lt;string&gt; vg::Constructor::lowercase_warned_sequences</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">mutable</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>What sequences have we warned about containing lowercase characters? </p>
 
 </div>
 </div>
@@ -777,6 +854,20 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a24e663d6eee52a9f723faf398cf720fa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a24e663d6eee52a9f723faf398cf720fa">&#9670;&nbsp;</a></span>warn_on_ambiguous</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Constructor::warn_on_ambiguous = true</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a9da8d803e6e0c0be942ca2ecc35e9267"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9da8d803e6e0c0be942ca2ecc35e9267">&#9670;&nbsp;</a></span>warn_on_lowercase</h2>
 
@@ -788,54 +879,6 @@ Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a id="a796834180783ae5bcd634f737191df9d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a796834180783ae5bcd634f737191df9d">&#9670;&nbsp;</a></span>warned_alt</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::Constructor::warned_alt = false</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">mutable</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Have we given a warning yet about lowercase alt alleles? </p>
-
-</div>
-</div>
-<a id="a40f9794e0ce98121d8334e1a62c75689"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a40f9794e0ce98121d8334e1a62c75689">&#9670;&nbsp;</a></span>warned_sequences</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">unordered_set&lt;string&gt; vg::Constructor::warned_sequences</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">mutable</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>What sequences have we warned about containing lowercase characters? </p>
 
 </div>
 </div>

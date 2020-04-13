@@ -41,5 +41,7 @@ var searchData=
   ['loop_5frev',['loop_rev',['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#ac445c4c447efcf671286680fe16b0549',1,'vg::MinimumDistanceIndex::ChainIndex']]],
   ['lower_5fbound',['lower_bound',['../structvg_1_1BREAKPOINT.html#a1b854b285738913830671a54ce0857f5',1,'vg::BREAKPOINT']]],
   ['lower_5fbound_5fheuristic',['lower_bound_heuristic',['../classvg_1_1TargetValueSearch.html#a93c1f2cb35452719dc87fb4ec8cf714e',1,'vg::TargetValueSearch']]],
+  ['lowercase_5fwarned_5falt',['lowercase_warned_alt',['../classvg_1_1Constructor.html#af296f5e32632a4fee39ac4bc11589c09',1,'vg::Constructor']]],
+  ['lowercase_5fwarned_5fsequences',['lowercase_warned_sequences',['../classvg_1_1Constructor.html#a4a5f08f7d9c8e7bc821a7618e019289d',1,'vg::Constructor']]],
   ['lru_5fcache_5fsize',['lru_cache_size',['../classvg_1_1Packer.html#a32572a24fe3c3b372e1ff24ec9720da0',1,'vg::Packer']]]
 ];

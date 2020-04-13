@@ -1829,6 +1829,8 @@ Functions</h2></td></tr>
 <tr class="separator:ae24bea33b666a03a0065a10a60d64e9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a453b457823e1ddf916ebf298befb4512"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a453b457823e1ddf916ebf298befb4512">nonATGCNtoN</a> (const string &amp;s)</td></tr>
 <tr class="separator:a453b457823e1ddf916ebf298befb4512"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afb243c35d883121f8645815571b7a55f"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afb243c35d883121f8645815571b7a55f">allAmbiguousToN</a> (const string &amp;s)</td></tr>
+<tr class="separator:afb243c35d883121f8645815571b7a55f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a00a949105ae94b18ca72452a442b8ddb"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a00a949105ae94b18ca72452a442b8ddb">toUppercase</a> (const string &amp;s)</td></tr>
 <tr class="separator:a00a949105ae94b18ca72452a442b8ddb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a239160a6fee7d0af8914c4ebc7275c78"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a239160a6fee7d0af8914c4ebc7275c78">write_fasta_sequence</a> (const std::string &amp;name, const std::string &amp;sequence, ostream &amp;os, size_t width)</td></tr>
@@ -3561,6 +3563,25 @@ template&lt;typename Iter &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="afb243c35d883121f8645815571b7a55f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afb243c35d883121f8645815571b7a55f">&#9670;&nbsp;</a></span>allAmbiguousToN()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::allAmbiguousToN </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>s</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Convert known IUPAC ambiguity codes (which we don't support) to N (which we do), while leaving any other garbage to trigger validation checks later. </p>
 
 </div>
 </div>

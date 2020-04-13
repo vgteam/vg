@@ -112,6 +112,7 @@ var searchData=
   ['alignments_5fconsistent',['alignments_consistent',['../classvg_1_1Mapper.html#a5edacb959a00dcee901b42948ebf9e75',1,'vg::Mapper']]],
   ['all_5fchildren_5ftrivial',['all_children_trivial',['../classvg_1_1SnarlManager.html#a732645de996b9f56608d395ea4949bd9',1,'vg::SnarlManager']]],
   ['all_5fpath_5fnames',['all_path_names',['../classvg_1_1Paths.html#a246f21fbf08d613e3ce8122705044cbe',1,'vg::Paths']]],
+  ['allambiguouston',['allAmbiguousToN',['../namespacevg.html#afb243c35d883121f8645815571b7a55f',1,'vg']]],
   ['allatgc',['allATGC',['../namespacevg.html#a7a1786f1e7e453c4b76b319ba101782d',1,'vg::allATGC()'],['../namespacebdsg.html#a09273b8af1a5e69f91a07372b02554e8',1,'bdsg::allATGC()']]],
   ['allatgcn',['allATGCN',['../namespacevg.html#ae24bea33b666a03a0065a10a60d64e9d',1,'vg::allATGCN()'],['../namespacebdsg.html#a6b804781ce503894a8b8261dd6a42ff4',1,'bdsg::allATGCN()']]],
   ['allele',['allele',['../structhaplo_1_1linear__haplo__structure_1_1SNVvector.html#a8e1b3233ad9520a651434b00de016d7f',1,'haplo::linear_haplo_structure::SNVvector']]],

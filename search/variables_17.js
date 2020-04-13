@@ -2,12 +2,11 @@ var searchData=
 [
   ['wabbit_5fmap',['wabbit_map',['../classVectorizer.html#abc8fdb5dcd0ccc39c2b042633ef6820e',1,'Vectorizer']]],
   ['wait_5ffor_5fregion',['wait_for_region',['../classvg_1_1GraphSynchronizer.html#a7f9e68c4e2172bc4a5c7040272a59d38',1,'vg::GraphSynchronizer']]],
+  ['warn_5fon_5fambiguous',['warn_on_ambiguous',['../classvg_1_1Constructor.html#a24e663d6eee52a9f723faf398cf720fa',1,'vg::Constructor']]],
   ['warn_5fon_5flowercase',['warn_on_lowercase',['../classvg_1_1Constructor.html#a9da8d803e6e0c0be942ca2ecc35e9267',1,'vg::Constructor']]],
   ['warn_5fon_5fmissing_5fvariants',['warn_on_missing_variants',['../classvg_1_1HaplotypeIndexer.html#afb3592792a7d781cb6e88fe7949b7bfe',1,'vg::HaplotypeIndexer']]],
   ['warn_5fon_5fscore_5ffail',['warn_on_score_fail',['../namespacehaplo.html#ab22b0954ba9062360178078ce504f1c2',1,'haplo']]],
   ['warned_5fabout_5frewrites',['warned_about_rewrites',['../classvg_1_1VG.html#a8f0519dc706937b8b593f803f3d8eac4',1,'vg::VG']]],
-  ['warned_5falt',['warned_alt',['../classvg_1_1Constructor.html#a796834180783ae5bcd634f737191df9d',1,'vg::Constructor']]],
-  ['warned_5fsequences',['warned_sequences',['../classvg_1_1Constructor.html#a40f9794e0ce98121d8334e1a62c75689',1,'vg::Constructor']]],
   ['watcher',['watcher',['../classvg_1_1Watchdog.html#a39ef2d296adea6283596aadd48457e02',1,'vg::Watchdog']]],
   ['weibull_5foffset_5fintercept',['weibull_offset_intercept',['../classvg_1_1MultipathMapper.html#a676c8c17f6d7091cac5a05eb117d2ccd',1,'vg::MultipathMapper']]],
   ['weibull_5foffset_5fslope',['weibull_offset_slope',['../classvg_1_1MultipathMapper.html#a1b6407f041ae470a5e02c098b6643839',1,'vg::MultipathMapper']]],
