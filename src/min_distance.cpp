@@ -2527,7 +2527,7 @@ pair<size_t, size_t> MinimumDistanceIndex::offset_in_root_chain (pos_t pos) {
     bool is_boundary_node = snarl_rank == 0 || snarl_rank == 1 || 
                             snarl_rank == snarl_index.num_nodes*2-1 || snarl_rank == snarl_index.num_nodes*2-2;
     size_t component = node_to_component[id - min_node_id]; 
-    if (component == 0 || !is_boundary_node || !snarl_index.depth == 0) {
+    if (component == 0 || !is_boundary_node || !snarl_index.depth == 0 || !snarl_index.in_chain) {
         return make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
     }
     int64_t node_offset = get_offset(pos);
