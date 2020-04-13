@@ -199,7 +199,7 @@ var searchData=
   ['forks',['forks',['../structvg_1_1walk__t.html#a24c17fa18ae88290cebb26c0e61a86d1',1,'vg::walk_t::forks()'],['../structvg_1_1algorithms_1_1kmer__t.html#ac3f2de8e523f01cdca5d05ffd5a91a4d',1,'vg::algorithms::kmer_t::forks()'],['../structvg_1_1algorithms_1_1walk__t.html#a10f5d30f390ed54e49b4785d3edf7f98',1,'vg::algorithms::walk_t::forks()']]],
   ['format',['format',['../classvg_1_1HTSAlignmentEmitter.html#a061053f7bdf3bf4e70483fad7d659761',1,'vg::HTSAlignmentEmitter::format()'],['../classVectorizer.html#a30aa5bafd8a44b2e1259245b6e046062',1,'Vectorizer::format()']]],
   ['format_5fmemory',['format_memory',['../namespacebdsg.html#ac182567e588792dc529e8419df44e651',1,'bdsg']]],
-  ['forward',['forward',['../classvg_1_1GFAToPinchTranslator.html#aa2bde3e3f2d943225f23715afa4a2f6e',1,'vg::GFAToPinchTranslator::forward()'],['../structvg_1_1Support.html#afe50d5886e57f3ff8594bddb90dfc8fa',1,'vg::Support::forward()'],['../classhandlegraph_1_1HandleGraph.html#a9e946bb4ed53f9423072955cdaab6386',1,'handlegraph::HandleGraph::forward()']]],
+  ['forward',['forward',['../structvg_1_1Support.html#afe50d5886e57f3ff8594bddb90dfc8fa',1,'vg::Support::forward()'],['../classhandlegraph_1_1HandleGraph.html#a9e946bb4ed53f9423072955cdaab6386',1,'handlegraph::HandleGraph::forward()']]],
   ['forward_5fgraph',['forward_graph',['../classvg_1_1ReverseGraph.html#ab5cdf413526444fe31d07e3dce91d0f8',1,'vg::ReverseGraph']]],
   ['forward_5fmultiplier',['forward_multiplier',['../classvg_1_1GreedyMinDistanceClusterer.html#a4423fb0153d3e55694c29fea2d5388af',1,'vg::GreedyMinDistanceClusterer']]],
   ['forward_5fonly',['forward_only',['../classvg_1_1Sampler.html#a5d105468c850a483ff1b7696b1da7507',1,'vg::Sampler']]],

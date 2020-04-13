@@ -74,6 +74,9 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html">GFAFormatError</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">This exception will be thrown if the GFA data is not acceptable.  <a href="structvg_1_1algorithms_1_1GFAFormatError.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1kmer__t.html">kmer_t</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Stores a kmer in the context of a graph.  <a href="structvg_1_1algorithms_1_1kmer__t.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -204,17 +207,21 @@ Functions</h2></td></tr>
 <tr class="separator:af69b02ea90f7e78fbd75fea9525303f7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a256c8e225c05bb4f1c042edc249d1e64"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a256c8e225c05bb4f1c042edc249d1e64">process_raw_gfa_path_name</a> (const string &amp;path_name_raw)</td></tr>
 <tr class="separator:a256c8e225c05bb4f1c042edc249d1e64"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad8f636a1cbe947dc550551e1b7b69e31"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad8f636a1cbe947dc550551e1b7b69e31">gfa_to_handle_graph_in_memory</a> (const string &amp;filename, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *graph, gfak::GFAKluge &amp;gg)</td></tr>
-<tr class="separator:ad8f636a1cbe947dc550551e1b7b69e31"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1a3ce554989025feb38c21223fffbeec"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a1a3ce554989025feb38c21223fffbeec">gfa_to_handle_graph_in_memory</a> (istream &amp;in, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *graph, gfak::GFAKluge &amp;gg)</td></tr>
+<tr class="separator:a1a3ce554989025feb38c21223fffbeec"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a10e4bf4680b5d22fee06a8f6eb44ba24"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a10e4bf4680b5d22fee06a8f6eb44ba24">gfa_to_handle_graph_on_disk</a> (const string &amp;filename, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *graph, bool try_id_increment_hint, gfak::GFAKluge &amp;gg)</td></tr>
 <tr class="separator:a10e4bf4680b5d22fee06a8f6eb44ba24"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0c2af701c79bd111196ad5e0cbebf1fd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0c2af701c79bd111196ad5e0cbebf1fd">gfa_to_handle_graph_internal</a> (const string &amp;filename, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *graph, bool try_from_disk, bool try_id_increment_hint, gfak::GFAKluge &amp;gg)</td></tr>
-<tr class="separator:a0c2af701c79bd111196ad5e0cbebf1fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a14a7d99483154921f0c355e6e8a8fb31"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a14a7d99483154921f0c355e6e8a8fb31">gfa_to_handle_graph_load_graph</a> (const string &amp;filename, istream *unseekable, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *graph, bool try_id_increment_hint, gfak::GFAKluge &amp;gg)</td></tr>
+<tr class="separator:a14a7d99483154921f0c355e6e8a8fb31"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9f68002809b80a4a7b859aa5f409cc3e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a9f68002809b80a4a7b859aa5f409cc3e">gfa_to_handle_graph_add_paths</a> (const string &amp;filename, istream *unseekable, <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> *graph, gfak::GFAKluge &amp;gg)</td></tr>
+<tr class="separator:a9f68002809b80a4a7b859aa5f409cc3e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ade9414f3cd4f456ffc1bcbebcb2401e5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ade9414f3cd4f456ffc1bcbebcb2401e5">gfa_to_handle_graph</a> (const string &amp;filename, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *graph, bool try_from_disk, bool try_id_increment_hint)</td></tr>
 <tr class="separator:ade9414f3cd4f456ffc1bcbebcb2401e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab3d98456339f0ab32bf9d37de8935468"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab3d98456339f0ab32bf9d37de8935468">gfa_to_path_handle_graph</a> (const string &amp;filename, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, bool try_from_disk=true, bool try_id_increment_hint=false)</td></tr>
-<tr class="memdesc:ab3d98456339f0ab32bf9d37de8935468"><td class="mdescLeft">&#160;</td><td class="mdescRight">Same as above but also adds path elements from the GFA to the graph.  <a href="#ab3d98456339f0ab32bf9d37de8935468">More...</a><br /></td></tr>
+<tr class="memdesc:ab3d98456339f0ab32bf9d37de8935468"><td class="mdescLeft">&#160;</td><td class="mdescRight">Same as gfa_to_handle_graph but also adds path elements from the GFA to the graph.  <a href="#ab3d98456339f0ab32bf9d37de8935468">More...</a><br /></td></tr>
 <tr class="separator:ab3d98456339f0ab32bf9d37de8935468"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae494c87c9ba700530b42ef8478bd3d55"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae494c87c9ba700530b42ef8478bd3d55">gfa_to_path_handle_graph_in_memory</a> (istream &amp;in, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph)</td></tr>
+<tr class="separator:ae494c87c9ba700530b42ef8478bd3d55"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a54730e9452c2609633da201ba85a8bca"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a54730e9452c2609633da201ba85a8bca">id_order</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g)</td></tr>
 <tr class="separator:a54730e9452c2609633da201ba85a8bca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af1a2315d538d7055bf8778255e93c4da"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#af1a2315d538d7055bf8778255e93c4da">is_acyclic</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
@@ -2645,12 +2652,54 @@ template&lt;class DistHeuristic &gt; </div>
 </div><div class="memdoc">
 <p>Read a GFA file for a blunt-ended graph into a HandleGraph. Give "-" as a filename for stdin.</p>
 <p>Optionally tries read the GFA from disk without creating an in-memory representation (defaults to in-memory algorithm if reading from stdin).</p>
-<p>Also optionally provides a hint about the node ID range to the handle graph implementation before constructing it (defaults to no hint if reading from stdin). </p>
+<p>Also optionally provides a hint about the node ID range to the handle graph implementation before constructing it (defaults to no hint if reading from stdin).</p>
+<p>Throws <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html" title="This exception will be thrown if the GFA data is not acceptable. ">GFAFormatError</a> if the GFA file is not acceptable, and std::ios_base::failure if an IO operation fails. Throws invalid_argument if otherwise misused. </p>
 
 </div>
 </div>
-<a id="ad8f636a1cbe947dc550551e1b7b69e31"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad8f636a1cbe947dc550551e1b7b69e31">&#9670;&nbsp;</a></span>gfa_to_handle_graph_in_memory()</h2>
+<a id="a9f68002809b80a4a7b859aa5f409cc3e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9f68002809b80a4a7b859aa5f409cc3e">&#9670;&nbsp;</a></span>gfa_to_handle_graph_add_paths()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::gfa_to_handle_graph_add_paths </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">istream *&#160;</td>
+          <td class="paramname"><em>unseekable</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">gfak::GFAKluge &amp;&#160;</td>
+          <td class="paramname"><em>gg</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>After the given GFAKluge has been populated with nodes and edges, load path information. If the input is a seekable file, filename will be filled in and unseekable will be nullptr. If the input is not a seekable file, filename may be filled in, and unseekable will be set to a stream to read from. </p>
+
+</div>
+</div>
+<a id="a1a3ce554989025feb38c21223fffbeec"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1a3ce554989025feb38c21223fffbeec">&#9670;&nbsp;</a></span>gfa_to_handle_graph_in_memory()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2658,8 +2707,8 @@ template&lt;class DistHeuristic &gt; </div>
         <tr>
           <td class="memname">void vg::algorithms::gfa_to_handle_graph_in_memory </td>
           <td>(</td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>filename</em>, </td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -2683,14 +2732,14 @@ template&lt;class DistHeuristic &gt; </div>
 
 </div>
 </div>
-<a id="a0c2af701c79bd111196ad5e0cbebf1fd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0c2af701c79bd111196ad5e0cbebf1fd">&#9670;&nbsp;</a></span>gfa_to_handle_graph_internal()</h2>
+<a id="a14a7d99483154921f0c355e6e8a8fb31"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a14a7d99483154921f0c355e6e8a8fb31">&#9670;&nbsp;</a></span>gfa_to_handle_graph_load_graph()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::algorithms::gfa_to_handle_graph_internal </td>
+          <td class="memname">void vg::algorithms::gfa_to_handle_graph_load_graph </td>
           <td>(</td>
           <td class="paramtype">const string &amp;&#160;</td>
           <td class="paramname"><em>filename</em>, </td>
@@ -2698,14 +2747,14 @@ template&lt;class DistHeuristic &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
+          <td class="paramtype">istream *&#160;</td>
+          <td class="paramname"><em>unseekable</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>try_from_disk</em>, </td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -2726,6 +2775,7 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Parse nodes and edges and load them into the given GFAKluge. If the input is a seekable file, filename will be filled in and unseekable will be nullptr. If the input is not a seekable file, filename may be filled in, and unseekable will be set to a stream to read from. </p>
 
 </div>
 </div>
@@ -2807,7 +2857,36 @@ template&lt;class DistHeuristic &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Same as above but also adds path elements from the GFA to the graph. </p>
+<p>Same as gfa_to_handle_graph but also adds path elements from the GFA to the graph. </p>
+
+</div>
+</div>
+<a id="ae494c87c9ba700530b42ef8478bd3d55"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae494c87c9ba700530b42ef8478bd3d55">&#9670;&nbsp;</a></span>gfa_to_path_handle_graph_in_memory()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::gfa_to_path_handle_graph_in_memory </td>
+          <td>(</td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Same as above but operating on a stream. Assumed to be non-seekable; all conversion happens in memory. Always streaming. Doesn't support ID increment hints. </p>
 
 </div>
 </div>

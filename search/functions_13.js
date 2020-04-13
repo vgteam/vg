@@ -227,7 +227,6 @@ var searchData=
   ['store_5fpaths',['store_paths',['../classvg_1_1Index.html#a85d853e5591e81b6715aaf5c309bf1cf',1,'vg::Index']]],
   ['store_5fpaths_5fin_5findex',['store_paths_in_index',['../classvg_1_1VGset.html#af737e61ea5978f6d0c4ad5513eea9f36',1,'vg::VGset']]],
   ['stored_5fkmer_5fsizes',['stored_kmer_sizes',['../classvg_1_1Index.html#a3959e7eccaf4d3d001b585c4cfc6078b',1,'vg::Index']]],
-  ['stpinchsegment_5fgetblockorientationsafe',['stPinchSegment_getBlockOrientationSafe',['../namespacevg.html#ab5d681cff3270646ab87c07bbf5a8d72',1,'vg']]],
   ['strandsplitgraph',['StrandSplitGraph',['../classvg_1_1StrandSplitGraph.html#a0e170b8ad07ca370e31497b804932220',1,'vg::StrandSplitGraph::StrandSplitGraph(const HandleGraph *graph)'],['../classvg_1_1StrandSplitGraph.html#aede16e10fc0b17f2527a62861f155c6d',1,'vg::StrandSplitGraph::StrandSplitGraph()=default'],['../classbdsg_1_1StrandSplitGraph.html#aced11e5bdfa82600c85b0e95617592f8',1,'bdsg::StrandSplitGraph::StrandSplitGraph(const HandleGraph *graph)'],['../classbdsg_1_1StrandSplitGraph.html#af05eac91af15ac87216a3350af7887aa',1,'bdsg::StrandSplitGraph::StrandSplitGraph()=default']]],
   ['stream_5fsort',['stream_sort',['../classvg_1_1StreamSorter.html#a3ef7c0c822f58db91184e6b069c3ce59',1,'vg::StreamSorter']]],
   ['streamindex',['StreamIndex',['../classvg_1_1StreamIndex.html#a3508617dbf1b8e8d1df051f4a214fa5e',1,'vg::StreamIndex']]],

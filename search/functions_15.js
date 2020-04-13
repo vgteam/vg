@@ -25,7 +25,6 @@ var searchData=
   ['unrecord',['unrecord',['../classvg_1_1SnarlManager.html#a40be4db13bf881c882f3be70c067c111',1,'vg::SnarlManager::unrecord(const SnarlRecord *record) const'],['../classvg_1_1SnarlManager.html#aeeb8bf1eb342004f69b33caadad5a713',1,'vg::SnarlManager::unrecord(SnarlRecord *record)']]],
   ['unreverse_5fgraph',['unreverse_graph',['../classvg_1_1GSSWAligner.html#add2d3b75b4343ba0b3d828a87ac56f47',1,'vg::GSSWAligner']]],
   ['unreverse_5fgraph_5fmapping',['unreverse_graph_mapping',['../classvg_1_1GSSWAligner.html#add9329344fdf10d65d9d6c2fd35e8cf2',1,'vg::GSSWAligner']]],
-  ['untranslate',['untranslate',['../classvg_1_1GFAToPinchTranslator.html#afea7a7df95463feaa429d75ec3545387',1,'vg::GFAToPinchTranslator']]],
   ['update_5fhaplotype_5findex',['update_haplotype_index',['../classvg_1_1Transcriptome.html#a77433c7113ecdcc62ba0f167129eeb1a',1,'vg::Transcriptome']]],
   ['update_5fin_5fout_5fedges',['update_in_out_edges',['../classvg_1_1FlowSort.html#a09b6782a1ab4d5c5ed7fa23cf83083d8',1,'vg::FlowSort']]],
   ['update_5finner_5fvalues',['update_inner_values',['../structhaplo_1_1haplo__DP__column.html#ae5860a155f8e49360b2fb2289e2555b8',1,'haplo::haplo_DP_column']]],

@@ -10,7 +10,7 @@ var searchData=
   ['genotypelikelihoodcalculator',['GenotypeLikelihoodCalculator',['../classvg_1_1GenotypeLikelihoodCalculator.html',1,'vg']]],
   ['genotypepriorcalculator',['GenotypePriorCalculator',['../classvg_1_1GenotypePriorCalculator.html',1,'vg']]],
   ['genotyper',['Genotyper',['../classvg_1_1Genotyper.html',1,'vg']]],
-  ['gfatopinchtranslator',['GFAToPinchTranslator',['../classvg_1_1GFAToPinchTranslator.html',1,'vg']]],
+  ['gfaformaterror',['GFAFormatError',['../structvg_1_1algorithms_1_1GFAFormatError.html',1,'vg::algorithms']]],
   ['gffreader',['GFFReader',['../classvg_1_1GFFReader.html',1,'vg']]],
   ['gffrecord',['GFFRecord',['../structvg_1_1GFFRecord.html',1,'vg']]],
   ['graph',['Graph',['../structvg_1_1Graph.html',1,'vg']]],
