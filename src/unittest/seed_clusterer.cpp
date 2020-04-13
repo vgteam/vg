@@ -79,6 +79,19 @@ namespace unittest {
             REQUIRE(clusters.size() == 1); 
 
         }
+        SECTION( "One cluster with seed struct" ) {
+ 
+            id_t seed_nodes[] = {2, 3, 4, 7, 8, 9, 11};
+            //all are in the same cluster
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : seed_nodes) {
+                seeds.push_back(SnarlSeedClusterer::Seed(make_pos_t(n, false, 0)));
+            }
+
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 10); 
+            REQUIRE(clusters.size() == 1); 
+
+        }
         SECTION( "Two clusters" ) {
  
             vector<id_t> seed_nodes( {2, 3, 4, 7, 8, 10, 11});
@@ -145,6 +158,44 @@ namespace unittest {
             REQUIRE( paired_clusters[0][0].first.size() == 3);
             REQUIRE( paired_clusters[1][0].first.size() == 4);
             REQUIRE( paired_clusters[0][0].second == paired_clusters[1][0].second);
+        }
+        SECTION( "Two fragment clusters with seed structs" ) {
+ 
+            vector<id_t> seed_nodes( {2, 3, 4});
+            vector<id_t> seed_nodes1({7, 8, 10, 11});
+            //Fragment clusters should be {2, 3, 4}, {7, 8, 10, 11}
+            //Distance from pos on 4 to pos on 7 is 8, including one position
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : seed_nodes) {
+                pos_t pos = make_pos_t(n, false, 0);
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
+            }
+            vector<SnarlSeedClusterer::Seed> seeds1;
+            for (id_t n : seed_nodes1) {
+                pos_t pos = make_pos_t(n, false, 0);
+                seeds1.push_back(SnarlSeedClusterer::Seed(pos));
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds1.back().component = offset.first;
+                seeds1.back().offset = offset.second;
+            }
+            vector<vector<SnarlSeedClusterer::Seed>> all_seeds;
+            all_seeds.push_back(seeds);
+            all_seeds.push_back(seeds1);
+
+
+            vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 2, 7); 
+            // read_clusters = [ [[0,1,2]],[[3,4],[5,6]] ]
+            // fragment_clusters = [ [0,1,2], [3,4,5,6] ]
+            REQUIRE( paired_clusters.size() == 2) ;
+            REQUIRE( paired_clusters[0].size() == 1);
+            REQUIRE( paired_clusters[1].size() == 2);
+            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][0].second);
+            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][1].second);
+            REQUIRE( paired_clusters[1][0].second == paired_clusters[1][1].second);
+
         }
         SECTION( "Two fragment clusters" ) {
  
@@ -575,6 +626,124 @@ namespace unittest {
             REQUIRE( clusters.size() == 0);
         }
     }
+    TEST_CASE( "Long chain",
+                   "[cluster]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("G");
+        Node* n8 = graph.create_node("CTGA");
+        Node* n9 = graph.create_node("T");
+        Node* n10 = graph.create_node("G");
+        Node* n11 = graph.create_node("CTGA");
+        Node* n12 = graph.create_node("G");
+        Node* n13 = graph.create_node("CTGA");
+        Node* n14 = graph.create_node("CTGA");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n6);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n4);
+        Edge* e5 = graph.create_edge(n3, n5);
+        Edge* e6 = graph.create_edge(n4, n5);
+        Edge* e7 = graph.create_edge(n5, n6);
+        Edge* e8 = graph.create_edge(n6, n7);
+        Edge* e9 = graph.create_edge(n6, n8);
+        Edge* e10 = graph.create_edge(n7, n8);
+        Edge* e11 = graph.create_edge(n8, n9);
+        Edge* e12 = graph.create_edge(n8, n12);
+        Edge* e13 = graph.create_edge(n9, n10);
+        Edge* e14 = graph.create_edge(n9, n11);
+        Edge* e15 = graph.create_edge(n10, n11);
+        Edge* e16 = graph.create_edge(n11, n12);
+        Edge* e17 = graph.create_edge(n12, n13);
+        Edge* e18 = graph.create_edge(n12, n14);
+        Edge* e19 = graph.create_edge(n13, n14);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls();
+        MinimumDistanceIndex dist_index (&graph, &snarl_manager);
+        SnarlSeedClusterer clusterer(dist_index);
+
+        SECTION("Snarl then seed") {
+
+            vector<id_t> ids({3, 5, 6, 11});
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : ids) {
+                pos_t pos = make_pos_t(n, false, 0);
+                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
+            }
+
+            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
+
+
+            REQUIRE( clusters.size() == 2);
+
+        }
+        SECTION("Seed then snarl") {
+
+            vector<id_t> ids({1, 2, 3, 5, 6, 11, 10});
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : ids) {
+                pos_t pos = make_pos_t(n, false, 0);
+                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
+            }
+
+            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
+
+
+            REQUIRE( clusters.size() == 2);
+
+        }
+        SECTION("Only seeds") {
+
+            vector<id_t> ids({1, 6, 14});
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : ids) {
+                pos_t pos = make_pos_t(n, false, 0);
+                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
+            }
+
+            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 4); 
+
+
+            REQUIRE( clusters.size() == 2);
+
+        }
+        SECTION("Only snarls") {
+
+            vector<id_t> ids({4, 5, 9});
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : ids) {
+                pos_t pos = make_pos_t(n, false, 0);
+                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
+            }
+
+            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 9); 
+
+
+            REQUIRE( clusters.size() == 1);
+
+        }
+    }
+
     TEST_CASE( "Disconnected graph",
                    "[cluster]" ) {
         VG graph;
@@ -622,6 +791,42 @@ namespace unittest {
             seeds.push_back(make_pos_t(2, false, 0));
             seeds.push_back(make_pos_t(3, false, 0));
             seeds.push_back(make_pos_t(9, false, 0));
+
+            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
+
+
+            REQUIRE( clusters.size() == 2);
+
+        }
+        SECTION("Two clusters with seed structs") {
+
+            vector<id_t> ids({2, 3, 9});
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : ids) {
+                pos_t pos = make_pos_t(n, false, 0);
+                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
+            }
+
+            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
+
+
+            REQUIRE( clusters.size() == 2);
+
+        }
+        SECTION("Two clusters with seed structs") {
+
+            vector<id_t> ids({2, 3, 5, 9, 10});
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : ids) {
+                pos_t pos = make_pos_t(n, false, 0);
+                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
+            }
 
             vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
 
@@ -692,10 +897,15 @@ namespace unittest {
 
         }
         SECTION("One cluster taking chain loop") {
-            vector<pos_t> seeds;
-            seeds.push_back(make_pos_t(9, false, 0));
-            seeds.push_back(make_pos_t(8, false, 0));
-            seeds.push_back(make_pos_t(10, false, 0));
+            vector<id_t> ids({8, 9, 10});
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : ids) {
+                pos_t pos = make_pos_t(n, false, 0);
+                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
+            }
 
             vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 3); 
 
@@ -782,6 +992,52 @@ namespace unittest {
             REQUIRE( clusters.size() == 1);
         }
     }//end test case
+    TEST_CASE( "Two tip graph","[cluster]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("G");
+
+        Edge* e1 = graph.create_edge(n1, n3);
+        Edge* e2 = graph.create_edge(n2, n3);
+        Edge* e3 = graph.create_edge(n3, n4);
+        Edge* e4 = graph.create_edge(n3, n5);
+        Edge* e5 = graph.create_edge(n4, n5);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls();
+        MinimumDistanceIndex dist_index (&graph, &snarl_manager);
+
+        SnarlSeedClusterer clusterer(dist_index);
+
+        SECTION( "One cluster" ) {
+            dist_index.printSelf();
+            vector<pos_t> seeds;
+            seeds.push_back(make_pos_t(1, false, 0));
+            seeds.push_back(make_pos_t(2, false, 0));
+
+            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 10); 
+
+
+            REQUIRE( clusters.size() == 2);
+        }
+
+        SECTION( "Two clusters" ) {
+            dist_index.printSelf();
+            vector<pos_t> seeds;
+            seeds.push_back(make_pos_t(1, false, 0));
+            seeds.push_back(make_pos_t(2, false, 0));
+            seeds.push_back(make_pos_t(3, false, 0));
+
+            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 10); 
+
+
+            REQUIRE( clusters.size() == 1);
+        }
+    }
 
 
     /*
@@ -828,10 +1084,10 @@ namespace unittest {
     */
     TEST_CASE("Random graphs", "[cluster]"){
 
-        for (int i = 0; i < 0; i++) {
+        for (int i = 0; i < 100; i++) {
             // For each random graph
             VG graph;
-            random_graph(1000, 20, 100, &graph);
+            random_graph(100, 5, 10, &graph);
 
 
             CactusSnarlFinder bubble_finder(graph);
@@ -848,15 +1104,15 @@ namespace unittest {
 
             uniform_int_distribution<int> randSnarlIndex(0, allSnarls.size()-1);
             default_random_engine generator(time(NULL));
-            for (size_t k = 0; k < 0 ; k++) {
+            for (size_t k = 0; k < 10 ; k++) {
 
-                vector<vector<pos_t>> all_seeds;
+                vector<vector<SnarlSeedClusterer::Seed>> all_seeds;
                 all_seeds.emplace_back();
                 all_seeds.emplace_back();
                 int64_t read_lim = 15;// Distance between read clusters
                 int64_t fragment_lim = 30;// Distance between fragment clusters
                 for (size_t read = 0 ; read < 2 ; read ++) {
-                    for (int j = 0; j < 200; j++) {
+                    for (int j = 0; j < 10; j++) {
                         //Check clusters of j random positions 
                         const Snarl* snarl1 = allSnarls[randSnarlIndex(generator)];
 
@@ -875,7 +1131,10 @@ namespace unittest {
 
                         pos_t pos = make_pos_t(nodeID1,
                             uniform_int_distribution<int>(0,1)(generator) == 0,offset1 );
-                        all_seeds[read].push_back(pos);
+                        pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                        all_seeds[read].push_back(SnarlSeedClusterer::Seed(pos));
+                        all_seeds[read].back().component = offset.first;
+                        all_seeds[read].back().offset = offset.second;
 
                     }
                 }
@@ -900,7 +1159,7 @@ namespace unittest {
                             structures::UnionFind new_clusters (clust.size(), false);
 
                             for (size_t i1 = 0 ; i1 < clust.size() ; i1++) {
-                                pos_t pos1 = all_seeds[read_num][clust[i1]];
+                                pos_t pos1 = all_seeds[read_num][clust[i1]].pos;
                                 fragment_clusters[fragment_cluster].emplace_back(pos1);
                                 size_t len1 = graph.get_length(graph.get_handle(get_id(pos1), false));
                                 pos_t rev1 = make_pos_t(get_id(pos1), !is_rev(pos1),len1 - get_offset(pos1)-1); 
@@ -912,7 +1171,7 @@ namespace unittest {
                                         for (size_t i2 = 0 ; i2 < clust2.size() ; i2++) {
                                             //And each position in each other cluster,
                                             //make sure that this position is far away from i1
-                                            pos_t pos2 = all_seeds[read_num][clust2[i2]];
+                                            pos_t pos2 = all_seeds[read_num][clust2[i2]].pos;
                                             size_t len2 = graph.get_length(graph.get_handle(get_id(pos2), false));
                                             pos_t rev2 = make_pos_t(get_id(pos2), 
                                                              !is_rev(pos2),
@@ -938,7 +1197,7 @@ namespace unittest {
                                 }
                                 for (size_t i2 = 0 ; i2 < clust.size() ; i2++) {
                                     //For each position in the same cluster
-                                    pos_t pos2 = all_seeds[read_num][clust[i2]];
+                                    pos_t pos2 = all_seeds[read_num][clust[i2]].pos;
                                     size_t len2 = graph.get_length(graph.get_handle(get_id(pos2), false));
                                     pos_t rev2 = make_pos_t(get_id(pos2), 
                                                          !is_rev(pos2),
@@ -963,7 +1222,7 @@ namespace unittest {
                                 for (auto c : actual_clusters) {
                                     cerr << "cluster: " ; 
                                     for (size_t i1 : c) {
-                                        cerr << all_seeds[read_num][clust[i1]] << " ";
+                                        cerr << all_seeds[read_num][clust[i1]].pos << " ";
                                     }
                                     cerr << endl;
                                 }

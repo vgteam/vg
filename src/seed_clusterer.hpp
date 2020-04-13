@@ -18,6 +18,16 @@ class SnarlSeedClusterer {
             size_t source;
             size_t component = std::numeric_limits<size_t>::max();
             size_t offset = std::numeric_limits<size_t>::max();
+
+            Seed(pos_t pos) : pos(pos) {
+                component = std::numeric_limits<size_t>::max();
+                offset = std::numeric_limits<size_t>::max();
+            }
+
+            Seed() {
+                component = std::numeric_limits<size_t>::max();
+                offset = std::numeric_limits<size_t>::max();
+            }
         };
 
         SnarlSeedClusterer(MinimumDistanceIndex& dist_index);
@@ -283,7 +293,10 @@ class SnarlSeedClusterer {
 
         //Combine the top-level clusters from individual seeds in tree_state.top_level_seed_clusters
         //with the clusters of other seeds in tree_state.top_level_clusters
-        void cluster_top_level(TreeState& tree_state) const;
+        void cluster_one_top_level_chain(TreeState& tree_state, size_t chain_i, size_t depth) const;
+
+        //Given a vector of only top level seeds, cluster them
+        void cluster_only_top_level_seed_clusters(TreeState& tree_state, vector<pair<size_t, size_t>>& seed_clusters) const;
 
 };
 }

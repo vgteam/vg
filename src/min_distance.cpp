@@ -2535,7 +2535,9 @@ pair<size_t, size_t> MinimumDistanceIndex::offset_in_root_chain (pos_t pos) {
     node_is_rev_in_snarl = is_rev(pos) ? !node_is_rev_in_snarl : node_is_rev_in_snarl;
     bool node_is_rev_in_chain = node_is_rev_in_snarl ? !snarl_index.rev_in_parent : snarl_index.rev_in_parent;
     if (node_is_rev_in_chain){
-        node_offset = snarl_index.nodeLength(snarl_rank) - node_offset - 1;
+        node_offset = snarl_index.nodeLength(snarl_rank) - node_offset;
+    } else {
+        node_offset += 1;
     }
   
     size_t offset;

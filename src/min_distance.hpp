@@ -313,11 +313,8 @@ class MinimumDistanceIndex {
     vector< ChainIndex> chain_indexes;
 
     //Each connected component of the graph gets a unique identifier
-    //Identifiers start at 1, 0 indicates that it is a trivial chain
-    //Assigns each node to its connected component and its offset in the root chain
-    //node_to_component[(id-min_node_id)*2] is the identifier
-    //If the node is on boundary node in the root snarl, then node_to_component[(id-min_node_id)*2+1] is the offset + 1, 
-    //otherwise 0
+    //Identifiers start at 1, 0 indicates that it is not in a component
+    //Assigns each node to its connected component
     sdsl::int_vector<> node_to_component;
     //TODO: These could be one vector but they're small enough it probably doesn't matter
     sdsl::int_vector<> component_to_chain_length;
