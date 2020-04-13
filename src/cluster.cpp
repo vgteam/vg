@@ -1257,7 +1257,7 @@ int64_t PathOrientedDistanceMeasurer::oriented_distance(const pos_t& pos_1, cons
         path_strand_dists_2[path_occurrence].emplace_back(step, -((int64_t) offset(pos_2)));
         
 #ifdef debug_algorithms
-        cerr << "[PathDistance] second position " << id(pos_2) << "[" << offset(pos_2) << "]" << (is_rev(pos_2)) ? "-" : "+") << " has an initial path occurrence on " << as_integer(graph->get_path_handle_of_step(step)) << (graph->get_handle_of_step(step) != handle_2 ? "-" : "+") << endl;
+        cerr << "[PathDistance] second position " << id(pos_2) << "[" << offset(pos_2) << "]" << (is_rev(pos_2) ? "-" : "+") << " has an initial path occurrence on " << as_integer(graph->get_path_handle_of_step(step)) << (graph->get_handle_of_step(step) != handle_2 ? "-" : "+") << endl;
 #endif
         
         if (path_strand_dists_1.count(path_occurrence)) {
@@ -3128,7 +3128,7 @@ MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, 
 #endif
             
             if (tv_len == read_separation
-                && ((hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->begin < hit_node_1.mem->begin)
+                && ((hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->end < hit_node_1.mem->end)
                     || (hit_node_2.mem->begin > hit_node_1.mem->begin && hit_node_2.mem->end <= hit_node_1.mem->end))) {
                 // this has the appearance of being a redundant hit of a sub-MEM, which we don't want to form
                 // a separate cluster
